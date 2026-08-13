@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "lib": ["ES2022"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": ["node", "vscode", "vitest/globals"],
+    "resolveJsonModule": true
+  },
+  "include": ["src/extension/**/*.ts", "src/shared/**/*.ts", "test/**/*.ts", "vitest.config.ts"]
+}
+

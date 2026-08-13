@@ -1,0 +1,228 @@
+Markdown Easy Visual Editor - Third-Party Notices
+
+Copyright (c) 2026 Markdown Easy Visual Editor contributors
+
+This file records the third-party software and license information for the production dependency tree used to build the Markdown Easy Visual Editor VSIX package. The application itself is licensed under the MIT License; see LICENSE.
+
+The dependency index below is generated from package-lock.json and includes every production dependency and transitive dependency resolved for this build. Development-only dependencies are excluded. Duplicate package names at different dependency locations are listed separately.
+
+======================================================================
+DEPENDENCY INDEX
+======================================================================
+
+@antfu/install-pkg@1.1.0 | MIT | git+https://github.com/antfu/install-pkg.git | location: @antfu/install-pkg
+@braintree/sanitize-url@7.1.2 | MIT | git+https://github.com/braintree/sanitize-url.git | location: @braintree/sanitize-url
+@chevrotain/types@11.1.2 | Apache-2.0 | https://github.com/Chevrotain/chevrotain.git | location: @chevrotain/types
+@codemirror/autocomplete@6.20.3 | MIT | git+https://code.haverbeke.berlin/codemirror/autocomplete.git | location: @codemirror/autocomplete
+@codemirror/commands@6.10.4 | MIT | git+https://code.haverbeke.berlin/codemirror/commands.git | location: @codemirror/commands
+@codemirror/lang-css@6.3.1 | MIT | https://github.com/codemirror/lang-css.git | location: @codemirror/lang-css
+@codemirror/lang-html@6.4.12 | MIT | git+https://code.haverbeke.berlin/codemirror/lang-html.git | location: @codemirror/lang-html
+@codemirror/lang-javascript@6.2.5 | MIT | git+https://github.com/codemirror/lang-javascript.git | location: @codemirror/lang-javascript
+@codemirror/lang-markdown@6.5.2 | MIT | git+https://code.haverbeke.berlin/codemirror/lang-markdown.git | location: @codemirror/lang-markdown
+@codemirror/language@6.12.4 | MIT | git+https://code.haverbeke.berlin/codemirror/language.git | location: @codemirror/language
+@codemirror/lint@6.9.7 | MIT | git+https://code.haverbeke.berlin/codemirror/lint.git | location: @codemirror/lint
+@codemirror/state@6.7.1 | MIT | git+https://code.haverbeke.berlin/codemirror/state.git | location: @codemirror/state
+@codemirror/view@6.43.8 | MIT | git+https://code.haverbeke.berlin/codemirror/view.git | location: @codemirror/view
+@fontsource/noto-sans-jp@5.3.0 | OFL-1.1 | git+https://github.com/fontsource/font-files.git | location: @fontsource/noto-sans-jp
+@fontsource/noto-sans-mono@5.3.0 | OFL-1.1 | git+https://github.com/fontsource/font-files.git | location: @fontsource/noto-sans-mono
+@iconify/types@2.0.0 | MIT | https://github.com/iconify/iconify.git | location: @iconify/types
+@iconify/utils@3.1.4 | MIT | https://github.com/iconify/iconify.git | location: @iconify/utils
+@lezer/common@1.5.2 | MIT | https://github.com/lezer-parser/common.git | location: @lezer/common
+@lezer/css@1.3.6 | MIT | git+https://code.haverbeke.berlin/lezer/css.git | location: @lezer/css
+@lezer/highlight@1.2.3 | MIT | https://github.com/lezer-parser/highlight.git | location: @lezer/highlight
+@lezer/html@1.3.13 | MIT | https://github.com/lezer-parser/html.git | location: @lezer/html
+@lezer/javascript@1.5.4 | MIT | https://github.com/lezer-parser/javascript.git | location: @lezer/javascript
+@lezer/lr@1.4.10 | MIT | git+https://code.haverbeke.berlin/lezer/lr.git | location: @lezer/lr
+@lezer/markdown@1.7.2 | MIT | git+https://code.haverbeke.berlin/lezer/markdown.git | location: @lezer/markdown
+@marijn/find-cluster-break@1.0.3 | MIT | git+https://code.haverbeke.berlin/marijn/find-cluster-break.git | location: @marijn/find-cluster-break
+@mermaid-js/parser@1.2.0 | MIT | https://github.com/mermaid-js/mermaid.git | location: @mermaid-js/parser
+@mixmark-io/domino@2.2.0 | BSD-2-Clause | https://github.com/mixmark-io/domino.git | location: @mixmark-io/domino
+@napi-rs/canvas@1.0.5 | MIT | git+https://github.com/Brooooooklyn/canvas.git | location: @napi-rs/canvas
+@napi-rs/canvas-android-arm64@1.0.5 | MIT | location: @napi-rs/canvas-android-arm64
+@napi-rs/canvas-darwin-arm64@1.0.5 | MIT | location: @napi-rs/canvas-darwin-arm64
+@napi-rs/canvas-darwin-x64@1.0.5 | MIT | location: @napi-rs/canvas-darwin-x64
+@napi-rs/canvas-linux-arm-gnueabihf@1.0.5 | MIT | location: @napi-rs/canvas-linux-arm-gnueabihf
+@napi-rs/canvas-linux-arm64-gnu@1.0.5 | MIT | location: @napi-rs/canvas-linux-arm64-gnu
+@napi-rs/canvas-linux-arm64-musl@1.0.5 | MIT | location: @napi-rs/canvas-linux-arm64-musl
+@napi-rs/canvas-linux-riscv64-gnu@1.0.5 | MIT | location: @napi-rs/canvas-linux-riscv64-gnu
+@napi-rs/canvas-linux-x64-gnu@1.0.5 | MIT | location: @napi-rs/canvas-linux-x64-gnu
+@napi-rs/canvas-linux-x64-musl@1.0.5 | MIT | location: @napi-rs/canvas-linux-x64-musl
+@napi-rs/canvas-win32-arm64-msvc@1.0.5 | MIT | location: @napi-rs/canvas-win32-arm64-msvc
+@napi-rs/canvas-win32-x64-msvc@1.0.5 | MIT | git+https://github.com/Brooooooklyn/canvas.git | location: @napi-rs/canvas-win32-x64-msvc
+@types/d3@7.4.3 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped.git | location: @types/d3
+@types/d3-array@3.2.2 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped.git | location: @types/d3-array
+@types/d3-axis@3.0.6 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped.git | location: @types/d3-axis
+@types/d3-brush@3.0.6 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped.git | location: @types/d3-brush
+@types/d3-chord@3.0.6 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped.git | location: @types/d3-chord
+@types/d3-color@3.1.3 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped.git | location: @types/d3-color
+@types/d3-contour@3.0.6 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped.git | location: @types/d3-contour
+@types/d3-delaunay@6.0.4 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped.git | location: @types/d3-delaunay
+@types/d3-dispatch@3.0.7 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped.git | location: @types/d3-dispatch
+@types/d3-drag@3.0.7 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped.git | location: @types/d3-drag
+@types/d3-dsv@3.0.7 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped.git | location: @types/d3-dsv
+@types/d3-ease@3.0.2 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped.git | location: @types/d3-ease
+@types/d3-fetch@3.0.7 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped.git | location: @types/d3-fetch
+@types/d3-force@3.0.10 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped.git | location: @types/d3-force
+@types/d3-format@3.0.4 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped.git | location: @types/d3-format
+@types/d3-geo@3.1.1 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped.git | location: @types/d3-geo
+@types/d3-hierarchy@3.1.7 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped.git | location: @types/d3-hierarchy
+@types/d3-interpolate@3.0.4 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped.git | location: @types/d3-interpolate
+@types/d3-path@3.1.1 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped.git | location: @types/d3-path
+@types/d3-polygon@3.0.2 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped.git | location: @types/d3-polygon
+@types/d3-quadtree@3.0.6 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped.git | location: @types/d3-quadtree
+@types/d3-random@3.0.4 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped.git | location: @types/d3-random
+@types/d3-scale@4.0.9 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped.git | location: @types/d3-scale
+@types/d3-scale-chromatic@3.1.0 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped.git | location: @types/d3-scale-chromatic
+@types/d3-selection@3.0.11 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped.git | location: @types/d3-selection
+@types/d3-shape@3.1.8 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped.git | location: @types/d3-shape
+@types/d3-time@3.0.4 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped.git | location: @types/d3-time
+@types/d3-time-format@4.0.3 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped.git | location: @types/d3-time-format
+@types/d3-timer@3.0.2 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped.git | location: @types/d3-timer
+@types/d3-transition@3.0.9 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped.git | location: @types/d3-transition
+@types/d3-zoom@3.0.8 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped.git | location: @types/d3-zoom
+@types/geojson@7946.0.16 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped.git | location: @types/geojson
+@types/trusted-types@2.0.7 | MIT | https://github.com/DefinitelyTyped/DefinitelyTyped.git | location: @types/trusted-types
+@upsetjs/venn.js@2.0.0 | MIT | https://github.com/upsetjs/venn.js.git | location: @upsetjs/venn.js
+chromium-bidi@0.5.22 | Apache-2.0 | https://github.com/GoogleChromeLabs/chromium-bidi.git | location: chromium-bidi
+cose-base@1.0.3 | MIT | git+https://github.com/iVis-at-Bilkent/cose-base.git | location: cose-base
+crelt@1.0.7 | MIT | git+https://code.haverbeke.berlin/marijn/crelt.git | location: crelt
+cytoscape@3.34.0 | MIT | https://github.com/cytoscape/cytoscape.js.git | location: cytoscape
+cytoscape-cose-bilkent@4.1.0 | MIT | https://github.com/cytoscape/cytoscape.js-cose-bilkent.git | location: cytoscape-cose-bilkent
+cytoscape-fcose@2.2.0 | MIT | https://github.com/iVis-at-Bilkent/cytoscape.js-fcose.git | location: cytoscape-fcose
+cose-base@2.2.0 | MIT | git+https://github.com/iVis-at-Bilkent/cose-base.git | location: cytoscape-fcose/node_modules/cose-base
+layout-base@2.0.1 | MIT | git+https://github.com/iVis-at-Bilkent/layout-base.git | location: cytoscape-fcose/node_modules/layout-base
+d3@7.9.0 | ISC | https://github.com/d3/d3.git | location: d3
+d3-array@3.2.4 | ISC | https://github.com/d3/d3-array.git | location: d3-array
+d3-axis@3.0.0 | ISC | https://github.com/d3/d3-axis.git | location: d3-axis
+d3-brush@3.0.0 | ISC | https://github.com/d3/d3-brush.git | location: d3-brush
+d3-chord@3.0.1 | ISC | https://github.com/d3/d3-chord.git | location: d3-chord
+d3-color@3.1.0 | ISC | https://github.com/d3/d3-color.git | location: d3-color
+d3-contour@4.0.2 | ISC | https://github.com/d3/d3-contour.git | location: d3-contour
+d3-delaunay@6.0.4 | ISC | https://github.com/d3/d3-delaunay.git | location: d3-delaunay
+d3-dispatch@3.0.1 | ISC | https://github.com/d3/d3-dispatch.git | location: d3-dispatch
+d3-drag@3.0.0 | ISC | https://github.com/d3/d3-drag.git | location: d3-drag
+d3-dsv@3.0.1 | ISC | https://github.com/d3/d3-dsv.git | location: d3-dsv
+commander@7.2.0 | MIT | https://github.com/tj/commander.js.git | location: d3-dsv/node_modules/commander
+d3-ease@3.0.1 | BSD-3-Clause | https://github.com/d3/d3-ease.git | location: d3-ease
+d3-fetch@3.0.1 | ISC | https://github.com/d3/d3-fetch.git | location: d3-fetch
+d3-force@3.0.0 | ISC | https://github.com/d3/d3-force.git | location: d3-force
+d3-format@3.1.2 | ISC | https://github.com/d3/d3-format.git | location: d3-format
+d3-geo@3.1.1 | ISC | https://github.com/d3/d3-geo.git | location: d3-geo
+d3-hierarchy@3.1.2 | ISC | https://github.com/d3/d3-hierarchy.git | location: d3-hierarchy
+d3-interpolate@3.0.1 | ISC | https://github.com/d3/d3-interpolate.git | location: d3-interpolate
+d3-path@3.1.0 | ISC | https://github.com/d3/d3-path.git | location: d3-path
+d3-polygon@3.0.1 | ISC | https://github.com/d3/d3-polygon.git | location: d3-polygon
+d3-quadtree@3.0.1 | ISC | https://github.com/d3/d3-quadtree.git | location: d3-quadtree
+d3-random@3.0.1 | ISC | https://github.com/d3/d3-random.git | location: d3-random
+d3-sankey@0.12.3 | BSD-3-Clause | https://github.com/d3/d3-sankey.git | location: d3-sankey
+d3-array@2.12.1 | BSD-3-Clause | https://github.com/d3/d3-array.git | location: d3-sankey/node_modules/d3-array
+d3-path@1.0.9 | BSD-3-Clause | https://github.com/d3/d3-path.git | location: d3-sankey/node_modules/d3-path
+d3-shape@1.3.7 | BSD-3-Clause | https://github.com/d3/d3-shape.git | location: d3-sankey/node_modules/d3-shape
+internmap@1.0.1 | ISC | https://github.com/mbostock/internmap.git | location: d3-sankey/node_modules/internmap
+d3-scale@4.0.2 | ISC | https://github.com/d3/d3-scale.git | location: d3-scale
+d3-scale-chromatic@3.1.0 | ISC | https://github.com/d3/d3-scale-chromatic.git | location: d3-scale-chromatic
+d3-selection@3.0.0 | ISC | https://github.com/d3/d3-selection.git | location: d3-selection
+d3-shape@3.2.0 | ISC | https://github.com/d3/d3-shape.git | location: d3-shape
+d3-time@3.1.0 | ISC | https://github.com/d3/d3-time.git | location: d3-time
+d3-time-format@4.1.0 | ISC | https://github.com/d3/d3-time-format.git | location: d3-time-format
+d3-timer@3.0.1 | ISC | https://github.com/d3/d3-timer.git | location: d3-timer
+d3-transition@3.0.1 | ISC | https://github.com/d3/d3-transition.git | location: d3-transition
+d3-zoom@3.0.0 | ISC | https://github.com/d3/d3-zoom.git | location: d3-zoom
+dagre-d3-es@7.0.14 | MIT | git+https://github.com/tbo47/dagre-es.git | location: dagre-d3-es
+dayjs@1.11.21 | MIT | https://github.com/iamkun/dayjs.git | location: dayjs
+delaunator@5.1.0 | ISC | https://github.com/mapbox/delaunator.git | location: delaunator
+devtools-protocol@0.0.1676914 | BSD-3-Clause | https://github.com/ChromeDevTools/devtools-protocol | location: devtools-protocol
+dompurify@3.4.13 | (MPL-2.0 OR Apache-2.0) | https://github.com/cure53/DOMPurify.git | location: dompurify
+hachure-fill@0.5.2 | MIT | git+https://github.com/pshihn/hachure-fill.git | location: hachure-fill
+highlight.js@11.11.2 | BSD-3-Clause | https://github.com/highlightjs/highlight.js.git | location: highlight.js
+iconv-lite@0.6.3 | MIT | https://github.com/ashtuchkin/iconv-lite.git | location: iconv-lite
+import-meta-resolve@4.2.0 | MIT | wooorm/import-meta-resolve | location: import-meta-resolve
+internmap@2.0.3 | ISC | https://github.com/mbostock/internmap.git | location: internmap
+katex@0.16.47 | MIT | https://github.com/KaTeX/KaTeX.git | location: katex
+commander@8.3.0 | MIT | https://github.com/tj/commander.js.git | location: katex/node_modules/commander
+khroma@2.1.0 | MIT | github:fabiospampinato/khroma | location: khroma
+layout-base@1.0.2 | MIT | git+https://github.com/iVis-at-Bilkent/layout-base.git | location: layout-base
+lodash-es@4.18.1 | MIT | lodash/lodash | location: lodash-es
+marked@18.0.9 | MIT | git+https://github.com/markedjs/marked.git | location: marked
+mermaid@11.16.1 | MIT | https://github.com/mermaid-js/mermaid | location: mermaid
+es-toolkit@1.50.0 | MIT | https://github.com/toss/es-toolkit.git | location: mermaid/node_modules/es-toolkit
+marked@16.4.2 | MIT | https://github.com/markedjs/marked.git | location: mermaid/node_modules/marked
+mitt@3.0.1 | MIT | developit/mitt | location: mitt
+package-manager-detector@1.8.0 | MIT | git+https://github.com/antfu-collective/package-manager-detector.git | location: package-manager-detector
+path-data-parser@0.1.0 | MIT | git+https://github.com/pshihn/path-data-parser.git | location: path-data-parser
+pdfjs-dist@6.2.108 | Apache-2.0 | git+https://github.com/mozilla/pdf.js.git | location: pdfjs-dist
+playwright-core@1.62.1 | Apache-2.0 | git+https://github.com/microsoft/playwright.git | location: playwright-core
+points-on-curve@0.2.0 | MIT | git+https://github.com/pshihn/bezier-points.git | location: points-on-curve
+points-on-path@0.2.1 | MIT | git+https://github.com/pshihn/points-on-path.git | location: points-on-path
+react@19.2.8 | MIT | https://github.com/react/react.git | location: react
+react-dom@19.2.8 | MIT | https://github.com/react/react.git | location: react-dom
+robust-predicates@3.0.3 | Unlicense | https://github.com/mourner/robust-predicates.git | location: robust-predicates
+roughjs@4.6.6 | MIT | git+https://github.com/pshihn/rough.git | location: roughjs
+rw@1.3.3 | BSD-3-Clause | http://github.com/mbostock/rw.git | location: rw
+safer-buffer@2.1.2 | MIT | git+https://github.com/ChALkeR/safer-buffer.git | location: safer-buffer
+scheduler@0.27.0 | MIT | https://github.com/facebook/react.git | location: scheduler
+style-mod@4.1.3 | MIT | git+https://github.com/marijnh/style-mod.git | location: style-mod
+stylis@4.4.0 | MIT | https://github.com/thysultan/stylis.js | location: stylis
+tinyexec@1.3.0 | MIT | git+https://github.com/tinylibs/tinyexec.git | location: tinyexec
+ts-dedent@2.3.0 | MIT | https://github.com/tamino-martinius/node-ts-dedent.git | location: ts-dedent
+turndown@7.2.4 | MIT | https://github.com/mixmark-io/turndown.git | location: turndown
+turndown-plugin-gfm@1.0.2 | MIT | https://github.com/domchristie/turndown-plugin-gfm.git | location: turndown-plugin-gfm
+urlpattern-polyfill@10.0.0 | MIT | https://github.com/kenchris/urlpattern-polyfill | location: urlpattern-polyfill
+uuid@14.0.1 | MIT | https://github.com/uuidjs/uuid.git | location: uuid
+w3c-keyname@2.2.8 | MIT | git+https://github.com/marijnh/w3c-keyname.git | location: w3c-keyname
+yaml@2.9.0 | ISC | github:eemeli/yaml | location: yaml
+zod@3.23.8 | MIT | git+https://github.com/colinhacks/zod.git | location: zod
+
+======================================================================
+LICENSE SUMMARY
+======================================================================
+
+MIT: @antfu/install-pkg@1.1.0, @braintree/sanitize-url@7.1.2, @codemirror/autocomplete@6.20.3, @codemirror/commands@6.10.4, @codemirror/lang-css@6.3.1, @codemirror/lang-html@6.4.12, @codemirror/lang-javascript@6.2.5, @codemirror/lang-markdown@6.5.2, @codemirror/language@6.12.4, @codemirror/lint@6.9.7, @codemirror/state@6.7.1, @codemirror/view@6.43.8, @iconify/types@2.0.0, @iconify/utils@3.1.4, @lezer/common@1.5.2, @lezer/css@1.3.6, @lezer/highlight@1.2.3, @lezer/html@1.3.13, @lezer/javascript@1.5.4, @lezer/lr@1.4.10, @lezer/markdown@1.7.2, @marijn/find-cluster-break@1.0.3, @mermaid-js/parser@1.2.0, @napi-rs/canvas@1.0.5, @napi-rs/canvas-android-arm64@1.0.5, @napi-rs/canvas-darwin-arm64@1.0.5, @napi-rs/canvas-darwin-x64@1.0.5, @napi-rs/canvas-linux-arm-gnueabihf@1.0.5, @napi-rs/canvas-linux-arm64-gnu@1.0.5, @napi-rs/canvas-linux-arm64-musl@1.0.5, @napi-rs/canvas-linux-riscv64-gnu@1.0.5, @napi-rs/canvas-linux-x64-gnu@1.0.5, @napi-rs/canvas-linux-x64-musl@1.0.5, @napi-rs/canvas-win32-arm64-msvc@1.0.5, @napi-rs/canvas-win32-x64-msvc@1.0.5, @types/d3@7.4.3, @types/d3-array@3.2.2, @types/d3-axis@3.0.6, @types/d3-brush@3.0.6, @types/d3-chord@3.0.6, @types/d3-color@3.1.3, @types/d3-contour@3.0.6, @types/d3-delaunay@6.0.4, @types/d3-dispatch@3.0.7, @types/d3-drag@3.0.7, @types/d3-dsv@3.0.7, @types/d3-ease@3.0.2, @types/d3-fetch@3.0.7, @types/d3-force@3.0.10, @types/d3-format@3.0.4, @types/d3-geo@3.1.1, @types/d3-hierarchy@3.1.7, @types/d3-interpolate@3.0.4, @types/d3-path@3.1.1, @types/d3-polygon@3.0.2, @types/d3-quadtree@3.0.6, @types/d3-random@3.0.4, @types/d3-scale@4.0.9, @types/d3-scale-chromatic@3.1.0, @types/d3-selection@3.0.11, @types/d3-shape@3.1.8, @types/d3-time@3.0.4, @types/d3-time-format@4.0.3, @types/d3-timer@3.0.2, @types/d3-transition@3.0.9, @types/d3-zoom@3.0.8, @types/geojson@7946.0.16, @types/trusted-types@2.0.7, @upsetjs/venn.js@2.0.0, cose-base@1.0.3, crelt@1.0.7, cytoscape@3.34.0, cytoscape-cose-bilkent@4.1.0, cytoscape-fcose@2.2.0, cose-base@2.2.0, layout-base@2.0.1, commander@7.2.0, dagre-d3-es@7.0.14, dayjs@1.11.21, hachure-fill@0.5.2, iconv-lite@0.6.3, import-meta-resolve@4.2.0, katex@0.16.47, commander@8.3.0, khroma@2.1.0, layout-base@1.0.2, lodash-es@4.18.1, marked@18.0.9, mermaid@11.16.1, es-toolkit@1.50.0, marked@16.4.2, mitt@3.0.1, package-manager-detector@1.8.0, path-data-parser@0.1.0, points-on-curve@0.2.0, points-on-path@0.2.1, react@19.2.8, react-dom@19.2.8, roughjs@4.6.6, safer-buffer@2.1.2, scheduler@0.27.0, style-mod@4.1.3, stylis@4.4.0, tinyexec@1.3.0, ts-dedent@2.3.0, turndown@7.2.4, turndown-plugin-gfm@1.0.2, urlpattern-polyfill@10.0.0, uuid@14.0.1, w3c-keyname@2.2.8, zod@3.23.8
+Apache-2.0: @chevrotain/types@11.1.2, chromium-bidi@0.5.22, pdfjs-dist@6.2.108, playwright-core@1.62.1
+OFL-1.1: @fontsource/noto-sans-jp@5.3.0, @fontsource/noto-sans-mono@5.3.0
+BSD-2-Clause: @mixmark-io/domino@2.2.0
+ISC: d3@7.9.0, d3-array@3.2.4, d3-axis@3.0.0, d3-brush@3.0.0, d3-chord@3.0.1, d3-color@3.1.0, d3-contour@4.0.2, d3-delaunay@6.0.4, d3-dispatch@3.0.1, d3-drag@3.0.0, d3-dsv@3.0.1, d3-fetch@3.0.1, d3-force@3.0.0, d3-format@3.1.2, d3-geo@3.1.1, d3-hierarchy@3.1.2, d3-interpolate@3.0.1, d3-path@3.1.0, d3-polygon@3.0.1, d3-quadtree@3.0.1, d3-random@3.0.1, internmap@1.0.1, d3-scale@4.0.2, d3-scale-chromatic@3.1.0, d3-selection@3.0.0, d3-shape@3.2.0, d3-time@3.1.0, d3-time-format@4.1.0, d3-timer@3.0.1, d3-transition@3.0.1, d3-zoom@3.0.0, delaunator@5.1.0, internmap@2.0.3, yaml@2.9.0
+BSD-3-Clause: d3-ease@3.0.1, d3-sankey@0.12.3, d3-array@2.12.1, d3-path@1.0.9, d3-shape@1.3.7, devtools-protocol@0.0.1676914, highlight.js@11.11.2, rw@1.3.3
+(MPL-2.0 OR Apache-2.0): dompurify@3.4.13
+Unlicense: robust-predicates@3.0.3
+
+======================================================================
+DISTRIBUTION REQUIREMENTS
+======================================================================
+
+MIT, ISC, BSD-2-Clause, BSD-3-Clause, and Unlicense components may be redistributed in this extension when their copyright notices, license terms, and disclaimers are retained. The package-specific license files were audited from node_modules during packaging; the source URL for each package is listed in the index above.
+
+Apache-2.0 components: retain the Apache license, applicable NOTICE attributions, copyright notices, and any modification notices.
+
+DOMPurify is distributed under the dual license expression MPL-2.0 OR Apache-2.0. This distribution uses the Apache-2.0 option; its package notice and source are listed above.
+
+Noto Sans JP and Noto Sans Mono are distributed under OFL-1.1. The fonts may be bundled with this extension, but the font copyright notice and OFL-1.1 terms must remain available. The fonts may not be sold by themselves, and any modified font must remain under OFL-1.1.
+
+Playwright Core includes code derived from Puppeteer. The Playwright NOTICE and Apache-2.0 license apply. The bundled Chromium headless shell has additional third-party attributions.
+
+======================================================================
+BUNDLED BROWSER NOTICES
+======================================================================
+
+The VSIX includes a Chromium headless shell for PDF export. Keep the following files with the binary; they contain the Chromium copyright, license, and bundled-component notices:
+- .chromium/**/LICENSE.headless_shell
+- .chromium/**/ABOUT
+
+The extension does not redistribute Microsoft Edge or Google Chrome. When configured, those browsers are supplied and licensed by the user or organization that installed them.
+
+======================================================================
+LICENSE SOURCES
+======================================================================
+
+License identifiers use the SPDX convention. Official license texts:
+- MIT: https://spdx.org/licenses/MIT.html
+- Apache-2.0: https://spdx.org/licenses/Apache-2.0.html
+- BSD-2-Clause: https://spdx.org/licenses/BSD-2-Clause.html
+- BSD-3-Clause: https://spdx.org/licenses/BSD-3-Clause.html
+- ISC: https://spdx.org/licenses/ISC.html
+- MPL-2.0: https://spdx.org/licenses/MPL-2.0.html
+- OFL-1.1: https://spdx.org/licenses/OFL-1.1.html
+- Unlicense: https://spdx.org/licenses/Unlicense.html
+
+Package-specific LICENSE and NOTICE files were checked for all installed production dependencies. The bundled Chromium directory retains its larger license file in place because it contains the complete Chromium third-party attribution set.
+

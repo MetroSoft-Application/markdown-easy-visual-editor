@@ -1,0 +1,2704 @@
+{
+  "ja": {
+    "ribbon": {
+      "tabs": {
+        "home": "ホーム",
+        "insert": "挿入",
+        "table": "表",
+        "view": "表示",
+        "export": "出力",
+        "help": "ヘルプ"
+      },
+      "label": "Markdown編集リボン",
+      "source": "テキストを右側に開く",
+      "sourceTitle": "現在のMarkdownをテキストエディタとして右側に開く",
+      "outline": "アウトライン",
+      "outlineTitle": "アウトラインの表示/非表示",
+      "search": "検索",
+      "split": "左右分割",
+      "textOnly": "テキストのみ",
+      "previewOnly": "プレビューのみ",
+      "pin": "固定",
+      "unpin": "固定解除",
+      "collapse": "折りたたむ",
+      "expand": "展開",
+      "groups": {
+        "history": "履歴",
+        "paragraph": "段落",
+        "textFormat": "文字書式",
+        "clear": "解除",
+        "basic": "基本",
+        "block": "ブロック",
+        "assist": "補助",
+        "rows": "行",
+        "columns": "列",
+        "alignment": "配置",
+        "excel": "Excel連携",
+        "pane": "ペイン",
+        "pdf": "PDF",
+        "inspection": "検査",
+        "help": "ヘルプ"
+      },
+      "labels": {
+        "undo": "元に戻す",
+        "redo": "やり直す",
+        "style": "スタイル",
+        "body": "本文",
+        "heading": "見出し {level}",
+        "quote": "引用",
+        "bulletList": "箇条書き",
+        "orderedList": "番号",
+        "taskList": "チェック",
+        "indent": "字下げ",
+        "outdent": "字上げ",
+        "bold": "太字",
+        "italic": "斜体",
+        "strike": "取消線",
+        "underline": "下線",
+        "highlight": "ハイライト",
+        "code": "コード",
+        "superscript": "上付き",
+        "subscript": "下付き",
+        "clearInline": "文字書式をクリア",
+        "clearBlock": "段落書式をクリア",
+        "clearAll": "すべてクリア",
+        "unlink": "リンク解除",
+        "link": "リンク",
+        "image": "画像",
+        "tableSize": "表のサイズ",
+        "rows": "行",
+        "columns": "列",
+        "insertTable": "表を挿入",
+        "horizontalRule": "区切り線",
+        "hardBreak": "改行",
+        "language": "言語",
+        "codeBlock": "コードブロック",
+        "math": "数式",
+        "footnote": "脚注",
+        "toc": "目次",
+        "pageBreak": "改ページ",
+        "emoji": "絵文字",
+        "insertEmoji": "絵文字を挿入",
+        "addBefore": "上に追加",
+        "addAfter": "下に追加",
+        "addLeft": "左に追加",
+        "addRight": "右に追加",
+        "deleteRow": "行を削除",
+        "toggleHeader": "ヘッダー切替",
+        "deleteColumn": "列を削除",
+        "alignLeft": "左寄せ",
+        "alignCenter": "中央",
+        "alignRight": "右寄せ",
+        "alignColumns": "桁を揃える",
+        "cellBreak": "セル内改行",
+        "copyTsv": "TSVとしてコピー",
+        "printPreview": "印刷プレビュー",
+        "exportPdf": "PDFに出力",
+        "preflight": "出力前チェック",
+        "shortcuts": "ショートカット",
+        "features": "機能一覧",
+        "featureDescriptions": {
+          "undo": "直前の編集を取り消します。",
+          "redo": "取り消した編集をやり直します。",
+          "bold": "選択した文字を太字にします。",
+          "italic": "選択した文字を斜体にします。",
+          "clearInline": "選択範囲の文字書式を解除します。",
+          "clearBlock": "現在の段落の書式を解除します。",
+          "link": "選択した文字にリンクを設定します。",
+          "image": "画像を挿入し、サイズや配置を設定します。",
+          "insertTable": "指定した行数・列数の表を挿入します。",
+          "codeBlock": "コードブロックを挿入します。",
+          "math": "数式を挿入します。",
+          "footnote": "脚注を挿入します。",
+          "toc": "見出しから目次を生成します。",
+          "addBefore": "選択した行の上に行を追加します。",
+          "deleteRow": "選択した行を削除します。",
+          "deleteColumn": "選択した列を削除します。",
+          "alignLeft": "セルの内容を左寄せにします。",
+          "alignCenter": "セルの内容を中央揃えにします。",
+          "alignRight": "セルの内容を右寄せにします。",
+          "copyTsv": "表をTSV形式でコピーします。",
+          "outline": "見出し一覧を表示します。",
+          "search": "文書内の文字列を検索・置換します。",
+          "split": "テキストとプレビューを左右に表示します。",
+          "textOnly": "テキストエディターだけを表示します。",
+          "previewOnly": "プレビューだけを表示します。",
+          "printPreview": "印刷時の見た目を確認します。",
+          "exportPdf": "MarkdownをPDFとして出力します。",
+          "preflight": "出力前にリンクや画像などを検査します。"
+        },
+        "markdownSupport": "対応Markdown",
+        "about": "Markdown Easy Visual Editorについて",
+        "header": "ヘッダー",
+        "headerPlaceholder": "例: 合計"
+      },
+      "hintZoom": "Ctrl+ホイール: 拡大縮小",
+      "codeLanguages": [
+        {
+          "value": "",
+          "label": "プレーンテキスト"
+        },
+        {
+          "value": "javascript",
+          "label": "JavaScript"
+        },
+        {
+          "value": "typescript",
+          "label": "TypeScript"
+        },
+        {
+          "value": "python",
+          "label": "Python"
+        },
+        {
+          "value": "java",
+          "label": "Java"
+        },
+        {
+          "value": "csharp",
+          "label": "C#"
+        },
+        {
+          "value": "cpp",
+          "label": "C++"
+        },
+        {
+          "value": "go",
+          "label": "Go"
+        },
+        {
+          "value": "rust",
+          "label": "Rust"
+        },
+        {
+          "value": "sql",
+          "label": "SQL"
+        },
+        {
+          "value": "json",
+          "label": "JSON"
+        },
+        {
+          "value": "yaml",
+          "label": "YAML"
+        },
+        {
+          "value": "bash",
+          "label": "Shell"
+        },
+        {
+          "value": "html",
+          "label": "HTML"
+        },
+        {
+          "value": "css",
+          "label": "CSS"
+        },
+        {
+          "value": "powershell",
+          "label": "PowerShell"
+        },
+        {
+          "value": "sql",
+          "label": "SQL"
+        },
+        {
+          "value": "xml",
+          "label": "XML"
+        },
+        {
+          "value": "mermaid",
+          "label": "Mermaid"
+        }
+      ],
+      "snippets": {
+        "mermaid": "\n```mermaid\ngraph TD\n  A[開始] --> B[完了]\n```\n",
+        "footnote": "[^1]\n\n[^1]: 脚注の内容",
+        "note": "\n> [!NOTE]\n> 補足情報\n",
+        "warning": "\n> [!WARNING]\n> 注意事項\n"
+      }
+    },
+    "app": {
+      "startup": "Markdown Easy Visual Editorを起動中...",
+      "outline": "アウトライン",
+      "hideOutline": "アウトラインを非表示",
+      "showOutline": "アウトラインを表示",
+      "outlineWidth": "アウトラインの幅",
+      "noHeadings": "見出しはありません。",
+      "searchAndReplace": "検索と置換",
+      "searchText": "検索文字列",
+      "replacementText": "置換文字列",
+      "replacement": "置換後",
+      "previousMatch": "前へ",
+      "nextMatch": "次へ",
+      "replaceAll": "すべて置換",
+      "close": "閉じる",
+      "splitBoundary": "テキストとプレビューの境界",
+      "selectionFormatting": "選択範囲の書式",
+      "diagnosticsTitle": "出力前チェック / 文書診断",
+      "diagnosticHelp": "エラーは出力前に修正が必要です。警告は内容を確認し、情報は出力時の確認事項です。",
+      "noProblems": "問題は見つかりませんでした。",
+      "severity": {
+        "error": "エラー",
+        "warning": "警告",
+        "info": "情報"
+      },
+      "line": "行 {line}",
+      "printSettings": "印刷プレビュー設定",
+      "printSettingsHelp": "中央の白いページが印刷される内容です。用紙と向きを選んで確認できます。",
+      "paper": "用紙",
+      "orientation": "向き",
+      "portrait": "縦",
+      "landscape": "横",
+      "header": "ヘッダー",
+      "footer": "フッター",
+      "margins": "余白（mm）",
+      "top": "上",
+      "right": "右",
+      "bottom": "下",
+      "left": "左",
+      "withoutDialog": "ダイアログなしで同じフォルダに出力",
+      "status": {
+        "modeSplit": "左右分割",
+        "modePreview": "プレビューのみ",
+        "lines": "行 {count}",
+        "textCharacters": "本文 {count}文字",
+        "markdownCharacters": "Markdown {count}文字",
+        "zoom": "表示 {percent}%",
+        "syncing": "同期中...",
+        "synced": "同期済み"
+      },
+      "inspector": {
+        "mermaid": "Mermaid",
+        "math": "数式",
+        "image": "画像",
+        "alt": "代替テキスト",
+        "reference": "参照先",
+        "openFile": "ファイルを開く",
+        "apply": "適用"
+      },
+      "link": {
+        "title": "リンクを挿入",
+        "url": "URL",
+        "urlPlaceholder": "https://example.com",
+        "text": "表示文字列",
+        "textHint": "（省略時は選択文字列）",
+        "cancel": "キャンセル",
+        "insert": "挿入"
+      },
+      "help": {
+        "shortcuts": "ショートカット",
+        "markdown": "対応Markdown",
+        "about": "Markdown Easy Visual Editorについて",
+        "shortcutImage": "画像をローカル保存して挿入",
+        "shortcutTableBreak": "表内改行",
+        "markdownIntro": "CommonMark/GFMを基準に、次の記法に対応しています。",
+        "markdownFeatures": "見出し、箇条書き、タスクリスト、表、リンク、画像、取り消し線、脚注、目次、コードブロック、数式、Mermaid、ハイライト、下線。",
+        "aboutIntro": "Markdown Easy Visual Editorは、VS Code上でMarkdownを編集・プレビューするエディターです。",
+        "aboutFeatures": "編集内容はMarkdownとして保持され、ローカル画像の保存とPDF出力にも対応しています。"
+      },
+      "toast": {
+        "imagesSaved": "{count}件の画像をローカル保存しました。",
+        "pdfResourceWarnings": "PDF出力は開始済みです。ローカル参照の警告{count}件: {detail}",
+        "preflightSummary": "出力前チェック: エラー{errors}件、警告{warnings}件、情報{infos}件",
+        "imageSaveFailed": "画像を保存できませんでした: {detail}",
+        "pdfExportFailed": "PDFを出力できませんでした: {detail}",
+        "resourceCheckFailed": "{prefix}ローカル画像・リンクの存在確認に失敗しました: {detail}",
+        "operationFailed": "操作を完了できませんでした: {detail}",
+        "pdfExported": "PDFを出力しました: {path}",
+        "tableCellRequired": "表のセル内にカーソルを置いてください。",
+        "cannotPasteTsv": "表の区切り行にはTSVを貼り付けできません。",
+        "tableCopied": "表をTSVとしてコピーしました。",
+        "cannotCopyTsv": "TSVをコピーできませんでした: {detail}",
+        "cannotCopyTsvEmpty": "TSVをコピーできませんでした。",
+        "workspaceTrustRequired": "PDF出力にはワークスペースの信頼が必要です。",
+        "pdfStartedWithDiagnostics": "診断エラー{count}件を検出しましたが、PDF出力を開始します。{detail}",
+        "pdfFallbackToMarkdown": "{prefix}プレビューHTMLが準備できないため、Markdown原文でPDF出力を開始します。"
+      },
+      "errors": {
+        "ackMismatch": "ACK適用結果が保留操作の結果と一致しません。",
+        "pendingOperationChain": "保留操作 {opId} の基準文書が連鎖していません。",
+        "clipboardUnavailable": "クリップボードAPIが利用できません。",
+        "bmpConversion": "BMPをPNGへ変換できませんでした。",
+        "imageSize": "画像が最大サイズ {maxSizeMb} MBを超えています。"
+      }
+    },
+    "renderer": {
+      "remoteImageDisabled": "リモート画像は無効です",
+      "copy": "コピー",
+      "copied": "コピー済み",
+      "pageBreak": "改ページ",
+      "toc": "目次",
+      "backToText": "本文へ戻る",
+      "mathError": "数式の描画に失敗しました",
+      "mermaidError": "Mermaid構文エラー",
+      "alerts": {
+        "note": "注記",
+        "tip": "ヒント",
+        "important": "重要",
+        "warning": "警告",
+        "caution": "注意"
+      }
+    },
+    "diagnostics": {
+      "unclosedFence": "コードフェンス（{marker}）が閉じられていません。",
+      "duplicateHeading": "見出しID「{id}」が重複しています。",
+      "invalidTableSeparator": "Markdown表の区切り行が不正です。各セルに3個以上のハイフンを指定してください。",
+      "emptyImageAlt": "画像の代替テキストが空です。説明を追加してください。",
+      "localImageCheck": "相対画像パスは出力時に存在を確認します: {source}",
+      "emptyTableHeader": "Markdown表のヘッダーに空のセルがあります。",
+      "tableColumnMismatch": "Markdown表の列数が一致しません（ヘッダー{header}列、{kind}{count}列）。",
+      "tableKind": {
+        "separator": "区切り",
+        "body": "本文"
+      },
+      "missingReference": "参照リンク「{label}」の定義が見つかりません。",
+      "localResource": {
+        "imageMissing": "ローカル画像が見つかりません: {source}{detail}",
+        "imageCheckFailed": "ローカル画像を確認できません: {source}{detail}",
+        "linkMissing": "ローカルリンクが見つかりません: {source}{detail}",
+        "linkCheckFailed": "ローカルリンクを確認できません: {source}{detail}"
+      }
+    },
+    "host": {
+      "pdfTrustRequired": "PDF出力にはワークスペースの信頼が必要です。",
+      "pdfProgress": "Markdown PDFを生成中...",
+      "pdfExported": "PDFを出力しました: {path}",
+      "open": "開く",
+      "saveCanceled": "保存先の選択がキャンセルされました。",
+      "imageDocumentMustBeSaved": "画像を貼り付ける前にMarkdown文書を保存してください。",
+      "unsupportedImage": "対応していない画像形式です: {mime}",
+      "invalidImageDirectory": "画像保存先はMarkdown文書からの安全な相対パスで指定してください。",
+      "pdfBrowserUnavailable": "PDF用ブラウザを起動できません。設定でEdgeまたはChromeを指定してください。",
+      "errorPrefix": "Markdown Easy Visual Editor",
+      "clientIdMismatch": "WebviewのclientIdが初期化時と一致しません。"
+    },
+    "editor": {
+      "placeholder": "Markdownを入力...",
+      "codePlaceholder": "コード",
+      "defaultLinkLabel": "リンク",
+      "defaultImageAlt": "画像",
+      "plainText": "プレーンテキスト"
+    },
+    "internal": {
+      "concurrentEditsOverlap": "Concurrent edits overlap",
+      "rootNotFound": "Markdown Easy Visual Editor root element was not found."
+    }
+  },
+  "en": {
+    "ribbon": {
+      "tabs": {
+        "home": "Home",
+        "insert": "Insert",
+        "table": "Table",
+        "view": "View",
+        "export": "Export",
+        "help": "Help"
+      },
+      "label": "Markdown editing ribbon",
+      "source": "Open text on the right",
+      "sourceTitle": "Open the current Markdown as a text editor on the right",
+      "outline": "Outline",
+      "outlineTitle": "Show/hide outline",
+      "search": "Search",
+      "split": "Split",
+      "textOnly": "Text only",
+      "previewOnly": "Preview only",
+      "pin": "Pin",
+      "unpin": "Unpin",
+      "collapse": "Collapse",
+      "expand": "Expand",
+      "groups": {
+        "history": "History",
+        "paragraph": "Paragraph",
+        "textFormat": "Text format",
+        "clear": "Clear",
+        "basic": "Basic",
+        "block": "Block",
+        "assist": "Assist",
+        "rows": "Rows",
+        "columns": "Columns",
+        "alignment": "Alignment",
+        "excel": "Excel",
+        "pane": "Pane",
+        "pdf": "PDF",
+        "inspection": "Inspection",
+        "help": "Help"
+      },
+      "labels": {
+        "undo": "Undo",
+        "redo": "Redo",
+        "style": "Style",
+        "body": "Body",
+        "heading": "Heading {level}",
+        "quote": "Quote",
+        "bulletList": "Bullet list",
+        "orderedList": "Numbered list",
+        "taskList": "Task list",
+        "indent": "Indent",
+        "outdent": "Outdent",
+        "bold": "Bold",
+        "italic": "Italic",
+        "strike": "Strikethrough",
+        "underline": "Underline",
+        "highlight": "Highlight",
+        "code": "Code",
+        "superscript": "Superscript",
+        "subscript": "Subscript",
+        "clearInline": "Clear inline format",
+        "clearBlock": "Clear paragraph format",
+        "clearAll": "Clear all",
+        "unlink": "Remove link",
+        "link": "Link",
+        "image": "Image",
+        "tableSize": "Table size",
+        "rows": "Rows",
+        "columns": "Columns",
+        "insertTable": "Insert table",
+        "horizontalRule": "Horizontal rule",
+        "hardBreak": "Line break",
+        "language": "Language",
+        "codeBlock": "Code block",
+        "math": "Math",
+        "footnote": "Footnote",
+        "toc": "Table of contents",
+        "pageBreak": "Page break",
+        "emoji": "Emoji",
+        "insertEmoji": "Insert emoji",
+        "addBefore": "Add above",
+        "addAfter": "Add below",
+        "addLeft": "Add left",
+        "addRight": "Add right",
+        "deleteRow": "Delete row",
+        "toggleHeader": "Toggle header",
+        "deleteColumn": "Delete column",
+        "alignLeft": "Align left",
+        "alignCenter": "Center",
+        "alignRight": "Align right",
+        "alignColumns": "Align columns",
+        "cellBreak": "Line break in cell",
+        "copyTsv": "Copy as TSV",
+        "printPreview": "Print preview",
+        "exportPdf": "Export PDF",
+        "preflight": "Preflight check",
+        "shortcuts": "Shortcuts",
+        "features": "Features",
+        "featureDescriptions": {
+          "undo": "Undo the most recent edit.",
+          "redo": "Reapply an undone edit.",
+          "bold": "Make the selected text bold.",
+          "italic": "Make the selected text italic.",
+          "clearInline": "Remove character formatting from the selection.",
+          "clearBlock": "Remove formatting from the current paragraph.",
+          "link": "Add a link to the selected text.",
+          "image": "Insert an image and set its size and alignment.",
+          "insertTable": "Insert a table with the specified rows and columns.",
+          "codeBlock": "Insert a code block.",
+          "math": "Insert a mathematical expression.",
+          "footnote": "Insert a footnote.",
+          "toc": "Generate a table of contents from headings.",
+          "addBefore": "Add a row above the selected row.",
+          "deleteRow": "Delete the selected row.",
+          "deleteColumn": "Delete the selected column.",
+          "alignLeft": "Align cell contents to the left.",
+          "alignCenter": "Center cell contents.",
+          "alignRight": "Align cell contents to the right.",
+          "copyTsv": "Copy the table as TSV.",
+          "outline": "Show the document outline.",
+          "search": "Search and replace text in the document.",
+          "split": "Show the text editor and preview side by side.",
+          "textOnly": "Show only the text editor.",
+          "previewOnly": "Show only the preview.",
+          "printPreview": "Preview the printed document.",
+          "exportPdf": "Export the Markdown document as a PDF.",
+          "preflight": "Check links, images, and other resources before export."
+        },
+        "markdownSupport": "Supported Markdown",
+        "about": "About Markdown Easy Visual Editor",
+        "header": "Header",
+        "headerPlaceholder": "e.g. Total"
+      },
+      "hintZoom": "Ctrl+wheel: Zoom",
+      "snippets": {
+        "mermaid": "\n```mermaid\ngraph TD\n  A[Start] --> B[Done]\n```\n",
+        "footnote": "[^1]\n\n[^1]: Footnote text",
+        "note": "\n> [!NOTE]\n> Additional information\n",
+        "warning": "\n> [!WARNING]\n> Caution\n"
+      },
+      "codeLanguages": [
+        {
+          "value": "",
+          "label": "Plain text"
+        },
+        {
+          "value": "javascript",
+          "label": "JavaScript"
+        },
+        {
+          "value": "typescript",
+          "label": "TypeScript"
+        },
+        {
+          "value": "python",
+          "label": "Python"
+        },
+        {
+          "value": "java",
+          "label": "Java"
+        },
+        {
+          "value": "csharp",
+          "label": "C#"
+        },
+        {
+          "value": "cpp",
+          "label": "C++"
+        },
+        {
+          "value": "go",
+          "label": "Go"
+        },
+        {
+          "value": "rust",
+          "label": "Rust"
+        },
+        {
+          "value": "sql",
+          "label": "SQL"
+        },
+        {
+          "value": "json",
+          "label": "JSON"
+        },
+        {
+          "value": "yaml",
+          "label": "YAML"
+        },
+        {
+          "value": "bash",
+          "label": "Shell"
+        },
+        {
+          "value": "html",
+          "label": "HTML"
+        },
+        {
+          "value": "css",
+          "label": "CSS"
+        },
+        {
+          "value": "powershell",
+          "label": "PowerShell"
+        },
+        {
+          "value": "sql",
+          "label": "SQL"
+        },
+        {
+          "value": "xml",
+          "label": "XML"
+        },
+        {
+          "value": "mermaid",
+          "label": "Mermaid"
+        }
+      ]
+    },
+    "app": {
+      "startup": "Starting Markdown Easy Visual Editor...",
+      "outline": "Outline",
+      "hideOutline": "Hide outline",
+      "showOutline": "Show outline",
+      "outlineWidth": "Outline width",
+      "noHeadings": "No headings.",
+      "searchAndReplace": "Find and replace",
+      "searchText": "Search text",
+      "replacementText": "Replacement text",
+      "replacement": "Replace with",
+      "previousMatch": "Previous",
+      "nextMatch": "Next",
+      "replaceAll": "Replace all",
+      "close": "Close",
+      "splitBoundary": "Text and preview divider",
+      "selectionFormatting": "Selection formatting",
+      "diagnosticsTitle": "Preflight check / Document diagnostics",
+      "diagnosticHelp": "Errors must be fixed before export. Review warnings and confirm informational items when exporting.",
+      "noProblems": "No problems found.",
+      "severity": {
+        "error": "Error",
+        "warning": "Warning",
+        "info": "Info"
+      },
+      "line": "Line {line}",
+      "printSettings": "Print preview settings",
+      "printSettingsHelp": "The white page in the center is the printable content. Choose the paper and orientation to review it.",
+      "paper": "Paper",
+      "orientation": "Orientation",
+      "portrait": "Portrait",
+      "landscape": "Landscape",
+      "header": "Header",
+      "footer": "Footer",
+      "margins": "Margins (mm)",
+      "top": "Top",
+      "right": "Right",
+      "bottom": "Bottom",
+      "left": "Left",
+      "withoutDialog": "Export to the same folder without a dialog",
+      "status": {
+        "modeSplit": "Split",
+        "modePreview": "Preview only",
+        "lines": "{count} lines",
+        "textCharacters": "Text {count} chars",
+        "markdownCharacters": "Markdown {count} chars",
+        "zoom": "View {percent}%",
+        "syncing": "Syncing...",
+        "synced": "Synced"
+      },
+      "inspector": {
+        "mermaid": "Mermaid",
+        "math": "Math",
+        "image": "Image",
+        "alt": "Alt text",
+        "reference": "Reference",
+        "openFile": "Open file",
+        "apply": "Apply"
+      },
+      "link": {
+        "title": "Insert link",
+        "url": "URL",
+        "urlPlaceholder": "https://example.com",
+        "text": "Display text",
+        "textHint": "(uses selected text when empty)",
+        "cancel": "Cancel",
+        "insert": "Insert"
+      },
+      "help": {
+        "shortcuts": "Shortcuts",
+        "markdown": "Supported Markdown",
+        "about": "About Markdown Easy Visual Editor",
+        "shortcutImage": "Save image locally and insert",
+        "shortcutTableBreak": "Line break in table cell",
+        "markdownIntro": "Supports the following syntax based on CommonMark/GFM.",
+        "markdownFeatures": "Headings, bullet lists, task lists, tables, links, images, strikethrough, footnotes, table of contents, code blocks, math, Mermaid, highlights, and underlines.",
+        "aboutIntro": "Markdown Easy Visual Editor is an editor for editing and previewing Markdown in VS Code.",
+        "aboutFeatures": "Content is kept as Markdown, with support for saving local images and exporting PDF."
+      },
+      "toast": {
+        "imagesSaved": "Saved {count} image(s) locally.",
+        "pdfResourceWarnings": "PDF export started. {count} local reference warning(s): {detail}",
+        "preflightSummary": "Preflight check: {errors} error(s), {warnings} warning(s), {infos} info item(s)",
+        "imageSaveFailed": "Could not save image: {detail}",
+        "pdfExportFailed": "Could not export PDF: {detail}",
+        "resourceCheckFailed": "{prefix}Could not check local image/link resources: {detail}",
+        "operationFailed": "Could not complete the operation: {detail}",
+        "pdfExported": "PDF exported: {path}",
+        "tableCellRequired": "Place the cursor inside a table cell.",
+        "cannotPasteTsv": "TSV cannot be pasted into a table separator row.",
+        "tableCopied": "Copied table as TSV.",
+        "cannotCopyTsv": "Could not copy TSV: {detail}",
+        "cannotCopyTsvEmpty": "Could not copy TSV.",
+        "workspaceTrustRequired": "Workspace trust is required to export PDF.",
+        "pdfStartedWithDiagnostics": "Found {count} diagnostic error(s), but starting PDF export. {detail}",
+        "pdfFallbackToMarkdown": "{prefix}Preview HTML is not ready, so PDF export is starting from the Markdown source."
+      },
+      "errors": {
+        "ackMismatch": "The ACK result does not match the pending operation result.",
+        "pendingOperationChain": "The base document for pending operation {opId} is not chained.",
+        "clipboardUnavailable": "The Clipboard API is unavailable.",
+        "bmpConversion": "Could not convert BMP to PNG.",
+        "imageSize": "The image exceeds the maximum size of {maxSizeMb} MB."
+      }
+    },
+    "renderer": {
+      "remoteImageDisabled": "Remote images are disabled",
+      "copy": "Copy",
+      "copied": "Copied",
+      "pageBreak": "Page break",
+      "toc": "Table of contents",
+      "backToText": "Back to text",
+      "mathError": "Could not render the formula",
+      "mermaidError": "Mermaid syntax error",
+      "alerts": {
+        "note": "Note",
+        "tip": "Tip",
+        "important": "Important",
+        "warning": "Warning",
+        "caution": "Caution"
+      }
+    },
+    "diagnostics": {
+      "unclosedFence": "The code fence ({marker}) is not closed.",
+      "duplicateHeading": "The heading ID “{id}” is duplicated.",
+      "invalidTableSeparator": "The Markdown table separator row is invalid. Use at least three hyphens in each cell.",
+      "emptyImageAlt": "The image alt text is empty. Add a description.",
+      "localImageCheck": "Relative image paths will be checked during export: {source}",
+      "emptyTableHeader": "The Markdown table header contains an empty cell.",
+      "tableColumnMismatch": "The Markdown table column count does not match (header {header}, {kind} {count}).",
+      "tableKind": {
+        "separator": "separator",
+        "body": "body"
+      },
+      "missingReference": "The definition for reference link “{label}” was not found.",
+      "localResource": {
+        "imageMissing": "Local image was not found: {source}{detail}",
+        "imageCheckFailed": "Local image could not be checked: {source}{detail}",
+        "linkMissing": "Local link was not found: {source}{detail}",
+        "linkCheckFailed": "Local link could not be checked: {source}{detail}"
+      }
+    },
+    "host": {
+      "pdfTrustRequired": "Workspace trust is required to export PDF.",
+      "pdfProgress": "Generating Markdown PDF...",
+      "pdfExported": "PDF exported: {path}",
+      "open": "Open",
+      "saveCanceled": "The save destination selection was canceled.",
+      "imageDocumentMustBeSaved": "Save the Markdown document before pasting images.",
+      "unsupportedImage": "Unsupported image format: {mime}",
+      "invalidImageDirectory": "Specify a safe relative path from the Markdown document for the image directory.",
+      "pdfBrowserUnavailable": "Could not start a PDF browser. Specify Edge or Chrome in the settings.",
+      "errorPrefix": "Markdown Easy Visual Editor",
+      "clientIdMismatch": "The Webview clientId does not match the initialized clientId."
+    },
+    "editor": {
+      "placeholder": "Type Markdown...",
+      "codePlaceholder": "code",
+      "defaultLinkLabel": "link",
+      "defaultImageAlt": "image",
+      "plainText": "Plain text"
+    },
+    "internal": {
+      "concurrentEditsOverlap": "Concurrent edits overlap",
+      "rootNotFound": "Markdown Easy Visual Editor root element was not found."
+    }
+  },
+  "zh-cn": {
+    "ribbon": {
+      "tabs": {
+        "home": "主页",
+        "insert": "插入",
+        "table": "表格",
+        "view": "视图",
+        "export": "导出",
+        "help": "帮助"
+      },
+      "label": "Markdown编辑功能区",
+      "source": "在右侧打开文本",
+      "sourceTitle": "在右侧将当前Markdown作为文本编辑器打开",
+      "outline": "大纲",
+      "outlineTitle": "显示/隐藏大纲",
+      "search": "搜索",
+      "split": "分栏",
+      "textOnly": "仅文本",
+      "previewOnly": "仅预览",
+      "pin": "固定",
+      "unpin": "取消固定",
+      "collapse": "折叠",
+      "expand": "展开",
+      "groups": {
+        "history": "历史",
+        "paragraph": "段落",
+        "textFormat": "文本格式",
+        "clear": "清除",
+        "basic": "基本",
+        "block": "块",
+        "assist": "辅助",
+        "rows": "行",
+        "columns": "列",
+        "alignment": "对齐",
+        "excel": "Excel",
+        "pane": "窗格",
+        "pdf": "PDF",
+        "inspection": "检查",
+        "help": "帮助"
+      },
+      "labels": {
+        "undo": "撤销",
+        "redo": "重做",
+        "style": "样式",
+        "body": "正文",
+        "heading": "标题 {level}",
+        "quote": "引用",
+        "bulletList": "项目符号列表",
+        "orderedList": "编号列表",
+        "taskList": "任务列表",
+        "indent": "增加缩进",
+        "outdent": "减少缩进",
+        "bold": "粗体",
+        "italic": "斜体",
+        "strike": "删除线",
+        "underline": "下划线",
+        "highlight": "高亮",
+        "code": "代码",
+        "superscript": "上标",
+        "subscript": "下标",
+        "clearInline": "清除字符格式",
+        "clearBlock": "清除段落格式",
+        "clearAll": "全部清除",
+        "unlink": "取消链接",
+        "link": "链接",
+        "image": "图像",
+        "tableSize": "表格大小",
+        "rows": "行",
+        "columns": "列",
+        "insertTable": "插入表格",
+        "horizontalRule": "水平线",
+        "hardBreak": "换行",
+        "language": "语言",
+        "codeBlock": "代码块",
+        "math": "数学公式",
+        "footnote": "脚注",
+        "toc": "目录",
+        "pageBreak": "分页",
+        "emoji": "表情符号",
+        "insertEmoji": "插入表情符号",
+        "addBefore": "在上方添加",
+        "addAfter": "在下方添加",
+        "addLeft": "在左侧添加",
+        "addRight": "在右侧添加",
+        "deleteRow": "删除行",
+        "toggleHeader": "切换表头",
+        "deleteColumn": "删除列",
+        "alignLeft": "左对齐",
+        "alignCenter": "居中",
+        "alignRight": "右对齐",
+        "alignColumns": "对齐列",
+        "cellBreak": "单元格换行",
+        "copyTsv": "复制为TSV",
+        "printPreview": "打印预览",
+        "exportPdf": "导出PDF",
+        "preflight": "导出前检查",
+        "shortcuts": "快捷键",
+        "features": "功能列表",
+        "featureDescriptions": {
+          "undo": "撤销最近一次编辑。",
+          "redo": "重做已撤销的编辑。",
+          "bold": "将选中的文字设为粗体。",
+          "italic": "将选中的文字设为斜体。",
+          "clearInline": "清除选中内容的字符格式。",
+          "clearBlock": "清除当前段落的格式。",
+          "link": "为选中的文字添加链接。",
+          "image": "插入图片并设置其大小和对齐方式。",
+          "insertTable": "插入指定行数和列数的表格。",
+          "codeBlock": "插入代码块。",
+          "math": "插入数学公式。",
+          "footnote": "插入脚注。",
+          "toc": "根据标题生成目录。",
+          "addBefore": "在选中行上方添加一行。",
+          "deleteRow": "删除选中的行。",
+          "deleteColumn": "删除选中的列。",
+          "alignLeft": "将单元格内容左对齐。",
+          "alignCenter": "将单元格内容居中。",
+          "alignRight": "将单元格内容右对齐。",
+          "copyTsv": "以TSV格式复制表格。",
+          "outline": "显示文档大纲。",
+          "search": "在文档中搜索并替换文本。",
+          "split": "并排显示文本编辑器和预览。",
+          "textOnly": "仅显示文本编辑器。",
+          "previewOnly": "仅显示预览。",
+          "printPreview": "预览打印效果。",
+          "exportPdf": "将Markdown导出为PDF。",
+          "preflight": "导出前检查链接、图片等资源。"
+        },
+        "markdownSupport": "支持的Markdown",
+        "about": "关于Markdown Easy Visual Editor",
+        "header": "表头",
+        "headerPlaceholder": "例如：合计"
+      },
+      "hintZoom": "Ctrl+滚轮：缩放",
+      "codeLanguages": [
+        {
+          "value": "",
+          "label": "纯文本"
+        },
+        {
+          "value": "javascript",
+          "label": "JavaScript"
+        },
+        {
+          "value": "typescript",
+          "label": "TypeScript"
+        },
+        {
+          "value": "python",
+          "label": "Python"
+        },
+        {
+          "value": "java",
+          "label": "Java"
+        },
+        {
+          "value": "csharp",
+          "label": "C#"
+        },
+        {
+          "value": "cpp",
+          "label": "C++"
+        },
+        {
+          "value": "go",
+          "label": "Go"
+        },
+        {
+          "value": "rust",
+          "label": "Rust"
+        },
+        {
+          "value": "sql",
+          "label": "SQL"
+        },
+        {
+          "value": "json",
+          "label": "JSON"
+        },
+        {
+          "value": "yaml",
+          "label": "YAML"
+        },
+        {
+          "value": "bash",
+          "label": "Shell"
+        },
+        {
+          "value": "html",
+          "label": "HTML"
+        },
+        {
+          "value": "css",
+          "label": "CSS"
+        },
+        {
+          "value": "powershell",
+          "label": "PowerShell"
+        },
+        {
+          "value": "sql",
+          "label": "SQL"
+        },
+        {
+          "value": "xml",
+          "label": "XML"
+        },
+        {
+          "value": "mermaid",
+          "label": "Mermaid"
+        }
+      ],
+      "snippets": {
+        "mermaid": "\n```mermaid\ngraph TD\n  A[开始] --> B[完成]\n```\n",
+        "footnote": "[^1]\n\n[^1]: 脚注内容",
+        "note": "\n> [!NOTE]\n> 补充信息\n",
+        "warning": "\n> [!WARNING]\n> 注意\n"
+      }
+    },
+    "app": {
+      "startup": "正在启动Markdown Easy Visual Editor...",
+      "outline": "大纲",
+      "hideOutline": "隐藏大纲",
+      "showOutline": "显示大纲",
+      "outlineWidth": "大纲宽度",
+      "noHeadings": "没有标题。",
+      "searchAndReplace": "查找和替换",
+      "searchText": "搜索文本",
+      "replacementText": "替换文本",
+      "replacement": "替换为",
+      "previousMatch": "上一个",
+      "nextMatch": "下一个",
+      "replaceAll": "全部替换",
+      "close": "关闭",
+      "splitBoundary": "文本与预览分隔线",
+      "selectionFormatting": "选区格式",
+      "diagnosticsTitle": "导出前检查 / 文档诊断",
+      "diagnosticHelp": "导出前必须修复错误。导出时请检查警告并确认信息项。",
+      "noProblems": "未发现问题。",
+      "severity": {
+        "error": "错误",
+        "warning": "警告",
+        "info": "信息"
+      },
+      "line": "第{line}行",
+      "printSettings": "打印预览设置",
+      "printSettingsHelp": "中央的白色页面是打印内容。选择纸张和方向进行预览。",
+      "paper": "纸张",
+      "orientation": "方向",
+      "portrait": "纵向",
+      "landscape": "横向",
+      "header": "页眉",
+      "footer": "页脚",
+      "margins": "边距（毫米）",
+      "top": "上",
+      "right": "右",
+      "bottom": "下",
+      "left": "左",
+      "withoutDialog": "不显示对话框并导出到同一文件夹",
+      "status": {
+        "modeSplit": "分栏",
+        "modePreview": "仅预览",
+        "lines": "{count}行",
+        "textCharacters": "正文{count}字",
+        "markdownCharacters": "Markdown {count}字",
+        "zoom": "视图{percent}%",
+        "syncing": "同步中...",
+        "synced": "已同步"
+      },
+      "inspector": {
+        "mermaid": "Mermaid",
+        "math": "数学公式",
+        "image": "图像",
+        "alt": "替代文本",
+        "reference": "引用目标",
+        "openFile": "打开文件",
+        "apply": "应用"
+      },
+      "link": {
+        "title": "插入链接",
+        "url": "URL",
+        "urlPlaceholder": "https://example.com",
+        "text": "显示文本",
+        "textHint": "（为空时使用选中文本）",
+        "cancel": "取消",
+        "insert": "插入"
+      },
+      "help": {
+        "shortcuts": "快捷键",
+        "markdown": "支持的Markdown",
+        "about": "关于Markdown Easy Visual Editor",
+        "shortcutImage": "保存图像到本地并插入",
+        "shortcutTableBreak": "表格单元格换行",
+        "markdownIntro": "支持基于CommonMark/GFM的以下语法。",
+        "markdownFeatures": "标题、项目符号列表、任务列表、表格、链接、图像、删除线、脚注、目录、代码块、数学公式、Mermaid、高亮和下划线。",
+        "aboutIntro": "Markdown Easy Visual Editor是用于在VS Code中编辑和预览Markdown的编辑器。",
+        "aboutFeatures": "内容以Markdown保存，并支持保存本地图像和导出PDF。"
+      },
+      "toast": {
+        "imagesSaved": "已保存{count}个本地图像。",
+        "pdfResourceWarnings": "PDF导出已开始。本地引用警告{count}条：{detail}",
+        "preflightSummary": "导出前检查：{errors}个错误、{warnings}个警告、{infos}条信息",
+        "imageSaveFailed": "无法保存图像：{detail}",
+        "pdfExportFailed": "无法导出PDF：{detail}",
+        "resourceCheckFailed": "{prefix}无法检查本地图像/链接资源：{detail}",
+        "operationFailed": "操作无法完成：{detail}",
+        "pdfExported": "PDF已导出：{path}",
+        "tableCellRequired": "请将光标放在表格单元格中。",
+        "cannotPasteTsv": "无法将TSV粘贴到表格分隔行。",
+        "tableCopied": "已将表格复制为TSV。",
+        "cannotCopyTsv": "无法复制TSV：{detail}",
+        "cannotCopyTsvEmpty": "无法复制TSV。",
+        "workspaceTrustRequired": "导出PDF需要信任工作区。",
+        "pdfStartedWithDiagnostics": "发现{count}个诊断错误，但将开始导出PDF。{detail}",
+        "pdfFallbackToMarkdown": "{prefix}预览HTML尚未准备好，将从Markdown源文件开始导出PDF。"
+      },
+      "errors": {
+        "ackMismatch": "ACK结果与待处理操作结果不一致。",
+        "pendingOperationChain": "待处理操作{opId}的基础文档未形成链。",
+        "clipboardUnavailable": "剪贴板API不可用。",
+        "bmpConversion": "无法将BMP转换为PNG。",
+        "imageSize": "图像超过{maxSizeMb} MB的大小限制。"
+      }
+    },
+    "renderer": {
+      "remoteImageDisabled": "远程图像已禁用",
+      "copy": "复制",
+      "copied": "已复制",
+      "pageBreak": "分页",
+      "toc": "目录",
+      "backToText": "返回正文",
+      "mathError": "公式渲染失败",
+      "mermaidError": "Mermaid语法错误",
+      "alerts": {
+        "note": "注记",
+        "tip": "提示",
+        "important": "重要",
+        "warning": "警告",
+        "caution": "注意"
+      }
+    },
+    "diagnostics": {
+      "unclosedFence": "代码围栏（{marker}）未闭合。",
+      "duplicateHeading": "标题ID“{id}”重复。",
+      "invalidTableSeparator": "Markdown表格分隔行无效。每个单元格至少使用三个连字符。",
+      "emptyImageAlt": "图像替代文本为空。请添加描述。",
+      "localImageCheck": "相对图像路径将在导出时检查：{source}",
+      "emptyTableHeader": "Markdown表头包含空单元格。",
+      "tableColumnMismatch": "Markdown表格列数不匹配（表头{header}列、{kind}{count}列）。",
+      "tableKind": {
+        "separator": "分隔行",
+        "body": "正文"
+      },
+      "missingReference": "未找到引用链接“{label}”的定义。",
+      "localResource": {
+        "imageMissing": "未找到本地图像：{source}{detail}",
+        "imageCheckFailed": "无法检查本地图像：{source}{detail}",
+        "linkMissing": "未找到本地链接：{source}{detail}",
+        "linkCheckFailed": "无法检查本地链接：{source}{detail}"
+      }
+    },
+    "host": {
+      "pdfTrustRequired": "导出PDF需要信任工作区。",
+      "pdfProgress": "正在生成Markdown PDF...",
+      "pdfExported": "PDF已导出：{path}",
+      "open": "打开",
+      "saveCanceled": "已取消选择保存位置。",
+      "imageDocumentMustBeSaved": "粘贴图像前请先保存Markdown文档。",
+      "unsupportedImage": "不支持的图像格式：{mime}",
+      "invalidImageDirectory": "请为图像目录指定相对于Markdown文档的安全路径。",
+      "pdfBrowserUnavailable": "无法启动PDF浏览器。请在设置中指定Edge或Chrome。",
+      "errorPrefix": "Markdown Easy Visual Editor",
+      "clientIdMismatch": "Webview clientId与初始化时不一致。"
+    },
+    "editor": {
+      "placeholder": "输入Markdown...",
+      "codePlaceholder": "代码",
+      "defaultLinkLabel": "链接",
+      "defaultImageAlt": "图像",
+      "plainText": "纯文本"
+    },
+    "internal": {
+      "concurrentEditsOverlap": "并发编辑发生重叠",
+      "rootNotFound": "未找到Markdown Easy Visual Editor根元素。"
+    }
+  },
+  "ko": {
+    "ribbon": {
+      "tabs": {
+        "home": "홈",
+        "insert": "삽입",
+        "table": "표",
+        "view": "보기",
+        "export": "내보내기",
+        "help": "도움말"
+      },
+      "label": "Markdown 편집 리본",
+      "source": "오른쪽에서 텍스트 열기",
+      "sourceTitle": "현재 Markdown을 오른쪽의 텍스트 편집기로 열기",
+      "outline": "개요",
+      "outlineTitle": "개요 표시/숨기기",
+      "search": "검색",
+      "split": "분할",
+      "textOnly": "텍스트만",
+      "previewOnly": "미리보기만",
+      "pin": "고정",
+      "unpin": "고정 해제",
+      "collapse": "접기",
+      "expand": "펼치기",
+      "groups": {
+        "history": "기록",
+        "paragraph": "단락",
+        "textFormat": "텍스트 형식",
+        "clear": "지우기",
+        "basic": "기본",
+        "block": "블록",
+        "assist": "도구",
+        "rows": "행",
+        "columns": "열",
+        "alignment": "정렬",
+        "excel": "Excel",
+        "pane": "창",
+        "pdf": "PDF",
+        "inspection": "검사",
+        "help": "도움말"
+      },
+      "labels": {
+        "undo": "실행 취소",
+        "redo": "다시 실행",
+        "style": "스타일",
+        "body": "본문",
+        "heading": "제목 {level}",
+        "quote": "인용",
+        "bulletList": "글머리 기호 목록",
+        "orderedList": "번호 매기기 목록",
+        "taskList": "작업 목록",
+        "indent": "들여쓰기",
+        "outdent": "내어쓰기",
+        "bold": "굵게",
+        "italic": "기울임꼴",
+        "strike": "취소선",
+        "underline": "밑줄",
+        "highlight": "강조",
+        "code": "코드",
+        "superscript": "위 첨자",
+        "subscript": "아래 첨자",
+        "clearInline": "인라인 형식 지우기",
+        "clearBlock": "단락 형식 지우기",
+        "clearAll": "모두 지우기",
+        "unlink": "링크 제거",
+        "link": "링크",
+        "image": "이미지",
+        "tableSize": "표 크기",
+        "rows": "행",
+        "columns": "열",
+        "insertTable": "표 삽입",
+        "horizontalRule": "가로줄",
+        "hardBreak": "줄 바꿈",
+        "language": "언어",
+        "codeBlock": "코드 블록",
+        "math": "수식",
+        "footnote": "각주",
+        "toc": "목차",
+        "pageBreak": "페이지 나누기",
+        "emoji": "이모지",
+        "insertEmoji": "이모지 삽입",
+        "addBefore": "위에 추가",
+        "addAfter": "아래에 추가",
+        "addLeft": "왼쪽에 추가",
+        "addRight": "오른쪽에 추가",
+        "deleteRow": "행 삭제",
+        "toggleHeader": "헤더 전환",
+        "deleteColumn": "열 삭제",
+        "alignLeft": "왼쪽 정렬",
+        "alignCenter": "가운데 정렬",
+        "alignRight": "오른쪽 정렬",
+        "alignColumns": "열 맞춤",
+        "cellBreak": "셀 안 줄 바꿈",
+        "copyTsv": "TSV로 복사",
+        "printPreview": "인쇄 미리보기",
+        "exportPdf": "PDF 내보내기",
+        "preflight": "내보내기 전 검사",
+        "shortcuts": "바로 가기",
+        "features": "기능 목록",
+        "featureDescriptions": {
+          "undo": "최근 편집을 실행 취소합니다.",
+          "redo": "실행 취소한 편집을 다시 적용합니다.",
+          "bold": "선택한 텍스트를 굵게 표시합니다.",
+          "italic": "선택한 텍스트를 기울임꼴로 표시합니다.",
+          "clearInline": "선택 영역의 문자 서식을 제거합니다.",
+          "clearBlock": "현재 단락의 서식을 제거합니다.",
+          "link": "선택한 텍스트에 링크를 설정합니다.",
+          "image": "이미지를 삽입하고 크기와 정렬을 설정합니다.",
+          "insertTable": "지정한 행과 열의 표를 삽입합니다.",
+          "codeBlock": "코드 블록을 삽입합니다.",
+          "math": "수식을 삽입합니다.",
+          "footnote": "각주를 삽입합니다.",
+          "toc": "제목에서 목차를 생성합니다.",
+          "addBefore": "선택한 행 위에 행을 추가합니다.",
+          "deleteRow": "선택한 행을 삭제합니다.",
+          "deleteColumn": "선택한 열을 삭제합니다.",
+          "alignLeft": "셀 내용을 왼쪽으로 정렬합니다.",
+          "alignCenter": "셀 내용을 가운데로 정렬합니다.",
+          "alignRight": "셀 내용을 오른쪽으로 정렬합니다.",
+          "copyTsv": "표를 TSV 형식으로 복사합니다.",
+          "outline": "문서 개요를 표시합니다.",
+          "search": "문서에서 텍스트를 검색하고 바꿉니다.",
+          "split": "텍스트 편집기와 미리보기를 나란히 표시합니다.",
+          "textOnly": "텍스트 편집기만 표시합니다.",
+          "previewOnly": "미리보기만 표시합니다.",
+          "printPreview": "인쇄 결과를 미리 확인합니다.",
+          "exportPdf": "Markdown 문서를 PDF로 내보냅니다.",
+          "preflight": "내보내기 전에 링크와 이미지 등의 리소스를 검사합니다."
+        },
+        "markdownSupport": "지원되는 Markdown",
+        "about": "Markdown Easy Visual Editor 정보",
+        "header": "헤더",
+        "headerPlaceholder": "예: 합계"
+      },
+      "hintZoom": "Ctrl+휠: 확대/축소",
+      "codeLanguages": [
+        {
+          "value": "",
+          "label": "일반 텍스트"
+        },
+        {
+          "value": "javascript",
+          "label": "JavaScript"
+        },
+        {
+          "value": "typescript",
+          "label": "TypeScript"
+        },
+        {
+          "value": "python",
+          "label": "Python"
+        },
+        {
+          "value": "java",
+          "label": "Java"
+        },
+        {
+          "value": "csharp",
+          "label": "C#"
+        },
+        {
+          "value": "cpp",
+          "label": "C++"
+        },
+        {
+          "value": "go",
+          "label": "Go"
+        },
+        {
+          "value": "rust",
+          "label": "Rust"
+        },
+        {
+          "value": "sql",
+          "label": "SQL"
+        },
+        {
+          "value": "json",
+          "label": "JSON"
+        },
+        {
+          "value": "yaml",
+          "label": "YAML"
+        },
+        {
+          "value": "bash",
+          "label": "Shell"
+        },
+        {
+          "value": "html",
+          "label": "HTML"
+        },
+        {
+          "value": "css",
+          "label": "CSS"
+        },
+        {
+          "value": "powershell",
+          "label": "PowerShell"
+        },
+        {
+          "value": "sql",
+          "label": "SQL"
+        },
+        {
+          "value": "xml",
+          "label": "XML"
+        },
+        {
+          "value": "mermaid",
+          "label": "Mermaid"
+        }
+      ],
+      "snippets": {
+        "mermaid": "\n```mermaid\ngraph TD\n  A[시작] --> B[완료]\n```\n",
+        "footnote": "[^1]\n\n[^1]: 각주 내용",
+        "note": "\n> [!NOTE]\n> 추가 정보\n",
+        "warning": "\n> [!WARNING]\n> 주의\n"
+      }
+    },
+    "app": {
+      "startup": "Markdown Easy Visual Editor 시작 중...",
+      "outline": "개요",
+      "hideOutline": "개요 숨기기",
+      "showOutline": "개요 표시",
+      "outlineWidth": "개요 너비",
+      "noHeadings": "제목이 없습니다.",
+      "searchAndReplace": "찾기 및 바꾸기",
+      "searchText": "검색어",
+      "replacementText": "바꿀 텍스트",
+      "replacement": "다음으로 바꾸기",
+      "previousMatch": "이전",
+      "nextMatch": "다음",
+      "replaceAll": "모두 바꾸기",
+      "close": "닫기",
+      "splitBoundary": "텍스트와 미리보기 구분선",
+      "selectionFormatting": "선택 영역 형식",
+      "diagnosticsTitle": "내보내기 전 검사 / 문서 진단",
+      "diagnosticHelp": "내보내기 전에 오류를 수정해야 합니다. 경고를 검토하고 정보 항목을 확인하세요.",
+      "noProblems": "문제가 없습니다.",
+      "severity": {
+        "error": "오류",
+        "warning": "경고",
+        "info": "정보"
+      },
+      "line": "{line}번째 줄",
+      "printSettings": "인쇄 미리보기 설정",
+      "printSettingsHelp": "가운데의 흰색 페이지가 인쇄 내용입니다. 용지와 방향을 선택해 확인하세요.",
+      "paper": "용지",
+      "orientation": "방향",
+      "portrait": "세로",
+      "landscape": "가로",
+      "header": "머리글",
+      "footer": "바닥글",
+      "margins": "여백(mm)",
+      "top": "위",
+      "right": "오른쪽",
+      "bottom": "아래",
+      "left": "왼쪽",
+      "withoutDialog": "대화 상자 없이 같은 폴더로 내보내기",
+      "status": {
+        "modeSplit": "분할",
+        "modePreview": "미리보기만",
+        "lines": "{count}줄",
+        "textCharacters": "텍스트 {count}자",
+        "markdownCharacters": "Markdown {count}자",
+        "zoom": "보기 {percent}%",
+        "syncing": "동기화 중...",
+        "synced": "동기화됨"
+      },
+      "inspector": {
+        "mermaid": "Mermaid",
+        "math": "수식",
+        "image": "이미지",
+        "alt": "대체 텍스트",
+        "reference": "참조",
+        "openFile": "파일 열기",
+        "apply": "적용"
+      },
+      "link": {
+        "title": "링크 삽입",
+        "url": "URL",
+        "urlPlaceholder": "https://example.com",
+        "text": "표시 텍스트",
+        "textHint": "(비어 있으면 선택한 텍스트 사용)",
+        "cancel": "취소",
+        "insert": "삽입"
+      },
+      "help": {
+        "shortcuts": "바로 가기",
+        "markdown": "지원되는 Markdown",
+        "about": "Markdown Easy Visual Editor 정보",
+        "shortcutImage": "이미지를 로컬에 저장하고 삽입",
+        "shortcutTableBreak": "표 셀 안 줄 바꿈",
+        "markdownIntro": "CommonMark/GFM을 기준으로 다음 문법을 지원합니다.",
+        "markdownFeatures": "제목, 글머리 기호 목록, 작업 목록, 표, 링크, 이미지, 취소선, 각주, 목차, 코드 블록, 수식, Mermaid, 강조 및 밑줄.",
+        "aboutIntro": "Markdown Easy Visual Editor는 VS Code에서 Markdown을 편집하고 미리 보는 편집기입니다.",
+        "aboutFeatures": "내용은 Markdown으로 유지되며 로컬 이미지 저장과 PDF 내보내기를 지원합니다."
+      },
+      "toast": {
+        "imagesSaved": "이미지 {count}개를 로컬에 저장했습니다.",
+        "pdfResourceWarnings": "PDF 내보내기를 시작했습니다. 로컬 참조 경고 {count}개: {detail}",
+        "preflightSummary": "내보내기 전 검사: 오류 {errors}개, 경고 {warnings}개, 정보 {infos}개",
+        "imageSaveFailed": "이미지를 저장할 수 없습니다: {detail}",
+        "pdfExportFailed": "PDF를 내보낼 수 없습니다: {detail}",
+        "resourceCheckFailed": "{prefix}로컬 이미지/링크 리소스를 확인할 수 없습니다: {detail}",
+        "operationFailed": "작업을 완료할 수 없습니다: {detail}",
+        "pdfExported": "PDF를 내보냈습니다: {path}",
+        "tableCellRequired": "표 셀 안에 커서를 놓으세요.",
+        "cannotPasteTsv": "표 구분 행에는 TSV를 붙여 넣을 수 없습니다.",
+        "tableCopied": "표를 TSV로 복사했습니다.",
+        "cannotCopyTsv": "TSV를 복사할 수 없습니다: {detail}",
+        "cannotCopyTsvEmpty": "TSV를 복사할 수 없습니다.",
+        "workspaceTrustRequired": "PDF를 내보내려면 작업 영역을 신뢰해야 합니다.",
+        "pdfStartedWithDiagnostics": "진단 오류 {count}개를 발견했지만 PDF 내보내기를 시작합니다. {detail}",
+        "pdfFallbackToMarkdown": "{prefix}미리보기 HTML이 준비되지 않아 Markdown 원본으로 PDF 내보내기를 시작합니다."
+      },
+      "errors": {
+        "ackMismatch": "ACK 결과가 보류 작업 결과와 일치하지 않습니다.",
+        "pendingOperationChain": "보류 작업 {opId}의 기준 문서가 연결되지 않았습니다.",
+        "clipboardUnavailable": "클립보드 API를 사용할 수 없습니다.",
+        "bmpConversion": "BMP를 PNG로 변환할 수 없습니다.",
+        "imageSize": "이미지가 최대 크기 {maxSizeMb}MB를 초과합니다."
+      }
+    },
+    "renderer": {
+      "remoteImageDisabled": "원격 이미지는 비활성화되어 있습니다",
+      "copy": "복사",
+      "copied": "복사됨",
+      "pageBreak": "페이지 나누기",
+      "toc": "목차",
+      "backToText": "본문으로 돌아가기",
+      "mathError": "수식을 렌더링할 수 없습니다",
+      "mermaidError": "Mermaid 구문 오류",
+      "alerts": {
+        "note": "참고",
+        "tip": "팁",
+        "important": "중요",
+        "warning": "경고",
+        "caution": "주의"
+      }
+    },
+    "diagnostics": {
+      "unclosedFence": "코드 펜스({marker})가 닫히지 않았습니다.",
+      "duplicateHeading": "제목 ID “{id}”가 중복되었습니다.",
+      "invalidTableSeparator": "Markdown 표 구분 행이 올바르지 않습니다. 각 셀에 하이픈을 3개 이상 사용하세요.",
+      "emptyImageAlt": "이미지 대체 텍스트가 비어 있습니다. 설명을 추가하세요.",
+      "localImageCheck": "상대 이미지 경로는 내보내기 중 확인됩니다: {source}",
+      "emptyTableHeader": "Markdown 표 헤더에 빈 셀이 있습니다.",
+      "tableColumnMismatch": "Markdown 표의 열 수가 일치하지 않습니다(헤더 {header}열, {kind} {count}열).",
+      "tableKind": {
+        "separator": "구분 행",
+        "body": "본문"
+      },
+      "missingReference": "참조 링크 “{label}”의 정의를 찾을 수 없습니다.",
+      "localResource": {
+        "imageMissing": "로컬 이미지를 찾을 수 없습니다: {source}{detail}",
+        "imageCheckFailed": "로컬 이미지를 확인할 수 없습니다: {source}{detail}",
+        "linkMissing": "로컬 링크를 찾을 수 없습니다: {source}{detail}",
+        "linkCheckFailed": "로컬 링크를 확인할 수 없습니다: {source}{detail}"
+      }
+    },
+    "host": {
+      "pdfTrustRequired": "PDF를 내보내려면 작업 영역을 신뢰해야 합니다.",
+      "pdfProgress": "Markdown PDF 생성 중...",
+      "pdfExported": "PDF를 내보냈습니다: {path}",
+      "open": "열기",
+      "saveCanceled": "저장 위치 선택을 취소했습니다.",
+      "imageDocumentMustBeSaved": "이미지를 붙여 넣기 전에 Markdown 문서를 저장하세요.",
+      "unsupportedImage": "지원하지 않는 이미지 형식입니다: {mime}",
+      "invalidImageDirectory": "Markdown 문서 기준의 안전한 상대 경로를 이미지 폴더로 지정하세요.",
+      "pdfBrowserUnavailable": "PDF 브라우저를 시작할 수 없습니다. 설정에서 Edge 또는 Chrome을 지정하세요.",
+      "errorPrefix": "Markdown Easy Visual Editor",
+      "clientIdMismatch": "Webview clientId가 초기화된 clientId와 일치하지 않습니다."
+    },
+    "editor": {
+      "placeholder": "Markdown 입력...",
+      "codePlaceholder": "코드",
+      "defaultLinkLabel": "링크",
+      "defaultImageAlt": "이미지",
+      "plainText": "일반 텍스트"
+    },
+    "internal": {
+      "concurrentEditsOverlap": "동시 편집 범위가 겹칩니다",
+      "rootNotFound": "Markdown Easy Visual Editor 루트 요소를 찾을 수 없습니다."
+    }
+  },
+  "fr": {
+    "ribbon": {
+      "tabs": {
+        "home": "Accueil",
+        "insert": "Insérer",
+        "table": "Tableau",
+        "view": "Affichage",
+        "export": "Exporter",
+        "help": "Aide"
+      },
+      "label": "Éditeur Markdown",
+      "source": "Texte source à droite",
+      "sourceTitle": "Afficher le texte Markdown source à droite",
+      "outline": "Plan",
+      "outlineTitle": "Afficher/masquer le plan des titres",
+      "search": "Rechercher",
+      "split": "Éditeur et aperçu",
+      "textOnly": "Texte seul",
+      "previewOnly": "Aperçu seul",
+      "pin": "Épingler",
+      "unpin": "Désépingler",
+      "collapse": "Réduire",
+      "expand": "Développer",
+      "groups": {
+        "history": "Historique",
+        "paragraph": "Paragraphe",
+        "textFormat": "Format du texte",
+        "clear": "Effacer",
+        "basic": "Base",
+        "block": "Bloc",
+        "assist": "Assistance",
+        "rows": "Lignes",
+        "columns": "Colonnes",
+        "alignment": "Alignement",
+        "excel": "Excel",
+        "pane": "Panneau",
+        "pdf": "PDF",
+        "inspection": "Inspection",
+        "help": "Aide"
+      },
+      "labels": {
+        "undo": "Annuler",
+        "redo": "Rétablir",
+        "style": "Style",
+        "body": "Corps",
+        "heading": "Titre {level}",
+        "quote": "Citation",
+        "bulletList": "Liste à puces",
+        "orderedList": "Liste numérotée",
+        "taskList": "Liste de tâches",
+        "indent": "Augmenter le retrait",
+        "outdent": "Réduire le retrait",
+        "bold": "Gras",
+        "italic": "Italique",
+        "strike": "Barré",
+        "underline": "Souligné",
+        "highlight": "Surligner",
+        "code": "Code",
+        "superscript": "Exposant",
+        "subscript": "Indice",
+        "clearInline": "Effacer le formatage en ligne",
+        "clearBlock": "Effacer le formatage du bloc",
+        "clearAll": "Tout effacer",
+        "unlink": "Supprimer le lien",
+        "link": "Lien",
+        "image": "Image",
+        "tableSize": "Taille du tableau",
+        "rows": "Lignes",
+        "columns": "Colonnes",
+        "insertTable": "Insérer un tableau",
+        "horizontalRule": "Ligne horizontale",
+        "hardBreak": "Saut de ligne",
+        "language": "Langue",
+        "codeBlock": "Bloc de code",
+        "math": "Formule mathématique",
+        "footnote": "Note de bas de page",
+        "toc": "Table des matières",
+        "pageBreak": "Saut de page",
+        "emoji": "Emoji",
+        "insertEmoji": "Insérer un emoji",
+        "addBefore": "Ajouter avant",
+        "addAfter": "Ajouter après",
+        "addLeft": "Ajouter à gauche",
+        "addRight": "Ajouter à droite",
+        "deleteRow": "Supprimer la ligne",
+        "toggleHeader": "Activer l'en-tête",
+        "deleteColumn": "Supprimer la colonne",
+        "alignLeft": "Aligner à gauche",
+        "alignCenter": "Centrer",
+        "alignRight": "Aligner à droite",
+        "alignColumns": "Aligner les colonnes",
+        "cellBreak": "Saut dans la cellule",
+        "copyTsv": "Copier en TSV",
+        "printPreview": "Aperçu avant impression",
+        "exportPdf": "Exporter en PDF",
+        "preflight": "Vérification avant export",
+        "shortcuts": "Raccourcis",
+        "features": "Fonctionnalités",
+        "featureDescriptions": {
+          "undo": "Annule la dernière modification.",
+          "redo": "Rétablit une modification annulée.",
+          "bold": "Met le texte sélectionné en gras.",
+          "italic": "Met le texte sélectionné en italique.",
+          "clearInline": "Supprime la mise en forme des caractères sélectionnés.",
+          "clearBlock": "Supprime la mise en forme du paragraphe actuel.",
+          "link": "Ajoute un lien au texte sélectionné.",
+          "image": "Insère une image et définit sa taille et son alignement.",
+          "insertTable": "Insère un tableau avec le nombre de lignes et de colonnes indiqué.",
+          "codeBlock": "Insère un bloc de code.",
+          "math": "Insère une formule mathématique.",
+          "footnote": "Insère une note de bas de page.",
+          "toc": "Génère une table des matières à partir des titres.",
+          "addBefore": "Ajoute une ligne au-dessus de la ligne sélectionnée.",
+          "deleteRow": "Supprime la ligne sélectionnée.",
+          "deleteColumn": "Supprime la colonne sélectionnée.",
+          "alignLeft": "Aligne le contenu des cellules à gauche.",
+          "alignCenter": "Centre le contenu des cellules.",
+          "alignRight": "Aligne le contenu des cellules à droite.",
+          "copyTsv": "Copie le tableau au format TSV.",
+          "outline": "Affiche le plan du document.",
+          "search": "Recherche et remplace du texte dans le document.",
+          "split": "Affiche l’éditeur de texte et l’aperçu côte à côte.",
+          "textOnly": "Affiche uniquement l’éditeur de texte.",
+          "previewOnly": "Affiche uniquement l’aperçu.",
+          "printPreview": "Prévisualise le document à l’impression.",
+          "exportPdf": "Exporte le document Markdown au format PDF.",
+          "preflight": "Vérifie les liens, les images et les autres ressources avant l’export."
+        },
+        "markdownSupport": "Prise en charge de Markdown",
+        "about": "À propos de Markdown Easy Visual Editor",
+        "header": "En-tête",
+        "headerPlaceholder": "Saisissez un en-tête"
+      },
+      "hintZoom": "Ctrl+molette : zoomer/réduire",
+      "codeLanguages": [
+        {
+          "value": "",
+          "label": "Texte brut"
+        },
+        {
+          "value": "javascript",
+          "label": "JavaScript"
+        },
+        {
+          "value": "typescript",
+          "label": "TypeScript"
+        },
+        {
+          "value": "python",
+          "label": "Python"
+        },
+        {
+          "value": "java",
+          "label": "Java"
+        },
+        {
+          "value": "csharp",
+          "label": "C#"
+        },
+        {
+          "value": "cpp",
+          "label": "C++"
+        },
+        {
+          "value": "go",
+          "label": "Go"
+        },
+        {
+          "value": "rust",
+          "label": "Rust"
+        },
+        {
+          "value": "sql",
+          "label": "SQL"
+        },
+        {
+          "value": "json",
+          "label": "JSON"
+        },
+        {
+          "value": "yaml",
+          "label": "YAML"
+        },
+        {
+          "value": "bash",
+          "label": "Shell"
+        },
+        {
+          "value": "html",
+          "label": "HTML"
+        },
+        {
+          "value": "css",
+          "label": "CSS"
+        },
+        {
+          "value": "powershell",
+          "label": "PowerShell"
+        },
+        {
+          "value": "sql",
+          "label": "SQL"
+        },
+        {
+          "value": "xml",
+          "label": "XML"
+        },
+        {
+          "value": "mermaid",
+          "label": "Mermaid"
+        }
+      ],
+      "snippets": {
+        "mermaid": "\n```mermaid\ngraph TD\n  A[Début] --> B[Fin]\n```\n",
+        "footnote": "[^1]\n\n[^1]: Note de bas de page",
+        "note": "\n> [!NOTE]\n> Note\n",
+        "warning": "\n> [!WARNING]\n> Attention\n"
+      }
+    },
+    "app": {
+      "startup": "Démarrage de Markdown Easy Visual Editor...",
+      "outline": "Plan",
+      "hideOutline": "Masquer le plan",
+      "showOutline": "Afficher le plan",
+      "outlineWidth": "Largeur du plan",
+      "noHeadings": "Aucun titre trouvé.",
+      "searchAndReplace": "Rechercher et remplacer",
+      "searchText": "Texte à rechercher",
+      "replacementText": "Texte de remplacement",
+      "replacement": "Remplacer par",
+      "previousMatch": "Précédent",
+      "nextMatch": "Suivant",
+      "replaceAll": "Tout remplacer",
+      "close": "Fermer",
+      "splitBoundary": "La sélection traverse la limite entre le texte et l'aperçu.",
+      "selectionFormatting": "Appliquer le formatage à la sélection",
+      "diagnosticsTitle": "Vérification de l'export / problèmes du document",
+      "diagnosticHelp": "Les problèmes détectés avant l'export peuvent affecter le résultat PDF. Corrigez-les puis relancez la vérification.",
+      "noProblems": "Aucun problème détecté.",
+      "severity": {
+        "error": "Erreur",
+        "warning": "Avertissement",
+        "info": "Information"
+      },
+      "line": "Ligne {line}",
+      "printSettings": "Paramètres d'impression",
+      "printSettingsHelp": "Le contenu est centré sur la page. Les marges contrôlent la zone imprimable.",
+      "paper": "Papier",
+      "orientation": "Orientation",
+      "portrait": "Portrait",
+      "landscape": "Paysage",
+      "header": "En-tête",
+      "footer": "Pied de page",
+      "margins": "Marges (mm)",
+      "top": "Haut",
+      "right": "Droite",
+      "bottom": "Bas",
+      "left": "Gauche",
+      "withoutDialog": "Exporter directement sans afficher la boîte de dialogue système",
+      "status": {
+        "modeSplit": "Éditeur et aperçu",
+        "modePreview": "Aperçu seul",
+        "lines": "{count} lignes",
+        "textCharacters": "{count} caractères",
+        "markdownCharacters": "Markdown : {count} caractères",
+        "zoom": "Zoom {percent}%",
+        "syncing": "Synchronisation...",
+        "synced": "Synchronisé"
+      },
+      "inspector": {
+        "mermaid": "Mermaid",
+        "math": "Formule",
+        "image": "Image",
+        "alt": "Texte alternatif",
+        "reference": "Référence",
+        "openFile": "Ouvrir le fichier",
+        "apply": "Appliquer"
+      },
+      "link": {
+        "title": "Insérer un lien",
+        "url": "URL",
+        "urlPlaceholder": "https://example.com",
+        "text": "Texte affiché",
+        "textHint": "Laissez vide pour utiliser la sélection actuelle.",
+        "cancel": "Annuler",
+        "insert": "Insérer"
+      },
+      "help": {
+        "shortcuts": "Raccourcis",
+        "markdown": "Prise en charge de Markdown",
+        "about": "À propos",
+        "shortcutImage": "Insérer une image depuis le presse-papiers",
+        "shortcutTableBreak": "Insérer un saut dans une cellule",
+        "markdownIntro": "Markdown Easy Visual Editor prend en charge CommonMark et GFM.",
+        "markdownFeatures": "Titres, listes, tableaux, liens, images, formules, Mermaid et plus encore.",
+        "aboutIntro": "Markdown Easy Visual Editor est un éditeur Markdown pour VS Code.",
+        "aboutFeatures": "Édition avec aperçu, images locales et export PDF."
+      },
+      "toast": {
+        "imagesSaved": "{count} image(s) enregistrée(s).",
+        "pdfResourceWarnings": "L'export PDF a trouvé {count} avertissement(s) de ressource : {detail}",
+        "preflightSummary": "Vérification avant export : {errors} erreur(s), {warnings} avertissement(s), {infos} information(s)",
+        "imageSaveFailed": "Impossible d'enregistrer l'image : {detail}",
+        "pdfExportFailed": "Échec de l'export PDF : {detail}",
+        "resourceCheckFailed": "{prefix}Impossible de vérifier les ressources locales : {detail}",
+        "operationFailed": "Échec de l'opération : {detail}",
+        "pdfExported": "PDF exporté : {path}",
+        "tableCellRequired": "Sélectionnez une cellule du tableau.",
+        "cannotPasteTsv": "Impossible de coller le TSV dans le tableau.",
+        "tableCopied": "Tableau copié au format TSV.",
+        "cannotCopyTsv": "Impossible de copier le TSV : {detail}",
+        "cannotCopyTsvEmpty": "Impossible de copier le TSV.",
+        "workspaceTrustRequired": "L'export PDF nécessite un espace de travail approuvé.",
+        "pdfStartedWithDiagnostics": "Export PDF démarré avec {count} erreur(s) de diagnostic : {detail}",
+        "pdfFallbackToMarkdown": "{prefix}Export PDF indisponible ; export Markdown démarré à la place."
+      },
+      "errors": {
+        "ackMismatch": "L'accusé de réception ne correspond pas à l'opération en attente.",
+        "pendingOperationChain": "L'opération {opId} est encore en attente.",
+        "clipboardUnavailable": "L'API du presse-papiers n'est pas disponible.",
+        "bmpConversion": "Impossible de convertir BMP en PNG.",
+        "imageSize": "La taille de l'image dépasse la limite de {maxSizeMb} Mo."
+      }
+    },
+    "renderer": {
+      "remoteImageDisabled": "Les images distantes sont désactivées.",
+      "copy": "Copier",
+      "copied": "Copié",
+      "pageBreak": "Saut de page",
+      "toc": "Table des matières",
+      "backToText": "Retour au texte",
+      "mathError": "Échec du rendu de la formule.",
+      "mermaidError": "Échec du rendu Mermaid.",
+      "alerts": {
+        "note": "Note",
+        "tip": "Conseil",
+        "important": "Important",
+        "warning": "Avertissement",
+        "caution": "Attention"
+      }
+    },
+    "diagnostics": {
+      "unclosedFence": "Le bloc de code {marker} n'est pas fermé.",
+      "duplicateHeading": "L'identifiant de titre {id} est dupliqué.",
+      "invalidTableSeparator": "Le séparateur du tableau Markdown est invalide.",
+      "emptyImageAlt": "Le texte alternatif de l'image est vide.",
+      "localImageCheck": "Vérifiez l'image locale avant l'export : {source}",
+      "emptyTableHeader": "L'en-tête du tableau Markdown est vide.",
+      "tableColumnMismatch": "Le nombre de colonnes de l'en-tête ({header}) et du {kind} ({count}) diffère.",
+      "tableKind": {
+        "separator": "séparateur",
+        "body": "corps"
+      },
+      "missingReference": "La référence de lien {label} est introuvable.",
+      "localResource": {
+        "imageMissing": "Image locale introuvable : {source}{detail}",
+        "imageCheckFailed": "Échec de vérification de l'image locale : {source}{detail}",
+        "linkMissing": "Lien local introuvable : {source}{detail}",
+        "linkCheckFailed": "Échec de vérification du lien local : {source}{detail}"
+      }
+    },
+    "host": {
+      "pdfTrustRequired": "L'export PDF nécessite un espace de travail approuvé.",
+      "pdfProgress": "Export du Markdown en PDF...",
+      "pdfExported": "PDF exporté : {path}",
+      "open": "Ouvrir",
+      "saveCanceled": "Enregistrement annulé.",
+      "imageDocumentMustBeSaved": "Enregistrez le document Markdown avant d'insérer une image.",
+      "unsupportedImage": "Format d'image non pris en charge : {mime}",
+      "invalidImageDirectory": "Le répertoire d'images doit être un dossier situé près du document Markdown.",
+      "pdfBrowserUnavailable": "Aucun navigateur PDF n'est disponible. Installez ou configurez Edge ou Chrome.",
+      "errorPrefix": "Markdown Easy Visual Editor",
+      "clientIdMismatch": "Le client du webview ne correspond pas au client actif."
+    },
+    "editor": {
+      "placeholder": "Saisissez du Markdown...",
+      "codePlaceholder": "code",
+      "defaultLinkLabel": "lien",
+      "defaultImageAlt": "image",
+      "plainText": "Texte brut"
+    },
+    "internal": {
+      "concurrentEditsOverlap": "Des modifications concurrentes se chevauchent.",
+      "rootNotFound": "Élément racine de Markdown Easy Visual Editor introuvable."
+    }
+  },
+  "de": {
+    "ribbon": {
+      "tabs": {
+        "home": "Start",
+        "insert": "Einfügen",
+        "table": "Tabelle",
+        "view": "Ansicht",
+        "export": "Export",
+        "help": "Hilfe"
+      },
+      "label": "Markdown-Editor",
+      "source": "Quelltext rechts",
+      "sourceTitle": "Markdown-Quelltext rechts anzeigen",
+      "outline": "Gliederung",
+      "outlineTitle": "Übersicht ein-/ausblenden",
+      "search": "Suchen",
+      "split": "Editor und Vorschau",
+      "textOnly": "Nur Text",
+      "previewOnly": "Nur Vorschau",
+      "pin": "Anheften",
+      "unpin": "Lösen",
+      "collapse": "Einklappen",
+      "expand": "Ausklappen",
+      "groups": {
+        "history": "Verlauf",
+        "paragraph": "Absatz",
+        "textFormat": "Textformat",
+        "clear": "Löschen",
+        "basic": "Standard",
+        "block": "Block",
+        "assist": "Hilfen",
+        "rows": "Zeilen",
+        "columns": "Spalten",
+        "alignment": "Ausrichtung",
+        "excel": "Excel",
+        "pane": "Bereich",
+        "pdf": "PDF",
+        "inspection": "Prüfung",
+        "help": "Hilfe"
+      },
+      "labels": {
+        "undo": "Rückgängig",
+        "redo": "Wiederholen",
+        "style": "Stil",
+        "body": "Textkörper",
+        "heading": "Überschrift {level}",
+        "quote": "Zitat",
+        "bulletList": "Aufzählung",
+        "orderedList": "Nummerierte Liste",
+        "taskList": "Aufgabenliste",
+        "indent": "Einrücken",
+        "outdent": "Ausrücken",
+        "bold": "Fett",
+        "italic": "Kursiv",
+        "strike": "Durchgestrichen",
+        "underline": "Unterstrichen",
+        "highlight": "Hervorheben",
+        "code": "Code",
+        "superscript": "Hochgestellt",
+        "subscript": "Tiefgestellt",
+        "clearInline": "Inline-Formatierung löschen",
+        "clearBlock": "Blockformatierung löschen",
+        "clearAll": "Alles löschen",
+        "unlink": "Verknüpfung entfernen",
+        "link": "Link",
+        "image": "Bild",
+        "tableSize": "Tabellengröße",
+        "rows": "Zeilen",
+        "columns": "Spalten",
+        "insertTable": "Tabelle einfügen",
+        "horizontalRule": "Horizontale Linie",
+        "hardBreak": "Zeilenumbruch",
+        "language": "Sprache",
+        "codeBlock": "Codeblock",
+        "math": "Matheformel",
+        "footnote": "Fußnote",
+        "toc": "Inhaltsverzeichnis",
+        "pageBreak": "Seitenumbruch",
+        "emoji": "Emoji",
+        "insertEmoji": "Emoji einfügen",
+        "addBefore": "Davor hinzufügen",
+        "addAfter": "Danach hinzufügen",
+        "addLeft": "Links hinzufügen",
+        "addRight": "Rechts hinzufügen",
+        "deleteRow": "Zeile löschen",
+        "toggleHeader": "Kopfzeile umschalten",
+        "deleteColumn": "Spalte löschen",
+        "alignLeft": "Linksbündig",
+        "alignCenter": "Zentriert",
+        "alignRight": "Rechtsbündig",
+        "alignColumns": "Spalten ausrichten",
+        "cellBreak": "Zeilenumbruch in Zelle",
+        "copyTsv": "Als TSV kopieren",
+        "printPreview": "Druckvorschau",
+        "exportPdf": "Als PDF exportieren",
+        "preflight": "Exportprüfung",
+        "shortcuts": "Tastenkürzel",
+        "features": "Funktionen",
+        "featureDescriptions": {
+          "undo": "Macht die letzte Bearbeitung rückgängig.",
+          "redo": "Stellt eine rückgängig gemachte Bearbeitung wieder her.",
+          "bold": "Formatiert den ausgewählten Text fett.",
+          "italic": "Formatiert den ausgewählten Text kursiv.",
+          "clearInline": "Entfernt die Zeichenformatierung der Auswahl.",
+          "clearBlock": "Entfernt die Formatierung des aktuellen Absatzes.",
+          "link": "Fügt dem ausgewählten Text einen Link hinzu.",
+          "image": "Fügt ein Bild ein und legt Größe und Ausrichtung fest.",
+          "insertTable": "Fügt eine Tabelle mit den angegebenen Zeilen und Spalten ein.",
+          "codeBlock": "Fügt einen Codeblock ein.",
+          "math": "Fügt einen mathematischen Ausdruck ein.",
+          "footnote": "Fügt eine Fußnote ein.",
+          "toc": "Erstellt aus den Überschriften ein Inhaltsverzeichnis.",
+          "addBefore": "Fügt oberhalb der ausgewählten Zeile eine Zeile ein.",
+          "deleteRow": "Löscht die ausgewählte Zeile.",
+          "deleteColumn": "Löscht die ausgewählte Spalte.",
+          "alignLeft": "Richtet den Zellinhalt linksbündig aus.",
+          "alignCenter": "Zentriert den Zellinhalt.",
+          "alignRight": "Richtet den Zellinhalt rechtsbündig aus.",
+          "copyTsv": "Kopiert die Tabelle als TSV.",
+          "outline": "Zeigt die Dokumentübersicht an.",
+          "search": "Sucht und ersetzt Text im Dokument.",
+          "split": "Zeigt Texteditor und Vorschau nebeneinander an.",
+          "textOnly": "Zeigt nur den Texteditor an.",
+          "previewOnly": "Zeigt nur die Vorschau an.",
+          "printPreview": "Zeigt eine Druckvorschau des Dokuments an.",
+          "exportPdf": "Exportiert das Markdown-Dokument als PDF.",
+          "preflight": "Prüft vor dem Export Links, Bilder und andere Ressourcen."
+        },
+        "markdownSupport": "Markdown-Unterstützung",
+        "about": "Über Markdown Easy Visual Editor",
+        "header": "Kopfzeile",
+        "headerPlaceholder": "Kopfzeile eingeben"
+      },
+      "hintZoom": "Strg+Mausrad: vergrößern/verkleinern",
+      "codeLanguages": [
+        {
+          "value": "",
+          "label": "Nur Text"
+        },
+        {
+          "value": "javascript",
+          "label": "JavaScript"
+        },
+        {
+          "value": "typescript",
+          "label": "TypeScript"
+        },
+        {
+          "value": "python",
+          "label": "Python"
+        },
+        {
+          "value": "java",
+          "label": "Java"
+        },
+        {
+          "value": "csharp",
+          "label": "C#"
+        },
+        {
+          "value": "cpp",
+          "label": "C++"
+        },
+        {
+          "value": "go",
+          "label": "Go"
+        },
+        {
+          "value": "rust",
+          "label": "Rust"
+        },
+        {
+          "value": "sql",
+          "label": "SQL"
+        },
+        {
+          "value": "json",
+          "label": "JSON"
+        },
+        {
+          "value": "yaml",
+          "label": "YAML"
+        },
+        {
+          "value": "bash",
+          "label": "Shell"
+        },
+        {
+          "value": "html",
+          "label": "HTML"
+        },
+        {
+          "value": "css",
+          "label": "CSS"
+        },
+        {
+          "value": "powershell",
+          "label": "PowerShell"
+        },
+        {
+          "value": "sql",
+          "label": "SQL"
+        },
+        {
+          "value": "xml",
+          "label": "XML"
+        },
+        {
+          "value": "mermaid",
+          "label": "Mermaid"
+        }
+      ],
+      "snippets": {
+        "mermaid": "\n```mermaid\ngraph TD\n  A[Start] --> B[Ende]\n```\n",
+        "footnote": "[^1]\n\n[^1]: Fußnote",
+        "note": "\n> [!NOTE]\n> Hinweis\n",
+        "warning": "\n> [!WARNING]\n> Warnung\n"
+      }
+    },
+    "app": {
+      "startup": "Markdown Easy Visual Editor wird gestartet...",
+      "outline": "Gliederung",
+      "hideOutline": "Gliederung ausblenden",
+      "showOutline": "Gliederung anzeigen",
+      "outlineWidth": "Breite der Gliederung",
+      "noHeadings": "Keine Überschriften gefunden.",
+      "searchAndReplace": "Suchen und Ersetzen",
+      "searchText": "Suchtext",
+      "replacementText": "Ersatztext",
+      "replacement": "Ersetzen durch",
+      "previousMatch": "Vorheriger Treffer",
+      "nextMatch": "Nächster Treffer",
+      "replaceAll": "Alle ersetzen",
+      "close": "Schließen",
+      "splitBoundary": "Die Auswahl überschreitet die Grenze zwischen Text und Vorschau.",
+      "selectionFormatting": "Formatierung auf Auswahl anwenden",
+      "diagnosticsTitle": "Exportprüfung / Dokumentprobleme",
+      "diagnosticHelp": "Vor dem Export gefundene Probleme können das PDF-Ergebnis beeinflussen. Beheben Sie sie und prüfen Sie erneut.",
+      "noProblems": "Keine Probleme gefunden.",
+      "severity": {
+        "error": "Fehler",
+        "warning": "Warnung",
+        "info": "Information"
+      },
+      "line": "Zeile {line}",
+      "printSettings": "Druckeinstellungen",
+      "printSettingsHelp": "Der Inhalt wird auf der Seite zentriert. Ränder bestimmen den druckbaren Bereich.",
+      "paper": "Papier",
+      "orientation": "Ausrichtung",
+      "portrait": "Hochformat",
+      "landscape": "Querformat",
+      "header": "Kopfzeile",
+      "footer": "Fußzeile",
+      "margins": "Ränder (mm)",
+      "top": "Oben",
+      "right": "Rechts",
+      "bottom": "Unten",
+      "left": "Links",
+      "withoutDialog": "Ohne Systemdialog direkt exportieren",
+      "status": {
+        "modeSplit": "Editor und Vorschau",
+        "modePreview": "Nur Vorschau",
+        "lines": "{count} Zeilen",
+        "textCharacters": "{count} Zeichen",
+        "markdownCharacters": "Markdown: {count} Zeichen",
+        "zoom": "Zoom {percent}%",
+        "syncing": "Synchronisierung...",
+        "synced": "Synchronisiert"
+      },
+      "inspector": {
+        "mermaid": "Mermaid",
+        "math": "Formel",
+        "image": "Bild",
+        "alt": "Alternativtext",
+        "reference": "Referenz",
+        "openFile": "Datei öffnen",
+        "apply": "Anwenden"
+      },
+      "link": {
+        "title": "Link einfügen",
+        "url": "URL",
+        "urlPlaceholder": "https://example.com",
+        "text": "Anzeigetext",
+        "textHint": "Leer lassen, um die aktuelle Auswahl zu verwenden.",
+        "cancel": "Abbrechen",
+        "insert": "Einfügen"
+      },
+      "help": {
+        "shortcuts": "Tastenkürzel",
+        "markdown": "Markdown-Unterstützung",
+        "about": "Über",
+        "shortcutImage": "Bild aus Zwischenablage einfügen",
+        "shortcutTableBreak": "Zeilenumbruch in Tabellenzelle einfügen",
+        "markdownIntro": "Markdown Easy Visual Editor unterstützt CommonMark und GFM.",
+        "markdownFeatures": "Überschriften, Listen, Tabellen, Links, Bilder, Formeln, Mermaid und mehr.",
+        "aboutIntro": "Markdown Easy Visual Editor ist ein Markdown-Editor für VS Code.",
+        "aboutFeatures": "Bearbeitung mit Vorschau, lokalen Bildern und PDF-Export."
+      },
+      "toast": {
+        "imagesSaved": "{count} Bild(er) gespeichert.",
+        "pdfResourceWarnings": "Der PDF-Export fand {count} Ressourcenwarnung(en): {detail}",
+        "preflightSummary": "Exportprüfung: {errors} Fehler, {warnings} Warnungen, {infos} Informationen",
+        "imageSaveFailed": "Bild konnte nicht gespeichert werden: {detail}",
+        "pdfExportFailed": "PDF-Export fehlgeschlagen: {detail}",
+        "resourceCheckFailed": "{prefix}Lokale Ressourcen konnten nicht geprüft werden: {detail}",
+        "operationFailed": "Vorgang fehlgeschlagen: {detail}",
+        "pdfExported": "PDF exportiert: {path}",
+        "tableCellRequired": "Wählen Sie eine Tabellenzelle aus.",
+        "cannotPasteTsv": "TSV kann nicht in die Tabelle eingefügt werden.",
+        "tableCopied": "Tabelle als TSV kopiert.",
+        "cannotCopyTsv": "TSV konnte nicht kopiert werden: {detail}",
+        "cannotCopyTsvEmpty": "TSV konnte nicht kopiert werden.",
+        "workspaceTrustRequired": "Für den PDF-Export ist ein vertrauenswürdiger Arbeitsbereich erforderlich.",
+        "pdfStartedWithDiagnostics": "PDF-Export mit {count} Diagnosefehler(n) gestartet: {detail}",
+        "pdfFallbackToMarkdown": "{prefix}PDF-Export nicht verfügbar; stattdessen wird Markdown exportiert."
+      },
+      "errors": {
+        "ackMismatch": "Die Bestätigung stimmt nicht mit dem ausstehenden Vorgang überein.",
+        "pendingOperationChain": "Vorgang {opId} steht noch aus.",
+        "clipboardUnavailable": "Die Zwischenablage-API ist nicht verfügbar.",
+        "bmpConversion": "BMP konnte nicht in PNG konvertiert werden.",
+        "imageSize": "Das Bild überschreitet die Größenbeschränkung von {maxSizeMb} MB."
+      }
+    },
+    "renderer": {
+      "remoteImageDisabled": "Remote-Bilder sind deaktiviert.",
+      "copy": "Kopieren",
+      "copied": "Kopiert",
+      "pageBreak": "Seitenumbruch",
+      "toc": "Inhaltsverzeichnis",
+      "backToText": "Zurück zum Text",
+      "mathError": "Formel konnte nicht dargestellt werden.",
+      "mermaidError": "Mermaid konnte nicht dargestellt werden.",
+      "alerts": {
+        "note": "Hinweis",
+        "tip": "Tipp",
+        "important": "Wichtig",
+        "warning": "Warnung",
+        "caution": "Achtung"
+      }
+    },
+    "diagnostics": {
+      "unclosedFence": "Der Codeblock {marker} ist nicht geschlossen.",
+      "duplicateHeading": "Die Überschriften-ID {id} ist doppelt vorhanden.",
+      "invalidTableSeparator": "Der Markdown-Tabellentrenner ist ungültig.",
+      "emptyImageAlt": "Der Alternativtext des Bildes ist leer.",
+      "localImageCheck": "Lokales Bild vor dem Export prüfen: {source}",
+      "emptyTableHeader": "Die Markdown-Tabellenkopfzeile ist leer.",
+      "tableColumnMismatch": "Die Spaltenanzahl der Kopfzeile ({header}) und des {kind} ({count}) stimmt nicht überein.",
+      "tableKind": {
+        "separator": "Trenners",
+        "body": "Textkörpers"
+      },
+      "missingReference": "Die Linkreferenz {label} wurde nicht gefunden.",
+      "localResource": {
+        "imageMissing": "Lokales Bild nicht gefunden: {source}{detail}",
+        "imageCheckFailed": "Prüfung des lokalen Bildes fehlgeschlagen: {source}{detail}",
+        "linkMissing": "Lokaler Link nicht gefunden: {source}{detail}",
+        "linkCheckFailed": "Prüfung des lokalen Links fehlgeschlagen: {source}{detail}"
+      }
+    },
+    "host": {
+      "pdfTrustRequired": "Für den PDF-Export ist ein vertrauenswürdiger Arbeitsbereich erforderlich.",
+      "pdfProgress": "Markdown wird als PDF exportiert...",
+      "pdfExported": "PDF exportiert: {path}",
+      "open": "Öffnen",
+      "saveCanceled": "Speichern abgebrochen.",
+      "imageDocumentMustBeSaved": "Speichern Sie das Markdown-Dokument, bevor Sie ein Bild einfügen.",
+      "unsupportedImage": "Nicht unterstütztes Bildformat: {mime}",
+      "invalidImageDirectory": "Das Bildverzeichnis muss ein Ordner neben dem Markdown-Dokument sein.",
+      "pdfBrowserUnavailable": "Kein PDF-Browser verfügbar. Installieren oder konfigurieren Sie Edge oder Chrome.",
+      "errorPrefix": "Markdown Easy Visual Editor",
+      "clientIdMismatch": "Die Webview-Client-ID stimmt nicht mit dem aktiven Client überein."
+    },
+    "editor": {
+      "placeholder": "Markdown eingeben...",
+      "codePlaceholder": "code",
+      "defaultLinkLabel": "Link",
+      "defaultImageAlt": "Bild",
+      "plainText": "Nur Text"
+    },
+    "internal": {
+      "concurrentEditsOverlap": "Gleichzeitige Änderungen überschneiden sich.",
+      "rootNotFound": "Das Markdown-Easy-Visual-Editor-Stammelement wurde nicht gefunden."
+    }
+  },
+  "es": {
+    "ribbon": {
+      "tabs": {
+        "home": "Inicio",
+        "insert": "Insertar",
+        "table": "Tabla",
+        "view": "Vista",
+        "export": "Exportar",
+        "help": "Ayuda"
+      },
+      "label": "Editor de Markdown",
+      "source": "Texto fuente a la derecha",
+      "sourceTitle": "Mostrar el texto Markdown fuente a la derecha",
+      "outline": "Esquema",
+      "outlineTitle": "Mostrar/ocultar el esquema de títulos",
+      "search": "Buscar",
+      "split": "Editor y vista previa",
+      "textOnly": "Solo texto",
+      "previewOnly": "Solo vista previa",
+      "pin": "Fijar",
+      "unpin": "Desfijar",
+      "collapse": "Contraer",
+      "expand": "Expandir",
+      "groups": {
+        "history": "Historial",
+        "paragraph": "Párrafo",
+        "textFormat": "Formato de texto",
+        "clear": "Borrar",
+        "basic": "Básico",
+        "block": "Bloque",
+        "assist": "Asistencia",
+        "rows": "Filas",
+        "columns": "Columnas",
+        "alignment": "Alineación",
+        "excel": "Excel",
+        "pane": "Panel",
+        "pdf": "PDF",
+        "inspection": "Inspección",
+        "help": "Ayuda"
+      },
+      "labels": {
+        "undo": "Deshacer",
+        "redo": "Rehacer",
+        "style": "Estilo",
+        "body": "Cuerpo",
+        "heading": "Encabezado {level}",
+        "quote": "Cita",
+        "bulletList": "Lista con viñetas",
+        "orderedList": "Lista numerada",
+        "taskList": "Lista de tareas",
+        "indent": "Aumentar sangría",
+        "outdent": "Reducir sangría",
+        "bold": "Negrita",
+        "italic": "Cursiva",
+        "strike": "Tachado",
+        "underline": "Subrayado",
+        "highlight": "Resaltar",
+        "code": "Código",
+        "superscript": "Superíndice",
+        "subscript": "Subíndice",
+        "clearInline": "Borrar formato en línea",
+        "clearBlock": "Borrar formato del bloque",
+        "clearAll": "Borrar todo",
+        "unlink": "Quitar vínculo",
+        "link": "Vínculo",
+        "image": "Imagen",
+        "tableSize": "Tamaño de tabla",
+        "rows": "Filas",
+        "columns": "Columnas",
+        "insertTable": "Insertar tabla",
+        "horizontalRule": "Línea horizontal",
+        "hardBreak": "Salto de línea",
+        "language": "Idioma",
+        "codeBlock": "Bloque de código",
+        "math": "Fórmula matemática",
+        "footnote": "Nota al pie",
+        "toc": "Tabla de contenido",
+        "pageBreak": "Salto de página",
+        "emoji": "Emoji",
+        "insertEmoji": "Insertar emoji",
+        "addBefore": "Agregar antes",
+        "addAfter": "Agregar después",
+        "addLeft": "Agregar a la izquierda",
+        "addRight": "Agregar a la derecha",
+        "deleteRow": "Eliminar fila",
+        "toggleHeader": "Alternar encabezado",
+        "deleteColumn": "Eliminar columna",
+        "alignLeft": "Alinear a la izquierda",
+        "alignCenter": "Centrar",
+        "alignRight": "Alinear a la derecha",
+        "alignColumns": "Alinear columnas",
+        "cellBreak": "Salto de celda",
+        "copyTsv": "Copiar como TSV",
+        "printPreview": "Vista previa de impresión",
+        "exportPdf": "Exportar a PDF",
+        "preflight": "Comprobación de exportación",
+        "shortcuts": "Atajos",
+        "features": "Funciones",
+        "featureDescriptions": {
+          "undo": "Deshace la última edición.",
+          "redo": "Rehace una edición deshecha.",
+          "bold": "Aplica negrita al texto seleccionado.",
+          "italic": "Aplica cursiva al texto seleccionado.",
+          "clearInline": "Quita el formato de caracteres de la selección.",
+          "clearBlock": "Quita el formato del párrafo actual.",
+          "link": "Añade un enlace al texto seleccionado.",
+          "image": "Inserta una imagen y establece su tamaño y alineación.",
+          "insertTable": "Inserta una tabla con las filas y columnas indicadas.",
+          "codeBlock": "Inserta un bloque de código.",
+          "math": "Inserta una expresión matemática.",
+          "footnote": "Inserta una nota al pie.",
+          "toc": "Genera un índice a partir de los encabezados.",
+          "addBefore": "Añade una fila encima de la fila seleccionada.",
+          "deleteRow": "Elimina la fila seleccionada.",
+          "deleteColumn": "Elimina la columna seleccionada.",
+          "alignLeft": "Alinea a la izquierda el contenido de las celdas.",
+          "alignCenter": "Centra el contenido de las celdas.",
+          "alignRight": "Alinea a la derecha el contenido de las celdas.",
+          "copyTsv": "Copia la tabla como TSV.",
+          "outline": "Muestra el esquema del documento.",
+          "search": "Busca y reemplaza texto en el documento.",
+          "split": "Muestra el editor de texto y la vista previa lado a lado.",
+          "textOnly": "Muestra solo el editor de texto.",
+          "previewOnly": "Muestra solo la vista previa.",
+          "printPreview": "Previsualiza el documento para imprimirlo.",
+          "exportPdf": "Exporta el documento Markdown como PDF.",
+          "preflight": "Comprueba enlaces, imágenes y otros recursos antes de exportar."
+        },
+        "markdownSupport": "Compatibilidad con Markdown",
+        "about": "Acerca de Markdown Easy Visual Editor",
+        "header": "Encabezado",
+        "headerPlaceholder": "Escribe un encabezado"
+      },
+      "hintZoom": "Ctrl+rueda: acercar/alejar",
+      "codeLanguages": [
+        {
+          "value": "",
+          "label": "Texto sin formato"
+        },
+        {
+          "value": "javascript",
+          "label": "JavaScript"
+        },
+        {
+          "value": "typescript",
+          "label": "TypeScript"
+        },
+        {
+          "value": "python",
+          "label": "Python"
+        },
+        {
+          "value": "java",
+          "label": "Java"
+        },
+        {
+          "value": "csharp",
+          "label": "C#"
+        },
+        {
+          "value": "cpp",
+          "label": "C++"
+        },
+        {
+          "value": "go",
+          "label": "Go"
+        },
+        {
+          "value": "rust",
+          "label": "Rust"
+        },
+        {
+          "value": "sql",
+          "label": "SQL"
+        },
+        {
+          "value": "json",
+          "label": "JSON"
+        },
+        {
+          "value": "yaml",
+          "label": "YAML"
+        },
+        {
+          "value": "bash",
+          "label": "Shell"
+        },
+        {
+          "value": "html",
+          "label": "HTML"
+        },
+        {
+          "value": "css",
+          "label": "CSS"
+        },
+        {
+          "value": "powershell",
+          "label": "PowerShell"
+        },
+        {
+          "value": "sql",
+          "label": "SQL"
+        },
+        {
+          "value": "xml",
+          "label": "XML"
+        },
+        {
+          "value": "mermaid",
+          "label": "Mermaid"
+        }
+      ],
+      "snippets": {
+        "mermaid": "\n```mermaid\ngraph TD\n  A[Inicio] --> B[Fin]\n```\n",
+        "footnote": "[^1]\n\n[^1]: Nota al pie",
+        "note": "\n> [!NOTE]\n> Nota\n",
+        "warning": "\n> [!WARNING]\n> Advertencia\n"
+      }
+    },
+    "app": {
+      "startup": "Iniciando Markdown Easy Visual Editor...",
+      "outline": "Esquema",
+      "hideOutline": "Ocultar esquema",
+      "showOutline": "Mostrar esquema",
+      "outlineWidth": "Ancho del esquema",
+      "noHeadings": "No se encontraron encabezados.",
+      "searchAndReplace": "Buscar y reemplazar",
+      "searchText": "Texto de búsqueda",
+      "replacementText": "Texto de reemplazo",
+      "replacement": "Reemplazar por",
+      "previousMatch": "Coincidencia anterior",
+      "nextMatch": "Coincidencia siguiente",
+      "replaceAll": "Reemplazar todo",
+      "close": "Cerrar",
+      "splitBoundary": "La selección cruza el límite entre el texto y la vista previa.",
+      "selectionFormatting": "Aplicar formato a la selección",
+      "diagnosticsTitle": "Comprobación de exportación / problemas del documento",
+      "diagnosticHelp": "Los problemas detectados antes de exportar pueden afectar al PDF. Corrígelos y vuelve a comprobarlo.",
+      "noProblems": "No se encontraron problemas.",
+      "severity": {
+        "error": "Error",
+        "warning": "Advertencia",
+        "info": "Información"
+      },
+      "line": "Línea {line}",
+      "printSettings": "Configuración de impresión",
+      "printSettingsHelp": "El contenido se centra en la página. Los márgenes controlan el área imprimible.",
+      "paper": "Papel",
+      "orientation": "Orientación",
+      "portrait": "Vertical",
+      "landscape": "Horizontal",
+      "header": "Encabezado",
+      "footer": "Pie de página",
+      "margins": "Márgenes (mm)",
+      "top": "Superior",
+      "right": "Derecho",
+      "bottom": "Inferior",
+      "left": "Izquierdo",
+      "withoutDialog": "Exportar directamente sin mostrar el diálogo del sistema",
+      "status": {
+        "modeSplit": "Editor y vista previa",
+        "modePreview": "Solo vista previa",
+        "lines": "{count} líneas",
+        "textCharacters": "{count} caracteres",
+        "markdownCharacters": "Markdown: {count} caracteres",
+        "zoom": "Zoom {percent}%",
+        "syncing": "Sincronizando...",
+        "synced": "Sincronizado"
+      },
+      "inspector": {
+        "mermaid": "Mermaid",
+        "math": "Fórmula",
+        "image": "Imagen",
+        "alt": "Texto alternativo",
+        "reference": "Referencia",
+        "openFile": "Abrir archivo",
+        "apply": "Aplicar"
+      },
+      "link": {
+        "title": "Insertar vínculo",
+        "url": "URL",
+        "urlPlaceholder": "https://example.com",
+        "text": "Texto mostrado",
+        "textHint": "Déjalo vacío para usar la selección actual.",
+        "cancel": "Cancelar",
+        "insert": "Insertar"
+      },
+      "help": {
+        "shortcuts": "Atajos",
+        "markdown": "Compatibilidad con Markdown",
+        "about": "Acerca de",
+        "shortcutImage": "Insertar imagen desde el portapapeles",
+        "shortcutTableBreak": "Insertar salto en una celda",
+        "markdownIntro": "Markdown Easy Visual Editor es compatible con CommonMark y GFM.",
+        "markdownFeatures": "Encabezados, listas, tablas, vínculos, imágenes, fórmulas, Mermaid y más.",
+        "aboutIntro": "Markdown Easy Visual Editor es un editor Markdown para VS Code.",
+        "aboutFeatures": "Edición con vista previa, imágenes locales y exportación PDF."
+      },
+      "toast": {
+        "imagesSaved": "Se guardaron {count} imagen(es).",
+        "pdfResourceWarnings": "La exportación PDF encontró {count} advertencia(s) de recursos: {detail}",
+        "preflightSummary": "Comprobación de exportación: {errors} error(es), {warnings} advertencia(s), {infos} información",
+        "imageSaveFailed": "No se pudo guardar la imagen: {detail}",
+        "pdfExportFailed": "Error al exportar a PDF: {detail}",
+        "resourceCheckFailed": "{prefix}No se pudieron comprobar los recursos locales: {detail}",
+        "operationFailed": "Error en la operación: {detail}",
+        "pdfExported": "PDF exportado: {path}",
+        "tableCellRequired": "Selecciona una celda de la tabla.",
+        "cannotPasteTsv": "No se puede pegar TSV en la tabla.",
+        "tableCopied": "Tabla copiada como TSV.",
+        "cannotCopyTsv": "No se pudo copiar TSV: {detail}",
+        "cannotCopyTsvEmpty": "No se pudo copiar TSV.",
+        "workspaceTrustRequired": "La exportación PDF requiere un espacio de trabajo de confianza.",
+        "pdfStartedWithDiagnostics": "Exportación PDF iniciada con {count} error(es) de diagnóstico: {detail}",
+        "pdfFallbackToMarkdown": "{prefix}La exportación PDF no está disponible; se exportará Markdown en su lugar."
+      },
+      "errors": {
+        "ackMismatch": "La confirmación no coincide con la operación pendiente.",
+        "pendingOperationChain": "La operación {opId} sigue pendiente.",
+        "clipboardUnavailable": "La API del portapapeles no está disponible.",
+        "bmpConversion": "No se pudo convertir BMP a PNG.",
+        "imageSize": "La imagen supera el límite de {maxSizeMb} MB."
+      }
+    },
+    "renderer": {
+      "remoteImageDisabled": "Las imágenes remotas están desactivadas.",
+      "copy": "Copiar",
+      "copied": "Copiado",
+      "pageBreak": "Salto de página",
+      "toc": "Tabla de contenido",
+      "backToText": "Volver al texto",
+      "mathError": "No se pudo representar la fórmula.",
+      "mermaidError": "No se pudo representar Mermaid.",
+      "alerts": {
+        "note": "Nota",
+        "tip": "Consejo",
+        "important": "Importante",
+        "warning": "Advertencia",
+        "caution": "Precaución"
+      }
+    },
+    "diagnostics": {
+      "unclosedFence": "El bloque de código {marker} no está cerrado.",
+      "duplicateHeading": "El identificador del encabezado {id} está duplicado.",
+      "invalidTableSeparator": "El separador de tabla Markdown no es válido.",
+      "emptyImageAlt": "El texto alternativo de la imagen está vacío.",
+      "localImageCheck": "Comprueba la imagen local antes de exportar: {source}",
+      "emptyTableHeader": "El encabezado de la tabla Markdown está vacío.",
+      "tableColumnMismatch": "El número de columnas del encabezado ({header}) y del {kind} ({count}) no coincide.",
+      "tableKind": {
+        "separator": "separador",
+        "body": "cuerpo"
+      },
+      "missingReference": "No se encontró la referencia del vínculo {label}.",
+      "localResource": {
+        "imageMissing": "No se encontró la imagen local: {source}{detail}",
+        "imageCheckFailed": "Error al comprobar la imagen local: {source}{detail}",
+        "linkMissing": "No se encontró el vínculo local: {source}{detail}",
+        "linkCheckFailed": "Error al comprobar el vínculo local: {source}{detail}"
+      }
+    },
+    "host": {
+      "pdfTrustRequired": "La exportación PDF requiere un espacio de trabajo de confianza.",
+      "pdfProgress": "Exportando Markdown a PDF...",
+      "pdfExported": "PDF exportado: {path}",
+      "open": "Abrir",
+      "saveCanceled": "Guardado cancelado.",
+      "imageDocumentMustBeSaved": "Guarda el documento Markdown antes de insertar una imagen.",
+      "unsupportedImage": "Formato de imagen no compatible: {mime}",
+      "invalidImageDirectory": "El directorio de imágenes debe ser una carpeta junto al documento Markdown.",
+      "pdfBrowserUnavailable": "No hay un navegador PDF disponible. Instala o configura Edge o Chrome.",
+      "errorPrefix": "Markdown Easy Visual Editor",
+      "clientIdMismatch": "El clientId del webview no coincide con el cliente activo."
+    },
+    "editor": {
+      "placeholder": "Escribe Markdown...",
+      "codePlaceholder": "código",
+      "defaultLinkLabel": "vínculo",
+      "defaultImageAlt": "imagen",
+      "plainText": "Texto sin formato"
+    },
+    "internal": {
+      "concurrentEditsOverlap": "Hay cambios simultáneos superpuestos.",
+      "rootNotFound": "No se encontró el elemento raíz de Markdown Easy Visual Editor."
+    }
+  }
+}

@@ -1,0 +1,1342 @@
+/* VS Codeテーマに連動する共通変数とベースフォントを定義する。 */
+:root {
+  color-scheme: light dark;
+  --mve-border: var(--vscode-panel-border, rgba(127, 127, 127, 0.35));
+  --mve-hover: var(--vscode-toolbar-hoverBackground, rgba(127, 127, 127, 0.16));
+  --mve-active: var(--vscode-button-secondaryBackground, rgba(66, 122, 191, 0.28));
+  --mve-panel: var(--vscode-sideBar-background, var(--vscode-editor-background));
+  --mve-ribbon-height: 126px;
+  font-family: var(--vscode-font-family, "Segoe UI", sans-serif);
+}
+
+/* 全要素のボックスサイズを統一する。 */
+* {
+  box-sizing: border-box;
+}
+/* Webviewのルートを画面全体に広げ、外側のスクロールを抑止する。 */
+html, body, #root {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+/* 本文の前景色と背景色をVS Codeテーマに合わせる。 */
+body {
+  color: var(--vscode-editor-foreground);
+  background: var(--vscode-editor-background);
+}
+/* フォーム部品のフォントと文字色を継承する。 */
+button, select, input, textarea {
+  font: inherit;
+  color: inherit;
+}
+/* ボタンを操作可能なカーソルで表示する。 */
+button {
+  cursor: pointer;
+}
+/* 無効化されたボタンを操作不可の見た目にする。 */
+button:disabled {
+  cursor: default;
+  opacity: 0.48;
+}
+
+/* .app の表示とレイアウトを定義する。 */
+.app {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) 24px;
+  height: 100%;
+}
+/* .startup の表示とレイアウトを定義する。 */
+.startup {
+  display: grid;
+  height: 100%;
+  place-items: center;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* リボンのレイアウトと操作状態を整える。 */
+.ribbon {
+  z-index: 20;
+  background: var(--vscode-editorGroupHeader-tabsBackground, var(--vscode-editor-background));
+  border-bottom: 1px solid var(--mve-border);
+  box-shadow: 0 1px 3px rgba(0,0,0,.08);
+  font-size: 12px;
+}
+/* リボンのレイアウトと操作状態を整える。 */
+.ribbon-tabs {
+  display: flex;
+  align-items: stretch;
+  min-height: 30px;
+  padding: 0 5px;
+  border-bottom: 1px solid var(--mve-border);
+}
+/* リボンのレイアウトと操作状態を整える。 */
+.ribbon-tabs button {
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  padding: 5px 10px;
+}
+/* リボンのレイアウトと操作状態を整える。 */
+.ribbon-tabs button:hover {
+  background: var(--mve-hover);
+}
+/* リボンのレイアウトと操作状態を整える。 */
+.ribbon-tabs button.active {
+  border-bottom-color: var(--vscode-focusBorder);
+  color: var(--vscode-textLink-foreground);
+}
+/* リボンのレイアウトと操作状態を整える。 */
+.ribbon-tabs .ribbon-source-button {
+  color: var(--vscode-textLink-foreground);
+  font-weight: 600;
+}
+/* リボンのレイアウトと操作状態を整える。 */
+.ribbon-tabs .ribbon-source-button.active {
+  border-bottom-color: var(--vscode-focusBorder);
+  background: var(--mve-active);
+}
+/* リボンのレイアウトと操作状態を整える。 */
+.ribbon-spacer {
+  flex: 1;
+}
+/* リボンのレイアウトと操作状態を整える。 */
+.ribbon-content {
+  display: flex;
+  align-items: stretch;
+  gap: 2px;
+  min-height: 78px;
+  padding: 4px 6px 2px;
+  overflow-x: auto;
+  overflow-y: hidden;
+}
+/* リボンのレイアウトと操作状態を整える。 */
+.ribbon-group {
+  display: grid;
+  grid-template-rows: 1fr auto;
+  flex: 0 0 auto;
+  min-width: 76px;
+  padding: 0 5px;
+  border-right: 1px solid var(--mve-border);
+}
+/* リボンのレイアウトと操作状態を整える。 */
+.ribbon-controls {
+  display: flex;
+  align-content: flex-start;
+  align-items: stretch;
+  flex-wrap: wrap;
+  gap: 2px;
+  max-width: 330px;
+}
+/* リボンのレイアウトと操作状態を整える。 */
+.ribbon-group-label {
+  align-self: end;
+  padding-top: 3px;
+  text-align: center;
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+}
+/* リボンのレイアウトと操作状態を整える。 */
+.ribbon-tool {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-width: 44px;
+  min-height: 27px;
+  padding: 3px 5px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+  white-space: nowrap;
+}
+/* リボンのレイアウトと操作状態を整える。 */
+.ribbon-tool:hover:not(:disabled) {
+  border-color: var(--mve-border);
+  background: var(--mve-hover);
+}
+/* リボンのレイアウトと操作状態を整える。 */
+.ribbon-tool.active {
+  border-color: var(--vscode-focusBorder);
+  background: var(--mve-active);
+}
+/* リボンのレイアウトと操作状態を整える。 */
+.ribbon-tool small {
+  font-size: 9px;
+  color: var(--vscode-descriptionForeground);
+}
+/* リボンのレイアウトと操作状態を整える。 */
+.ribbon-hint {
+  align-self: center;
+  max-width: 100px;
+  padding: 4px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 10px;
+  white-space: normal;
+}
+/* リボンのレイアウトと操作状態を整える。 */
+.ribbon-select-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px;
+  font-size: 10px;
+  color: var(--vscode-descriptionForeground);
+}
+/* リボンのレイアウトと操作状態を整える。 */
+.ribbon-select-label select {
+  min-width: 90px;
+  height: 26px;
+  border: 1px solid var(--vscode-dropdown-border, var(--mve-border));
+  color: var(--vscode-dropdown-foreground);
+  background: var(--vscode-dropdown-background);
+}
+/* リボンのレイアウトと操作状態を整える。 */
+.ribbon-form {
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+}
+/* リボンのレイアウトと操作状態を整える。 */
+.ribbon-form label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 10px;
+}
+/* リボンのレイアウトと操作状態を整える。 */
+.ribbon-form input, .ribbon-select-label input {
+  width: 76px;
+  height: 26px;
+  padding: 3px 5px;
+  border: 1px solid var(--vscode-input-border, var(--mve-border));
+  color: var(--vscode-input-foreground);
+  background: var(--vscode-input-background);
+}
+/* リボンのレイアウトと操作状態を整える。 */
+.ribbon-form input[type="number"] {
+  width: 48px;
+}
+
+/* 編集領域を横方向のワークスペースとして配置する。 */
+.workspace {
+  display: flex;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+/* アウトラインパネルの配置・サイズ・操作状態を整える。 */
+.outline-panel {
+  flex: 0 0 220px;
+  overflow: auto;
+  background: var(--mve-panel);
+  border-right: 1px solid var(--mve-border);
+}
+/* アウトラインパネルの配置・サイズ・操作状態を整える。 */
+.outline-resizer {
+  flex: 0 0 6px;
+  cursor: col-resize;
+  border-right: 1px solid var(--mve-border);
+  background: var(--vscode-editorGroupHeader-tabsBackground);
+}
+/* アウトラインパネルの配置・サイズ・操作状態を整える。 */
+.outline-resizer:hover, .outline-resizer:focus-visible {
+  outline: none;
+  background: var(--vscode-focusBorder);
+}
+/* アウトラインパネルの配置・サイズ・操作状態を整える。 */
+.outline-reopen {
+  flex: 0 0 22px;
+  align-self: stretch;
+  padding: 0;
+  border: 0;
+  border-right: 1px solid var(--mve-border);
+  color: var(--vscode-descriptionForeground);
+  background: var(--mve-panel);
+  font-size: 18px;
+}
+/* アウトラインパネルの配置・サイズ・操作状態を整える。 */
+.outline-reopen:hover, .outline-reopen:focus-visible {
+  outline: none;
+  color: var(--vscode-foreground);
+  background: var(--mve-hover);
+}
+/* アウトラインパネルの配置・サイズ・操作状態を整える。 */
+.outline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid var(--mve-border);
+}
+/* アウトラインパネルの配置・サイズ・操作状態を整える。 */
+.outline-header h2 {
+  flex: 1;
+}
+/* アウトラインパネルの配置・サイズ・操作状態を整える。 */
+.outline-header button {
+  margin-right: 8px;
+  padding: 2px 7px;
+  border: 1px solid transparent;
+  border-radius: 3px;
+  background: transparent;
+}
+/* アウトラインパネルの配置・サイズ・操作状態を整える。 */
+.outline-header button:hover {
+  border-color: var(--mve-border);
+  background: var(--mve-hover);
+}
+/* アウトラインパネルの配置・サイズ・操作状態を整える。 */
+.outline-panel h2, .panel-title h2 {
+  margin: 0;
+  padding: 10px 12px;
+  font-size: 12px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+/* アウトラインパネルの配置・サイズ・操作状態を整える。 */
+.outline-panel nav {
+  display: flex;
+  flex-direction: column;
+}
+/* アウトラインパネルの配置・サイズ・操作状態を整える。 */
+.outline-panel nav button {
+  overflow: hidden;
+  padding-block: 5px;
+  border: 0;
+  background: transparent;
+  text-align: left;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* アウトラインパネルの配置・サイズ・操作状態を整える。 */
+.outline-panel nav button:hover {
+  background: var(--vscode-list-hoverBackground);
+}
+/* アウトラインパネルの配置・サイズ・操作状態を整える。 */
+.outline-panel p {
+  padding: 0 12px;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* エディター領域をスクロール可能なコンテナとして配置する。 */
+.editor-area {
+  position: relative;
+  flex: 1 1 auto;
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+  background: var(--vscode-editor-background);
+}
+/* 検索パネルと検索結果件数を表示する。 */
+.search-panel {
+  position: absolute;
+  z-index: 25;
+  top: 10px;
+  right: 14px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px;
+  border: 1px solid var(--mve-border);
+  border-radius: 5px;
+  background: var(--vscode-editorWidget-background, var(--vscode-editor-background));
+  box-shadow: 0 5px 18px rgba(0,0,0,.28);
+}
+/* 検索パネルと検索結果件数を表示する。 */
+.search-panel input {
+  width: 170px;
+  padding: 5px 7px;
+  border: 1px solid var(--vscode-input-border, var(--mve-border));
+  color: var(--vscode-input-foreground);
+  background: var(--vscode-input-background);
+}
+/* 検索パネルと検索結果件数を表示する。 */
+.search-panel button {
+  padding: 5px 8px;
+  border: 1px solid var(--mve-border);
+  background: var(--vscode-button-secondaryBackground);
+}
+/* 検索パネルと検索結果件数を表示する。 */
+.search-panel button:hover:not(:disabled) {
+  background: var(--vscode-button-secondaryHoverBackground);
+}
+/* 検索パネルと検索結果件数を表示する。 */
+.search-count {
+  min-width: 34px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+  text-align: center;
+}
+/* CodeMirrorの検索一致箇所を強調表示する。 */
+.cm-search-match {
+  background: color-mix(in srgb, var(--vscode-editor-findMatchBackground, #ffd33d) 55%, transparent);
+  border-bottom: 1px solid var(--vscode-editor-findMatchBorder, #d7a400);
+}
+/* CodeMirrorの検索一致箇所を強調表示する。 */
+.cm-search-match-active {
+  background: var(--vscode-editor-findMatchHighlightBackground, #f6b73c);
+  outline: 1px solid var(--vscode-focusBorder);
+}
+/* テキストとプレビューの分割表示を整える。 */
+.split-editor {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 8px minmax(0, 1fr);
+  width: 100%;
+  height: 100%;
+  min-width: 0;
+  min-height: 0;
+}
+/* テキストとプレビューの分割表示を整える。 */
+.split-source-pane, .split-preview {
+  min-width: 0;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--vscode-editor-background);
+}
+/* テキストとプレビューの分割表示を整える。 */
+.split-source-pane.pane-hidden, .split-preview.pane-hidden {
+  display: none;
+}
+/* テキストとプレビューの分割表示を整える。 */
+.split-divider.pane-hidden {
+  display: none;
+}
+/* テキストとプレビューの分割表示を整える。 */
+.split-source-pane .source-editor {
+  height: 100%;
+}
+/* テキストとプレビューの分割表示を整える。 */
+.split-preview {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  scrollbar-gutter: stable;
+  container-type: inline-size;
+  border-left: 0;
+}
+/* テキストとプレビューの分割表示を整える。 */
+.split-divider {
+  position: relative;
+  z-index: 5;
+  cursor: col-resize;
+  border: 0;
+  border-left: 1px solid var(--mve-border);
+  border-right: 1px solid var(--mve-border);
+  background: var(--vscode-editorGroupHeader-tabsBackground);
+}
+/* テキストとプレビューの分割表示を整える。 */
+.split-divider::after {
+  content: '';
+  position: absolute;
+  inset: 0 2px;
+  background: transparent;
+}
+/* テキストとプレビューの分割表示を整える。 */
+.split-divider:hover, .split-divider:focus-visible {
+  outline: none;
+  background: var(--vscode-focusBorder);
+}
+/* 分割境界のリサイズ中にカーソルと選択状態を固定する。 */
+.mve-resizing-split, .mve-resizing-split * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+/* テキストとプレビューの分割表示を整える。 */
+.split-preview .rendered-markdown, .preview-only {
+  width: 100%;
+  max-width: 900px;
+  min-height: 100%;
+  margin: 0 auto;
+  padding: 24px 42px 80px;
+}
+
+/* 右側にホストエディターを開いたときも、狭いプレビューで余白が本文を圧迫しないようにする。 */
+@container (max-width: 720px) {
+  .split-preview .rendered-markdown {
+    padding-right: 20px;
+    padding-left: 20px;
+  }
+}
+
+/* エディターの可視空白文字を表示する。 */
+.cm-visible-space {
+  position: relative;
+}
+/* エディターの可視空白文字を表示する。 */
+.cm-visible-space::after {
+  content: '·';
+  position: absolute;
+  inset: 0;
+  color: var(--vscode-editorWhitespace-foreground, var(--vscode-descriptionForeground));
+  opacity: .72;
+  font-size: .85em;
+  line-height: inherit;
+  text-align: center;
+  pointer-events: none;
+}
+
+/* Markdownプレビューの本文・見出し・要素を整える。 */
+.rendered-markdown {
+  line-height: 1.72;
+  overflow-wrap: anywhere;
+}
+/* Markdownプレビューの本文・見出し・要素を整える。 */
+.rendered-markdown h1 {
+  margin: 1.5em 0 .7em;
+  padding-bottom: .25em;
+  border-bottom: 2px solid var(--vscode-focusBorder);
+  font-size: 2em;
+}
+/* Markdownプレビューの本文・見出し・要素を整える。 */
+.rendered-markdown h2 {
+  margin: 1.4em 0 .6em;
+  padding-bottom: .2em;
+  border-bottom: 1px solid var(--mve-border);
+  font-size: 1.55em;
+}
+/* Markdownプレビューの本文・見出し・要素を整える。 */
+.rendered-markdown h3 {
+  margin-top: 1.2em;
+  font-size: 1.25em;
+}
+/* Markdownプレビューの本文・見出し・要素を整える。 */
+.rendered-markdown a {
+  color: var(--vscode-textLink-foreground);
+}
+/* Markdownプレビューの本文・見出し・要素を整える。 */
+.rendered-markdown img {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  margin: 12px 0;
+}
+/* Markdownプレビューの本文・見出し・要素を整える。 */
+.rendered-markdown img[data-mve-image-align="left"] {
+  margin-right: auto !important;
+  margin-left: 0 !important;
+}
+/* Markdownプレビューの本文・見出し・要素を整える。 */
+.rendered-markdown img[data-mve-image-align="center"] {
+  margin-right: auto !important;
+  margin-left: auto !important;
+}
+/* Markdownプレビューの本文・見出し・要素を整える。 */
+.rendered-markdown img[data-mve-image-align="right"] {
+  margin-right: 0 !important;
+  margin-left: auto !important;
+}
+/* Markdownプレビューの本文・見出し・要素を整える。 */
+.rendered-markdown table {
+  width: 100%;
+  margin: 14px 0;
+  border-collapse: collapse;
+  table-layout: auto;
+}
+/* Markdownプレビューの本文・見出し・要素を整える。 */
+.rendered-markdown th, .rendered-markdown td {
+  min-width: 60px;
+  padding: 7px 9px;
+  border: 1px solid var(--mve-border);
+  vertical-align: top;
+}
+/* Markdownプレビューの本文・見出し・要素を整える。 */
+.rendered-markdown table th[data-mve-nowrap="true"], .rendered-markdown table td[data-mve-nowrap="true"] {
+  white-space: nowrap;
+}
+/* Markdownプレビューの本文・見出し・要素を整える。 */
+.rendered-markdown th {
+  background: var(--vscode-editor-inactiveSelectionBackground);
+  font-weight: 600;
+}
+/* Markdownプレビューの本文・見出し・要素を整える。 */
+.rendered-markdown blockquote {
+  margin: 1em 0;
+  padding: 7px 14px;
+  border-left: 4px solid var(--vscode-focusBorder);
+  background: var(--vscode-textBlockQuote-background);
+  color: var(--vscode-textBlockQuote-foreground);
+}
+/* Markdownプレビューの本文・見出し・要素を整える。 */
+.rendered-markdown pre {
+  overflow: auto;
+  padding: 12px 14px;
+  border: 1px solid var(--mve-border);
+  border-radius: 5px;
+  background: var(--vscode-textCodeBlock-background);
+}
+/* Markdownプレビューの本文・見出し・要素を整える。 */
+.rendered-markdown code:not(pre code) {
+  padding: 1px 4px;
+  border-radius: 3px;
+  background: var(--vscode-textCodeBlock-background);
+  font-family: var(--vscode-editor-font-family, monospace);
+}
+/* Markdownプレビューの本文・見出し・要素を整える。 */
+.rendered-markdown mark {
+  padding: 0 2px;
+  color: #222;
+  background: #ffe66d;
+}
+/* コードブロックの見出しと本文を整える。 */
+.code-figure {
+  margin: 1em 0;
+}
+/* コードブロックの見出しと本文を整える。 */
+.code-figure figcaption {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--mve-border);
+  border-bottom: 0;
+  border-radius: 5px 5px 0 0;
+  color: var(--vscode-descriptionForeground);
+  background: var(--vscode-editorGroupHeader-tabsBackground);
+}
+/* コードブロックの見出しと本文を整える。 */
+.code-figure figcaption button {
+  border: 0;
+  background: transparent;
+}
+/* コードブロックの見出しと本文を整える。 */
+.code-figure pre {
+  margin-top: 0;
+  border-radius: 0 0 5px 5px;
+}
+/* Mermaid図とエラーメッセージを表示する。 */
+.diagram-block {
+  overflow: auto;
+  padding: 12px;
+  text-align: center;
+}
+/* Mermaid図とエラーメッセージを表示する。 */
+.mermaid-error-message {
+  overflow: auto;
+  margin-top: 8px;
+  padding: 8px;
+  border: 1px solid var(--vscode-inputValidation-errorBorder);
+  color: var(--vscode-errorForeground);
+  background: var(--vscode-inputValidation-errorBackground);
+  text-align: left;
+  white-space: pre-wrap;
+}
+/* 数式ブロックと数式エラーを表示する。 */
+.math-block {
+  display: block;
+  overflow-x: auto;
+  margin: 1em 0;
+  text-align: center;
+}
+/* 数式ブロックと数式エラーを表示する。 */
+.math-error {
+  color: var(--vscode-errorForeground);
+  text-decoration: wavy underline;
+}
+/* 表示できない画像の代替表示を整える。 */
+.blocked-image {
+  display: inline-block;
+  padding: 8px;
+  border: 1px dashed var(--mve-border);
+  color: var(--vscode-descriptionForeground);
+}
+/* 画像フレームのサイズ変更・配置・操作UIを整える。 */
+.mve-image-frame {
+  position: relative;
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  margin: 12px 0;
+}
+/* 画像フレームのサイズ変更・配置・操作UIを整える。 */
+.mve-image-frame[data-mve-image-align="left"] {
+  margin-right: auto;
+  margin-left: 0;
+}
+/* 画像フレームのサイズ変更・配置・操作UIを整える。 */
+.mve-image-frame[data-mve-image-align="center"] {
+  margin-right: auto;
+  margin-left: auto;
+}
+/* 画像フレームのサイズ変更・配置・操作UIを整える。 */
+.mve-image-frame[data-mve-image-align="right"] {
+  margin-right: 0;
+  margin-left: auto;
+}
+/* 画像フレームのサイズ変更・配置・操作UIを整える。 */
+.mve-image-frame > img, .mve-image-frame > picture {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  margin: 0;
+}
+/* 画像フレームのサイズ変更・配置・操作UIを整える。 */
+.mve-image-frame > picture {
+  display: block;
+}
+/* 画像フレームのサイズ変更・配置・操作UIを整える。 */
+.mve-image-frame > picture > img {
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  margin: 0;
+}
+/* 画像フレームのサイズ変更・配置・操作UIを整える。 */
+.mve-image-badge {
+  position: absolute;
+  z-index: 2;
+  top: 4px;
+  right: 4px;
+  padding: 1px 5px;
+  border: 1px solid var(--mve-border);
+  border-radius: 3px;
+  color: var(--vscode-badge-foreground);
+  background: var(--vscode-badge-background);
+  font-size: 10px;
+  line-height: 1.4;
+  opacity: .82;
+  pointer-events: none;
+}
+/* 画像フレームのサイズ変更・配置・操作UIを整える。 */
+.mve-image-handle {
+  position: absolute;
+  z-index: 3;
+  right: -5px;
+  bottom: -5px;
+  width: 14px;
+  height: 14px;
+  padding: 0;
+  border: 1px solid var(--vscode-focusBorder);
+  border-radius: 3px;
+  background: var(--vscode-button-background);
+  cursor: nwse-resize;
+  opacity: 0;
+}
+/* 画像フレームのサイズ変更・配置・操作UIを整える。 */
+.mve-image-handle::after {
+  content: '';
+  position: absolute;
+  right: 2px;
+  bottom: 2px;
+  width: 5px;
+  height: 5px;
+  border-right: 2px solid var(--vscode-button-foreground);
+  border-bottom: 2px solid var(--vscode-button-foreground);
+}
+/* 画像フレームのサイズ変更・配置・操作UIを整える。 */
+.mve-image-frame:hover .mve-image-handle, .mve-image-frame.is-resizing .mve-image-handle {
+  opacity: 1;
+}
+/* 画像フレームのサイズ変更・配置・操作UIを整える。 */
+.mve-image-align-actions {
+  position: absolute;
+  z-index: 3;
+  top: 4px;
+  left: 4px;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+}
+/* 画像フレームのサイズ変更・配置・操作UIを整える。 */
+.mve-image-frame:hover .mve-image-align-actions, .mve-image-frame.is-resizing .mve-image-align-actions {
+  opacity: 1;
+}
+/* 画像フレームのサイズ変更・配置・操作UIを整える。 */
+.mve-image-align-button {
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--mve-border);
+  border-radius: 3px;
+  color: var(--vscode-button-foreground);
+  background: var(--vscode-button-background);
+  font-size: 10px;
+  line-height: 1;
+}
+/* 画像フレームのサイズ変更・配置・操作UIを整える。 */
+.mve-image-align-button[data-active="true"] {
+  border-color: var(--vscode-focusBorder);
+  outline: 1px solid var(--vscode-focusBorder);
+}
+/* 画像フレームのサイズ変更・配置・操作UIを整える。 */
+.mve-image-reset {
+  position: absolute;
+  z-index: 3;
+  top: 4px;
+  left: 78px;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1px solid var(--mve-border);
+  border-radius: 3px;
+  color: var(--vscode-button-foreground);
+  background: var(--vscode-button-background);
+  line-height: 1;
+  opacity: 0;
+}
+/* 画像フレームのサイズ変更・配置・操作UIを整える。 */
+.mve-image-frame:hover .mve-image-reset {
+  opacity: 1;
+}
+/* 画像フレームのサイズ変更・配置・操作UIを整える。 */
+.mve-image-frame.is-resizing, .mve-image-frame.is-resizing * {
+  user-select: none !important;
+}
+/* 改ページ位置をプレビュー上で示す。 */
+.page-break {
+  height: 12px;
+  margin: 30px 0;
+  border-top: 2px dashed var(--vscode-descriptionForeground);
+}
+/* 改ページ位置をプレビュー上で示す。 */
+.page-break::after {
+  content: attr(aria-label);
+  position: relative;
+  top: -11px;
+  padding: 0 8px;
+  color: var(--vscode-descriptionForeground);
+  background: var(--vscode-editor-background);
+  font-size: 10px;
+}
+/* 目次の枠と階層表示を整える。 */
+.table-of-contents {
+  padding: 12px 16px;
+  border: 1px solid var(--mve-border);
+  border-radius: 5px;
+}
+/* 目次の枠と階層表示を整える。 */
+.table-of-contents ul {
+  margin-bottom: 0;
+  padding-left: 0;
+  list-style: none;
+}
+/* 目次の見出しレベルごとのインデントを設定する。 */
+.toc-level-2 {
+  padding-left: 16px;
+}
+/* 目次の第3レベルをさらにインデントする。 */
+.toc-level-3 {
+  padding-left: 32px;
+}
+/* 目次の第4レベルをさらにインデントする。 */
+.toc-level-4 {
+  padding-left: 48px;
+}
+/* Markdownアラートの表示と種類別の色を整える。 */
+.markdown-alert {
+  margin: 1em 0;
+  padding: 9px 14px;
+  border-left: 4px solid var(--vscode-focusBorder);
+  background: var(--vscode-editor-inactiveSelectionBackground);
+}
+/* Markdownアラートの表示と種類別の色を整える。 */
+.alert-warning, .alert-caution {
+  border-left-color: var(--vscode-notificationsWarningIcon-foreground);
+}
+
+/* インスペクター・診断・PDF設定パネルを整える。 */
+.inspector-panel, .diagnostics-panel, .pdf-settings-panel {
+  flex: 0 0 330px;
+  overflow: auto;
+  padding: 0 12px 24px;
+  border-left: 1px solid var(--mve-border);
+  background: var(--mve-panel);
+}
+/* 各パネルのタイトル行と閉じる操作を整える。 */
+.panel-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 0 -12px 10px;
+  border-bottom: 1px solid var(--mve-border);
+}
+/* 各パネルのタイトル行と閉じる操作を整える。 */
+.panel-title button {
+  margin-right: 8px;
+  border: 0;
+  background: transparent;
+}
+/* インスペクター・診断・PDF設定パネルを整える。 */
+.inspector-panel textarea {
+  width: 100%;
+  min-height: 170px;
+  resize: vertical;
+  padding: 8px;
+  border: 1px solid var(--vscode-input-border, var(--mve-border));
+  color: var(--vscode-input-foreground);
+  background: var(--vscode-input-background);
+  font-family: var(--vscode-editor-font-family, monospace);
+}
+/* インスペクター・診断・PDF設定パネルを整える。 */
+.inspector-panel img {
+  max-width: 100%;
+  max-height: 240px;
+  object-fit: contain;
+}
+/* インスペクター・診断・PDF設定パネルを整える。 */
+.inspector-panel label, .pdf-settings-panel label {
+  display: grid;
+  gap: 4px;
+  margin: 10px 0;
+}
+/* インスペクター・診断・PDF設定パネルを整える。 */
+.inspector-panel input, .pdf-settings-panel input, .pdf-settings-panel select {
+  width: 100%;
+  padding: 5px;
+  border: 1px solid var(--vscode-input-border, var(--mve-border));
+  color: var(--vscode-input-foreground);
+  background: var(--vscode-input-background);
+}
+/* インスペクター・診断・PDF設定パネルを整える。 */
+.pdf-margin-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0 8px;
+  margin: 12px 0;
+  padding: 0 8px 8px;
+  border: 1px solid var(--mve-border);
+}
+/* インスペクター・診断・PDF設定パネルを整える。 */
+.pdf-margin-fields legend {
+  padding: 0 4px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+}
+/* インスペクター・診断・PDF設定パネルを整える。 */
+.pdf-margin-fields label {
+  margin: 6px 0;
+}
+/* インスペクター・診断・PDF設定パネルを整える。 */
+.pdf-checkbox {
+  display: flex !important;
+  grid-template-columns: auto 1fr;
+  align-items: center;
+  gap: 7px !important;
+}
+/* インスペクター・診断・PDF設定パネルを整える。 */
+.pdf-checkbox input {
+  width: auto;
+}
+/* インスペクター・診断・PDF設定パネルを整える。 */
+.inspector-preview {
+  max-height: 280px;
+  overflow: auto;
+  margin: 10px 0;
+  padding: 8px;
+  border: 1px solid var(--mve-border);
+  background: var(--vscode-editor-background);
+}
+/* 主要操作ボタンをVS Codeのボタン配色で表示する。 */
+.primary {
+  padding: 6px 12px;
+  border: 1px solid var(--vscode-button-border, transparent);
+  color: var(--vscode-button-foreground);
+  background: var(--vscode-button-background);
+}
+/* 文書診断の項目と状態表示を整える。 */
+.diagnostic {
+  display: grid;
+  gap: 3px;
+  margin: 7px 0;
+  padding: 8px;
+  border-left: 3px solid var(--vscode-descriptionForeground);
+  background: var(--vscode-editor-inactiveSelectionBackground);
+}
+/* エラー診断の境界色を設定する。 */
+.diagnostic.error {
+  border-color: var(--vscode-errorForeground);
+}
+/* 警告診断の境界色を設定する。 */
+.diagnostic.warning {
+  border-color: var(--vscode-notificationsWarningIcon-foreground);
+}
+/* 文書診断の項目と状態表示を整える。 */
+.diagnostic-summary {
+  margin: 8px 0 4px;
+  font-weight: 600;
+}
+/* 文書診断の項目と状態表示を整える。 */
+.diagnostic-help {
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+}
+/* 文書診断の項目と状態表示を整える。 */
+.diagnostic-location {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  color: var(--vscode-textLink-foreground);
+  background: transparent;
+  font-size: 11px;
+}
+
+/* ステータスバーの情報を右寄せで表示する。 */
+.status-bar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 14px;
+  padding: 0 10px;
+  color: var(--vscode-statusBar-foreground);
+  background: var(--vscode-statusBar-background);
+  font-size: 11px;
+}
+/* 操作結果の通知トーストを表示する。 */
+.toast {
+  position: fixed;
+  z-index: 100;
+  right: 18px;
+  bottom: 38px;
+  max-width: 560px;
+  padding: 9px 14px;
+  border: 1px solid var(--mve-border);
+  border-radius: 5px;
+  color: var(--vscode-notifications-foreground);
+  background: var(--vscode-notifications-background);
+  box-shadow: 0 5px 18px rgba(0,0,0,.28);
+}
+/* ダイアログ表示時の背景を覆う。 */
+.modal-backdrop {
+  position: fixed;
+  z-index: 90;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  background: rgba(0,0,0,.45);
+}
+/* ヘルプと機能一覧のダイアログを整える。 */
+.help-dialog {
+  width: min(620px, calc(100vw - 40px));
+  max-height: calc(100vh - 60px);
+  overflow: auto;
+  padding: 0 18px 20px;
+  border: 1px solid var(--mve-border);
+  border-radius: 7px;
+  background: var(--vscode-editor-background);
+  box-shadow: 0 12px 40px rgba(0,0,0,.4);
+}
+/* リンク設定ダイアログを整える。 */
+.link-dialog {
+  width: min(520px, calc(100vw - 40px));
+}
+/* リンク設定ダイアログを整える。 */
+.link-dialog label {
+  display: grid;
+  gap: 5px;
+  margin: 14px 0;
+  color: var(--vscode-descriptionForeground);
+  font-size: 12px;
+}
+/* リンク設定ダイアログを整える。 */
+.link-dialog input {
+  width: 100%;
+  padding: 7px 8px;
+  border: 1px solid var(--vscode-input-border, var(--mve-border));
+  color: var(--vscode-input-foreground);
+  background: var(--vscode-input-background);
+}
+/* ダイアログの操作ボタンを配置する。 */
+.dialog-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 18px;
+}
+/* ダイアログの操作ボタンを配置する。 */
+.dialog-actions button {
+  padding: 6px 12px;
+  border: 1px solid var(--mve-border);
+  background: var(--vscode-button-secondaryBackground);
+}
+/* ショートカット表の罫線を重ねて表示する。 */
+.help-dialog table {
+  border-collapse: collapse;
+}
+/* ショートカット表のセル間隔と罫線を設定する。 */
+.help-dialog th, .help-dialog td {
+  padding: 5px 8px;
+  border: 1px solid var(--mve-border);
+  text-align: left;
+}
+/* ヘルプと機能一覧のダイアログを整える。 */
+.feature-list {
+  display: grid;
+  gap: 10px;
+}
+/* ヘルプと機能一覧のダイアログを整える。 */
+.feature-list section {
+  padding: 8px 10px;
+  border: 1px solid var(--mve-border);
+  border-radius: 4px;
+  background: var(--vscode-editorGroupHeader-tabsBackground);
+}
+/* ヘルプと機能一覧のダイアログを整える。 */
+.feature-list h3 {
+  margin: 0 0 4px;
+  font-size: 12px;
+}
+/* ヘルプと機能一覧のダイアログを整える。 */
+.feature-list ul {
+  display: grid;
+  gap: 4px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+/* ヘルプと機能一覧のダイアログを整える。 */
+.feature-list li {
+  display: grid;
+  grid-template-columns: minmax(110px, max-content) 1fr;
+  gap: 10px;
+  line-height: 1.5;
+}
+/* ヘルプと機能一覧のダイアログを整える。 */
+.feature-list li strong {
+  color: var(--vscode-foreground);
+}
+/* ヘルプと機能一覧のダイアログを整える。 */
+.feature-list li span {
+  color: var(--vscode-descriptionForeground);
+}
+/* PDF出力用の描画領域を画面外に配置する。 */
+.export-stage {
+  position: fixed;
+  left: -20000px;
+  top: 0;
+  width: 794px;
+  pointer-events: none;
+}
+
+/* 印刷プレビュー時の画面と用紙を整える。 */
+.print-preview-mode .editor-area {
+  background: #e5e7eb;
+}
+/* 印刷プレビュー時の画面と用紙を整える。 */
+.print-preview-mode .preview-only {
+  width: min(794px, calc(100vw - 48px));
+  max-width: 794px;
+  min-height: 1123px;
+  margin: 24px auto;
+  padding: 56px 58px 72px;
+  color: #202124;
+  background: #fff;
+  box-shadow: 0 4px 18px rgba(0,0,0,.2);
+}
+/* 印刷プレビュー時の画面と用紙を整える。 */
+.print-preview-mode .pdf-settings-panel {
+  background: var(--mve-panel);
+}
+/* インスペクター・診断・PDF設定パネルを整える。 */
+.pdf-preview-shell {
+  min-width: max-content;
+  padding: 24px 32px 48px;
+  color: #202124;
+  background: #e5e7eb;
+}
+/* インスペクター・診断・PDF設定パネルを整える。 */
+.pdf-preview-sheet {
+  position: relative;
+  box-sizing: border-box;
+  margin: 0 auto;
+  color: #202124;
+  background: #fff;
+  box-shadow: 0 4px 18px rgba(0,0,0,.2);
+}
+/* インスペクター・診断・PDF設定パネルを整える。 */
+.pdf-preview-content {
+  max-width: none;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  color: #202124;
+}
+/* PDF.js表示中もDOMプレビューを保持し、本文のアンカーを壊さない。 */
+.pdf-preview-dom-layer.is-hidden,
+.pdf-preview-pdf-layer.is-hidden {
+  position: absolute;
+  top: 0;
+  left: -20000px;
+  visibility: hidden;
+  pointer-events: none;
+}
+/* PDF.jsは画面外へ移さず透明状態で先に描画し、描画完了後だけDOM版と入れ替える。 */
+.pdf-preview-pdf-layer.is-preparing {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+/* 生成済みPDFのページを実際のページ比率で縦に並べる。 */
+.pdf-pages {
+  padding: 24px 32px 48px;
+}
+/* 生成済みPDFのページを用紙として表示する。 */
+.pdf-page {
+  position: relative;
+  width: min(100%, 794px);
+  margin: 0 auto 24px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 4px 18px rgba(0,0,0,.2);
+}
+/* PDF.jsのキャンバスはPDFの実寸比率を維持して表示する。 */
+.pdf-page canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+/* 近傍ページだけを遅延描画して大規模文書の初回表示を軽くする。 */
+.pdf-page-waiting canvas,
+.pdf-page-rendering canvas {
+  opacity: 0;
+}
+/* PDF生成・PDFページ描画中の状態を表示する。 */
+.pdf-preview-status,
+.pdf-preview-loading,
+.pdf-preview-error,
+.pdf-page-error {
+  color: var(--vscode-descriptionForeground);
+  text-align: center;
+}
+.pdf-preview-status {
+  margin: 0 0 8px;
+}
+/* PDFページ描画失敗をページ内に表示する。 */
+.pdf-page-error {
+  position: absolute;
+  inset: 50% 0 auto;
+  transform: translateY(-50%);
+}
+/* インスペクター・診断・PDF設定パネルを整える。 */
+.pdf-preview-header, .pdf-preview-footer {
+  color: #666;
+  font-size: 8pt;
+  white-space: pre-wrap;
+}
+/* インスペクター・診断・PDF設定パネルを整える。 */
+.pdf-preview-header {
+  margin-bottom: 12px;
+  text-align: left;
+}
+/* インスペクター・診断・PDF設定パネルを整える。 */
+.pdf-preview-footer {
+  margin-top: 12px;
+  text-align: center;
+}
+/* インスペクター・診断・PDF設定パネルを整える。 */
+.pdf-preview-note {
+  max-width: 900px;
+  margin: 12px auto 0;
+  color: var(--vscode-descriptionForeground);
+  font-size: 11px;
+  text-align: center;
+}
+/* 印刷プレビュー時の画面と用紙を整える。 */
+.print-preview-mode .pdf-preview-content {
+  width: auto;
+  max-width: none;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+}
+/* アウトライン幅のリサイズ中にカーソルと選択状態を固定する。 */
+.mve-resizing-outline, .mve-resizing-outline * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+/* コードブロック内のキーワード・セレクター・リテラルを着色する。 */
+.hljs-keyword, .hljs-selector-tag, .hljs-literal {
+  color: #c586c0;
+}
+/* コードブロック内の文字列と属性を着色する。 */
+.hljs-string, .hljs-attr {
+  color: #ce9178;
+}
+/* コードブロック内のタイトルとセクションを着色する。 */
+.hljs-title, .hljs-section {
+  color: #dcdcaa;
+}
+/* コードブロック内のコメントを着色する。 */
+.hljs-comment {
+  color: #6a9955;
+}
+/* コードブロック内の数値を着色する。 */
+.hljs-number {
+  color: #b5cea8;
+}
+
+/* 画面幅に応じたレスポンシブ表示を設定する。 */
+@media (max-width: 850px) {
+/* アウトラインパネルの配置・サイズ・操作状態を整える。 */
+  .outline-panel {
+    display: none;
+  }
+/* テキストとプレビューの分割表示を整える。 */
+  .split-editor {
+    grid-template-columns: 1fr !important;
+    grid-template-rows: minmax(280px, 1fr) 8px minmax(280px, 1fr);
+  }
+/* テキストとプレビューの分割表示を整える。 */
+  .split-divider {
+    cursor: row-resize;
+    border-top: 1px solid var(--mve-border);
+    border-right: 0;
+    border-bottom: 1px solid var(--mve-border);
+    border-left: 0;
+  }
+/* インスペクター・診断・PDF設定パネルを整える。 */
+  .inspector-panel, .diagnostics-panel, .pdf-settings-panel {
+    position: absolute;
+    z-index: 30;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    width: min(360px, 90vw);
+  }
+/* リボンのレイアウトと操作状態を整える。 */
+  .ribbon-group {
+    min-width: 72px;
+  }
+}
+
+/* 画面幅に応じたレスポンシブ表示を設定する。 */
+@media print {
+/* リボンのレイアウトと操作状態を整える。 */
+  .ribbon, .outline-panel, .outline-resizer, .outline-reopen, .status-bar, .inspector-panel, .diagnostics-panel, .pdf-settings-panel, .search-panel {
+    display: none !important;
+  }
+/* .app, .workspace, .editor-area の表示とレイアウトを定義する。 */
+  .app, .workspace, .editor-area {
+    display: block !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+/* インスペクター・診断・PDF設定パネルを整える。 */
+  .pdf-preview-shell {
+    padding: 0;
+    background: #fff;
+  }
+/* インスペクター・診断・PDF設定パネルを整える。 */
+  .pdf-preview-sheet {
+    margin: 0;
+    box-shadow: none;
+    break-after: page;
+  }
+/* インスペクター・診断・PDF設定パネルを整える。 */
+  .pdf-preview-note {
+    display: none;
+  }
+/* 印刷プレビュー時の画面と用紙を整える。 */
+  .print-preview-mode .preview-only {
+    width: auto;
+    min-height: 0;
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+  }
+}

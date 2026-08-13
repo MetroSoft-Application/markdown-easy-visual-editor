@@ -1,0 +1,275 @@
+{
+  "name": "markdown-easy-visual-editor",
+  "displayName": "Markdown Easy Visual Editor",
+  "description": "A visual Markdown editor for VS Code with live preview, source editing, formatting tools, image support, and PDF export.",
+  "version": "1.0.0",
+  "publisher": "MetroSoft-Application",
+  "icon": "resources/icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MetroSoft-Application/markdown-easy-visual-editor.git"
+  },
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "categories": [
+    "Other",
+    "Visualization"
+  ],
+  "keywords": [
+    "markdown",
+    "custom editor",
+    "preview",
+    "mermaid",
+    "pdf"
+  ],
+  "main": "./dist/extension.js",
+  "activationEvents": [
+    "onCustomEditor:markdownEasyVisualEditor.editor"
+  ],
+  "extensionKind": [
+    "ui"
+  ],
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": "limited",
+      "description": "%capabilities.untrusted.description%"
+    },
+    "virtualWorkspaces": {
+      "supported": false,
+      "description": "%capabilities.virtual.description%"
+    }
+  },
+  "contributes": {
+    "customEditors": [
+      {
+        "viewType": "markdownEasyVisualEditor.editor",
+        "displayName": "%customEditor.displayName%",
+        "selector": [
+          {
+            "filenamePattern": "*.md"
+          },
+          {
+            "filenamePattern": "*.markdown"
+          }
+        ],
+        "priority": "option"
+      }
+    ],
+    "commands": [
+      {
+        "command": "markdownEasyVisualEditor.openVisual",
+        "title": "%command.openVisual%"
+      },
+      {
+        "command": "markdownEasyVisualEditor.openSource",
+        "icon": "$(open-preview)",
+        "title": "%command.openSource%"
+      },
+      {
+        "command": "markdownEasyVisualEditor.insertImage",
+        "title": "%command.insertImage%"
+      },
+      {
+        "command": "markdownEasyVisualEditor.exportPdf",
+        "title": "%command.exportPdf%"
+      },
+      {
+        "command": "markdownEasyVisualEditor.undo",
+        "title": "%command.undo%"
+      },
+      {
+        "command": "markdownEasyVisualEditor.redo",
+        "title": "%command.redo%"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "markdownEasyVisualEditor.openSource",
+          "when": "activeCustomEditor == markdownEasyVisualEditor.editor",
+          "group": "navigation@1"
+        },
+        {
+          "command": "markdownEasyVisualEditor.exportPdf",
+          "when": "activeCustomEditor == markdownEasyVisualEditor.editor",
+          "group": "navigation@1"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "markdownEasyVisualEditor.openVisual",
+          "when": "resourceExtname == .md || resourceExtname == .markdown",
+          "group": "navigation@1"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "markdownEasyVisualEditor.openVisual",
+          "when": "resourceExtname == .md || resourceExtname == .markdown",
+          "group": "navigation@1"
+        }
+      ],
+      "editor/title/context": [
+        {
+          "command": "markdownEasyVisualEditor.openVisual",
+          "when": "resourceExtname == .md || resourceExtname == .markdown",
+          "group": "navigation@1"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "markdownEasyVisualEditor.undo",
+          "when": "false"
+        },
+        {
+          "command": "markdownEasyVisualEditor.redo",
+          "when": "false"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "key": "ctrl+z",
+        "command": "markdownEasyVisualEditor.undo",
+        "when": "activeCustomEditor == markdownEasyVisualEditor.editor && !inputFocus"
+      },
+      {
+        "key": "ctrl+y",
+        "command": "markdownEasyVisualEditor.redo",
+        "when": "activeCustomEditor == markdownEasyVisualEditor.editor && !inputFocus"
+      },
+      {
+        "key": "ctrl+shift+z",
+        "command": "markdownEasyVisualEditor.redo",
+        "when": "activeCustomEditor == markdownEasyVisualEditor.editor && !inputFocus"
+      },
+      {
+        "key": "cmd+z",
+        "command": "markdownEasyVisualEditor.undo",
+        "when": "activeCustomEditor == markdownEasyVisualEditor.editor && !inputFocus"
+      },
+      {
+        "key": "cmd+y",
+        "command": "markdownEasyVisualEditor.redo",
+        "when": "activeCustomEditor == markdownEasyVisualEditor.editor && !inputFocus"
+      },
+      {
+        "key": "cmd+shift+z",
+        "command": "markdownEasyVisualEditor.redo",
+        "when": "activeCustomEditor == markdownEasyVisualEditor.editor && !inputFocus"
+      }
+    ],
+    "configuration": {
+      "title": "%configuration.title%",
+      "properties": {
+        "markdownEasyVisualEditor.language": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "ja",
+            "en",
+            "zh-cn",
+            "ko",
+            "fr",
+            "de",
+            "es"
+          ],
+          "default": "auto",
+          "description": "%configuration.language.description%",
+          "enumDescriptions": [
+            "%configuration.language.auto%",
+            "%configuration.language.ja%",
+            "%configuration.language.en%",
+            "%configuration.language.zh-cn%",
+            "%configuration.language.ko%",
+            "%configuration.language.fr%",
+            "%configuration.language.de%",
+            "%configuration.language.es%"
+          ]
+        },
+        "markdownEasyVisualEditor.images.directory": {
+          "type": "string",
+          "default": "assets/${documentBasename}",
+          "description": "%configuration.images.directory.description%"
+        },
+        "markdownEasyVisualEditor.images.maxPasteSizeMb": {
+          "type": "number",
+          "default": 100,
+          "minimum": 1,
+          "maximum": 200,
+          "description": "%configuration.images.maxPasteSizeMb.description%"
+        },
+        "markdownEasyVisualEditor.remoteImages.enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "%configuration.remoteImages.enabled.description%"
+        },
+        "markdownEasyVisualEditor.mermaid.theme": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "default",
+            "dark",
+            "neutral"
+          ],
+          "default": "auto",
+          "description": "%configuration.mermaid.theme.description%"
+        },
+        "markdownEasyVisualEditor.pdf.browserPath": {
+          "type": "string",
+          "default": "",
+          "scope": "machine",
+          "description": "%configuration.pdf.browserPath.description%"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "build": "node scripts/build.mjs",
+    "watch": "node scripts/build.mjs --watch",
+    "check": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.webview.json --noEmit",
+    "test": "vitest run",
+    "test:extension": "npm run build && node scripts/test-extension-host.mjs",
+    "test:smoke": "node scripts/smoke-fast.mjs",
+    "test:smoke-build": "npm run build && npm run test:smoke",
+    "test:sample-matrix": "node scripts/sample-matrix.mjs",
+    "test:pdf-preview": "npm run build && node scripts/pdf-preview-smoke.mjs",
+    "test:watch": "vitest",
+    "pdf:install-browser": "node scripts/install-pdf-browser.mjs",
+    "package": "npm run check && npm test && npm run build && vsce package --target win32-x64 --no-dependencies --allow-missing-repository --out markdown-easy-visual-editor-0.1.0-win32-x64.vsix"
+  },
+  "dependencies": {
+    "@codemirror/commands": "^6.10.1",
+    "@codemirror/lang-markdown": "^6.5.2",
+    "@codemirror/state": "^6.5.2",
+    "@codemirror/view": "^6.43.8",
+    "@fontsource/noto-sans-jp": "^5.3.0",
+    "@fontsource/noto-sans-mono": "^5.3.0",
+    "chromium-bidi": "0.5.22",
+    "dompurify": "^3.4.13",
+    "highlight.js": "^11.11.1",
+    "katex": "^0.16.25",
+    "marked": "^18.0.9",
+    "mermaid": "^11.16.1",
+    "pdfjs-dist": "^6.2.108",
+    "playwright-core": "^1.62.1",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "turndown": "^7.2.4",
+    "turndown-plugin-gfm": "^1.0.2",
+    "yaml": "^2.8.1"
+  },
+  "devDependencies": {
+    "@types/node": "^24.3.0",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@types/turndown": "^5.0.5",
+    "@types/vscode": "^1.100.0",
+    "@vscode/vsce": "^3.9.2",
+    "esbuild": "^0.28.2",
+    "typescript": "^7.0.2",
+    "vitest": "^4.1.0"
+  }
+}
