@@ -34,18 +34,18 @@
   "capabilities": {
     "untrustedWorkspaces": {
       "supported": "limited",
-      "description": "%capabilities.untrusted.description%"
+      "description": "PDF export is disabled until the workspace is trusted."
     },
     "virtualWorkspaces": {
       "supported": false,
-      "description": "%capabilities.virtual.description%"
+      "description": "Local image assets and PDF export require a filesystem-backed workspace."
     }
   },
   "contributes": {
     "customEditors": [
       {
         "viewType": "markdownEasyVisualEditor.editor",
-        "displayName": "%customEditor.displayName%",
+        "displayName": "Markdown Easy Visual Editor",
         "selector": [
           {
             "filenamePattern": "*.md"
@@ -60,28 +60,28 @@
     "commands": [
       {
         "command": "markdownEasyVisualEditor.openVisual",
-        "title": "%command.openVisual%"
+        "title": "Markdown Easy Visual Editor: Open in visual editor"
       },
       {
         "command": "markdownEasyVisualEditor.openSource",
         "icon": "$(open-preview)",
-        "title": "%command.openSource%"
+        "title": "Markdown Easy Visual Editor: Open as text on the right"
       },
       {
         "command": "markdownEasyVisualEditor.insertImage",
-        "title": "%command.insertImage%"
+        "title": "Markdown Easy Visual Editor: Insert image"
       },
       {
         "command": "markdownEasyVisualEditor.exportPdf",
-        "title": "%command.exportPdf%"
+        "title": "Markdown Easy Visual Editor: Export PDF"
       },
       {
         "command": "markdownEasyVisualEditor.undo",
-        "title": "%command.undo%"
+        "title": "Markdown Easy Visual Editor: Undo"
       },
       {
         "command": "markdownEasyVisualEditor.redo",
-        "title": "%command.redo%"
+        "title": "Markdown Easy Visual Editor: Redo"
       }
     ],
     "menus": {
@@ -162,7 +162,7 @@
       }
     ],
     "configuration": {
-      "title": "%configuration.title%",
+      "title": "Markdown Easy Visual Editor",
       "properties": {
         "markdownEasyVisualEditor.language": {
           "type": "string",
@@ -177,34 +177,34 @@
             "es"
           ],
           "default": "auto",
-          "description": "%configuration.language.description%",
+          "description": "UI and message language. auto follows VS Code's display language.",
           "enumDescriptions": [
-            "%configuration.language.auto%",
-            "%configuration.language.ja%",
-            "%configuration.language.en%",
-            "%configuration.language.zh-cn%",
-            "%configuration.language.ko%",
-            "%configuration.language.fr%",
-            "%configuration.language.de%",
-            "%configuration.language.es%"
+            "Follow VS Code display language",
+            "Japanese",
+            "English",
+            "Chinese (Simplified)",
+            "Korean",
+            "French",
+            "German",
+            "Spanish"
           ]
         },
         "markdownEasyVisualEditor.images.directory": {
           "type": "string",
           "default": "assets/${documentBasename}",
-          "description": "%configuration.images.directory.description%"
+          "description": "Directory for images saved from Markdown files. You can use ${documentBasename}."
         },
         "markdownEasyVisualEditor.images.maxPasteSizeMb": {
           "type": "number",
           "default": 100,
           "minimum": 1,
           "maximum": 200,
-          "description": "%configuration.images.maxPasteSizeMb.description%"
+          "description": "Maximum size (MB) per pasted image."
         },
         "markdownEasyVisualEditor.remoteImages.enabled": {
           "type": "boolean",
           "default": true,
-          "description": "%configuration.remoteImages.enabled.description%"
+          "description": "Allow remote images to be displayed."
         },
         "markdownEasyVisualEditor.mermaid.theme": {
           "type": "string",
@@ -215,13 +215,13 @@
             "neutral"
           ],
           "default": "auto",
-          "description": "%configuration.mermaid.theme.description%"
+          "description": "Theme for the Mermaid preview."
         },
         "markdownEasyVisualEditor.pdf.browserPath": {
           "type": "string",
           "default": "",
           "scope": "machine",
-          "description": "%configuration.pdf.browserPath.description%"
+          "description": "Chromium/Edge executable for PDF export. Leave empty to detect the bundled browser or Edge."
         }
       }
     }
