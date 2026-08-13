@@ -267,6 +267,15 @@ describe('Markdown structures', () => {
     ]);
   });
 
+  it('does not treat footnote definitions as local link resources', () => {
+    const references = collectLocalResourceReferences([
+      '本文[^source]。',
+      '',
+      '[^source]: サンプル用の脚注本文です。実文書では規格番号や設計判断を記載します。'
+    ].join('\n'));
+    expect(references).toEqual([]);
+  });
+
   it('handles nested and multiline destinations, reference usages, containers, and comments', () => {
     const references = collectLocalResourceReferences([
       '[括弧](docs/spec(1).md)',

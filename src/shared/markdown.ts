@@ -1309,7 +1309,7 @@ function findInlineResourceClose(source: string, start: number): number {
 function parseLocalResourceDefinition(line: string): { kind: 'image' | 'link'; label: string; source: string } | undefined {
     const candidate = stripResourceContainerPrefix(line);
     const match = /^(!?)\[([^\]]*)\]:\s*(<[^>\r\n]+>|[^\s]+)(?:\s+.*)?$/u.exec(candidate);
-    if (!match) return undefined;
+    if (!match || match[2].startsWith('^')) return undefined;
     return {
         kind: match[1] ? 'image' : 'link',
         label: match[2],

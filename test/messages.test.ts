@@ -41,4 +41,19 @@ describe('message language resolution', () => {
       expect(walk(localeCatalog[language]).sort(), language).toEqual(baseKeys);
     }
   });
+
+  it('keeps the English catalog free of Japanese and CJK text', () => {
+    const cjk = (value: string): boolean => Array.from(value).some((character) => {
+      const codePoint = character.codePointAt(0) ?? 0;
+      return (codePoint >= 0x3040 && codePoint <= 0x30ff)
+        || (codePoint >= 0x3400 && codePoint <= 0x9fff);
+    });
+    const findCjk = (value: unknown, prefix = ''): string[] => {
+      if (typeof value === 'string') return cjk(value) ? [prefix] : [];
+      if (!value || typeof value !== 'object') return [];
+      return Object.entries(value).flatMap(([key, child]) => findCjk(child, prefix ? `${prefix}.${key}` : key));
+    };
+
+    expect(findCjk(localeCatalog.en)).toEqual([]);
+  });
 });
