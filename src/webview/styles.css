@@ -1132,7 +1132,8 @@ button:disabled {
 }
 /* インスペクター・診断・PDF設定パネルを整える。 */
 .pdf-preview-shell {
-  min-width: max-content;
+  width: 100%;
+  min-width: 0;
   padding: 24px 32px 48px;
   color: #202124;
   background: #e5e7eb;
