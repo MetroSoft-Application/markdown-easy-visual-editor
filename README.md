@@ -122,7 +122,6 @@ The renderer follows CommonMark and GitHub Flavored Markdown (GFM) conventions a
 
 For example, a Mermaid diagram can be written as:
 
-![demo3](./resources/demo3.gif)
 ```mermaid
 graph TD
   A[Start] --> B[Done]
