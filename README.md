@@ -139,7 +139,7 @@ flowchart TD
 
 Use **Preflight check** before exporting to review missing local images, missing local links, invalid tables, and other document issues that may affect the result.
 
-PDF export requires a trusted workspace and a Chromium-based browser. The extension first looks for its bundled browser and then for Microsoft Edge. If no browser is detected, set **Markdown Easy Visual Editor: PDF Browser Path** in VS Code settings to the executable path of Edge or Chrome.
+PDF export requires a trusted workspace and Microsoft Edge or Google Chrome. The extension first tries Microsoft Edge and then Google Chrome. If neither browser is detected, set **Markdown Easy Visual Editor: PDF Browser Path** in VS Code settings to the executable path of Edge or Chrome.
 
 ## Settings
 
@@ -167,7 +167,7 @@ Open VS Code Settings and search for **Markdown Easy Visual Editor**.
 
 ### PDF export is unavailable
 
-Trust the current workspace, then try **Export > Print preview** again. If the browser cannot be found, set **PDF: Browser Path** to a Chromium, Microsoft Edge, or Google Chrome executable.
+Trust the current workspace, then try **Export > Print preview** again. If Edge and Chrome cannot be found, set **PDF: Browser Path** to the executable path of either browser.
 
 ### The PDF contains missing images or links
 

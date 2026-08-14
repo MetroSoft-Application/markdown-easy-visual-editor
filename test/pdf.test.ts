@@ -52,8 +52,6 @@ describe('PDF local images', () => {
     await fs.copyFile(path.resolve('sample/assets/local-sample.svg'), imagePath);
     const documentPath = path.join(directory, 'document.md');
     const documentUri = new TestUri('file', documentPath.replace(/\\/g, '/'), documentPath);
-    const extensionPath = path.resolve('.');
-    const extensionUri = new TestUri('file', extensionPath.replace(/\\/g, '/'), extensionPath);
     const html = '<p>画像</p><img src="assets/local-sample.svg" data-original-src="assets/local-sample.svg" alt="画像">';
     const request = {
       html,
@@ -67,7 +65,6 @@ describe('PDF local images', () => {
         saveWithoutDialog: true
       },
       documentUri,
-      extensionUri,
       language: 'en'
     } as unknown as PdfExportRequest;
 

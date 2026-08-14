@@ -10,7 +10,6 @@ export interface PdfExportRequest {
   css: string;
   options: PdfOptions;
   documentUri: vscode.Uri;
-  extensionUri: vscode.Uri;
   language: SupportedLanguage;
   signal?: AbortSignal;
 }
@@ -53,7 +52,7 @@ export async function exportPdf(request: PdfExportRequest): Promise<vscode.Uri |
 export async function renderPdf(request: PdfExportRequest): Promise<Buffer> {
   const html = await buildStandaloneHtml(request);
   if (request.signal?.aborted) throw new Error('PDF preview render was canceled.');
-  const browser = await acquirePdfBrowser(request.extensionUri, request.language);
+  const browser = await acquirePdfBrowser(request.language);
   const context = await browser.newContext({ javaScriptEnabled: false });
   const abortContext = () => { void context.close().catch(() => undefined); };
   request.signal?.addEventListener('abort', abortContext, { once: true });
@@ -107,10 +106,10 @@ export async function closePdfBrowser(): Promise<void> {
 }
 
 /** PDFプレビューの連続要求でChromiumを毎回起動しないよう、ブラウザプロセスを共有する。 */
-async function acquirePdfBrowser(extensionUri: vscode.Uri, language: SupportedLanguage): Promise<Browser> {
+async function acquirePdfBrowser(language: SupportedLanguage): Promise<Browser> {
   if (sharedBrowser?.isConnected()) return sharedBrowser;
   if (!sharedBrowserPromise) {
-    sharedBrowserPromise = launchPdfBrowser(extensionUri, language).then((browser) => {
+    sharedBrowserPromise = launchPdfBrowser(language).then((browser) => {
       sharedBrowser = browser;
       browser.on('disconnected', () => {
         if (sharedBrowser === browser) sharedBrowser = undefined;
@@ -250,51 +249,26 @@ function resolveLocalImageUri(documentUri: vscode.Uri, source: string): vscode.U
 }
 
 /**
- * 設定値・同梱ブラウザ・Edgeの順にPDF出力用ブラウザを起動する。
- * @param extensionUri 拡張機能のルートURI。
+ * 設定値・Edge・Chromeの順にPDF出力用ブラウザを起動する。
  * @returns 起動したPlaywrightブラウザ。
  * @throws 利用可能なブラウザを起動できない場合。
  */
-async function launchPdfBrowser(extensionUri: vscode.Uri, language: SupportedLanguage): Promise<Browser> {
-  // Playwrightを遅延ロードし、設定・同梱ブラウザ・Edgeの順にPDF用ブラウザを探す。
+async function launchPdfBrowser(language: SupportedLanguage): Promise<Browser> {
+  // Playwrightを遅延ロードし、設定・Edge・Chromeの順にPDF用ブラウザを探す。
   const { chromium } = await import('playwright-core');
   const configured = vscode.workspace.getConfiguration('markdownEasyVisualEditor').get<string>('pdf.browserPath', '').trim();
   if (configured) return chromium.launch({ executablePath: configured, headless: true });
 
-  const bundledRoot = vscode.Uri.joinPath(extensionUri, '.chromium').fsPath;
-  const bundled = (await findFile(bundledRoot, 'chrome-headless-shell.exe')) ?? (await findFile(bundledRoot, 'chrome.exe'));
-  if (bundled) return chromium.launch({ executablePath: bundled, headless: true });
-
   try {
     return await chromium.launch({ channel: 'msedge', headless: true });
-  } catch (error) {
-    console.error('[Markdown Easy Visual Editor] PDF用ブラウザの起動に失敗しました。', error);
-    throw new Error(getMessages(language).host.pdfBrowserUnavailable);
-  }
-}
-
-/**
- * 指定ディレクトリ以下を再帰検索し、名前が一致するファイルのパスを返す。
- * @param root 検索を開始するディレクトリ。
- * @param name 探すファイル名。
- * @returns 一致したファイルのパス。読み取り失敗または未発見時はundefined。
- */
-async function findFile(root: string, name: string): Promise<string | undefined> {
-  // ディレクトリを再帰的に走査し、指定名と一致する最初のファイルを返す。
-  try {
-    const entries = await fs.readdir(root, { withFileTypes: true });
-    for (const entry of entries) {
-      const candidate = path.join(root, entry.name);
-      if (entry.isFile() && entry.name.toLowerCase() === name.toLowerCase()) return candidate;
-      if (entry.isDirectory()) {
-        const nested = await findFile(candidate, name);
-        if (nested) return nested;
-      }
+  } catch (edgeError) {
+    try {
+      return await chromium.launch({ channel: 'chrome', headless: true });
+    } catch (chromeError) {
+      console.error('[Markdown Easy Visual Editor] EdgeとChromeの起動に失敗しました。', { edgeError, chromeError });
+      throw new Error(getMessages(language).host.pdfBrowserUnavailable);
     }
-  } catch {
-    return undefined;
   }
-  return undefined;
 }
 
 /**

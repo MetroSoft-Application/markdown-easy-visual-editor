@@ -45,7 +45,7 @@ VS Code拡張ホスト側で実行されるコードです。VS Code API、フ�
 - [`pdf.ts`](./extension/pdf.ts)
   - Webviewから受け取ったHTMLを単独のPDF出力用HTMLに組み立てる。
   - ローカル画像を読み込み、データURLとして埋め込む。
-  - SVGやHTMLの危険な要素を除去し、Playwright／Chromium／Edgeを使ってPDFを生成する。
+  - SVGやHTMLの危険な要素を除去し、PlaywrightとEdgeまたはChromeを使ってPDFを生成する。
 
 ### `shared/`
 
@@ -237,4 +237,3 @@ npm run build   # 拡張機能のビルド
 | Markdownの編集操作 | [`shared/markdown.ts`](./shared/markdown.ts)、[`webview/SourceEditor.tsx`](./webview/SourceEditor.tsx) |
 | Markdownの表示 | [`webview/markdownRenderer.ts`](./webview/markdownRenderer.ts)、[`webview/RenderedMarkdown.tsx`](./webview/RenderedMarkdown.tsx) |
 | PDF出力 | [`extension/pdf.ts`](./extension/pdf.ts)、`App.tsx` |
-

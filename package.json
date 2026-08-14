@@ -221,7 +221,7 @@
           "type": "string",
           "default": "",
           "scope": "machine",
-          "description": "Chromium/Edge executable for PDF export. Leave empty to detect the bundled browser or Edge."
+          "description": "Edge or Chrome executable for PDF export. Leave empty to detect Edge, then Chrome."
         }
       }
     }

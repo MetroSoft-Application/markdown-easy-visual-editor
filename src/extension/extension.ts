@@ -274,7 +274,6 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
                 css: message.css,
                 options: message.options,
                 documentUri: document.uri,
-                extensionUri: this.context.extensionUri,
                 language: this.getLanguage()
               })
           );
@@ -308,7 +307,6 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
               css: message.css,
               options: message.options,
               documentUri: document.uri,
-              extensionUri: this.context.extensionUri,
               language: this.getLanguage(),
               signal: controller.signal
             });

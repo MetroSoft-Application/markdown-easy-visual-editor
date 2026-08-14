@@ -21,7 +21,4 @@ node_modules/**
 *.vsix
 dist/*.log
 dist/*.png
-.chromium/.links/**
-.chromium/chromium-*/**
-.chromium/ffmpeg-*/**
-.chromium/winldd-*/**
+.chromium/**
