@@ -2,6 +2,8 @@
 
 Markdown Easy Visual Editor is a VS Code extension for writing Markdown with a live visual preview. Your document remains Markdown, so you can edit the source directly while reviewing the rendered result beside it.
 
+<img src="resources\image1.png" alt="image" width="800">
+
 ## Features
 
 - Edit Markdown and preview the result side by side.
@@ -47,6 +49,8 @@ The ribbon is organized into tabs so common actions are easy to find.
 
 ### Home
 
+![demo1](resources\demo1.gif)
+
 Apply headings, quotes, bullet lists, numbered lists, task lists, indentation, and text formatting such as bold, italic, strikethrough, underline, highlight, inline code, superscript, and subscript.
 
 ### Insert
@@ -78,6 +82,8 @@ Open **Shortcuts** for the built-in keyboard shortcut list, or open **Features**
 ## Images
 
 ### Insert an image
+
+![demo2](resources\demo2.gif)
 
 Save the Markdown document first, then use any of these methods while the source editor is editable:
 
@@ -116,7 +122,7 @@ The renderer follows CommonMark and GitHub Flavored Markdown (GFM) conventions a
 
 For example, a Mermaid diagram can be written as:
 
-```markdown
+![demo3](resources\demo3.gif)
 ```mermaid
 graph TD
   A[Start] --> B[Done]
@@ -129,6 +135,8 @@ flowchart TD
 
 ## Preview and export to PDF
 
+![demo3](resources\demo3.gif)
+
 1. Open the **Export** tab.
 2. Choose **Print preview**.
 3. Select the paper size: A4, A3, or Letter.
@@ -137,9 +145,9 @@ flowchart TD
 6. Choose **Export PDF**.
 7. Select the destination, or enable **Export to the same folder without a dialog** in the print settings.
 
-Use **Preflight check** before exporting to review missing local images, missing local links, invalid tables, and other document issues that may affect the result.
-
-PDF export requires a trusted workspace and Microsoft Edge or Google Chrome. The extension first tries Microsoft Edge and then Google Chrome. If neither browser is detected, set **Markdown Easy Visual Editor: PDF Browser Path** in VS Code settings to the executable path of Edge or Chrome.
+- Use **Preflight check** before exporting to review missing local images, missing local links, invalid tables, and other document issues that may affect the result.\
+![demo4](resources\demo4.gif)
+- PDF export requires a trusted workspace and Microsoft Edge or Google Chrome. The extension first tries Microsoft Edge and then Google Chrome. If neither browser is detected, set **Markdown Easy Visual Editor: PDF Browser Path** in VS Code settings to the executable path of Edge or Chrome.
 
 ## Settings
 
