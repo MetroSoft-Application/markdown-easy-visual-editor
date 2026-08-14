@@ -1120,17 +1120,6 @@ button:disabled {
   background: #e5e7eb;
 }
 /* 印刷プレビュー時の画面と用紙を整える。 */
-.print-preview-mode .preview-only {
-  width: min(794px, calc(100vw - 48px));
-  max-width: 794px;
-  min-height: 1123px;
-  margin: 24px auto;
-  padding: 56px 58px 72px;
-  color: #202124;
-  background: #fff;
-  box-shadow: 0 4px 18px rgba(0,0,0,.2);
-}
-/* 印刷プレビュー時の画面と用紙を整える。 */
 .print-preview-mode .pdf-settings-panel {
   background: var(--mve-panel);
 }
@@ -1176,16 +1165,19 @@ button:disabled {
   font-size: 12px;
   text-align: center;
 }
-/* インスペクター・診断・PDF設定パネルを整える。 */
-.pdf-preview-sheet {
-  position: relative;
-  box-sizing: border-box;
+/* 実PDFの生成中も本文をすぐ表示するライブプレビュー領域。改ページの確定値は実PDF側を使用する。 */
+.pdf-preview-live-layer {
+  width: 100%;
+  max-width: 900px;
   margin: 0 auto;
+}
+.pdf-preview-live-content {
+  box-sizing: border-box;
+  padding: 24px 42px 80px;
   color: #202124;
   background: #fff;
   box-shadow: 0 4px 18px rgba(0,0,0,.2);
 }
-/* インスペクター・診断・PDF設定パネルを整える。 */
 .pdf-preview-content {
   max-width: none;
   min-height: 0;
@@ -1193,16 +1185,21 @@ button:disabled {
   padding: 0;
   color: #202124;
 }
-/* PDF.js表示中もDOMプレビューを保持し、本文のアンカーを壊さない。 */
-.pdf-preview-dom-layer.is-hidden,
-.pdf-preview-pdf-layer.is-hidden {
-  position: absolute;
-  top: 0;
-  left: -20000px;
-  visibility: hidden;
-  pointer-events: none;
+/* ライブプレビューのヘッダー・フッターを整える。 */
+.pdf-preview-header, .pdf-preview-footer {
+  color: #666;
+  font-size: 8pt;
+  white-space: pre-wrap;
 }
-/* PDF.jsは画面外へ移さず透明状態で先に描画し、描画完了後だけDOM版と入れ替える。 */
+.pdf-preview-header {
+  margin-bottom: 12px;
+  text-align: left;
+}
+.pdf-preview-footer {
+  margin-top: 12px;
+  text-align: center;
+}
+/* PDF.jsを透明状態で先に描画し、描画完了後に実PDFページを表示する。 */
 .pdf-preview-pdf-layer.is-preparing {
   position: absolute;
   inset: 0;
@@ -1251,36 +1248,12 @@ button:disabled {
   transform: translateY(-50%);
 }
 /* インスペクター・診断・PDF設定パネルを整える。 */
-.pdf-preview-header, .pdf-preview-footer {
-  color: #666;
-  font-size: 8pt;
-  white-space: pre-wrap;
-}
-/* インスペクター・診断・PDF設定パネルを整える。 */
-.pdf-preview-header {
-  margin-bottom: 12px;
-  text-align: left;
-}
-/* インスペクター・診断・PDF設定パネルを整える。 */
-.pdf-preview-footer {
-  margin-top: 12px;
-  text-align: center;
-}
-/* インスペクター・診断・PDF設定パネルを整える。 */
 .pdf-preview-note {
   max-width: 900px;
   margin: 12px auto 0;
   color: var(--vscode-descriptionForeground);
   font-size: 11px;
   text-align: center;
-}
-/* 印刷プレビュー時の画面と用紙を整える。 */
-.print-preview-mode .pdf-preview-content {
-  width: auto;
-  max-width: none;
-  min-height: 0;
-  margin: 0;
-  padding: 0;
 }
 /* アウトライン幅のリサイズ中にカーソルと選択状態を固定する。 */
 .mve-resizing-outline, .mve-resizing-outline * {
@@ -1365,24 +1338,16 @@ button:disabled {
     background: #fff;
   }
 /* インスペクター・診断・PDF設定パネルを整える。 */
-  .pdf-preview-sheet {
-    margin: 0;
-    box-shadow: none;
-    break-after: page;
-  }
-/* インスペクター・診断・PDF設定パネルを整える。 */
   .pdf-preview-note {
     display: none;
   }
   .pdf-preview-toolbar {
     display: none;
   }
-/* 印刷プレビュー時の画面と用紙を整える。 */
-  .print-preview-mode .preview-only {
-    width: auto;
-    min-height: 0;
-    margin: 0;
-    padding: 0;
+  .pdf-preview-live-layer {
+    max-width: none;
+  }
+  .pdf-preview-live-content {
     box-shadow: none;
   }
 }

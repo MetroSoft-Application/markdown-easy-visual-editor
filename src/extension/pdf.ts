@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import type { Browser } from 'playwright-core';
+import type { Browser, BrowserContext } from 'playwright-core';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import type { PdfOptions } from '../shared/protocol';
@@ -11,11 +11,18 @@ export interface PdfExportRequest {
   options: PdfOptions;
   documentUri: vscode.Uri;
   language: SupportedLanguage;
+  purpose?: 'preview' | 'export';
   signal?: AbortSignal;
 }
 
 let sharedBrowser: Browser | undefined;
 let sharedBrowserPromise: Promise<Browser> | undefined;
+const PDF_ASSET_TIMEOUT_MS = 5_000;
+const PDF_PREVIEW_ASSET_TIMEOUT_MS = 1_000;
+const PDF_BROWSER_LAUNCH_TIMEOUT_MS = 5_000;
+const PDF_PREVIEW_RENDER_TIMEOUT_MS = 10_000;
+const PDF_EXPORT_RENDER_TIMEOUT_MS = 60_000;
+const PDF_CONTEXT_CLOSE_TIMEOUT_MS = 2_000;
 
 /**
  * Markdown本文をPDFへ出力し、保存されたPDFのURIを返す。
@@ -50,52 +57,188 @@ export async function exportPdf(request: PdfExportRequest): Promise<vscode.Uri |
  * @returns 生成済みPDFのバッファ。
  */
 export async function renderPdf(request: PdfExportRequest): Promise<Buffer> {
-  const html = await buildStandaloneHtml(request);
-  if (request.signal?.aborted) throw new Error('PDF preview render was canceled.');
-  const browser = await acquirePdfBrowser(request.language);
-  const context = await browser.newContext({ javaScriptEnabled: false });
-  const abortContext = () => { void context.close().catch(() => undefined); };
+  const startedAt = Date.now();
+  const deadlineAt = startedAt + (request.purpose === 'preview'
+    ? PDF_PREVIEW_RENDER_TIMEOUT_MS
+    : PDF_EXPORT_RENDER_TIMEOUT_MS);
+  const previewLog = request.purpose === 'preview'
+    ? (stage: string) => console.info(`[Markdown Easy Visual Editor] PDF preview ${stage} (${Date.now() - startedAt}ms)`)
+    : undefined;
+  const html = await withRenderControl(
+    () => buildStandaloneHtml(request),
+    request.signal,
+    deadlineAt,
+    'HTML build'
+  );
+  previewLog?.(`HTML ready: ${html.length} chars`);
+  const browser = await withRenderControl(
+    () => acquirePdfBrowser(request.language),
+    request.signal,
+    deadlineAt,
+    'browser launch'
+  );
+  previewLog?.('browser ready');
+  let context: BrowserContext | undefined;
+  let closePromise: Promise<void> | undefined;
+  const closeContext = (): Promise<void> => {
+    if (!context) return Promise.resolve();
+    if (!closePromise) closePromise = closePdfContext(context);
+    return closePromise;
+  };
+  const abortContext = () => { void closeContext(); };
   request.signal?.addEventListener('abort', abortContext, { once: true });
   try {
-    if (request.signal?.aborted) throw new Error('PDF preview render was canceled.');
-    const page = await context.newPage();
+    context = await withRenderControl(
+      () => browser.newContext({ javaScriptEnabled: false }),
+      request.signal,
+      deadlineAt,
+      'browser context',
+      abortContext,
+      (lateContext) => closePdfContext(lateContext)
+    );
+    const page = await withRenderControl(
+      () => context!.newPage(),
+      request.signal,
+      deadlineAt,
+      'new page',
+      abortContext,
+      () => closeContext()
+    );
+    const assetTimeoutMs = request.purpose === 'preview'
+      ? PDF_PREVIEW_ASSET_TIMEOUT_MS
+      : PDF_ASSET_TIMEOUT_MS;
+    await withRenderControl(
+      () => page.route('**/*', async (route) => {
+      const resource = route.request();
+      if (resource.resourceType() !== 'image' || !/^https?:/i.test(resource.url())) {
+        await route.continue();
+        return;
+      }
+      try {
+        const response = await route.fetch({ timeout: assetTimeoutMs });
+        await route.fulfill({ response });
+      } catch {
+        // 応答しないリモート画像はPDF全体を止めず、欠損画像として扱う。
+        await route.abort('timedout').catch(() => undefined);
+      }
+      }),
+      request.signal,
+      deadlineAt,
+      'route setup',
+      abortContext
+    );
     // 印刷用メディアと指定されたページ設定を適用してPDFを書き出す。
-    await page.setContent(html, { waitUntil: 'load' });
-    await page.emulateMedia({ media: 'print' });
-    await page.evaluate(`(async () => {
-      await document.fonts.ready;
-      await Promise.race([
-        Promise.all(Array.from(document.images).map((image) => image.complete
-          ? Promise.resolve()
-          : new Promise((resolve) => {
-            image.addEventListener('load', () => resolve(), { once: true });
-            image.addEventListener('error', () => resolve(), { once: true });
-          }))),
-        new Promise((resolve) => setTimeout(resolve, 5000))
-      ]);
-    })()`);
+    // 外部画像のloadを待つと、応答しないリモート画像でsetContent自体が無期限に止まる。
+    // DOMの構築完了後に、フォント・画像だけを別途まとめて有限時間待つ。
+    await withRenderControl(
+      () => page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 10_000 }),
+      request.signal,
+      deadlineAt,
+      'DOM load',
+      abortContext
+    );
+    previewLog?.('DOM ready');
+    await withRenderControl(
+      () => page.emulateMedia({ media: 'print' }),
+      request.signal,
+      deadlineAt,
+      'print media',
+      abortContext
+    );
+    // DOMContentLoaded後も、正常なローカル画像は読み込み完了まで待つ。
+    // リモート画像は上のrouteで同じ時間内に成功または中断する。
+    await withRenderControl(
+      () => page.waitForLoadState('load', { timeout: assetTimeoutMs }).catch(() => undefined),
+      request.signal,
+      deadlineAt,
+      'asset load',
+      abortContext
+    );
+    previewLog?.('assets ready');
     const options = request.options;
-    return await page.pdf({
-      format: options.format,
-      landscape: options.orientation === 'landscape',
-      printBackground: true,
-      preferCSSPageSize: false,
-      margin: {
-        top: `${options.margins.top}mm`,
-        right: `${options.margins.right}mm`,
-        bottom: `${options.margins.bottom}mm`,
-        left: `${options.margins.left}mm`
-      },
-      displayHeaderFooter: Boolean(options.header || options.footer),
-      headerTemplate: template(options.header),
-      footerTemplate: template(options.footer, true),
-      tagged: true,
-      outline: true
-    });
+    const pdf = await withRenderControl(
+      () => page.pdf({
+        format: options.format,
+        landscape: options.orientation === 'landscape',
+        printBackground: true,
+        preferCSSPageSize: false,
+        margin: {
+          top: `${options.margins.top}mm`,
+          right: `${options.margins.right}mm`,
+          bottom: `${options.margins.bottom}mm`,
+          left: `${options.margins.left}mm`
+        },
+        displayHeaderFooter: Boolean(options.header || options.footer),
+        headerTemplate: template(options.header),
+        footerTemplate: template(options.footer, true),
+        tagged: request.purpose !== 'preview',
+        outline: request.purpose !== 'preview'
+      }),
+      request.signal,
+      deadlineAt,
+      'PDF generation',
+      abortContext
+    );
+    previewLog?.(`PDF ready: ${pdf.length} bytes`);
+    return pdf;
   } finally {
     request.signal?.removeEventListener('abort', abortContext);
-    await context.close();
+    await closeContext();
   }
+}
+
+/** PDF生成の各段階を中断・期限管理し、遅れて完了したリソースも解放する。 */
+async function withRenderControl<T>(
+  operationFactory: () => Promise<T>,
+  signal: AbortSignal | undefined,
+  deadlineAt: number,
+  stage: string,
+  onCancel?: () => void,
+  lateCleanup?: (value: T) => void
+): Promise<T> {
+  if (signal?.aborted) throw new Error('PDF preview render was canceled.');
+  const remainingMs = deadlineAt - Date.now();
+  if (remainingMs <= 0) throw new Error(`PDF ${stage} timed out.`);
+
+  const operation = Promise.resolve().then(operationFactory);
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let abortHandler: (() => void) | undefined;
+  let cancelled = false;
+  let rejectCancellation: ((reason: Error) => void) | undefined;
+  const cancellation = new Promise<never>((_, reject) => {
+    rejectCancellation = reject;
+  });
+  const cancel = (reason: Error): void => {
+    if (cancelled) return;
+    cancelled = true;
+    onCancel?.();
+    void operation.then((value) => lateCleanup?.(value), () => undefined);
+    rejectCancellation?.(reason);
+  };
+
+  timer = setTimeout(() => {
+    console.warn(`[Markdown Easy Visual Editor] PDF ${stage} timed out.`);
+    cancel(new Error(`PDF ${stage} timed out.`));
+  }, remainingMs);
+  if (signal) {
+    abortHandler = () => cancel(new Error('PDF preview render was canceled.'));
+    signal.addEventListener('abort', abortHandler, { once: true });
+  }
+  try {
+    return await Promise.race([operation, cancellation]);
+  } finally {
+    if (timer) clearTimeout(timer);
+    if (abortHandler) signal?.removeEventListener('abort', abortHandler);
+    if (!cancelled) void operation.catch(() => undefined);
+  }
+}
+
+async function closePdfContext(context: BrowserContext): Promise<void> {
+  const close = context.close().catch(() => undefined);
+  await Promise.race([
+    close,
+    new Promise<void>((resolve) => setTimeout(resolve, PDF_CONTEXT_CLOSE_TIMEOUT_MS))
+  ]);
 }
 
 /** Extension lifecycle終了時に共有Chromiumを解放する。 */
@@ -257,13 +400,13 @@ async function launchPdfBrowser(language: SupportedLanguage): Promise<Browser> {
   // Playwrightを遅延ロードし、設定・Edge・Chromeの順にPDF用ブラウザを探す。
   const { chromium } = await import('playwright-core');
   const configured = vscode.workspace.getConfiguration('markdownEasyVisualEditor').get<string>('pdf.browserPath', '').trim();
-  if (configured) return chromium.launch({ executablePath: configured, headless: true });
+  if (configured) return chromium.launch({ executablePath: configured, headless: true, timeout: PDF_BROWSER_LAUNCH_TIMEOUT_MS });
 
   try {
-    return await chromium.launch({ channel: 'msedge', headless: true });
+    return await chromium.launch({ channel: 'msedge', headless: true, timeout: PDF_BROWSER_LAUNCH_TIMEOUT_MS });
   } catch (edgeError) {
     try {
-      return await chromium.launch({ channel: 'chrome', headless: true });
+      return await chromium.launch({ channel: 'chrome', headless: true, timeout: PDF_BROWSER_LAUNCH_TIMEOUT_MS });
     } catch (chromeError) {
       console.error('[Markdown Easy Visual Editor] EdgeとChromeの起動に失敗しました。', { edgeError, chromeError });
       throw new Error(getMessages(language).host.pdfBrowserUnavailable);

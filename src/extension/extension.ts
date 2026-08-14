@@ -76,6 +76,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
   private readonly editChains = new Map<string, Promise<void>>();
   private readonly pdfPreviewGenerations = new WeakMap<vscode.WebviewPanel, number>();
   private readonly pdfPreviewAbortControllers = new WeakMap<vscode.WebviewPanel, AbortController>();
+  private readonly pdfPreviewChains = new WeakMap<vscode.WebviewPanel, Promise<void>>();
   private readonly panelClientIds = new WeakMap<vscode.WebviewPanel, string>();
   private activePanel?: vscode.WebviewPanel;
   private activeDocument?: vscode.TextDocument;
@@ -133,6 +134,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
     });
     webviewPanel.onDidDispose(() => {
       // パネル破棄時に登録情報・履歴・保留中の操作を文書単位で片付ける。
+      this.pdfPreviewAbortControllers.get(webviewPanel)?.abort();
       messageDisposable.dispose();
       group.delete(webviewPanel);
       if (!group.size) {
@@ -308,26 +310,36 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
           this.pdfPreviewAbortControllers.get(panel)?.abort();
           const controller = new AbortController();
           this.pdfPreviewAbortControllers.set(panel, controller);
-          try {
-            const pdf = await renderPdf({
-              html: message.html,
-              css: message.css,
-              options: message.options,
-              documentUri: document.uri,
-              language: this.getLanguage(),
-              signal: controller.signal
-            });
-            if (this.pdfPreviewGenerations.get(panel) !== generation || panel.active === false) return;
-            this.post(panel, {
-              type: 'pdfPreviewReady',
-              requestId: message.requestId,
-              pdfBase64: pdf.toString('base64')
-            });
-          } catch (error) {
-            if (!controller.signal.aborted) throw error;
-          } finally {
-            if (this.pdfPreviewAbortControllers.get(panel) === controller) this.pdfPreviewAbortControllers.delete(panel);
-          }
+          const previous = this.pdfPreviewChains.get(panel);
+          const isPanelActive = (): boolean => panel.active;
+          const previewPromise = (async () => {
+            if (previous) await previous.catch(() => undefined);
+            if (this.pdfPreviewGenerations.get(panel) !== generation || !isPanelActive()) return;
+            console.info(`[Markdown Easy Visual Editor] PDF preview queued request started: ${message.requestId}`);
+            try {
+              const pdf = await renderPdf({
+                html: message.html,
+                css: message.css,
+                options: message.options,
+                documentUri: document.uri,
+                language: this.getLanguage(),
+                purpose: 'preview',
+                signal: controller.signal
+              });
+              if (this.pdfPreviewGenerations.get(panel) !== generation || !isPanelActive()) return;
+              this.post(panel, {
+                type: 'pdfPreviewReady',
+                requestId: message.requestId,
+                pdfBase64: pdf.toString('base64')
+              });
+            } catch (error) {
+              if (!controller.signal.aborted) throw error;
+            } finally {
+              if (this.pdfPreviewAbortControllers.get(panel) === controller) this.pdfPreviewAbortControllers.delete(panel);
+            }
+          })();
+          this.pdfPreviewChains.set(panel, previewPromise);
+          await previewPromise;
           return;
         }
       }

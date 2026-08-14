@@ -1228,17 +1228,25 @@ export function App(): React.JSX.Element {
     if (!printPreview || !settings.workspaceTrusted) return;
     const root = exportRootRef.current;
     const html = root?.innerHTML ?? `<pre>${escapeHtml(markdown)}</pre>`;
-    const signature = `${settings.language}\0${settings.remoteImagesEnabled}\0${JSON.stringify(pdfOptions)}\0${html}`;
+    // 画像のloadやResizeObserverでexport-stageのDOMが変わっても、同じ本文のPDFを再生成しない。
+    // 画像サイズの変更はMarkdown本文が変わるため、このキーも変わる。
+    const signature = `${settings.language}\0${settings.remoteImagesEnabled}\0${settings.mermaidTheme}\0${JSON.stringify(pdfOptions)}\0${markdown}`;
     if (pdfPreviewSignatureRef.current === signature) return;
     pdfPreviewSignatureRef.current = signature;
     const requestId = createClientId();
     pdfPreviewRequestRef.current = requestId;
     setPdfPreview((previous) => ({ ...previous, requestId, loading: true, error: undefined }));
+    const css = collectPrintableCss(false);
+    mveDebug('pdf.preview-request', {
+      requestId,
+      htmlChars: html.length,
+      cssChars: css.length
+    });
     vscode.postMessage({
       type: 'renderPdfPreview',
       requestId,
       html,
-      css: collectPrintableCss(),
+      css,
       options: pdfOptions
     });
   }
@@ -2111,16 +2119,11 @@ function PdfPreview({ markdown, settings, options, zoom, messages, pdfBase64, pd
 }): React.JSX.Element {
   const [pdfCanvasReady, setPdfCanvasReady] = useState(false);
   const dimensions = pdfPageDimensions(options);
-  const showPdfLayer = Boolean(pdfBase64 && pdfCanvasReady && !pdfLoading);
-  const sheetStyle = {
-    width: `${dimensions.width}mm`,
-    minHeight: `${dimensions.height}mm`,
-    padding: `${options.margins.top}mm ${options.margins.right}mm ${options.margins.bottom}mm ${options.margins.left}mm`
-  };
+  const showPdfLayer = Boolean(pdfBase64 && pdfCanvasReady);
 
   useEffect(() => {
     setPdfCanvasReady(false);
-  }, [pdfBase64, pdfLoading, zoom]);
+  }, [pdfBase64, zoom]);
 
   return (
     <div
@@ -2134,21 +2137,27 @@ function PdfPreview({ markdown, settings, options, zoom, messages, pdfBase64, pd
         <span className="pdf-preview-zoom-value">{Math.round(zoom * 100)}%</span>
         <button type="button" aria-label="PDFズームイン" title={messages.ribbon.hintZoom} onClick={() => { mveDebug('pdf.zoom-button', { delta: 0.1, zoom }); onZoom(0.1); }}>＋</button>
       </div>
-      {pdfLoading && <p className="pdf-preview-status" aria-live="polite">PDFをバックグラウンドで更新しています。本文はそのまま操作できます。</p>}
-      <div className={`pdf-preview-dom-layer ${showPdfLayer ? 'is-hidden' : ''}`} style={{ zoom }}>
-        <div className="pdf-preview-sheet" style={sheetStyle}>
-          {options.header && <div className="pdf-preview-header">{formatPdfTemplate(options.header)}</div>}
-          <RenderedMarkdown
-            markdown={markdown}
-            settings={settings}
-            className="pdf-preview-content preview-only"
-            onInspect={onInspect}
-            onNavigate={onNavigate}
-            onRendered={() => onRendered()}
-          />
-          {options.footer && <div className="pdf-preview-footer">{formatPdfTemplate(options.footer)}</div>}
+      {!showPdfLayer && (
+        <p className="pdf-preview-status" aria-live="polite">
+          {pdfError ? 'PDFプレビューを表示できません。' : pdfLoading ? 'PDFを生成しています。' : pdfBase64 ? 'PDFページを描画しています。' : 'PDFプレビューを準備しています。'}
+        </p>
+      )}
+      {!showPdfLayer && (
+        <div className="pdf-preview-live-layer">
+          <div className="pdf-preview-live-content" style={{ zoom }}>
+            {options.header && <div className="pdf-preview-header">{formatPdfTemplate(options.header)}</div>}
+            <RenderedMarkdown
+              markdown={markdown}
+              settings={settings}
+              className="pdf-preview-content"
+              onInspect={onInspect}
+              onNavigate={onNavigate}
+              onRendered={() => onRendered()}
+            />
+            {options.footer && <div className="pdf-preview-footer">{formatPdfTemplate(options.footer)}</div>}
+          </div>
         </div>
-      </div>
+      )}
       {pdfBase64 && (
         <div className={`pdf-preview-pdf-layer ${showPdfLayer ? '' : 'is-preparing'}`}>
           <PdfDocumentPreview
@@ -2156,6 +2165,7 @@ function PdfPreview({ markdown, settings, options, zoom, messages, pdfBase64, pd
             pageRatio={dimensions.width / dimensions.height}
             zoom={zoom}
             onRendered={() => {
+              mveDebug('pdf.preview-layer-ready', { zoom, format: options.format, orientation: options.orientation });
               setPdfCanvasReady(true);
               onRendered();
             }}
@@ -2380,9 +2390,9 @@ function pdfPageDimensions(options: PdfOptions): { width: number; height: number
 }
 
 /**
- * PDFヘッダー・フッターのページ置換記号をプレビュー用の値へ置き換える。
+ * PDFヘッダー・フッターのページ置換記号をライブプレビュー用の値へ置き換える。
  * @param value ヘッダーまたはフッターのテンプレート。
- * @returns プレビュー表示用に置換した文字列。
+ * @returns ライブプレビュー表示用に置換した文字列。
  */
 function formatPdfTemplate(value: string): string {
   return value.replace(/\{page\}/g, '1').replace(/\{pages\}/g, '1');
@@ -2504,13 +2514,16 @@ img,svg{max-width:100%;height:auto}.page-break{break-after:page}.code-figure fig
  * 印刷用HTMLへ渡すCSSを組み立て、同一オリジンで読めるスタイルシートの規則を追加する。
  * @returns 印刷用の結合済みCSS文字列。
  */
-function collectPrintableCss(): string {
+function collectPrintableCss(includeEmbeddedFonts = true): string {
   const rules: string[] = [PRINT_CONTENT_CSS];
   for (const sheet of Array.from(document.styleSheets)) {
     try {
       for (const rule of Array.from(sheet.cssRules)) {
+        if (!includeEmbeddedFonts && rule.type === CSSRule.FONT_FACE_RULE) continue;
         const css = rule.cssText;
-        if (css.startsWith('@font-face') || css.includes('.katex') || css.includes('.hljs')) rules.push(css);
+        if ((includeEmbeddedFonts && css.startsWith('@font-face')) || css.includes('.katex') || css.includes('.hljs')) {
+          rules.push(css);
+        }
       }
     } catch {
       // 読み取りが禁止されたスタイルシートは印刷本文の生成を妨げないよう除外する。
