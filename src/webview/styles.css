@@ -390,6 +390,10 @@ button:disabled {
   min-width: 0;
   min-height: 0;
 }
+/* テキストのみ／プレビューのみでは分割用の空きトラックを作らず、表示領域全体を使う。 */
+.split-editor.single-pane {
+  grid-template-rows: minmax(0, 1fr);
+}
 /* テキストとプレビューの分割表示を整える。 */
 .split-source-pane, .split-preview {
   min-width: 0;

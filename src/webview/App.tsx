@@ -1811,7 +1811,7 @@ export function App(): React.JSX.Element {
           )}
           {mode === 'split' && (
             <div
-              className="split-editor"
+              className={`split-editor ${splitView === 'both' ? '' : 'single-pane'}`}
               style={{ gridTemplateColumns: splitColumns }}
             >
               <div className={`split-source-pane ${splitView === 'preview' ? 'pane-hidden' : ''}`} style={{ fontSize: `${zoom}em` }}>
