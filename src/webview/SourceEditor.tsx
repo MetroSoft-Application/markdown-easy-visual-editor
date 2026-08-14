@@ -1,9 +1,10 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { defaultKeymap, indentWithTab } from '@codemirror/commands';
 import { markdown as markdownLanguage } from '@codemirror/lang-markdown';
-import { defaultHighlightStyle, syntaxHighlighting } from '@codemirror/language';
+import { defaultHighlightStyle, HighlightStyle, syntaxHighlighting } from '@codemirror/language';
 import { Annotation, EditorSelection, EditorState, StateEffect, StateField, type Extension, type Range } from '@codemirror/state';
 import { Decoration, type DecorationSet, EditorView, keymap, lineNumbers, placeholder as placeholderExtension, ViewPlugin } from '@codemirror/view';
+import { tags } from '@lezer/highlight';
 import {
   clearBlockFormatting,
   clearInlineFormatting,
@@ -81,6 +82,15 @@ export interface EditorViewportAnchor {
 
 /** 外部同期トランザクションをユーザー編集と区別するためのCodeMirrorアノテーション。 */
 const externalSyncTransaction = Annotation.define<boolean>();
+
+/** VS Codeテーマ上でMarkdownリンクとURLを読みやすく表示する。 */
+const vscodeLinkHighlightStyle = HighlightStyle.define([
+  {
+    tag: [tags.link, tags.url],
+    color: 'var(--vscode-textLink-foreground)',
+    textDecoration: 'underline'
+  }
+]);
 
 interface SearchHighlightData {
   hits: readonly TextSelection[];
@@ -236,6 +246,7 @@ export const SourceEditor = forwardRef<TextEditorHandle, Props>(function SourceE
         lineNumbers(),
         markdownLanguage(),
         syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
+        syntaxHighlighting(vscodeLinkHighlightStyle),
         visibleSpaces,
         searchHighlightField,
         placeholderExtension(placeholder),

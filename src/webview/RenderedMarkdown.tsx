@@ -195,13 +195,16 @@ function RenderedMarkdownView({
     }
     const anchor = target.closest<HTMLAnchorElement>('a[href]');
     if (anchor) {
-      const href = anchor.getAttribute('href') ?? '';
-      if (href.startsWith('#')) {
+      const originalHref = anchor.dataset.mveLink;
+      const href = originalHref ?? anchor.getAttribute('href') ?? '';
+      if (!originalHref && href.startsWith('#')) {
         event.preventDefault();
         rootRef.current?.querySelector<HTMLElement>(href)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      } else if (onNavigate) {
+      } else {
+        // Webviewのネイティブ遷移を許すと、ローカルMarkdownがブラウザへ渡るため、
+        // 外部URLを含めてホスト側のリンク処理へ必ず委譲する。
         event.preventDefault();
-        onNavigate(href);
+        onNavigate?.(href);
       }
     }
   }

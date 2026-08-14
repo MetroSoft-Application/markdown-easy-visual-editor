@@ -2,7 +2,7 @@
   "name": "markdown-easy-visual-editor",
   "displayName": "Markdown Easy Visual Editor",
   "description": "A visual Markdown editor for VS Code with live preview, source editing, formatting tools, image support, and PDF export.",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "publisher": "MetroSoft-Application",
   "icon": "resources/icon.png",
   "repository": {
@@ -245,6 +245,7 @@
     "@codemirror/lang-markdown": "^6.5.2",
     "@codemirror/state": "^6.5.2",
     "@codemirror/view": "^6.43.8",
+    "@lezer/highlight": "^1.2.3",
     "@fontsource/noto-sans-jp": "^5.3.0",
     "@fontsource/noto-sans-mono": "^5.3.0",
     "chromium-bidi": "0.5.22",

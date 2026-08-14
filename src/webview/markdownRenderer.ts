@@ -56,6 +56,19 @@ export function renderMarkdown(markdown: string, options: RenderOptions): string
   };
 
   /**
+   * ローカルリンクはブラウザが解決できないhrefを持たないようにし、元の参照先をデータ属性へ退避する。
+   * クリック時はRenderedMarkdownがこの属性をホストへ渡してVS Codeで開く。
+   */
+  renderer.link = function ({ href, title, tokens }) {
+    const content = this.parser.parseInline(tokens);
+    const titleAttribute = title ? ` title="${escapeAttribute(title)}"` : '';
+    if (isLocalMarkdownLink(href)) {
+      return `<a href="#" data-mve-link="${escapeAttribute(href)}"${titleAttribute}>${content}</a>`;
+    }
+    return `<a href="${escapeAttribute(href)}"${titleAttribute}>${content}</a>`;
+  };
+
+  /**
    * 画像をHTMLへ変換し、リモート画像設定が無効ならブロック表示を返す。
    * @param token markedが解析した画像トークン。
    * @returns 画像要素またはブロック表示用HTML。
@@ -133,6 +146,7 @@ export function renderMarkdown(markdown: string, options: RenderOptions): string
     ADD_ATTR: [
       'target',
       'data-original-src',
+      'data-mve-link',
       'data-mve-image-index',
       'data-mve-image-kind',
       'data-mve-image-align',
@@ -146,6 +160,13 @@ export function renderMarkdown(markdown: string, options: RenderOptions): string
     ADD_TAGS: ['mark', 'ins'],
     ALLOW_DATA_ATTR: true
   });
+}
+
+function isLocalMarkdownLink(href: string): boolean {
+  if (!href || href.startsWith('#')) return false;
+  if (/^https?:\/\/file\+\.vscode-resource\.vscode-cdn\.net\//i.test(href)) return true;
+  if (/^(?:file:|[A-Za-z]:[\\/]|\\\\|\/\/)/i.test(href)) return true;
+  return !/^(?:https?|mailto|tel|ftp|data|javascript):/i.test(href);
 }
 
 /**

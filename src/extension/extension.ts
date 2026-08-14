@@ -12,6 +12,7 @@ import { applyTextChanges, mapTextChanges, validateTextChanges, type TextChange 
 import { getMessages, resolveLanguage, type Messages } from '../shared/messages';
 import { closePdfBrowser, exportPdf, renderPdf } from './pdf';
 import { decodeLocalResourceSource, isMissingResourceError } from './resourceCheck';
+import { classifyResourceLink } from './resourceLink';
 
 const VIEW_TYPE = 'markdownEasyVisualEditor.editor';
 
@@ -792,14 +793,23 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
    * @returns リソースを開く処理が完了するPromise。
    */
   private async openResource(document: vscode.TextDocument, href: string): Promise<void> {
-    // 外部URLはブラウザで開き、相対参照は文書の隣接パスとしてVS Codeで開く。
-    if (/^https?:/i.test(href)) {
-      await vscode.env.openExternal(vscode.Uri.parse(href));
+    const target = classifyResourceLink(href);
+    if (target.kind === 'invalidLocalWebview') return;
+    if (target.kind === 'localWebview') {
+      await vscode.commands.executeCommand('vscode.open', vscode.Uri.file(target.path));
       return;
     }
-    const clean = decodeURIComponent(href.split('#')[0]);
-    const uri = vscode.Uri.joinPath(document.uri, '..', ...clean.replace(/\\/g, '/').split('/'));
-    await vscode.commands.executeCommand('vscode.open', uri);
+    if (target.kind === 'external') {
+      await vscode.env.openExternal(vscode.Uri.parse(target.href));
+      return;
+    }
+    if (target.kind === 'absoluteFile') {
+      const uri = resolveLocalResourceUri(document.uri, decodeLocalResourceSource(target.href));
+      if (uri) await vscode.commands.executeCommand('vscode.open', uri);
+      return;
+    }
+    const uri = resolveLocalResourceUri(document.uri, decodeLocalResourceSource(target.href));
+    if (uri) await vscode.commands.executeCommand('vscode.open', uri);
   }
 
   /** Markdownから参照されたローカル画像・リンクの実在を確認する。 */
