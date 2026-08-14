@@ -38,6 +38,7 @@ export interface Messages {
       excel: string;
       pane: string;
       pdf: string;
+      html: string;
       inspection: string;
       help: string;
     };
@@ -96,6 +97,10 @@ export interface Messages {
       copyTsv: string;
       printPreview: string;
       exportPdf: string;
+      exportHtml: string;
+      embedImages: string;
+      convertLinkedMarkdown: string;
+      saveWithoutDialog: string;
       preflight: string;
       shortcuts: string;
       features: string;
@@ -206,6 +211,8 @@ export interface Messages {
       resourceCheckFailed: (detail: string, duringPdf: boolean) => string;
       operationFailed: (detail: string) => string;
       pdfExported: (path: string) => string;
+      htmlExported: (path: string, count: number) => string;
+      htmlExportFailed: (detail: string) => string;
       tableCellRequired: string;
       cannotPasteTsv: string;
       tableCopied: string;
@@ -324,7 +331,14 @@ function createMessages(language: SupportedLanguage): Messages {
       collapse: raw.ribbon.collapse,
       expand: raw.ribbon.expand,
       groups: raw.ribbon.groups,
-      labels: { ...raw.ribbon.labels, heading: (level: number) => text('ribbon.labels.heading', { level }) },
+      labels: {
+        ...raw.ribbon.labels,
+        heading: (level: number) => text('ribbon.labels.heading', { level }),
+        exportHtml: raw.ribbon.labels.exportHtml,
+        embedImages: raw.ribbon.labels.embedImages,
+        convertLinkedMarkdown: raw.ribbon.labels.convertLinkedMarkdown,
+        saveWithoutDialog: raw.ribbon.labels.saveWithoutDialog
+      },
       featureDescriptions: raw.ribbon.labels.featureDescriptions,
       hintZoom: raw.ribbon.hintZoom,
       codeLanguages: raw.ribbon.codeLanguages,
@@ -388,6 +402,8 @@ function createMessages(language: SupportedLanguage): Messages {
         resourceCheckFailed: (detail: string, duringPdf: boolean) => text('app.toast.resourceCheckFailed', { prefix: duringPdf ? `${raw.host.pdfProgress} ` : '', detail }),
         operationFailed: (detail: string) => text('app.toast.operationFailed', { detail }),
         pdfExported: (path: string) => text('app.toast.pdfExported', { path }),
+        htmlExported: (path: string, count: number) => text('app.toast.htmlExported', { path, count }),
+        htmlExportFailed: (detail: string) => text('app.toast.htmlExportFailed', { detail }),
         tableCellRequired: raw.app.toast.tableCellRequired,
         cannotPasteTsv: raw.app.toast.cannotPasteTsv,
         tableCopied: raw.app.toast.tableCopied,

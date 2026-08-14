@@ -18,6 +18,12 @@ export interface PdfOptions {
   saveWithoutDialog: boolean;
 }
 
+export interface HtmlExportOptions {
+  embedImages: boolean;
+  convertLinkedMarkdown: boolean;
+  saveWithoutDialog: boolean;
+}
+
 export interface WebviewSettings {
   language: SupportedLanguage;
   imageDirectory: string;
@@ -57,6 +63,7 @@ export type HostToWebviewMessage =
   | { type: 'localResourcesChecked'; requestId: string; diagnostics: Diagnostic[] }
   | { type: 'operationFailed'; requestId?: string; message: string }
   | { type: 'pdfExported'; requestId: string; path: string }
+  | { type: 'htmlExported'; requestId: string; paths: string[] }
   | { type: 'pdfPreviewReady'; requestId: string; pdfBase64: string }
   | { type: 'hostCommand'; command: 'insertImage' | 'exportPdf' | 'undo' | 'redo' };
 
@@ -73,6 +80,14 @@ export type WebviewToHostMessage =
       html: string;
       css: string;
       options: PdfOptions;
+    }
+  | {
+      type: 'exportHtml';
+      requestId: string;
+      markdown: string;
+      html: string;
+      css: string;
+      options: HtmlExportOptions;
     }
   | {
       type: 'renderPdfPreview';

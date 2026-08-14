@@ -390,6 +390,21 @@ button:disabled {
   min-width: 0;
   min-height: 0;
 }
+/* HTML出力のオプションをリボン内で省スペースに表示する。 */
+.ribbon-checkbox {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  max-width: 150px;
+  padding: 2px;
+  color: var(--vscode-descriptionForeground);
+  font-size: 10px;
+  line-height: 1.15;
+}
+.ribbon-checkbox input {
+  flex: 0 0 auto;
+  margin: 0;
+}
 /* テキストのみ／プレビューのみでは分割用の空きトラックを作らず、表示領域全体を使う。 */
 .split-editor.single-pane {
   grid-template-rows: minmax(0, 1fr);

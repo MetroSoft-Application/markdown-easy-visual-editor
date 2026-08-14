@@ -11,6 +11,7 @@ import { collectLocalResourceReferences, sortDiagnostics, type Diagnostic } from
 import { applyTextChanges, mapTextChanges, validateTextChanges, type TextChange } from '../shared/textChanges';
 import { getMessages, resolveLanguage, type Messages } from '../shared/messages';
 import { closePdfBrowser, exportPdf, renderPdf } from './pdf';
+import { exportHtml } from './html';
 import { decodeLocalResourceSource, isMissingResourceError } from './resourceCheck';
 import { classifyResourceLink } from './resourceLink';
 
@@ -293,6 +294,37 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
             void vscode.window.showInformationMessage(messages.host.pdfExported(target.fsPath), messages.host.open).then((choice) => {
               if (choice === messages.host.open) void vscode.env.openExternal(target);
             });
+          } else {
+            this.post(panel, {
+              type: 'operationFailed',
+              requestId: message.requestId,
+              message: this.getMessages().host.saveCanceled
+            });
+          }
+          return;
+        }
+        case 'exportHtml': {
+          if (!vscode.workspace.isTrusted) {
+            throw new Error('HTML出力には信頼済みワークスペースが必要です。');
+          }
+          const result = await vscode.window.withProgress(
+            { location: vscode.ProgressLocation.Notification, title: 'MarkdownをHTMLに変換中...', cancellable: false },
+            () => exportHtml({
+              markdown: message.markdown,
+              html: message.html,
+              css: message.css,
+              options: message.options,
+              documentUri: document.uri,
+              language: this.getLanguage()
+            })
+          );
+          if (result) {
+            this.post(panel, {
+              type: 'htmlExported',
+              requestId: message.requestId,
+              paths: result.paths.map((item) => item.fsPath)
+            });
+            void vscode.window.showInformationMessage(`HTMLを出力しました: ${result.target.fsPath}`);
           } else {
             this.post(panel, {
               type: 'operationFailed',

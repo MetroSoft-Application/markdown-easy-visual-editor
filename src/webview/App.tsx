@@ -5,6 +5,7 @@ import { gfm as turndownGfm } from 'turndown-plugin-gfm';
 import type {
   EditorMode,
   HostToWebviewMessage,
+  HtmlExportOptions,
   ImagePayload,
   PdfOptions,
   VsCodeApi,
@@ -179,6 +180,7 @@ export function App(): React.JSX.Element {
   const selectionStateRef = useRef(selection);
   const imageRequestsRef = useRef(new Set<string>());
   const pdfRequestsRef = useRef(new Set<string>());
+  const htmlRequestsRef = useRef(new Set<string>());
   const pdfPreviewRequestRef = useRef('');
   const pdfPreviewSignatureRef = useRef<string | undefined>(undefined);
   const pdfPreviewTimerRef = useRef<number | undefined>(undefined);
@@ -619,12 +621,14 @@ export function App(): React.JSX.Element {
           }
           const imageFailed = message.requestId ? imageRequestsRef.current.delete(message.requestId) : false;
           const pdfFailed = message.requestId ? pdfRequestsRef.current.delete(message.requestId) : false;
+          const htmlFailed = message.requestId ? htmlRequestsRef.current.delete(message.requestId) : false;
           const resourceCheckRequest = message.requestId
             ? resourceCheckRequestsRef.current.get(message.requestId)
             : undefined;
           const resourceCheckFailed = message.requestId ? resourceCheckRequestsRef.current.delete(message.requestId) : false;
           setToast(imageFailed ? messages.app.toast.imageSaveFailed(message.message)
             : pdfFailed ? messages.app.toast.pdfExportFailed(message.message)
+              : htmlFailed ? messages.app.toast.htmlExportFailed(message.message)
               : resourceCheckFailed
                 ? messages.app.toast.resourceCheckFailed(message.message, resourceCheckRequest?.purpose === 'pdf')
                 : messages.app.toast.operationFailed(message.message));
@@ -634,6 +638,10 @@ export function App(): React.JSX.Element {
       case 'pdfExported':
         pdfRequestsRef.current.delete(message.requestId);
         setToast(messages.app.toast.pdfExported(message.path));
+        return;
+      case 'htmlExported':
+        htmlRequestsRef.current.delete(message.requestId);
+        setToast(messages.app.toast.htmlExported(message.paths[0] ?? '', message.paths.length));
         return;
       case 'pdfPreviewReady':
         if (message.requestId !== pdfPreviewRequestRef.current) return;
@@ -977,6 +985,9 @@ export function App(): React.JSX.Element {
       case 'exportPdf':
         void requestPdfExport();
         return;
+      case 'exportHtml':
+        void requestHtmlExport(command.options);
+        return;
       case 'find': {
         openSearch();
         return;
@@ -1218,6 +1229,25 @@ export function App(): React.JSX.Element {
     };
     pdfRequestsRef.current.add(requestId);
     vscode.postMessage(message);
+  }
+
+  /** 現在のプレビューHTMLとHTML出力オプションをホストへ渡し、HTMLファイルとして保存する。 */
+  async function requestHtmlExport(options: HtmlExportOptions): Promise<void> {
+    if (!settings.workspaceTrusted) {
+      setToast(messages.app.toast.workspaceTrustRequired);
+      return;
+    }
+    const root = exportRootRef.current;
+    const requestId = createClientId();
+    htmlRequestsRef.current.add(requestId);
+    vscode.postMessage({
+      type: 'exportHtml',
+      requestId,
+      markdown,
+      html: root?.innerHTML ?? `<pre>${escapeHtml(markdown)}</pre>`,
+      css: collectPrintableCss(),
+      options
+    });
   }
 
   /**

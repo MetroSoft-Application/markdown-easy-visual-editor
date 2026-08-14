@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import type { EditorMode } from '../shared/protocol';
+import type { EditorMode, HtmlExportOptions } from '../shared/protocol';
 import type { MarkdownTableAction } from '../shared/markdown';
 import type { Messages } from '../shared/messages';
 import { mveDebug } from './debug';
@@ -24,7 +24,8 @@ export type RibbonCommand =
   | { type: 'toggleOutline' | 'toggleInspector' | 'togglePrintPreview' }
   | { type: 'runPreflightCheck' }
   | { type: 'showShortcuts' | 'showFeatures' }
-  | { type: 'openSource' | 'exportPdf' | 'find' };
+  | { type: 'openSource' | 'exportPdf' | 'find' }
+  | { type: 'exportHtml'; options: HtmlExportOptions };
 
 interface Props {
   messages: Messages;
@@ -51,6 +52,7 @@ export function Ribbon({ messages, mode, readOnly, activeMarks, outlineVisible, 
   const [codeLanguage, setCodeLanguage] = useState('');
   const [emoji, setEmoji] = useState(DOCUMENT_EMOJIS[0]);
   const [headerName, setHeaderName] = useState('');
+  const [htmlOptions, setHtmlOptions] = useState<HtmlExportOptions>({ embedImages: false, convertLinkedMarkdown: false, saveWithoutDialog: true });
 
   return (
     <header
@@ -219,6 +221,33 @@ export function Ribbon({ messages, mode, readOnly, activeMarks, outlineVisible, 
               <Group label={messages.ribbon.groups.pdf}>
                 <Tool label={messages.ribbon.labels.printPreview} onClick={() => onCommand({ type: 'togglePrintPreview' })} />
                 <Tool label={messages.ribbon.labels.exportPdf} onClick={() => onCommand({ type: 'exportPdf' })} />
+              </Group>
+              <Group label={messages.ribbon.groups.html}>
+                <label className="ribbon-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={htmlOptions.embedImages}
+                    onChange={(event) => setHtmlOptions({ ...htmlOptions, embedImages: event.target.checked })}
+                  />
+                  <span>{messages.ribbon.labels.embedImages}</span>
+                </label>
+                <label className="ribbon-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={htmlOptions.convertLinkedMarkdown}
+                    onChange={(event) => setHtmlOptions({ ...htmlOptions, convertLinkedMarkdown: event.target.checked })}
+                  />
+                  <span>{messages.ribbon.labels.convertLinkedMarkdown}</span>
+                </label>
+                <label className="ribbon-checkbox">
+                  <input
+                    type="checkbox"
+                    checked={htmlOptions.saveWithoutDialog}
+                    onChange={(event) => setHtmlOptions({ ...htmlOptions, saveWithoutDialog: event.target.checked })}
+                  />
+                  <span>{messages.ribbon.labels.saveWithoutDialog}</span>
+                </label>
+                <Tool label={messages.ribbon.labels.exportHtml} onClick={() => onCommand({ type: 'exportHtml', options: htmlOptions })} />
               </Group>
               <Group label={messages.ribbon.groups.inspection}>
                 <Tool label={messages.ribbon.labels.preflight} onClick={() => onCommand({ type: 'runPreflightCheck' })} />
