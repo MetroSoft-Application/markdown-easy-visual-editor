@@ -41,6 +41,7 @@ import {
 } from '../shared/imageResize';
 import { getMessages, type Messages } from '../shared/messages';
 import { createClientId } from './id';
+import { mveDebug } from './debug';
 import { escapeHtml } from './markdownRenderer';
 import { RenderedMarkdown, type InspectorTarget } from './RenderedMarkdown';
 import { PdfDocumentPreview } from './PdfDocumentPreview';
@@ -190,6 +191,7 @@ export function App(): React.JSX.Element {
   const pendingViewportRestoreRef = useRef(false);
   const pendingSourceViewportRestoreRef = useRef<EditorViewportAnchor | undefined>(undefined);
   const pendingNavigationRef = useRef<TextSelection | undefined>(undefined);
+  const recentRibbonCommandsRef = useRef(new Map<string, number>());
   const previousModeBeforePrintRef = useRef<EditorMode>('split');
   const previewUserScrollPendingRef = useRef(new WeakSet<HTMLElement>());
   const previewPointerScrollActiveRef = useRef(new WeakSet<HTMLElement>());
@@ -223,6 +225,7 @@ export function App(): React.JSX.Element {
 
   useEffect(() => {
     // ホストへWebviewの準備完了を通知し、以後のメッセージを現在のハンドラーへ渡す。
+    mveDebug('webview.ready', { clientId: clientIdRef.current });
     vscode.postMessage({ type: 'ready', clientId: clientIdRef.current });
     /** ホストから受信したメッセージをアプリのメッセージ処理へ渡す。 */
     const onMessage = (event: MessageEvent<HostToWebviewMessage>) => hostMessageHandlerRef.current(event.data);
@@ -318,6 +321,33 @@ export function App(): React.JSX.Element {
     });
     return () => cancelAnimationFrame(frame);
   }, [mode, splitView, zoom, splitRatio, outlineVisible, diagnosticsVisible, Boolean(inspector), markdown]);
+
+  useLayoutEffect(() => {
+    const area = editorAreaRef.current;
+    const split = area?.querySelector<HTMLElement>('.split-editor');
+    const source = area?.querySelector<HTMLElement>('.split-source-pane');
+    const preview = area?.querySelector<HTMLElement>('.split-preview-pane');
+    if (!area) return;
+    const size = (element: HTMLElement | null) => {
+      if (!element) return undefined;
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return {
+        width: Math.round(rect.width * 100) / 100,
+        height: Math.round(rect.height * 100) / 100,
+        display: style.display
+      };
+    };
+    mveDebug('view.layout', {
+      mode,
+      splitView,
+      editorArea: size(area),
+      split: size(split ?? null),
+      source: size(source ?? null),
+      preview: size(preview ?? null),
+      columns: split ? getComputedStyle(split).gridTemplateColumns : undefined
+    });
+  }, [initialized, mode, splitView, outlineVisible, splitRatio, zoom, diagnosticsVisible, Boolean(inspector)]);
 
   useEffect(() => {
     // リサイズ中に各ペインの表示アンカーを保存し、リサイズ後に同じ位置へ戻す。
@@ -446,6 +476,15 @@ export function App(): React.JSX.Element {
    * @returns 何も返さない。
    */
   function handleHostMessage(message: HostToWebviewMessage): void {
+    const record = message as unknown as Record<string, unknown>;
+    mveDebug('host.message', {
+      type: message.type,
+      clientId: record.clientId,
+      opId: record.opId,
+      baseVersion: record.baseVersion,
+      version: record.version,
+      reason: record.reason
+    });
     switch (message.type) {
       case 'init':
         if (initializedRef.current) {
@@ -781,6 +820,7 @@ export function App(): React.JSX.Element {
    * @returns 何も返さない。
    */
   function changeMode(nextMode: EditorMode): void {
+    mveDebug('view.change-mode', { from: mode, to: nextMode, splitView });
     captureVisibleViewports();
     const activeSelection = sourceRef.current?.getSelection();
     if (activeSelection) {
@@ -805,6 +845,7 @@ export function App(): React.JSX.Element {
    * @returns 何も返さない。
    */
   function changeSplitView(nextView: 'both' | 'text' | 'preview'): void {
+    mveDebug('view.change-split', { from: splitView, to: nextView, mode });
     captureVisibleViewports();
     if (nextView !== 'text' && !viewportStateRef.current.splitPreview) {
       viewportStateRef.current.splitPreview = viewportStateRef.current.source;
@@ -823,6 +864,19 @@ export function App(): React.JSX.Element {
    * @returns 何も返さない。
    */
   function handleRibbon(command: RibbonCommand): void {
+    // 同一ジェスチャーから同じリボン操作が短時間に重複して届いても、編集は1回だけ適用する。
+    const commandKey = JSON.stringify(command);
+    const now = performance.now();
+    const previous = recentRibbonCommandsRef.current.get(commandKey);
+    recentRibbonCommandsRef.current.set(commandKey, now);
+    const delta = previous === undefined ? undefined : Math.round((now - previous) * 100) / 100;
+    mveDebug('ribbon.command-received', { command, delta });
+    if (previous !== undefined && now - previous < 250) {
+      mveDebug('ribbon.command-suppressed', { command, delta });
+      return;
+    }
+    mveDebug('ribbon.command-applied', { command });
+
     switch (command.type) {
       case 'sourceAction':
         getActiveEditor()?.action(command.action);
@@ -1308,6 +1362,13 @@ export function App(): React.JSX.Element {
     const previous = localTextRef.current;
     if (previous === nextText) return;
     const changes = knownChanges ?? computeTextChanges(previous, nextText);
+    mveDebug('markdown.update', {
+      origin,
+      previousLength: previous.length,
+      nextLength: nextText.length,
+      changeCount: changes.length,
+      changes: changes.slice(0, 8)
+    });
     if (origin === 'local') enqueueLocalOperation(previous, nextText, changes);
     mapStoredViewports(changes, previous.length);
     if (origin === 'remote') {
@@ -1343,13 +1404,21 @@ export function App(): React.JSX.Element {
       applyResyncSnapshot(hostTextRef.current, versionRef.current, 'ローカル差分の整合性を検証できませんでした。');
       return;
     }
+    const opId = createClientId();
     pendingOperationsRef.current.push({
-      opId: createClientId(),
+      opId,
       baseVersion: versionRef.current,
       baseText,
       resultText,
       changes: changes.map((change) => ({ ...change })),
       sent: false
+    });
+    mveDebug('sync.local-queued', {
+      opId,
+      baseVersion: versionRef.current,
+      pendingCount: pendingOperationsRef.current.length,
+      changeCount: changes.length,
+      changes: changes.slice(0, 8)
     });
     setSyncNonce((value) => value + 1);
   }
@@ -1405,6 +1474,13 @@ export function App(): React.JSX.Element {
     if (!current || current.sent || current.baseText !== hostTextRef.current) return;
     current.baseVersion = versionRef.current;
     current.sent = true;
+    mveDebug('sync.local-sent', {
+      opId: current.opId,
+      baseVersion: current.baseVersion,
+      pendingCount: pendingOperationsRef.current.length,
+      changeCount: current.changes.length,
+      changes: current.changes.slice(0, 8)
+    });
     vscode.postMessage({
       type: 'localChanges',
       clientId: clientIdRef.current,

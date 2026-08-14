@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import type { EditorMode } from '../shared/protocol';
 import type { MarkdownTableAction } from '../shared/markdown';
 import type { Messages } from '../shared/messages';
+import { mveDebug } from './debug';
 import type { SourceAction } from './SourceEditor';
 
 export type TableAction = 'insert' | MarkdownTableAction;
@@ -55,6 +56,16 @@ export function Ribbon({ messages, mode, readOnly, activeMarks, outlineVisible, 
     <header
       className={`ribbon ${collapsed ? 'collapsed' : ''} ${pinned ? 'pinned' : ''}`}
       onMouseLeave={() => { if (!pinned) setCollapsed(true); }}
+      onClickCapture={(event) => {
+        const target = event.target instanceof Element ? event.target.closest('button') : null;
+        if (!target) return;
+        mveDebug('ribbon.dom-click', {
+          text: target.textContent?.trim(),
+          title: target.getAttribute('title'),
+          detail: event.detail,
+          className: target.className
+        });
+      }}
     >
       <div className="ribbon-tabs" role="tablist" aria-label={messages.ribbon.label}>
         {TABS.map((id) => (

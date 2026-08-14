@@ -1286,6 +1286,10 @@ button:disabled {
     grid-template-columns: 1fr !important;
     grid-template-rows: minmax(280px, 1fr) 8px minmax(280px, 1fr);
   }
+  /* 単独表示では分割用の行を残さず、表示中のペインを全高にする。 */
+  .split-editor.single-pane {
+    grid-template-rows: minmax(0, 1fr) !important;
+  }
 /* テキストとプレビューの分割表示を整える。 */
   .split-divider {
     cursor: row-resize;

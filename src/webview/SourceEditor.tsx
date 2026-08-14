@@ -7,6 +7,8 @@ import { Decoration, type DecorationSet, EditorView, keymap, lineNumbers, placeh
 import {
   clearBlockFormatting,
   clearInlineFormatting,
+  indentSelectedLines,
+  mapLineSelection,
   prefixOrderedList,
   prefixSelectedLines,
   wrapSelection,
@@ -16,6 +18,7 @@ import {
 import { applyTextChanges, computeTextChanges, mapTextChanges, mapTextOffset, type TextChange } from '../shared/textChanges';
 import { getScrollRatio } from '../shared/scroll';
 import type { Messages } from '../shared/messages';
+import { mveDebug } from './debug';
 
 export type SourceAction =
   | 'bold'
@@ -40,6 +43,18 @@ export type SourceAction =
   | 'clearBlock'
   | 'clearAll'
   | 'unlink';
+
+const CARET_PRESERVING_LINE_ACTIONS = new Set<SourceAction>([
+  'quote',
+  'bulletList',
+  'orderedList',
+  'taskList',
+  'indent',
+  'outdent',
+  'clearInline',
+  'clearBlock',
+  'clearAll'
+]);
 
 export interface TextEditorHandle {
   insert(markdown: string, inline?: boolean): void;
@@ -269,6 +284,17 @@ export const SourceEditor = forwardRef<TextEditorHandle, Props>(function SourceE
                 deferredValueRef.current = nextValue;
               }
             }
+            mveDebug('source.doc-changed', {
+              changeCount: changes.length,
+              changes: changes.slice(0, 8),
+              nextLength: nextValue.length,
+              selection: update.state.selection.main
+                ? {
+                    from: editorOffsetToExternal(update.state, update.state.selection.main.from),
+                    to: editorOffsetToExternal(update.state, update.state.selection.main.to)
+                  }
+                : undefined
+            });
             onChangeRef.current(nextValue, changes);
           }
         }),
@@ -602,6 +628,7 @@ export const SourceEditor = forwardRef<TextEditorHandle, Props>(function SourceE
       from: editorOffsetToExternal(view.state, main.from),
       to: editorOffsetToExternal(view.state, main.to)
     };
+    mveDebug('source.action', { action, selection, sourceLength: source.length });
     let edit: SourceEdit | undefined;
     // 操作種別に応じて装飾・リスト・ブロック編集の共通関数を選択する。
     switch (action) {
@@ -642,7 +669,7 @@ export const SourceEditor = forwardRef<TextEditorHandle, Props>(function SourceE
         edit = prefixSelectedLines(source, selection, '- [ ] ');
         break;
       case 'indent':
-        edit = prefixSelectedLines(source, selection, '  ');
+        edit = indentSelectedLines(source, selection);
         break;
       case 'outdent': {
         const target = selection.from === selection.to
@@ -650,8 +677,14 @@ export const SourceEditor = forwardRef<TextEditorHandle, Props>(function SourceE
           : selection;
         const from = Math.min(target.from, target.to);
         const to = Math.max(target.from, target.to);
-        const selected = source.slice(from, to).replace(/^ {1,2}/gm, '');
-        edit = { text: source.slice(0, from) + selected + source.slice(to), selection: { from, to: from + selected.length } };
+        const original = source.slice(from, to);
+        const selected = original.replace(/^ {1,2}/gm, '');
+        edit = {
+          text: source.slice(0, from) + selected + source.slice(to),
+          selection: selection.from === selection.to
+            ? { from: selection.from + selected.length - original.length, to: selection.from + selected.length - original.length }
+            : mapLineSelection(original, selected, from, selection)
+        };
         break;
       }
       case 'codeBlock':
@@ -701,6 +734,12 @@ export const SourceEditor = forwardRef<TextEditorHandle, Props>(function SourceE
       }
     }
     // 編集結果が生成された操作だけをCodeMirrorへ反映する。
+    if (edit && selection.from === selection.to && CARET_PRESERVING_LINE_ACTIONS.has(action)) {
+      const changes = computeTextChanges(source, edit.text);
+      const caret = mapTextOffset(selection.from, changes, source.length, 1);
+      edit = { ...edit, selection: { from: caret, to: caret } };
+      mveDebug('source.caret-normalized', { action, from: selection.from, to: caret });
+    }
     if (edit) applyEdit(edit);
   }
 
@@ -732,6 +771,13 @@ export const SourceEditor = forwardRef<TextEditorHandle, Props>(function SourceE
     if (!view) return;
     // 共通編集結果を外部オフセットの差分へ変換し、CodeMirror内部の位置へ写像する。
     const changes = computeTextChanges(view.state.sliceDoc(), edit.text);
+    mveDebug('source.apply-edit', {
+      beforeLength: view.state.sliceDoc().length,
+      afterLength: edit.text.length,
+      changeCount: changes.length,
+      changes: changes.slice(0, 8),
+      selection: edit.selection
+    });
     const editorChanges = changes.map((change) => ({
       from: externalOffsetToEditor(view.state, change.rangeOffset),
       to: externalOffsetToEditor(view.state, change.rangeOffset + change.rangeLength),

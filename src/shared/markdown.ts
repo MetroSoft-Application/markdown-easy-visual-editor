@@ -134,7 +134,30 @@ export function prefixSelectedLines(
         .join('\n');
     return {
         text: source.slice(0, from) + changed + source.slice(to),
-        selection: { from, to: from + changed.length }
+        selection: caretOnly
+            ? { from: selection.from + changed.length - original.length, to: selection.from + changed.length - original.length }
+            : mapLineSelection(original, changed, from, selection)
+    };
+}
+
+/** 選択範囲に含まれる各行へ2スペースの字下げを追加する。 */
+export function indentSelectedLines(source: string, selection: TextSelection): SourceEdit {
+    const from = lineStart(source, Math.min(selection.from, selection.to));
+    const to = lineEnd(source, Math.max(selection.from, selection.to));
+    const original = source.slice(from, to);
+    const lines = original.split('\n');
+    const caretOnly = selection.from === selection.to;
+    const changed = lines
+        .map((line) => {
+            if (!line.trim()) return caretOnly && lines.length === 1 ? `  ${line}` : line;
+            return `  ${line}`;
+        })
+        .join('\n');
+    return {
+        text: source.slice(0, from) + changed + source.slice(to),
+        selection: caretOnly
+            ? { from: selection.from + 2, to: selection.from + 2 }
+            : mapLineSelection(original, changed, from, selection)
     };
 }
 
@@ -161,8 +184,64 @@ export function prefixOrderedList(source: string, selection: TextSelection): Sou
     const text = changed.join('\n');
     return {
         text: source.slice(0, from) + text + source.slice(to),
-        selection: { from, to: from + text.length }
+        selection: caretOnly
+            ? { from: selection.from + text.length - original.length, to: selection.from + text.length - original.length }
+            : mapLineSelection(original, text, from, selection)
     };
+}
+
+/**
+ * 行頭のプレフィックス変更後も、元の選択範囲の論理位置を維持する。
+ * 行全体の範囲へ置き換えると、同じボタンを続けて押したときに選択範囲が
+ * 徐々に広がり、隣接行まで次の操作へ巻き込むため、各行の共通本文を基準に
+ * 始点・終点を個別に移動する。
+ */
+export function mapLineSelection(
+    original: string,
+    changed: string,
+    regionFrom: number,
+    selection: TextSelection
+): TextSelection {
+    const oldLines = original.split('\n');
+    const newLines = changed.split('\n');
+    const mapOffset = (absolute: number): number => {
+        const relative = Math.max(0, Math.min(original.length, absolute - regionFrom));
+        let oldCursor = 0;
+        let newCursor = 0;
+        for (let index = 0; index < oldLines.length; index += 1) {
+            const oldLine = oldLines[index] ?? '';
+            const newLine = newLines[index] ?? '';
+            const oldLineEnd = oldCursor + oldLine.length;
+            if (relative <= oldLineEnd || index === oldLines.length - 1) {
+                const lineOffset = Math.max(0, Math.min(oldLine.length, relative - oldCursor));
+                return regionFrom + newCursor + mapLineOffset(oldLine, newLine, lineOffset);
+            }
+            oldCursor = oldLineEnd + 1;
+            newCursor += newLine.length + 1;
+        }
+        return regionFrom + changed.length;
+    };
+    return {
+        from: mapOffset(selection.from),
+        to: mapOffset(selection.to)
+    };
+}
+
+/** 1行分の行頭変更に対して、本文側の論理位置を新しい行へ移動する。 */
+function mapLineOffset(original: string, changed: string, offset: number): number {
+    if (original === changed) return offset;
+    let suffixLength = 0;
+    while (
+        suffixLength < original.length
+        && suffixLength < changed.length
+        && original.charCodeAt(original.length - suffixLength - 1) === changed.charCodeAt(changed.length - suffixLength - 1)
+    ) {
+        suffixLength += 1;
+    }
+    const originalPrefixLength = original.length - suffixLength;
+    const changedPrefixLength = changed.length - suffixLength;
+    if (offset <= originalPrefixLength) return changedPrefixLength;
+    return Math.max(0, Math.min(changed.length, offset + changedPrefixLength - originalPrefixLength));
 }
 
 /**

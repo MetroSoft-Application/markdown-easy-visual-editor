@@ -9,6 +9,7 @@ import {
   applyMarkdownTableTsv,
   formatMarkdown,
   getOutline,
+  indentSelectedLines,
   imageMarkdown,
   isMarkdownCodeFencePosition,
   markdownTableToTsv,
@@ -43,12 +44,111 @@ describe('Markdown source editing', () => {
     expect(prefixSelectedLines('item\n', { from: 5, to: 5 }, '- ').text).toBe('item\n- ');
   });
 
+  it('keeps caret-only bullet, task, and quote actions on the current line', () => {
+    for (const prefix of ['- ', '- [ ] ', '> ']) {
+      let source = 'line 14\n\nline 16';
+      let selection = { from: 3, to: 3 };
+      for (let index = 0; index < 3; index += 1) {
+        const edit = prefixSelectedLines(source, selection, prefix);
+        source = edit.text;
+        selection = edit.selection;
+        expect(selection.from).toBe(selection.to);
+      }
+      expect(source).toContain(`${prefix}line 14`);
+      expect(source).toContain('\n\nline 16');
+    }
+  });
+
+  it('adds indentation without toggling existing indentation', () => {
+    expect(indentSelectedLines('item', { from: 0, to: 4 }).text).toBe('  item');
+    expect(indentSelectedLines('  item', { from: 0, to: 6 }).text).toBe('    item');
+    expect(indentSelectedLines('a\n  b', { from: 0, to: 5 }).text).toBe('  a\n    b');
+  });
+
+  it('keeps a caret-only indent on one line across repeated actions', () => {
+    let source = 'line 14\n\nline 16';
+    let selection = { from: 3, to: 3 };
+    for (let index = 0; index < 3; index += 1) {
+      const edit = indentSelectedLines(source, selection);
+      source = edit.text;
+      selection = edit.selection;
+    }
+    expect(source).toBe('      line 14\n\nline 16');
+    expect(selection.from).toBe(selection.to);
+  });
+
+  it('keeps multi-line selection endpoints stable across repeated indentation', () => {
+    let source = 'alpha\nbeta\ngamma';
+    let selection = { from: 2, to: 8 };
+    for (let index = 0; index < 3; index += 1) {
+      const edit = indentSelectedLines(source, selection);
+      source = edit.text;
+      selection = edit.selection;
+      expect(source.split('\n')[2]).toBe('gamma');
+    }
+    expect(source).toBe('      alpha\n      beta\ngamma');
+    expect(selection).toEqual({ from: 8, to: 20 });
+  });
+
+  it('keeps multi-line selection endpoints stable for list actions', () => {
+    let source = 'alpha\nbeta\ngamma';
+    let selection = { from: 2, to: 8 };
+    for (let index = 0; index < 3; index += 1) {
+      const edit = prefixSelectedLines(source, selection, '- ');
+      source = edit.text;
+      selection = edit.selection;
+      expect(source.split('\n')[2]).toBe('gamma');
+    }
+    expect(source).toBe('- alpha\n- beta\ngamma');
+    expect(selection).toEqual({ from: 4, to: 12 });
+  });
+
+  it('keeps multi-line selection endpoints for quote, task, and numbered lists', () => {
+    const cases = [
+      { prefix: '> ', expected: { from: 4, to: 12 }, expectedText: '> alpha\n> beta\ngamma' },
+      { prefix: '- [ ] ', expected: { from: 8, to: 20 }, expectedText: '- [ ] alpha\n- [ ] beta\ngamma' }
+    ];
+    for (const item of cases) {
+      let source = 'alpha\nbeta\ngamma';
+      let selection = { from: 2, to: 8 };
+      for (let index = 0; index < 3; index += 1) {
+        const edit = prefixSelectedLines(source, selection, item.prefix);
+        source = edit.text;
+        selection = edit.selection;
+      }
+      expect(source).toBe(item.expectedText);
+      expect(selection).toEqual(item.expected);
+    }
+
+    let source = 'alpha\nbeta\ngamma';
+    let selection = { from: 2, to: 8 };
+    for (let index = 0; index < 3; index += 1) {
+      const edit = prefixOrderedList(source, selection);
+      source = edit.text;
+      selection = edit.selection;
+    }
+    expect(source).toBe('1. alpha\n2. beta\ngamma');
+    expect(selection).toEqual({ from: 5, to: 14 });
+  });
+
   it('applies numbered lists at the caret and numbers selected lines', () => {
     expect(prefixOrderedList('alpha', { from: 2, to: 2 }).text).toBe('1. alpha');
     expect(prefixOrderedList('alpha\nbeta', { from: 0, to: 10 }).text).toBe('1. alpha\n2. beta');
     expect(prefixOrderedList('1. alpha\n2. beta', { from: 4, to: 4 }).text).toBe('alpha\n2. beta');
     expect(prefixOrderedList('', { from: 0, to: 0 }).text).toBe('1. ');
     expect(prefixOrderedList('item\n', { from: 5, to: 5 }).text).toBe('item\n1. ');
+  });
+
+  it('keeps caret-only numbered-list actions on the current line', () => {
+    let source = 'line 14\n\nline 16';
+    let selection = { from: 3, to: 3 };
+    for (let index = 0; index < 3; index += 1) {
+      const edit = prefixOrderedList(source, selection);
+      source = edit.text;
+      selection = edit.selection;
+      expect(selection.from).toBe(selection.to);
+    }
+    expect(source).toBe('1. line 14\n\nline 16');
   });
 
   it('clears inline formatting without removing link targets', () => {

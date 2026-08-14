@@ -201,6 +201,13 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
     panel: vscode.WebviewPanel,
     message: WebviewToHostMessage
   ): Promise<void> {
+    console.info('[MVE host] message', {
+      type: message.type,
+      document: document.uri.toString(),
+      clientId: 'clientId' in message ? message.clientId : undefined,
+      opId: 'opId' in message ? message.opId : undefined,
+      baseVersion: 'baseVersion' in message ? message.baseVersion : undefined
+    });
     // Webviewから受け取った種別ごとの要求を文書操作やファイル操作へ振り分ける。
     try {
       switch (message.type) {
@@ -420,6 +427,15 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
     panel: vscode.WebviewPanel,
     message: Extract<WebviewToHostMessage, { type: 'localChanges' }>
   ): Promise<void> {
+    console.info('[MVE host] localChanges received', {
+      document: document.uri.toString(),
+      clientId: message.clientId,
+      opId: message.opId,
+      baseVersion: message.baseVersion,
+      documentVersion: document.version,
+      changeCount: message.changes.length,
+      changes: message.changes.slice(0, 8)
+    });
     // Webviewの差分を履歴へ照合し、必要なら最新位置へ写像してWorkspaceEditを適用する。
     const key = document.uri.toString();
     const registeredClientId = this.panelClientIds.get(panel);
@@ -486,6 +502,13 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
     this.activeOperationKeysByDocument.set(key, operationKey);
     // 適用中の操作を記録し、後続の文書変更通知で自分の書き込みと判定できるようにする。
     const applied = await applyChangeBatch(document, changes);
+    console.info('[MVE host] localChanges apply result', {
+      document: document.uri.toString(),
+      opId: message.opId,
+      applied,
+      changeCount: changes.length,
+      documentVersion: document.version
+    });
     if (!applied) {
       this.activeOperations.delete(operationKey);
       if (this.activeOperationKeysByDocument.get(key) === operationKey) this.activeOperationKeysByDocument.delete(key);
@@ -530,6 +553,21 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
       rangeLength: change.rangeLength,
       text: change.text
     }));
+    console.info('[MVE host] document changed', {
+      document: key,
+      version: event.document.version,
+      changeCount: changes.length,
+      changes: changes.slice(0, 8),
+      activeOpId: active?.opId
+    });
+    if (!changes.length) {
+      console.info('[MVE host] document changed ignored (no content changes)', {
+        document: key,
+        version: event.document.version,
+        activeOpId: active?.opId
+      });
+      return;
+    }
     const baseVersion = event.document.version - 1;
     const baseLength = event.document.getText().length
       - changes.reduce((total, change) => total + change.text.length - change.rangeLength, 0);

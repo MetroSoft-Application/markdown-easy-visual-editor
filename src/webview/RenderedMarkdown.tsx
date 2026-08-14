@@ -4,6 +4,7 @@ import type { WebviewSettings } from '../shared/protocol';
 import { getMessages } from '../shared/messages';
 import { renderMarkdown } from './markdownRenderer';
 import { mermaidErrorMessage, renderMermaidSvg } from './mermaidRenderer';
+import { mveDebug } from './debug';
 
 export type InspectorTarget =
   | { type: 'mermaid'; source: string }
@@ -301,16 +302,13 @@ function enhanceResizableImages(
       button.setAttribute('aria-label', label);
       button.title = label;
       button.dataset.active = alignment === imageAlignment ? 'true' : 'false';
-      let pointerUpHandled = false;
       const applyAlignment = (event: Event) => {
-        if (event.type === 'click' && pointerUpHandled) {
-          pointerUpHandled = false;
-          return;
-        }
-        if (event.type === 'pointerup') {
-          pointerUpHandled = true;
-          window.setTimeout(() => { pointerUpHandled = false; }, 0);
-        }
+        mveDebug('image-alignment-event', {
+          eventType: event.type,
+          imageIndex,
+          alignment,
+          title: button.title
+        });
         event.preventDefault();
         event.stopPropagation();
         frame.dataset.mveImageAlign = alignment;
@@ -319,7 +317,6 @@ function enhanceResizableImages(
         });
         onAlignRef.current?.(imageIndex, alignment);
       };
-      button.addEventListener('pointerup', applyAlignment);
       button.addEventListener('click', applyAlignment);
       alignmentActions.appendChild(button);
     });
