@@ -136,6 +136,8 @@ export function App(): React.JSX.Element {
   const [outlineWidth, setOutlineWidth] = useState(() => clampOutlineWidth(restored?.outlineWidth ?? 220));
   const [splitRatio, setSplitRatio] = useState(() => clampSplitRatio(restored?.splitRatio ?? 0.5));
   const [zoom, setZoom] = useState(() => clampZoom(restored?.zoom ?? 1));
+  const zoomRef = useRef(zoom);
+  zoomRef.current = zoom;
   const [splitView, setSplitView] = useState<'both' | 'text' | 'preview'>(restored?.splitView ?? 'both');
   const [initialized, setInitialized] = useState(false);
   const [markdown, setMarkdown] = useState('');
@@ -296,13 +298,33 @@ export function App(): React.JSX.Element {
     const onWheel = (event: WheelEvent) => {
       if (!event.ctrlKey) return;
       event.preventDefault();
-      captureVisibleViewports();
-      pendingViewportRestoreRef.current = true;
-      setZoom((current) => clampZoom(current + (event.deltaY < 0 ? 0.1 : -0.1)));
+      adjustZoom(event.deltaY < 0 ? 0.1 : -0.1);
     };
     editorArea.addEventListener('wheel', onWheel, { passive: false });
     return () => editorArea.removeEventListener('wheel', onWheel);
   }, [initialized]);
+
+  /** 現在の表示倍率を変更し、PDFを含む表示位置を維持する。 */
+  function adjustZoom(delta: number): void {
+    captureVisibleViewports();
+    pendingViewportRestoreRef.current = true;
+    const previous = zoomRef.current;
+    const next = clampZoom(previous + delta);
+    if (next === previous) {
+      mveDebug('zoom.unchanged', { delta, zoom: previous, mode, splitView, printPreview });
+      return;
+    }
+    zoomRef.current = next;
+    mveDebug('zoom.changed', {
+      delta,
+      previous,
+      next,
+      mode,
+      splitView,
+      printPreview
+    });
+    setZoom(next);
+  }
 
   useLayoutEffect(() => {
     // 保留した選択移動または表示位置復元をレイアウト確定後に実行する。
@@ -1958,12 +1980,14 @@ export function App(): React.JSX.Element {
               markdown={markdown}
               settings={settings}
               options={pdfOptions}
+              zoom={zoom}
               messages={messages}
               pdfBase64={pdfPreview.pdfBase64}
               pdfLoading={pdfPreview.loading}
               pdfError={pdfPreview.error}
               onInspect={(target) => changeInspector(target)}
               onNavigate={(href) => vscode.postMessage({ type: 'openResource', href })}
+              onZoom={adjustZoom}
               onRendered={() => handlePreviewRendered('previewOnly')}
             />
           )}
@@ -2071,16 +2095,18 @@ function Inspector({ target, settings, messages, onChange, onClose, onOpenResour
  * @param props Markdown本文、表示設定、PDF設定、プレビュー内操作のコールバック。
  * @returns 印刷プレビューのReact要素。
  */
-function PdfPreview({ markdown, settings, options, messages, pdfBase64, pdfLoading, pdfError, onInspect, onNavigate, onRendered }: {
+function PdfPreview({ markdown, settings, options, zoom, messages, pdfBase64, pdfLoading, pdfError, onInspect, onNavigate, onZoom, onRendered }: {
   markdown: string;
   settings: WebviewSettings;
   options: PdfOptions;
+  zoom: number;
   messages: Messages;
   pdfBase64?: string;
   pdfLoading: boolean;
   pdfError?: string;
   onInspect: (target: InspectorTarget) => void;
   onNavigate: (href: string) => void;
+  onZoom: (delta: number) => void;
   onRendered: () => void;
 }): React.JSX.Element {
   const [pdfCanvasReady, setPdfCanvasReady] = useState(false);
@@ -2094,12 +2120,22 @@ function PdfPreview({ markdown, settings, options, messages, pdfBase64, pdfLoadi
 
   useEffect(() => {
     setPdfCanvasReady(false);
-  }, [pdfBase64, pdfLoading]);
+  }, [pdfBase64, pdfLoading, zoom]);
 
   return (
-    <div className={`pdf-preview-shell ${pdfBase64 ? 'pdf-preview-shell-ready' : ''}`} data-pdf-format={options.format} data-pdf-orientation={options.orientation}>
+    <div
+      className={`pdf-preview-shell ${pdfBase64 ? 'pdf-preview-shell-ready' : ''}`}
+      data-pdf-format={options.format}
+      data-pdf-orientation={options.orientation}
+      data-pdf-zoom={zoom}
+    >
+      <div className="pdf-preview-toolbar" role="toolbar" aria-label={messages.ribbon.hintZoom}>
+        <button type="button" aria-label="PDFズームアウト" title={messages.ribbon.hintZoom} onClick={() => { mveDebug('pdf.zoom-button', { delta: -0.1, zoom }); onZoom(-0.1); }}>−</button>
+        <span className="pdf-preview-zoom-value">{Math.round(zoom * 100)}%</span>
+        <button type="button" aria-label="PDFズームイン" title={messages.ribbon.hintZoom} onClick={() => { mveDebug('pdf.zoom-button', { delta: 0.1, zoom }); onZoom(0.1); }}>＋</button>
+      </div>
       {pdfLoading && <p className="pdf-preview-status" aria-live="polite">PDFをバックグラウンドで更新しています。本文はそのまま操作できます。</p>}
-      <div className={`pdf-preview-dom-layer ${showPdfLayer ? 'is-hidden' : ''}`}>
+      <div className={`pdf-preview-dom-layer ${showPdfLayer ? 'is-hidden' : ''}`} style={{ zoom }}>
         <div className="pdf-preview-sheet" style={sheetStyle}>
           {options.header && <div className="pdf-preview-header">{formatPdfTemplate(options.header)}</div>}
           <RenderedMarkdown
@@ -2118,6 +2154,7 @@ function PdfPreview({ markdown, settings, options, messages, pdfBase64, pdfLoadi
           <PdfDocumentPreview
             data={pdfBase64}
             pageRatio={dimensions.width / dimensions.height}
+            zoom={zoom}
             onRendered={() => {
               setPdfCanvasReady(true);
               onRendered();

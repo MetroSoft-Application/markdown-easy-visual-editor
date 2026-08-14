@@ -1142,6 +1142,40 @@ button:disabled {
   color: #202124;
   background: #e5e7eb;
 }
+/* PDFプレビューをマウス操作なしでも拡大・縮小できるようにする。 */
+.pdf-preview-toolbar {
+  position: sticky;
+  z-index: 31;
+  top: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 4px;
+  min-height: 32px;
+  margin: -16px -16px 8px;
+  padding: 4px 8px;
+  background: color-mix(in srgb, #e5e7eb 92%, transparent);
+}
+.pdf-preview-toolbar button {
+  width: 28px;
+  height: 24px;
+  padding: 0;
+  border: 1px solid var(--mve-border);
+  border-radius: 3px;
+  color: #202124;
+  background: #fff;
+  font-size: 17px;
+  line-height: 1;
+}
+.pdf-preview-toolbar button:hover {
+  background: #f3f4f6;
+}
+.pdf-preview-zoom-value {
+  min-width: 48px;
+  color: #202124;
+  font-size: 12px;
+  text-align: center;
+}
 /* インスペクター・診断・PDF設定パネルを整える。 */
 .pdf-preview-sheet {
   position: relative;
@@ -1338,6 +1372,9 @@ button:disabled {
   }
 /* インスペクター・診断・PDF設定パネルを整える。 */
   .pdf-preview-note {
+    display: none;
+  }
+  .pdf-preview-toolbar {
     display: none;
   }
 /* 印刷プレビュー時の画面と用紙を整える。 */

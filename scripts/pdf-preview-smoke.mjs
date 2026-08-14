@@ -93,6 +93,13 @@ try {
   await page.waitForSelector('.pdf-preview-pdf-layer.is-preparing');
   const fallbackDuringPdfRender = await page.locator('.pdf-preview-dom-layer:not(.is-hidden)').count();
   if (fallbackDuringPdfRender !== 1) throw new Error('DOM preview disappeared while PDF.js was rendering.');
+  const fallbackWidthBeforeZoom = await page.locator('.pdf-preview-sheet').first().evaluate((element) => element.getBoundingClientRect().width);
+  await page.getByRole('button', { name: 'PDFズームイン' }).click();
+  await page.waitForFunction(() => document.querySelector('.pdf-preview-shell')?.getAttribute('data-pdf-zoom') === '1.1');
+  const fallbackWidthAfterZoom = await page.locator('.pdf-preview-sheet').first().evaluate((element) => element.getBoundingClientRect().width);
+  if (fallbackWidthAfterZoom <= fallbackWidthBeforeZoom) {
+    throw new Error(`DOM PDF preview zoom did not enlarge the fallback: ${fallbackWidthBeforeZoom} -> ${fallbackWidthAfterZoom}`);
+  }
 
   await page.locator('.pdf-settings-panel .panel-title button').click();
   if (await page.locator('.pdf-settings-panel').count() !== 0
@@ -104,16 +111,60 @@ try {
   await page.waitForSelector('.pdf-page-ready');
   await page.waitForTimeout(500);
 
-  const result = await page.evaluate(() => ({
+  const widthBeforeZoom = await page.locator('.pdf-page').first().evaluate((element) => element.getBoundingClientRect().width);
+  await page.locator('.pdf-page').first().hover();
+  await page.keyboard.down('Control');
+  await page.mouse.wheel(0, -100);
+  await page.keyboard.up('Control');
+  await page.waitForSelector('.pdf-page-ready');
+  await page.waitForTimeout(500);
+  const widthAfterZoom = await page.locator('.pdf-page').first().evaluate((element) => element.getBoundingClientRect().width);
+  if (widthAfterZoom <= widthBeforeZoom) {
+    throw new Error(`PDF zoom did not enlarge the page: ${widthBeforeZoom} -> ${widthAfterZoom}`);
+  }
+
+  await page.locator('.pdf-page').first().hover();
+  await page.keyboard.down('Control');
+  await page.mouse.wheel(0, 100);
+  await page.keyboard.up('Control');
+  await page.waitForSelector('.pdf-page-ready');
+  await page.waitForTimeout(500);
+  const widthAfterShrink = await page.locator('.pdf-page').first().evaluate((element) => element.getBoundingClientRect().width);
+  if (widthAfterShrink >= widthAfterZoom) {
+    throw new Error(`PDF zoom did not shrink the page: ${widthAfterZoom} -> ${widthAfterShrink}`);
+  }
+
+  await page.getByRole('button', { name: 'PDFズームイン' }).click();
+  await page.waitForSelector('.pdf-page-ready');
+  await page.waitForTimeout(500);
+  const widthAfterButtonZoom = await page.locator('.pdf-page').first().evaluate((element) => element.getBoundingClientRect().width);
+  if (widthAfterButtonZoom <= widthAfterShrink) {
+    throw new Error(`PDF zoom button did not enlarge the page: ${widthAfterShrink} -> ${widthAfterButtonZoom}`);
+  }
+
+  const result = await page.evaluate(({ widthBeforeZoom, widthAfterZoom, widthAfterShrink, widthAfterButtonZoom, fallbackWidthBeforeZoom, fallbackWidthAfterZoom }) => ({
     requests: window.__mveMessages.filter((message) => message.type === 'renderPdfPreview').length,
     pages: Number(document.querySelector('.pdf-pages')?.getAttribute('data-page-count') ?? 0),
-    readyPages: document.querySelectorAll('.pdf-page-ready').length
-  }));
+    readyPages: document.querySelectorAll('.pdf-page-ready').length,
+    widthBeforeZoom,
+    widthAfterZoom,
+    widthAfterShrink,
+    widthAfterButtonZoom,
+    fallbackWidthBeforeZoom,
+    fallbackWidthAfterZoom,
+    zoom: document.querySelector('.pdf-preview-shell')?.getAttribute('data-pdf-zoom'),
+    debugEvents: (window.__mveDebugLog ?? [])
+      .filter((entry) => entry.event === 'pdf.zoom-button' || entry.event === 'zoom.changed')
+      .map((entry) => entry.event)
+  }), { widthBeforeZoom, widthAfterZoom, widthAfterShrink, widthAfterButtonZoom, fallbackWidthBeforeZoom, fallbackWidthAfterZoom });
   if (pageErrors.length) throw new Error(`PDF preview page error: ${pageErrors.join(' / ')}`);
   if (result.requests < 1 || result.pages < 2 || result.readyPages < 1) {
     throw new Error(`PDF preview smoke failed: ${JSON.stringify(result)}`);
   }
-  console.log(`PDFプレビュー確認: ${result.pages}ページ、描画済み${result.readyPages}ページ、要求${result.requests}回`);
+  if (!result.debugEvents.includes('pdf.zoom-button') || result.debugEvents.filter((event) => event === 'zoom.changed').length < 3) {
+    throw new Error(`PDF zoom debug events missing: ${JSON.stringify(result.debugEvents)}`);
+  }
+  console.log(`PDFプレビュー確認: ${result.pages}ページ、描画済み${result.readyPages}ページ、要求${result.requests}回、幅${result.widthBeforeZoom}->${result.widthAfterZoom}->${result.widthAfterShrink}->${result.widthAfterButtonZoom}`);
   await context.close();
 } finally {
   await browser.close();

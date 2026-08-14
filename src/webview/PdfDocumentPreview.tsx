@@ -6,6 +6,7 @@ type PdfJsModule = typeof import('pdfjs-dist');
 interface Props {
   data: string;
   pageRatio: number;
+  zoom?: number;
   onRendered?: () => void;
 }
 
@@ -32,13 +33,17 @@ function decodeBase64(value: string): Uint8Array {
  * 生成済みPDFをページ単位で表示する。
  * ページはIntersectionObserverで遅延描画し、大規模文書の初回表示を軽くする。
  */
-export function PdfDocumentPreview({ data, pageRatio, onRendered }: Props): React.JSX.Element {
+export function PdfDocumentPreview({ data, pageRatio, zoom = 1, onRendered }: Props): React.JSX.Element {
   const [documentState, setDocumentState] = useState<PDFDocumentProxy>();
   const [pageCount, setPageCount] = useState(0);
   const [error, setError] = useState<string>();
   const firstPageRenderedRef = useRef(false);
   const onRenderedRef = useRef(onRendered);
   onRenderedRef.current = onRendered;
+
+  useEffect(() => {
+    firstPageRenderedRef.current = false;
+  }, [zoom]);
 
   useEffect(() => {
     let cancelled = false;
@@ -82,10 +87,11 @@ export function PdfDocumentPreview({ data, pageRatio, onRendered }: Props): Reac
     <div className="pdf-pages" data-page-count={pageCount}>
       {Array.from({ length: pageCount }, (_, index) => (
         <PdfPage
-          key={`${data.length}-${index + 1}`}
+          key={`${data.length}-${index + 1}-${zoom}`}
           document={documentState}
           pageNumber={index + 1}
           pageRatio={pageRatio}
+          zoom={zoom}
           onRendered={() => {
             if (firstPageRenderedRef.current) return;
             firstPageRenderedRef.current = true;
@@ -101,11 +107,13 @@ function PdfPage({
   document,
   pageNumber,
   pageRatio,
+  zoom,
   onRendered
 }: {
   document: PDFDocumentProxy;
   pageNumber: number;
   pageRatio: number;
+  zoom: number;
   onRendered: () => void;
 }): React.JSX.Element {
   const pageRef = useRef<HTMLDivElement>(null);
@@ -131,7 +139,7 @@ function PdfPage({
         const page = await document.getPage(pageNumber);
         if (cancelled) return;
         const baseViewport = page.getViewport({ scale: 1 });
-        const cssWidth = Math.max(280, container.clientWidth || 794);
+        const cssWidth = container.clientWidth || 794;
         const viewport = page.getViewport({ scale: cssWidth / baseViewport.width });
         const outputScale = Math.min(2, window.devicePixelRatio || 1);
         canvas.width = Math.ceil(viewport.width * outputScale);
@@ -174,7 +182,10 @@ function PdfPage({
       ref={pageRef}
       className={`pdf-page pdf-page-${status}`}
       data-page-number={pageNumber}
-      style={{ aspectRatio: String(pageRatio) }}
+      style={{
+        aspectRatio: String(pageRatio),
+        width: `${794 * zoom}px`
+      }}
     >
       <canvas ref={canvasRef} aria-label={`PDF ${pageNumber}ページ`} />
       {status === 'error' && <span className="pdf-page-error">ページを描画できません</span>}
