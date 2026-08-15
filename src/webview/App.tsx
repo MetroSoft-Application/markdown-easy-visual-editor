@@ -145,6 +145,8 @@ export function App(): React.JSX.Element {
   const [version, setVersion] = useState(0);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const messages = useMemo(() => getMessages(settings.language), [settings.language]);
+  // HTML/PDFの出力先は白背景のため、VS CodeのダークテーマをSVGへ持ち込まない。
+  const exportSettings = useMemo(() => ({ ...settings, mermaidTheme: 'default' as const }), [settings]);
   const [activeMarks, setActiveMarks] = useState<Record<string, boolean>>({});
   const [selection, setSelection] = useState<TextSelection>({ from: 0, to: 0 });
   const [inspector, setInspector] = useState<InspectorTarget>();
@@ -162,6 +164,7 @@ export function App(): React.JSX.Element {
   const [linkLabel, setLinkLabel] = useState('');
   const [pdfOptions, setPdfOptions] = useState(DEFAULT_PDF);
   const [pdfPreview, setPdfPreview] = useState<PdfPreviewState>({ requestId: '', loading: false });
+  const [htmlRenderRequest, setHtmlRenderRequest] = useState<Extract<HostToWebviewMessage, { type: 'renderHtmlDocuments' }>>();
   const [toast, setToast] = useState('');
   const [, setSyncNonce] = useState(0);
 
@@ -642,6 +645,9 @@ export function App(): React.JSX.Element {
       case 'htmlExported':
         htmlRequestsRef.current.delete(message.requestId);
         setToast(messages.app.toast.htmlExported(message.paths[0] ?? '', message.paths.length));
+        return;
+      case 'renderHtmlDocuments':
+        setHtmlRenderRequest(message);
         return;
       case 'pdfPreviewReady':
         if (message.requestId !== pdfPreviewRequestRef.current) return;
@@ -2093,8 +2099,22 @@ export function App(): React.JSX.Element {
         <span>{modeLabel(mode, messages)}</span><span>{messages.app.status.lines(stats.lines)}</span><span>{messages.app.status.textCharacters(stats.text)}</span><span>{messages.app.status.markdownCharacters(stats.markdown)}</span><span>{messages.app.status.zoom(Math.round(zoom * 100))}</span><span>{pendingOperationsRef.current.length ? messages.app.status.syncing : messages.app.status.synced}</span>
       </footer>
       <div className="export-stage" aria-hidden="true">
-        <RenderedMarkdown markdown={markdown} settings={settings} onRendered={handleExportRendered} />
+        <RenderedMarkdown markdown={markdown} settings={exportSettings} onRendered={handleExportRendered} />
       </div>
+      {htmlRenderRequest && (
+        <HtmlDocumentRenderStage
+          request={htmlRenderRequest}
+          settings={exportSettings}
+          onRendered={(documents) => {
+            vscode.postMessage({
+              type: 'htmlDocumentsRendered',
+              requestId: htmlRenderRequest.requestId,
+              documents
+            });
+            setHtmlRenderRequest(undefined);
+          }}
+        />
+      )}
       {helpTopic && <HelpDialog topic={helpTopic} messages={messages} onClose={() => setHelpTopic(undefined)} />}
       {linkDialogVisible && (
         <LinkDialog
