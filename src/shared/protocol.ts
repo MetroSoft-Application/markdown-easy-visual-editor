@@ -64,6 +64,11 @@ export type HostToWebviewMessage =
   | { type: 'operationFailed'; requestId?: string; message: string }
   | { type: 'pdfExported'; requestId: string; path: string }
   | { type: 'htmlExported'; requestId: string; paths: string[] }
+  | {
+      type: 'renderHtmlDocuments';
+      requestId: string;
+      documents: Array<{ id: string; markdown: string }>;
+    }
   | { type: 'pdfPreviewReady'; requestId: string; pdfBase64: string }
   | { type: 'hostCommand'; command: 'insertImage' | 'exportPdf' | 'undo' | 'redo' };
 
@@ -88,6 +93,11 @@ export type WebviewToHostMessage =
       html: string;
       css: string;
       options: HtmlExportOptions;
+    }
+  | {
+      type: 'htmlDocumentsRendered';
+      requestId: string;
+      documents: Array<{ id: string; html: string }>;
     }
   | {
       type: 'renderPdfPreview';

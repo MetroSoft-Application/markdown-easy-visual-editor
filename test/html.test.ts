@@ -22,7 +22,7 @@ vi.mock('vscode', () => ({
   workspace: { fs: { readFile: (uri: TestUri) => fs.readFile(uri.fsPath) } }
 }));
 
-import { exportHtml } from '../src/extension/html';
+import { exportHtml, prepareHtmlExport, writePreparedHtml } from '../src/extension/html';
 
 const temporaryDirectories: string[] = [];
 
@@ -85,6 +85,34 @@ describe('HTML export', () => {
     const output = await fs.readFile(target, 'utf8');
     expect(output).toContain('src="../assets/local-sample.svg"');
     expect(output).not.toContain('data:image/svg+xml;base64,');
+  });
+
+  it('uses Webview-rendered HTML for recursive documents', async () => {
+    const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markdown-easy-visual-editor-html-'));
+    temporaryDirectories.push(directory);
+    const markdownPath = path.join(directory, 'main.md');
+    const childPath = path.join(directory, 'child.md');
+    await fs.writeFile(childPath, '```mermaid\nflowchart TD\n A --> B\n```\n', 'utf8');
+    const target = path.join(directory, 'main.html');
+    vscodeMock.showSaveDialog.mockResolvedValue(new TestUri(target));
+    const request = {
+      markdown: '[Child](child.md)',
+      html: '<p><a href="#" data-mve-link="child.md">Child</a></p>',
+      css: '',
+      options: { embedImages: false, convertLinkedMarkdown: true, saveWithoutDialog: false },
+      documentUri: new TestUri(markdownPath) as any,
+      language: 'ja'
+    };
+    const preparation = await prepareHtmlExport(request);
+    expect(preparation).toBeTruthy();
+    await writePreparedHtml(request, preparation!, [{
+      id: childPath,
+      html: '<div class="mermaid"><svg data-rendered="true"></svg></div>'
+    }]);
+
+    const child = await fs.readFile(path.join(directory, 'child.html'), 'utf8');
+    expect(child).toContain('<svg data-rendered="true"></svg>');
+    expect(child).not.toContain('language-mermaid');
   });
 
   it('exports beside the Markdown file without opening a save dialog by default', async () => {

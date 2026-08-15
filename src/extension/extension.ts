@@ -11,7 +11,11 @@ import { collectLocalResourceReferences, sortDiagnostics, type Diagnostic } from
 import { applyTextChanges, mapTextChanges, validateTextChanges, type TextChange } from '../shared/textChanges';
 import { getMessages, resolveLanguage, type Messages } from '../shared/messages';
 import { closePdfBrowser, exportPdf, renderPdf } from './pdf';
-import { exportHtml } from './html';
+import {
+  prepareHtmlExport,
+  writePreparedHtml,
+  type HtmlRenderedDocument
+} from './html';
 import { decodeLocalResourceSource, isMissingResourceError } from './resourceCheck';
 import { classifyResourceLink } from './resourceLink';
 
@@ -79,6 +83,11 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
   private readonly pdfPreviewGenerations = new WeakMap<vscode.WebviewPanel, number>();
   private readonly pdfPreviewAbortControllers = new WeakMap<vscode.WebviewPanel, AbortController>();
   private readonly pdfPreviewChains = new WeakMap<vscode.WebviewPanel, Promise<void>>();
+  private readonly pendingHtmlRenderRequests = new Map<string, {
+    resolve: (documents: HtmlRenderedDocument[]) => void;
+    reject: (error: Error) => void;
+    timer: ReturnType<typeof setTimeout>;
+  }>();
   private readonly panelClientIds = new WeakMap<vscode.WebviewPanel, string>();
   private activePanel?: vscode.WebviewPanel;
   private activeDocument?: vscode.TextDocument;
@@ -255,6 +264,14 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
         case 'openResource':
           await this.openResource(document, message.href);
           return;
+        case 'htmlDocumentsRendered': {
+          const pending = this.pendingHtmlRenderRequests.get(message.requestId);
+          if (!pending) return;
+          clearTimeout(pending.timer);
+          this.pendingHtmlRenderRequests.delete(message.requestId);
+          pending.resolve(message.documents);
+          return;
+        }
         case 'requestResync': {
           // 直前までの編集連鎖を待ってから、最新本文と操作適用状態を返す。
           const documentKey = document.uri.toString();
@@ -305,18 +322,29 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
         }
         case 'exportHtml': {
           if (!vscode.workspace.isTrusted) {
-            throw new Error('HTML出力には信頼済みワークスペースが必要です。');
+            throw new Error(this.getMessages().host.htmlTrustRequired);
           }
           const result = await vscode.window.withProgress(
-            { location: vscode.ProgressLocation.Notification, title: 'MarkdownをHTMLに変換中...', cancellable: false },
-            () => exportHtml({
-              markdown: message.markdown,
-              html: message.html,
-              css: message.css,
-              options: message.options,
-              documentUri: document.uri,
-              language: this.getLanguage()
-            })
+            { location: vscode.ProgressLocation.Notification, title: this.getMessages().host.htmlProgress, cancellable: false },
+            async () => {
+              const request = {
+                markdown: message.markdown,
+                html: message.html,
+                css: message.css,
+                options: message.options,
+                documentUri: document.uri,
+                language: this.getLanguage()
+              };
+              const preparation = await prepareHtmlExport(request);
+              if (!preparation) return undefined;
+              const linkedDocuments = message.options.convertLinkedMarkdown
+                ? preparation.documents.slice(1).map((item) => ({ id: item.sourcePath, markdown: item.markdown }))
+                : [];
+              const renderedDocuments = linkedDocuments.length
+                ? await this.requestHtmlDocumentRender(panel, message.requestId, linkedDocuments)
+                : [];
+              return writePreparedHtml(request, preparation, renderedDocuments);
+            }
           );
           if (result) {
             this.post(panel, {
@@ -324,7 +352,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
               requestId: message.requestId,
               paths: result.paths.map((item) => item.fsPath)
             });
-            void vscode.window.showInformationMessage(`HTMLを出力しました: ${result.target.fsPath}`);
+            void vscode.window.showInformationMessage(this.getMessages().host.htmlExported(result.target.fsPath));
           } else {
             this.post(panel, {
               type: 'operationFailed',
@@ -894,6 +922,22 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
 
   private getMessages(): Messages {
     return getMessages(this.getLanguage());
+  }
+
+  /** 再帰HTML出力用の子MarkdownをWebviewで描画し、SVG化済みHTMLを受け取る。 */
+  private requestHtmlDocumentRender(
+    panel: vscode.WebviewPanel,
+    requestId: string,
+    documents: Array<{ id: string; markdown: string }>
+  ): Promise<HtmlRenderedDocument[]> {
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pendingHtmlRenderRequests.delete(requestId);
+        reject(new Error(this.getMessages().host.htmlRenderTimeout));
+      }, 30_000);
+      this.pendingHtmlRenderRequests.set(requestId, { resolve, reject, timer });
+      this.post(panel, { type: 'renderHtmlDocuments', requestId, documents });
+    });
   }
 
   /**

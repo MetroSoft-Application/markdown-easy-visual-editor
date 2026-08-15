@@ -255,6 +255,10 @@ export interface Messages {
     pdfTrustRequired: string;
     pdfProgress: string;
     pdfExported: (path: string) => string;
+    htmlTrustRequired: string;
+    htmlProgress: string;
+    htmlExported: (path: string) => string;
+    htmlRenderTimeout: string;
     open: string;
     saveCanceled: string;
     imageDocumentMustBeSaved: string;
@@ -439,6 +443,10 @@ function createMessages(language: SupportedLanguage): Messages {
       pdfTrustRequired: raw.host.pdfTrustRequired,
       pdfProgress: raw.host.pdfProgress,
       pdfExported: (path: string) => text('host.pdfExported', { path }),
+      htmlTrustRequired: raw.host.htmlTrustRequired,
+      htmlProgress: raw.host.htmlProgress,
+      htmlExported: (path: string) => text('host.htmlExported', { path }),
+      htmlRenderTimeout: raw.host.htmlRenderTimeout,
       open: raw.host.open,
       saveCanceled: raw.host.saveCanceled,
       imageDocumentMustBeSaved: raw.host.imageDocumentMustBeSaved,

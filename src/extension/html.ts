@@ -21,7 +21,7 @@ export interface HtmlExportResult {
   paths: vscode.Uri[];
 }
 
-interface HtmlDocument {
+export interface HtmlDocument {
   uri: vscode.Uri;
   sourcePath: string;
   markdown: string;
@@ -29,8 +29,25 @@ interface HtmlDocument {
   outputPath: string;
 }
 
+export interface HtmlExportPreparation {
+  target: vscode.Uri;
+  documents: HtmlDocument[];
+}
+
+export interface HtmlRenderedDocument {
+  id: string;
+  html: string;
+}
+
 /** 現在のMarkdownを単独で開けるHTMLへ変換し、必要ならリンク先も同じ構成で保存する。 */
 export async function exportHtml(request: HtmlExportRequest): Promise<HtmlExportResult | undefined> {
+  const preparation = await prepareHtmlExport(request);
+  if (!preparation) return undefined;
+  return writePreparedHtml(request, preparation);
+}
+
+/** 保存先を決定し、再帰変換対象のMarkdownを収集する。 */
+export async function prepareHtmlExport(request: HtmlExportRequest): Promise<HtmlExportPreparation | undefined> {
   const defaultUri = request.documentUri.scheme === 'file'
     ? vscode.Uri.file(path.join(
       path.dirname(request.documentUri.fsPath),
@@ -47,7 +64,23 @@ export async function exportHtml(request: HtmlExportRequest): Promise<HtmlExport
   if (!target) return undefined;
 
   const targetPath = ensureHtmlExtension(target.fsPath);
-  const documents = await collectDocuments(request, targetPath);
+  return {
+    target: vscode.Uri.file(targetPath),
+    documents: await collectDocuments(request, targetPath)
+  };
+}
+
+/** Webviewで描画済みのHTMLを使って、準備済みのHTML文書群を保存する。 */
+export async function writePreparedHtml(
+  request: HtmlExportRequest,
+  preparation: HtmlExportPreparation,
+  renderedDocuments: readonly HtmlRenderedDocument[] = []
+): Promise<HtmlExportResult> {
+  const renderedById = new Map(renderedDocuments.map((document) => [normalizePath(document.id), document.html]));
+  const documents = preparation.documents.map((document) => ({
+    ...document,
+    html: renderedById.get(normalizePath(document.sourcePath)) ?? document.html
+  }));
   const output = await Promise.all(documents.map(async (document) => {
     const body = await rewriteBody(
       document.html,
@@ -63,7 +96,7 @@ export async function exportHtml(request: HtmlExportRequest): Promise<HtmlExport
   }));
 
   return {
-    target: vscode.Uri.file(targetPath),
+    target: preparation.target,
     paths: output
   };
 }

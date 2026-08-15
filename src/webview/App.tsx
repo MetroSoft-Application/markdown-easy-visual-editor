@@ -1237,6 +1237,7 @@ export function App(): React.JSX.Element {
       setToast(messages.app.toast.workspaceTrustRequired);
       return;
     }
+    await waitForHtmlMermaidRendering();
     const root = exportRootRef.current;
     const requestId = createClientId();
     htmlRequestsRef.current.add(requestId);
@@ -1248,6 +1249,17 @@ export function App(): React.JSX.Element {
       css: collectPrintableCss(),
       options
     });
+  }
+
+  /** HTML出力直前に、非同期のMermaid描画が完了するまで待つ。 */
+  async function waitForHtmlMermaidRendering(): Promise<void> {
+    const root = exportRootRef.current;
+    if (!root) return;
+    const deadline = Date.now() + 10_000;
+    while (root.querySelector('.mermaid:not([data-mermaid-status]), .mermaid[data-mermaid-status="rendering"]')
+      && Date.now() < deadline) {
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 50));
+    }
   }
 
   /**
@@ -2133,6 +2145,41 @@ function Inspector({ target, settings, messages, onChange, onClose, onOpenResour
  * @param props Markdown本文、表示設定、PDF設定、プレビュー内操作のコールバック。
  * @returns 印刷プレビューのReact要素。
  */
+function HtmlDocumentRenderStage({ request, settings, onRendered }: {
+  request: Extract<HostToWebviewMessage, { type: 'renderHtmlDocuments' }>;
+  settings: WebviewSettings;
+  onRendered: (documents: Array<{ id: string; html: string }>) => void;
+}): React.JSX.Element {
+  const renderedRef = useRef(new Map<string, string>());
+  const completedRef = useRef(false);
+  const onRenderedRef = useRef(onRendered);
+  onRenderedRef.current = onRendered;
+
+  function handleRendered(id: string, element: HTMLElement): void {
+    if (completedRef.current) return;
+    renderedRef.current.set(id, element.innerHTML);
+    if (renderedRef.current.size !== request.documents.length) return;
+    completedRef.current = true;
+    onRenderedRef.current(request.documents.map((document) => ({
+      id: document.id,
+      html: renderedRef.current.get(document.id) ?? ''
+    })));
+  }
+
+  return (
+    <div className="export-stage html-document-render-stage" aria-hidden="true">
+      {request.documents.map((document) => (
+        <RenderedMarkdown
+          key={document.id}
+          markdown={document.markdown}
+          settings={settings}
+          onRendered={(element) => handleRendered(document.id, element)}
+        />
+      ))}
+    </div>
+  );
+}
+
 function PdfPreview({ markdown, settings, options, zoom, messages, pdfBase64, pdfLoading, pdfError, onInspect, onNavigate, onZoom, onRendered }: {
   markdown: string;
   settings: WebviewSettings;
