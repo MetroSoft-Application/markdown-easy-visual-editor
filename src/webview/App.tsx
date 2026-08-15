@@ -468,6 +468,25 @@ export function App(): React.JSX.Element {
     };
     /** 検索ショートカットと表内改行ショートカットを処理する。 */
     const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target instanceof Element ? event.target : undefined;
+      const inApp = Boolean(target?.closest('.app'));
+      const inSourceEditor = Boolean(target?.closest('.cm-content'));
+      const inFormControl = Boolean(target?.closest('input, textarea, select'));
+      if (inApp && (inSourceEditor || !inFormControl) && !event.isComposing
+        && (event.ctrlKey || event.metaKey) && !event.altKey) {
+        const key = event.key.toLowerCase();
+        const command = key === 'z'
+          ? (event.shiftKey ? 'redo' : 'undo')
+          : key === 'y' && !event.shiftKey
+            ? 'redo'
+            : undefined;
+        if (command) {
+          event.preventDefault();
+          event.stopImmediatePropagation();
+          requestHistoryCommand(command);
+          return;
+        }
+      }
       if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
         event.preventDefault();
         openSearch();

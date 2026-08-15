@@ -31,6 +31,8 @@ try {
     window.__mveHoldLocalOperations = false;
     window.__mveHeldOperations = [];
     window.__mveAppliedOperations = new Set();
+    window.__mveUndoStack = [];
+    window.__mveRedoStack = [];
     window.acquireVsCodeApi = () => ({
       postMessage: (message) => {
         window.__mveMessages.push(message);
@@ -39,6 +41,8 @@ try {
             window.__mveHeldOperations.push(message);
             return;
           }
+          window.__mveUndoStack.push(window.__mveHostText);
+          window.__mveRedoStack = [];
           const baseVersion = window.__mveHostVersion;
           for (const change of [...message.changes].sort((left, right) => right.rangeOffset - left.rangeOffset)) {
             window.__mveHostText = window.__mveHostText.slice(0, change.rangeOffset)
@@ -57,6 +61,25 @@ try {
               changes: message.changes
             }
           })), window.__mveAckDelay);
+        }
+        if (message.type === 'historyCommand') {
+          const sourceStack = message.command === 'undo' ? window.__mveUndoStack : window.__mveRedoStack;
+          const targetStack = message.command === 'undo' ? window.__mveRedoStack : window.__mveUndoStack;
+          const nextText = sourceStack.pop();
+          if (nextText === undefined) return;
+          const previousText = window.__mveHostText;
+          targetStack.push(previousText);
+          const baseVersion = window.__mveHostVersion;
+          window.__mveHostText = nextText;
+          window.__mveHostVersion += 1;
+          setTimeout(() => window.dispatchEvent(new MessageEvent('message', {
+            data: {
+              type: 'externalChanges',
+              baseVersion,
+              version: window.__mveHostVersion,
+              changes: [{ rangeOffset: 0, rangeLength: previousText.length, text: nextText }]
+            }
+          })), 0);
         }
         if (message.type === 'requestResync') setTimeout(() => window.dispatchEvent(new MessageEvent('message', {
           data: {
@@ -131,6 +154,31 @@ try {
   await sourceEditor.type('  \nX');
   await page.waitForFunction(() => window.__mveMessages.some((message) => message.type === 'localChanges'));
   if (!(await page.evaluate(() => window.__mveHostText.includes('second  \r\n')))) throw new Error('two-space hardbreak was removed during source edit');
+  const beforeRibbonUndo = await page.evaluate(() => window.__mveHostText);
+  await sourceEditor.press('Z');
+  await page.waitForFunction((text) => window.__mveHostText.length === text.length + 1, beforeRibbonUndo);
+  await page.locator('button[title^="元に戻す"]').click();
+  await page.waitForFunction((text) => window.__mveHostText === text, beforeRibbonUndo);
+  await page.locator('button[title^="やり直す"]').click();
+  await page.waitForFunction((text) => window.__mveHostText.length === text.length + 1, beforeRibbonUndo);
+  const beforeKeyboardUndo = await page.evaluate(() => window.__mveHostText);
+  await sourceEditor.click();
+  await sourceEditor.press('Q');
+  await page.waitForFunction((text) => window.__mveHostText.length === text.length + 1, beforeKeyboardUndo);
+  await sourceEditor.press('Control+Z');
+  await page.waitForFunction((text) => window.__mveHostText === text, beforeKeyboardUndo);
+  await sourceEditor.press('Control+Shift+Z');
+  await page.waitForFunction((text) => window.__mveHostText.length === text.length + 1, beforeKeyboardUndo);
+  await sourceEditor.press('Control+Z');
+  await page.waitForFunction((text) => window.__mveHostText.length === text.length, beforeKeyboardUndo);
+  await sourceEditor.press('Control+Z');
+  await page.waitForFunction((text) => window.__mveHostText === text, beforeRibbonUndo);
+  await sourceEditor.press('Control+Home');
+  await sourceEditor.press('ArrowDown');
+  await sourceEditor.press('ArrowDown');
+  await sourceEditor.press('ArrowDown');
+  await sourceEditor.press('ArrowDown');
+  await sourceEditor.press('End');
   await page.waitForTimeout(50);
   if (!(await page.evaluate((node) => node === document.querySelector('.split-editor .cm-editor'), editorNode))) throw new Error('blank-line edit remounted the source editor');
   await page.locator('.cm-scroller').evaluate((element) => { element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.7; });

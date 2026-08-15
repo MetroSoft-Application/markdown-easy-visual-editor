@@ -9,6 +9,7 @@
 - Fixed the process for navigating to another md file.
 - Added HTML export feature.
 
-## 1.0.2
+## 1.0.3
 
 - HTML export feature bug fix.
+- Undo/Redo bug fix.

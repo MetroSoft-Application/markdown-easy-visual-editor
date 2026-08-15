@@ -50,6 +50,11 @@ async function run() {
     assert.equal(await document.save(), true, 'Markdown文書を保存できませんでした。');
     assert.match(await fs.readFile(markdownPath, 'utf8'), /保存確認/, '保存内容がディスクへ反映されませんでした。');
 
+    await vscode.commands.executeCommand('markdownEasyVisualEditor.undo');
+    await waitFor(() => !document.getText().includes('菫晏ｭ倡｢ｺ隱・), 'extension undo command did not update the document.');
+    await vscode.commands.executeCommand('markdownEasyVisualEditor.redo');
+    await waitFor(() => document.getText().includes('菫晏ｭ倡｢ｺ隱・), 'extension redo command did not update the document.');
+
     await vscode.commands.executeCommand('undo');
     await waitFor(() => !document.getText().includes('保存確認'), 'Undoが文書へ反映されませんでした。');
     await vscode.commands.executeCommand('redo');
