@@ -16,12 +16,13 @@ Markdown Easy Visual Editor is a VS Code extension for writing Markdown with a l
 - Copy tables as TSV and paste spreadsheet data into Markdown tables.
 - Review local links and images before exporting.
 - Preview and export your document as a PDF.
+- Export your document as HTML, with options for images and linked Markdown files.
 
 ## Requirements
 
 - Visual Studio Code 1.100 or later.
 - A local, saved Markdown document for image insertion.
-- A trusted VS Code workspace for PDF export.
+- A trusted VS Code workspace for PDF and HTML export.
 
 ## Get started
 
@@ -147,6 +148,19 @@ flowchart TD
 - Use **Preflight check** before exporting to review missing local images, missing local links, invalid tables, and other document issues that may affect the result.\
 ![demo4](./resources/demo4.gif)
 - PDF export requires a trusted workspace and Microsoft Edge or Google Chrome. The extension first tries Microsoft Edge and then Google Chrome. If neither browser is detected, set **Markdown Easy Visual Editor: PDF Browser Path** in VS Code settings to the executable path of Edge or Chrome.
+
+## Export to HTML
+
+The **Export** tab can convert the current Markdown document to HTML.
+
+1. Open the **Export** tab.
+2. Choose the HTML options:
+   - **Embed images in HTML**: embed local images as data URLs, or leave them as relative paths when unchecked.
+   - **Convert linked Markdown**: recursively convert local links to other Markdown files and update the links to their generated HTML files.
+   - **Export directly to the same folder**: save the HTML beside the source Markdown file without showing a save dialog. This option is enabled by default.
+3. Choose **Export HTML**.
+
+When linked Markdown conversion is enabled, each linked Markdown file is also written as an HTML file in the corresponding location. Mermaid diagrams are rendered as SVG in the generated HTML. HTML export requires a trusted workspace.
 
 ## Settings
 

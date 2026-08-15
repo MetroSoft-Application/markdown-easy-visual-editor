@@ -7,4 +7,8 @@
 ## 1.0.1
 
 - Fixed the process for navigating to another md file.
-- Added HTML conversion feature.
+- Added HTML export feature.
+
+## 1.0.2
+
+- HTML export feature bug fix.
