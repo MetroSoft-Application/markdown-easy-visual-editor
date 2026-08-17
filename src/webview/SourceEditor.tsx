@@ -1,7 +1,18 @@
 import React, { forwardRef, useEffect, useImperativeHandle, useRef, useState } from 'react';
 import { defaultKeymap, indentWithTab } from '@codemirror/commands';
+import { cpp } from '@codemirror/lang-cpp';
+import { css } from '@codemirror/lang-css';
+import { go } from '@codemirror/lang-go';
+import { html } from '@codemirror/lang-html';
+import { java } from '@codemirror/lang-java';
+import { javascript } from '@codemirror/lang-javascript';
+import { json } from '@codemirror/lang-json';
 import { markdown as markdownLanguage } from '@codemirror/lang-markdown';
-import { defaultHighlightStyle, HighlightStyle, syntaxHighlighting } from '@codemirror/language';
+import { python } from '@codemirror/lang-python';
+import { rust } from '@codemirror/lang-rust';
+import { sql } from '@codemirror/lang-sql';
+import { yaml } from '@codemirror/lang-yaml';
+import { HighlightStyle, LanguageDescription, syntaxHighlighting } from '@codemirror/language';
 import { Annotation, EditorSelection, EditorState, StateEffect, StateField, type Extension, type Range } from '@codemirror/state';
 import { Decoration, type DecorationSet, EditorView, keymap, lineNumbers, placeholder as placeholderExtension, ViewPlugin } from '@codemirror/view';
 import { tags } from '@lezer/highlight';
@@ -83,13 +94,133 @@ export interface EditorViewportAnchor {
 /** 外部同期トランザクションをユーザー編集と区別するためのCodeMirrorアノテーション。 */
 const externalSyncTransaction = Annotation.define<boolean>();
 
-/** VS Codeテーマ上でMarkdownリンクとURLを読みやすく表示する。 */
-const vscodeLinkHighlightStyle = HighlightStyle.define([
+/** フェンス付きコードブロック内で利用するCodeMirror言語を定義する。 */
+const sourceCodeLanguages = [
+  LanguageDescription.of({
+    name: 'JavaScript',
+    alias: ['javascript', 'js', 'jsx'],
+    support: javascript({ jsx: true })
+  }),
+  LanguageDescription.of({
+    name: 'TypeScript',
+    alias: ['typescript', 'ts', 'tsx'],
+    support: javascript({ typescript: true, jsx: true })
+  }),
+  LanguageDescription.of({
+    name: 'HTML',
+    alias: ['html', 'xhtml'],
+    support: html()
+  }),
+  LanguageDescription.of({
+    name: 'CSS',
+    alias: ['css'],
+    support: css()
+  }),
+  LanguageDescription.of({
+    name: 'Python',
+    alias: ['python', 'py'],
+    support: python()
+  }),
+  LanguageDescription.of({
+    name: 'Java',
+    alias: ['java'],
+    support: java()
+  }),
+  LanguageDescription.of({
+    name: 'C++',
+    alias: ['cpp', 'c++'],
+    support: cpp()
+  }),
+  LanguageDescription.of({
+    name: 'Go',
+    alias: ['go', 'golang'],
+    support: go()
+  }),
+  LanguageDescription.of({
+    name: 'Rust',
+    alias: ['rust', 'rs'],
+    support: rust()
+  }),
+  LanguageDescription.of({
+    name: 'SQL',
+    alias: ['sql'],
+    support: sql()
+  }),
+  LanguageDescription.of({
+    name: 'JSON',
+    alias: ['json'],
+    support: json()
+  }),
+  LanguageDescription.of({
+    name: 'YAML',
+    alias: ['yaml', 'yml'],
+    support: yaml()
+  })
+] as const;
+
+/** Markdownとフェンス内コードをVS Codeテーマに合わせて読みやすく表示する。 */
+const vscodeSyntaxHighlightStyle = HighlightStyle.define([
+  { tag: tags.meta, color: 'var(--vscode-descriptionForeground)' },
+  { tag: tags.heading, color: '#4ec9b0', fontWeight: '600' },
+  { tag: tags.quote, color: 'var(--vscode-textBlockQuote-foreground, var(--vscode-foreground))' },
+  { tag: tags.emphasis, fontStyle: 'italic' },
+  { tag: tags.strong, fontWeight: 'bold' },
+  { tag: tags.strikethrough, textDecoration: 'line-through' },
   {
-    tag: [tags.link, tags.url],
-    color: 'var(--vscode-textLink-foreground)',
+    tag: tags.link,
+    color: '#4ec9b0',
     textDecoration: 'underline'
-  }
+  },
+  { tag: tags.url, color: '#4ec9b0' },
+  { tag: tags.processingInstruction, color: '#d7ba7d' },
+  {
+    tag: tags.monospace,
+    color: '#ce9178',
+    backgroundColor: 'var(--vscode-textCodeBlock-background, var(--vscode-editor-inactiveSelectionBackground))',
+    fontFamily: 'var(--vscode-editor-font-family, monospace)'
+  },
+  { tag: tags.escape, color: '#ce9178' },
+  { tag: tags.character, color: '#b5cea8' },
+  {
+    tag: [tags.keyword, tags.operator],
+    color: '#c586c0'
+  },
+  {
+    tag: [tags.atom, tags.bool, tags.contentSeparator],
+    color: '#dcdcaa'
+  },
+  { tag: tags.number, color: '#b5cea8' },
+  { tag: tags.labelName, color: '#d7ba7d' },
+  {
+    tag: [tags.string, tags.special(tags.string)],
+    color: '#ce9178'
+  },
+  { tag: [tags.literal, tags.inserted], color: '#b5cea8' },
+  { tag: tags.deleted, color: '#f48771' },
+  { tag: tags.regexp, color: '#d16969' },
+  { tag: tags.comment, color: 'var(--vscode-descriptionForeground)', fontStyle: 'italic' },
+  {
+    tag: [tags.typeName, tags.className, tags.namespace],
+    color: '#155e4f'
+  },
+  {
+    tag: [tags.definition(tags.variableName), tags.local(tags.variableName)],
+    color: '#dcdcaa'
+  },
+  {
+    tag: [tags.special(tags.variableName), tags.macroName],
+    color: '#c586c0'
+  },
+  {
+    tag: tags.definition(tags.propertyName),
+    color: '#155e4f'
+  },
+  {
+    tag: [tags.variableName, tags.propertyName, tags.function(tags.variableName)],
+    color: 'var(--vscode-editor-foreground)'
+  },
+  { tag: tags.invalid, color: 'var(--vscode-errorForeground)' },
+  { tag: [tags.punctuation, tags.paren, tags.brace, tags.squareBracket, tags.separator], color: '#d4d4d4' }
 ]);
 
 interface SearchHighlightData {
@@ -244,9 +375,9 @@ export const SourceEditor = forwardRef<TextEditorHandle, Props>(function SourceE
       extensions: [
         EditorState.lineSeparator.of(detectLineSeparator(value)),
         lineNumbers(),
-        markdownLanguage(),
-        syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-        syntaxHighlighting(vscodeLinkHighlightStyle),
+        markdownLanguage({ codeLanguages: sourceCodeLanguages }),
+        // 標準スタイルは濃い青を含むため使わず、明るいテーマ配色を1つだけ適用する。
+        syntaxHighlighting(vscodeSyntaxHighlightStyle),
         visibleSpaces,
         searchHighlightField,
         placeholderExtension(placeholder),

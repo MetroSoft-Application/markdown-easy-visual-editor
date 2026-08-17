@@ -13,3 +13,7 @@
 
 - HTML export feature bug fix.
 - Undo/Redo bug fix.
+
+## 1.0.4
+
+- Add syntax highlighting to the editor.

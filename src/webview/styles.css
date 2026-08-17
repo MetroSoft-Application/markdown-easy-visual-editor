@@ -84,11 +84,11 @@ button:disabled {
 /* リボンのレイアウトと操作状態を整える。 */
 .ribbon-tabs button.active {
   border-bottom-color: var(--vscode-focusBorder);
-  color: var(--vscode-textLink-foreground);
+  color: #4ec9b0;
 }
 /* リボンのレイアウトと操作状態を整える。 */
 .ribbon-tabs .ribbon-source-button {
-  color: var(--vscode-textLink-foreground);
+  color: #4ec9b0;
   font-weight: 600;
 }
 /* リボンのレイアウトと操作状態を整える。 */
@@ -524,7 +524,7 @@ button:disabled {
 }
 /* Markdownプレビューの本文・見出し・要素を整える。 */
 .rendered-markdown a {
-  color: var(--vscode-textLink-foreground);
+  color: #4ec9b0;
 }
 /* Markdownプレビューの本文・見出し・要素を整える。 */
 .rendered-markdown img {
@@ -988,7 +988,7 @@ button:disabled {
   justify-self: start;
   padding: 0;
   border: 0;
-  color: var(--vscode-textLink-foreground);
+  color: #4ec9b0;
   background: transparent;
   font-size: 11px;
 }
