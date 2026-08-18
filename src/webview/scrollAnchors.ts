@@ -8,6 +8,23 @@ export interface PreviewViewportAnchor {
   scrollRatio?: number;
 }
 
+interface SourceRange {
+  from: number;
+  to: number;
+}
+
+function clampUnit(value: number): number {
+  return Math.min(1, Math.max(0, value));
+}
+
+function readSourceRange(element: HTMLElement): SourceRange | undefined {
+  const from = Number(element.dataset.sourceFrom);
+  if (!Number.isFinite(from)) return undefined;
+  const rawTo = Number(element.dataset.sourceTo);
+  const to = Number.isFinite(rawTo) ? Math.max(from + 1, rawTo) : from + 1;
+  return { from, to };
+}
+
 /**
  * コンテナーを指定された全体スクロール比率へ移動する。
  * 先頭・末尾など、本文アンカーだけでは表現できない境界位置の同期に使う。
@@ -18,64 +35,62 @@ export interface PreviewViewportAnchor {
 export function restoreScrollRatio(container: HTMLElement, ratio: number): boolean {
   if (container.clientHeight === 0 || !Number.isFinite(ratio)) return false;
   const maxScrollTop = Math.max(0, container.scrollHeight - container.clientHeight);
-  const nextScrollTop = Math.min(1, Math.max(0, ratio)) * maxScrollTop;
+  const nextScrollTop = clampUnit(ratio) * maxScrollTop;
   if (Math.abs(container.scrollTop - nextScrollTop) <= 0.5) return false;
   container.scrollTop = nextScrollTop;
   return true;
 }
 
 /**
- * プレビューの表示位置をソースオフセットと画面上の距離として取得する。
+ * プレビューの表示位置を、Markdownブロック内の進捗を補間したソースオフセットとして取得する。
+ * 大きな画像・表・図などで描画高さがソース行数と大きく異なっても、ブロック途中の位置を失わない。
  * @param container 表示位置を取得するプレビューコンテナー。
  * @returns 復元に必要なアンカー。対象ブロックがない場合はundefined。
  */
 export function capturePreviewViewport(container: HTMLElement): PreviewViewportAnchor | undefined {
-  // 表示中のMarkdownブロックと画面上端からの距離を記録し、後で同じ位置へ戻せるアンカーを作る。
   if (container.clientHeight === 0) return undefined;
   const bounds = container.getBoundingClientRect();
   const elements = Array.from(container.querySelectorAll<HTMLElement>('[data-source-from]'));
   const target = elements.find((element) => element.getBoundingClientRect().bottom > bounds.top + 1)
     ?? elements.at(-1);
   if (!target) return undefined;
-  const offset = Number(target.dataset.sourceFrom);
-  if (!Number.isFinite(offset)) return undefined;
+  const range = readSourceRange(target);
+  if (!range) return undefined;
   const targetBounds = target.getBoundingClientRect();
-  const topOffset = targetBounds.top - bounds.top;
+  const renderedProgress = targetBounds.top < bounds.top
+    ? clampUnit((bounds.top - targetBounds.top) / Math.max(1, targetBounds.height))
+    : 0;
+  const maxOffset = Math.max(range.from, range.to - 1);
+  const offset = Math.round(range.from + renderedProgress * (maxOffset - range.from));
   return {
     offset,
-    topOffset,
-    blockProgress: topOffset < 0
-      ? Math.min(1, Math.max(0, -topOffset / Math.max(1, targetBounds.height)))
-      : 0,
+    topOffset: renderedProgress > 0 ? 0 : targetBounds.top - bounds.top,
+    blockProgress: renderedProgress,
     scrollRatio: getScrollRatio(container.scrollTop, container.scrollHeight, container.clientHeight)
   };
 }
 
 /**
- * 保存した表示アンカーに対応するプレビュー位置へスクロールを復元する。
+ * 保存したソースオフセットを対象Markdownブロック内の割合へ変換し、
+ * その割合に対応するプレビュー上の点を同じ画面位置へ復元する。
  * @param container スクロール位置を変更するプレビューコンテナー。
  * @param anchor 復元対象のソースオフセットと画面上の位置。
  * @returns 対象ブロックを見つけてスクロールできた場合はtrue。
  */
 export function restorePreviewViewport(container: HTMLElement, anchor: PreviewViewportAnchor): boolean {
-  // 保存済みのソースオフセットに対応するブロックを探し、元の画面上位置になるようスクロールする。
   if (container.clientHeight === 0) return false;
   const elements = Array.from(container.querySelectorAll<HTMLElement>('[data-source-from]'));
   const target = elements.find((element) => {
-    const from = Number(element.dataset.sourceFrom);
-    const to = Number(element.dataset.sourceTo);
-    return Number.isFinite(from) && Number.isFinite(to) && anchor.offset >= from && anchor.offset < Math.max(from + 1, to);
+    const range = readSourceRange(element);
+    return Boolean(range && anchor.offset >= range.from && anchor.offset < range.to);
   }) ?? elements.find((element) => Number(element.dataset.sourceFrom) >= anchor.offset) ?? elements.at(-1);
   if (!target) return false;
+  const range = readSourceRange(target);
+  if (!range) return false;
   const bounds = container.getBoundingClientRect();
   const targetBounds = target.getBoundingClientRect();
-  // 対象ブロックの高さが画像読み込みなどで変わっても、ブロック内の割合ではなく
-  // 画面上端からの絶対距離を維持する。
-  const desiredTopOffset = anchor.topOffset >= 0
-    ? anchor.topOffset
-    : anchor.blockProgress === undefined
-      ? Math.max(-Math.max(0, targetBounds.height - 1), anchor.topOffset)
-      : -Math.min(1, Math.max(0, anchor.blockProgress)) * Math.max(0, targetBounds.height - 1);
-  container.scrollTop += targetBounds.top - bounds.top - desiredTopOffset;
+  const sourceProgress = clampUnit((anchor.offset - range.from) / Math.max(1, range.to - range.from));
+  const targetPoint = targetBounds.top + sourceProgress * targetBounds.height;
+  container.scrollTop += targetPoint - bounds.top - anchor.topOffset;
   return true;
 }
