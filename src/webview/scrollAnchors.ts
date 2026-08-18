@@ -8,6 +8,8 @@ export interface PreviewViewportAnchor {
   scrollRatio?: number;
 }
 
+const BLOCK_LOCK_TOP_OFFSET = 0;
+
 /**
  * コンテナーを指定された全体スクロール比率へ移動する。
  * 先頭・末尾など、本文アンカーだけでは表現できない境界位置の同期に使う。
@@ -25,12 +27,12 @@ export function restoreScrollRatio(container: HTMLElement, ratio: number): boole
 }
 
 /**
- * プレビューの表示位置をソースオフセットと画面上の距離として取得する。
+ * 画面上端にあるMarkdownブロックを同期基準として取得する。
+ * ブロック途中の細かな位置は保持せず、対応ブロックそのものを比較しやすくする。
  * @param container 表示位置を取得するプレビューコンテナー。
- * @returns 復元に必要なアンカー。対象ブロックがない場合はundefined。
+ * @returns 上端基準の表示アンカー。対象ブロックがない場合はundefined。
  */
 export function capturePreviewViewport(container: HTMLElement): PreviewViewportAnchor | undefined {
-  // 表示中のMarkdownブロックと画面上端からの距離を記録し、後で同じ位置へ戻せるアンカーを作る。
   if (container.clientHeight === 0) return undefined;
   const bounds = container.getBoundingClientRect();
   const elements = Array.from(container.querySelectorAll<HTMLElement>('[data-source-from]'));
@@ -39,26 +41,22 @@ export function capturePreviewViewport(container: HTMLElement): PreviewViewportA
   if (!target) return undefined;
   const offset = Number(target.dataset.sourceFrom);
   if (!Number.isFinite(offset)) return undefined;
-  const targetBounds = target.getBoundingClientRect();
-  const topOffset = targetBounds.top - bounds.top;
   return {
     offset,
-    topOffset,
-    blockProgress: topOffset < 0
-      ? Math.min(1, Math.max(0, -topOffset / Math.max(1, targetBounds.height)))
-      : 0,
+    topOffset: BLOCK_LOCK_TOP_OFFSET,
+    blockProgress: 0,
     scrollRatio: getScrollRatio(container.scrollTop, container.scrollHeight, container.clientHeight)
   };
 }
 
 /**
- * 保存した表示アンカーに対応するプレビュー位置へスクロールを復元する。
+ * 保存したソースオフセットに対応するMarkdownブロックを画面上端へ固定する。
+ * 画像や図の高さに左右されず、左右で同じブロックを比較対象として揃える。
  * @param container スクロール位置を変更するプレビューコンテナー。
- * @param anchor 復元対象のソースオフセットと画面上の位置。
+ * @param anchor 復元対象のソースオフセット。
  * @returns 対象ブロックを見つけてスクロールできた場合はtrue。
  */
 export function restorePreviewViewport(container: HTMLElement, anchor: PreviewViewportAnchor): boolean {
-  // 保存済みのソースオフセットに対応するブロックを探し、元の画面上位置になるようスクロールする。
   if (container.clientHeight === 0) return false;
   const elements = Array.from(container.querySelectorAll<HTMLElement>('[data-source-from]'));
   const target = elements.find((element) => {
@@ -69,13 +67,6 @@ export function restorePreviewViewport(container: HTMLElement, anchor: PreviewVi
   if (!target) return false;
   const bounds = container.getBoundingClientRect();
   const targetBounds = target.getBoundingClientRect();
-  // 対象ブロックの高さが画像読み込みなどで変わっても、ブロック内の割合ではなく
-  // 画面上端からの絶対距離を維持する。
-  const desiredTopOffset = anchor.topOffset >= 0
-    ? anchor.topOffset
-    : anchor.blockProgress === undefined
-      ? Math.max(-Math.max(0, targetBounds.height - 1), anchor.topOffset)
-      : -Math.min(1, Math.max(0, anchor.blockProgress)) * Math.max(0, targetBounds.height - 1);
-  container.scrollTop += targetBounds.top - bounds.top - desiredTopOffset;
+  container.scrollTop += targetBounds.top - bounds.top - BLOCK_LOCK_TOP_OFFSET;
   return true;
 }
