@@ -531,6 +531,22 @@ export function App(): React.JSX.Element {
       version: record.version,
       reason: record.reason
     });
+    // ホスト側の判定タイミングによって自分の操作がexternalChangesとして返る場合がある。
+    // これを未反映のローカル操作としてリベースすると、末尾挿入が同じ内容を二重に挿入する。
+    if (message.type === 'externalChanges'
+      && message.clientId === clientIdRef.current
+      && message.opId
+      && !settledOperationIdsRef.current.has(message.opId)) {
+      handleHostMessage({
+        type: 'editAck',
+        clientId: message.clientId,
+        opId: message.opId,
+        baseVersion: message.baseVersion,
+        version: message.version,
+        changes: message.changes
+      });
+      return;
+    }
     switch (message.type) {
       case 'init':
         if (initializedRef.current) {
@@ -691,6 +707,27 @@ export function App(): React.JSX.Element {
       return;
     }
     const previousHost = hostTextRef.current;
+    const pending = pendingOperationsRef.current[0];
+    if (pending?.baseText === previousHost) {
+      try {
+        // clientId/opIdが欠落した自己エコーでも、ホスト結果が保留操作と一致するならACKとして確定する。
+        // 一致しない場合だけ通常の外部変更リベースへ進み、末尾貼り付けを再挿入しない。
+        const externallyApplied = applyTextChanges(previousHost, message.changes);
+        if (externallyApplied === pending.resultText) {
+          handleHostMessage({
+            type: 'editAck',
+            clientId: clientIdRef.current,
+            opId: pending.opId,
+            baseVersion: message.baseVersion,
+            version: message.version,
+            changes: message.changes
+          });
+          return;
+        }
+      } catch {
+        // 通常の外部変更処理で再同期理由を記録する。
+      }
+    }
     try {
       const nextHost = applyTextChanges(previousHost, message.changes);
       const rebasedLocal = rebasePendingOperations(
@@ -1153,7 +1190,14 @@ export function App(): React.JSX.Element {
       const safe = DOMPurify.sanitize(html, { FORBID_TAGS: ['script', 'style', 'iframe', 'object'] });
       const turndown = new TurndownService({ headingStyle: 'atx', bulletListMarker: '-', codeBlockStyle: 'fenced' });
       turndown.use(turndownGfm);
-      editor.insert(turndown.turndown(safe));
+      editor.insert(turndown.turndown(safe) || plainText);
+      return;
+    }
+    // プレーンテキストもここで1回だけ挿入し、CodeMirrorの標準paste処理との二重実行を防ぐ。
+    if (editor && plainText) {
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      editor.insert(plainText);
     }
   }
 

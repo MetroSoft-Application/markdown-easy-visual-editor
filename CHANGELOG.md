@@ -17,3 +17,8 @@
 ## 1.0.4
 
 - Add syntax highlighting to the editor.
+
+## 1.0.5
+
+- Improved scrolling behavior.
+- Improved the behavior so that clicking on an outline now jumps to the corresponding section.
