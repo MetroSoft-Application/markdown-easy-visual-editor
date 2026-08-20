@@ -22,3 +22,7 @@
 
 - Improved scrolling behavior.
 - Improved the behavior so that clicking on an outline now jumps to the corresponding section.
+
+## 1.0.6
+
+- Add a line selection feature.
