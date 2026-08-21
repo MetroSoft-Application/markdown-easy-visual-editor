@@ -1,88 +1,91 @@
-/* Markdown Easy Visual Editor独自のライト／ダークテーマ。VS Code本体のテーマとは独立して切り替える。 */
-html[data-editor-theme="light"] {
+/* Markdown Easy Visual Editor独自のライト／ダークテーマ。
+ * VS Code Webviewはbody側へ--vscode-*変数を注入するため、
+ * 同じbody要素で!important付きで上書きし、拡張内テーマを確実に優先する。
+ */
+html[data-editor-theme="light"] body {
   color-scheme: light;
-  --mve-link: #0969da;
-  --vscode-editor-background: #ffffff;
-  --vscode-editor-foreground: #1f2328;
-  --vscode-foreground: #1f2328;
-  --vscode-descriptionForeground: #59636e;
-  --vscode-panel-border: #d0d7de;
-  --vscode-sideBar-background: #f6f8fa;
-  --vscode-editorGroupHeader-tabsBackground: #f6f8fa;
-  --vscode-toolbar-hoverBackground: #eaeef2;
-  --vscode-button-secondaryBackground: #eaeef2;
-  --vscode-button-secondaryHoverBackground: #d8dee4;
-  --vscode-focusBorder: #0969da;
-  --vscode-dropdown-background: #ffffff;
-  --vscode-dropdown-foreground: #1f2328;
-  --vscode-dropdown-border: #d0d7de;
-  --vscode-input-background: #ffffff;
-  --vscode-input-foreground: #1f2328;
-  --vscode-input-border: #d0d7de;
-  --vscode-list-hoverBackground: #eaeef2;
-  --vscode-editor-lineHighlightBackground: #f6f8fa;
-  --vscode-editor-selectionBackground: #b6d7ff;
-  --vscode-editor-inactiveSelectionBackground: #ddf4ff;
-  --vscode-editorCursor-foreground: #1f2328;
-  --vscode-editorWhitespace-foreground: #8c959f;
-  --vscode-editorWidget-background: #ffffff;
-  --vscode-textBlockQuote-background: #f6f8fa;
-  --vscode-textBlockQuote-foreground: #57606a;
-  --vscode-textCodeBlock-background: #f6f8fa;
-  --vscode-editor-findMatchBackground: #fff8c5;
-  --vscode-editor-findMatchBorder: #d4a72c;
-  --vscode-editor-findMatchHighlightBackground: #fae17d;
-  --vscode-errorForeground: #cf222e;
-  --vscode-inputValidation-errorBorder: #cf222e;
-  --vscode-inputValidation-errorBackground: #ffebe9;
+  --mve-link: #0969da !important;
+  --vscode-editor-background: #ffffff !important;
+  --vscode-editor-foreground: #1f2328 !important;
+  --vscode-foreground: #1f2328 !important;
+  --vscode-descriptionForeground: #59636e !important;
+  --vscode-panel-border: #d0d7de !important;
+  --vscode-sideBar-background: #f6f8fa !important;
+  --vscode-editorGroupHeader-tabsBackground: #f6f8fa !important;
+  --vscode-toolbar-hoverBackground: #eaeef2 !important;
+  --vscode-button-secondaryBackground: #eaeef2 !important;
+  --vscode-button-secondaryHoverBackground: #d8dee4 !important;
+  --vscode-focusBorder: #0969da !important;
+  --vscode-dropdown-background: #ffffff !important;
+  --vscode-dropdown-foreground: #1f2328 !important;
+  --vscode-dropdown-border: #d0d7de !important;
+  --vscode-input-background: #ffffff !important;
+  --vscode-input-foreground: #1f2328 !important;
+  --vscode-input-border: #d0d7de !important;
+  --vscode-list-hoverBackground: #eaeef2 !important;
+  --vscode-editor-lineHighlightBackground: #f6f8fa !important;
+  --vscode-editor-selectionBackground: #b6d7ff !important;
+  --vscode-editor-inactiveSelectionBackground: #ddf4ff !important;
+  --vscode-editorCursor-foreground: #1f2328 !important;
+  --vscode-editorWhitespace-foreground: #8c959f !important;
+  --vscode-editorWidget-background: #ffffff !important;
+  --vscode-textBlockQuote-background: #f6f8fa !important;
+  --vscode-textBlockQuote-foreground: #57606a !important;
+  --vscode-textCodeBlock-background: #f6f8fa !important;
+  --vscode-editor-findMatchBackground: #fff8c5 !important;
+  --vscode-editor-findMatchBorder: #d4a72c !important;
+  --vscode-editor-findMatchHighlightBackground: #fae17d !important;
+  --vscode-errorForeground: #cf222e !important;
+  --vscode-inputValidation-errorBorder: #cf222e !important;
+  --vscode-inputValidation-errorBackground: #ffebe9 !important;
 }
 
-html[data-editor-theme="dark"] {
+html[data-editor-theme="dark"] body {
   color-scheme: dark;
-  --mve-link: #58a6ff;
-  --vscode-editor-background: #0d1117;
-  --vscode-editor-foreground: #e6edf3;
-  --vscode-foreground: #e6edf3;
-  --vscode-descriptionForeground: #8b949e;
-  --vscode-panel-border: #30363d;
-  --vscode-sideBar-background: #161b22;
-  --vscode-editorGroupHeader-tabsBackground: #161b22;
-  --vscode-toolbar-hoverBackground: #21262d;
-  --vscode-button-secondaryBackground: #21262d;
-  --vscode-button-secondaryHoverBackground: #30363d;
-  --vscode-focusBorder: #2f81f7;
-  --vscode-dropdown-background: #0d1117;
-  --vscode-dropdown-foreground: #e6edf3;
-  --vscode-dropdown-border: #30363d;
-  --vscode-input-background: #0d1117;
-  --vscode-input-foreground: #e6edf3;
-  --vscode-input-border: #30363d;
-  --vscode-list-hoverBackground: #21262d;
-  --vscode-editor-lineHighlightBackground: #161b22;
-  --vscode-editor-selectionBackground: #264f78;
-  --vscode-editor-inactiveSelectionBackground: #1f3a5f;
-  --vscode-editorCursor-foreground: #e6edf3;
-  --vscode-editorWhitespace-foreground: #484f58;
-  --vscode-editorWidget-background: #161b22;
-  --vscode-textBlockQuote-background: #161b22;
-  --vscode-textBlockQuote-foreground: #8b949e;
-  --vscode-textCodeBlock-background: #161b22;
-  --vscode-editor-findMatchBackground: #9e6a03;
-  --vscode-editor-findMatchBorder: #d29922;
-  --vscode-editor-findMatchHighlightBackground: #6e4c13;
-  --vscode-errorForeground: #f85149;
-  --vscode-inputValidation-errorBorder: #f85149;
-  --vscode-inputValidation-errorBackground: #3d1f1f;
+  --mve-link: #58a6ff !important;
+  --vscode-editor-background: #0d1117 !important;
+  --vscode-editor-foreground: #e6edf3 !important;
+  --vscode-foreground: #e6edf3 !important;
+  --vscode-descriptionForeground: #8b949e !important;
+  --vscode-panel-border: #30363d !important;
+  --vscode-sideBar-background: #161b22 !important;
+  --vscode-editorGroupHeader-tabsBackground: #161b22 !important;
+  --vscode-toolbar-hoverBackground: #21262d !important;
+  --vscode-button-secondaryBackground: #21262d !important;
+  --vscode-button-secondaryHoverBackground: #30363d !important;
+  --vscode-focusBorder: #2f81f7 !important;
+  --vscode-dropdown-background: #0d1117 !important;
+  --vscode-dropdown-foreground: #e6edf3 !important;
+  --vscode-dropdown-border: #30363d !important;
+  --vscode-input-background: #0d1117 !important;
+  --vscode-input-foreground: #e6edf3 !important;
+  --vscode-input-border: #30363d !important;
+  --vscode-list-hoverBackground: #21262d !important;
+  --vscode-editor-lineHighlightBackground: #161b22 !important;
+  --vscode-editor-selectionBackground: #264f78 !important;
+  --vscode-editor-inactiveSelectionBackground: #1f3a5f !important;
+  --vscode-editorCursor-foreground: #e6edf3 !important;
+  --vscode-editorWhitespace-foreground: #484f58 !important;
+  --vscode-editorWidget-background: #161b22 !important;
+  --vscode-textBlockQuote-background: #161b22 !important;
+  --vscode-textBlockQuote-foreground: #8b949e !important;
+  --vscode-textCodeBlock-background: #161b22 !important;
+  --vscode-editor-findMatchBackground: #9e6a03 !important;
+  --vscode-editor-findMatchBorder: #d29922 !important;
+  --vscode-editor-findMatchHighlightBackground: #6e4c13 !important;
+  --vscode-errorForeground: #f85149 !important;
+  --vscode-inputValidation-errorBorder: #f85149 !important;
+  --vscode-inputValidation-errorBackground: #3d1f1f !important;
 }
 
 html[data-editor-theme] body,
 html[data-editor-theme] .app,
 html[data-editor-theme] .startup {
-  color: var(--vscode-editor-foreground);
-  background: var(--vscode-editor-background);
+  color: var(--vscode-editor-foreground) !important;
+  background: var(--vscode-editor-background) !important;
 }
 
 html[data-editor-theme] .ribbon-tabs .ribbon-source-button,
 html[data-editor-theme] .rendered-markdown a {
-  color: var(--mve-link);
+  color: var(--mve-link) !important;
 }
