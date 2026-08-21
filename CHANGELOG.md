@@ -30,3 +30,7 @@
 ## 1.0.7
 
 - Added a light/dark theme selection feature.
+
+## 1.0.8
+
+- Added a highlight the same keyword feature.
