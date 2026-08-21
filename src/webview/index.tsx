@@ -11,6 +11,7 @@ import './cmMarkdownAutocomplete';
 import './editorTheme.css';
 import './editorThemePolish.css';
 import './cmSelectionMatchHighlight';
+import './cmRectangularSelection';
 import { getMessages } from '../shared/messages';
 import { installEditorThemeController } from './editorThemeController';
 import { App } from './App';
