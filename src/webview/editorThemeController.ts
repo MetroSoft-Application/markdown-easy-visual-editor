@@ -26,10 +26,15 @@ function setCurrentTheme(theme: EditorTheme): void {
   if (select && select.value !== currentTheme) select.value = currentTheme;
 }
 
-/** html/body要素へテーマ属性とcolor-schemeを設定する。 */
+/**
+ * html/bodyへ独自テーマ状態を設定し、Webview内でVS Codeテーマクラスを参照する処理も同じlight/darkへ揃える。
+ * 高コントラスト状態はアクセシビリティ情報として保持する。
+ */
 function applyTheme(theme: EditorTheme): void {
   document.documentElement.dataset.editorTheme = theme;
   document.documentElement.style.colorScheme = theme;
   document.body.dataset.editorTheme = theme;
   document.body.style.colorScheme = theme;
+  document.body.classList.toggle('vscode-light', theme === 'light');
+  document.body.classList.toggle('vscode-dark', theme === 'dark');
 }
