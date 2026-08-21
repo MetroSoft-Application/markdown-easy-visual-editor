@@ -9,6 +9,7 @@ import 'katex/dist/katex.min.css';
 import './editorTheme.css';
 import { getMessages } from '../shared/messages';
 import { installEditorThemeController } from './editorThemeController';
+import { App } from './App';
 
 /**
  * 行番号の左クリック完了後に、その論理行のテキスト全体を選択する。
@@ -35,14 +36,9 @@ if (!root) throw new Error(getMessages('en').internal.rootNotFound);
 root.addEventListener('click', handleLineNumberClick);
 installEditorThemeController();
 
-/**
- * Webview API共有を初期化した後にAppを読み込み、Reactルートへ描画する。
- * App内の既存acquireVsCodeApi呼び出しには共有済みインスタンスが返される。
- */
-void import('./App').then(({ App }) => {
-  createRoot(root).render(
-    <React.StrictMode>
-      <App />
-    </React.StrictMode>
-  );
-});
+/** Reactのルート要素へアプリケーション本体をStrictMode付きで描画する。 */
+createRoot(root).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
