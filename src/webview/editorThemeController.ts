@@ -4,7 +4,7 @@ const THEMES: readonly EditorTheme[] = ['light', 'dark'];
 let currentTheme: EditorTheme = 'dark';
 
 /**
- * ホストから届くエディターテーマ設定を画面とリボンへ反映する。
+ * ホストから届くエディターテーマ設定を画面とリボンへ反映し、リボン操作は保存応答を待たず即時適用する。
  * @returns 破棄時に呼び出すクリーンアップ関数。
  */
 export function installEditorThemeController(): () => void {
@@ -14,8 +14,19 @@ export function installEditorThemeController(): () => void {
     if (message.type !== 'init' && message.type !== 'settingsChanged') return;
     setCurrentTheme(message.settings.editorTheme ?? 'dark');
   };
+  const onChange = (event: Event) => {
+    const select = event.target instanceof HTMLSelectElement ? event.target : undefined;
+    if (!select?.classList.contains('mve-editor-theme-select')) return;
+    const theme = select.value as EditorTheme;
+    if (!THEMES.includes(theme)) return;
+    setCurrentTheme(theme);
+  };
   window.addEventListener('message', onMessage);
-  return () => window.removeEventListener('message', onMessage);
+  document.addEventListener('change', onChange);
+  return () => {
+    window.removeEventListener('message', onMessage);
+    document.removeEventListener('change', onChange);
+  };
 }
 
 /** 現在テーマを画面へ反映し、表示中のリボン選択値も更新する。 */
