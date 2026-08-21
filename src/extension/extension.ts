@@ -257,6 +257,12 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
           this.post(panel, { type: 'localResourcesChecked', requestId: message.requestId, diagnostics });
           return;
         }
+        case 'setEditorTheme': {
+          const config = vscode.workspace.getConfiguration('markdownEasyVisualEditor');
+          await config.update('editor.theme', message.theme, vscode.ConfigurationTarget.Global);
+          this.broadcastSettings();
+          return;
+        }
         case 'openSource':
           this.activeDocument = document;
           await this.openSource();
@@ -911,6 +917,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
       maxPasteSizeMb: config.get('images.maxPasteSizeMb', 20),
       remoteImagesEnabled: config.get('remoteImages.enabled', false),
       mermaidTheme: config.get('mermaid.theme', 'auto'),
+      editorTheme: config.get<WebviewSettings['editorTheme']>('editor.theme', 'dark'),
       workspaceTrusted: vscode.workspace.isTrusted
     };
   }

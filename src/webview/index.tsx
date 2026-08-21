@@ -6,8 +6,11 @@ import '@fontsource/noto-sans-jp/400.css';
 import '@fontsource/noto-sans-jp/700.css';
 import '@fontsource/noto-sans-mono/400.css';
 import 'katex/dist/katex.min.css';
-import { App } from './App';
+import './editorTheme.css';
+import './editorThemePolish.css';
 import { getMessages } from '../shared/messages';
+import { installEditorThemeController } from './editorThemeController';
+import { App } from './App';
 
 /**
  * 行番号の左クリック完了後に、その論理行のテキスト全体を選択する。
@@ -32,6 +35,7 @@ function handleLineNumberClick(event: MouseEvent): void {
 const root = document.getElementById('root');
 if (!root) throw new Error(getMessages('en').internal.rootNotFound);
 root.addEventListener('click', handleLineNumberClick);
+installEditorThemeController();
 
 /** Reactのルート要素へアプリケーション本体をStrictMode付きで描画する。 */
 createRoot(root).render(

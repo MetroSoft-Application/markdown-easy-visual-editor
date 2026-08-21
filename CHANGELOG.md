@@ -26,3 +26,7 @@
 ## 1.0.6
 
 - Add a line selection feature.
+
+## 1.0.7
+
+- Added a light/dark theme selection feature.
