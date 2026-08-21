@@ -14,7 +14,7 @@ export function installEditorThemeController(): () => void {
   const onMessage = (event: MessageEvent<HostToWebviewMessage>) => {
     const message = event.data;
     if (message.type !== 'init' && message.type !== 'settingsChanged') return;
-    setCurrentTheme(message.settings.editorTheme);
+    setCurrentTheme(message.settings.editorTheme ?? 'dark');
   };
   window.addEventListener('message', onMessage);
 
