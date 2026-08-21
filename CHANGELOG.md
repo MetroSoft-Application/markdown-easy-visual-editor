@@ -34,3 +34,7 @@
 ## 1.0.8
 
 - Added a highlight the same keyword feature.
+
+## 1.0.9
+
+- Added an autocomplete feature.
