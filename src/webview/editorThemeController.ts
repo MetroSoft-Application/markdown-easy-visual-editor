@@ -57,7 +57,7 @@ function ensureRibbonControl(): void {
   label.appendChild(caption);
 
   const select = document.createElement('select');
-  select.setAttribute('aria-label', caption.textContent);
+  select.setAttribute('aria-label', caption.textContent ?? 'Theme');
   select.title = japanese ? 'エディターテーマ' : 'Editor theme';
   for (const theme of THEMES) {
     const option = document.createElement('option');
