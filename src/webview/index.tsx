@@ -8,6 +8,7 @@ import '@fontsource/noto-sans-mono/400.css';
 import 'katex/dist/katex.min.css';
 import './editorTheme.css';
 import './editorThemePolish.css';
+import './cmSelectionMatchHighlight';
 import { getMessages } from '../shared/messages';
 import { installEditorThemeController } from './editorThemeController';
 import { App } from './App';
