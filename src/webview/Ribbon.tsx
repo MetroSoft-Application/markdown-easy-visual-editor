@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import type { EditorMode, HtmlExportOptions } from '../shared/protocol';
+import type { EditorMode, EditorTheme, HtmlExportOptions } from '../shared/protocol';
 import type { MarkdownTableAction } from '../shared/markdown';
 import type { Messages } from '../shared/messages';
 import { mveDebug } from './debug';
 import type { SourceAction } from './SourceEditor';
+import { sharedVsCodeApi } from './vscodeApi';
 
 export type TableAction = 'insert' | MarkdownTableAction;
 
@@ -53,6 +54,7 @@ export function Ribbon({ messages, mode, readOnly, activeMarks, outlineVisible, 
   const [emoji, setEmoji] = useState(DOCUMENT_EMOJIS[0]);
   const [headerName, setHeaderName] = useState('');
   const [htmlOptions, setHtmlOptions] = useState<HtmlExportOptions>({ embedImages: false, convertLinkedMarkdown: false, saveWithoutDialog: true });
+  const japanese = document.documentElement.lang.toLowerCase().startsWith('ja');
 
   return (
     <header
@@ -213,6 +215,24 @@ export function Ribbon({ messages, mode, readOnly, activeMarks, outlineVisible, 
                   onClick={() => onCommand({ type: 'toggleOutline' })}
                 />
                 <span className="ribbon-hint">{messages.ribbon.hintZoom}</span>
+              </Group>
+              <Group label={japanese ? 'テーマ' : 'Theme'}>
+                <label className="ribbon-select-label">
+                  {japanese ? 'エディター' : 'Editor'}
+                  <select
+                    className="mve-editor-theme-select"
+                    defaultValue={(document.documentElement.dataset.editorTheme as EditorTheme | undefined) ?? 'dark'}
+                    onChange={(event) => {
+                      const theme = event.target.value as EditorTheme;
+                      document.documentElement.dataset.editorTheme = theme;
+                      document.documentElement.style.colorScheme = theme;
+                      sharedVsCodeApi.postMessage({ type: 'setEditorTheme', theme });
+                    }}
+                  >
+                    <option value="light">{japanese ? 'ライト' : 'Light'}</option>
+                    <option value="dark">{japanese ? 'ダーク' : 'Dark'}</option>
+                  </select>
+                </label>
               </Group>
             </>
           )}
