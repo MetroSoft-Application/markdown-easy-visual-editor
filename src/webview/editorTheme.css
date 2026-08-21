@@ -86,28 +86,3 @@ html[data-editor-theme] .ribbon-tabs .ribbon-source-button,
 html[data-editor-theme] .rendered-markdown a {
   color: var(--mve-link);
 }
-
-.mve-theme-control {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  min-width: max-content;
-  padding: 0 4px;
-  color: var(--vscode-descriptionForeground);
-  font-size: 11px;
-}
-
-.mve-theme-control select {
-  height: 24px;
-  padding: 1px 22px 1px 6px;
-  border: 1px solid var(--vscode-dropdown-border, var(--vscode-panel-border));
-  border-radius: 3px;
-  color: var(--vscode-dropdown-foreground, var(--vscode-editor-foreground));
-  background: var(--vscode-dropdown-background, var(--vscode-editor-background));
-  font: inherit;
-}
-
-.mve-theme-control select:focus-visible {
-  outline: 1px solid var(--vscode-focusBorder);
-  outline-offset: 1px;
-}
