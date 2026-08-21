@@ -31,7 +31,7 @@ export interface WebviewSettings {
   maxPasteSizeMb: number;
   remoteImagesEnabled: boolean;
   mermaidTheme: 'auto' | 'default' | 'dark' | 'neutral';
-  editorTheme: EditorTheme;
+  editorTheme?: EditorTheme;
   workspaceTrusted: boolean;
 }
 
