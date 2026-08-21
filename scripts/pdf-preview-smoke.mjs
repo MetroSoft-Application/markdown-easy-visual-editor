@@ -50,6 +50,7 @@ try {
 
   const context = await browser.newContext();
   await context.addInitScript((previewPdf) => {
+    window.__mveDebugEnabled = true;
     window.__mveMessages = [];
     window.acquireVsCodeApi = () => ({
       postMessage: (message) => {

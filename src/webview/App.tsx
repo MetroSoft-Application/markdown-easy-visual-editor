@@ -42,8 +42,8 @@ import {
 } from '../shared/imageResize';
 import { getMessages, type Messages } from '../shared/messages';
 import { createClientId } from './id';
-import { mveDebug } from './debug';
-import { escapeHtml } from './markdownRenderer';
+import { isMveDebugEnabled, mveDebug } from './debug';
+import { escapeHtml, renderMarkdown } from './markdownRenderer';
 import { RenderedMarkdown, type InspectorTarget } from './RenderedMarkdown';
 import { PdfDocumentPreview } from './PdfDocumentPreview';
 import { Ribbon, type RibbonCommand } from './Ribbon';
@@ -112,6 +112,8 @@ const DEFAULT_PDF: PdfOptions = {
   saveWithoutDialog: true
 };
 
+const PREVIEW_UPDATE_DELAY_MS = 120;
+
 type HelpTopic = 'shortcuts' | 'features';
 
 function mergeDiagnostics(markdown: string, localResourceDiagnostics: Diagnostic[], language: WebviewSettings['language']): Diagnostic[] {
@@ -142,6 +144,8 @@ export function App(): React.JSX.Element {
   const [splitView, setSplitView] = useState<'both' | 'text' | 'preview'>(restored?.splitView ?? 'both');
   const [initialized, setInitialized] = useState(false);
   const [markdown, setMarkdown] = useState('');
+  // 入力経路と、解析・HTML化が重い表示経路を分離する。
+  const previewMarkdown = useDebouncedValue(markdown, PREVIEW_UPDATE_DELAY_MS);
   const [version, setVersion] = useState(0);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const messages = useMemo(() => getMessages(settings.language), [settings.language]);
@@ -166,7 +170,6 @@ export function App(): React.JSX.Element {
   const [pdfPreview, setPdfPreview] = useState<PdfPreviewState>({ requestId: '', loading: false });
   const [htmlRenderRequest, setHtmlRenderRequest] = useState<Extract<HostToWebviewMessage, { type: 'renderHtmlDocuments' }>>();
   const [toast, setToast] = useState('');
-  const [, setSyncNonce] = useState(0);
 
   const clientIdRef = useRef(createClientId());
   const sourceRef = useRef<TextEditorHandle>(null);
@@ -221,14 +224,21 @@ export function App(): React.JSX.Element {
     return undefined;
   }
 
-  const outline = useMemo(() => getOutline(markdown), [markdown]);
+  const outline = useMemo(() => getOutline(previewMarkdown), [previewMarkdown]);
   const diagnostics = useMemo(
-    () => mergeDiagnostics(markdown, localResourceDiagnostics, settings.language),
-    [markdown, localResourceDiagnostics, settings.language]
+    () => mergeDiagnostics(previewMarkdown, localResourceDiagnostics, settings.language),
+    [previewMarkdown, localResourceDiagnostics, settings.language]
   );
   const diagnosticSummary = useMemo(() => summarizeDiagnostics(diagnostics), [diagnostics]);
-  const stats = useMemo(() => wordStats(markdown), [markdown]);
-  const searchHits = useMemo(() => findSearchHits(markdown, searchQuery), [markdown, searchQuery]);
+  const stats = useMemo(() => wordStats(previewMarkdown), [previewMarkdown]);
+  const searchHits = useMemo(() => findSearchHits(previewMarkdown, searchQuery), [previewMarkdown, searchQuery]);
+  const previewHtml = useMemo(
+    () => renderMarkdown(previewMarkdown, {
+      remoteImagesEnabled: settings.remoteImagesEnabled,
+      language: settings.language
+    }),
+    [previewMarkdown, settings.language, settings.remoteImagesEnabled]
+  );
 
   useEffect(() => {
     // ホストへWebviewの準備完了を通知し、以後のメッセージを現在のハンドラーへ渡す。
@@ -248,7 +258,7 @@ export function App(): React.JSX.Element {
   useEffect(() => {
     // 本文が変わったら、前の本文に対するローカル参照診断を破棄する。
     resourceCheckGenerationRef.current += 1;
-    setLocalResourceDiagnostics([]);
+    setLocalResourceDiagnostics((previous) => previous.length ? [] : previous);
   }, [markdown]);
 
   useEffect(() => {
@@ -523,14 +533,16 @@ export function App(): React.JSX.Element {
    */
   function handleHostMessage(message: HostToWebviewMessage): void {
     const record = message as unknown as Record<string, unknown>;
-    mveDebug('host.message', {
-      type: message.type,
-      clientId: record.clientId,
-      opId: record.opId,
-      baseVersion: record.baseVersion,
-      version: record.version,
-      reason: record.reason
-    });
+    if (isMveDebugEnabled()) {
+      mveDebug('host.message', {
+        type: message.type,
+        clientId: record.clientId,
+        opId: record.opId,
+        baseVersion: record.baseVersion,
+        version: record.version,
+        reason: record.reason
+      });
+    }
     // ホスト側の判定タイミングによって自分の操作がexternalChangesとして返る場合がある。
     // これを未反映のローカル操作としてリベースすると、末尾挿入が同じ内容を二重に挿入する。
     if (message.type === 'externalChanges'
@@ -601,7 +613,6 @@ export function App(): React.JSX.Element {
         setVersion(message.version);
         pendingOperationsRef.current.shift();
         rememberSettledOperation(message.opId);
-        setSyncNonce((value) => value + 1);
         sendNextLocalOperation();
         flushHistoryCommands();
         return;
@@ -779,7 +790,6 @@ export function App(): React.JSX.Element {
     hostTextRef.current = nextHost;
     versionRef.current = nextVersion;
     setVersion(nextVersion);
-    setSyncNonce((value) => value + 1);
 
     if (nextHost === previousLocal || (!pending.length && previousLocal === previousHost)) {
       updateMarkdown(nextHost, computeTextChanges(previousLocal, nextHost), 'remote');
@@ -823,7 +833,6 @@ export function App(): React.JSX.Element {
         changes: outgoing,
         sent: false
       });
-      setSyncNonce((value) => value + 1);
       sendNextLocalOperation();
     }
     flushHistoryCommands();
@@ -1071,7 +1080,8 @@ export function App(): React.JSX.Element {
     prepareLayoutRestore();
     setDiagnosticsVisible(true);
     requestLocalResourceCheck('preflight');
-    setToast(messages.app.toast.preflightSummary(diagnosticSummary.errors.length, diagnosticSummary.warnings.length, diagnosticSummary.infos.length));
+    const currentSummary = summarizeDiagnostics(mergeDiagnostics(markdown, localResourceDiagnostics, settings.language));
+    setToast(messages.app.toast.preflightSummary(currentSummary.errors.length, currentSummary.warnings.length, currentSummary.infos.length));
   }
 
   /** ローカル画像・リンクの実在確認をホストへ依頼する。 */
@@ -1279,12 +1289,13 @@ export function App(): React.JSX.Element {
       return;
     }
     requestLocalResourceCheck('pdf');
-    const diagnosticNotice = diagnosticSummary.errors.length
-      ? diagnosticSummary.errors
+    const currentSummary = summarizeDiagnostics(mergeDiagnostics(markdown, localResourceDiagnostics, settings.language));
+    const diagnosticNotice = currentSummary.errors.length
+      ? currentSummary.errors
         .map((item) => `${item.line ? `行${item.line}: ` : ''}${item.message}`)
         .join(' / ')
       : '';
-    if (diagnosticNotice) setToast(messages.app.toast.pdfStartedWithDiagnostics(diagnosticSummary.errors.length, diagnosticNotice));
+    if (diagnosticNotice) setToast(messages.app.toast.pdfStartedWithDiagnostics(currentSummary.errors.length, diagnosticNotice));
     const root = exportRootRef.current;
     const html = root?.innerHTML ?? `<pre>${escapeHtml(markdown)}</pre>`;
     if (!root) setToast(messages.app.toast.pdfFallbackToMarkdown(diagnosticNotice));
@@ -1503,13 +1514,15 @@ export function App(): React.JSX.Element {
     const previous = localTextRef.current;
     if (previous === nextText) return;
     const changes = knownChanges ?? computeTextChanges(previous, nextText);
-    mveDebug('markdown.update', {
-      origin,
-      previousLength: previous.length,
-      nextLength: nextText.length,
-      changeCount: changes.length,
-      changes: changes.slice(0, 8)
-    });
+    if (isMveDebugEnabled()) {
+      mveDebug('markdown.update', {
+        origin,
+        previousLength: previous.length,
+        nextLength: nextText.length,
+        changeCount: changes.length,
+        changes: changes.slice(0, 8)
+      });
+    }
     if (origin === 'local') enqueueLocalOperation(previous, nextText, changes);
     mapStoredViewports(changes, previous.length);
     if (origin === 'remote') {
@@ -1554,14 +1567,15 @@ export function App(): React.JSX.Element {
       changes: changes.map((change) => ({ ...change })),
       sent: false
     });
-    mveDebug('sync.local-queued', {
-      opId,
-      baseVersion: versionRef.current,
-      pendingCount: pendingOperationsRef.current.length,
-      changeCount: changes.length,
-      changes: changes.slice(0, 8)
-    });
-    setSyncNonce((value) => value + 1);
+    if (isMveDebugEnabled()) {
+      mveDebug('sync.local-queued', {
+        opId,
+        baseVersion: versionRef.current,
+        pendingCount: pendingOperationsRef.current.length,
+        changeCount: changes.length,
+        changes: changes.slice(0, 8)
+      });
+    }
   }
 
   /**
@@ -1615,13 +1629,15 @@ export function App(): React.JSX.Element {
     if (!current || current.sent || current.baseText !== hostTextRef.current) return;
     current.baseVersion = versionRef.current;
     current.sent = true;
-    mveDebug('sync.local-sent', {
-      opId: current.opId,
-      baseVersion: current.baseVersion,
-      pendingCount: pendingOperationsRef.current.length,
-      changeCount: current.changes.length,
-      changes: current.changes.slice(0, 8)
-    });
+    if (isMveDebugEnabled()) {
+      mveDebug('sync.local-sent', {
+        opId: current.opId,
+        baseVersion: current.baseVersion,
+        pendingCount: pendingOperationsRef.current.length,
+        changeCount: current.changes.length,
+        changes: current.changes.slice(0, 8)
+      });
+    }
     vscode.postMessage({
       type: 'localChanges',
       clientId: clientIdRef.current,
@@ -2082,7 +2098,8 @@ export function App(): React.JSX.Element {
                 onScroll={(event) => handlePreviewScroll('splitPreview', event.currentTarget)}
               >
                 <RenderedMarkdown
-                  markdown={markdown}
+                  markdown={previewMarkdown}
+                  html={previewHtml}
                   settings={settings}
                   onImageResize={imageResizeEnabled ? splitPreviewImageResize : undefined}
                   onImageReset={imageResizeEnabled ? splitPreviewImageReset : undefined}
@@ -2096,7 +2113,8 @@ export function App(): React.JSX.Element {
           )}
           {mode === 'preview' && (
             <PdfPreview
-              markdown={markdown}
+              markdown={previewMarkdown}
+              html={previewHtml}
               settings={settings}
               options={pdfOptions}
               zoom={zoom}
@@ -2162,7 +2180,7 @@ export function App(): React.JSX.Element {
         <span>{modeLabel(mode, messages)}</span><span>{messages.app.status.lines(stats.lines)}</span><span>{messages.app.status.textCharacters(stats.text)}</span><span>{messages.app.status.markdownCharacters(stats.markdown)}</span><span>{messages.app.status.zoom(Math.round(zoom * 100))}</span><span>{pendingOperationsRef.current.length ? messages.app.status.syncing : messages.app.status.synced}</span>
       </footer>
       <div className="export-stage" aria-hidden="true">
-        <RenderedMarkdown markdown={markdown} settings={exportSettings} onRendered={handleExportRendered} />
+        <RenderedMarkdown markdown={previewMarkdown} html={previewHtml} settings={exportSettings} onRendered={handleExportRendered} />
       </div>
       {htmlRenderRequest && (
         <HtmlDocumentRenderStage
@@ -2223,6 +2241,26 @@ function Inspector({ target, settings, messages, onChange, onClose, onOpenResour
   );
 }
 
+function useDebouncedValue<T>(value: T, delay: number): T {
+  const [debounced, setDebounced] = useState(value);
+  const initialValueRef = useRef(value);
+  const firstNonInitialValueRef = useRef(false);
+
+  useEffect(() => {
+    if (!firstNonInitialValueRef.current && value === initialValueRef.current) return;
+    // 初回のホスト文書だけは起動時の表示を遅らせない。
+    if (!firstNonInitialValueRef.current) {
+      firstNonInitialValueRef.current = true;
+      setDebounced(value);
+      return;
+    }
+    const timer = window.setTimeout(() => setDebounced(value), delay);
+    return () => window.clearTimeout(timer);
+  }, [value, delay]);
+
+  return debounced;
+}
+
 /**
  * Markdownを印刷用紙サイズと余白に合わせたプレビューとして描画する。
  * @param props Markdown本文、表示設定、PDF設定、プレビュー内操作のコールバック。
@@ -2263,8 +2301,9 @@ function HtmlDocumentRenderStage({ request, settings, onRendered }: {
   );
 }
 
-function PdfPreview({ markdown, settings, options, zoom, messages, pdfBase64, pdfLoading, pdfError, onInspect, onNavigate, onZoom, onRendered }: {
+function PdfPreview({ markdown, html, settings, options, zoom, messages, pdfBase64, pdfLoading, pdfError, onInspect, onNavigate, onZoom, onRendered }: {
   markdown: string;
+  html: string;
   settings: WebviewSettings;
   options: PdfOptions;
   zoom: number;
@@ -2308,6 +2347,7 @@ function PdfPreview({ markdown, settings, options, zoom, messages, pdfBase64, pd
             {options.header && <div className="pdf-preview-header">{formatPdfTemplate(options.header)}</div>}
             <RenderedMarkdown
               markdown={markdown}
+              html={html}
               settings={settings}
               className="pdf-preview-content"
               onInspect={onInspect}

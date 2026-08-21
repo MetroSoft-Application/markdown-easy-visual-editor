@@ -38,3 +38,7 @@
 ## 1.0.9
 
 - Added an autocomplete feature.
+
+## 1.0.10
+
+- Make Input Responses Faster.

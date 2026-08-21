@@ -19,11 +19,16 @@ function now(): number {
   return typeof performance === 'undefined' ? Date.now() - startedAt : performance.now() - startedAt;
 }
 
+export function isMveDebugEnabled(): boolean {
+  return typeof window !== 'undefined'
+    && (window as MveDebugWindow).__mveDebugEnabled === true;
+}
+
 export function mveDebug(event: string, details: Record<string, unknown> = {}): void {
-  if (typeof window === 'undefined') return;
+  if (!isMveDebugEnabled()) return;
   const target = window as MveDebugWindow;
-  if (target.__mveDebugEnabled === false) return;
-  if (target.__mveDebugEnabled === undefined) target.__mveDebugEnabled = true;
+  // 詳細ログは入力イベントごとに発生するため、本番では既定で無効にする。
+  // DevToolsで `window.__mveDebugEnabled = true` を設定すれば診断用に再度有効化できる。
 
   const entry: MveDebugEntry = {
     seq: ++sequence,

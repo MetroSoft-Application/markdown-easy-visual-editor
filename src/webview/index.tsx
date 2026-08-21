@@ -13,7 +13,6 @@ import './editorThemePolish.css';
 import './cmSelectionMatchHighlight';
 import { getMessages } from '../shared/messages';
 import { installEditorThemeController } from './editorThemeController';
-import { App } from './App';
 
 /**
  * 行番号の左クリック完了後に、その論理行のテキスト全体を選択する。

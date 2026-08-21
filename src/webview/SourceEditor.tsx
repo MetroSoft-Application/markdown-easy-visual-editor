@@ -30,7 +30,7 @@ import {
 import { applyTextChanges, computeTextChanges, mapTextChanges, mapTextOffset, type TextChange } from '../shared/textChanges';
 import { getScrollRatio } from '../shared/scroll';
 import type { Messages } from '../shared/messages';
-import { mveDebug } from './debug';
+import { isMveDebugEnabled, mveDebug } from './debug';
 
 export type SourceAction =
   | 'bold'
@@ -426,17 +426,19 @@ export const SourceEditor = forwardRef<TextEditorHandle, Props>(function SourceE
                 deferredValueRef.current = nextValue;
               }
             }
-            mveDebug('source.doc-changed', {
-              changeCount: changes.length,
-              changes: changes.slice(0, 8),
-              nextLength: nextValue.length,
-              selection: update.state.selection.main
-                ? {
-                    from: editorOffsetToExternal(update.state, update.state.selection.main.from),
-                    to: editorOffsetToExternal(update.state, update.state.selection.main.to)
-                  }
-                : undefined
-            });
+            if (isMveDebugEnabled()) {
+              mveDebug('source.doc-changed', {
+                changeCount: changes.length,
+                changes: changes.slice(0, 8),
+                nextLength: nextValue.length,
+                selection: update.state.selection.main
+                  ? {
+                      from: editorOffsetToExternal(update.state, update.state.selection.main.from),
+                      to: editorOffsetToExternal(update.state, update.state.selection.main.to)
+                    }
+                  : undefined
+              });
+            }
             onChangeRef.current(nextValue, changes);
           }
         }),

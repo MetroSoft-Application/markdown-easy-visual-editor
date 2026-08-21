@@ -13,6 +13,8 @@ export type InspectorTarget =
 
 interface Props {
   markdown: string;
+  /** 複数の表示先で共有する、計算済みのHTML。 */
+  html?: string;
   settings: WebviewSettings;
   className?: string;
   onInspect?: (target: InspectorTarget) => void;
@@ -30,6 +32,7 @@ interface Props {
  */
 function RenderedMarkdownView({
   markdown,
+  html: providedHtml,
   settings,
   className = '',
   onInspect,
@@ -51,8 +54,8 @@ function RenderedMarkdownView({
   onImageResetRef.current = onImageReset;
   onImageAlignRef.current = onImageAlign;
   const html = useMemo(
-    () => renderMarkdown(markdown, { remoteImagesEnabled: settings.remoteImagesEnabled, language: settings.language }),
-    [markdown, settings.language, settings.remoteImagesEnabled]
+    () => providedHtml ?? renderMarkdown(markdown, { remoteImagesEnabled: settings.remoteImagesEnabled, language: settings.language }),
+    [providedHtml, markdown, settings.language, settings.remoteImagesEnabled]
   );
 
   useEffect(() => {
