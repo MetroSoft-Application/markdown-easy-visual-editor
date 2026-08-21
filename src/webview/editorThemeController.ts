@@ -26,8 +26,10 @@ function setCurrentTheme(theme: EditorTheme): void {
   if (select && select.value !== currentTheme) select.value = currentTheme;
 }
 
-/** html要素へテーマ属性とcolor-schemeを設定する。 */
+/** html/body要素へテーマ属性とcolor-schemeを設定する。 */
 function applyTheme(theme: EditorTheme): void {
   document.documentElement.dataset.editorTheme = theme;
   document.documentElement.style.colorScheme = theme;
+  document.body.dataset.editorTheme = theme;
+  document.body.style.colorScheme = theme;
 }
