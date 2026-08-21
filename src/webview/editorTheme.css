@@ -1,91 +1,439 @@
 /* Markdown Easy Visual Editor独自のライト／ダークテーマ。
- * VS Code Webviewはbody側へ--vscode-*変数を注入するため、
- * 同じbody要素で!important付きで上書きし、拡張内テーマを確実に優先する。
+ * VS Code Webview本体のテーマ変数だけに依存せず、この拡張で使う主要な
+ * VS Code変数・MVE派生変数・独自パネルをまとめて上書きする。
  */
-html[data-editor-theme="light"] body {
+html[data-editor-theme="light"] body,
+body[data-editor-theme="light"] {
   color-scheme: light;
+  --mve-theme-bg: #ffffff;
+  --mve-theme-surface: #ffffff;
+  --mve-theme-surface-alt: #f6f8fa;
+  --mve-theme-surface-raised: #ffffff;
+  --mve-theme-text: #1f2328;
+  --mve-theme-muted: #59636e;
+  --mve-theme-border: #d0d7de;
+  --mve-theme-hover: #eaeef2;
+  --mve-theme-active: #ddf4ff;
+  --mve-theme-accent: #0969da;
+  --mve-theme-shadow: rgba(31, 35, 40, 0.16);
+  --mve-theme-code: #f6f8fa;
   --mve-link: #0969da !important;
+  --mve-border: #d0d7de !important;
+  --mve-hover: #eaeef2 !important;
+  --mve-active: #ddf4ff !important;
+  --mve-panel: #f6f8fa !important;
   --vscode-editor-background: #ffffff !important;
   --vscode-editor-foreground: #1f2328 !important;
   --vscode-foreground: #1f2328 !important;
   --vscode-descriptionForeground: #59636e !important;
+  --vscode-disabledForeground: #8c959f !important;
+  --vscode-focusBorder: #0969da !important;
+  --vscode-panel-background: #ffffff !important;
   --vscode-panel-border: #d0d7de !important;
   --vscode-sideBar-background: #f6f8fa !important;
+  --vscode-sideBar-foreground: #1f2328 !important;
+  --vscode-sideBarTitle-foreground: #1f2328 !important;
+  --vscode-sideBarSectionHeader-background: #f6f8fa !important;
+  --vscode-sideBarSectionHeader-foreground: #1f2328 !important;
   --vscode-editorGroupHeader-tabsBackground: #f6f8fa !important;
+  --vscode-tab-activeBackground: #ffffff !important;
+  --vscode-tab-inactiveBackground: #f6f8fa !important;
+  --vscode-tab-activeForeground: #1f2328 !important;
+  --vscode-tab-inactiveForeground: #59636e !important;
   --vscode-toolbar-hoverBackground: #eaeef2 !important;
+  --vscode-toolbar-activeBackground: #d8dee4 !important;
+  --vscode-button-background: #0969da !important;
+  --vscode-button-foreground: #ffffff !important;
+  --vscode-button-hoverBackground: #0860ca !important;
   --vscode-button-secondaryBackground: #eaeef2 !important;
+  --vscode-button-secondaryForeground: #1f2328 !important;
   --vscode-button-secondaryHoverBackground: #d8dee4 !important;
-  --vscode-focusBorder: #0969da !important;
   --vscode-dropdown-background: #ffffff !important;
   --vscode-dropdown-foreground: #1f2328 !important;
   --vscode-dropdown-border: #d0d7de !important;
   --vscode-input-background: #ffffff !important;
   --vscode-input-foreground: #1f2328 !important;
   --vscode-input-border: #d0d7de !important;
+  --vscode-input-placeholderForeground: #8c959f !important;
+  --vscode-checkbox-background: #ffffff !important;
+  --vscode-checkbox-foreground: #1f2328 !important;
+  --vscode-checkbox-border: #8c959f !important;
   --vscode-list-hoverBackground: #eaeef2 !important;
+  --vscode-list-hoverForeground: #1f2328 !important;
+  --vscode-list-activeSelectionBackground: #ddf4ff !important;
+  --vscode-list-activeSelectionForeground: #1f2328 !important;
+  --vscode-list-inactiveSelectionBackground: #eaeef2 !important;
+  --vscode-list-inactiveSelectionForeground: #1f2328 !important;
   --vscode-editor-lineHighlightBackground: #f6f8fa !important;
   --vscode-editor-selectionBackground: #b6d7ff !important;
   --vscode-editor-inactiveSelectionBackground: #ddf4ff !important;
   --vscode-editorCursor-foreground: #1f2328 !important;
   --vscode-editorWhitespace-foreground: #8c959f !important;
+  --vscode-editorGutter-background: #f6f8fa !important;
+  --vscode-editorLineNumber-foreground: #8c959f !important;
+  --vscode-editorLineNumber-activeForeground: #1f2328 !important;
   --vscode-editorWidget-background: #ffffff !important;
+  --vscode-editorWidget-foreground: #1f2328 !important;
+  --vscode-editorWidget-border: #d0d7de !important;
+  --vscode-editorHoverWidget-background: #ffffff !important;
+  --vscode-editorHoverWidget-foreground: #1f2328 !important;
+  --vscode-editorHoverWidget-border: #d0d7de !important;
   --vscode-textBlockQuote-background: #f6f8fa !important;
   --vscode-textBlockQuote-foreground: #57606a !important;
   --vscode-textCodeBlock-background: #f6f8fa !important;
   --vscode-editor-findMatchBackground: #fff8c5 !important;
   --vscode-editor-findMatchBorder: #d4a72c !important;
   --vscode-editor-findMatchHighlightBackground: #fae17d !important;
+  --vscode-scrollbarSlider-background: rgba(140, 149, 159, 0.32) !important;
+  --vscode-scrollbarSlider-hoverBackground: rgba(140, 149, 159, 0.48) !important;
+  --vscode-scrollbarSlider-activeBackground: rgba(140, 149, 159, 0.64) !important;
+  --vscode-statusBar-background: #f6f8fa !important;
+  --vscode-statusBar-foreground: #59636e !important;
+  --vscode-statusBar-border: #d0d7de !important;
+  --vscode-widget-shadow: rgba(31, 35, 40, 0.16) !important;
   --vscode-errorForeground: #cf222e !important;
   --vscode-inputValidation-errorBorder: #cf222e !important;
   --vscode-inputValidation-errorBackground: #ffebe9 !important;
 }
 
-html[data-editor-theme="dark"] body {
+html[data-editor-theme="dark"] body,
+body[data-editor-theme="dark"] {
   color-scheme: dark;
+  --mve-theme-bg: #0d1117;
+  --mve-theme-surface: #0d1117;
+  --mve-theme-surface-alt: #161b22;
+  --mve-theme-surface-raised: #161b22;
+  --mve-theme-text: #e6edf3;
+  --mve-theme-muted: #8b949e;
+  --mve-theme-border: #30363d;
+  --mve-theme-hover: #21262d;
+  --mve-theme-active: #1f3a5f;
+  --mve-theme-accent: #58a6ff;
+  --mve-theme-shadow: rgba(0, 0, 0, 0.45);
+  --mve-theme-code: #161b22;
   --mve-link: #58a6ff !important;
+  --mve-border: #30363d !important;
+  --mve-hover: #21262d !important;
+  --mve-active: #1f3a5f !important;
+  --mve-panel: #161b22 !important;
   --vscode-editor-background: #0d1117 !important;
   --vscode-editor-foreground: #e6edf3 !important;
   --vscode-foreground: #e6edf3 !important;
   --vscode-descriptionForeground: #8b949e !important;
+  --vscode-disabledForeground: #6e7681 !important;
+  --vscode-focusBorder: #2f81f7 !important;
+  --vscode-panel-background: #0d1117 !important;
   --vscode-panel-border: #30363d !important;
   --vscode-sideBar-background: #161b22 !important;
+  --vscode-sideBar-foreground: #e6edf3 !important;
+  --vscode-sideBarTitle-foreground: #e6edf3 !important;
+  --vscode-sideBarSectionHeader-background: #161b22 !important;
+  --vscode-sideBarSectionHeader-foreground: #e6edf3 !important;
   --vscode-editorGroupHeader-tabsBackground: #161b22 !important;
+  --vscode-tab-activeBackground: #0d1117 !important;
+  --vscode-tab-inactiveBackground: #161b22 !important;
+  --vscode-tab-activeForeground: #e6edf3 !important;
+  --vscode-tab-inactiveForeground: #8b949e !important;
   --vscode-toolbar-hoverBackground: #21262d !important;
+  --vscode-toolbar-activeBackground: #30363d !important;
+  --vscode-button-background: #238636 !important;
+  --vscode-button-foreground: #ffffff !important;
+  --vscode-button-hoverBackground: #2ea043 !important;
   --vscode-button-secondaryBackground: #21262d !important;
+  --vscode-button-secondaryForeground: #e6edf3 !important;
   --vscode-button-secondaryHoverBackground: #30363d !important;
-  --vscode-focusBorder: #2f81f7 !important;
   --vscode-dropdown-background: #0d1117 !important;
   --vscode-dropdown-foreground: #e6edf3 !important;
   --vscode-dropdown-border: #30363d !important;
   --vscode-input-background: #0d1117 !important;
   --vscode-input-foreground: #e6edf3 !important;
   --vscode-input-border: #30363d !important;
+  --vscode-input-placeholderForeground: #6e7681 !important;
+  --vscode-checkbox-background: #0d1117 !important;
+  --vscode-checkbox-foreground: #e6edf3 !important;
+  --vscode-checkbox-border: #6e7681 !important;
   --vscode-list-hoverBackground: #21262d !important;
+  --vscode-list-hoverForeground: #e6edf3 !important;
+  --vscode-list-activeSelectionBackground: #1f3a5f !important;
+  --vscode-list-activeSelectionForeground: #e6edf3 !important;
+  --vscode-list-inactiveSelectionBackground: #21262d !important;
+  --vscode-list-inactiveSelectionForeground: #e6edf3 !important;
   --vscode-editor-lineHighlightBackground: #161b22 !important;
   --vscode-editor-selectionBackground: #264f78 !important;
   --vscode-editor-inactiveSelectionBackground: #1f3a5f !important;
   --vscode-editorCursor-foreground: #e6edf3 !important;
   --vscode-editorWhitespace-foreground: #484f58 !important;
+  --vscode-editorGutter-background: #161b22 !important;
+  --vscode-editorLineNumber-foreground: #6e7681 !important;
+  --vscode-editorLineNumber-activeForeground: #e6edf3 !important;
   --vscode-editorWidget-background: #161b22 !important;
+  --vscode-editorWidget-foreground: #e6edf3 !important;
+  --vscode-editorWidget-border: #30363d !important;
+  --vscode-editorHoverWidget-background: #161b22 !important;
+  --vscode-editorHoverWidget-foreground: #e6edf3 !important;
+  --vscode-editorHoverWidget-border: #30363d !important;
   --vscode-textBlockQuote-background: #161b22 !important;
   --vscode-textBlockQuote-foreground: #8b949e !important;
   --vscode-textCodeBlock-background: #161b22 !important;
   --vscode-editor-findMatchBackground: #9e6a03 !important;
   --vscode-editor-findMatchBorder: #d29922 !important;
   --vscode-editor-findMatchHighlightBackground: #6e4c13 !important;
+  --vscode-scrollbarSlider-background: rgba(110, 118, 129, 0.32) !important;
+  --vscode-scrollbarSlider-hoverBackground: rgba(110, 118, 129, 0.48) !important;
+  --vscode-scrollbarSlider-activeBackground: rgba(110, 118, 129, 0.64) !important;
+  --vscode-statusBar-background: #161b22 !important;
+  --vscode-statusBar-foreground: #8b949e !important;
+  --vscode-statusBar-border: #30363d !important;
+  --vscode-widget-shadow: rgba(0, 0, 0, 0.45) !important;
   --vscode-errorForeground: #f85149 !important;
   --vscode-inputValidation-errorBorder: #f85149 !important;
   --vscode-inputValidation-errorBackground: #3d1f1f !important;
 }
 
-html[data-editor-theme] body,
-html[data-editor-theme] .app,
-html[data-editor-theme] .startup {
-  color: var(--vscode-editor-foreground) !important;
-  background: var(--vscode-editor-background) !important;
+/* アプリ全体の主要サーフェスをテーマ側で明示する。 */
+body[data-editor-theme],
+body[data-editor-theme] #root,
+body[data-editor-theme] .app,
+body[data-editor-theme] .workspace,
+body[data-editor-theme] .editor-area,
+body[data-editor-theme] .split-editor,
+body[data-editor-theme] .split-source-pane,
+body[data-editor-theme] .split-preview,
+body[data-editor-theme] .startup {
+  color: var(--mve-theme-text) !important;
+  background: var(--mve-theme-bg) !important;
 }
 
-html[data-editor-theme] .ribbon-tabs .ribbon-source-button,
-html[data-editor-theme] .rendered-markdown a {
-  color: var(--mve-link) !important;
+/* リボン・アウトライン・各種サイドパネル。 */
+body[data-editor-theme] .ribbon,
+body[data-editor-theme] .ribbon-tabs,
+body[data-editor-theme] .ribbon-content,
+body[data-editor-theme] .outline-panel,
+body[data-editor-theme] .outline-header,
+body[data-editor-theme] .outline-reopen,
+body[data-editor-theme] .diagnostics-panel,
+body[data-editor-theme] .inspector-panel,
+body[data-editor-theme] .pdf-settings-panel,
+body[data-editor-theme] .status-bar {
+  color: var(--mve-theme-text) !important;
+  background: var(--mve-theme-surface-alt) !important;
+  border-color: var(--mve-theme-border) !important;
+}
+
+body[data-editor-theme] .outline-resizer,
+body[data-editor-theme] .split-divider {
+  background: var(--mve-theme-surface-alt) !important;
+  border-color: var(--mve-theme-border) !important;
+}
+
+body[data-editor-theme] .outline-panel nav button,
+body[data-editor-theme] .outline-header button,
+body[data-editor-theme] .outline-reopen,
+body[data-editor-theme] .panel-title button,
+body[data-editor-theme] .ribbon-tool,
+body[data-editor-theme] .ribbon-tabs button {
+  color: var(--mve-theme-text) !important;
+}
+
+body[data-editor-theme] .outline-panel nav button:hover,
+body[data-editor-theme] .outline-header button:hover,
+body[data-editor-theme] .outline-reopen:hover,
+body[data-editor-theme] .panel-title button:hover,
+body[data-editor-theme] .ribbon-tool:hover:not(:disabled),
+body[data-editor-theme] .ribbon-tabs button:hover {
+  background: var(--mve-theme-hover) !important;
+}
+
+body[data-editor-theme] .ribbon-tool.active,
+body[data-editor-theme] .ribbon-tabs button.active,
+body[data-editor-theme] .ribbon-source-button.active {
+  background: var(--mve-theme-active) !important;
+  border-color: var(--mve-theme-accent) !important;
+}
+
+body[data-editor-theme] .ribbon-tabs button.active,
+body[data-editor-theme] .ribbon-tabs .ribbon-source-button,
+body[data-editor-theme] .rendered-markdown a {
+  color: var(--mve-theme-accent) !important;
+}
+
+body[data-editor-theme] .ribbon-group-label,
+body[data-editor-theme] .ribbon-hint,
+body[data-editor-theme] .ribbon-select-label,
+body[data-editor-theme] .ribbon-form label,
+body[data-editor-theme] .outline-panel p,
+body[data-editor-theme] .search-count,
+body[data-editor-theme] .diagnostic-help,
+body[data-editor-theme] .pdf-preview-status,
+body[data-editor-theme] .pdf-preview-note {
+  color: var(--mve-theme-muted) !important;
+}
+
+/* 検索・モーダル・診断などの浮遊UI。 */
+body[data-editor-theme] .search-panel,
+body[data-editor-theme] .help-dialog,
+body[data-editor-theme] .link-dialog,
+body[data-editor-theme] .inspector-preview,
+body[data-editor-theme] .cm-tooltip,
+body[data-editor-theme] .cm-panels {
+  color: var(--mve-theme-text) !important;
+  background: var(--mve-theme-surface-raised) !important;
+  border-color: var(--mve-theme-border) !important;
+  box-shadow: 0 8px 24px var(--mve-theme-shadow) !important;
+}
+
+body[data-editor-theme] .modal-backdrop {
+  background: rgba(0, 0, 0, 0.38) !important;
+}
+
+body[data-editor-theme] .diagnostic,
+body[data-editor-theme] .panel-title,
+body[data-editor-theme] .pdf-margin-fields {
+  color: var(--mve-theme-text) !important;
+  background: transparent !important;
+  border-color: var(--mve-theme-border) !important;
+}
+
+/* フォーム部品。印刷設定パネル・インスペクター・検索・ダイアログを一括で統一する。 */
+body[data-editor-theme] .app input,
+body[data-editor-theme] .app select,
+body[data-editor-theme] .app textarea {
+  color: var(--mve-theme-text) !important;
+  background: var(--mve-theme-surface) !important;
+  border-color: var(--mve-theme-border) !important;
+  caret-color: var(--mve-theme-text) !important;
+}
+
+body[data-editor-theme] .app input::placeholder,
+body[data-editor-theme] .app textarea::placeholder {
+  color: var(--mve-theme-muted) !important;
+}
+
+body[data-editor-theme] .search-panel button,
+body[data-editor-theme] .diagnostics-panel button,
+body[data-editor-theme] .inspector-panel button,
+body[data-editor-theme] .pdf-settings-panel button,
+body[data-editor-theme] .help-dialog button,
+body[data-editor-theme] .link-dialog button {
+  color: var(--mve-theme-text) !important;
+  background: var(--mve-theme-hover) !important;
+  border-color: var(--mve-theme-border) !important;
+}
+
+body[data-editor-theme] .search-panel button:hover:not(:disabled),
+body[data-editor-theme] .diagnostics-panel button:hover:not(:disabled),
+body[data-editor-theme] .inspector-panel button:hover:not(:disabled),
+body[data-editor-theme] .pdf-settings-panel button:hover:not(:disabled),
+body[data-editor-theme] .help-dialog button:hover:not(:disabled),
+body[data-editor-theme] .link-dialog button:hover:not(:disabled) {
+  background: var(--mve-theme-active) !important;
+}
+
+body[data-editor-theme] .primary {
+  color: #ffffff !important;
+  background: var(--mve-theme-accent) !important;
+  border-color: var(--mve-theme-accent) !important;
+}
+
+/* CodeMirror本体・ガター・選択・ツールチップ。 */
+body[data-editor-theme] .cm-editor,
+body[data-editor-theme] .cm-scroller,
+body[data-editor-theme] .cm-content {
+  color: var(--mve-theme-text) !important;
+  background: var(--mve-theme-bg) !important;
+}
+
+body[data-editor-theme] .cm-gutters,
+body[data-editor-theme] .cm-gutter,
+body[data-editor-theme] .cm-lineNumbers {
+  color: var(--mve-theme-muted) !important;
+  background: var(--mve-theme-surface-alt) !important;
+  border-color: var(--mve-theme-border) !important;
+}
+
+body[data-editor-theme] .cm-activeLine,
+body[data-editor-theme] .cm-activeLineGutter {
+  color: var(--mve-theme-text) !important;
+  background: var(--mve-theme-surface-alt) !important;
+}
+
+body[data-editor-theme] .cm-selectionBackground,
+body[data-editor-theme] .cm-content ::selection {
+  background: var(--vscode-editor-selectionBackground) !important;
+}
+
+body[data-editor-theme] .cm-cursor,
+body[data-editor-theme] .cm-dropCursor {
+  border-left-color: var(--mve-theme-text) !important;
+}
+
+/* Markdownプレビュー。通常プレビューだけをテーマ化し、印刷用紙面は下で白固定する。 */
+body[data-editor-theme] .split-preview .rendered-markdown,
+body[data-editor-theme] .editor-area > .rendered-markdown,
+body[data-editor-theme] .inspector-preview .rendered-markdown {
+  color: var(--mve-theme-text) !important;
+  background: var(--mve-theme-bg) !important;
+}
+
+body[data-editor-theme] .rendered-markdown pre,
+body[data-editor-theme] .rendered-markdown code,
+body[data-editor-theme] .rendered-markdown .code-figure,
+body[data-editor-theme] .rendered-markdown figcaption,
+body[data-editor-theme] .rendered-markdown blockquote,
+body[data-editor-theme] .rendered-markdown .markdown-alert {
+  color: var(--mve-theme-text) !important;
+  background: var(--mve-theme-code) !important;
+  border-color: var(--mve-theme-border) !important;
+}
+
+body[data-editor-theme] .rendered-markdown table,
+body[data-editor-theme] .rendered-markdown th,
+body[data-editor-theme] .rendered-markdown td {
+  color: var(--mve-theme-text) !important;
+  border-color: var(--mve-theme-border) !important;
+}
+
+body[data-editor-theme] .rendered-markdown th {
+  background: var(--mve-theme-surface-alt) !important;
+}
+
+/* PDFプレビューの外周・設定UIはアプリテーマに従う。紙面そのものは印刷結果に合わせて常に白。 */
+body[data-editor-theme] .pdf-preview-shell,
+body[data-editor-theme] .pdf-preview-toolbar,
+body[data-editor-theme] .pdf-preview-pdf-layer {
+  color: var(--mve-theme-text) !important;
+  background: var(--mve-theme-surface-alt) !important;
+  border-color: var(--mve-theme-border) !important;
+}
+
+body[data-editor-theme] .pdf-preview-toolbar button {
+  color: var(--mve-theme-text) !important;
+  background: var(--mve-theme-hover) !important;
+  border-color: var(--mve-theme-border) !important;
+}
+
+body[data-editor-theme] .pdf-preview-live-content,
+body[data-editor-theme] .pdf-preview-live-content .rendered-markdown,
+body[data-editor-theme] .pdf-preview-content {
+  color: #202124 !important;
+  background: #ffffff !important;
+  color-scheme: light !important;
+}
+
+/* ステータスバーと通知。 */
+body[data-editor-theme] .status-bar {
+  color: var(--mve-theme-muted) !important;
+  background: var(--mve-theme-surface-alt) !important;
+  border-top-color: var(--mve-theme-border) !important;
+}
+
+body[data-editor-theme] .toast {
+  color: var(--mve-theme-text) !important;
+  background: var(--mve-theme-surface-raised) !important;
+  border: 1px solid var(--mve-theme-border) !important;
+  box-shadow: 0 8px 24px var(--mve-theme-shadow) !important;
+}
+
+body[data-editor-theme] {
+  scrollbar-color: var(--vscode-scrollbarSlider-background) transparent;
 }
