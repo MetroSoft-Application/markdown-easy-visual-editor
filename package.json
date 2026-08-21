@@ -290,7 +290,7 @@
     "@types/node": "^24.3.0",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
-    "@types/turndown": "^0.5.5",
+    "@types/turndown": "^5.0.5",
     "@types/vscode": "^1.100.0",
     "@vscode/vsce": "^3.9.2",
     "esbuild": "^0.28.2",
