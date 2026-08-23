@@ -14,7 +14,18 @@ import { sql } from '@codemirror/lang-sql';
 import { yaml } from '@codemirror/lang-yaml';
 import { HighlightStyle, LanguageDescription, syntaxHighlighting } from '@codemirror/language';
 import { Annotation, EditorSelection, EditorState, StateEffect, StateField, type Extension, type Range } from '@codemirror/state';
-import { Decoration, type DecorationSet, EditorView, keymap, lineNumbers, placeholder as placeholderExtension, ViewPlugin } from '@codemirror/view';
+import {
+  Decoration,
+  type DecorationSet,
+  EditorView,
+  crosshairCursor,
+  drawSelection,
+  keymap,
+  lineNumbers,
+  placeholder as placeholderExtension,
+  rectangularSelection,
+  ViewPlugin
+} from '@codemirror/view';
 import { tags } from '@lezer/highlight';
 import {
   clearBlockFormatting,
@@ -375,6 +386,10 @@ export const SourceEditor = forwardRef<TextEditorHandle, Props>(function SourceE
       extensions: [
         EditorState.lineSeparator.of(detectLineSeparator(value)),
         lineNumbers(),
+        drawSelection(),
+        EditorState.allowMultipleSelections.of(true),
+        rectangularSelection(),
+        crosshairCursor(),
         markdownLanguage({ codeLanguages: sourceCodeLanguages }),
         // 標準スタイルは濃い青を含むため使わず、明るいテーマ配色を1つだけ適用する。
         syntaxHighlighting(vscodeSyntaxHighlightStyle),
