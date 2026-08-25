@@ -2,6 +2,7 @@ import type { Diagnostic } from './markdown';
 import type { SupportedLanguage } from './messages';
 
 export type EditorMode = 'split' | 'preview';
+export type ViewMode = 'both' | 'text' | 'preview';
 export type EditorTheme = 'light' | 'dark';
 
 export interface ImagePayload {
@@ -32,6 +33,7 @@ export interface WebviewSettings {
   remoteImagesEnabled: boolean;
   mermaidTheme: 'auto' | 'default' | 'dark' | 'neutral';
   editorTheme?: EditorTheme;
+  viewMode?: ViewMode;
   workspaceTrusted: boolean;
 }
 
@@ -82,6 +84,7 @@ export type WebviewToHostMessage =
   | { type: 'pickImage'; requestId: string }
   | { type: 'checkLocalResources'; requestId: string; markdown: string }
   | { type: 'setEditorTheme'; theme: EditorTheme }
+  | { type: 'setViewMode'; viewMode: ViewMode }
   | {
       type: 'exportPdf';
       requestId: string;

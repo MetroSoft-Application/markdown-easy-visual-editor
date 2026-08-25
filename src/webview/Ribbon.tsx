@@ -89,9 +89,29 @@ export function Ribbon({ messages, mode, readOnly, activeMarks, outlineVisible, 
         ))}
         <span className="ribbon-spacer" />
         <button type="button" className="ribbon-source-button" title={messages.ribbon.search} onClick={() => onCommand({ type: 'find' })}>{messages.ribbon.search}</button>
-        <button type="button" className={`ribbon-source-button ${mode === 'split' && splitView === 'both' ? 'active' : ''}`} onClick={() => onCommand({ type: 'splitView', view: 'both' })}>{messages.ribbon.split}</button>
-        <button type="button" className={`ribbon-source-button ${mode === 'split' && splitView === 'text' ? 'active' : ''}`} onClick={() => onCommand({ type: 'splitView', view: 'text' })}>{messages.ribbon.textOnly}</button>
-        <button type="button" className={`ribbon-source-button ${mode === 'split' && splitView === 'preview' ? 'active' : ''}`} onClick={() => onCommand({ type: 'splitView', view: 'preview' })}>{messages.ribbon.previewOnly}</button>
+        <div className="ribbon-view-controls" role="group" aria-label={messages.ribbon.groups.pane}>
+          <ViewModeButton
+            label={messages.ribbon.split}
+            view="both"
+            mode={mode}
+            splitView={splitView}
+            onCommand={onCommand}
+          />
+          <ViewModeButton
+            label={messages.ribbon.textOnly}
+            view="text"
+            mode={mode}
+            splitView={splitView}
+            onCommand={onCommand}
+          />
+          <ViewModeButton
+            label={messages.ribbon.previewOnly}
+            view="preview"
+            mode={mode}
+            splitView={splitView}
+            onCommand={onCommand}
+          />
+        </div>
         <button type="button" title={pinned ? messages.ribbon.unpin : messages.ribbon.pin} className={pinned ? 'active' : ''} onClick={() => setPinned(!pinned)}>
           {messages.ribbon.pin}
         </button>
@@ -314,6 +334,27 @@ export function Ribbon({ messages, mode, readOnly, activeMarks, outlineVisible, 
     // 表操作と列追加時の見出し名を親コンポーネントへ渡す。
     onCommand({ type: 'table', action, headerName: action === 'colBefore' || action === 'colAfter' ? headerName : undefined });
   }
+}
+
+/** 選択中の通常表示モードを示し、どのリボンタブからでも切り替えられるボタンを描画する。 */
+function ViewModeButton({ label, view, mode, splitView, onCommand }: {
+  label: string;
+  view: 'both' | 'text' | 'preview';
+  mode: EditorMode;
+  splitView: 'both' | 'text' | 'preview';
+  onCommand: (command: RibbonCommand) => void;
+}): React.JSX.Element {
+  const active = mode === 'split' && splitView === view;
+  return (
+    <button
+      type="button"
+      className={`ribbon-source-button ${active ? 'active' : ''}`}
+      aria-pressed={active}
+      onClick={() => onCommand({ type: 'splitView', view })}
+    >
+      {label}
+    </button>
+  );
 }
 
 /**

@@ -42,3 +42,7 @@
 ## 1.0.10
 
 - Make Input Responses Faster.
+
+## 1.0.11
+
+- Added a feature to remember the previous display settings.

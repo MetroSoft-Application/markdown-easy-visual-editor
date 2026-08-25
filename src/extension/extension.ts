@@ -4,6 +4,7 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import type {
   HostToWebviewMessage,
   ImagePayload,
+  ViewMode,
   WebviewSettings,
   WebviewToHostMessage
 } from '../shared/protocol';
@@ -20,6 +21,7 @@ import { decodeLocalResourceSource, isMissingResourceError } from './resourceChe
 import { classifyResourceLink } from './resourceLink';
 
 const VIEW_TYPE = 'markdownEasyVisualEditor.editor';
+const VIEW_MODE_STATE_KEY = 'markdownEasyVisualEditor.viewMode';
 
 interface PendingHostOperation {
   panel: vscode.WebviewPanel;
@@ -263,6 +265,10 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
           this.broadcastSettings();
           return;
         }
+        case 'setViewMode':
+          await this.context.globalState.update(VIEW_MODE_STATE_KEY, message.viewMode);
+          this.broadcastSettings();
+          return;
         case 'openSource':
           this.activeDocument = document;
           await this.openSource();
@@ -918,6 +924,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
       remoteImagesEnabled: config.get('remoteImages.enabled', false),
       mermaidTheme: config.get('mermaid.theme', 'auto'),
       editorTheme: config.get<WebviewSettings['editorTheme']>('editor.theme', 'dark'),
+      viewMode: normalizeViewMode(this.context.globalState.get<unknown>(VIEW_MODE_STATE_KEY)),
       workspaceTrusted: vscode.workspace.isTrusted
     };
   }
@@ -1040,6 +1047,11 @@ async function applyChangeBatch(document: vscode.TextDocument, changes: readonly
 function operationIdentity(clientId: string, opId: string): string {
   // クライアントIDと操作IDを衝突しない1つのキーへ連結する。
   return `${clientId}\u0000${opId}`;
+}
+
+/** 永続化された表示モードを安全な3状態へ正規化する。 */
+function normalizeViewMode(value: unknown): ViewMode {
+  return value === 'text' || value === 'preview' ? value : 'both';
 }
 
 /**

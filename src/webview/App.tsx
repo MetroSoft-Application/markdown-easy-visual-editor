@@ -9,6 +9,7 @@ import type {
   ImagePayload,
   PdfOptions,
   VsCodeApi,
+  ViewMode,
   WebviewSettings,
   WebviewToHostMessage
 } from '../shared/protocol';
@@ -63,6 +64,8 @@ interface PersistedState {
   splitRatio?: number;
   outlineWidth?: number;
   zoom?: number;
+  /** 通常表示で選択したペイン構成。splitViewは旧バージョン互換用に残す。 */
+  viewMode?: ViewMode;
   splitView?: 'both' | 'text' | 'preview';
   sourceViewport?: EditorViewportAnchor;
   splitPreviewViewport?: PreviewViewportAnchor;
@@ -101,6 +104,7 @@ const DEFAULT_SETTINGS: WebviewSettings = {
   maxPasteSizeMb: 20,
   remoteImagesEnabled: true,
   mermaidTheme: 'auto',
+  viewMode: 'both',
   workspaceTrusted: false
 };
 const DEFAULT_PDF: PdfOptions = {
@@ -134,14 +138,16 @@ function mergeDiagnostics(markdown: string, localResourceDiagnostics: Diagnostic
  */
 export function App(): React.JSX.Element {
   const restored = vscode.getState();
-  const [mode, setMode] = useState<EditorMode>(restored?.mode ?? 'split');
+  const hasRestoredViewMode = restored?.viewMode !== undefined || restored?.splitView !== undefined;
+  // modeのpreviewは印刷プレビュー用の一時状態だったため、通常表示としては復元しない。
+  const [mode, setMode] = useState<EditorMode>('split');
   const [outlineVisible, setOutlineVisible] = useState(restored?.outlineVisible ?? true);
   const [outlineWidth, setOutlineWidth] = useState(() => clampOutlineWidth(restored?.outlineWidth ?? 220));
   const [splitRatio, setSplitRatio] = useState(() => clampSplitRatio(restored?.splitRatio ?? 0.5));
   const [zoom, setZoom] = useState(() => clampZoom(restored?.zoom ?? 1));
   const zoomRef = useRef(zoom);
   zoomRef.current = zoom;
-  const [splitView, setSplitView] = useState<'both' | 'text' | 'preview'>(restored?.splitView ?? 'both');
+  const [splitView, setSplitView] = useState<ViewMode>(restoreViewMode(restored?.viewMode ?? restored?.splitView));
   const [initialized, setInitialized] = useState(false);
   const [markdown, setMarkdown] = useState('');
   // 入力経路と、解析・HTML化が重い表示経路を分離する。
@@ -253,7 +259,7 @@ export function App(): React.JSX.Element {
   useEffect(() => {
     // 表示モードやレイアウト設定をVS CodeのWebview状態へ保存する。
     persistViewState();
-  }, [mode, outlineVisible, outlineWidth, splitRatio, zoom, splitView]);
+  }, [outlineVisible, outlineWidth, splitRatio, zoom, splitView]);
 
   useEffect(() => {
     // 本文が変わったら、前の本文に対するローカル参照診断を破棄する。
@@ -575,6 +581,9 @@ export function App(): React.JSX.Element {
         versionRef.current = message.version;
         setVersion(message.version);
         setSettings(message.settings);
+        if (!hasRestoredViewMode && message.settings.viewMode) {
+          setSplitView(restoreViewMode(message.settings.viewMode));
+        }
         if (!pendingOperationsRef.current.length) {
           localTextRef.current = message.text;
           setMarkdown(message.text);
@@ -632,6 +641,7 @@ export function App(): React.JSX.Element {
         return;
       case 'settingsChanged':
         setSettings(message.settings);
+        if (message.settings.viewMode) setSplitView(restoreViewMode(message.settings.viewMode));
         return;
       case 'imagesSaved':
         imageRequestsRef.current.delete(message.requestId);
@@ -899,16 +909,20 @@ export function App(): React.JSX.Element {
 
   /**
    * 表示モード・レイアウト・各ペインの表示位置をWebview状態へ保存する。
+   * @param viewModeOverride クリック直後に保存する表示モード。未指定時は現在値を使う。
    * @returns 何も返さない。
    */
-  function persistViewState(): void {
+  function persistViewState(viewModeOverride?: ViewMode): void {
+    const savedViewMode = viewModeOverride ?? splitView;
     vscode.setState({
-      mode,
+      // 印刷プレビュー中にWebviewが再生成されても、通常の表示設定を復元する。
+      mode: 'split',
       outlineVisible,
       outlineWidth,
       splitRatio,
       zoom,
-      splitView,
+      splitView: savedViewMode,
+      viewMode: savedViewMode,
       sourceViewport: viewportStateRef.current.source,
       splitPreviewViewport: viewportStateRef.current.splitPreview,
       previewOnlyViewport: viewportStateRef.current.previewOnly
@@ -957,6 +971,8 @@ export function App(): React.JSX.Element {
     pendingViewportRestoreRef.current = true;
     setSplitView(nextView);
     setMode('split');
+    persistViewState(nextView);
+    vscode.postMessage({ type: 'setViewMode', viewMode: nextView });
   }
 
   /**
@@ -2663,6 +2679,11 @@ function mapChangesPreferLocal(
  */
 function isEditingEnabled(mode: EditorMode, splitView: 'both' | 'text' | 'preview'): boolean {
   return mode !== 'preview' && !(mode === 'split' && splitView === 'preview');
+}
+
+/** Webview状態から有効な通常表示モードを復元する。 */
+function restoreViewMode(value: unknown): ViewMode {
+  return value === 'text' || value === 'preview' ? value : 'both';
 }
 
 /**
