@@ -13,8 +13,8 @@ import { rust } from '@codemirror/lang-rust';
 import { sql } from '@codemirror/lang-sql';
 import { yaml } from '@codemirror/lang-yaml';
 import { HighlightStyle, LanguageDescription, syntaxHighlighting } from '@codemirror/language';
-import { Annotation, EditorSelection, EditorState, StateEffect, StateField, type Extension, type Range } from '@codemirror/state';
-import { Decoration, type DecorationSet, EditorView, keymap, lineNumbers, placeholder as placeholderExtension, ViewPlugin } from '@codemirror/view';
+import { Annotation, Compartment, EditorSelection, EditorState, StateEffect, StateField, type Extension, type Range } from '@codemirror/state';
+import { Decoration, type DecorationSet, EditorView, keymap, lineNumbers, placeholder as placeholderExtension, ViewPlugin, type ViewUpdate } from '@codemirror/view';
 import { tags } from '@lezer/highlight';
 import {
   clearBlockFormatting,
@@ -27,10 +27,11 @@ import {
   type SourceEdit,
   type TextSelection
 } from '../shared/markdown';
-import { applyTextChanges, computeTextChanges, mapTextChanges, mapTextOffset, type TextChange } from '../shared/textChanges';
+import { applyTextChanges, composeTextChanges, computeTextChanges, mapTextChanges, mapTextOffset, type TextChange } from '../shared/textChanges';
 import { getScrollRatio } from '../shared/scroll';
 import type { Messages } from '../shared/messages';
 import { isMveDebugEnabled, mveDebug } from './debug';
+import { exactSelectionMatchExtension } from './cmSelectionMatchHighlight';
 
 export type SourceAction =
   | 'bold'
@@ -69,6 +70,7 @@ const CARET_PRESERVING_LINE_ACTIONS = new Set<SourceAction>([
 ]);
 
 export interface TextEditorHandle {
+  flushPendingChanges(): void;
   insert(markdown: string, inline?: boolean): void;
   applyEdit(edit: SourceEdit): void;
   action(action: SourceAction): void;
@@ -259,10 +261,11 @@ const searchHighlightField = StateField.define<SearchHighlightState>({
  */
 function createSearchDecorations(state: EditorState, data: SearchHighlightData): DecorationSet {
   const activeKey = data.active ? `${data.active.from}:${data.active.to}` : '';
+  const source = state.sliceDoc();
   const ranges = data.hits
     .map((hit) => {
-      const from = externalOffsetToEditorValue(state.sliceDoc(), hit.from);
-      const to = externalOffsetToEditorValue(state.sliceDoc(), hit.to);
+      const from = externalOffsetToEditorValue(source, hit.from);
+      const to = externalOffsetToEditorValue(source, hit.to);
       if (to <= from) return undefined;
       const active = `${hit.from}:${hit.to}` === activeKey;
       return Decoration.mark({ class: active ? 'cm-search-match cm-search-match-active' : 'cm-search-match' }).range(from, to);
@@ -289,6 +292,42 @@ function visibleSpaceDecorations(view: EditorView): DecorationSet {
   return Decoration.set(ranges.map(({ from, to }) => Decoration.mark({ class: 'cm-visible-space' }).range(from, to)));
 }
 
+/**
+ * 文書差分を既存の空白装飾へ写像し、変更された範囲内の空白だけを再作成する。
+ * @param decorations 変更前の空白装飾。
+ * @param update CodeMirrorの表示更新。
+ * @returns 変更後の空白装飾。
+ */
+function updateVisibleSpaceDecorations(decorations: DecorationSet, update: ViewUpdate): DecorationSet {
+  if (update.viewportChanged) return visibleSpaceDecorations(update.view);
+  let next = decorations.map(update.changes);
+  update.changes.iterChangedRanges((_fromA, _toA, fromB, toB) => {
+    const additions: Range<Decoration>[] = [];
+    if (toB > fromB) {
+      for (const visible of update.view.visibleRanges) {
+        const scanFrom = Math.max(fromB, visible.from);
+        const scanTo = Math.min(toB, visible.to);
+        if (scanTo <= scanFrom) continue;
+        const text = update.state.doc.sliceString(scanFrom, scanTo, '\n');
+        for (let index = 0; index < text.length; index += 1) {
+          if (text[index] === ' ') {
+            additions.push(Decoration.mark({ class: 'cm-visible-space' }).range(scanFrom + index, scanFrom + index + 1));
+          }
+        }
+      }
+      // 置換前の空白装飾が変更後の文字へ写像されても残らないよう、変更範囲だけ入れ替える。
+      next = next.update({
+        filterFrom: fromB,
+        filterTo: toB,
+        filter: () => false,
+        add: additions,
+        sort: true
+      });
+    }
+  });
+  return next;
+}
+
 const visibleSpaces: Extension = ViewPlugin.fromClass(class {
   decorations: DecorationSet;
 
@@ -298,8 +337,12 @@ const visibleSpaces: Extension = ViewPlugin.fromClass(class {
   }
 
   /** 文書または表示範囲の変更時にスペース装飾を再計算する。 */
-  update(update: { view: EditorView; docChanged: boolean; viewportChanged: boolean }): void {
-    if (update.docChanged || update.viewportChanged) this.decorations = visibleSpaceDecorations(update.view);
+  update(update: ViewUpdate): void {
+    if (update.docChanged) {
+      this.decorations = updateVisibleSpaceDecorations(this.decorations, update);
+    } else if (update.viewportChanged) {
+      this.decorations = visibleSpaceDecorations(update.view);
+    }
   }
 }, { decorations: (value) => value.decorations });
 
@@ -309,7 +352,9 @@ interface Props {
   initialSelection?: TextSelection;
   searchHits?: readonly TextSelection[];
   activeSearchHit?: TextSelection;
-  onChange: (value: string, changes: TextChange[]) => void;
+  onChange: (changes: TextChange[]) => void;
+  onInputActivity?: () => void;
+  onSettled?: () => void;
   onSelectionChange?: (selection: TextSelection) => void;
   className?: string;
   placeholder?: string;
@@ -323,7 +368,7 @@ interface Props {
  * @param ref 親から命令型操作を呼び出すための参照。
  * @returns CodeMirrorを格納するエディター要素。
  */
-export const SourceEditor = forwardRef<TextEditorHandle, Props>(function SourceEditor(
+const SourceEditorView = forwardRef<TextEditorHandle, Props>(function SourceEditor(
   {
     messages,
     value,
@@ -331,6 +376,8 @@ export const SourceEditor = forwardRef<TextEditorHandle, Props>(function SourceE
     searchHits = [],
     activeSearchHit,
     onChange,
+    onInputActivity,
+    onSettled,
     onSelectionChange,
     className = '',
     placeholder = messages.editor.placeholder,
@@ -343,6 +390,8 @@ export const SourceEditor = forwardRef<TextEditorHandle, Props>(function SourceE
   const viewRef = useRef<EditorView | undefined>(undefined);
   const suppressRef = useRef(false);
   const onChangeRef = useRef(onChange);
+  const inputActivityRef = useRef(onInputActivity);
+  const onSettledRef = useRef(onSettled);
   const selectionRef = useRef(onSelectionChange);
   const viewportRef = useRef(onViewportChange);
   const viewportIntentRef = useRef(onUserScrollIntent);
@@ -354,16 +403,86 @@ export const SourceEditor = forwardRef<TextEditorHandle, Props>(function SourceE
   const viewportRestoreAnchorRef = useRef<EditorViewportAnchor | undefined>(undefined);
   const viewportRestoreActiveRef = useRef(false);
   const compositionActiveRef = useRef(false);
+  const lineSeparatorCompartmentRef = useRef(new Compartment());
   const deferredValueRef = useRef<string | undefined>(undefined);
   const compositionEndTimerRef = useRef<number | undefined>(undefined);
+  const bufferedChangeRef = useRef<{
+    baseLength: number;
+    changes: TextChange[];
+  } | undefined>(undefined);
+  const bufferedFlushTimerRef = useRef<number | undefined>(undefined);
+  const bufferedMaximumTimerRef = useRef<number | undefined>(undefined);
+  const inputSettledTimerRef = useRef<number | undefined>(undefined);
   const [compositionNonce, setCompositionNonce] = useState(0);
   onChangeRef.current = onChange;
+  inputActivityRef.current = onInputActivity;
+  onSettledRef.current = onSettled;
   selectionRef.current = onSelectionChange;
   viewportRef.current = onViewportChange;
   viewportIntentRef.current = onUserScrollIntent;
 
+  const flushBufferedChanges = () => {
+    if (bufferedFlushTimerRef.current !== undefined) {
+      window.clearTimeout(bufferedFlushTimerRef.current);
+      bufferedFlushTimerRef.current = undefined;
+    }
+    if (bufferedMaximumTimerRef.current !== undefined) {
+      window.clearTimeout(bufferedMaximumTimerRef.current);
+      bufferedMaximumTimerRef.current = undefined;
+    }
+    const pending = bufferedChangeRef.current;
+    if (!pending) return;
+    bufferedChangeRef.current = undefined;
+    const nextLength = pending.baseLength + pending.changes.reduce(
+      (length, change) => length + change.text.length - change.rangeLength,
+      0
+    );
+    if (hostRef.current) hostRef.current.dataset.documentLength = String(nextLength);
+    onChangeRef.current(pending.changes);
+  };
+
+  const scheduleBufferedFlush = () => {
+    if (bufferedFlushTimerRef.current !== undefined) window.clearTimeout(bufferedFlushTimerRef.current);
+    bufferedFlushTimerRef.current = window.setTimeout(flushBufferedChanges, 80);
+    bufferedMaximumTimerRef.current ??= window.setTimeout(flushBufferedChanges, 500);
+  };
+
+  const bufferIncrementalChanges = (baseLength: number, changes: TextChange[]) => {
+    const pending = bufferedChangeRef.current;
+    if (pending) {
+      pending.changes = composeTextChanges(pending.changes, changes, pending.baseLength);
+    } else {
+      bufferedChangeRef.current = {
+        baseLength,
+        changes: changes.map((change) => ({ ...change }))
+      };
+    }
+    scheduleBufferedFlush();
+  };
+
+  const bufferMergedChanges = (baseLength: number, changes: TextChange[]) => {
+    if (bufferedChangeRef.current) flushBufferedChanges();
+    bufferedChangeRef.current = {
+      baseLength,
+      changes: changes.map((change) => ({ ...change }))
+    };
+    scheduleBufferedFlush();
+  };
+
   useEffect(() => {
     if (!hostRef.current) return;
+    let selectionFrame = 0;
+    let pendingSelection: TextSelection | undefined;
+    const publishSelection = (nextSelection: TextSelection) => {
+      pendingSelection = nextSelection;
+      if (selectionFrame) return;
+      selectionFrame = window.requestAnimationFrame(() => {
+        selectionFrame = 0;
+        const selection = pendingSelection;
+        pendingSelection = undefined;
+        if (selection) selectionRef.current?.(selection);
+      });
+    };
     const state = EditorState.create({
       doc: value,
       selection: initialSelection
@@ -373,12 +492,13 @@ export const SourceEditor = forwardRef<TextEditorHandle, Props>(function SourceE
           )
         : undefined,
       extensions: [
-        EditorState.lineSeparator.of(detectLineSeparator(value)),
+        lineSeparatorCompartmentRef.current.of(EditorState.lineSeparator.of(detectLineSeparator(value))),
         lineNumbers(),
         markdownLanguage({ codeLanguages: sourceCodeLanguages }),
         // 標準スタイルは濃い青を含むため使わず、明るいテーマ配色を1つだけ適用する。
         syntaxHighlighting(vscodeSyntaxHighlightStyle),
         visibleSpaces,
+        exactSelectionMatchExtension,
         searchHighlightField,
         placeholderExtension(placeholder),
         keymap.of([...defaultKeymap, indentWithTab]),
@@ -388,7 +508,7 @@ export const SourceEditor = forwardRef<TextEditorHandle, Props>(function SourceE
           if (update.selectionSet) {
             const main = update.state.selection.main;
             publishSelectionData(hostRef.current, update.state);
-            selectionRef.current?.({
+            publishSelection({
               from: editorOffsetToExternal(update.state, main.from),
               to: editorOffsetToExternal(update.state, main.to)
             });
@@ -397,6 +517,15 @@ export const SourceEditor = forwardRef<TextEditorHandle, Props>(function SourceE
             (transaction) => transaction.annotation(externalSyncTransaction) === true
           );
           if (update.docChanged && !suppressRef.current && !isExternalSync) {
+            // 予約済みの全文プレビュー更新を、次の入力処理より先に失効させる。
+            // React stateは更新せず、親のタイマー/idle callbackだけをO(1)で破棄する。
+            inputActivityRef.current?.();
+            if (inputSettledTimerRef.current !== undefined) window.clearTimeout(inputSettledTimerRef.current);
+            inputSettledTimerRef.current = window.setTimeout(() => {
+              inputSettledTimerRef.current = undefined;
+              flushBufferedChanges();
+              onSettledRef.current?.();
+            }, 220);
             viewportRestoreAnchorRef.current = undefined;
             viewportRestoreGenerationRef.current += 1;
             let changes: TextChange[] = [];
@@ -408,11 +537,11 @@ export const SourceEditor = forwardRef<TextEditorHandle, Props>(function SourceE
                 text: inserted.sliceString(0, inserted.length, update.state.facet(EditorState.lineSeparator) ?? '\n')
               });
             });
-            let nextValue = update.state.sliceDoc();
             const deferredValue = deferredValueRef.current;
             if (deferredValue !== undefined) {
               // IME入力中に届いた外部本文を保留し、ユーザー入力を優先して差分を統合する。
               const startValue = update.startState.sliceDoc();
+              let nextValue: string;
               try {
                 const deferredChanges = computeTextChanges(startValue, deferredValue);
                 changes = mapTextChanges(changes, deferredChanges, startValue.length, true);
@@ -425,12 +554,21 @@ export const SourceEditor = forwardRef<TextEditorHandle, Props>(function SourceE
                 nextValue = applyTextChanges(deferredValue, changes);
                 deferredValueRef.current = nextValue;
               }
+              bufferMergedChanges(deferredValue.length, changes);
+              if (isMveDebugEnabled()) {
+                mveDebug('source.doc-changed', {
+                  changeCount: changes.length,
+                  changes: changes.slice(0, 8),
+                  nextLength: nextValue.length
+                });
+              }
+              return;
             }
             if (isMveDebugEnabled()) {
               mveDebug('source.doc-changed', {
                 changeCount: changes.length,
                 changes: changes.slice(0, 8),
-                nextLength: nextValue.length,
+                nextLength: externalDocumentLength(update.state),
                 selection: update.state.selection.main
                   ? {
                       from: editorOffsetToExternal(update.state, update.state.selection.main.from),
@@ -439,7 +577,7 @@ export const SourceEditor = forwardRef<TextEditorHandle, Props>(function SourceE
                   : undefined
               });
             }
-            onChangeRef.current(nextValue, changes);
+            bufferIncrementalChanges(externalDocumentLength(update.startState), changes);
           }
         }),
         EditorView.theme({
@@ -460,6 +598,7 @@ export const SourceEditor = forwardRef<TextEditorHandle, Props>(function SourceE
       ]
     });
     const view = new EditorView({ state, parent: hostRef.current });
+    hostRef.current.dataset.documentLength = String(view.state.sliceDoc().length);
     // スクロール・履歴・IMEの各DOMイベントを購読し、レイアウト変化を検知する。
     /** ユーザーがスクロールを開始したことを記録し、保存位置を無効化する。 */
     const markUserScrollIntent = () => {
@@ -504,24 +643,37 @@ export const SourceEditor = forwardRef<TextEditorHandle, Props>(function SourceE
         setCompositionNonce((value) => value + 1);
       }, 0);
     };
+    const flushBeforeUnload = () => flushBufferedChanges();
     /**
      * 現在の表示アンカーをDOMデータ属性へ出力する。
      * @param anchor 出力する表示アンカー。
      */
     const publishViewport = (anchor: EditorViewportAnchor) => publishViewportData(hostRef.current, anchor);
+    let scrollFrame = 0;
+    let pendingUserScroll = false;
     /** スクロール位置を読み取り、ユーザー操作かプログラム操作かを親へ通知する。 */
     const handleScroll = () => {
-      const anchor = readViewport(view);
-      if (!anchor) return;
-      publishViewport(anchor);
       const programmatic = programmaticScrollPendingRef.current;
-      programmaticScrollPendingRef.current = false;
-      // スクロールバーのつまみ操作ではpointerdownがscrollDOMへ届かないことがある。
-      // プログラム復元として明示されていないscrollイベントはユーザー操作として扱う。
+      // CodeMirrorの差分写像・復元は複数の遅延scrollイベントを発生させる。
+      // 1件目では解除せず、wheel/pointer/touch/keyboardの明示入力時だけ
+      // markUserScrollIntentで解除して逆方向同期を防ぐ。
       const userInitiated = !programmatic && !viewportRestoreActiveRef.current;
-      if (!programmatic && !viewportRestoreActiveRef.current) viewportRestoreAnchorRef.current = { ...anchor };
+      pendingUserScroll ||= userInitiated;
       userScrollPendingRef.current = false;
-      viewportRef.current?.(anchor, userInitiated);
+      if (scrollFrame) return;
+      scrollFrame = window.requestAnimationFrame(() => {
+        const startedAt = performance.now();
+        scrollFrame = 0;
+        const notifyAsUserScroll = pendingUserScroll;
+        pendingUserScroll = false;
+        const anchor = readViewport(view);
+        if (!anchor) return;
+        publishViewport(anchor);
+        if (notifyAsUserScroll) viewportRestoreAnchorRef.current = { ...anchor };
+        viewportRef.current?.(anchor, notifyAsUserScroll);
+        performance.clearMeasures('mve-source-scroll-sync');
+        performance.measure('mve-source-scroll-sync', { start: startedAt, end: performance.now() });
+      });
     };
     view.scrollDOM.addEventListener('scroll', handleScroll, { passive: true });
     view.scrollDOM.addEventListener('wheel', markUserScrollIntent, { passive: true });
@@ -535,6 +687,7 @@ export const SourceEditor = forwardRef<TextEditorHandle, Props>(function SourceE
     window.addEventListener('pointercancel', endPointerScroll);
     window.addEventListener('touchend', endTouchScroll);
     window.addEventListener('touchcancel', endTouchScroll);
+    window.addEventListener('beforeunload', flushBeforeUnload);
     const resizeObserver = new ResizeObserver(() => {
       // レイアウトサイズ変更後に保存済み表示位置を復元し、復元対象がなければ現在位置を再通知する。
       const restoreAnchor = viewportRestoreAnchorRef.current;
@@ -564,6 +717,10 @@ export const SourceEditor = forwardRef<TextEditorHandle, Props>(function SourceE
       write: (anchor) => { if (anchor) publishViewport(anchor); }
     });
     return () => {
+      flushBufferedChanges();
+      // 入力settledタイマーを破棄する前に親へ完了通知し、ビュー切替直前の入力で
+      // bodyの入力中フラグやプレビュー待機処理が残留しないようにする。
+      onSettledRef.current?.();
       // アンマウント時にすべてのイベント購読・Observer・CodeMirrorビューを破棄する。
       view.scrollDOM.removeEventListener('scroll', handleScroll);
       view.scrollDOM.removeEventListener('wheel', markUserScrollIntent);
@@ -578,7 +735,13 @@ export const SourceEditor = forwardRef<TextEditorHandle, Props>(function SourceE
       window.removeEventListener('pointercancel', endPointerScroll);
       window.removeEventListener('touchend', endTouchScroll);
       window.removeEventListener('touchcancel', endTouchScroll);
+      window.removeEventListener('beforeunload', flushBeforeUnload);
+      if (bufferedFlushTimerRef.current !== undefined) window.clearTimeout(bufferedFlushTimerRef.current);
+      if (bufferedMaximumTimerRef.current !== undefined) window.clearTimeout(bufferedMaximumTimerRef.current);
+      if (inputSettledTimerRef.current !== undefined) window.clearTimeout(inputSettledTimerRef.current);
       resizeObserver.disconnect();
+      if (selectionFrame) window.cancelAnimationFrame(selectionFrame);
+      if (scrollFrame) window.cancelAnimationFrame(scrollFrame);
       view.destroy();
       viewRef.current = undefined;
     };
@@ -587,31 +750,57 @@ export const SourceEditor = forwardRef<TextEditorHandle, Props>(function SourceE
   useEffect(() => {
     // 親から本文が変わったとき、IME入力中でなければ外部同期トランザクションとして反映する。
     const view = viewRef.current;
-    if (!view || view.state.sliceDoc() === value) return;
+    if (!view) return;
     if (compositionActiveRef.current) {
       deferredValueRef.current = value;
       return;
     }
+    // IME中に外部変更と合成した最新値は、親のプレビューstateが追いつく前でも優先する。
+    // ここで親valueへ戻すと、compositionend直後だけ入力文字が巻き戻る。
+    const synchronizedTarget = deferredValueRef.current ?? value;
     deferredValueRef.current = undefined;
-    // 外部本文の差分をCodeMirrorの改行形式へ変換し、表示位置のスナップショットも写像する。
-    const changes = computeTextChanges(view.state.sliceDoc(), value);
+    const currentValue = view.state.sliceDoc();
+    if (currentValue === synchronizedTarget) return;
+    // CodeMirror内部は改行を1文字で保持する。外部文書の改行形式を変更する場合も、
+    // 内部LFオフセットで差分を作ってからlineSeparatorを同一トランザクションで切り替える。
+    const currentEditorValue = view.state.doc.sliceString(0, view.state.doc.length, '\n');
+    const nextEditorValue = normalizeLineEndings(synchronizedTarget);
+    const changes = computeTextChanges(currentEditorValue, nextEditorValue);
     const editorChanges = changes.map((change) => ({
-      from: externalOffsetToEditor(view.state, change.rangeOffset),
-      to: externalOffsetToEditor(view.state, change.rangeOffset + change.rangeLength),
+      from: change.rangeOffset,
+      to: change.rangeOffset + change.rangeLength,
       insert: toEditorInsertion(view.state, change.text)
     }));
     const changeSet = view.state.changes(editorChanges);
     const snapshot = view.scrollDOM.clientHeight > 0 ? view.scrollSnapshot().map(changeSet) : undefined;
+    const nextLineSeparator = detectLineSeparator(synchronizedTarget);
+    const lineSeparatorEffect = lineSeparatorCompartmentRef.current.reconfigure(
+      EditorState.lineSeparator.of(nextLineSeparator)
+    );
+    // 本文差分にはCodeMirror標準のscrollSnapshot写像を使う。リサイズ用の古い
+    // アンカーを残すとResizeObserverが変更前オフセットへ二重復元してしまう。
+    viewportRestoreGenerationRef.current += 1;
+    viewportRestoreAnchorRef.current = undefined;
+    viewportRestoreActiveRef.current = false;
     if (snapshot) programmaticScrollPendingRef.current = true;
     suppressRef.current = true;
     view.dispatch({
       changes: changeSet,
-      effects: snapshot,
+      effects: snapshot ? [snapshot, lineSeparatorEffect] : [lineSeparatorEffect],
       annotations: [
         externalSyncTransaction.of(true)
       ]
     });
     suppressRef.current = false;
+    if (hostRef.current) {
+      const synchronizedValue = view.state.sliceDoc();
+      hostRef.current.dataset.documentLength = String(synchronizedValue.length);
+      if (synchronizedValue !== synchronizedTarget) {
+        hostRef.current.dataset.documentMismatch = JSON.stringify(computeTextChanges(synchronizedTarget, synchronizedValue));
+      } else {
+        delete hostRef.current.dataset.documentMismatch;
+      }
+    }
     view.requestMeasure({
       read: () => readViewport(view),
       write: (anchor) => { if (anchor) publishViewportData(hostRef.current, anchor); }
@@ -632,6 +821,8 @@ export const SourceEditor = forwardRef<TextEditorHandle, Props>(function SourceE
   }, [searchHits, activeSearchHit]);
 
   useImperativeHandle(ref, () => ({
+    /** Flush the latest local editor snapshot to React/host synchronization. */
+    flushPendingChanges: () => flushBufferedChanges(),
     /** 選択範囲をMarkdown文字列で置換する。 */
     insert: (markdown) => replaceSelection(markdown),
     /** 共通編集結果をCodeMirrorへ適用する。 */
@@ -943,6 +1134,24 @@ export const SourceEditor = forwardRef<TextEditorHandle, Props>(function SourceE
   return <div ref={hostRef} className={`source-editor ${className}`} />;
 });
 
+// 選択・スクロール中は親コンポーネントが頻繁に更新される。CodeMirror本体は
+// value/searchの変更がない限り再描画不要なので、イベントコールバックの同一性に
+// 依存せずエディターのサブツリーを再利用する。
+export const SourceEditor = React.memo(SourceEditorView, (previous, next) => (
+  previous.value === next.value
+  && previous.messages === next.messages
+  && previous.placeholder === next.placeholder
+  && previous.className === next.className
+  && previous.searchHits === next.searchHits
+  && previous.activeSearchHit === next.activeSearchHit
+  && previous.onChange === next.onChange
+  && previous.onInputActivity === next.onInputActivity
+  && previous.onSettled === next.onSettled
+  && previous.onSelectionChange === next.onSelectionChange
+  && previous.onViewportChange === next.onViewportChange
+  && previous.onUserScrollIntent === next.onUserScrollIntent
+));
+
 /**
  * 本文オフセットを含む1行の選択範囲を求める。
  * @param source 対象のMarkdown本文。
@@ -1028,6 +1237,11 @@ function toEditorInsertion(state: EditorState, value: string): string {
   return normalizeLineEndings(value).replace(/\n/g, separator);
 }
 
+function externalDocumentLength(state: EditorState): number {
+  const separatorLength = (state.facet(EditorState.lineSeparator) ?? '\n').length;
+  return state.doc.length + (state.doc.lines - 1) * Math.max(0, separatorLength - 1);
+}
+
 /**
  * CodeMirror内部オフセットを外部本文の改行を含むオフセットへ変換する。
  * @param state オフセット変換対象のCodeMirror状態。
@@ -1035,7 +1249,11 @@ function toEditorInsertion(state: EditorState, value: string): string {
  * @returns 外部本文上のオフセット。
  */
 function editorOffsetToExternal(state: EditorState, offset: number): number {
-  return state.sliceDoc(0, Math.max(0, Math.min(offset, state.doc.length))).length;
+  const safeOffset = Math.max(0, Math.min(offset, state.doc.length));
+  const separatorLength = (state.facet(EditorState.lineSeparator) ?? '\n').length;
+  if (separatorLength <= 1 || safeOffset === 0) return safeOffset;
+  const line = state.doc.lineAt(safeOffset);
+  return safeOffset + (line.number - 1) * (separatorLength - 1);
 }
 
 /**
@@ -1045,7 +1263,21 @@ function editorOffsetToExternal(state: EditorState, offset: number): number {
  * @returns CodeMirror内部オフセット。
  */
 function externalOffsetToEditor(state: EditorState, offset: number): number {
-  return externalOffsetToEditorValue(state.sliceDoc(), offset);
+  const separatorLength = (state.facet(EditorState.lineSeparator) ?? '\n').length;
+  if (separatorLength <= 1) return Math.max(0, Math.min(offset, state.doc.length));
+  const externalLength = state.doc.length + (state.doc.lines - 1) * (separatorLength - 1);
+  const target = Math.max(0, Math.min(offset, externalLength));
+  let low = 0;
+  let high = state.doc.length;
+  // CRLFの2文字目など内部位置を持たない外部オフセットは、次行先頭へ写像する。
+  while (low < high) {
+    const middle = Math.floor((low + high) / 2);
+    const line = state.doc.lineAt(middle);
+    const external = middle + (line.number - 1) * (separatorLength - 1);
+    if (external < target) low = middle + 1;
+    else high = middle;
+  }
+  return low;
 }
 
 /**
@@ -1088,13 +1320,19 @@ function mapChangesPreferLocal(
  */
 function readViewport(view: EditorView): EditorViewportAnchor | undefined {
   if (view.scrollDOM.clientHeight === 0) return undefined;
-  const block = view.lineBlockAtHeight(view.scrollDOM.scrollTop);
+  const scrollTop = view.scrollDOM.scrollTop;
+  const block = view.lineBlockAtHeight(scrollTop);
+  // lineBlockAtHeightは、ブロックWidgetや行内ブロックの境界ではfrom === toを返すことがある。
+  // endOffsetは「先頭ブロックの終端」ではなく実際の可視領域下端として公開し、
+  // 復元対象が同じ先頭行の途中にある場合も可視範囲内と正しく判定できるようにする。
+  const viewportBottom = Math.max(scrollTop, scrollTop + view.scrollDOM.clientHeight - 1);
+  const bottomBlock = view.lineBlockAtHeight(viewportBottom);
   return {
     offset: editorOffsetToExternal(view.state, block.from),
-    topOffset: block.top - view.scrollDOM.scrollTop,
-    endOffset: editorOffsetToExternal(view.state, block.to),
+    topOffset: block.top - scrollTop,
+    endOffset: editorOffsetToExternal(view.state, Math.max(block.to, bottomBlock.to)),
     scrollRatio: getScrollRatio(
-      view.scrollDOM.scrollTop,
+      scrollTop,
       view.scrollDOM.scrollHeight,
       view.scrollDOM.clientHeight
     )

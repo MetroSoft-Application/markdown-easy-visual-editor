@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   applyTextChanges,
+  composeTextChanges,
   computeTextChanges,
   mapTextChanges,
   mapTextOffset,
@@ -22,6 +23,37 @@ describe('text changes', () => {
       { rangeOffset: 4, rangeLength: 0, text: '-' }
     ];
     expect(applyTextChanges('abcde', changes)).toBe('Abcd-e');
+  });
+
+  it('composes a long sequence without retaining one full operation per key', () => {
+    const base = 'alpha\r\nbeta\r\ngamma';
+    let text = base;
+    let composed: Array<{ rangeOffset: number; rangeLength: number; text: string }> = [];
+    for (const [index, character] of [...'continuous-editing'].entries()) {
+      const offset = 7 + index;
+      const next = `${text.slice(0, offset)}${character}${text.slice(offset)}`;
+      const incremental = [{ rangeOffset: offset, rangeLength: 0, text: character }];
+      composed = composeTextChanges(composed, incremental, base.length);
+      text = next;
+    }
+    expect(applyTextChanges(base, composed)).toBe(text);
+    expect(composed).toHaveLength(1);
+    expect(composed[0].text).toBe('continuous-editing');
+  });
+
+  it('composes edits that replace and then remove inserted and original text', () => {
+    const base = '0123456789';
+    const first = [
+      { rangeOffset: 2, rangeLength: 2, text: 'ABCD' },
+      { rangeOffset: 8, rangeLength: 0, text: 'xy' }
+    ];
+    const intermediate = applyTextChanges(base, first);
+    const second = [
+      { rangeOffset: 3, rangeLength: 3, text: '!' },
+      { rangeOffset: 10, rangeLength: 2, text: '' }
+    ];
+    const expected = applyTextChanges(intermediate, second);
+    expect(applyTextChanges(base, composeTextChanges(first, second, base.length))).toBe(expected);
   });
 
   it('maps local edits over an earlier remote insertion', () => {

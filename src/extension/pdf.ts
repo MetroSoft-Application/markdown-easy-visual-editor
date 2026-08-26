@@ -249,7 +249,7 @@ export async function closePdfBrowser(): Promise<void> {
 }
 
 /** PDFプレビューの連続要求でChromiumを毎回起動しないよう、ブラウザプロセスを共有する。 */
-async function acquirePdfBrowser(language: SupportedLanguage): Promise<Browser> {
+export async function acquirePdfBrowser(language: SupportedLanguage): Promise<Browser> {
   if (sharedBrowser?.isConnected()) return sharedBrowser;
   if (!sharedBrowserPromise) {
     sharedBrowserPromise = launchPdfBrowser(language).then((browser) => {

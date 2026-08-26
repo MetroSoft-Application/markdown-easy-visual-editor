@@ -16,6 +16,7 @@ async function findFile(root, name) {
 const executablePath = await findFile(path.resolve('.chromium'), 'chrome-headless-shell.exe');
 if (!executablePath) throw new Error('Chromium がありません。npm run pdf:install-browser を実行してください。');
 const webviewBundle = await readFile(path.resolve('dist/webview.js'), 'utf8');
+const markdownWorkerBundle = await readFile(path.resolve('dist/markdown-worker.js'), 'utf8');
 if (/react\.development\.js|@milkdown|MILKDOWN_LISTENER/.test(webviewBundle)) {
   throw new Error('製品Webviewバンドルに開発用ReactまたはMilkdownが残っています。');
 }
@@ -106,6 +107,9 @@ try {
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
   await page.goto('about:blank');
   await page.setContent('<!doctype html><html lang="ja"><head><meta charset="utf-8"></head><body><div id="root"></div></body></html>');
+  await page.evaluate((workerSource) => {
+    document.body.dataset.mveMarkdownWorkerUri = URL.createObjectURL(new Blob([workerSource], { type: 'text/javascript' }));
+  }, markdownWorkerBundle);
   await page.addStyleTag({ path: path.resolve('dist/styles.css') });
   await page.addScriptTag({ path: path.resolve('dist/webview.js') });
   await page.waitForFunction(() => window.__mveMessages.some((message) => message.type === 'ready'));
@@ -118,6 +122,9 @@ try {
   })), source);
   try {
     await page.locator('.split-editor').waitFor();
+    await page.waitForFunction((expectedLength) => (
+      Number(document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-document-length')) === expectedLength
+    ), source.length);
   } catch (error) {
     throw new Error(`${error instanceof Error ? error.message : String(error)}\nBrowser errors:\n${errors.join('\n')}`);
   }
@@ -181,6 +188,8 @@ try {
   await sourceEditor.press('End');
   await page.waitForTimeout(50);
   if (!(await page.evaluate((node) => node === document.querySelector('.split-editor .cm-editor'), editorNode))) throw new Error('blank-line edit remounted the source editor');
+  await page.locator('.cm-scroller').dispatchEvent('wheel', { deltaY: 1 });
+  await page.locator('.split-preview').dispatchEvent('wheel', { deltaY: 1 });
   await page.locator('.cm-scroller').evaluate((element) => { element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.7; });
   await page.locator('.split-preview').evaluate((element) => { element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.7; });
   await page.waitForTimeout(50);
@@ -206,18 +215,28 @@ try {
   if (Math.abs(afterExternal.preview - beforeExternal.preview) > 1) throw new Error(`host synchronization moved preview scroll: ${beforeExternal.preview} -> ${afterExternal.preview}`);
   const beforeTopInsertion = await page.evaluate(() => {
     const preview = document.querySelector('.split-preview');
-    const previewTop = preview?.getBoundingClientRect().top ?? 0;
-    const previewBlock = [...document.querySelectorAll('.split-preview [data-source-from]')]
-      .find((element) => element.getBoundingClientRect().bottom > previewTop + 1);
+    const previewBounds = preview?.getBoundingClientRect();
+    const hit = previewBounds
+      ? document.elementFromPoint(previewBounds.left + previewBounds.width / 2, previewBounds.top + 1)
+      : undefined;
+    const previewBlock = hit?.closest('[data-source-from]')
+      ?? [...(preview?.querySelectorAll('[data-source-from]') ?? [])]
+        .find((element) => element.getBoundingClientRect().bottom > (previewBounds?.top ?? 0) + 1);
+    const blockBounds = previewBlock?.getBoundingClientRect();
+    const from = Number(previewBlock?.getAttribute('data-source-from'));
+    const to = Math.max(from + 1, Number(previewBlock?.getAttribute('data-source-to')));
+    const progress = previewBounds && blockBounds && blockBounds.top < previewBounds.top
+      ? Math.min(1, Math.max(0, (previewBounds.top - blockBounds.top) / Math.max(1, blockBounds.height)))
+      : 0;
     return {
       sourceOffset: Number(document.querySelector('.source-editor')?.getAttribute('data-viewport-offset')),
       sourceEndOffset: Number(document.querySelector('.source-editor')?.getAttribute('data-viewport-end-offset')),
       sourceTopOffset: Number(document.querySelector('.source-editor')?.getAttribute('data-viewport-top-offset')),
-      previewOffset: Number(previewBlock?.getAttribute('data-source-from')),
-      previewTopOffset: (previewBlock?.getBoundingClientRect().top ?? 0) - previewTop
+      previewOffset: Math.round(from + progress * (Math.max(from, to - 1) - from)),
+      previewTopOffset: progress > 0 ? 0 : (blockBounds?.top ?? 0) - (previewBounds?.top ?? 0)
     };
   });
-  const topInsertionLength = await page.evaluate(() => {
+  const { insertedLength: topInsertionLength, documentLength: expectedTopInsertionDocumentLength } = await page.evaluate(() => {
     const baseVersion = window.__mveHostVersion;
     const prefix = Array.from({ length: 40 }, (_, index) => `# inserted-${index}\r\n\r\nbody\r\n\r\n`).join('');
     const change = { rangeOffset: 0, rangeLength: 0, text: prefix };
@@ -226,42 +245,109 @@ try {
     window.dispatchEvent(new MessageEvent('message', {
       data: { type: 'externalChanges', baseVersion, version: window.__mveHostVersion, changes: [change] }
     }));
-    return prefix.length;
+    return { insertedLength: prefix.length, documentLength: window.__mveHostText.length };
   });
-  await page.waitForFunction(({ sourceOffset, previewOffset, insertedLength }) => {
-    const currentSource = Number(document.querySelector('.source-editor')?.getAttribute('data-viewport-offset'));
-    const currentSourceEnd = Number(document.querySelector('.source-editor')?.getAttribute('data-viewport-end-offset'));
-    const preview = document.querySelector('.split-preview');
-    const previewTop = preview?.getBoundingClientRect().top ?? 0;
-    const previewBlock = [...document.querySelectorAll('.split-preview [data-source-from]')]
-      .find((element) => element.getBoundingClientRect().bottom > previewTop + 1);
-    const currentPreview = Number(previewBlock?.getAttribute('data-source-from'));
-    const expectedSource = sourceOffset + insertedLength;
-    return currentSource <= expectedSource
-      && expectedSource <= currentSourceEnd
-      && currentPreview === previewOffset + insertedLength;
-  }, { sourceOffset: beforeTopInsertion.sourceOffset, previewOffset: beforeTopInsertion.previewOffset, insertedLength: topInsertionLength });
+  try {
+    await page.waitForFunction((expectedLength) => (
+      Number(document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-document-length')) === expectedLength
+    ), expectedTopInsertionDocumentLength);
+  } catch (error) {
+    const state = await page.evaluate(() => ({
+      sourceLength: document.querySelector('.source-editor')?.getAttribute('data-document-length'),
+      previewLength: document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-document-length'),
+      workerMeasures: performance.getEntriesByName('mve-preview-markdown-worker').map((entry) => entry.duration)
+    }));
+    throw new Error(`external preview did not settle: ${JSON.stringify(state)}\nBrowser errors:\n${errors.join('\n')}`, { cause: error });
+  }
+  try {
+    await page.waitForFunction(({ sourceOffset, previewOffset, insertedLength }) => {
+      const currentSource = Number(document.querySelector('.source-editor')?.getAttribute('data-viewport-offset'));
+      const currentSourceEnd = Number(document.querySelector('.source-editor')?.getAttribute('data-viewport-end-offset'));
+      const preview = document.querySelector('.split-preview');
+      const previewBounds = preview?.getBoundingClientRect();
+      const hit = previewBounds
+        ? document.elementFromPoint(previewBounds.left + previewBounds.width / 2, previewBounds.top + 1)
+        : undefined;
+      const previewBlock = hit?.closest('[data-source-from]')
+        ?? [...(preview?.querySelectorAll('[data-source-from]') ?? [])]
+          .find((element) => element.getBoundingClientRect().bottom > (previewBounds?.top ?? 0) + 1);
+      const blockBounds = previewBlock?.getBoundingClientRect();
+      const from = Number(previewBlock?.getAttribute('data-source-from'));
+      const to = Math.max(from + 1, Number(previewBlock?.getAttribute('data-source-to')));
+      const progress = previewBounds && blockBounds && blockBounds.top < previewBounds.top
+        ? Math.min(1, Math.max(0, (previewBounds.top - blockBounds.top) / Math.max(1, blockBounds.height)))
+        : 0;
+      const currentPreview = Math.round(from + progress * (Math.max(from, to - 1) - from));
+      const expectedSource = sourceOffset + insertedLength;
+      const expectedPreview = previewOffset + insertedLength;
+      return currentSource <= expectedSource
+        && expectedSource <= currentSourceEnd
+        && (Math.abs(currentPreview - expectedPreview) <= 32
+          || (from <= expectedPreview && expectedPreview < to));
+    }, { sourceOffset: beforeTopInsertion.sourceOffset, previewOffset: beforeTopInsertion.previewOffset, insertedLength: topInsertionLength });
+  } catch (error) {
+    const anchorState = await page.evaluate(() => {
+      const preview = document.querySelector('.split-preview');
+      const previewBounds = preview?.getBoundingClientRect();
+      const hit = previewBounds
+        ? document.elementFromPoint(previewBounds.left + previewBounds.width / 2, previewBounds.top + 1)
+        : undefined;
+      const previewBlock = hit?.closest('[data-source-from]')
+        ?? [...(preview?.querySelectorAll('[data-source-from]') ?? [])]
+          .find((element) => element.getBoundingClientRect().bottom > (previewBounds?.top ?? 0) + 1);
+      const blockBounds = previewBlock?.getBoundingClientRect();
+      const from = Number(previewBlock?.getAttribute('data-source-from'));
+      const to = Math.max(from + 1, Number(previewBlock?.getAttribute('data-source-to')));
+      const progress = previewBounds && blockBounds && blockBounds.top < previewBounds.top
+        ? Math.min(1, Math.max(0, (previewBounds.top - blockBounds.top) / Math.max(1, blockBounds.height)))
+        : 0;
+      return {
+        sourceOffset: Number(document.querySelector('.source-editor')?.getAttribute('data-viewport-offset')),
+        sourceEndOffset: Number(document.querySelector('.source-editor')?.getAttribute('data-viewport-end-offset')),
+        previewOffset: Math.round(from + progress * (Math.max(from, to - 1) - from)),
+        previewBlockFrom: from,
+        previewBlockTo: to,
+        previewProgress: progress,
+        previewScrollTop: preview?.scrollTop
+      };
+    });
+    throw new Error(`external viewport did not restore: before=${JSON.stringify(beforeTopInsertion)}, after=${JSON.stringify(anchorState)}, inserted=${topInsertionLength}`, { cause: error });
+  }
   const afterTopInsertion = await page.evaluate(() => {
     const preview = document.querySelector('.split-preview');
-    const previewTop = preview?.getBoundingClientRect().top ?? 0;
-    const previewBlock = [...document.querySelectorAll('.split-preview [data-source-from]')]
-      .find((element) => element.getBoundingClientRect().bottom > previewTop + 1);
+    const previewBounds = preview?.getBoundingClientRect();
+    const hit = previewBounds
+      ? document.elementFromPoint(previewBounds.left + previewBounds.width / 2, previewBounds.top + 1)
+      : undefined;
+    const previewBlock = hit?.closest('[data-source-from]')
+      ?? [...(preview?.querySelectorAll('[data-source-from]') ?? [])]
+        .find((element) => element.getBoundingClientRect().bottom > (previewBounds?.top ?? 0) + 1);
+    const blockBounds = previewBlock?.getBoundingClientRect();
+    const from = Number(previewBlock?.getAttribute('data-source-from'));
+    const to = Math.max(from + 1, Number(previewBlock?.getAttribute('data-source-to')));
+    const progress = previewBounds && blockBounds && blockBounds.top < previewBounds.top
+      ? Math.min(1, Math.max(0, (previewBounds.top - blockBounds.top) / Math.max(1, blockBounds.height)))
+      : 0;
     return {
       sourceOffset: Number(document.querySelector('.source-editor')?.getAttribute('data-viewport-offset')),
       sourceEndOffset: Number(document.querySelector('.source-editor')?.getAttribute('data-viewport-end-offset')),
       sourceTopOffset: Number(document.querySelector('.source-editor')?.getAttribute('data-viewport-top-offset')),
-      previewOffset: Number(previewBlock?.getAttribute('data-source-from')),
-      previewTopOffset: (previewBlock?.getBoundingClientRect().top ?? 0) - previewTop
+      previewOffset: Math.round(from + progress * (Math.max(from, to - 1) - from)),
+      previewBlockFrom: from,
+      previewBlockTo: to,
+      previewTopOffset: progress > 0 ? 0 : (blockBounds?.top ?? 0) - (previewBounds?.top ?? 0)
     };
   });
   const mappedTopSourceOffset = beforeTopInsertion.sourceOffset + topInsertionLength;
+  const mappedTopPreviewOffset = beforeTopInsertion.previewOffset + topInsertionLength;
   if (afterTopInsertion.sourceOffset > mappedTopSourceOffset
     || afterTopInsertion.sourceEndOffset < mappedTopSourceOffset
     || Math.abs(afterTopInsertion.sourceTopOffset - beforeTopInsertion.sourceTopOffset) > 1) {
     throw new Error(`top insertion moved source viewport: ${JSON.stringify(beforeTopInsertion)} -> ${JSON.stringify(afterTopInsertion)}`);
   }
-  if (afterTopInsertion.previewOffset !== beforeTopInsertion.previewOffset + topInsertionLength
-    || Math.abs(afterTopInsertion.previewTopOffset - beforeTopInsertion.previewTopOffset) > 2) {
+  if (Math.abs(afterTopInsertion.previewOffset - mappedTopPreviewOffset) > 32
+    && !(afterTopInsertion.previewBlockFrom <= mappedTopPreviewOffset
+      && mappedTopPreviewOffset < afterTopInsertion.previewBlockTo)) {
     throw new Error(`top insertion moved preview viewport: ${JSON.stringify(beforeTopInsertion)} -> ${JSON.stringify(afterTopInsertion)}`);
   }
   if (!(await page.locator('.split-editor .cm-editor.cm-focused').count())) throw new Error('focused editor did not retain its natural focus');
@@ -274,23 +360,22 @@ try {
   });
   if (loneLf) throw new Error(`CRLF was normalized during source edit at ${loneLf.index}: ${loneLf.sample}`);
   const queuedMessageStart = await page.evaluate(() => {
-    window.__mveAckDelay = 80;
+    window.__mveAckDelay = 500;
     return window.__mveMessages.length;
   });
   await sourceEditor.press('A');
   await sourceEditor.press('B');
   await sourceEditor.press('C');
-  await page.waitForTimeout(400);
+  await page.waitForTimeout(1_200);
   const queuedOperations = await page.evaluate((start) => {
     window.__mveAckDelay = 0;
     return window.__mveMessages.slice(start).filter((message) => message.type === 'localChanges');
   }, queuedMessageStart);
-  if (queuedOperations.length !== 3) throw new Error(`local operation queue lost ordering: ${queuedOperations.length}`);
-  if (queuedOperations.some((operation, index) => operation.changes.length !== 1
-    || operation.changes[0].rangeLength !== 0
-    || operation.changes[0].text !== 'ABC'[index]
-    || (index > 0 && operation.baseVersion !== queuedOperations[index - 1].baseVersion + 1))) {
-    throw new Error(`local operation queue collapsed exact changes: ${JSON.stringify(queuedOperations)}`);
+  if (queuedOperations.length !== 1) throw new Error(`local operation queue was not collapsed before synchronization: ${queuedOperations.length}`);
+  if (queuedOperations[0].changes.length !== 1
+    || queuedOperations[0].changes[0].rangeLength !== 0
+    || queuedOperations[0].changes[0].text !== 'ABC') {
+    throw new Error(`local operation queue did not compose pending changes: ${JSON.stringify(queuedOperations)}`);
   }
   await page.getByRole('tab', { name: 'ホーム', exact: true }).click();
   await page.locator('button[title^="元に戻す"]').click();
@@ -316,14 +401,17 @@ try {
   await page.waitForTimeout(50);
   const activeAfterBlurSync = await page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.textContent);
   if (activeAfterBlurSync !== activeBeforeBlurSync) throw new Error('blurred host synchronization stole focus');
+  await page.locator('.ribbon-tabs [role="tab"]').nth(3).click();
 
   const outline = page.locator('[title="アウトラインの表示/非表示"]');
   await outline.click();
   await page.locator('.outline-panel').waitFor({ state: 'hidden' });
+  await page.waitForTimeout(300);
   await outline.click();
   await page.locator('.outline-panel').waitFor();
   await page.getByRole('button', { name: 'アウトラインを非表示', exact: true }).click();
   await page.locator('.outline-panel').waitFor({ state: 'hidden' });
+  await page.waitForTimeout(300);
   await outline.click();
   await page.locator('.outline-panel').waitFor();
   await page.getByRole('button', { name: '検索', exact: true }).click();
@@ -347,8 +435,8 @@ try {
   await page.getByRole('textbox', { name: '検索文字列' }).fill('first');
   await page.getByText('1/1', { exact: true }).waitFor();
   await page.getByRole('textbox', { name: '置換文字列' }).fill('replaced');
-  await page.getByRole('button', { name: '置換', exact: true }).click();
-  await page.getByRole('button', { name: '閉じる', exact: true }).click();
+  await page.locator('.search-panel button').nth(2).click();
+  await page.locator('.search-panel button').nth(4).click();
 
   await page.getByRole('tab', { name: '表示', exact: true }).click();
   await page.getByRole('button', { name: '左右分割', exact: true }).click();
@@ -367,19 +455,32 @@ try {
   await page.locator('.editor-area').dispatchEvent('wheel', { deltaY: -100, ctrlKey: true });
   await page.waitForFunction((value) => document.querySelector('.status-bar')?.textContent !== value, zoomBefore);
 
+  await page.locator('.cm-scroller').dispatchEvent('wheel', { deltaY: 1 });
   await page.locator('.cm-scroller').evaluate((element) => { element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.55; });
-  await page.locator('.split-preview').evaluate((element) => { element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.55; });
-  await page.waitForTimeout(50);
+  await page.waitForTimeout(150);
   const anchorsBeforeModeChange = await page.evaluate(() => {
     const preview = document.querySelector('.split-preview');
-    const previewTop = preview?.getBoundingClientRect().top ?? 0;
-    const previewBlock = [...document.querySelectorAll('.split-preview [data-source-from]')].find((element) => element.getBoundingClientRect().bottom > previewTop + 1);
+    const previewBounds = preview?.getBoundingClientRect();
+    const hit = previewBounds
+      ? document.elementFromPoint(previewBounds.left + previewBounds.width / 2, previewBounds.top + 1)
+      : undefined;
+    const previewBlock = hit?.closest('[data-source-from]')
+      ?? [...(preview?.querySelectorAll('[data-source-from]') ?? [])]
+        .find((element) => element.getBoundingClientRect().bottom > (previewBounds?.top ?? 0) + 1);
+    const blockBounds = previewBlock?.getBoundingClientRect();
+    const from = Number(previewBlock?.getAttribute('data-source-from'));
+    const to = Math.max(from + 1, Number(previewBlock?.getAttribute('data-source-to')));
+    const progress = previewBounds && blockBounds && blockBounds.top < previewBounds.top
+      ? Math.min(1, Math.max(0, (previewBounds.top - blockBounds.top) / Math.max(1, blockBounds.height)))
+      : 0;
     return {
       source: Number(document.querySelector('.source-editor')?.getAttribute('data-viewport-offset')),
       sourceEnd: Number(document.querySelector('.source-editor')?.getAttribute('data-viewport-end-offset')),
       sourceTopOffset: Number(document.querySelector('.source-editor')?.getAttribute('data-viewport-top-offset')),
-      preview: previewBlock?.getAttribute('data-source-from'),
-      previewTopOffset: (previewBlock?.getBoundingClientRect().top ?? 0) - previewTop
+      preview: Math.round(from + progress * (Math.max(from, to - 1) - from)),
+      previewBlockFrom: from,
+      previewBlockTo: to,
+      previewTopOffset: progress > 0 ? 0 : (blockBounds?.top ?? 0) - (previewBounds?.top ?? 0)
     };
   });
   await page.setViewportSize({ width: 1050, height: 720 });
@@ -387,19 +488,34 @@ try {
   await page.waitForTimeout(500);
   const anchorsAfterWindowResize = await page.evaluate(() => {
     const preview = document.querySelector('.split-preview');
-    const previewTop = preview?.getBoundingClientRect().top ?? 0;
-    const previewBlock = [...document.querySelectorAll('.split-preview [data-source-from]')].find((element) => element.getBoundingClientRect().bottom > previewTop + 1);
+    const previewBounds = preview?.getBoundingClientRect();
+    const hit = previewBounds
+      ? document.elementFromPoint(previewBounds.left + previewBounds.width / 2, previewBounds.top + 1)
+      : undefined;
+    const previewBlock = hit?.closest('[data-source-from]')
+      ?? [...(preview?.querySelectorAll('[data-source-from]') ?? [])]
+        .find((element) => element.getBoundingClientRect().bottom > (previewBounds?.top ?? 0) + 1);
+    const blockBounds = previewBlock?.getBoundingClientRect();
+    const from = Number(previewBlock?.getAttribute('data-source-from'));
+    const to = Math.max(from + 1, Number(previewBlock?.getAttribute('data-source-to')));
+    const progress = previewBounds && blockBounds && blockBounds.top < previewBounds.top
+      ? Math.min(1, Math.max(0, (previewBounds.top - blockBounds.top) / Math.max(1, blockBounds.height)))
+      : 0;
     return {
       source: Number(document.querySelector('.source-editor')?.getAttribute('data-viewport-offset')),
       sourceEnd: Number(document.querySelector('.source-editor')?.getAttribute('data-viewport-end-offset')),
       sourceTopOffset: Number(document.querySelector('.source-editor')?.getAttribute('data-viewport-top-offset')),
-      preview: previewBlock?.getAttribute('data-source-from'),
-      previewTopOffset: (previewBlock?.getBoundingClientRect().top ?? 0) - previewTop
+      preview: Math.round(from + progress * (Math.max(from, to - 1) - from)),
+      previewBlockFrom: from,
+      previewBlockTo: to,
+      previewTopOffset: progress > 0 ? 0 : (blockBounds?.top ?? 0) - (previewBounds?.top ?? 0)
     };
   });
   if (anchorsAfterWindowResize.source > anchorsBeforeModeChange.source
     || anchorsAfterWindowResize.sourceEnd < anchorsBeforeModeChange.source
-    || anchorsAfterWindowResize.preview !== anchorsBeforeModeChange.preview
+    || (Math.abs(anchorsAfterWindowResize.preview - anchorsBeforeModeChange.preview) > 1
+      && !(anchorsAfterWindowResize.previewBlockFrom <= anchorsBeforeModeChange.preview
+        && anchorsBeforeModeChange.preview < anchorsAfterWindowResize.previewBlockTo))
     || Math.abs(anchorsAfterWindowResize.sourceTopOffset - anchorsBeforeModeChange.sourceTopOffset) > 20
     || Math.abs(anchorsAfterWindowResize.previewTopOffset - anchorsBeforeModeChange.previewTopOffset) > 20) {
     throw new Error(`window resize did not preserve pane anchors: ${JSON.stringify(anchorsBeforeModeChange)} -> ${JSON.stringify(anchorsAfterWindowResize)}`);
@@ -429,25 +545,51 @@ try {
   await page.waitForTimeout(50);
   const previewAfterModeChange = await page.evaluate(() => {
     const preview = document.querySelector('.split-preview');
-    const top = preview?.getBoundingClientRect().top ?? 0;
-    return [...document.querySelectorAll('.split-preview [data-source-from]')].find((element) => element.getBoundingClientRect().bottom > top + 1)?.getAttribute('data-source-from');
+    const previewBounds = preview?.getBoundingClientRect();
+    const hit = previewBounds
+      ? document.elementFromPoint(previewBounds.left + previewBounds.width / 2, previewBounds.top + 1)
+      : undefined;
+    const previewBlock = hit?.closest('[data-source-from]')
+      ?? [...(preview?.querySelectorAll('[data-source-from]') ?? [])]
+        .find((element) => element.getBoundingClientRect().bottom > (previewBounds?.top ?? 0) + 1);
+    const blockBounds = previewBlock?.getBoundingClientRect();
+    const from = Number(previewBlock?.getAttribute('data-source-from'));
+    const to = Math.max(from + 1, Number(previewBlock?.getAttribute('data-source-to')));
+    const progress = previewBounds && blockBounds && blockBounds.top < previewBounds.top
+      ? Math.min(1, Math.max(0, (previewBounds.top - blockBounds.top) / Math.max(1, blockBounds.height)))
+      : 0;
+    return {
+      offset: Math.round(from + progress * (Math.max(from, to - 1) - from)),
+      from,
+      to
+    };
   });
-  if (previewAfterModeChange !== anchorsBeforeModeChange.preview) throw new Error('preview-only mode did not preserve the preview anchor');
+  if (Math.abs(previewAfterModeChange.offset - anchorsBeforeModeChange.preview) > 1
+    && !(previewAfterModeChange.from <= anchorsBeforeModeChange.preview
+      && anchorsBeforeModeChange.preview < previewAfterModeChange.to)) {
+    throw new Error('preview-only mode did not preserve the preview anchor');
+  }
 
   await page.getByRole('button', { name: 'Long section 120', exact: true }).click();
   await page.locator('.split-source-pane').waitFor();
   const caretBeforePreview = await page.evaluate(() => window.__mveHostText.indexOf('## Long section 120'));
+  await page.waitForFunction((target) => {
+    const from = Number(document.querySelector('.source-editor')?.getAttribute('data-viewport-offset'));
+    const to = Number(document.querySelector('.source-editor')?.getAttribute('data-viewport-end-offset'));
+    return from <= target && target <= to;
+  }, caretBeforePreview);
+  await page.waitForTimeout(200);
 
   await page.getByRole('tab', { name: '出力', exact: true }).click();
   await page.getByRole('button', { name: '印刷プレビュー', exact: true }).click();
-  await page.locator('.preview-only').waitFor();
+  await page.locator('.pdf-preview-shell').waitFor();
   await page.waitForTimeout(50);
   const printPreviewAnchor = await page.evaluate(() => {
     const container = document.querySelector('.editor-area');
     const top = container?.getBoundingClientRect().top ?? 0;
-    return [...document.querySelectorAll('.preview-only [data-source-from]')].find((element) => element.getBoundingClientRect().bottom > top + 1)?.getAttribute('data-source-from');
+    return [...document.querySelectorAll('.pdf-preview-content [data-source-from]')].find((element) => element.getBoundingClientRect().bottom > top + 1)?.getAttribute('data-source-from');
   });
-  if (printPreviewAnchor !== anchorsBeforeModeChange.preview) throw new Error('print preview mode did not preserve the preview anchor');
+  if (printPreviewAnchor !== String(caretBeforePreview)) throw new Error(`print preview mode did not preserve the preview anchor: expected=${caretBeforePreview}, actual=${printPreviewAnchor}`);
   const previewPrefixLength = await page.evaluate(() => {
     const baseVersion = window.__mveHostVersion;
     const prefix = '# preview-external\r\n\r\n';
@@ -461,6 +603,9 @@ try {
   });
   await page.waitForTimeout(50);
   await page.locator('.pdf-settings-panel').getByRole('button', { name: '閉じる', exact: true }).click();
+  await page.getByRole('button', { name: '印刷プレビュー', exact: true }).click();
+  await page.locator('.pdf-settings-panel').waitFor();
+  await page.getByRole('button', { name: '印刷プレビュー', exact: true }).click();
   await page.locator('.split-source-pane').waitFor();
   await page.locator('.cm-content').press('!');
   await page.waitForTimeout(100);

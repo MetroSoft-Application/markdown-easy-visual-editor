@@ -35,6 +35,122 @@ export function computeTextChanges(before: string, after: string): TextChange[] 
     }];
 }
 
+type ComposedSegment =
+    | { kind: 'original'; from: number; to: number }
+    | { kind: 'inserted'; text: string };
+
+/**
+ * Compose two consecutive change batches without rescanning either complete document.
+ * `first` transforms the base document and `second` transforms that result.
+ */
+export function composeTextChanges(
+    first: readonly TextChange[],
+    second: readonly TextChange[],
+    baseLength: number
+): TextChange[] {
+    validateTextChanges(first, baseLength);
+    const intermediateLength = baseLength + first.reduce(
+        (length, change) => length + change.text.length - change.rangeLength,
+        0
+    );
+    validateTextChanges(second, intermediateLength);
+    if (!first.length) return second.map((change) => ({ ...change }));
+    if (!second.length) return first.map((change) => ({ ...change }));
+
+    const segments: ComposedSegment[] = [];
+    let cursor = 0;
+    for (const change of [...first].sort((left, right) => left.rangeOffset - right.rangeOffset)) {
+        if (cursor < change.rangeOffset) {
+            segments.push({ kind: 'original', from: cursor, to: change.rangeOffset });
+        }
+        if (change.text) segments.push({ kind: 'inserted', text: change.text });
+        cursor = change.rangeOffset + change.rangeLength;
+    }
+    if (cursor < baseLength) segments.push({ kind: 'original', from: cursor, to: baseLength });
+
+    for (const change of [...second].sort((left, right) => right.rangeOffset - left.rangeOffset)) {
+        const startIndex = splitComposedSegmentsAt(segments, change.rangeOffset);
+        const endIndex = splitComposedSegmentsAt(segments, change.rangeOffset + change.rangeLength);
+        segments.splice(
+            startIndex,
+            endIndex - startIndex,
+            ...(change.text ? [{ kind: 'inserted' as const, text: change.text }] : [])
+        );
+        normalizeComposedSegments(segments);
+    }
+
+    const result: TextChange[] = [];
+    let originalCursor = 0;
+    let inserted = '';
+    for (const segment of segments) {
+        if (segment.kind === 'inserted') {
+            inserted += segment.text;
+            continue;
+        }
+        if (segment.from > originalCursor || inserted) {
+            result.push({
+                rangeOffset: originalCursor,
+                rangeLength: segment.from - originalCursor,
+                text: inserted
+            });
+        }
+        originalCursor = segment.to;
+        inserted = '';
+    }
+    if (originalCursor < baseLength || inserted) {
+        result.push({
+            rangeOffset: originalCursor,
+            rangeLength: baseLength - originalCursor,
+            text: inserted
+        });
+    }
+    return result;
+}
+
+function splitComposedSegmentsAt(segments: ComposedSegment[], offset: number): number {
+    let position = 0;
+    for (let index = 0; index < segments.length; index += 1) {
+        const segment = segments[index];
+        const length = segment.kind === 'original' ? segment.to - segment.from : segment.text.length;
+        if (offset === position) return index;
+        if (offset < position + length) {
+            const local = offset - position;
+            if (segment.kind === 'original') {
+                segments.splice(index, 1,
+                    { kind: 'original', from: segment.from, to: segment.from + local },
+                    { kind: 'original', from: segment.from + local, to: segment.to });
+            } else {
+                segments.splice(index, 1,
+                    { kind: 'inserted', text: segment.text.slice(0, local) },
+                    { kind: 'inserted', text: segment.text.slice(local) });
+            }
+            return index + 1;
+        }
+        position += length;
+    }
+    if (offset === position) return segments.length;
+    throw new RangeError(`Invalid composed text offset: ${offset}`);
+}
+
+function normalizeComposedSegments(segments: ComposedSegment[]): void {
+    for (let index = segments.length - 1; index >= 0; index -= 1) {
+        const segment = segments[index];
+        const empty = segment.kind === 'original' ? segment.from === segment.to : segment.text.length === 0;
+        if (empty) segments.splice(index, 1);
+    }
+    for (let index = segments.length - 1; index > 0; index -= 1) {
+        const previous = segments[index - 1];
+        const current = segments[index];
+        if (previous.kind === 'inserted' && current.kind === 'inserted') {
+            previous.text += current.text;
+            segments.splice(index, 1);
+        } else if (previous.kind === 'original' && current.kind === 'original' && previous.to === current.from) {
+            previous.to = current.to;
+            segments.splice(index, 1);
+        }
+    }
+}
+
     /**
      * 本文へ複数のテキスト変更を適用し、変更後の本文を返す。
      * @param value 変更を適用する本文。

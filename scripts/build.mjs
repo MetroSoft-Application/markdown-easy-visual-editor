@@ -29,12 +29,25 @@ const webviewOptions = {
   logLevel: 'info'
 };
 
+const markdownWorkerOptions = {
+  entryPoints: ['src/webview/markdownRender.worker.ts'],
+  bundle: true,
+  outfile: 'dist/markdown-worker.js',
+  platform: 'browser',
+  format: 'iife',
+  target: ['chrome120'],
+  define: { 'process.env.NODE_ENV': JSON.stringify(watch ? 'development' : 'production') },
+  minify: !watch,
+  logLevel: 'info'
+};
+
 async function copyAssets() {
   await mkdir('dist', { recursive: true });
   await Promise.all([
     copyFile('src/webview/styles.css', 'dist/styles.css'),
     copyFile('node_modules/pdfjs-dist/build/pdf.min.mjs', 'dist/pdfjs.mjs'),
     copyFile('node_modules/pdfjs-dist/build/pdf.worker.min.mjs', 'dist/pdf.worker.min.mjs'),
+    copyFile('node_modules/mermaid/dist/mermaid.min.js', 'dist/mermaid.min.js'),
     copyFile('node_modules/playwright-core/browsers.json', 'browsers.json')
   ]);
 }
@@ -44,8 +57,13 @@ await copyAssets();
 if (watch) {
   const extensionContext = await esbuild.context(extensionOptions);
   const webviewContext = await esbuild.context(webviewOptions);
-  await Promise.all([extensionContext.watch(), webviewContext.watch()]);
+  const markdownWorkerContext = await esbuild.context(markdownWorkerOptions);
+  await Promise.all([extensionContext.watch(), webviewContext.watch(), markdownWorkerContext.watch()]);
   console.log('Watching extension and webview...');
 } else {
-  await Promise.all([esbuild.build(extensionOptions), esbuild.build(webviewOptions)]);
+  await Promise.all([
+    esbuild.build(extensionOptions),
+    esbuild.build(webviewOptions),
+    esbuild.build(markdownWorkerOptions)
+  ]);
 }

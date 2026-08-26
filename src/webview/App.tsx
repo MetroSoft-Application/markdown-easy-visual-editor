@@ -25,8 +25,9 @@ import {
   sortDiagnostics,
   summarizeDiagnostics,
   type Diagnostic,
-  wordStats,
-  type TextSelection
+  type OutlineItem,
+  type TextSelection,
+  wordStats
 } from '../shared/markdown';
 import {
   applyTextChanges,
@@ -42,9 +43,12 @@ import {
   type ImageAlignment
 } from '../shared/imageResize';
 import { getMessages, type Messages } from '../shared/messages';
+import { prepareExportHtml } from '../shared/exportHtml';
 import { createClientId } from './id';
 import { isMveDebugEnabled, mveDebug } from './debug';
-import { escapeHtml, renderMarkdown } from './markdownRenderer';
+import { escapeHtml, renderMarkdown, sanitizeRenderedMarkdown } from './markdownRenderer';
+import type { UnsafeMarkdownBlock } from './markdownRendererCore';
+import { acceptMermaidRenderResult } from './mermaidRenderer';
 import { RenderedMarkdown, type InspectorTarget } from './RenderedMarkdown';
 import { PdfDocumentPreview } from './PdfDocumentPreview';
 import { Ribbon, type RibbonCommand } from './Ribbon';
@@ -78,7 +82,6 @@ interface PendingLocalOperation {
   baseText: string;
   resultText: string;
   changes: TextChange[];
-  sent: boolean;
 }
 
 type LocalResourceCheckPurpose = 'preflight' | 'pdf';
@@ -98,6 +101,7 @@ interface PdfPreviewState {
 }
 
 const vscode = acquireVsCodeApi<PersistedState>();
+const CROSS_PANE_SCROLL_SYNC_MS = 32;
 const DEFAULT_SETTINGS: WebviewSettings = {
   language: 'ja',
   imageDirectory: 'assets/${documentBasename}',
@@ -121,15 +125,37 @@ const PREVIEW_UPDATE_DELAY_MS = 120;
 type HelpTopic = 'shortcuts' | 'features';
 
 function mergeDiagnostics(markdown: string, localResourceDiagnostics: Diagnostic[], language: WebviewSettings['language']): Diagnostic[] {
+  return mergeCollectedDiagnostics(collectDiagnostics(markdown, language), localResourceDiagnostics);
+}
+
+interface MarkdownPreviewSnapshot {
+  markdown: string;
+  html: string;
+  outline: OutlineItem[];
+  diagnostics: Diagnostic[];
+  stats: { markdown: number; text: number; lines: number };
+}
+
+interface MarkdownWorkerResponse {
+  id: number;
+  markdown?: string;
+  unsafeBlocks?: UnsafeMarkdownBlock[];
+  outline?: OutlineItem[];
+  diagnostics?: Diagnostic[];
+  stats?: { markdown: number; text: number; lines: number };
+  error?: string;
+}
+
+function mergeCollectedDiagnostics(staticDiagnostics: Diagnostic[], localResourceDiagnostics: Diagnostic[]): Diagnostic[] {
   const missingImages = new Set(
     localResourceDiagnostics
       .filter((item) => item.code === 'missing-local-image' && item.source)
       .map((item) => item.source as string)
   );
-  const staticDiagnostics = collectDiagnostics(markdown, language).filter((item) => (
+  const filteredStaticDiagnostics = staticDiagnostics.filter((item) => (
     item.code !== 'local-image' || !item.source || !missingImages.has(item.source)
   ));
-  return sortDiagnostics([...staticDiagnostics, ...localResourceDiagnostics]);
+  return sortDiagnostics([...filteredStaticDiagnostics, ...localResourceDiagnostics]);
 }
 
 /**
@@ -150,15 +176,33 @@ export function App(): React.JSX.Element {
   const [splitView, setSplitView] = useState<ViewMode>(restoreViewMode(restored?.viewMode ?? restored?.splitView));
   const [initialized, setInitialized] = useState(false);
   const [markdown, setMarkdown] = useState('');
-  // 入力経路と、解析・HTML化が重い表示経路を分離する。
-  const previewMarkdown = useDebouncedValue(markdown, PREVIEW_UPDATE_DELAY_MS);
+  // 入力経路と、解析・HTML化が重い表示経路を分離する。入力が再開した場合は
+  // 既に予約済みの全文更新を同期的に取り消し、キーイベントへ割り込ませない。
+  const [previewMarkdown, cancelPendingPreviewUpdate] = useInterruptibleDebouncedValue(
+    markdown,
+    PREVIEW_UPDATE_DELAY_MS
+  );
   const [version, setVersion] = useState(0);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [previewSnapshot, cancelActivePreviewRender] = useMarkdownPreviewSnapshot(
+    previewMarkdown,
+    settings.remoteImagesEnabled,
+    settings.language
+  );
+  const cancelPreviewWork = useCallback(() => {
+    if (document.body.dataset.mveInputActive !== 'true') {
+      document.body.dataset.mveInputActive = 'true';
+      window.dispatchEvent(new Event('mve-preview-input-active'));
+    }
+    cancelPendingPreviewUpdate();
+    cancelActivePreviewRender();
+  }, [cancelPendingPreviewUpdate, cancelActivePreviewRender]);
+  const renderedPreviewMarkdown = previewSnapshot.markdown;
   const messages = useMemo(() => getMessages(settings.language), [settings.language]);
   // HTML/PDFの出力先は白背景のため、VS CodeのダークテーマをSVGへ持ち込まない。
   const exportSettings = useMemo(() => ({ ...settings, mermaidTheme: 'default' as const }), [settings]);
   const [activeMarks, setActiveMarks] = useState<Record<string, boolean>>({});
-  const [selection, setSelection] = useState<TextSelection>({ from: 0, to: 0 });
+  const activeMarksRef = useRef<Record<string, boolean>>({});
   const [inspector, setInspector] = useState<InspectorTarget>();
   const [diagnosticsVisible, setDiagnosticsVisible] = useState(false);
   const [localResourceDiagnostics, setLocalResourceDiagnostics] = useState<Diagnostic[]>([]);
@@ -175,6 +219,7 @@ export function App(): React.JSX.Element {
   const [pdfOptions, setPdfOptions] = useState(DEFAULT_PDF);
   const [pdfPreview, setPdfPreview] = useState<PdfPreviewState>({ requestId: '', loading: false });
   const [htmlRenderRequest, setHtmlRenderRequest] = useState<Extract<HostToWebviewMessage, { type: 'renderHtmlDocuments' }>>();
+  const [exportStageRequested, setExportStageRequested] = useState(false);
   const [toast, setToast] = useState('');
 
   const clientIdRef = useRef(createClientId());
@@ -182,14 +227,23 @@ export function App(): React.JSX.Element {
   const splitPreviewRef = useRef<HTMLDivElement>(null);
   const editorAreaRef = useRef<HTMLElement>(null);
   const exportRootRef = useRef<HTMLDivElement>(null);
+  const exportStageWaitersRef = useRef<Array<(root: HTMLDivElement | undefined) => void>>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const hostTextRef = useRef('');
   const localTextRef = useRef('');
+  const markdownForSelectionRef = useRef(markdown);
+  const updateMarkdownRef = useRef<(
+    nextText: string,
+    knownChanges?: TextChange[],
+    origin?: 'local' | 'remote',
+    updateRenderedState?: boolean
+  ) => void>(() => undefined);
   const versionRef = useRef(0);
   const initializedRef = useRef(false);
-  const pendingOperationsRef = useRef<PendingLocalOperation[]>([]);
+  // ACK待ちは常に1件だけとし、その間の入力はlocalTextRefの最新値へ上書き集約する。
+  const inFlightOperationRef = useRef<PendingLocalOperation | undefined>(undefined);
   const pendingHistoryCommandsRef = useRef<Array<'undo' | 'redo'>>([]);
-  const selectionStateRef = useRef(selection);
+  const selectionStateRef = useRef<TextSelection>({ from: 0, to: 0 });
   const imageRequestsRef = useRef(new Set<string>());
   const pdfRequestsRef = useRef(new Set<string>());
   const htmlRequestsRef = useRef(new Set<string>());
@@ -206,19 +260,43 @@ export function App(): React.JSX.Element {
   });
   const pendingViewportRestoreRef = useRef(false);
   const pendingSourceViewportRestoreRef = useRef<EditorViewportAnchor | undefined>(undefined);
+  const skipNextSourceViewportRestoreRef = useRef(false);
+  const pendingPreviewViewportRestoreRef = useRef<{
+    splitPreview?: PreviewViewportAnchor;
+    previewOnly?: PreviewViewportAnchor;
+  }>({});
   const pendingNavigationRef = useRef<TextSelection | undefined>(undefined);
   const recentRibbonCommandsRef = useRef(new Map<string, number>());
   const previousModeBeforePrintRef = useRef<EditorMode>('split');
   const previewUserScrollPendingRef = useRef(new WeakSet<HTMLElement>());
   const previewPointerScrollActiveRef = useRef(new WeakSet<HTMLElement>());
   const previewTouchScrollActiveRef = useRef(new WeakSet<HTMLElement>());
+  // 復元が複数・遅延scrollイベントを発生させても、明示入力まで逆同期させない。
   const programmaticPreviewScrollsRef = useRef(new WeakSet<HTMLElement>());
+  const pendingPreviewScrollsRef = useRef(new Map<HTMLElement, {
+    kind: 'splitPreview' | 'previewOnly';
+    userInitiated: boolean;
+  }>());
+  const previewScrollFrameRef = useRef<number | undefined>(undefined);
+  const previewToSourceSyncTimerRef = useRef<number | undefined>(undefined);
+  const sourceToPreviewSyncTimerRef = useRef<number | undefined>(undefined);
+  const pendingPreviewToSourceAnchorRef = useRef<PreviewViewportAnchor | undefined>(undefined);
+  const pendingSourceToPreviewAnchorRef = useRef<EditorViewportAnchor | undefined>(undefined);
+  const lastPreviewToSourceSyncRef = useRef(0);
+  const lastSourceToPreviewSyncRef = useRef(0);
+  const lastPreviewUserScrollAtRef = useRef(0);
+  const pendingRenderedPreviewKindsRef = useRef(new Set<'splitPreview' | 'previewOnly'>());
+  const renderedPreviewRestoreFrameRef = useRef<number | undefined>(undefined);
+  const renderedPreviewRestoreTimerRef = useRef<number | undefined>(undefined);
   const viewportUserIntentGenerationRef = useRef(0);
   const settledOperationIdsRef = useRef(new Set<string>());
   const resyncInFlightRef = useRef(false);
+  const persistViewStateRef = useRef<(viewModeOverride?: ViewMode) => void>(() => undefined);
+  const persistViewStateTimerRef = useRef<number | undefined>(undefined);
+  const pendingPersistViewModeRef = useRef<ViewMode | undefined>(undefined);
   const hostMessageHandlerRef = useRef<(message: HostToWebviewMessage) => void>(() => undefined);
   versionRef.current = version;
-  selectionStateRef.current = selection;
+  markdownForSelectionRef.current = markdown;
   hostMessageHandlerRef.current = handleHostMessage;
 
   /**
@@ -230,21 +308,18 @@ export function App(): React.JSX.Element {
     return undefined;
   }
 
-  const outline = useMemo(() => getOutline(previewMarkdown), [previewMarkdown]);
+  const outline = previewSnapshot.outline;
   const diagnostics = useMemo(
-    () => mergeDiagnostics(previewMarkdown, localResourceDiagnostics, settings.language),
-    [previewMarkdown, localResourceDiagnostics, settings.language]
+    () => mergeCollectedDiagnostics(previewSnapshot.diagnostics, localResourceDiagnostics),
+    [previewSnapshot.diagnostics, localResourceDiagnostics]
   );
   const diagnosticSummary = useMemo(() => summarizeDiagnostics(diagnostics), [diagnostics]);
-  const stats = useMemo(() => wordStats(previewMarkdown), [previewMarkdown]);
-  const searchHits = useMemo(() => findSearchHits(previewMarkdown, searchQuery), [previewMarkdown, searchQuery]);
-  const previewHtml = useMemo(
-    () => renderMarkdown(previewMarkdown, {
-      remoteImagesEnabled: settings.remoteImagesEnabled,
-      language: settings.language
-    }),
-    [previewMarkdown, settings.language, settings.remoteImagesEnabled]
+  const stats = previewSnapshot.stats;
+  const searchHits = useMemo(
+    () => findSearchHits(renderedPreviewMarkdown, searchQuery),
+    [renderedPreviewMarkdown, searchQuery]
   );
+  const previewHtml = previewSnapshot.html;
 
   useEffect(() => {
     // ホストへWebviewの準備完了を通知し、以後のメッセージを現在のハンドラーへ渡す。
@@ -253,7 +328,37 @@ export function App(): React.JSX.Element {
     /** ホストから受信したメッセージをアプリのメッセージ処理へ渡す。 */
     const onMessage = (event: MessageEvent<HostToWebviewMessage>) => hostMessageHandlerRef.current(event.data);
     window.addEventListener('message', onMessage);
-    return () => window.removeEventListener('message', onMessage);
+    return () => {
+      window.removeEventListener('message', onMessage);
+      if (persistViewStateTimerRef.current !== undefined) {
+        window.clearTimeout(persistViewStateTimerRef.current);
+        persistViewStateTimerRef.current = undefined;
+      }
+      if (previewScrollFrameRef.current !== undefined) {
+        window.cancelAnimationFrame(previewScrollFrameRef.current);
+        previewScrollFrameRef.current = undefined;
+      }
+      if (previewToSourceSyncTimerRef.current !== undefined) {
+        window.clearTimeout(previewToSourceSyncTimerRef.current);
+        previewToSourceSyncTimerRef.current = undefined;
+      }
+      if (sourceToPreviewSyncTimerRef.current !== undefined) {
+        window.clearTimeout(sourceToPreviewSyncTimerRef.current);
+        sourceToPreviewSyncTimerRef.current = undefined;
+      }
+      if (renderedPreviewRestoreFrameRef.current !== undefined) {
+        window.cancelAnimationFrame(renderedPreviewRestoreFrameRef.current);
+        renderedPreviewRestoreFrameRef.current = undefined;
+      }
+      if (renderedPreviewRestoreTimerRef.current !== undefined) {
+        window.clearTimeout(renderedPreviewRestoreTimerRef.current);
+        renderedPreviewRestoreTimerRef.current = undefined;
+      }
+      pendingPreviewScrollsRef.current.clear();
+      pendingPreviewToSourceAnchorRef.current = undefined;
+      pendingSourceToPreviewAnchorRef.current = undefined;
+      pendingRenderedPreviewKindsRef.current.clear();
+    };
   }, []);
 
   useEffect(() => {
@@ -353,17 +458,32 @@ export function App(): React.JSX.Element {
     if (navigation && mode === 'split' && splitView !== 'preview' && sourceRef.current) {
       sourceRef.current.setSelection(navigation);
       sourceRef.current.revealRange(navigation);
+      const preview = splitPreviewRef.current;
+      if (preview) {
+        const previewAnchor: PreviewViewportAnchor = {
+          offset: navigation.from,
+          topOffset: 18
+        };
+        viewportStateRef.current.splitPreview = previewAnchor;
+        // CodeMirrorのrevealRangeと同じ描画世代で、プレビューも選択位置へ揃える。
+        requestAnimationFrame(() => {
+          if (splitPreviewRef.current === preview) restorePreview(preview, previewAnchor);
+        });
+      }
       pendingNavigationRef.current = undefined;
       pendingViewportRestoreRef.current = false;
       return;
     }
     if (!pendingViewportRestoreRef.current) return;
+    // Markdown Workerが旧プレビューを表示している間は復元を消化しない。
+    // 最新世代のDOMが確定したレイアウトで一度だけ復元する。
+    if (renderedPreviewMarkdown !== markdown) return;
     const frame = requestAnimationFrame(() => {
       restoreVisibleViewports();
       pendingViewportRestoreRef.current = false;
     });
     return () => cancelAnimationFrame(frame);
-  }, [mode, splitView, zoom, splitRatio, outlineVisible, diagnosticsVisible, Boolean(inspector), markdown]);
+  }, [mode, splitView, zoom, splitRatio, outlineVisible, diagnosticsVisible, Boolean(inspector), markdown, renderedPreviewMarkdown]);
 
   useLayoutEffect(() => {
     const area = editorAreaRef.current;
@@ -538,6 +658,9 @@ export function App(): React.JSX.Element {
    * @returns 何も返さない。
    */
   function handleHostMessage(message: HostToWebviewMessage): void {
+    if (message.type === 'externalChanges' || message.type === 'resyncRequired') {
+      sourceRef.current?.flushPendingChanges();
+    }
     const record = message as unknown as Record<string, unknown>;
     if (isMveDebugEnabled()) {
       mveDebug('host.message', {
@@ -584,14 +707,14 @@ export function App(): React.JSX.Element {
         if (!hasRestoredViewMode && message.settings.viewMode) {
           setSplitView(restoreViewMode(message.settings.viewMode));
         }
-        if (!pendingOperationsRef.current.length) {
+        if (!inFlightOperationRef.current) {
           localTextRef.current = message.text;
           setMarkdown(message.text);
         }
         return;
       case 'editAck': {
         if (message.clientId !== clientIdRef.current) return;
-        const pending = pendingOperationsRef.current[0];
+        const pending = inFlightOperationRef.current;
         if (!pending || pending.opId !== message.opId) {
           if (!settledOperationIdsRef.current.has(message.opId)) {
             console.warn('[Markdown Easy Visual Editor] 順序外のACKを破棄しました。', message.opId);
@@ -620,7 +743,7 @@ export function App(): React.JSX.Element {
         }
         versionRef.current = message.version;
         setVersion(message.version);
-        pendingOperationsRef.current.shift();
+        inFlightOperationRef.current = undefined;
         rememberSettledOperation(message.opId);
         sendNextLocalOperation();
         flushHistoryCommands();
@@ -642,6 +765,9 @@ export function App(): React.JSX.Element {
       case 'settingsChanged':
         setSettings(message.settings);
         if (message.settings.viewMode) setSplitView(restoreViewMode(message.settings.viewMode));
+        return;
+      case 'mermaidRendered':
+        acceptMermaidRenderResult(message);
         return;
       case 'imagesSaved':
         imageRequestsRef.current.delete(message.requestId);
@@ -718,7 +844,7 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * ホストから届いた外部差分をローカル保留操作へ再適用して本文を更新する。
+   * ホストから届いた外部差分を、送信中操作と最新ローカル本文へ再適用する。
    * @param message 外部差分と新しい文書バージョンを含むメッセージ。
    * @returns 何も返さない。
    */
@@ -728,17 +854,17 @@ export function App(): React.JSX.Element {
       return;
     }
     const previousHost = hostTextRef.current;
-    const pending = pendingOperationsRef.current[0];
-    if (pending?.baseText === previousHost) {
+    const operation = inFlightOperationRef.current;
+    if (operation?.baseText === previousHost) {
       try {
-        // clientId/opIdが欠落した自己エコーでも、ホスト結果が保留操作と一致するならACKとして確定する。
+        // clientId/opIdが欠落した自己エコーでも、ホスト結果が送信中操作と一致するならACKとして確定する。
         // 一致しない場合だけ通常の外部変更リベースへ進み、末尾貼り付けを再挿入しない。
         const externallyApplied = applyTextChanges(previousHost, message.changes);
-        if (externallyApplied === pending.resultText) {
+        if (externallyApplied === operation.resultText) {
           handleHostMessage({
             type: 'editAck',
             clientId: clientIdRef.current,
-            opId: pending.opId,
+            opId: operation.opId,
             baseVersion: message.baseVersion,
             version: message.version,
             changes: message.changes
@@ -750,17 +876,36 @@ export function App(): React.JSX.Element {
       }
     }
     try {
+      const previousLocal = localTextRef.current;
       const nextHost = applyTextChanges(previousHost, message.changes);
-      const rebasedLocal = rebasePendingOperations(
+      const remoteClientId = message.clientId ?? 'host';
+      const localBeforeRemote = clientIdRef.current.localeCompare(remoteClientId) < 0;
+      const localChanges = computeTextChanges(previousHost, previousLocal);
+      const mappedLocal = mapTextChanges(
+        localChanges,
         message.changes,
-        previousHost,
-        nextHost,
-        message.clientId ?? 'host'
+        previousHost.length,
+        localBeforeRemote
       );
+      const rebasedLocal = applyTextChanges(nextHost, mappedLocal);
+      if (operation) {
+        if (operation.baseText !== previousHost) throw new Error(messages.app.errors.pendingOperationChain(operation.opId));
+        const mappedOperation = mapTextChanges(
+          operation.changes,
+          message.changes,
+          previousHost.length,
+          localBeforeRemote
+        );
+        operation.baseVersion = message.version;
+        operation.baseText = nextHost;
+        operation.changes = mappedOperation;
+        operation.resultText = applyTextChanges(nextHost, mappedOperation);
+      }
       hostTextRef.current = nextHost;
       versionRef.current = message.version;
       setVersion(message.version);
-      updateMarkdown(rebasedLocal.text, rebasedLocal.remoteChanges, 'remote');
+      updateMarkdown(rebasedLocal, computeTextChanges(previousLocal, rebasedLocal), 'remote');
+      if (!operation) sendNextLocalOperation();
       flushHistoryCommands();
     } catch (error) {
       console.warn('[Markdown Easy Visual Editor] 外部変更を統合できないため再同期します。', error);
@@ -769,7 +914,7 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * ホストの最新本文へローカル未送信操作を再適用し、同期状態を再構築する。
+   * ホストの最新本文へ最新ローカル本文だけを再適用し、同期状態を再構築する。
    * @param nextHost ホストが保持する最新本文。
    * @param nextVersion 最新本文のバージョン。
    * @param reason 再同期が発生した理由。
@@ -786,9 +931,9 @@ export function App(): React.JSX.Element {
   ): void {
     const previousHost = hostTextRef.current;
     const previousLocal = localTextRef.current;
-    const pending = [...pendingOperationsRef.current];
-    pendingOperationsRef.current = [];
-    for (const operation of pending) rememberSettledOperation(operation.opId);
+    const operation = inFlightOperationRef.current;
+    inFlightOperationRef.current = undefined;
+    if (operation) rememberSettledOperation(operation.opId);
     if (opId) rememberSettledOperation(opId);
     resyncInFlightRef.current = false;
     console.warn('[Markdown Easy Visual Editor] 文書同期を再確認しました。', {
@@ -797,29 +942,14 @@ export function App(): React.JSX.Element {
       operationApplied,
       nextVersion
     });
-    hostTextRef.current = nextHost;
-    versionRef.current = nextVersion;
-    setVersion(nextVersion);
-
-    if (nextHost === previousLocal || (!pending.length && previousLocal === previousHost)) {
-      updateMarkdown(nextHost, computeTextChanges(previousLocal, nextHost), 'remote');
-      flushHistoryCommands();
-      return;
-    }
-
-    const head = pending[0];
-    const wasApplied = head && opId === head.opId
-      ? operationApplied ?? (nextHost === head.resultText || nextHost === previousLocal)
-      : false;
-    const rebaseBase = wasApplied && head ? head.resultText : previousHost;
-    const unapplied = wasApplied ? pending.slice(1) : pending;
+    const refersToOperation = Boolean(operation && (!opId || opId === operation.opId));
+    const wasApplied = Boolean(refersToOperation && operation && (
+      operationApplied ?? (nextHost === operation.resultText || nextHost === previousLocal)
+    ));
+    const rebaseBase = wasApplied && operation ? operation.resultText : operation?.baseText ?? previousHost;
     let rebasedText = nextHost;
     try {
-      if (unapplied.length) {
-        pendingOperationsRef.current = unapplied;
-        const remoteChanges = computeTextChanges(rebaseBase, nextHost);
-        rebasedText = rebasePendingOperations(remoteChanges, rebaseBase, nextHost, 'host', true).text;
-      } else {
+      if (previousLocal !== rebaseBase) {
         const localChanges = computeTextChanges(rebaseBase, previousLocal);
         const remoteChanges = computeTextChanges(rebaseBase, nextHost);
         const mapped = mapChangesPreferLocal(localChanges, remoteChanges, rebaseBase.length);
@@ -831,20 +961,11 @@ export function App(): React.JSX.Element {
       const remoteChanges = computeTextChanges(rebaseBase, nextHost);
       rebasedText = applyTextChanges(nextHost, mapChangesPreferLocal(localChanges, remoteChanges, rebaseBase.length));
     }
-    pendingOperationsRef.current = [];
+    hostTextRef.current = nextHost;
+    versionRef.current = nextVersion;
+    setVersion(nextVersion);
     updateMarkdown(rebasedText, computeTextChanges(previousLocal, rebasedText), 'remote');
-    const outgoing = computeTextChanges(nextHost, rebasedText);
-    if (outgoing.length) {
-      pendingOperationsRef.current.push({
-        opId: createClientId(),
-        baseVersion: nextVersion,
-        baseText: nextHost,
-        resultText: rebasedText,
-        changes: outgoing,
-        sent: false
-      });
-      sendNextLocalOperation();
-    }
+    sendNextLocalOperation();
     flushHistoryCommands();
   }
 
@@ -854,7 +975,7 @@ export function App(): React.JSX.Element {
    * @param opId 再同期対象の保留操作ID。
    * @returns 何も返さない。
    */
-  function requestResync(reason: string, opId = pendingOperationsRef.current[0]?.opId): void {
+  function requestResync(reason: string, opId = inFlightOperationRef.current?.opId): void {
     if (resyncInFlightRef.current) return;
     resyncInFlightRef.current = true;
     vscode.postMessage({
@@ -866,12 +987,21 @@ export function App(): React.JSX.Element {
     });
   }
 
+  /** CodeMirrorの差分スロットを確定し、プレビュー・出力用stateも同じ最新本文へ進める。 */
+  function commitSourceSnapshot(): string {
+    sourceRef.current?.flushPendingChanges();
+    const current = localTextRef.current;
+    setMarkdown((previous) => previous === current ? previous : current);
+    return current;
+  }
+
   /**
    * UndoまたはRedoを保留履歴キューへ追加する。
    * @param command 実行する履歴コマンド。
    * @returns 何も返さない。
    */
   function requestHistoryCommand(command: 'undo' | 'redo'): void {
+    commitSourceSnapshot();
     pendingHistoryCommandsRef.current.push(command);
     flushHistoryCommands();
   }
@@ -881,7 +1011,7 @@ export function App(): React.JSX.Element {
    * @returns 何も返さない。
    */
   function flushHistoryCommands(): void {
-    if (resyncInFlightRef.current || pendingOperationsRef.current.length) {
+    if (resyncInFlightRef.current || inFlightOperationRef.current || localTextRef.current !== hostTextRef.current) {
       sendNextLocalOperation();
       return;
     }
@@ -929,6 +1059,20 @@ export function App(): React.JSX.Element {
     });
   }
 
+  /** スクロール中の状態保存をフレームごとにVS Codeへ送らず、最新位置だけを保存する。 */
+  function schedulePersistViewState(viewModeOverride?: ViewMode): void {
+    if (viewModeOverride !== undefined) pendingPersistViewModeRef.current = viewModeOverride;
+    if (persistViewStateTimerRef.current !== undefined) return;
+    persistViewStateTimerRef.current = window.setTimeout(() => {
+      persistViewStateTimerRef.current = undefined;
+      const pendingViewMode = pendingPersistViewModeRef.current;
+      pendingPersistViewModeRef.current = undefined;
+      persistViewStateRef.current(pendingViewMode);
+    }, 100);
+  }
+
+  persistViewStateRef.current = persistViewState;
+
   /**
    * 表示モードを切り替え、切り替え前の選択範囲と表示位置を復元対象として保存する。
    * @param nextMode 切り替え先の編集またはプレビューモード。
@@ -940,7 +1084,6 @@ export function App(): React.JSX.Element {
     const activeSelection = sourceRef.current?.getSelection();
     if (activeSelection) {
       selectionStateRef.current = activeSelection;
-      setSelection(activeSelection);
     }
     if (nextMode === 'preview' && !viewportStateRef.current.previewOnly) {
       viewportStateRef.current.previewOnly = viewportStateRef.current.splitPreview
@@ -981,6 +1124,7 @@ export function App(): React.JSX.Element {
    * @returns 何も返さない。
    */
   function handleRibbon(command: RibbonCommand): void {
+    commitSourceSnapshot();
     // 同一ジェスチャーから同じリボン操作が短時間に重複して届いても、編集は1回だけ適用する。
     const commandKey = JSON.stringify(command);
     const now = performance.now();
@@ -988,7 +1132,9 @@ export function App(): React.JSX.Element {
     recentRibbonCommandsRef.current.set(commandKey, now);
     const delta = previous === undefined ? undefined : Math.round((now - previous) * 100) / 100;
     mveDebug('ribbon.command-received', { command, delta });
-    if (previous !== undefined && now - previous < 250) {
+    // 印刷プレビューは「設定を再表示」「通常表示へ戻る」を同じボタンで行うため、
+    // 高速な意図的連続操作を重複ジェスチャーとして抑止しない。
+    if (command.type !== 'togglePrintPreview' && previous !== undefined && now - previous < 250) {
       mveDebug('ribbon.command-suppressed', { command, delta });
       return;
     }
@@ -1096,21 +1242,22 @@ export function App(): React.JSX.Element {
     prepareLayoutRestore();
     setDiagnosticsVisible(true);
     requestLocalResourceCheck('preflight');
-    const currentSummary = summarizeDiagnostics(mergeDiagnostics(markdown, localResourceDiagnostics, settings.language));
+    const currentSummary = summarizeDiagnostics(mergeDiagnostics(localTextRef.current, localResourceDiagnostics, settings.language));
     setToast(messages.app.toast.preflightSummary(currentSummary.errors.length, currentSummary.warnings.length, currentSummary.infos.length));
   }
 
   /** ローカル画像・リンクの実在確認をホストへ依頼する。 */
   function requestLocalResourceCheck(purpose: LocalResourceCheckPurpose): void {
     const requestId = createClientId();
+    const currentMarkdown = localTextRef.current;
     latestResourceCheckRequestRef.current = requestId;
     resourceCheckRequestsRef.current.set(requestId, {
-      markdown,
+      markdown: currentMarkdown,
       version: versionRef.current,
       generation: resourceCheckGenerationRef.current,
       purpose
     });
-    vscode.postMessage({ type: 'checkLocalResources', requestId, markdown });
+    vscode.postMessage({ type: 'checkLocalResources', requestId, markdown: currentMarkdown });
   }
 
   /**
@@ -1299,21 +1446,45 @@ export function App(): React.JSX.Element {
    * 診断結果を通知したうえで、印刷用HTMLとPDF設定をホストへ送信する。
    * @returns PDF出力要求の送信が完了するPromise。
    */
+  async function ensureExportRoot(): Promise<HTMLDivElement | undefined> {
+    if (exportRootRef.current && (printPreview || exportStageRequested)) return exportRootRef.current;
+    return new Promise((resolve) => {
+      let waiter: ((root: HTMLDivElement | undefined) => void) | undefined;
+      const timeout = window.setTimeout(() => {
+        const index = waiter ? exportStageWaitersRef.current.indexOf(waiter) : -1;
+        if (index >= 0) exportStageWaitersRef.current.splice(index, 1);
+        resolve(exportRootRef.current ?? undefined);
+      }, 15_000);
+      waiter = (root) => {
+        window.clearTimeout(timeout);
+        resolve(root);
+      };
+      exportStageWaitersRef.current.push(waiter);
+      setExportStageRequested(true);
+    });
+  }
+
   async function requestPdfExport(): Promise<void> {
     if (!settings.workspaceTrusted) {
       setToast(messages.app.toast.workspaceTrustRequired);
       return;
     }
     requestLocalResourceCheck('pdf');
-    const currentSummary = summarizeDiagnostics(mergeDiagnostics(markdown, localResourceDiagnostics, settings.language));
+    const currentMarkdown = localTextRef.current;
+    const currentSummary = summarizeDiagnostics(mergeDiagnostics(currentMarkdown, localResourceDiagnostics, settings.language));
     const diagnosticNotice = currentSummary.errors.length
       ? currentSummary.errors
         .map((item) => `${item.line ? `行${item.line}: ` : ''}${item.message}`)
         .join(' / ')
       : '';
     if (diagnosticNotice) setToast(messages.app.toast.pdfStartedWithDiagnostics(currentSummary.errors.length, diagnosticNotice));
-    const root = exportRootRef.current;
-    const html = root?.innerHTML ?? `<pre>${escapeHtml(markdown)}</pre>`;
+    const root = await ensureExportRoot();
+    if (!await waitForHtmlMermaidRendering(root)) {
+      setToast(`${messages.renderer.mermaidError}: timeout`);
+      if (!printPreview) setExportStageRequested(false);
+      return;
+    }
+    const html = root ? serializeExportHtml(root) : `<pre>${escapeHtml(currentMarkdown)}</pre>`;
     if (!root) setToast(messages.app.toast.pdfFallbackToMarkdown(diagnosticNotice));
     const requestId = createClientId();
     const message: WebviewToHostMessage = {
@@ -1325,6 +1496,10 @@ export function App(): React.JSX.Element {
     };
     pdfRequestsRef.current.add(requestId);
     vscode.postMessage(message);
+    if (!printPreview) {
+      exportRootRef.current = null;
+      setExportStageRequested(false);
+    }
   }
 
   /** 現在のプレビューHTMLとHTML出力オプションをホストへ渡し、HTMLファイルとして保存する。 */
@@ -1333,29 +1508,38 @@ export function App(): React.JSX.Element {
       setToast(messages.app.toast.workspaceTrustRequired);
       return;
     }
-    await waitForHtmlMermaidRendering();
-    const root = exportRootRef.current;
+    const root = await ensureExportRoot();
+    if (!await waitForHtmlMermaidRendering(root)) {
+      setToast(`${messages.renderer.mermaidError}: timeout`);
+      if (!printPreview) setExportStageRequested(false);
+      return;
+    }
     const requestId = createClientId();
+    const currentMarkdown = localTextRef.current;
     htmlRequestsRef.current.add(requestId);
     vscode.postMessage({
       type: 'exportHtml',
       requestId,
-      markdown,
-      html: root?.innerHTML ?? `<pre>${escapeHtml(markdown)}</pre>`,
+      markdown: currentMarkdown,
+      html: root ? serializeExportHtml(root) : `<pre>${escapeHtml(currentMarkdown)}</pre>`,
       css: collectPrintableCss(),
       options
     });
+    if (!printPreview) {
+      exportRootRef.current = null;
+      setExportStageRequested(false);
+    }
   }
 
   /** HTML出力直前に、非同期のMermaid描画が完了するまで待つ。 */
-  async function waitForHtmlMermaidRendering(): Promise<void> {
-    const root = exportRootRef.current;
-    if (!root) return;
-    const deadline = Date.now() + 10_000;
+  async function waitForHtmlMermaidRendering(root: HTMLDivElement | null | undefined = exportRootRef.current): Promise<boolean> {
+    if (!root) return true;
+    const deadline = Date.now() + 60_000;
     while (root.querySelector('.mermaid:not([data-mermaid-status]), .mermaid[data-mermaid-status="rendering"]')
       && Date.now() < deadline) {
       await new Promise<void>((resolve) => window.setTimeout(resolve, 50));
     }
+    return !root.querySelector('.mermaid:not([data-mermaid-status]), .mermaid[data-mermaid-status="rendering"]');
   }
 
   /**
@@ -1365,7 +1549,8 @@ export function App(): React.JSX.Element {
   function requestPdfPreview(): void {
     if (!printPreview || !settings.workspaceTrusted) return;
     const root = exportRootRef.current;
-    const html = root?.innerHTML ?? `<pre>${escapeHtml(markdown)}</pre>`;
+    if (!root || root.querySelector('.mermaid:not([data-mermaid-status]), .mermaid[data-mermaid-status="rendering"]')) return;
+    const html = root ? serializeExportHtml(root) : `<pre>${escapeHtml(markdown)}</pre>`;
     // 画像のloadやResizeObserverでexport-stageのDOMが変わっても、同じ本文のPDFを再生成しない。
     // 画像サイズの変更はMarkdown本文が変わるため、このキーも変わる。
     const signature = `${settings.language}\0${settings.remoteImagesEnabled}\0${settings.mermaidTheme}\0${JSON.stringify(pdfOptions)}\0${markdown}`;
@@ -1392,6 +1577,8 @@ export function App(): React.JSX.Element {
   /** PDF用の非表示描画領域を更新し、Mermaid等の非同期描画後にプレビューを再要求する。 */
   function handleExportRendered(element: HTMLElement): void {
     exportRootRef.current = element as HTMLDivElement;
+    const waiters = exportStageWaitersRef.current.splice(0);
+    waiters.forEach((resolve) => resolve(exportRootRef.current ?? undefined));
     if (printPreview && settings.workspaceTrusted) {
       if (pdfPreviewTimerRef.current !== undefined) window.clearTimeout(pdfPreviewTimerRef.current);
       pdfPreviewTimerRef.current = window.setTimeout(() => {
@@ -1505,7 +1692,6 @@ export function App(): React.JSX.Element {
    */
   function navigateToSelection(nextSelection: TextSelection): void {
     selectionStateRef.current = nextSelection;
-    setSelection(nextSelection);
     if (mode !== 'split' || splitView === 'preview') {
       pendingNavigationRef.current = nextSelection;
       changeSplitView('both');
@@ -1525,7 +1711,8 @@ export function App(): React.JSX.Element {
   function updateMarkdown(
     nextText: string,
     knownChanges?: TextChange[],
-    origin: 'local' | 'remote' = 'local'
+    origin: 'local' | 'remote' = 'local',
+    updateRenderedState = true
   ): void {
     const previous = localTextRef.current;
     if (previous === nextText) return;
@@ -1539,11 +1726,26 @@ export function App(): React.JSX.Element {
         changes: changes.slice(0, 8)
       });
     }
-    if (origin === 'local') enqueueLocalOperation(previous, nextText, changes);
+    if (origin === 'local') {
+      try {
+        if (applyTextChanges(previous, changes) !== nextText) {
+          throw new Error('Local text changes do not produce the current editor value.');
+        }
+      } catch (error) {
+        console.error('[Markdown Easy Visual Editor] ローカル差分の整合性を検証できませんでした。', error);
+        requestResync('local-change-validation-failed');
+        return;
+      }
+    }
+    // 外部差分は非同期scroll通知より先に届くことがあるため、変更前DOMから
+    // 現在位置を同期取得してからオフセット写像する。古いRAFアンカーを写像しない。
+    if (origin === 'remote') captureVisibleViewports();
     mapStoredViewports(changes, previous.length);
     if (origin === 'remote') {
-      const sourceAnchor = viewportStateRef.current.source;
-      pendingSourceViewportRestoreRef.current = sourceAnchor ? { ...sourceAnchor } : undefined;
+      // マウント中のCodeMirrorはscrollSnapshot().map(changeSet)で折り返し段まで
+      // 正確に追従するため、App側の文字オフセット復元を重ねない。
+      pendingSourceViewportRestoreRef.current = undefined;
+      skipNextSourceViewportRestoreRef.current = Boolean(sourceRef.current);
       pendingViewportRestoreRef.current = true;
     }
     if (!sourceRef.current && changes.length) {
@@ -1554,102 +1756,41 @@ export function App(): React.JSX.Element {
         to: mapTextOffset(currentSelection.to, changes, previous.length, 1)
       };
       selectionStateRef.current = mappedSelection;
-      setSelection(mappedSelection);
     }
     localTextRef.current = nextText;
-    setMarkdown(nextText);
+    if (updateRenderedState) {
+      stagePreviewViewportRestore();
+      setMarkdown(nextText);
+    }
     if (origin === 'local') sendNextLocalOperation();
   }
 
-  /**
-   * ローカル本文差分を保留操作キューへ追加する。
-   * @param baseText 差分計算時の本文。
-   * @param resultText ローカル編集後の本文。
-   * @param changes baseTextからresultTextへの変更一覧。
-   * @returns 何も返さない。
-   */
-  function enqueueLocalOperation(baseText: string, resultText: string, changes: TextChange[]): void {
-    if (!changes.length) return;
-    if (applyTextChanges(baseText, changes) !== resultText) {
-      applyResyncSnapshot(hostTextRef.current, versionRef.current, 'ローカル差分の整合性を検証できませんでした。');
-      return;
-    }
-    const opId = createClientId();
-    pendingOperationsRef.current.push({
-      opId,
-      baseVersion: versionRef.current,
-      baseText,
-      resultText,
-      changes: changes.map((change) => ({ ...change })),
-      sent: false
-    });
-    if (isMveDebugEnabled()) {
-      mveDebug('sync.local-queued', {
-        opId,
-        baseVersion: versionRef.current,
-        pendingCount: pendingOperationsRef.current.length,
-        changeCount: changes.length,
-        changes: changes.slice(0, 8)
-      });
-    }
-  }
+  updateMarkdownRef.current = updateMarkdown;
 
   /**
-   * 保留中の先頭ローカル操作を現在のホスト本文へ再ベースし、未送信ならホストへ送る。
+   * ACK待ちがなければ、ホスト本文と最新ローカル本文の差分を1件だけ送信する。
+   * ACK待ち中の入力はlocalTextRefへ上書きされるため、送信待ちキューは生成しない。
    * @returns 何も返さない。
    */
   function sendNextLocalOperation(): void {
-    const pending = pendingOperationsRef.current[0];
-    if (!pending || pending.sent) return;
-    if (pending.baseText !== hostTextRef.current) {
-      const previousPending = [...pendingOperationsRef.current];
-      const base = previousPending[0].baseText;
-      const remoteChanges = computeTextChanges(base, hostTextRef.current);
-      try {
-        pendingOperationsRef.current = previousPending;
-        const rebased = rebasePendingOperations(
-          remoteChanges,
-          base,
-          hostTextRef.current,
-          'host',
-          true
-        );
-        pendingOperationsRef.current = pendingOperationsRef.current.map((operation) => ({
-          ...operation,
-          opId: createClientId(),
-          sent: false
-        }));
-        if (rebased.text !== localTextRef.current) {
-          updateMarkdown(rebased.text, computeTextChanges(localTextRef.current, rebased.text), 'remote');
-        }
-      } catch (error) {
-        console.error('[Markdown Easy Visual Editor] 入力を保持したまま同期位置を補正しました。', error);
-        const desired = localTextRef.current;
-        const localChanges = computeTextChanges(base, desired);
-        const mapped = mapChangesPreferLocal(localChanges, remoteChanges, base.length);
-        const rebasedText = applyTextChanges(hostTextRef.current, mapped);
-        pendingOperationsRef.current = rebasedText === hostTextRef.current ? [] : [{
-          opId: createClientId(),
-          baseVersion: versionRef.current,
-          baseText: hostTextRef.current,
-          resultText: rebasedText,
-          changes: computeTextChanges(hostTextRef.current, rebasedText),
-          sent: false
-        }];
-        if (rebasedText !== localTextRef.current) {
-          updateMarkdown(rebasedText, computeTextChanges(localTextRef.current, rebasedText), 'remote');
-        }
-      }
-    }
-    const current = pendingOperationsRef.current[0];
-    if (!current || current.sent || current.baseText !== hostTextRef.current) return;
-    current.baseVersion = versionRef.current;
-    current.sent = true;
+    if (resyncInFlightRef.current || inFlightOperationRef.current) return;
+    const baseText = hostTextRef.current;
+    const resultText = localTextRef.current;
+    if (baseText === resultText) return;
+    const changes = computeTextChanges(baseText, resultText);
+    const current: PendingLocalOperation = {
+      opId: createClientId(),
+      baseVersion: versionRef.current,
+      baseText,
+      resultText,
+      changes
+    };
+    inFlightOperationRef.current = current;
     if (isMveDebugEnabled()) {
       mveDebug('sync.local-sent', {
         opId: current.opId,
         baseVersion: current.baseVersion,
-        pendingCount: pendingOperationsRef.current.length,
+        pendingCount: 1,
         changeCount: current.changes.length,
         changes: current.changes.slice(0, 8)
       });
@@ -1664,61 +1805,6 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * 外部差分を保留中の各ローカル操作へ順に反映し、操作の基準本文と結果本文を更新する。
-   * @param remoteChanges 外部から到着した変更一覧。
-   * @param previousHost 外部変更前のホスト本文。
-   * @param nextHost 外部変更後のホスト本文。
-   * @param remoteClientId 外部変更を送ったクライアントID。
-   * @param preferLocalOnOverlap 重複時にローカル操作を優先するかどうか。
-   * @returns 再ベース後の本文と残った外部変更。
-   * @throws 操作の基準本文が連鎖しない場合、または重複を解決できない場合。
-   */
-  function rebasePendingOperations(
-    remoteChanges: TextChange[],
-    previousHost: string,
-    nextHost: string,
-    remoteClientId: string,
-    preferLocalOnOverlap = false
-  ): { text: string; remoteChanges: TextChange[] } {
-    let remote = remoteChanges.map((change) => ({ ...change }));
-    let originalBase = previousHost;
-    let rebasedBase = nextHost;
-    const localBeforeRemote = clientIdRef.current.localeCompare(remoteClientId) < 0;
-    pendingOperationsRef.current = pendingOperationsRef.current.map((operation) => {
-      if (operation.baseText !== originalBase) {
-        throw new Error(messages.app.errors.pendingOperationChain(operation.opId));
-      }
-      let mappedLocal: TextChange[];
-      try {
-        mappedLocal = mapTextChanges(operation.changes, remote, originalBase.length, localBeforeRemote);
-      } catch (error) {
-        if (!preferLocalOnOverlap) throw error;
-        mappedLocal = mapChangesPreferLocal(operation.changes, remote, originalBase.length);
-      }
-      const rebasedResult = applyTextChanges(rebasedBase, mappedLocal);
-      const originalResult = operation.resultText;
-      let mappedRemote: TextChange[];
-      try {
-        mappedRemote = mapTextChanges(remote, operation.changes, originalBase.length, !localBeforeRemote);
-      } catch (error) {
-        if (!preferLocalOnOverlap) throw error;
-        mappedRemote = computeTextChanges(originalResult, rebasedResult);
-      }
-      const nextOperation = {
-        ...operation,
-        baseText: rebasedBase,
-        resultText: rebasedResult,
-        changes: mappedLocal
-      };
-      originalBase = originalResult;
-      rebasedBase = rebasedResult;
-      remote = mappedRemote;
-      return nextOperation;
-    });
-    return { text: rebasedBase, remoteChanges: remote };
-  }
-
-  /**
    * 本文変更に合わせて保存済みの3種類の表示アンカーのオフセットを写像する。
    * @param changes 本文へ適用された変更一覧。
    * @param baseLength 変更前本文の長さ。
@@ -1730,6 +1816,12 @@ export function App(): React.JSX.Element {
       const anchor = viewportStateRef.current[key];
       if (!anchor) continue;
       anchor.offset = mapTextOffset(Math.min(anchor.offset, baseLength), changes, baseLength, -1);
+      if ('blockFrom' in anchor && anchor.blockFrom !== undefined) {
+        anchor.blockFrom = mapTextOffset(Math.min(anchor.blockFrom, baseLength), changes, baseLength, -1);
+      }
+      if ('endOffset' in anchor && anchor.endOffset !== undefined) {
+        anchor.endOffset = mapTextOffset(Math.min(anchor.endOffset, baseLength), changes, baseLength, 1);
+      }
     }
   }
 
@@ -1757,15 +1849,30 @@ export function App(): React.JSX.Element {
    */
   function restoreVisibleViewports(): void {
     const sourceAnchor = pendingSourceViewportRestoreRef.current ?? viewportStateRef.current.source;
-    if (mode === 'split' && splitView !== 'preview' && sourceAnchor) {
+    if (skipNextSourceViewportRestoreRef.current) {
+      skipNextSourceViewportRestoreRef.current = false;
+    } else if (mode === 'split' && splitView !== 'preview' && sourceAnchor) {
       sourceRef.current?.restoreViewport(sourceAnchor);
     }
-    if (mode === 'split' && splitView !== 'text' && splitPreviewRef.current && viewportStateRef.current.splitPreview) {
-      restorePreview(splitPreviewRef.current, viewportStateRef.current.splitPreview);
+    if (mode === 'split' && splitView !== 'text' && splitPreviewRef.current) {
+      restorePendingPreview('splitPreview', splitPreviewRef.current);
     }
-    if (mode === 'preview' && editorAreaRef.current && viewportStateRef.current.previewOnly) {
-      restorePreview(editorAreaRef.current, viewportStateRef.current.previewOnly);
+    if (mode === 'preview' && editorAreaRef.current) {
+      restorePendingPreview('previewOnly', editorAreaRef.current);
     }
+  }
+
+  /** 次回のDOM差分描画より前に、ブラウザの自動スクロールで失われてはならないプレビュー位置を固定する。 */
+  function stagePreviewViewportRestore(): void {
+    pendingPreviewViewportRestoreRef.current = {
+      splitPreview: viewportStateRef.current.splitPreview
+        ? { ...viewportStateRef.current.splitPreview }
+        : undefined,
+      previewOnly: viewportStateRef.current.previewOnly
+        ? { ...viewportStateRef.current.previewOnly }
+        : undefined
+    };
+    mveDebug('preview.restore.staged', pendingPreviewViewportRestoreRef.current);
   }
 
   /**
@@ -1782,14 +1889,20 @@ export function App(): React.JSX.Element {
       const containsTarget = pendingRestore.offset >= anchor.offset
         && pendingRestore.offset <= (anchor.endOffset ?? anchor.offset);
       if (containsTarget && Math.abs(anchor.topOffset - pendingRestore.topOffset) <= 1) {
-        viewportStateRef.current.source = { ...pendingRestore };
+        // 復元対象の論理オフセットと画面上位置を維持しつつ、可視終端と
+        // スクロール比は復元後の実測値へ更新する。
+        viewportStateRef.current.source = {
+          ...anchor,
+          offset: pendingRestore.offset,
+          topOffset: pendingRestore.topOffset
+        };
         pendingSourceViewportRestoreRef.current = undefined;
-        persistViewState();
+        schedulePersistViewState();
       }
       return;
     }
     viewportStateRef.current.source = anchor;
-    persistViewState();
+    schedulePersistViewState();
     if (!userInitiated || mode !== 'split' || splitView !== 'both') return;
     const preview = splitPreviewRef.current;
     if (!preview) return;
@@ -1799,11 +1912,7 @@ export function App(): React.JSX.Element {
       scrollRatio: anchor.scrollRatio
     };
     viewportStateRef.current.splitPreview = previewAnchor;
-    if (anchor.scrollRatio !== undefined) {
-      restorePreviewScrollRatio(preview, anchor.scrollRatio);
-    } else {
-      restorePreview(preview, previewAnchor);
-    }
+    scheduleSourceToPreviewSync(previewAnchor);
   }
 
   /**
@@ -1814,6 +1923,14 @@ export function App(): React.JSX.Element {
   function markPreviewScrollIntent(event: React.SyntheticEvent<HTMLElement>): void {
     viewportUserIntentGenerationRef.current += 1;
     const container = event.currentTarget;
+    if (container === splitPreviewRef.current) {
+      pendingPreviewViewportRestoreRef.current.splitPreview = undefined;
+    }
+    if (container === editorAreaRef.current) {
+      pendingPreviewViewportRestoreRef.current.previewOnly = undefined;
+    }
+    pendingViewportRestoreRef.current = false;
+    skipNextSourceViewportRestoreRef.current = false;
     programmaticPreviewScrollsRef.current.delete(container);
     previewUserScrollPendingRef.current.add(container);
     if (event.type === 'pointerdown') previewPointerScrollActiveRef.current.add(container);
@@ -1827,35 +1944,125 @@ export function App(): React.JSX.Element {
    * @returns 何も返さない。
    */
   function handlePreviewScroll(kind: 'splitPreview' | 'previewOnly', container: HTMLElement): void {
-    const anchor = capturePreviewViewport(container);
-    if (!anchor) return;
-    viewportStateRef.current[kind] = anchor;
-    if (programmaticPreviewScrollsRef.current.has(container)) {
-      programmaticPreviewScrollsRef.current.delete(container);
-      persistViewState();
-      return;
+    const startedAt = performance.now();
+    const programmatic = programmaticPreviewScrollsRef.current.has(container);
+    const pending = pendingPreviewScrollsRef.current.get(container);
+    pendingPreviewScrollsRef.current.set(container, {
+      kind,
+      userInitiated: (pending?.userInitiated ?? false) || !programmatic
+    });
+    mveDebug('preview.scroll.queued', {
+      kind,
+      programmatic,
+      pendingUserInitiated: (pending?.userInitiated ?? false) || !programmatic,
+      scrollTop: container.scrollTop
+    });
+    if (previewScrollFrameRef.current === undefined) {
+      previewScrollFrameRef.current = window.requestAnimationFrame(() => {
+        previewScrollFrameRef.current = undefined;
+        const scrolls = Array.from(pendingPreviewScrollsRef.current.entries());
+        pendingPreviewScrollsRef.current.clear();
+        scrolls.forEach(([pendingContainer, next]) => {
+          processPreviewScroll(next.kind, pendingContainer, next.userInitiated);
+        });
+      });
     }
-    // スクロールバーのつまみ操作ではpointerdownがReactへ届かないことがあるため、
-    // プログラムスクロール以外のscrollイベントはユーザー操作として扱う。
-    const userInitiated = true;
-    previewUserScrollPendingRef.current.delete(container);
-    persistViewState();
-    if (
-      kind !== 'splitPreview'
-      || mode !== 'split'
-      || splitView !== 'both'
-      || !userInitiated
-    ) return;
-    viewportStateRef.current.source = {
-      offset: anchor.offset,
-      topOffset: anchor.topOffset,
-      scrollRatio: anchor.scrollRatio
-    };
-    if (anchor.scrollRatio !== undefined) {
-      sourceRef.current?.restoreScrollRatio(anchor.scrollRatio);
-    } else {
-      sourceRef.current?.restoreViewport(viewportStateRef.current.source);
+    performance.clearMeasures('mve-preview-scroll-handler');
+    performance.measure('mve-preview-scroll-handler', { start: startedAt, end: performance.now() });
+  }
+
+  /** 同一描画フレーム内で重複したプレビュースクロールを、最新位置に対して一度だけ反映する。 */
+  function processPreviewScroll(
+    kind: 'splitPreview' | 'previewOnly',
+    container: HTMLElement,
+    userInitiated: boolean
+  ): void {
+    const startedAt = performance.now();
+    try {
+      if (!container.isConnected) return;
+      const stagedAnchor = pendingPreviewViewportRestoreRef.current[kind];
+      // DOM差分・画像・Mermaidの寸法変化が発生させたscrollイベントは、
+      // 描画前に固定した論理アンカーを上書きさせない。明示的な入力は
+      // markPreviewScrollIntentで先にスナップショットを破棄する。
+      if (stagedAnchor) return;
+      // DOM更新直後のscrollが復元より先にRAFキューへ入った場合も、処理時点で
+      // 復元中ならユーザー操作扱いを取り消して逆方向同期を防ぐ。
+      // 復元結果の丸め値で論理アンカーを上書きすると、画像・Mermaidの後段
+      // レイアウト変化ごとに誤差が累積するため保存状態も変更しない。
+      if (programmaticPreviewScrollsRef.current.has(container)) return;
+      const anchor = capturePreviewViewport(container);
+      if (!anchor) return;
+      mveDebug('preview.scroll.processed', {
+        kind,
+        userInitiated,
+        anchor,
+        scrollTop: container.scrollTop
+      });
+      viewportStateRef.current[kind] = anchor;
+      if (!userInitiated) {
+        schedulePersistViewState();
+        return;
+      }
+      // スクロールバーのつまみ操作ではpointerdownがReactへ届かないことがあるため、
+      // プログラムスクロール以外のscrollイベントはユーザー操作として扱う。
+      lastPreviewUserScrollAtRef.current = performance.now();
+      previewUserScrollPendingRef.current.delete(container);
+      schedulePersistViewState();
+      if (
+        kind !== 'splitPreview'
+        || mode !== 'split'
+        || splitView !== 'both'
+      ) return;
+      viewportStateRef.current.source = {
+        offset: anchor.offset,
+        topOffset: anchor.topOffset,
+        scrollRatio: anchor.scrollRatio
+      };
+      schedulePreviewToSourceSync(viewportStateRef.current.source);
+    } finally {
+      performance.clearMeasures('mve-preview-scroll-sync');
+      performance.measure('mve-preview-scroll-sync', { start: startedAt, end: performance.now() });
     }
+  }
+
+  /** プレビューからソースへの追従描画を最新1件・最大約30Hzに制限する。 */
+  function schedulePreviewToSourceSync(anchor: PreviewViewportAnchor): void {
+    pendingPreviewToSourceAnchorRef.current = anchor;
+    if (previewToSourceSyncTimerRef.current !== undefined) return;
+    const delay = Math.max(0, CROSS_PANE_SCROLL_SYNC_MS - (performance.now() - lastPreviewToSourceSyncRef.current));
+    previewToSourceSyncTimerRef.current = window.setTimeout(() => {
+      previewToSourceSyncTimerRef.current = undefined;
+      lastPreviewToSourceSyncRef.current = performance.now();
+      const pending = pendingPreviewToSourceAnchorRef.current;
+      pendingPreviewToSourceAnchorRef.current = undefined;
+      if (!pending) return;
+      mveDebug('preview.scroll.sync-source', { pending });
+      if (pending.scrollRatio !== undefined) {
+        sourceRef.current?.restoreScrollRatio(pending.scrollRatio);
+      } else {
+        sourceRef.current?.restoreViewport(pending);
+      }
+    }, delay);
+  }
+
+  /** ソースからプレビューへの追従描画を最新1件・最大約30Hzに制限する。 */
+  function scheduleSourceToPreviewSync(anchor: EditorViewportAnchor): void {
+    pendingSourceToPreviewAnchorRef.current = anchor;
+    if (sourceToPreviewSyncTimerRef.current !== undefined) return;
+    const delay = Math.max(0, CROSS_PANE_SCROLL_SYNC_MS - (performance.now() - lastSourceToPreviewSyncRef.current));
+    sourceToPreviewSyncTimerRef.current = window.setTimeout(() => {
+      sourceToPreviewSyncTimerRef.current = undefined;
+      lastSourceToPreviewSyncRef.current = performance.now();
+      const pending = pendingSourceToPreviewAnchorRef.current;
+      pendingSourceToPreviewAnchorRef.current = undefined;
+      const preview = splitPreviewRef.current;
+      if (!pending || !preview) return;
+      if (pending.scrollRatio !== undefined) {
+        restorePreviewScrollRatio(preview, pending.scrollRatio);
+      } else {
+        restorePreview(preview, pending);
+      }
+    }, delay);
   }
 
   /**
@@ -1865,20 +2072,21 @@ export function App(): React.JSX.Element {
    * @returns 何も返さない。
    */
   function restorePreview(container: HTMLElement, anchor: PreviewViewportAnchor): void {
-    const before = container.scrollTop;
     programmaticPreviewScrollsRef.current.add(container);
+    const before = container.scrollTop;
     const restored = restorePreviewViewport(container, anchor);
-    if (!restored || Math.abs(container.scrollTop - before) <= 0.5) {
-      programmaticPreviewScrollsRef.current.delete(container);
-    }
+    mveDebug('preview.restore.result', {
+      restored,
+      before,
+      after: container.scrollTop,
+      anchor
+    });
   }
 
   /** プレビューを先頭または末尾へ移動し、同期スクロールを無限に発生させない。 */
   function restorePreviewScrollRatio(container: HTMLElement, ratio: number): void {
     programmaticPreviewScrollsRef.current.add(container);
-    if (!restoreScrollRatio(container, ratio)) {
-      programmaticPreviewScrollsRef.current.delete(container);
-    }
+    restoreScrollRatio(container, ratio);
   }
 
   /**
@@ -1887,10 +2095,46 @@ export function App(): React.JSX.Element {
    * @returns 何も返さない。
    */
   function handlePreviewRendered(kind: 'splitPreview' | 'previewOnly'): void {
-    const container = kind === 'splitPreview' ? splitPreviewRef.current : editorAreaRef.current;
-    const anchor = viewportStateRef.current[kind];
-    if (!container || !anchor) return;
+    pendingRenderedPreviewKindsRef.current.add(kind);
+    scheduleRenderedPreviewRestore();
+  }
+
+  /** レイアウト変化後の表示位置復元を集約し、ユーザースクロール中は完了後まで延期する。 */
+  function scheduleRenderedPreviewRestore(): void {
+    if (renderedPreviewRestoreFrameRef.current !== undefined
+      || renderedPreviewRestoreTimerRef.current !== undefined) return;
+    const delay = Math.max(0, 100 - (performance.now() - lastPreviewUserScrollAtRef.current));
+    if (delay > 0) {
+      renderedPreviewRestoreTimerRef.current = window.setTimeout(() => {
+        renderedPreviewRestoreTimerRef.current = undefined;
+        scheduleRenderedPreviewRestore();
+      }, delay);
+      return;
+    }
+    renderedPreviewRestoreFrameRef.current = window.requestAnimationFrame(() => {
+      renderedPreviewRestoreFrameRef.current = undefined;
+      const kinds = Array.from(pendingRenderedPreviewKindsRef.current);
+      pendingRenderedPreviewKindsRef.current.clear();
+      kinds.forEach((pendingKind) => {
+        const container = pendingKind === 'splitPreview' ? splitPreviewRef.current : editorAreaRef.current;
+        if (container) restorePendingPreview(pendingKind, container);
+      });
+    });
+  }
+
+  /** 固定済みアンカーを優先してプレビューを復元し、以後のscrollイベントを通常処理へ戻す。 */
+  function restorePendingPreview(
+    kind: 'splitPreview' | 'previewOnly',
+    container: HTMLElement
+  ): void {
+    const staged = pendingPreviewViewportRestoreRef.current[kind];
+    const anchor = staged ?? viewportStateRef.current[kind];
+    if (!anchor) return;
+    mveDebug('preview.restore.applied', { kind, staged: Boolean(staged), anchor });
     restorePreview(container, anchor);
+    if (staged === pendingPreviewViewportRestoreRef.current[kind]) {
+      pendingPreviewViewportRestoreRef.current[kind] = undefined;
+    }
   }
 
   /**
@@ -1965,6 +2209,42 @@ export function App(): React.JSX.Element {
   const splitPreviewInspect = useCallback((target: InspectorTarget) => changeInspector(target), [mode, splitView]);
   const splitPreviewNavigate = useCallback((href: string) => vscode.postMessage({ type: 'openResource', href }), []);
   const splitPreviewRendered = useCallback(() => handlePreviewRendered('splitPreview'), [mode, splitView]);
+  const sourceEditorChange = useCallback((changes: TextChange[]) => {
+    const previous = localTextRef.current;
+    updateMarkdownRef.current(applyTextChanges(previous, changes), changes, 'local', false);
+  }, []);
+  const sourceEditorSettled = useCallback(() => {
+    sourceRef.current?.flushPendingChanges();
+    stagePreviewViewportRestore();
+    setMarkdown(localTextRef.current);
+    delete document.body.dataset.mveInputActive;
+    window.dispatchEvent(new Event('mve-preview-input-settled'));
+  }, []);
+  const sourceEditorSelectionChange = useCallback((nextSelection: TextSelection) => {
+    selectionStateRef.current = nextSelection;
+    const source = markdownForSelectionRef.current;
+    const nextMarks = nextSelection.from === nextSelection.to
+      ? {}
+      : inferMarks(source.slice(nextSelection.from, nextSelection.to));
+    const previous = activeMarksRef.current;
+    const previousKeys = Object.keys(previous);
+    const nextKeys = Object.keys(nextMarks);
+    if (previousKeys.length === nextKeys.length
+      && nextKeys.every((key) => previous[key] === nextMarks[key])) return;
+    activeMarksRef.current = nextMarks;
+    setActiveMarks(nextMarks);
+  }, []);
+  const sourceEditorViewportChange = useCallback(
+    (anchor: EditorViewportAnchor, userInitiated: boolean) => handleSourceViewport(anchor, userInitiated),
+    [mode, splitView]
+  );
+  const sourceEditorUserScrollIntent = useCallback(() => {
+    viewportUserIntentGenerationRef.current += 1;
+    pendingSourceViewportRestoreRef.current = undefined;
+    skipNextSourceViewportRestoreRef.current = false;
+    pendingPreviewViewportRestoreRef.current = {};
+    pendingViewportRestoreRef.current = false;
+  }, []);
 
   if (!initialized) return <div className="startup">{messages.app.startup}</div>;
 
@@ -2026,7 +2306,9 @@ export function App(): React.JSX.Element {
         <main
           ref={editorAreaRef}
           className="editor-area"
-          onMouseUp={() => setSelection(getActiveEditor()?.getSelection() ?? selection)}
+          onMouseUp={() => {
+            selectionStateRef.current = getActiveEditor()?.getSelection() ?? selectionStateRef.current;
+          }}
           tabIndex={mode === 'preview' ? 0 : undefined}
           onWheelCapture={mode === 'preview' ? markPreviewScrollIntent : undefined}
           onPointerDownCapture={mode === 'preview' ? markPreviewScrollIntent : undefined}
@@ -2072,17 +2354,12 @@ export function App(): React.JSX.Element {
                   activeSearchHit={searchVisible ? searchHits[searchIndex] : undefined}
                   messages={messages}
                   placeholder={messages.editor.placeholder}
-                  onChange={(value, changes) => updateMarkdown(value, changes)}
-                  onSelectionChange={(value) => {
-                    setSelection(value);
-                    setActiveMarks(inferMarks(markdown.slice(value.from, value.to)));
-                  }}
-                  onViewportChange={handleSourceViewport}
-                  onUserScrollIntent={() => {
-                    viewportUserIntentGenerationRef.current += 1;
-                    pendingSourceViewportRestoreRef.current = undefined;
-                    pendingViewportRestoreRef.current = false;
-                  }}
+                  onChange={sourceEditorChange}
+                  onInputActivity={cancelPreviewWork}
+                  onSettled={sourceEditorSettled}
+                  onSelectionChange={sourceEditorSelectionChange}
+                  onViewportChange={sourceEditorViewportChange}
+                  onUserScrollIntent={sourceEditorUserScrollIntent}
                 />
               </div>
               <div
@@ -2114,7 +2391,7 @@ export function App(): React.JSX.Element {
                 onScroll={(event) => handlePreviewScroll('splitPreview', event.currentTarget)}
               >
                 <RenderedMarkdown
-                  markdown={previewMarkdown}
+                  markdown={renderedPreviewMarkdown}
                   html={previewHtml}
                   settings={settings}
                   onImageResize={imageResizeEnabled ? splitPreviewImageResize : undefined}
@@ -2123,13 +2400,14 @@ export function App(): React.JSX.Element {
                   onInspect={splitPreviewInspect}
                   onNavigate={splitPreviewNavigate}
                   onRendered={splitPreviewRendered}
+                  deferMermaid
                 />
               </div>
             </div>
           )}
           {mode === 'preview' && (
             <PdfPreview
-              markdown={previewMarkdown}
+              markdown={renderedPreviewMarkdown}
               html={previewHtml}
               settings={settings}
               options={pdfOptions}
@@ -2193,11 +2471,13 @@ export function App(): React.JSX.Element {
         )}
       </div>
       <footer className="status-bar">
-        <span>{modeLabel(mode, messages)}</span><span>{messages.app.status.lines(stats.lines)}</span><span>{messages.app.status.textCharacters(stats.text)}</span><span>{messages.app.status.markdownCharacters(stats.markdown)}</span><span>{messages.app.status.zoom(Math.round(zoom * 100))}</span><span>{pendingOperationsRef.current.length ? messages.app.status.syncing : messages.app.status.synced}</span>
+        <span>{modeLabel(mode, messages)}</span><span>{messages.app.status.lines(stats.lines)}</span><span>{messages.app.status.textCharacters(stats.text)}</span><span>{messages.app.status.markdownCharacters(stats.markdown)}</span><span>{messages.app.status.zoom(Math.round(zoom * 100))}</span><span>{inFlightOperationRef.current || localTextRef.current !== hostTextRef.current ? messages.app.status.syncing : messages.app.status.synced}</span>
       </footer>
-      <div className="export-stage" aria-hidden="true">
-        <RenderedMarkdown markdown={previewMarkdown} html={previewHtml} settings={exportSettings} onRendered={handleExportRendered} />
-      </div>
+      {(printPreview || exportStageRequested) && (
+        <div className="export-stage" aria-hidden="true">
+          <RenderedMarkdown markdown={renderedPreviewMarkdown} html={previewHtml} settings={exportSettings} onRendered={handleExportRendered} />
+        </div>
+      )}
       {htmlRenderRequest && (
         <HtmlDocumentRenderStage
           request={htmlRenderRequest}
@@ -2257,10 +2537,238 @@ function Inspector({ target, settings, messages, onChange, onClose, onOpenResour
   );
 }
 
-function useDebouncedValue<T>(value: T, delay: number): T {
+function useMarkdownPreviewSnapshot(
+  markdown: string,
+  remoteImagesEnabled: boolean,
+  language: WebviewSettings['language']
+): [MarkdownPreviewSnapshot, () => void] {
+  const [snapshot, setSnapshot] = useState<MarkdownPreviewSnapshot>({
+    markdown: '',
+    html: '',
+    outline: [],
+    diagnostics: [],
+    stats: { markdown: 0, text: 0, lines: 1 }
+  });
+  const workerRef = useRef<Worker | undefined>(undefined);
+  const workerBusyRef = useRef(false);
+  const cancelSanitizationRef = useRef<() => void>(() => undefined);
+  const generationRef = useRef(0);
+
+  const cancelActiveRender = useCallback(() => {
+    generationRef.current += 1;
+    if (workerBusyRef.current) {
+      workerRef.current?.terminate();
+      workerRef.current = undefined;
+      workerBusyRef.current = false;
+    }
+    cancelSanitizationRef.current();
+    cancelSanitizationRef.current = () => undefined;
+  }, []);
+
+  useEffect(() => {
+    cancelActiveRender();
+    const id = generationRef.current;
+    const startedAt = performance.now();
+    const applySynchronousFallback = (error: unknown) => {
+      if (generationRef.current !== id) return;
+      document.body.dataset.mveMarkdownWorkerStatus = 'fallback';
+      console.error('[Markdown Easy Visual Editor] Markdown Workerを利用できないため同期描画へ切り替えます。', error);
+      const fallbackStartedAt = performance.now();
+      setSnapshot({
+        markdown,
+        html: renderMarkdown(markdown, { remoteImagesEnabled, language }),
+        outline: getOutline(markdown),
+        diagnostics: collectDiagnostics(markdown, language),
+        stats: wordStats(markdown)
+      });
+      recordLatestPerformanceMeasure('mve-preview-markdown', fallbackStartedAt);
+    };
+    const startWorker = async () => {
+      try {
+        let worker = workerRef.current;
+        if (!worker) {
+          document.body.dataset.mveMarkdownWorkerStatus = 'loading';
+          const workerUrl = await resolveMarkdownWorkerLaunchUrl();
+          if (generationRef.current !== id) return;
+          worker = new Worker(workerUrl);
+          workerRef.current = worker;
+        }
+        if (generationRef.current !== id) return;
+        workerBusyRef.current = true;
+        document.body.dataset.mveMarkdownWorkerStatus = 'running';
+        worker.onmessage = (event: MessageEvent<MarkdownWorkerResponse>) => {
+          recordLatestPerformanceMark('mve-preview-worker-response');
+          const response = event.data;
+          if (response.id !== id || generationRef.current !== id || workerRef.current !== worker) return;
+          workerBusyRef.current = false;
+          if (response.error || !response.unsafeBlocks || response.markdown === undefined
+            || !response.outline || !response.diagnostics || !response.stats) {
+            applySynchronousFallback(response.error);
+            return;
+          }
+          document.body.dataset.mveMarkdownWorkerStatus = 'ready';
+          recordLatestPerformanceMeasure('mve-preview-markdown-worker', startedAt);
+          cancelSanitizationRef.current = sanitizeMarkdownBlocks(response.unsafeBlocks, () => (
+            generationRef.current === id
+          ), (html, maximumChunkDuration) => {
+            recordLatestPerformanceMark('mve-preview-sanitize-complete');
+            cancelSanitizationRef.current = () => undefined;
+            recordPerformanceDuration('mve-preview-markdown', maximumChunkDuration);
+            if (generationRef.current !== id) return;
+            setSnapshot({
+              markdown: response.markdown as string,
+              html,
+              outline: response.outline as OutlineItem[],
+              diagnostics: response.diagnostics as Diagnostic[],
+              stats: response.stats as { markdown: number; text: number; lines: number }
+            });
+          });
+        };
+        worker.onerror = (event) => {
+          if (generationRef.current !== id || workerRef.current !== worker) return;
+          workerBusyRef.current = false;
+          worker.terminate();
+          workerRef.current = undefined;
+          applySynchronousFallback(event.message);
+        };
+        worker.postMessage({ id, markdown, options: { remoteImagesEnabled, language } });
+      } catch (error) {
+        applySynchronousFallback(error);
+      }
+    };
+    void startWorker();
+    return cancelActiveRender;
+  }, [markdown, remoteImagesEnabled, language, cancelActiveRender]);
+
+  useEffect(() => () => {
+    workerRef.current?.terminate();
+    workerRef.current = undefined;
+    workerBusyRef.current = false;
+  }, []);
+
+  return [snapshot, cancelActiveRender];
+}
+
+let markdownWorkerBlobUrlPromise: Promise<string> | undefined;
+
+function resolveMarkdownWorkerResourceUrl(): string {
+  const configured = document.body.dataset.mveMarkdownWorkerUri;
+  if (configured) return configured;
+  const script = Array.from(document.scripts).find((candidate) => /(?:^|\/)webview\.js(?:[?#]|$)/.test(candidate.src));
+  return new URL('markdown-worker.js', script?.src || document.baseURI).toString();
+}
+
+async function resolveMarkdownWorkerLaunchUrl(): Promise<string> {
+  const resourceUrl = resolveMarkdownWorkerResourceUrl();
+  if (/^(?:blob:|data:)/i.test(resourceUrl)) return resourceUrl;
+  markdownWorkerBlobUrlPromise ??= fetch(resourceUrl)
+    .then((response) => {
+      if (!response.ok) throw new Error(`Markdown Workerの取得に失敗しました (${response.status})`);
+      return response.blob();
+    })
+    .then((blob) => URL.createObjectURL(blob))
+    .catch((error) => {
+      markdownWorkerBlobUrlPromise = undefined;
+      throw error;
+    });
+  return markdownWorkerBlobUrlPromise;
+}
+
+function sanitizeMarkdownBlocks(
+  unsafeBlocks: UnsafeMarkdownBlock[],
+  shouldContinue: () => boolean,
+  onComplete: (html: string, maximumChunkDuration: number) => void
+): () => void {
+  if (!unsafeBlocks.length) {
+    onComplete('', 0);
+    return () => undefined;
+  }
+  const sanitized: string[] = [];
+  let index = 0;
+  let cancelled = false;
+  let timer: number | undefined;
+  let maximumChunkDuration = 0;
+  let slowestBlock = { duration: 0, length: 0, prefix: '' };
+  const close = () => {
+    cancelled = true;
+    if (timer !== undefined) window.clearTimeout(timer);
+    timer = undefined;
+  };
+  const runChunk = () => {
+    timer = undefined;
+    if (cancelled || !shouldContinue()) {
+      close();
+      return;
+    }
+    const startedAt = performance.now();
+    do {
+      const block = unsafeBlocks[index++];
+      const blockStartedAt = performance.now();
+      sanitized.push(block.requiresSanitization ? sanitizeRenderedMarkdown(block.html) : block.html);
+      const blockDuration = performance.now() - blockStartedAt;
+      if (blockDuration > slowestBlock.duration) {
+        slowestBlock = {
+          duration: blockDuration,
+          length: block.html.length,
+          prefix: block.html.slice(0, 100)
+        };
+      }
+    } while (index < unsafeBlocks.length && performance.now() - startedAt < 4);
+    maximumChunkDuration = Math.max(maximumChunkDuration, performance.now() - startedAt);
+    if (index < unsafeBlocks.length) {
+      timer = window.setTimeout(runChunk, 0);
+      return;
+    }
+    close();
+    performance.clearMarks('mve-preview-sanitize-slowest');
+    performance.mark('mve-preview-sanitize-slowest', { detail: slowestBlock });
+    (globalThis as typeof globalThis & { __mveSlowestSanitizeBlock?: typeof slowestBlock }).__mveSlowestSanitizeBlock = slowestBlock;
+    onComplete(sanitized.join(''), maximumChunkDuration);
+  };
+  timer = window.setTimeout(runChunk, 0);
+  return close;
+}
+
+function recordLatestPerformanceMeasure(name: string, startedAt: number): void {
+  performance.clearMeasures(name);
+  performance.measure(name, { start: startedAt, end: performance.now() });
+}
+
+function recordLatestPerformanceMark(name: string): void {
+  performance.clearMarks(name);
+  performance.mark(name);
+}
+
+function recordPerformanceDuration(name: string, duration: number): void {
+  performance.clearMeasures(name);
+  performance.measure(name, { start: 0, duration });
+}
+
+function useInterruptibleDebouncedValue<T>(value: T, delay: number): [T, () => void] {
   const [debounced, setDebounced] = useState(value);
   const initialValueRef = useRef(value);
   const firstNonInitialValueRef = useRef(false);
+  const timerRef = useRef<number | undefined>(undefined);
+  const idleHandleRef = useRef<number | undefined>(undefined);
+  const idleUsesTimeoutRef = useRef(false);
+  const generationRef = useRef(0);
+
+  const cancelPending = useCallback(() => {
+    generationRef.current += 1;
+    if (timerRef.current !== undefined) {
+      window.clearTimeout(timerRef.current);
+      timerRef.current = undefined;
+    }
+    if (idleHandleRef.current !== undefined) {
+      const idleWindow = window as Window & { cancelIdleCallback?: (handle: number) => void };
+      if (idleUsesTimeoutRef.current || !idleWindow.cancelIdleCallback) {
+        window.clearTimeout(idleHandleRef.current);
+      } else {
+        idleWindow.cancelIdleCallback(idleHandleRef.current);
+      }
+      idleHandleRef.current = undefined;
+    }
+  }, []);
 
   useEffect(() => {
     if (!firstNonInitialValueRef.current && value === initialValueRef.current) return;
@@ -2270,11 +2778,35 @@ function useDebouncedValue<T>(value: T, delay: number): T {
       setDebounced(value);
       return;
     }
-    const timer = window.setTimeout(() => setDebounced(value), delay);
-    return () => window.clearTimeout(timer);
-  }, [value, delay]);
+    cancelPending();
+    const generation = generationRef.current;
+    timerRef.current = window.setTimeout(() => {
+      timerRef.current = undefined;
+      const commit = () => {
+        idleHandleRef.current = undefined;
+        if (generation !== generationRef.current) return;
+        setDebounced(value);
+      };
+      const idleWindow = window as Window & {
+        requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+      };
+      if (idleWindow.requestIdleCallback) {
+        idleUsesTimeoutRef.current = false;
+        idleHandleRef.current = idleWindow.requestIdleCallback(commit, { timeout: 750 });
+      } else {
+        idleUsesTimeoutRef.current = true;
+        idleHandleRef.current = window.setTimeout(commit, 0);
+      }
+    }, delay);
+    return cancelPending;
+  }, [value, delay, cancelPending]);
 
-  return debounced;
+  return [debounced, cancelPending];
+}
+
+/** 対話表示用の遅延画像を、PDF・HTML出力では確実に読み込む属性へ置換する。 */
+function serializeExportHtml(element: HTMLElement): string {
+  return prepareExportHtml(element.innerHTML);
 }
 
 /**
@@ -2294,7 +2826,7 @@ function HtmlDocumentRenderStage({ request, settings, onRendered }: {
 
   function handleRendered(id: string, element: HTMLElement): void {
     if (completedRef.current) return;
-    renderedRef.current.set(id, element.innerHTML);
+    renderedRef.current.set(id, serializeExportHtml(element));
     if (renderedRef.current.size !== request.documents.length) return;
     completedRef.current = true;
     onRenderedRef.current(request.documents.map((document) => ({
@@ -2369,6 +2901,7 @@ function PdfPreview({ markdown, html, settings, options, zoom, messages, pdfBase
               onInspect={onInspect}
               onNavigate={onNavigate}
               onRendered={() => onRendered()}
+              deferMermaid
             />
             {options.footer && <div className="pdf-preview-footer">{formatPdfTemplate(options.footer)}</div>}
           </div>

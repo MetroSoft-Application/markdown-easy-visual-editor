@@ -11,7 +11,13 @@ import type {
 import { collectLocalResourceReferences, sortDiagnostics, type Diagnostic } from '../shared/markdown';
 import { applyTextChanges, mapTextChanges, validateTextChanges, type TextChange } from '../shared/textChanges';
 import { getMessages, resolveLanguage, type Messages } from '../shared/messages';
-import { closePdfBrowser, exportPdf, renderPdf } from './pdf';
+import { acquirePdfBrowser, closePdfBrowser, exportPdf, renderPdf } from './pdf';
+import {
+  closeMermaidRenderer,
+  MermaidRendererUnavailableError,
+  renderMermaidInBrowser
+} from './mermaid';
+import { namespaceMermaidSvg } from '../shared/mermaidSvg';
 import {
   prepareHtmlExport,
   writePreparedHtml,
@@ -72,6 +78,7 @@ export function activate(context: vscode.ExtensionContext): void {
  * @returns 共有PDFブラウザの終了完了を待つPromise。
  */
 export async function deactivate(): Promise<void> {
+  await closeMermaidRenderer();
   await closePdfBrowser();
 }
 
@@ -85,6 +92,10 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
   private readonly pdfPreviewGenerations = new WeakMap<vscode.WebviewPanel, number>();
   private readonly pdfPreviewAbortControllers = new WeakMap<vscode.WebviewPanel, AbortController>();
   private readonly pdfPreviewChains = new WeakMap<vscode.WebviewPanel, Promise<void>>();
+  private readonly mermaidRenderControllers = new Map<string, {
+    panel: vscode.WebviewPanel;
+    controller: AbortController;
+  }>();
   private readonly pendingHtmlRenderRequests = new Map<string, {
     resolve: (documents: HtmlRenderedDocument[]) => void;
     reject: (error: Error) => void;
@@ -148,6 +159,11 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
     webviewPanel.onDidDispose(() => {
       // パネル破棄時に登録情報・履歴・保留中の操作を文書単位で片付ける。
       this.pdfPreviewAbortControllers.get(webviewPanel)?.abort();
+      for (const [requestId, pending] of this.mermaidRenderControllers) {
+        if (pending.panel !== webviewPanel) continue;
+        pending.controller.abort();
+        this.mermaidRenderControllers.delete(requestId);
+      }
       messageDisposable.dispose();
       group.delete(webviewPanel);
       if (!group.size) {
@@ -216,7 +232,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
     panel: vscode.WebviewPanel,
     message: WebviewToHostMessage
   ): Promise<void> {
-    console.info('[MVE host] message', {
+    hostDebug('[MVE host] message', {
       type: message.type,
       document: document.uri.toString(),
       clientId: 'clientId' in message ? message.clientId : undefined,
@@ -257,6 +273,51 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
         case 'checkLocalResources': {
           const diagnostics = await this.checkLocalResources(document, message.markdown);
           this.post(panel, { type: 'localResourcesChecked', requestId: message.requestId, diagnostics });
+          return;
+        }
+        case 'renderMermaid': {
+          const previous = this.mermaidRenderControllers.get(message.requestId);
+          previous?.controller.abort();
+          const controller = new AbortController();
+          this.mermaidRenderControllers.set(message.requestId, { panel, controller });
+          try {
+            const rendered = await renderMermaidInBrowser(
+              message.source,
+              message.theme,
+              vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'mermaid.min.js').fsPath,
+              () => acquirePdfBrowser(this.getLanguage()),
+              controller.signal
+            );
+            if (controller.signal.aborted) return;
+            this.post(panel, {
+              type: 'mermaidRendered',
+              requestId: message.requestId,
+              svg: namespaceMermaidSvg(rendered.svg, `mve-${message.requestId}`),
+              pngBase64: rendered.pngBase64,
+              interactions: rendered.interactions,
+              ariaLabel: rendered.ariaLabel
+            });
+          } catch (error) {
+            if (controller.signal.aborted) return;
+            this.post(panel, {
+              type: 'mermaidRendered',
+              requestId: message.requestId,
+              error: error instanceof Error ? error.message : String(error),
+              rendererUnavailable: error instanceof MermaidRendererUnavailableError
+            });
+          } finally {
+            if (this.mermaidRenderControllers.get(message.requestId)?.controller === controller) {
+              this.mermaidRenderControllers.delete(message.requestId);
+            }
+          }
+          return;
+        }
+        case 'cancelMermaidRender': {
+          const pending = this.mermaidRenderControllers.get(message.requestId);
+          if (pending?.panel === panel) {
+            pending.controller.abort();
+            this.mermaidRenderControllers.delete(message.requestId);
+          }
           return;
         }
         case 'setEditorTheme': {
@@ -512,7 +573,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
     panel: vscode.WebviewPanel,
     message: Extract<WebviewToHostMessage, { type: 'localChanges' }>
   ): Promise<void> {
-    console.info('[MVE host] localChanges received', {
+    hostDebug('[MVE host] localChanges received', {
       document: document.uri.toString(),
       clientId: message.clientId,
       opId: message.opId,
@@ -587,7 +648,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
     this.activeOperationKeysByDocument.set(key, operationKey);
     // 適用中の操作を記録し、後続の文書変更通知で自分の書き込みと判定できるようにする。
     const applied = await applyChangeBatch(document, changes);
-    console.info('[MVE host] localChanges apply result', {
+    hostDebug('[MVE host] localChanges apply result', {
       document: document.uri.toString(),
       opId: message.opId,
       applied,
@@ -638,7 +699,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
       rangeLength: change.rangeLength,
       text: change.text
     }));
-    console.info('[MVE host] document changed', {
+    hostDebug('[MVE host] document changed', {
       document: key,
       version: event.document.version,
       changeCount: changes.length,
@@ -646,7 +707,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
       activeOpId: active?.opId
     });
     if (!changes.length) {
-      console.info('[MVE host] document changed ignored (no content changes)', {
+      hostDebug('[MVE host] document changed ignored (no content changes)', {
         document: key,
         version: event.document.version,
         activeOpId: active?.opId
@@ -923,6 +984,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
       maxPasteSizeMb: config.get('images.maxPasteSizeMb', 20),
       remoteImagesEnabled: config.get('remoteImages.enabled', false),
       mermaidTheme: config.get('mermaid.theme', 'auto'),
+      mermaidHostRendering: true,
       editorTheme: config.get<WebviewSettings['editorTheme']>('editor.theme', 'dark'),
       viewMode: normalizeViewMode(this.context.globalState.get<unknown>(VIEW_MODE_STATE_KEY)),
       workspaceTrusted: vscode.workspace.isTrusted
@@ -948,7 +1010,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
       const timer = setTimeout(() => {
         this.pendingHtmlRenderRequests.delete(requestId);
         reject(new Error(this.getMessages().host.htmlRenderTimeout));
-      }, 30_000);
+      }, 120_000);
       this.pendingHtmlRenderRequests.set(requestId, { resolve, reject, timer });
       this.post(panel, { type: 'renderHtmlDocuments', requestId, documents });
     });
@@ -979,6 +1041,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
   private getWebviewHtml(webview: vscode.Webview, document: vscode.TextDocument): string {
     // Webviewで読み込むリソースURIとCSP nonceを作り、安全なHTMLシェルを生成する。
     const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'webview.js'));
+    const markdownWorkerUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'markdown-worker.js'));
     const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'styles.css'));
     const bundledStyleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'webview.css'));
     const baseUri = webview.asWebviewUri(vscode.Uri.joinPath(document.uri, '..'));
@@ -990,12 +1053,12 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <base href="${baseUri.toString()}/">
-          <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} data: blob:${allowRemote}; font-src ${webview.cspSource} data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource} 'nonce-${nonce}'; worker-src ${webview.cspSource} blob:; connect-src 'none';">
+          <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} data: blob:${allowRemote}; font-src ${webview.cspSource} data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource} 'nonce-${nonce}'; worker-src blob: data:; connect-src ${webview.cspSource} blob:;">
           <link rel="stylesheet" href="${styleUri}">
           <link rel="stylesheet" href="${bundledStyleUri}">
           <title>Markdown Easy Visual Editor</title>
         </head>
-        <body>
+        <body data-mve-markdown-worker-uri="${markdownWorkerUri.toString()}">
           <div id="root"></div>
           <script nonce="${nonce}" src="${scriptUri}"></script>
         </body>
@@ -1021,6 +1084,10 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
  * @returns VS Codeが変更を受け付けた場合はtrue。
  * @throws 変更範囲が文書に対して不正な場合。
  */
+function hostDebug(message: string, details: Record<string, unknown>): void {
+  if (process.env.MVE_DEBUG === '1') console.info(message, details);
+}
+
 async function applyChangeBatch(document: vscode.TextDocument, changes: readonly TextChange[]): Promise<boolean> {
   // 差分をVS CodeのWorkspaceEditへ変換し、文書へ一括適用する。
   validateTextChanges(changes, document.getText().length);

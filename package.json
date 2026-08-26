@@ -2,7 +2,7 @@
   "name": "markdown-easy-visual-editor",
   "displayName": "Markdown Easy Visual Editor",
   "description": "A visual Markdown editor for VS Code with live preview, source editing, formatting tools, image support, and PDF export.",
-  "version": "1.0.11",
+  "version": "1.0.12",
   "publisher": "MetroSoft-Application",
   "icon": "resources/icon.png",
   "repository": {
@@ -247,11 +247,11 @@
     "test:extension": "npm run build && node scripts/test-extension-host.mjs",
     "test:smoke": "node scripts/smoke-fast.mjs",
     "test:smoke-build": "npm run build && npm run test:smoke",
-    "test:sample-matrix": "node scripts/sample-matrix.mjs",
+    "test:sample-matrix": "npm run build && node scripts/sample-matrix.mjs",
     "test:pdf-preview": "npm run build && node scripts/pdf-preview-smoke.mjs",
     "test:watch": "vitest",
     "pdf:install-browser": "node scripts/install-pdf-browser.mjs",
-    "package": "npm run check && npm test && npm run build && vsce package --target win32-x64 --no-dependencies --allow-missing-repository --out markdown-easy-visual-editor-0.1.0-win32-x64.vsix"
+    "package": "npm run check && npm test && npm run build && npm run test:smoke && npm run test:sample-matrix && vsce package --target win32-x64 --no-dependencies --allow-missing-repository --out markdown-easy-visual-editor-0.1.0-win32-x64.vsix"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.1",

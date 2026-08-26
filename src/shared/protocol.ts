@@ -32,6 +32,8 @@ export interface WebviewSettings {
   maxPasteSizeMb: number;
   remoteImagesEnabled: boolean;
   mermaidTheme: 'auto' | 'default' | 'dark' | 'neutral';
+  /** MermaidをWebviewとは別のブラウザプロセスで描画できるか。 */
+  mermaidHostRendering?: boolean;
   editorTheme?: EditorTheme;
   viewMode?: ViewMode;
   workspaceTrusted: boolean;
@@ -41,6 +43,16 @@ export interface TextChange {
   rangeOffset: number;
   rangeLength: number;
   text: string;
+}
+
+export interface MermaidInteraction {
+  type: 'text' | 'link';
+  text: string;
+  href?: string;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
 }
 
 export type HostToWebviewMessage =
@@ -74,6 +86,16 @@ export type HostToWebviewMessage =
       documents: Array<{ id: string; markdown: string }>;
     }
   | { type: 'pdfPreviewReady'; requestId: string; pdfBase64: string }
+  | {
+      type: 'mermaidRendered';
+      requestId: string;
+      svg?: string;
+      pngBase64?: string;
+      interactions?: MermaidInteraction[];
+      ariaLabel?: string;
+      error?: string;
+      rendererUnavailable?: boolean;
+    }
   | { type: 'hostCommand'; command: 'insertImage' | 'exportPdf' | 'undo' | 'redo' };
 
 export type WebviewToHostMessage =
@@ -112,6 +134,13 @@ export type WebviewToHostMessage =
       css: string;
       options: PdfOptions;
     }
+  | {
+      type: 'renderMermaid';
+      requestId: string;
+      source: string;
+      theme: 'default' | 'dark' | 'neutral';
+    }
+  | { type: 'cancelMermaidRender'; requestId: string }
   | { type: 'openSource' }
   | { type: 'openResource'; href: string }
   | { type: 'requestResync'; clientId: string; opId?: string; version: number; reason: string };

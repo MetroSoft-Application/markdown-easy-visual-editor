@@ -509,6 +509,7 @@ button:disabled {
   line-height: 1.72;
   overflow-wrap: anywhere;
 }
+
 /* Markdownプレビューの本文・見出し・要素を整える。 */
 .rendered-markdown h1 {
   margin: 1.5em 0 .7em;
@@ -638,6 +639,43 @@ button:disabled {
   overflow: auto;
   padding: 12px;
   text-align: center;
+}
+/* 巨大Mermaidを独立SVG画像として表示し、テキスト選択とリンクだけ軽量層で維持する。 */
+.mermaid-svg-frame {
+  position: relative;
+  width: 100%;
+  margin: 0 auto;
+}
+.mermaid-svg-frame[data-mve-rasterized="false"] {
+  contain: paint;
+  isolation: isolate;
+  transform: translateZ(0);
+  will-change: transform;
+}
+.mermaid-svg-image {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  backface-visibility: hidden;
+}
+.mermaid-interaction-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+.mermaid-interaction {
+  position: absolute;
+  box-sizing: border-box;
+  overflow: hidden;
+  color: transparent;
+  white-space: nowrap;
+  user-select: text;
+  pointer-events: auto;
+}
+.mermaid-interaction-link {
+  cursor: pointer;
 }
 /* Mermaid図とエラーメッセージを表示する。 */
 .mermaid-error-message {
