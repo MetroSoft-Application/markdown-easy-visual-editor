@@ -1,6 +1,7 @@
 import { autocompletion, type Completion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
 import { StateEffect, type Extension } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
+import { installSelectedTextSearchTransfer } from './searchSelectedText';
 
 const allMarkdownOptions: readonly Completion[] = [
   { label: '# Heading 1', detail: '見出し1', type: 'keyword', apply: '# ' },
@@ -68,3 +69,5 @@ attachExtension(autocompletion({
   activateOnTyping: true,
   selectOnOpen: true
 }));
+
+installSelectedTextSearchTransfer();
