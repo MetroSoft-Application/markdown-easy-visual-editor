@@ -10,6 +10,7 @@ import { App } from './App';
 import './cmMarkdownAutocomplete';
 import './editorTheme.css';
 import './editorThemePolish.css';
+import './previewFullWidth.css';
 import { getMessages } from '../shared/messages';
 import { installEditorThemeController } from './editorThemeController';
 
