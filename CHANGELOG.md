@@ -50,3 +50,7 @@
 ## 1.0.12
 
 - Make Input Responses More Faster.
+
+## 1.0.13
+
+- Remove the width limit on the preview.
