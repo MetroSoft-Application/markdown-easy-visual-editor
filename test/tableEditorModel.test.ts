@@ -28,7 +28,7 @@ describe('table editor model', () => {
     const rendered = renderTableEditorDraft(draft!);
     expect(rendered.text).toContain('| :--- | :---: | ---: |');
     expect(rendered.text.split('\r\n')).toHaveLength(4);
-    expect(rendered.text).not.toContain('\n|').toBe(false);
+    expect(rendered.text.replace(/\r\n/g, '')).not.toContain('\n');
   });
 
   it('keeps escaped pipes inside a single cell', () => {
