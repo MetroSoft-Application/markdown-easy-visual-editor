@@ -71,6 +71,7 @@ function openTableGridEditor(): void {
 
   let draft = cloneTableGrid(model);
   let active: ActiveCell = locateActiveCell(view, model);
+  let applying = false;
 
   const root = document.createElement('div');
   root.className = 'mve-table-grid-overlay';
@@ -117,6 +118,17 @@ function openTableGridEditor(): void {
     toolbarSeparator(),
     toolbarButton(isJapanese() ? 'TSVコピー' : 'Copy TSV', 'copy-tsv')
   );
+
+  const setApplyingState = (next: boolean): void => {
+    applying = next;
+    root.toggleAttribute('data-applying', next);
+    root.querySelectorAll<HTMLButtonElement>('button').forEach((button) => {
+      button.disabled = next;
+    });
+    root.querySelectorAll<HTMLTextAreaElement>('textarea').forEach((input) => {
+      input.disabled = next;
+    });
+  };
 
   const render = (focusCell = false): void => {
     normalizeDraft(draft);
@@ -174,20 +186,42 @@ function openTableGridEditor(): void {
   };
 
   const apply = (): void => {
+    if (applying) return;
     syncGridInputs(root, draft);
     normalizeDraft(draft);
     const replacement = serializeTableGrid(draft);
+    const currentTable = view.state.doc.sliceString(draft.from, draft.to, '\n');
+    if (currentTable === replacement) {
+      closeOverlay(view);
+      return;
+    }
     const cellOffset = tableGridCellOffset(draft, active.row, active.column);
     const anchor = draft.from + Math.min(replacement.length, cellOffset);
-    view.dispatch({
-      changes: { from: draft.from, to: draft.to, insert: replacement },
-      selection: EditorSelection.cursor(anchor),
-      scrollIntoView: true
-    });
-    closeOverlay(view);
+    setApplyingState(true);
+
+    const finishApply = (): void => {
+      if (!applying || overlay !== root) return;
+      applying = false;
+      window.removeEventListener('mve-preview-input-settled', finishApply);
+      closeOverlay(view);
+    };
+
+    window.addEventListener('mve-preview-input-settled', finishApply, { once: true });
+    try {
+      view.dispatch({
+        changes: { from: draft.from, to: draft.to, insert: replacement },
+        selection: EditorSelection.cursor(anchor),
+        scrollIntoView: true
+      });
+    } catch (error) {
+      window.removeEventListener('mve-preview-input-settled', finishApply);
+      setApplyingState(false);
+      throw error;
+    }
   };
 
   root.addEventListener('click', (event) => {
+    if (applying) return;
     const target = event.target instanceof Element ? event.target.closest<HTMLButtonElement>('button[data-action]') : null;
     if (!target) return;
     const action = target.dataset.action;
@@ -235,6 +269,10 @@ function openTableGridEditor(): void {
   });
 
   root.addEventListener('keydown', (event) => {
+    if (applying) {
+      event.preventDefault();
+      return;
+    }
     if (event.key === 'Escape') {
       event.preventDefault();
       closeOverlay(view);
@@ -257,6 +295,7 @@ function handleCellKeyDown(
 ): void {
   if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
     event.preventDefault();
+    event.stopPropagation();
     apply();
     return;
   }
