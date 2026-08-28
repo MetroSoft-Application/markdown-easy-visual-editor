@@ -88,12 +88,12 @@
       "editor/title": [
         {
           "command": "markdownEasyVisualEditor.openSource",
-          "when": "activeCustomEditor == markdownEasyVisualEditor.editor",
+          "when": "activeCustomEditorId == 'markdownEasyVisualEditor.editor'",
           "group": "navigation@1"
         },
         {
           "command": "markdownEasyVisualEditor.exportPdf",
-          "when": "activeCustomEditor == markdownEasyVisualEditor.editor",
+          "when": "activeCustomEditorId == 'markdownEasyVisualEditor.editor'",
           "group": "navigation@1"
         }
       ],
@@ -133,32 +133,32 @@
       {
         "key": "ctrl+z",
         "command": "markdownEasyVisualEditor.undo",
-        "when": "activeCustomEditor == markdownEasyVisualEditor.editor && !inputFocus"
+        "when": "activeCustomEditorId == 'markdownEasyVisualEditor.editor' && !inputFocus"
       },
       {
         "key": "ctrl+y",
         "command": "markdownEasyVisualEditor.redo",
-        "when": "activeCustomEditor == markdownEasyVisualEditor.editor && !inputFocus"
+        "when": "activeCustomEditorId == 'markdownEasyVisualEditor.editor' && !inputFocus"
       },
       {
         "key": "ctrl+shift+z",
         "command": "markdownEasyVisualEditor.redo",
-        "when": "activeCustomEditor == markdownEasyVisualEditor.editor && !inputFocus"
+        "when": "activeCustomEditorId == 'markdownEasyVisualEditor.editor' && !inputFocus"
       },
       {
         "key": "cmd+z",
         "command": "markdownEasyVisualEditor.undo",
-        "when": "activeCustomEditor == markdownEasyVisualEditor.editor && !inputFocus"
+        "when": "activeCustomEditorId == 'markdownEasyVisualEditor.editor' && !inputFocus"
       },
       {
         "key": "cmd+y",
         "command": "markdownEasyVisualEditor.redo",
-        "when": "activeCustomEditor == markdownEasyVisualEditor.editor && !inputFocus"
+        "when": "activeCustomEditorId == 'markdownEasyVisualEditor.editor' && !inputFocus"
       },
       {
         "key": "cmd+shift+z",
         "command": "markdownEasyVisualEditor.redo",
-        "when": "activeCustomEditor == markdownEasyVisualEditor.editor && !inputFocus"
+        "when": "activeCustomEditorId == 'markdownEasyVisualEditor.editor' && !inputFocus"
       }
     ],
     "configuration": {
