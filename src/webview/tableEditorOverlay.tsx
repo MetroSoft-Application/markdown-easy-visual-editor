@@ -17,45 +17,15 @@ const MAX_ROWS = 50;
 const MAX_COLUMNS = 20;
 let overlayRoot: Root | undefined;
 let overlayHost: HTMLDivElement | undefined;
-let ribbonObserver: MutationObserver | undefined;
 
-/** 専用テーブルエディターとリボン起動ボタンをWebviewへ登録する。 */
+/** 専用テーブルエディターをWebviewへ登録する。起動UIはReactのRibbon本体が担当する。 */
 export function installTableEditorOverlay(): () => void {
   const open = () => openTableEditor();
   window.addEventListener(OPEN_EVENT, open);
-  const root = document.getElementById('root');
-  if (root) {
-    ribbonObserver = new MutationObserver(() => ensureRibbonLauncher());
-    ribbonObserver.observe(root, { childList: true, subtree: true, attributes: true, attributeFilter: ['aria-selected'] });
-    queueMicrotask(ensureRibbonLauncher);
-  }
   return () => {
     window.removeEventListener(OPEN_EVENT, open);
-    ribbonObserver?.disconnect();
-    ribbonObserver = undefined;
     closeOverlay();
   };
-}
-
-/** 表タブのTSVグループへ、専用エディターを開くボタンを追加する。 */
-function ensureRibbonLauncher(): void {
-  const tabs = Array.from(document.querySelectorAll<HTMLElement>('.ribbon-tabs [role="tab"]'));
-  if (tabs[2]?.getAttribute('aria-selected') !== 'true') return;
-  const content = document.querySelector<HTMLElement>('.ribbon-content');
-  if (!content || content.querySelector('.mve-table-editor-launch')) return;
-  const groups = Array.from(content.querySelectorAll<HTMLElement>('.ribbon-group'));
-  const controls = groups.at(-1)?.querySelector<HTMLElement>('.ribbon-controls');
-  if (!controls) return;
-  const japanese = document.documentElement.lang.toLowerCase().startsWith('ja');
-  const button = document.createElement('button');
-  button.type = 'button';
-  button.className = 'ribbon-tool mve-table-editor-launch';
-  button.title = japanese ? '現在のMarkdown表を専用UIで編集' : 'Edit the current Markdown table';
-  const label = document.createElement('span');
-  label.textContent = japanese ? '表を編集' : 'Edit table';
-  button.appendChild(label);
-  button.addEventListener('click', () => window.dispatchEvent(new Event(OPEN_EVENT)));
-  controls.prepend(button);
 }
 
 function findEditorView(): EditorView | undefined {
@@ -140,9 +110,15 @@ function TableEditorOverlay({ view, initial, onClose }: {
     [rows]
   );
 
-  function focusCell(row: number, column: number, select = true): void {
-    const safeRow = Math.max(0, Math.min(row, rows.length - 1));
-    const safeColumn = Math.max(0, Math.min(column, columnCount - 1));
+  function focusCell(
+    row: number,
+    column: number,
+    select = true,
+    rowCount = rows.length,
+    columns = columnCount
+  ): void {
+    const safeRow = Math.max(0, Math.min(row, rowCount - 1));
+    const safeColumn = Math.max(0, Math.min(column, columns - 1));
     setActiveRow(safeRow);
     setActiveColumn(safeColumn);
     requestAnimationFrame(() => {
@@ -164,24 +140,27 @@ function TableEditorOverlay({ view, initial, onClose }: {
   function addRow(): void {
     if (rows.length >= MAX_ROWS) return;
     const insertAt = activeRow === 0 ? 1 : activeRow + 1;
+    const nextRowCount = rows.length + 1;
     setRows((previous) => {
       const next = previous.map((row) => Array.from({ length: columnCount }, (_, index) => row[index] ?? ''));
       next.splice(insertAt, 0, Array.from({ length: columnCount }, () => ''));
       return next;
     });
-    focusCell(insertAt, activeColumn);
+    focusCell(insertAt, activeColumn, true, nextRowCount, columnCount);
   }
 
   function deleteRow(): void {
     if (activeRow === 0 || rows.length <= 2) return;
     const nextRow = Math.max(1, activeRow - 1);
+    const nextRowCount = rows.length - 1;
     setRows((previous) => previous.filter((_row, index) => index !== activeRow));
-    focusCell(nextRow, activeColumn);
+    focusCell(nextRow, activeColumn, true, nextRowCount, columnCount);
   }
 
   function addColumn(): void {
     if (columnCount >= MAX_COLUMNS) return;
     const insertAt = activeColumn + 1;
+    const nextColumnCount = columnCount + 1;
     setRows((previous) => previous.map((row, rowIndex) => {
       const next = Array.from({ length: columnCount }, (_, index) => row[index] ?? '');
       next.splice(insertAt, 0, rowIndex === 0 ? `${japanese ? '列' : 'Column'}${insertAt + 1}` : '');
@@ -192,15 +171,16 @@ function TableEditorOverlay({ view, initial, onClose }: {
       next.splice(insertAt, 0, 'none');
       return next;
     });
-    focusCell(activeRow, insertAt);
+    focusCell(activeRow, insertAt, true, rows.length, nextColumnCount);
   }
 
   function deleteColumn(): void {
     if (columnCount <= 1) return;
     const nextColumn = Math.max(0, activeColumn - 1);
+    const nextColumnCount = columnCount - 1;
     setRows((previous) => previous.map((row) => row.filter((_cell, index) => index !== activeColumn)));
     setAlignments((previous) => previous.filter((_alignment, index) => index !== activeColumn));
-    focusCell(activeRow, nextColumn);
+    focusCell(activeRow, nextColumn, true, rows.length, nextColumnCount);
   }
 
   function setAlignment(alignment: TableEditorAlignment): void {
