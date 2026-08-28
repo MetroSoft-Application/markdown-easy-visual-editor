@@ -54,3 +54,7 @@
 ## 1.0.13
 
 - Remove the width limit on the preview.
+
+## 1.0.14
+
+- Fixed the search bar behavior.
