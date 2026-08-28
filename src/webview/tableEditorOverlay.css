@@ -1,0 +1,229 @@
+.mve-table-editor-root {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+}
+
+.mve-table-editor {
+  width: 100%;
+  height: 100%;
+  display: grid;
+  grid-template-rows: 46px 48px minmax(0, 1fr) 48px;
+  background: var(--vscode-editor-background);
+  color: var(--vscode-editor-foreground);
+  font-family: var(--vscode-font-family, sans-serif);
+}
+
+.mve-table-editor-header,
+.mve-table-editor-toolbar,
+.mve-table-editor-footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border-color: var(--vscode-panel-border, var(--mve-border));
+  background: var(--mve-panel, var(--vscode-sideBar-background, var(--vscode-editor-background)));
+}
+
+.mve-table-editor-header {
+  padding: 0 12px;
+  border-bottom: 1px solid var(--vscode-panel-border, var(--mve-border));
+}
+
+.mve-table-editor-header strong {
+  font-size: 14px;
+}
+
+.mve-table-editor-header span {
+  color: var(--vscode-descriptionForeground);
+  font-size: 12px;
+}
+
+.mve-table-editor-close {
+  margin-left: auto;
+  min-width: 30px;
+  height: 28px;
+}
+
+.mve-table-editor-toolbar {
+  padding: 7px 8px;
+  border-bottom: 1px solid var(--vscode-panel-border, var(--mve-border));
+  overflow-x: auto;
+}
+
+.mve-table-editor button {
+  border: 1px solid var(--vscode-button-border, var(--vscode-input-border, var(--mve-border)));
+  border-radius: 3px;
+  padding: 5px 10px;
+  background: var(--vscode-button-secondaryBackground, var(--mve-panel));
+  color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+  font: inherit;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.mve-table-editor button:hover:not(:disabled) {
+  background: var(--vscode-button-secondaryHoverBackground, var(--mve-hover));
+}
+
+.mve-table-editor button.active {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+  border-color: var(--vscode-focusBorder);
+}
+
+.mve-table-editor button.primary {
+  background: var(--vscode-button-background);
+  color: var(--vscode-button-foreground);
+}
+
+.mve-table-editor button.primary:hover:not(:disabled) {
+  background: var(--vscode-button-hoverBackground);
+}
+
+.mve-table-editor button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.mve-table-editor-separator {
+  width: 1px;
+  align-self: stretch;
+  background: var(--vscode-panel-border, var(--mve-border));
+  margin: 0 2px;
+}
+
+.mve-table-editor-grid-wrap {
+  min-height: 0;
+  overflow: auto;
+  padding: 10px 8px 28px;
+  background: var(--vscode-editor-background);
+}
+
+.mve-table-editor-grid {
+  width: 100%;
+  border-collapse: collapse;
+  table-layout: fixed;
+  background: var(--vscode-editor-background);
+}
+
+.mve-table-editor-grid th,
+.mve-table-editor-grid td {
+  border: 1px solid var(--vscode-panel-border, var(--mve-border));
+  padding: 0;
+}
+
+.mve-table-editor-grid th {
+  width: 42px;
+  min-width: 42px;
+  max-width: 42px;
+  text-align: right;
+  padding: 0 9px;
+  color: var(--vscode-editorLineNumber-foreground, var(--vscode-descriptionForeground));
+  background: var(--vscode-editorGutter-background, var(--mve-panel));
+  font-weight: 400;
+  cursor: pointer;
+  user-select: none;
+}
+
+.mve-table-editor-header-row td {
+  background: color-mix(in srgb, var(--vscode-list-activeSelectionBackground, #264f78) 70%, var(--vscode-editor-background));
+}
+
+.mve-table-editor-grid td[data-active="true"] {
+  outline: 2px solid var(--vscode-focusBorder, #007acc);
+  outline-offset: -2px;
+  position: relative;
+  z-index: 1;
+}
+
+.mve-table-editor-grid td[data-alignment="left"] textarea {
+  text-align: left;
+}
+
+.mve-table-editor-grid td[data-alignment="center"] textarea {
+  text-align: center;
+}
+
+.mve-table-editor-grid td[data-alignment="right"] textarea {
+  text-align: right;
+}
+
+.mve-table-editor-grid textarea {
+  display: block;
+  width: 100%;
+  min-height: 34px;
+  resize: vertical;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 7px 9px;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: var(--vscode-editor-foreground);
+  font: 13px/1.45 var(--vscode-editor-font-family, var(--vscode-font-family, monospace));
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.mve-table-editor-grid textarea:focus {
+  background: color-mix(in srgb, var(--vscode-editor-selectionBackground, #264f78) 16%, transparent);
+}
+
+.mve-table-editor-footer {
+  justify-content: space-between;
+  padding: 0 12px;
+  border-top: 1px solid var(--vscode-panel-border, var(--mve-border));
+}
+
+.mve-table-editor-status {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--vscode-descriptionForeground);
+  font-size: 12px;
+}
+
+.mve-table-editor-status.visible {
+  color: var(--vscode-editorWarning-foreground, var(--vscode-foreground));
+}
+
+.mve-table-editor-actions {
+  display: flex;
+  gap: 8px;
+  margin-left: auto;
+}
+
+.mve-table-editor-toast {
+  position: fixed;
+  right: 18px;
+  bottom: 18px;
+  z-index: 1100;
+  max-width: min(420px, calc(100vw - 36px));
+  padding: 9px 12px;
+  border: 1px solid var(--vscode-panel-border, var(--mve-border));
+  border-radius: 4px;
+  background: var(--vscode-notifications-background, var(--mve-panel));
+  color: var(--vscode-notifications-foreground, var(--vscode-foreground));
+  box-shadow: 0 4px 18px rgb(0 0 0 / 28%);
+}
+
+@media (max-width: 720px) {
+  .mve-table-editor {
+    grid-template-rows: 42px auto minmax(0, 1fr) auto;
+  }
+
+  .mve-table-editor-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .mve-table-editor-footer {
+    align-items: flex-start;
+    gap: 8px;
+    padding: 8px;
+  }
+
+  .mve-table-editor-status {
+    white-space: normal;
+  }
+}
