@@ -3,11 +3,14 @@ import { createRoot, type Root } from 'react-dom/client';
 import { EditorSelection } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 import {
-  escapeTableEditorPlainCell,
-  parseTableEditorTsv,
+  applyMarkdownTableAction,
+  applyMarkdownTableTsv,
+  markdownTableToTsv,
+  type MarkdownTableAction
+} from '../shared/markdown';
+import {
   readTableEditorDraft,
   renderTableEditorDraft,
-  tableEditorCellToPlainText,
   type TableEditorAlignment,
   type TableEditorDraft
 } from './tableEditorModel';
@@ -78,7 +81,7 @@ function TableEditorOverlay({ view, initial, onClose }: {
   const [alignments, setAlignments] = useState<TableEditorAlignment[]>(() => initial.alignments.slice());
   const [activeRow, setActiveRow] = useState(initial.activeRow);
   const [activeColumn, setActiveColumn] = useState(initial.activeColumn);
-  const [error, setError] = useState('');
+  const [status, setStatus] = useState('');
   const overlayRef = useRef<HTMLDivElement>(null);
   const japanese = document.documentElement.lang.toLowerCase().startsWith('ja');
   const columnCount = Math.max(1, alignments.length, ...rows.map((row) => row.length));
@@ -105,10 +108,23 @@ function TableEditorOverlay({ view, initial, onClose }: {
     return () => window.removeEventListener('keydown', onKeyDown, true);
   });
 
-  const tsv = useMemo(
-    () => rows.map((row) => row.map(tableEditorCellToPlainText).join('\t')).join('\r\n'),
-    [rows]
-  );
+  const tsv = useMemo(() => {
+    const rendered = renderTableEditorDraft(currentDraft());
+    return markdownTableToTsv(rendered.text, {
+      from: rendered.caretOffset,
+      to: rendered.caretOffset
+    }) ?? '';
+  }, [rows, alignments, activeRow, activeColumn]);
+
+  function currentDraft(): TableEditorDraft {
+    return {
+      ...initial,
+      rows,
+      alignments: Array.from({ length: columnCount }, (_, index) => alignments[index] ?? 'none'),
+      activeRow,
+      activeColumn
+    };
+  }
 
   function focusCell(
     row: number,
@@ -128,6 +144,17 @@ function TableEditorOverlay({ view, initial, onClose }: {
     });
   }
 
+  function replaceDraft(next: TableEditorDraft): void {
+    const nextRows = next.rows.map((row) => row.slice());
+    const nextColumns = Math.max(1, next.alignments.length, ...nextRows.map((row) => row.length));
+    setRows(nextRows);
+    setAlignments(Array.from({ length: nextColumns }, (_, index) => next.alignments[index] ?? 'none'));
+    setActiveRow(next.activeRow);
+    setActiveColumn(next.activeColumn);
+    setStatus('');
+    focusCell(next.activeRow, next.activeColumn, true, nextRows.length, nextColumns);
+  }
+
   function updateCell(row: number, column: number, value: string): void {
     setRows((previous) => previous.map((current, rowIndex) => {
       if (rowIndex !== row) return current;
@@ -137,55 +164,22 @@ function TableEditorOverlay({ view, initial, onClose }: {
     }));
   }
 
-  function addRow(): void {
-    if (rows.length >= MAX_ROWS) return;
-    const insertAt = activeRow === 0 ? 1 : activeRow + 1;
-    const nextRowCount = rows.length + 1;
-    setRows((previous) => {
-      const next = previous.map((row) => Array.from({ length: columnCount }, (_, index) => row[index] ?? ''));
-      next.splice(insertAt, 0, Array.from({ length: columnCount }, () => ''));
-      return next;
-    });
-    focusCell(insertAt, activeColumn, true, nextRowCount, columnCount);
+  /** リボンと同じapplyMarkdownTableActionをdraft表へ適用する。 */
+  function applySharedTableAction(action: MarkdownTableAction): void {
+    const rendered = renderTableEditorDraft(currentDraft());
+    const edit = applyMarkdownTableAction(
+      rendered.text,
+      { from: rendered.caretOffset, to: rendered.caretOffset },
+      action
+    );
+    if (!edit) return;
+    const next = readTableEditorDraft(edit.text, edit.selection.from);
+    if (next) replaceDraft(next);
   }
 
-  function deleteRow(): void {
-    if (activeRow === 0 || rows.length <= 2) return;
-    const nextRow = Math.max(1, activeRow - 1);
-    const nextRowCount = rows.length - 1;
-    setRows((previous) => previous.filter((_row, index) => index !== activeRow));
-    focusCell(nextRow, activeColumn, true, nextRowCount, columnCount);
-  }
-
-  function addColumn(): void {
-    if (columnCount >= MAX_COLUMNS) return;
-    const insertAt = activeColumn + 1;
-    const nextColumnCount = columnCount + 1;
-    setRows((previous) => previous.map((row, rowIndex) => {
-      const next = Array.from({ length: columnCount }, (_, index) => row[index] ?? '');
-      next.splice(insertAt, 0, rowIndex === 0 ? `${japanese ? '列' : 'Column'}${insertAt + 1}` : '');
-      return next;
-    }));
-    setAlignments((previous) => {
-      const next = Array.from({ length: columnCount }, (_, index) => previous[index] ?? 'none');
-      next.splice(insertAt, 0, 'none');
-      return next;
-    });
-    focusCell(activeRow, insertAt, true, rows.length, nextColumnCount);
-  }
-
-  function deleteColumn(): void {
-    if (columnCount <= 1) return;
-    const nextColumn = Math.max(0, activeColumn - 1);
-    const nextColumnCount = columnCount - 1;
-    setRows((previous) => previous.map((row) => row.filter((_cell, index) => index !== activeColumn)));
-    setAlignments((previous) => previous.filter((_alignment, index) => index !== activeColumn));
-    focusCell(activeRow, nextColumn, true, rows.length, nextColumnCount);
-  }
-
-  function setAlignment(alignment: TableEditorAlignment): void {
+  function clearAlignment(): void {
     setAlignments((previous) => Array.from({ length: columnCount }, (_, index) => (
-      index === activeColumn ? alignment : previous[index] ?? 'none'
+      index === activeColumn ? 'none' : previous[index] ?? 'none'
     )));
   }
 
@@ -199,57 +193,48 @@ function TableEditorOverlay({ view, initial, onClose }: {
     focusCell(Math.max(0, Math.min(rows.length - 1, activeRow + direction)), activeColumn);
   }
 
+  /** Excel等のTSV貼り付けもリボン/本文貼り付けと同じapplyMarkdownTableTsvへ渡す。 */
   function pasteTsv(event: React.ClipboardEvent<HTMLTextAreaElement>): void {
     const value = event.clipboardData.getData('text/plain');
     if (!/[\t\r\n]/.test(value)) return;
-    const pasted = parseTableEditorTsv(value);
-    if (!pasted.length) return;
+    const rendered = renderTableEditorDraft(currentDraft());
+    const edit = applyMarkdownTableTsv(
+      rendered.text,
+      { from: rendered.caretOffset, to: rendered.caretOffset },
+      value
+    );
+    if (!edit) return;
     event.preventDefault();
-    const requiredRows = Math.min(MAX_ROWS, Math.max(rows.length, activeRow + pasted.length));
-    const pastedColumns = Math.max(1, ...pasted.map((row) => row.length));
-    const requiredColumns = Math.min(MAX_COLUMNS, Math.max(columnCount, activeColumn + pastedColumns));
-    setRows((previous) => {
-      const next = Array.from({ length: requiredRows }, (_, rowIndex) =>
-        Array.from({ length: requiredColumns }, (_, columnIndex) => previous[rowIndex]?.[columnIndex] ?? '')
-      );
-      for (let rowOffset = 0; rowOffset < pasted.length && activeRow + rowOffset < requiredRows; rowOffset += 1) {
-        for (let columnOffset = 0; columnOffset < pasted[rowOffset].length && activeColumn + columnOffset < requiredColumns; columnOffset += 1) {
-          next[activeRow + rowOffset][activeColumn + columnOffset] = escapeTableEditorPlainCell(pasted[rowOffset][columnOffset]);
-        }
-      }
-      return next;
-    });
-    setAlignments((previous) => Array.from({ length: requiredColumns }, (_, index) => previous[index] ?? 'none'));
+    const next = readTableEditorDraft(edit.text, edit.selection.from);
+    if (next) replaceDraft(next);
   }
 
+  /** TSVコピーも既存のmarkdownTableToTsvを利用し、リボンと同じ変換規則にする。 */
   async function copyTsv(): Promise<void> {
     try {
       await writeClipboardText(tsv);
-      setError(japanese ? 'TSVをコピーしました。' : 'TSV copied.');
-      window.setTimeout(() => setError(''), 1200);
+      setStatus(japanese ? 'TSVをコピーしました。' : 'TSV copied.');
+      window.setTimeout(() => setStatus(''), 1200);
     } catch (copyError) {
-      setError(copyError instanceof Error ? copyError.message : String(copyError));
+      setStatus(copyError instanceof Error ? copyError.message : String(copyError));
     }
   }
 
+  /**
+   * draftをCodeMirrorへ1トランザクションで適用する。
+   * SourceEditorの通常更新リスナーが受信するため、以降はリボン編集と同じApp/host同期経路を通る。
+   */
   function apply(): void {
     if (!view.dom.isConnected) {
-      setError(japanese ? 'ソースエディターが閉じられました。' : 'The source editor is no longer available.');
+      setStatus(japanese ? 'ソースエディターが閉じられました。' : 'The source editor is no longer available.');
       return;
     }
     const current = view.state.doc.toString();
     if (current.slice(initial.from, initial.to) !== initial.originalText) {
-      setError(japanese ? '編集中に元の表が変更されました。閉じて開き直してください。' : 'The table changed while this editor was open. Reopen it before applying.');
+      setStatus(japanese ? '編集中に元の表が変更されました。閉じて開き直してください。' : 'The table changed while this editor was open. Reopen it before applying.');
       return;
     }
-    const draft: TableEditorDraft = {
-      ...initial,
-      rows,
-      alignments: Array.from({ length: columnCount }, (_, index) => alignments[index] ?? 'none'),
-      activeRow,
-      activeColumn
-    };
-    const rendered = renderTableEditorDraft(draft);
+    const rendered = renderTableEditorDraft(currentDraft());
     const changeSet = view.state.changes({ from: initial.from, to: initial.to, insert: rendered.text });
     const snapshot = view.scrollDOM.clientHeight > 0 ? view.scrollSnapshot().map(changeSet) : undefined;
     view.dispatch({
@@ -269,16 +254,16 @@ function TableEditorOverlay({ view, initial, onClose }: {
         <button type="button" className="mve-table-editor-close" title={japanese ? '閉じる' : 'Close'} onClick={() => { onClose(); requestAnimationFrame(() => view.focus()); }}>×</button>
       </header>
       <div className="mve-table-editor-toolbar" role="toolbar">
-        <button type="button" onClick={addRow} disabled={rows.length >= MAX_ROWS}>＋{japanese ? '行' : 'Row'}</button>
-        <button type="button" onClick={deleteRow} disabled={activeRow === 0 || rows.length <= 2}>{japanese ? '行削除' : 'Delete row'}</button>
+        <button type="button" onClick={() => applySharedTableAction('rowAfter')} disabled={rows.length >= MAX_ROWS}>＋{japanese ? '行' : 'Row'}</button>
+        <button type="button" onClick={() => applySharedTableAction('deleteRow')} disabled={activeRow === 0 || rows.length <= 1}>{japanese ? '行削除' : 'Delete row'}</button>
         <span className="mve-table-editor-separator" />
-        <button type="button" onClick={addColumn} disabled={columnCount >= MAX_COLUMNS}>＋{japanese ? '列' : 'Column'}</button>
-        <button type="button" onClick={deleteColumn} disabled={columnCount <= 1}>{japanese ? '列削除' : 'Delete column'}</button>
+        <button type="button" onClick={() => applySharedTableAction('colAfter')} disabled={columnCount >= MAX_COLUMNS}>＋{japanese ? '列' : 'Column'}</button>
+        <button type="button" onClick={() => applySharedTableAction('deleteColumn')} disabled={columnCount <= 1}>{japanese ? '列削除' : 'Delete column'}</button>
         <span className="mve-table-editor-separator" />
-        <ToolbarToggle label={japanese ? '左' : 'Left'} active={currentAlignment === 'left'} onClick={() => setAlignment('left')} />
-        <ToolbarToggle label={japanese ? '中央' : 'Center'} active={currentAlignment === 'center'} onClick={() => setAlignment('center')} />
-        <ToolbarToggle label={japanese ? '右' : 'Right'} active={currentAlignment === 'right'} onClick={() => setAlignment('right')} />
-        <ToolbarToggle label={japanese ? '解除' : 'None'} active={currentAlignment === 'none'} onClick={() => setAlignment('none')} />
+        <ToolbarToggle label={japanese ? '左' : 'Left'} active={currentAlignment === 'left'} onClick={() => applySharedTableAction('alignLeft')} />
+        <ToolbarToggle label={japanese ? '中央' : 'Center'} active={currentAlignment === 'center'} onClick={() => applySharedTableAction('alignCenter')} />
+        <ToolbarToggle label={japanese ? '右' : 'Right'} active={currentAlignment === 'right'} onClick={() => applySharedTableAction('alignRight')} />
+        <ToolbarToggle label={japanese ? '解除' : 'None'} active={currentAlignment === 'none'} onClick={clearAlignment} />
         <span className="mve-table-editor-separator" />
         <button type="button" onClick={() => void copyTsv()}>{japanese ? 'TSVコピー' : 'Copy TSV'}</button>
       </div>
@@ -320,7 +305,7 @@ function TableEditorOverlay({ view, initial, onClose }: {
         </table>
       </div>
       <footer className="mve-table-editor-footer">
-        <span className={error ? 'mve-table-editor-status visible' : 'mve-table-editor-status'}>{error || (japanese ? 'Tab: 次のセル / Shift+Tab: 前のセル / Enter: 下のセル / Ctrl+Enter: 適用' : 'Tab: next / Shift+Tab: previous / Enter: below / Ctrl+Enter: apply')}</span>
+        <span className={status ? 'mve-table-editor-status visible' : 'mve-table-editor-status'}>{status || (japanese ? 'Tab: 次のセル / Shift+Tab: 前のセル / Enter: 下のセル / Ctrl+Enter: 適用' : 'Tab: next / Shift+Tab: previous / Enter: below / Ctrl+Enter: apply')}</span>
         <div className="mve-table-editor-actions">
           <button type="button" onClick={() => { onClose(); requestAnimationFrame(() => view.focus()); }}>{japanese ? 'キャンセル' : 'Cancel'}</button>
           <button type="button" className="primary" onClick={apply}>{japanese ? '適用' : 'Apply'}</button>
