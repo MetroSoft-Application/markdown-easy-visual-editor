@@ -216,6 +216,7 @@ export function Ribbon({ messages, mode, readOnly, activeMarks, outlineVisible, 
                 <Tool label={messages.ribbon.labels.cellBreak} shortcut="Alt+Enter" disabled={readOnly} onClick={() => source('cellBreak')} />
               </Group>
               <Group label={messages.ribbon.groups.excel}>
+                <Tool label={japanese ? '表を編集' : 'Edit table'} disabled={readOnly} onClick={() => window.dispatchEvent(new Event('mve-open-table-editor'))} />
                 <Tool label={messages.ribbon.labels.copyTsv} disabled={mode === 'preview' || (mode === 'split' && splitView === 'preview')} onClick={() => onCommand({ type: 'copyTableTsv' })} />
               </Group>
             </>
