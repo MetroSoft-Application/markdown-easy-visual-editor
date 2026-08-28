@@ -5,6 +5,7 @@ export interface TableEditorDraft {
   to: number;
   originalText: string;
   indent: string;
+  eol: string;
   rows: string[][];
   alignments: TableEditorAlignment[];
   activeRow: number;
@@ -18,12 +19,14 @@ export interface RenderedTableDraft {
 
 /** カーソル位置を含むGFM表を、専用エディター用のセルモデルへ変換する。 */
 export function readTableEditorDraft(source: string, offset: number): TableEditorDraft | undefined {
-  const lines = source.split('\n');
+  const lineBreaks = [...source.matchAll(/\r\n|\r|\n/g)].map((match) => match[0]);
+  const eol = lineBreaks[0] ?? '\n';
+  const lines = source.split(/\r\n|\r|\n/);
   const starts: number[] = [];
   let cursor = 0;
-  for (const line of lines) {
+  for (let index = 0; index < lines.length; index += 1) {
     starts.push(cursor);
-    cursor += line.length + 1;
+    cursor += lines[index].length + (lineBreaks[index]?.length ?? 0);
   }
   const safeOffset = Math.max(0, Math.min(offset, source.length));
   let lineIndex = 0;
@@ -55,6 +58,7 @@ export function readTableEditorDraft(source: string, offset: number): TableEdito
     to,
     originalText: source.slice(from, to),
     indent,
+    eol,
     rows,
     alignments: separator.map(separatorAlignment),
     activeRow: Math.min(activeRow, rows.length - 1),
@@ -74,67 +78,10 @@ export function renderTableEditorDraft(draft: TableEditorDraft): RenderedTableDr
   const activeColumn = Math.max(0, Math.min(draft.activeColumn, columnCount - 1));
   const renderedLineIndex = activeRow === 0 ? 0 : activeRow + 1;
   let caretOffset = 0;
-  for (let index = 0; index < renderedLineIndex; index += 1) caretOffset += lines[index].length + 1;
+  for (let index = 0; index < renderedLineIndex; index += 1) caretOffset += lines[index].length + draft.eol.length;
   caretOffset += draft.indent.length + 2;
   for (let column = 0; column < activeColumn; column += 1) caretOffset += rows[activeRow][column].length + 3;
-  return { text: lines.join('\n'), caretOffset };
-}
-
-/** Excel等から貼り付けたTSVをセル配列へ分解する。 */
-export function parseTableEditorTsv(value: string): string[][] {
-  const rows: string[][] = [];
-  let row: string[] = [];
-  let cell = '';
-  let quoted = false;
-  for (let index = 0; index < value.length; index += 1) {
-    const character = value[index];
-    if (quoted) {
-      if (character === '"' && value[index + 1] === '"') {
-        cell += '"';
-        index += 1;
-      } else if (character === '"') {
-        quoted = false;
-      } else {
-        cell += character;
-      }
-      continue;
-    }
-    if (character === '"' && !cell) {
-      quoted = true;
-    } else if (character === '\t') {
-      row.push(cell);
-      cell = '';
-    } else if (character === '\r' || character === '\n') {
-      row.push(cell);
-      rows.push(row);
-      row = [];
-      cell = '';
-      if (character === '\r' && value[index + 1] === '\n') index += 1;
-    } else {
-      cell += character;
-    }
-  }
-  if (cell || row.length) {
-    row.push(cell);
-    rows.push(row);
-  }
-  return rows;
-}
-
-/** TSV由来の値をMarkdown表のプレーンセルとして安全に保存する。 */
-export function escapeTableEditorPlainCell(value: string): string {
-  return value
-    .replace(/\\/g, '\\\\')
-    .replace(/\|/g, '\\|')
-    .replace(/\r\n|\r|\n/g, '<br>');
-}
-
-/** MarkdownセルをTSVコピー向けの見た目に近い文字列へ戻す。 */
-export function tableEditorCellToPlainText(value: string): string {
-  return value.trim()
-    .replace(/<br\s*\/?\s*>/gi, '\n')
-    .replace(/\\\|/g, '|')
-    .replace(/\\\\/g, '\\');
+  return { text: lines.join(draft.eol), caretOffset };
 }
 
 function isTableRow(line: string): boolean {
