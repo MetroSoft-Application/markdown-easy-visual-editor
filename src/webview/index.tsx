@@ -11,9 +11,11 @@ import './cmMarkdownAutocomplete';
 import './editorTheme.css';
 import './editorThemePolish.css';
 import './previewFullWidth.css';
+import './tableEditorOverlay.css';
 import { getMessages } from '../shared/messages';
 import { installEditorThemeController } from './editorThemeController';
 import { installSelectedTextSearchTransfer } from './searchSelectedText';
+import { installTableEditorOverlay } from './tableEditorOverlay';
 
 /**
  * 行番号の左クリック完了後に、その論理行のテキスト全体を選択する。
@@ -40,6 +42,7 @@ if (!root) throw new Error(getMessages('en').internal.rootNotFound);
 root.addEventListener('click', handleLineNumberClick);
 installEditorThemeController();
 installSelectedTextSearchTransfer();
+installTableEditorOverlay();
 
 /** Reactのルート要素へアプリケーション本体をStrictMode付きで描画する。 */
 createRoot(root).render(
