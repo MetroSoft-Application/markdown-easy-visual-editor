@@ -10,18 +10,21 @@ export function installSelectedTextSearchTransfer(): void {
   if (installed) return;
   installed = true;
 
-  let searchPanelWasVisible = Boolean(document.querySelector('.search-panel'));
+  // Reactの閉じる→開くが同じMutationObserver通知にまとまる場合があるため、
+  // 可視/非可視のbooleanではなく実際のDOM要素の世代を追跡する。
+  let currentPanel: HTMLElement | null = document.querySelector<HTMLElement>('.search-panel');
 
-  const syncWhenOpened = (): void => {
+  const syncPanel = (): void => {
     const panel = document.querySelector<HTMLElement>('.search-panel');
-    const searchPanelVisible = Boolean(panel);
-    if (panel && !searchPanelWasVisible) transferSelectionToSearch(panel);
-    searchPanelWasVisible = searchPanelVisible;
+    if (panel === currentPanel) return;
+
+    currentPanel = panel;
+    if (panel) transferSelectionToSearch(panel);
   };
 
   const start = (): void => {
-    syncWhenOpened();
-    const observer = new MutationObserver(syncWhenOpened);
+    syncPanel();
+    const observer = new MutationObserver(syncPanel);
     observer.observe(document.documentElement, { childList: true, subtree: true });
   };
 
