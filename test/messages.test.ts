@@ -42,6 +42,22 @@ describe('message language resolution', () => {
     }
   });
 
+  it('provides localized table editor messages and interpolates limits', () => {
+    const languages = ['ja', 'en', 'zh-cn', 'ko', 'fr', 'de', 'es'] as const;
+    const titles = languages.map((language) => getMessages(language).app.tableEditor.title);
+
+    expect(new Set(titles).size).toBe(languages.length);
+    for (const language of languages) {
+      const tableEditor = getMessages(language).app.tableEditor;
+      expect(tableEditor.title, language).toBeTruthy();
+      expect(tableEditor.navigationHint, language).toBeTruthy();
+      expect(tableEditor.rowColumnLimit(2, 3), language).toContain('2');
+      expect(tableEditor.rowColumnLimit(2, 3), language).toContain('3');
+      expect(tableEditor.rowColumnLimit(2, 3), language).not.toContain('{rows}');
+      expect(tableEditor.rowColumnLimit(2, 3), language).not.toContain('{columns}');
+    }
+  });
+
   it('keeps the English catalog free of Japanese and CJK text', () => {
     const cjk = (value: string): boolean => Array.from(value).some((character) => {
       const codePoint = character.codePointAt(0) ?? 0;

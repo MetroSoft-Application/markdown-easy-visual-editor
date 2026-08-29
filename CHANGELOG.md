@@ -58,3 +58,7 @@
 ## 1.0.14
 
 - Fixed the search bar behavior.
+
+## 1.0.15
+
+- Add a table editing UI.

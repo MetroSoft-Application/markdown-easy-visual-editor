@@ -199,6 +199,9 @@ export function App(): React.JSX.Element {
   }, [cancelPendingPreviewUpdate, cancelActivePreviewRender]);
   const renderedPreviewMarkdown = previewSnapshot.markdown;
   const messages = useMemo(() => getMessages(settings.language), [settings.language]);
+  useEffect(() => {
+    if (settings.language) document.documentElement.lang = settings.language;
+  }, [settings.language]);
   // HTML/PDFの出力先は白背景のため、VS CodeのダークテーマをSVGへ持ち込まない。
   const exportSettings = useMemo(() => ({ ...settings, mermaidTheme: 'default' as const }), [settings]);
   const [activeMarks, setActiveMarks] = useState<Record<string, boolean>>({});

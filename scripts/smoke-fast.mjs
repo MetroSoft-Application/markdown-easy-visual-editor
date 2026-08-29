@@ -114,7 +114,8 @@ try {
   await page.addScriptTag({ path: path.resolve('dist/webview.js') });
   await page.waitForFunction(() => window.__mveMessages.some((message) => message.type === 'ready'));
   const source = ('# Smoke\n\nfirst\\\nsecond\n\nReference [link][target] and note[^note].\n\n<!-- ordinary comment -->\n\n<div>raw-one</div>\n<div>raw-two</div>\n\n[target]: https://example.com\n\n[^note]: footnote body\n\n```ts\nconst value = 1;\n```\n'
-    + Array.from({ length: 220 }, (_, index) => `\n## Long section ${index}\n\n${'content '.repeat(16)}${index}\n`).join(''))
+    + Array.from({ length: 220 }, (_, index) => `\n## Long section ${index}\n\n${'content '.repeat(16)}${index}\n`).join('')
+    + '\n| H1 | H2 |\n| --- | --- |\n| old | old2 |\n')
     .replace(/\n/g, '\r\n');
   await page.evaluate((text) => { window.__mveHostText = text; }, source);
   await page.evaluate((text) => window.dispatchEvent(new MessageEvent('message', {
@@ -150,8 +151,37 @@ try {
   if (anchorMarkup.footnoteFrom !== anchorMarkup.expectedFootnoteFrom || !anchorMarkup.linked || !anchorMarkup.noted) {
     throw new Error(`reference/footnote source anchors are invalid: ${JSON.stringify(anchorMarkup)}`);
   }
+  // 表エディターの実UIと、変更なし適用時の同期抑止を確認する。
   const sourceEditor = page.locator('.split-editor .cm-content');
+  await sourceEditor.click();
+  await sourceEditor.press('Control+End');
+  const tableSourceLine = page.locator('.split-editor .cm-line').filter({ hasText: '| old | old2 |' }).first();
+  await tableSourceLine.click();
+  await page.getByRole('tab', { name: '表', exact: true }).click();
+  await page.getByRole('button', { name: '表を編集', exact: true }).click();
+  await page.locator('.mve-table-editor').waitFor();
+  if (await page.locator('.mve-table-editor-grid tbody tr').count() !== 2) throw new Error('table editor did not read the table');
+  await page.locator('.mve-table-editor-toolbar button').first().click();
+  if (await page.locator('.mve-table-editor-grid tbody tr').count() !== 3) throw new Error('table editor row draft action did not apply once');
+  await page.getByRole('button', { name: 'キャンセル', exact: true }).click();
+  const noOpMessageStart = await page.evaluate(() => window.__mveMessages.length);
+  await page.getByRole('button', { name: '表を編集', exact: true }).click();
+  await page.getByRole('button', { name: '適用', exact: true }).click();
+  await page.waitForTimeout(300);
+  const noOpLocalChanges = await page.evaluate((start) => window.__mveMessages
+    .slice(start).filter((message) => message.type === 'localChanges'), noOpMessageStart);
+  if (noOpLocalChanges.length !== 0) throw new Error(`untouched table apply emitted synchronization: ${JSON.stringify(noOpLocalChanges)}`);
+  const editMessageStart = await page.evaluate(() => window.__mveMessages.length);
+  await page.getByRole('button', { name: '表を編集', exact: true }).click();
+  await page.locator('[data-table-cell="1:0"]').fill('new');
+  await page.getByRole('button', { name: '適用', exact: true }).click();
+  await page.waitForFunction(() => window.__mveHostText.includes('| new | old2 |'));
+  const tableEditMessages = await page.evaluate((start) => window.__mveMessages
+    .slice(start).filter((message) => message.type === 'localChanges'), editMessageStart);
+  if (tableEditMessages.length !== 1) throw new Error(`table apply emitted ${tableEditMessages.length} synchronization operations`);
+  await page.getByRole('tab', { name: 'ホーム', exact: true }).click();
   const editorNode = await page.locator('.split-editor .cm-editor').elementHandle();
+  const sourceEditMessageStart = await page.evaluate(() => window.__mveMessages.filter((message) => message.type === 'localChanges').length);
   await sourceEditor.click();
   await sourceEditor.press('Control+Home');
   await sourceEditor.press('ArrowDown');
@@ -159,7 +189,7 @@ try {
   await sourceEditor.press('ArrowDown');
   await sourceEditor.press('End');
   await sourceEditor.type('  \nX');
-  await page.waitForFunction(() => window.__mveMessages.some((message) => message.type === 'localChanges'));
+  await page.waitForFunction((start) => window.__mveMessages.filter((message) => message.type === 'localChanges').length > start, sourceEditMessageStart);
   if (!(await page.evaluate(() => window.__mveHostText.includes('second  \r\n')))) throw new Error('two-space hardbreak was removed during source edit');
   const beforeRibbonUndo = await page.evaluate(() => window.__mveHostText);
   await sourceEditor.press('Z');

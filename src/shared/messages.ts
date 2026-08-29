@@ -191,6 +191,28 @@ export interface Messages {
     };
     inspector: { mermaid: string; math: string; image: string; alt: string; reference: string; openFile: string; apply: string };
     link: { title: string; url: string; urlPlaceholder: string; text: string; textHint: string; cancel: string; insert: string };
+    tableEditor: {
+      title: string;
+      close: string;
+      addRow: string;
+      deleteRow: string;
+      addColumn: string;
+      deleteColumn: string;
+      alignLeft: string;
+      alignCenter: string;
+      alignRight: string;
+      clearAlignment: string;
+      copyTsv: string;
+      cancel: string;
+      apply: string;
+      navigationHint: string;
+      sourceEditorRequired: string;
+      tableRequired: string;
+      rowColumnLimit: (rows: number, columns: number) => string;
+      copied: string;
+      sourceEditorClosed: string;
+      documentChanged: string;
+    };
     help: {
       shortcuts: string;
       markdown: string;
@@ -396,6 +418,28 @@ function createMessages(language: SupportedLanguage): Messages {
       },
       inspector: raw.app.inspector,
       link: raw.app.link,
+      tableEditor: {
+        title: raw.app.tableEditor.title,
+        close: raw.app.tableEditor.close,
+        addRow: raw.app.tableEditor.addRow,
+        deleteRow: raw.app.tableEditor.deleteRow,
+        addColumn: raw.app.tableEditor.addColumn,
+        deleteColumn: raw.app.tableEditor.deleteColumn,
+        alignLeft: raw.app.tableEditor.alignLeft,
+        alignCenter: raw.app.tableEditor.alignCenter,
+        alignRight: raw.app.tableEditor.alignRight,
+        clearAlignment: raw.app.tableEditor.clearAlignment,
+        copyTsv: raw.app.tableEditor.copyTsv,
+        cancel: raw.app.tableEditor.cancel,
+        apply: raw.app.tableEditor.apply,
+        navigationHint: raw.app.tableEditor.navigationHint,
+        sourceEditorRequired: raw.app.tableEditor.sourceEditorRequired,
+        tableRequired: raw.app.tableEditor.tableRequired,
+        rowColumnLimit: (rows: number, columns: number) => text('app.tableEditor.rowColumnLimit', { rows, columns }),
+        copied: raw.app.tableEditor.copied,
+        sourceEditorClosed: raw.app.tableEditor.sourceEditorClosed,
+        documentChanged: raw.app.tableEditor.documentChanged
+      },
       help: raw.app.help,
       toast: {
         imagesSaved: (count: number) => text('app.toast.imagesSaved', { count }),
