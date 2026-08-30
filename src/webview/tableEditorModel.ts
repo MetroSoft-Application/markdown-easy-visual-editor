@@ -24,6 +24,22 @@ export type TableEditorApplyResult =
   | { kind: 'noop' }
   | { kind: 'changed'; text: string; caretOffset: number };
 
+export interface TableEditorLineBreakEdit {
+  value: string;
+  caretOffset: number;
+}
+
+/** セル内の選択範囲へMarkdown表で使う改行タグを挿入する。 */
+export function insertTableEditorLineBreak(value: string, selectionStart = value.length, selectionEnd = selectionStart): TableEditorLineBreakEdit {
+  const from = Math.max(0, Math.min(selectionStart, value.length));
+  const to = Math.max(from, Math.min(selectionEnd, value.length));
+  const inserted = '<br>';
+  return {
+    value: `${value.slice(0, from)}${inserted}${value.slice(to)}`,
+    caretOffset: from + inserted.length
+  };
+}
+
 /** カーソル位置を含むGFM表を、専用エディター用のセルモデルへ変換する。 */
 export function readTableEditorDraft(source: string, offset: number): TableEditorDraft | undefined {
   const lineBreaks = [...source.matchAll(/\r\n|\r|\n/g)].map((match) => match[0]);

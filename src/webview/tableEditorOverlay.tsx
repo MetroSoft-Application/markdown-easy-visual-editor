@@ -11,6 +11,7 @@ import {
 import { getMessages, type Messages } from '../shared/messages';
 import {
   readTableEditorDraft,
+  insertTableEditorLineBreak,
   prepareTableEditorApply,
   renderTableEditorDraft,
   type TableEditorAlignment,
@@ -20,8 +21,18 @@ import {
 const OPEN_EVENT = 'mve-open-table-editor';
 const MAX_ROWS = 50;
 const MAX_COLUMNS = 20;
+const MIN_COLUMN_WIDTH = 96;
+const DEFAULT_COLUMN_WIDTH = 160;
+const ROW_HEADER_WIDTH = 42;
 let overlayRoot: Root | undefined;
 let overlayHost: HTMLDivElement | undefined;
+
+type CellSelection = { from: number; to: number };
+type ColumnResizeState = { column: number; startX: number; startWidth: number };
+
+function cellKey(row: number, column: number): string {
+  return `${row}:${column}`;
+}
 
 /** 専用テーブルエディターをWebviewへ登録する。起動UIはReactのRibbon本体が担当する。 */
 export function installTableEditorOverlay(): () => void {
@@ -85,8 +96,14 @@ function TableEditorOverlay({ view, initial, messages, onClose }: {
   const [activeRow, setActiveRow] = useState(initial.activeRow);
   const [activeColumn, setActiveColumn] = useState(initial.activeColumn);
   const [status, setStatus] = useState('');
+  const initialColumnCount = Math.max(1, initial.alignments.length, ...initial.rows.map((row) => row.length));
+  const [columnWidths, setColumnWidths] = useState<number[]>(() => Array.from({ length: initialColumnCount }, () => DEFAULT_COLUMN_WIDTH));
   const overlayRef = useRef<HTMLDivElement>(null);
+  const cellSelectionRef = useRef(new Map<string, CellSelection>());
+  const columnResizeRef = useRef<ColumnResizeState | undefined>(undefined);
   const columnCount = Math.max(1, alignments.length, ...rows.map((row) => row.length));
+  const gridWidth = ROW_HEADER_WIDTH + Array.from({ length: columnCount }, (_, index) => columnWidths[index] ?? DEFAULT_COLUMN_WIDTH)
+    .reduce((total, width) => total + width, 0);
   const cellCountLabel = `${rows.length} × ${columnCount}`;
   const currentAlignment = alignments[Math.min(activeColumn, alignments.length - 1)] ?? 'none';
 
@@ -109,6 +126,34 @@ function TableEditorOverlay({ view, initial, messages, onClose }: {
     window.addEventListener('keydown', onKeyDown, true);
     return () => window.removeEventListener('keydown', onKeyDown, true);
   });
+
+  useEffect(() => {
+    const onMouseMove = (event: MouseEvent) => {
+      const resize = columnResizeRef.current;
+      if (!resize) return;
+      const width = Math.max(MIN_COLUMN_WIDTH, Math.round(resize.startWidth + event.clientX - resize.startX));
+      setColumnWidths((previous) => {
+        if (previous[resize.column] === width) return previous;
+        const next = previous.slice();
+        while (next.length <= resize.column) next.push(DEFAULT_COLUMN_WIDTH);
+        next[resize.column] = width;
+        return next;
+      });
+    };
+    const onMouseUp = () => {
+      columnResizeRef.current = undefined;
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+    window.addEventListener('mousemove', onMouseMove);
+    window.addEventListener('mouseup', onMouseUp);
+    return () => {
+      window.removeEventListener('mousemove', onMouseMove);
+      window.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, []);
 
   const tsv = useMemo(() => {
     const rendered = renderTableEditorDraft(currentDraft());
@@ -142,7 +187,10 @@ function TableEditorOverlay({ view, initial, messages, onClose }: {
     requestAnimationFrame(() => {
       const element = overlayRef.current?.querySelector<HTMLTextAreaElement>(`[data-table-cell="${safeRow}:${safeColumn}"]`);
       element?.focus();
-      if (select) element?.select();
+      if (select && element) {
+        element.select();
+        cellSelectionRef.current.set(cellKey(safeRow, safeColumn), { from: 0, to: element.value.length });
+      }
     });
   }
 
@@ -155,6 +203,8 @@ function TableEditorOverlay({ view, initial, messages, onClose }: {
     }
     setRows(nextRows);
     setAlignments(Array.from({ length: nextColumns }, (_, index) => next.alignments[index] ?? 'none'));
+    setColumnWidths((previous) => Array.from({ length: nextColumns }, (_, index) => previous[index] ?? DEFAULT_COLUMN_WIDTH));
+    cellSelectionRef.current.clear();
     setActiveRow(next.activeRow);
     setActiveColumn(next.activeColumn);
     setStatus('');
@@ -168,6 +218,59 @@ function TableEditorOverlay({ view, initial, messages, onClose }: {
       next[column] = value.replace(/\r\n|\r|\n/g, '<br>');
       return next;
     }));
+  }
+
+  function rememberCellSelection(row: number, column: number, element: HTMLTextAreaElement): void {
+    setActiveRow(row);
+    setActiveColumn(column);
+    cellSelectionRef.current.set(cellKey(row, column), {
+      from: element.selectionStart,
+      to: element.selectionEnd
+    });
+  }
+
+  function insertLineBreak(): void {
+    const value = rows[activeRow]?.[activeColumn] ?? '';
+    const selection = cellSelectionRef.current.get(cellKey(activeRow, activeColumn));
+    const edit = insertTableEditorLineBreak(value, selection?.from ?? value.length, selection?.to ?? value.length);
+    const key = cellKey(activeRow, activeColumn);
+    setRows((previous) => previous.map((current, rowIndex) => {
+      if (rowIndex !== activeRow) return current;
+      const next = Array.from({ length: columnCount }, (_, index) => current[index] ?? '');
+      next[activeColumn] = edit.value;
+      return next;
+    }));
+    cellSelectionRef.current.set(key, { from: edit.caretOffset, to: edit.caretOffset });
+    requestAnimationFrame(() => {
+      const element = overlayRef.current?.querySelector<HTMLTextAreaElement>(`[data-table-cell="${key}"]`);
+      element?.focus();
+      element?.setSelectionRange(edit.caretOffset, edit.caretOffset);
+    });
+  }
+
+  function startColumnResize(event: React.MouseEvent<HTMLDivElement>, column: number): void {
+    if (event.button !== 0) return;
+    event.preventDefault();
+    event.stopPropagation();
+    columnResizeRef.current = {
+      column,
+      startX: event.clientX,
+      startWidth: columnWidths[column] ?? DEFAULT_COLUMN_WIDTH
+    };
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  }
+
+  function resizeColumnByKeyboard(event: React.KeyboardEvent<HTMLDivElement>, column: number): void {
+    const delta = event.key === 'ArrowLeft' ? -12 : event.key === 'ArrowRight' ? 12 : 0;
+    if (!delta) return;
+    event.preventDefault();
+    setColumnWidths((previous) => {
+      const next = previous.slice();
+      while (next.length <= column) next.push(DEFAULT_COLUMN_WIDTH);
+      next[column] = Math.max(MIN_COLUMN_WIDTH, next[column] + delta);
+      return next;
+    });
   }
 
   /** リボンと同じapplyMarkdownTableActionをdraft表へ適用する。 */
@@ -284,9 +387,16 @@ function TableEditorOverlay({ view, initial, messages, onClose }: {
         <ToolbarToggle label={messages.app.tableEditor.clearAlignment} active={currentAlignment === 'none'} onClick={clearAlignment} />
         <span className="mve-table-editor-separator" />
         <button type="button" onClick={() => void copyTsv()}>{messages.app.tableEditor.copyTsv}</button>
+        <button type="button" title={messages.ribbon.labels.cellBreak} onClick={insertLineBreak}>{messages.ribbon.labels.cellBreak}</button>
       </div>
       <div className="mve-table-editor-grid-wrap">
-        <table className="mve-table-editor-grid">
+        <table className="mve-table-editor-grid" style={{ width: `${gridWidth}px`, minWidth: '100%' }}>
+          <colgroup>
+            <col style={{ width: `${ROW_HEADER_WIDTH}px` }} />
+            {Array.from({ length: columnCount }, (_, columnIndex) => (
+              <col key={columnIndex} style={{ width: `${columnWidths[columnIndex] ?? DEFAULT_COLUMN_WIDTH}px` }} />
+            ))}
+          </colgroup>
           <tbody>
             {rows.map((row, rowIndex) => (
               <tr key={rowIndex} className={rowIndex === 0 ? 'mve-table-editor-header-row' : ''}>
@@ -301,8 +411,12 @@ function TableEditorOverlay({ view, initial, messages, onClose }: {
                         spellCheck={false}
                         value={row[columnIndex] ?? ''}
                         data-table-cell={`${rowIndex}:${columnIndex}`}
-                        onFocus={() => { setActiveRow(rowIndex); setActiveColumn(columnIndex); }}
-                        onChange={(event) => updateCell(rowIndex, columnIndex, event.target.value)}
+                        onFocus={(event) => rememberCellSelection(rowIndex, columnIndex, event.currentTarget)}
+                        onSelect={(event) => rememberCellSelection(rowIndex, columnIndex, event.currentTarget)}
+                        onChange={(event) => {
+                          updateCell(rowIndex, columnIndex, event.target.value);
+                          rememberCellSelection(rowIndex, columnIndex, event.currentTarget);
+                        }}
                         onPaste={pasteTsv}
                         onKeyDown={(event) => {
                           if (event.key === 'Tab') {
@@ -314,6 +428,20 @@ function TableEditorOverlay({ view, initial, messages, onClose }: {
                           }
                         }}
                       />
+                      {rowIndex === 0 && (
+                        <div
+                          className="mve-table-editor-column-resizer"
+                          role="separator"
+                          tabIndex={0}
+                          aria-orientation="vertical"
+                          aria-label={`${messages.app.tableEditor.resizeColumn} ${columnIndex + 1}`}
+                          aria-valuemin={MIN_COLUMN_WIDTH}
+                          aria-valuenow={Math.round(columnWidths[columnIndex] ?? DEFAULT_COLUMN_WIDTH)}
+                          title={messages.app.tableEditor.resizeColumn}
+                          onMouseDown={(event) => startColumnResize(event, columnIndex)}
+                          onKeyDown={(event) => resizeColumnByKeyboard(event, columnIndex)}
+                        />
+                      )}
                     </td>
                   );
                 })}

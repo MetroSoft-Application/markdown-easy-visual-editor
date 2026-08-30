@@ -311,7 +311,8 @@
         "rowColumnLimit": "表の上限は{rows}行{columns}列です。",
         "copied": "TSVをコピーしました。",
         "sourceEditorClosed": "ソースエディターが閉じられました。",
-        "documentChanged": "編集中に本文が変更されました。閉じて開き直してください。"
+        "documentChanged": "編集中に本文が変更されました。閉じて開き直してください。",
+        "resizeColumn": "列幅を変更"
       },
       "help": {
         "shortcuts": "ショートカット",
@@ -730,7 +731,8 @@
         "rowColumnLimit": "The table limit is {rows} rows and {columns} columns.",
         "copied": "TSV copied.",
         "sourceEditorClosed": "The source editor is no longer available.",
-        "documentChanged": "The document changed while this editor was open. Reopen it before applying."
+        "documentChanged": "The document changed while this editor was open. Reopen it before applying.",
+        "resizeColumn": "Resize column"
       },
       "help": {
         "shortcuts": "Shortcuts",
@@ -1149,7 +1151,8 @@
         "rowColumnLimit": "表格上限为 {rows} 行、{columns} 列。",
         "copied": "已复制 TSV。",
         "sourceEditorClosed": "源代码编辑器已关闭。",
-        "documentChanged": "编辑器打开期间文档发生了变化。请关闭后重新打开。"
+        "documentChanged": "编辑器打开期间文档发生了变化。请关闭后重新打开。",
+        "resizeColumn": "调整列宽"
       },
       "help": {
         "shortcuts": "快捷键",
@@ -1568,7 +1571,8 @@
         "rowColumnLimit": "표의 최대 크기는 {rows}행 {columns}열입니다.",
         "copied": "TSV를 복사했습니다.",
         "sourceEditorClosed": "소스 편집기를 더 이상 사용할 수 없습니다.",
-        "documentChanged": "이 편집기를 여는 동안 문서가 변경되었습니다. 적용하기 전에 다시 여세요."
+        "documentChanged": "이 편집기를 여는 동안 문서가 변경되었습니다. 적용하기 전에 다시 여세요.",
+        "resizeColumn": "열 너비 조정"
       },
       "help": {
         "shortcuts": "바로 가기",
@@ -1987,7 +1991,8 @@
         "rowColumnLimit": "La limite du tableau est de {rows} lignes et {columns} colonnes.",
         "copied": "TSV copié.",
         "sourceEditorClosed": "L'éditeur source n'est plus disponible.",
-        "documentChanged": "Le document a changé pendant que cet éditeur était ouvert. Rouvrez-le avant d'appliquer."
+        "documentChanged": "Le document a changé pendant que cet éditeur était ouvert. Rouvrez-le avant d'appliquer.",
+        "resizeColumn": "Redimensionner la colonne"
       },
       "help": {
         "shortcuts": "Raccourcis",
@@ -2406,7 +2411,8 @@
         "rowColumnLimit": "Die Tabelle darf höchstens {rows} Zeilen und {columns} Spalten enthalten.",
         "copied": "TSV kopiert.",
         "sourceEditorClosed": "Der Quelltext-Editor ist nicht mehr verfügbar.",
-        "documentChanged": "Das Dokument wurde geändert, während dieser Editor geöffnet war. Öffnen Sie ihn vor dem Anwenden erneut."
+        "documentChanged": "Das Dokument wurde geändert, während dieser Editor geöffnet war. Öffnen Sie ihn vor dem Anwenden erneut.",
+        "resizeColumn": "Spaltenbreite ändern"
       },
       "help": {
         "shortcuts": "Tastenkürzel",
@@ -2825,7 +2831,8 @@
         "rowColumnLimit": "La tabla admite como máximo {rows} filas y {columns} columnas.",
         "copied": "TSV copiado.",
         "sourceEditorClosed": "El editor de código fuente ya no está disponible.",
-        "documentChanged": "El documento cambió mientras este editor estaba abierto. Vuelve a abrirlo antes de aplicar."
+        "documentChanged": "El documento cambió mientras este editor estaba abierto. Vuelve a abrirlo antes de aplicar.",
+        "resizeColumn": "Cambiar el ancho de la columna"
       },
       "help": {
         "shortcuts": "Atajos",

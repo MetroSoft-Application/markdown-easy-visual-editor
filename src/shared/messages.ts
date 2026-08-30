@@ -212,6 +212,7 @@ export interface Messages {
       copied: string;
       sourceEditorClosed: string;
       documentChanged: string;
+      resizeColumn: string;
     };
     help: {
       shortcuts: string;
@@ -438,7 +439,8 @@ function createMessages(language: SupportedLanguage): Messages {
         rowColumnLimit: (rows: number, columns: number) => text('app.tableEditor.rowColumnLimit', { rows, columns }),
         copied: raw.app.tableEditor.copied,
         sourceEditorClosed: raw.app.tableEditor.sourceEditorClosed,
-        documentChanged: raw.app.tableEditor.documentChanged
+        documentChanged: raw.app.tableEditor.documentChanged,
+        resizeColumn: raw.app.tableEditor.resizeColumn
       },
       help: raw.app.help,
       toast: {

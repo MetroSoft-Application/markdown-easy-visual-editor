@@ -1,4 +1,4 @@
-import type { Diagnostic, TextSelection } from './markdown';
+import type { Diagnostic } from './markdown';
 import type { SupportedLanguage } from './messages';
 
 export type EditorMode = 'split' | 'preview';
@@ -102,7 +102,6 @@ export type WebviewToHostMessage =
   | { type: 'ready'; clientId: string }
   | { type: 'localChanges'; clientId: string; opId: string; baseVersion: number; changes: TextChange[] }
   | { type: 'historyCommand'; clientId: string; command: 'undo' | 'redo' }
-  | { type: 'attachSelectionToCopilot'; clientId: string; selection: TextSelection }
   | { type: 'saveImages'; requestId: string; images: ImagePayload[] }
   | { type: 'pickImage'; requestId: string }
   | { type: 'checkLocalResources'; requestId: string; markdown: string }

@@ -7,7 +7,8 @@ import {
 import {
   prepareTableEditorApply,
   readTableEditorDraft,
-  renderTableEditorDraft
+  renderTableEditorDraft,
+  insertTableEditorLineBreak
 } from '../src/webview/tableEditorModel';
 
 describe('table editor model', () => {
@@ -99,6 +100,12 @@ describe('table editor model', () => {
       expect(result.text).toBe('| A | B |\n| --- | --- |\n| changed | 2 |');
       expect(result.caretOffset).toBe('| A | B |\n| --- | --- |\n| '.length);
     }
+  });
+
+  it('inserts a Markdown line break at the cell selection without adding a table row', () => {
+    expect(insertTableEditorLineBreak('beforeafter', 6, 6)).toEqual({ value: 'before<br>after', caretOffset: 10 });
+    expect(insertTableEditorLineBreak('beforeafter', 0, 6)).toEqual({ value: '<br>after', caretOffset: 4 });
+    expect(insertTableEditorLineBreak('beforeafter', 6, 6).value).not.toContain('\n');
   });
 
   it('rejects applying a draft after any external document change', () => {

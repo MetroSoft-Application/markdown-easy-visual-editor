@@ -120,6 +120,7 @@
 
 .mve-table-editor-grid th,
 .mve-table-editor-grid td {
+  position: relative;
   border: 1px solid var(--vscode-panel-border, var(--mve-border));
   padding: 0;
 }
@@ -179,6 +180,31 @@
 
 .mve-table-editor-grid textarea:focus {
   background: color-mix(in srgb, var(--vscode-editor-selectionBackground, #264f78) 16%, transparent);
+}
+
+.mve-table-editor-column-resizer {
+  display: block;
+  position: absolute;
+  z-index: 3;
+  top: 0;
+  right: -4px;
+  bottom: 0;
+  width: 8px;
+  min-width: 8px;
+  min-height: 0;
+  box-sizing: border-box;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: var(--vscode-descriptionForeground, #888) !important;
+  cursor: col-resize !important;
+  opacity: 0.28;
+}
+
+.mve-table-editor-column-resizer:hover,
+.mve-table-editor-column-resizer:focus-visible {
+  opacity: 1;
+  background: var(--vscode-focusBorder, #007acc) !important;
 }
 
 .mve-table-editor-footer {

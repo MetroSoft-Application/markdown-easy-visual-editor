@@ -111,6 +111,7 @@ try {
     document.body.dataset.mveMarkdownWorkerUri = URL.createObjectURL(new Blob([workerSource], { type: 'text/javascript' }));
   }, markdownWorkerBundle);
   await page.addStyleTag({ path: path.resolve('dist/styles.css') });
+  await page.addStyleTag({ path: path.resolve('dist/webview.css') });
   await page.addScriptTag({ path: path.resolve('dist/webview.js') });
   await page.waitForFunction(() => window.__mveMessages.some((message) => message.type === 'ready'));
   const source = ('# Smoke\n\nfirst\\\nsecond\n\nReference [link][target] and note[^note].\n\n<!-- ordinary comment -->\n\n<div>raw-one</div>\n<div>raw-two</div>\n\n[target]: https://example.com\n\n[^note]: footnote body\n\n```ts\nconst value = 1;\n```\n'
@@ -154,34 +155,6 @@ try {
   // 表エディターの実UIと、変更なし適用時の同期抑止を確認する。
   const sourceEditor = page.locator('.split-editor .cm-content');
   await sourceEditor.click();
-  const copilotSelectionMessageStart = await page.evaluate(() => window.__mveMessages.length);
-  await sourceEditor.press('Control+Home');
-  await sourceEditor.press('Shift+End');
-  await page.waitForFunction((start) => window.__mveMessages.slice(start).some(
-    (message) => message.type === 'attachSelectionToCopilot'
-  ), copilotSelectionMessageStart);
-  const attachedSelection = await page.evaluate((start) => window.__mveMessages.slice(start).find(
-    (message) => message.type === 'attachSelectionToCopilot'
-  )?.selection, copilotSelectionMessageStart);
-  if (attachedSelection?.from !== 0 || attachedSelection?.to !== '# Smoke'.length) {
-    throw new Error(`selected text was not automatically attached to Copilot context: ${JSON.stringify(attachedSelection)}`);
-  }
-  const changedSelectionMessageStart = await page.evaluate(() => window.__mveMessages.length);
-  await sourceEditor.press('ArrowRight');
-  await sourceEditor.press('Control+Home');
-  await sourceEditor.press('ArrowDown');
-  await sourceEditor.press('ArrowDown');
-  await sourceEditor.press('Shift+End');
-  await page.waitForFunction((start) => window.__mveMessages.slice(start).some(
-    (message) => message.type === 'attachSelectionToCopilot'
-  ), changedSelectionMessageStart);
-  const changedSelection = await page.evaluate((start) => window.__mveMessages.slice(start).find(
-    (message) => message.type === 'attachSelectionToCopilot'
-  )?.selection, changedSelectionMessageStart);
-  const changedSelectionFrom = source.indexOf('first\\');
-  if (changedSelection?.from !== changedSelectionFrom || changedSelection?.to !== changedSelectionFrom + 'first\\'.length) {
-    throw new Error(`changed selection was not reflected in Copilot context: ${JSON.stringify(changedSelection)}`);
-  }
   await sourceEditor.press('Control+End');
   const tableSourceLine = page.locator('.split-editor .cm-line').filter({ hasText: '| old | old2 |' }).first();
   await tableSourceLine.click();
@@ -191,6 +164,18 @@ try {
   if (await page.locator('.mve-table-editor-grid tbody tr').count() !== 2) throw new Error('table editor did not read the table');
   await page.locator('.mve-table-editor-toolbar button').first().click();
   if (await page.locator('.mve-table-editor-grid tbody tr').count() !== 3) throw new Error('table editor row draft action did not apply once');
+  for (let index = 0; index < 4; index += 1) {
+    await page.getByRole('button', { name: '＋列', exact: true }).click();
+  }
+  const tableColumnBefore = await page.locator('.mve-table-editor-grid col').nth(1).evaluate((element) => element.getBoundingClientRect().width);
+  const columnResizerBounds = await page.locator('.mve-table-editor-column-resizer').first().boundingBox();
+  if (!columnResizerBounds) throw new Error('table editor column resizer is not visible');
+  await page.mouse.move(columnResizerBounds.x + 4, columnResizerBounds.y + 12);
+  await page.mouse.down();
+  await page.mouse.move(columnResizerBounds.x + 64, columnResizerBounds.y + 12);
+  await page.mouse.up();
+  const tableColumnAfter = await page.locator('.mve-table-editor-grid col').nth(1).evaluate((element) => element.getBoundingClientRect().width);
+  if (tableColumnAfter < tableColumnBefore + 40) throw new Error(`table editor column did not resize: before=${tableColumnBefore}, after=${tableColumnAfter}`);
   await page.getByRole('button', { name: 'キャンセル', exact: true }).click();
   const noOpMessageStart = await page.evaluate(() => window.__mveMessages.length);
   await page.getByRole('button', { name: '表を編集', exact: true }).click();
@@ -201,12 +186,21 @@ try {
   if (noOpLocalChanges.length !== 0) throw new Error(`untouched table apply emitted synchronization: ${JSON.stringify(noOpLocalChanges)}`);
   const editMessageStart = await page.evaluate(() => window.__mveMessages.length);
   await page.getByRole('button', { name: '表を編集', exact: true }).click();
-  await page.locator('[data-table-cell="1:0"]').fill('new');
+  await page.locator('[data-table-cell="1:0"]').fill('beforeafter');
+  await page.getByRole('button', { name: 'セル内改行', exact: true }).click();
   await page.getByRole('button', { name: '適用', exact: true }).click();
-  await page.waitForFunction(() => window.__mveHostText.includes('| new | old2 |'));
+  await page.waitForFunction(() => window.__mveHostText.includes('| beforeafter<br> | old2 |'));
   const tableEditMessages = await page.evaluate((start) => window.__mveMessages
     .slice(start).filter((message) => message.type === 'localChanges'), editMessageStart);
   if (tableEditMessages.length !== 1) throw new Error(`table apply emitted ${tableEditMessages.length} synchronization operations`);
+  const lineBreakMessageStart = await page.evaluate(() => window.__mveMessages.length);
+  await page.getByRole('button', { name: '表を編集', exact: true }).click();
+  await page.locator('[data-table-cell="1:0"]').fill('new');
+  await page.getByRole('button', { name: '適用', exact: true }).click();
+  await page.waitForFunction(() => window.__mveHostText.includes('| new | old2 |'));
+  const lineBreakMessages = await page.evaluate((start) => window.__mveMessages
+    .slice(start).filter((message) => message.type === 'localChanges'), lineBreakMessageStart);
+  if (lineBreakMessages.length !== 1) throw new Error(`follow-up table apply emitted ${lineBreakMessages.length} synchronization operations`);
   await page.getByRole('tab', { name: 'ホーム', exact: true }).click();
   const editorNode = await page.locator('.split-editor .cm-editor').elementHandle();
   const sourceEditMessageStart = await page.evaluate(() => window.__mveMessages.filter((message) => message.type === 'localChanges').length);
@@ -899,7 +893,7 @@ try {
   await page.evaluate(() => { window.__mveAckDelay = 0; });
   await context.close();
   if (errors.length) throw new Error(errors.join('\n'));
-  console.log('高速スモーク: Copilot選択自動添付、フォーカス非介入、スクロール保持、CRLF、分割表示、ズーム、空白可視化、ハイライトを確認しました。');
+  console.log('高速スモーク: 表編集の列幅変更・セル内改行、フォーカス非介入、スクロール保持、CRLF、分割表示、ズーム、空白可視化、ハイライトを確認しました。');
 } finally {
   await browser.close();
 }

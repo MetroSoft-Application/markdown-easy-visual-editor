@@ -63,6 +63,6 @@
 
 - Add a table editing UI.
 
-## 1.0.16
+## 1.0.17
 
-- Added a feature to send the selected line to GitHub Copilot.
+- Improved the table editing UI.
