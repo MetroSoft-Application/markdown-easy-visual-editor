@@ -15,12 +15,6 @@ interface SourceRange {
   to: number;
 }
 
-interface OutlineNavigationTarget {
-  preview: HTMLElement;
-  offset: number;
-}
-
-const PREVIEW_ONLY_OUTLINE_TOP_OFFSET = 18;
 const previewSourceElementCache = new WeakMap<HTMLElement, {
   root: HTMLElement;
   revision: string;
@@ -105,64 +99,6 @@ function findSourceElementAtOffset(elements: HTMLElement[], offset: number): HTM
     }
   }
   return next ?? elements.at(-1);
-}
-
-/**
- * アウトラインで選択された見出しと、分割プレビュー上の対応ブロックを求める。
- * アウトラインと見出しブロックは同じ文書順で生成されるため、同一インデックスで対応付ける。
- * @param event アウトライン操作のクリックイベント。
- * @returns 対応するプレビューとソースオフセット。対象外のクリックならundefined。
- */
-function getOutlineNavigationTarget(event: MouseEvent): OutlineNavigationTarget | undefined {
-  if (!(event.target instanceof Element)) return undefined;
-  const button = event.target.closest<HTMLButtonElement>('.outline-panel nav button');
-  if (!button) return undefined;
-  const navigation = button.closest('nav');
-  if (!navigation) return undefined;
-  const buttons = Array.from(navigation.querySelectorAll<HTMLButtonElement>('button'));
-  const outlineIndex = buttons.indexOf(button);
-  if (outlineIndex < 0) return undefined;
-  const preview = document.querySelector<HTMLElement>('.split-preview:not(.pane-hidden)');
-  if (!preview) return undefined;
-  const headingBlocks = Array.from(preview.querySelectorAll<HTMLElement>('.markdown-source-block'))
-    .filter((block) => block.firstElementChild?.matches('h1,h2,h3,h4,h5,h6'));
-  const headingBlock = headingBlocks[outlineIndex];
-  if (!headingBlock) return undefined;
-  const offset = Number(headingBlock.dataset.sourceFrom);
-  return Number.isFinite(offset) ? { preview, offset } : undefined;
-}
-
-/**
- * ソース側でアウトライン移動が完了した後、アクティブ行と同じ高さへプレビュー見出しを合わせる。
- * CodeMirrorのscrollIntoViewがレイアウトへ反映された後に呼び出す。
- * @param target アウトライン対象のプレビューと本文オフセット。
- */
-function alignOutlinePreviewToSource(target: OutlineNavigationTarget): void {
-  const sourcePane = document.querySelector<HTMLElement>('.split-source-pane:not(.pane-hidden)');
-  const sourceScroller = sourcePane?.querySelector<HTMLElement>('.cm-scroller');
-  const activeLine = sourcePane?.querySelector<HTMLElement>('.cm-activeLine');
-  const topOffset = sourceScroller && activeLine
-    ? activeLine.getBoundingClientRect().top - sourceScroller.getBoundingClientRect().top
-    : PREVIEW_ONLY_OUTLINE_TOP_OFFSET;
-  restorePreviewViewport(target.preview, { offset: target.offset, topOffset });
-}
-
-/**
- * B案のアウトライン移動を表示構成に合わせて補正する。
- * 分割表示では既存のソース移動を維持し、その位置へプレビューも追従させる。
- * プレビューのみでは既存ハンドラーにbothへの切替を任せ、表示されたソースとプレビューを同じ見出しへ揃える。
- * @param event ドキュメント上のクリックイベント。
- */
-function handleOutlineNavigationClick(event: MouseEvent): void {
-  const target = getOutlineNavigationTarget(event);
-  if (!target) return;
-  window.requestAnimationFrame(() => {
-    window.requestAnimationFrame(() => alignOutlinePreviewToSource(target));
-  });
-}
-
-if (typeof document !== 'undefined') {
-  document.addEventListener('click', handleOutlineNavigationClick, true);
 }
 
 /**

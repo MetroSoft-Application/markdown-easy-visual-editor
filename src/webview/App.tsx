@@ -1698,6 +1698,52 @@ export function App(): React.JSX.Element {
   }
 
   /**
+   * アウトラインの見出しへ、現在のペイン構成を維持したまま移動する。
+   * プレビューのみでは非表示のソースを開かず、表示中のプレビューを直接スクロールする。
+   * @param offset 移動先の見出し本文オフセット。
+   * @returns 何も返さない。
+   */
+  function goToOutlineOffset(offset: number): void {
+    const nextSelection = { from: offset, to: offset };
+    if (mode === 'split' && splitView === 'preview') {
+      selectionStateRef.current = nextSelection;
+      revealOutlineInSplitPreview(offset, false);
+      return;
+    }
+    navigateToSelection(nextSelection);
+    if (mode === 'split' && splitView === 'both') {
+      // CodeMirrorの選択行とスクロール位置が確定してから、同じ高さへプレビューを揃える。
+      window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => revealOutlineInSplitPreview(offset, true));
+      });
+    }
+  }
+
+  /**
+   * アウトライン対象を分割プレビューへ表示し、以後の復元処理でも維持するアンカーとして保存する。
+   * @param offset 移動先の見出し本文オフセット。
+   * @param alignWithSource ソースの選択行と同じ画面上の高さへ揃えるかどうか。
+   * @returns 何も返さない。
+   */
+  function revealOutlineInSplitPreview(offset: number, alignWithSource: boolean): void {
+    const preview = splitPreviewRef.current;
+    if (!preview) return;
+    const sourcePane = preview.closest('.split-editor')
+      ?.querySelector<HTMLElement>('.split-source-pane:not(.pane-hidden)');
+    const sourceScroller = sourcePane?.querySelector<HTMLElement>('.cm-scroller');
+    const activeLine = sourcePane?.querySelector<HTMLElement>('.cm-activeLine');
+    const topOffset = alignWithSource && sourceScroller && activeLine
+      ? activeLine.getBoundingClientRect().top - sourceScroller.getBoundingClientRect().top
+      : 18;
+    const anchor: PreviewViewportAnchor = { offset, topOffset };
+    viewportStateRef.current.splitPreview = anchor;
+    pendingPreviewViewportRestoreRef.current.splitPreview = undefined;
+    pendingRenderedPreviewKindsRef.current.delete('splitPreview');
+    pendingViewportRestoreRef.current = false;
+    restorePreview(preview, anchor);
+  }
+
+  /**
    * 診断行番号を本文オフセットへ変換し、その行へ移動する。診断パネルは開いたままにする。
    * @param line 1始まりの診断行番号。
    * @returns 何も返さない。
@@ -2340,7 +2386,7 @@ export function App(): React.JSX.Element {
             {outline.length ? (
               <nav>
                 {outline.map((item) => (
-                  <button key={`${item.offset}-${item.id}`} style={{ paddingLeft: `${8 + item.level * 10}px` }} onClick={() => goToOffset(item.offset)}>
+                  <button key={`${item.offset}-${item.id}`} style={{ paddingLeft: `${8 + item.level * 10}px` }} onClick={() => goToOutlineOffset(item.offset)}>
                     {item.text}
                   </button>
                 ))}

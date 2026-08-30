@@ -628,15 +628,73 @@ try {
     throw new Error('preview-only mode did not preserve the preview anchor');
   }
 
+  const previewOnlyOutlineOffset = await page.evaluate(() => window.__mveHostText.indexOf('## Long section 120'));
   await page.getByRole('button', { name: 'Long section 120', exact: true }).click();
+  await page.locator('.split-source-pane').waitFor({ state: 'hidden' });
+  if (await page.getByRole('button', { name: 'プレビューのみ', exact: true }).getAttribute('aria-pressed') !== 'true') {
+    throw new Error('outline navigation changed preview-only mode');
+  }
+  await page.waitForFunction((target) => {
+    const preview = document.querySelector('.split-preview');
+    const previewBounds = preview?.getBoundingClientRect();
+    const targetBlock = [...(preview?.querySelectorAll('[data-source-from]') ?? [])].find((element) => {
+      const from = Number(element.getAttribute('data-source-from'));
+      const to = Math.max(from + 1, Number(element.getAttribute('data-source-to')));
+      return from <= target && target < to;
+    });
+    const targetBounds = targetBlock?.getBoundingClientRect();
+    return Boolean(previewBounds && targetBounds
+      && targetBounds.bottom > previewBounds.top
+      && targetBounds.top < previewBounds.bottom);
+  }, previewOnlyOutlineOffset);
+
+  await page.getByRole('button', { name: '左右分割', exact: true }).click();
   await page.locator('.split-source-pane').waitFor();
+  await page.getByRole('button', { name: 'Long section 120', exact: true }).click();
   const caretBeforePreview = await page.evaluate(() => window.__mveHostText.indexOf('## Long section 120'));
   await page.waitForFunction((target) => {
     const from = Number(document.querySelector('.source-editor')?.getAttribute('data-viewport-offset'));
     const to = Number(document.querySelector('.source-editor')?.getAttribute('data-viewport-end-offset'));
     return from <= target && target <= to;
   }, caretBeforePreview);
-  await page.waitForTimeout(200);
+  await page.waitForFunction((target) => {
+    const preview = document.querySelector('.split-preview');
+    const previewBounds = preview?.getBoundingClientRect();
+    const targetBlock = [...(preview?.querySelectorAll('.markdown-source-block') ?? [])].find((element) => {
+      const from = Number(element.getAttribute('data-source-from'));
+      const to = Math.max(from + 1, Number(element.getAttribute('data-source-to')));
+      return from <= target && target < to;
+    });
+    const targetBounds = targetBlock?.getBoundingClientRect();
+    return Boolean(previewBounds && targetBounds
+      && targetBounds.bottom > previewBounds.top
+      && targetBounds.top < previewBounds.bottom);
+  }, caretBeforePreview);
+  await page.waitForTimeout(400);
+  const outlineSplitState = await page.evaluate((target) => {
+    const preview = document.querySelector('.split-preview');
+    const previewBounds = preview?.getBoundingClientRect();
+    const targetBlock = [...(preview?.querySelectorAll('.markdown-source-block') ?? [])].find((element) => {
+      const from = Number(element.getAttribute('data-source-from'));
+      const to = Math.max(from + 1, Number(element.getAttribute('data-source-to')));
+      return from <= target && target < to;
+    });
+    const targetBounds = targetBlock?.getBoundingClientRect();
+    const sourceFrom = Number(document.querySelector('.source-editor')?.getAttribute('data-viewport-offset'));
+    const sourceTo = Number(document.querySelector('.source-editor')?.getAttribute('data-viewport-end-offset'));
+    return {
+      sourceContainsTarget: sourceFrom <= target && target <= sourceTo,
+      previewContainsTarget: Boolean(previewBounds && targetBounds
+        && targetBounds.bottom > previewBounds.top
+        && targetBounds.top < previewBounds.bottom),
+      previewTop: previewBounds && targetBounds ? targetBounds.top - previewBounds.top : Number.NaN
+    };
+  }, caretBeforePreview);
+  if (!outlineSplitState.sourceContainsTarget
+    || !outlineSplitState.previewContainsTarget
+    || !Number.isFinite(outlineSplitState.previewTop)) {
+    throw new Error(`outline split panes lost synchronization: ${JSON.stringify(outlineSplitState)}`);
+  }
 
   await page.getByRole('tab', { name: '出力', exact: true }).click();
   await page.getByRole('button', { name: '印刷プレビュー', exact: true }).click();
