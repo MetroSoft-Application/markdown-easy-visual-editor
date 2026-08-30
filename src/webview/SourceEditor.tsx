@@ -78,6 +78,7 @@ export interface TextEditorHandle {
   heading(level: number): void;
   link(href: string, label?: string): void;
   getSelection(): TextSelection;
+  getSelectedText(): string;
   setSelection(selection: TextSelection): void;
   revealRange(selection: TextSelection): void;
   getViewport(): EditorViewportAnchor | undefined;
@@ -355,7 +356,7 @@ interface Props {
   onChange: (changes: TextChange[]) => void;
   onInputActivity?: () => void;
   onSettled?: () => void;
-  onSelectionChange?: (selection: TextSelection) => void;
+  onSelectionChange?: (selection: TextSelection, userInitiated: boolean) => void;
   className?: string;
   placeholder?: string;
   onViewportChange?: (anchor: EditorViewportAnchor, userInitiated: boolean) => void;
@@ -472,15 +473,15 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(function SourceEdit
   useEffect(() => {
     if (!hostRef.current) return;
     let selectionFrame = 0;
-    let pendingSelection: TextSelection | undefined;
-    const publishSelection = (nextSelection: TextSelection) => {
-      pendingSelection = nextSelection;
+    let pendingSelection: { selection: TextSelection; userInitiated: boolean } | undefined;
+    const publishSelection = (nextSelection: TextSelection, userInitiated: boolean) => {
+      pendingSelection = { selection: nextSelection, userInitiated };
       if (selectionFrame) return;
       selectionFrame = window.requestAnimationFrame(() => {
         selectionFrame = 0;
-        const selection = pendingSelection;
+        const pending = pendingSelection;
         pendingSelection = undefined;
-        if (selection) selectionRef.current?.(selection);
+        if (pending) selectionRef.current?.(pending.selection, pending.userInitiated);
       });
     };
     const state = EditorState.create({
@@ -511,7 +512,7 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(function SourceEdit
             publishSelection({
               from: editorOffsetToExternal(update.state, main.from),
               to: editorOffsetToExternal(update.state, main.to)
-            });
+            }, update.transactions.some((transaction) => transaction.isUserEvent('select')));
           }
           const isExternalSync = update.transactions.some(
             (transaction) => transaction.annotation(externalSyncTransaction) === true
@@ -809,7 +810,7 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(function SourceEdit
     selectionRef.current?.({
       from: editorOffsetToExternal(view.state, currentSelection.from),
       to: editorOffsetToExternal(view.state, currentSelection.to)
-    });
+    }, false);
     publishSelectionData(hostRef.current, view.state);
   }, [value, compositionNonce]);
 
@@ -855,6 +856,12 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(function SourceEdit
       return view && main
         ? { from: editorOffsetToExternal(view.state, main.from), to: editorOffsetToExternal(view.state, main.to) }
         : { from: 0, to: 0 };
+    },
+    /** 現在選択されているMarkdown本文を返す。 */
+    getSelectedText: () => {
+      const view = viewRef.current;
+      const main = view?.state.selection.main;
+      return view && main ? view.state.sliceDoc(main.from, main.to) : '';
     },
     /** 外部本文オフセットでCodeMirrorの選択範囲を設定する。 */
     setSelection: (selection) => {

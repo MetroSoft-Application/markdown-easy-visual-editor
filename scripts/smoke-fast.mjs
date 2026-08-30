@@ -154,6 +154,34 @@ try {
   // 表エディターの実UIと、変更なし適用時の同期抑止を確認する。
   const sourceEditor = page.locator('.split-editor .cm-content');
   await sourceEditor.click();
+  const copilotSelectionMessageStart = await page.evaluate(() => window.__mveMessages.length);
+  await sourceEditor.press('Control+Home');
+  await sourceEditor.press('Shift+End');
+  await page.waitForFunction((start) => window.__mveMessages.slice(start).some(
+    (message) => message.type === 'attachSelectionToCopilot'
+  ), copilotSelectionMessageStart);
+  const attachedSelection = await page.evaluate((start) => window.__mveMessages.slice(start).find(
+    (message) => message.type === 'attachSelectionToCopilot'
+  )?.selection, copilotSelectionMessageStart);
+  if (attachedSelection?.from !== 0 || attachedSelection?.to !== '# Smoke'.length) {
+    throw new Error(`selected text was not automatically attached to Copilot context: ${JSON.stringify(attachedSelection)}`);
+  }
+  const changedSelectionMessageStart = await page.evaluate(() => window.__mveMessages.length);
+  await sourceEditor.press('ArrowRight');
+  await sourceEditor.press('Control+Home');
+  await sourceEditor.press('ArrowDown');
+  await sourceEditor.press('ArrowDown');
+  await sourceEditor.press('Shift+End');
+  await page.waitForFunction((start) => window.__mveMessages.slice(start).some(
+    (message) => message.type === 'attachSelectionToCopilot'
+  ), changedSelectionMessageStart);
+  const changedSelection = await page.evaluate((start) => window.__mveMessages.slice(start).find(
+    (message) => message.type === 'attachSelectionToCopilot'
+  )?.selection, changedSelectionMessageStart);
+  const changedSelectionFrom = source.indexOf('first\\');
+  if (changedSelection?.from !== changedSelectionFrom || changedSelection?.to !== changedSelectionFrom + 'first\\'.length) {
+    throw new Error(`changed selection was not reflected in Copilot context: ${JSON.stringify(changedSelection)}`);
+  }
   await sourceEditor.press('Control+End');
   const tableSourceLine = page.locator('.split-editor .cm-line').filter({ hasText: '| old | old2 |' }).first();
   await tableSourceLine.click();
@@ -813,7 +841,7 @@ try {
   await page.evaluate(() => { window.__mveAckDelay = 0; });
   await context.close();
   if (errors.length) throw new Error(errors.join('\n'));
-  console.log('高速スモーク: フォーカス非介入、スクロール保持、CRLF、分割表示、ズーム、空白可視化、ハイライトを確認しました。');
+  console.log('高速スモーク: Copilot選択自動添付、フォーカス非介入、スクロール保持、CRLF、分割表示、ズーム、空白可視化、ハイライトを確認しました。');
 } finally {
   await browser.close();
 }

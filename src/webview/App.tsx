@@ -247,6 +247,9 @@ export function App(): React.JSX.Element {
   const inFlightOperationRef = useRef<PendingLocalOperation | undefined>(undefined);
   const pendingHistoryCommandsRef = useRef<Array<'undo' | 'redo'>>([]);
   const selectionStateRef = useRef<TextSelection>({ from: 0, to: 0 });
+  const copilotSelectionTimerRef = useRef<number | undefined>(undefined);
+  const copilotSelectionPointerActiveRef = useRef(false);
+  const lastCopilotSelectionRef = useRef('');
   const imageRequestsRef = useRef(new Set<string>());
   const pdfRequestsRef = useRef(new Set<string>());
   const htmlRequestsRef = useRef(new Set<string>());
@@ -330,12 +333,33 @@ export function App(): React.JSX.Element {
     vscode.postMessage({ type: 'ready', clientId: clientIdRef.current });
     /** ホストから受信したメッセージをアプリのメッセージ処理へ渡す。 */
     const onMessage = (event: MessageEvent<HostToWebviewMessage>) => hostMessageHandlerRef.current(event.data);
+    const finishCopilotPointerSelection = () => {
+      if (!copilotSelectionPointerActiveRef.current) return;
+      copilotSelectionPointerActiveRef.current = false;
+      queueMicrotask(() => {
+        const selection = sourceRef.current?.getSelection() ?? selectionStateRef.current;
+        selectionStateRef.current = selection;
+        queueCopilotSelection(selection, 0);
+      });
+    };
+    const cancelCopilotPointerSelection = () => {
+      copilotSelectionPointerActiveRef.current = false;
+    };
     window.addEventListener('message', onMessage);
+    window.addEventListener('pointerup', finishCopilotPointerSelection, true);
+    window.addEventListener('pointercancel', cancelCopilotPointerSelection, true);
     return () => {
       window.removeEventListener('message', onMessage);
+      window.removeEventListener('pointerup', finishCopilotPointerSelection, true);
+      window.removeEventListener('pointercancel', cancelCopilotPointerSelection, true);
+      copilotSelectionPointerActiveRef.current = false;
       if (persistViewStateTimerRef.current !== undefined) {
         window.clearTimeout(persistViewStateTimerRef.current);
         persistViewStateTimerRef.current = undefined;
+      }
+      if (copilotSelectionTimerRef.current !== undefined) {
+        window.clearTimeout(copilotSelectionTimerRef.current);
+        copilotSelectionTimerRef.current = undefined;
       }
       if (previewScrollFrameRef.current !== undefined) {
         window.cancelAnimationFrame(previewScrollFrameRef.current);
@@ -2215,6 +2239,8 @@ export function App(): React.JSX.Element {
   const sourceEditorChange = useCallback((changes: TextChange[]) => {
     const previous = localTextRef.current;
     updateMarkdownRef.current(applyTextChanges(previous, changes), changes, 'local', false);
+    const selection = sourceRef.current?.getSelection();
+    if (selection && selection.from !== selection.to) queueCopilotSelection(selection);
   }, []);
   const sourceEditorSettled = useCallback(() => {
     sourceRef.current?.flushPendingChanges();
@@ -2223,8 +2249,45 @@ export function App(): React.JSX.Element {
     delete document.body.dataset.mveInputActive;
     window.dispatchEvent(new Event('mve-preview-input-settled'));
   }, []);
-  const sourceEditorSelectionChange = useCallback((nextSelection: TextSelection) => {
+
+  /** 選択範囲が確定した後、本文同期を先行させてCopilot Chatのネイティブコンテキストへ追加する。 */
+  function queueCopilotSelection(nextSelection: TextSelection, delay = 300): void {
+    if (copilotSelectionTimerRef.current !== undefined) {
+      window.clearTimeout(copilotSelectionTimerRef.current);
+      copilotSelectionTimerRef.current = undefined;
+    }
+    const from = Math.min(nextSelection.from, nextSelection.to);
+    const to = Math.max(nextSelection.from, nextSelection.to);
+    if (from === to) {
+      lastCopilotSelectionRef.current = '';
+      return;
+    }
+    copilotSelectionTimerRef.current = window.setTimeout(() => {
+      copilotSelectionTimerRef.current = undefined;
+      const current = sourceRef.current?.getSelection() ?? selectionStateRef.current;
+      const currentFrom = Math.min(current.from, current.to);
+      const currentTo = Math.max(current.from, current.to);
+      if (currentFrom !== from || currentTo !== to) return;
+      const selectedText = sourceRef.current?.getSelectedText()
+        ?? markdownForSelectionRef.current.slice(from, to);
+      const selectionKey = `${from}:${to}\u0000${selectedText}`;
+      if (lastCopilotSelectionRef.current === selectionKey) return;
+      lastCopilotSelectionRef.current = selectionKey;
+      vscode.postMessage({
+        type: 'attachSelectionToCopilot',
+        clientId: clientIdRef.current,
+        selection: { from, to }
+      });
+    }, delay);
+  }
+
+  const sourceEditorSelectionChange = useCallback((nextSelection: TextSelection, userInitiated: boolean) => {
     selectionStateRef.current = nextSelection;
+    if (userInitiated && !copilotSelectionPointerActiveRef.current) {
+      queueCopilotSelection(nextSelection);
+    } else if (nextSelection.from === nextSelection.to) {
+      queueCopilotSelection(nextSelection);
+    }
     const source = markdownForSelectionRef.current;
     const nextMarks = nextSelection.from === nextSelection.to
       ? {}
@@ -2309,12 +2372,24 @@ export function App(): React.JSX.Element {
         <main
           ref={editorAreaRef}
           className="editor-area"
+          onPointerDownCapture={(event) => {
+            if (mode === 'preview') {
+              markPreviewScrollIntent(event);
+              return;
+            }
+            const target = event.target instanceof Element ? event.target : undefined;
+            if (!target?.closest('.source-editor .cm-editor')) return;
+            copilotSelectionPointerActiveRef.current = true;
+            if (copilotSelectionTimerRef.current !== undefined) {
+              window.clearTimeout(copilotSelectionTimerRef.current);
+              copilotSelectionTimerRef.current = undefined;
+            }
+          }}
           onMouseUp={() => {
             selectionStateRef.current = getActiveEditor()?.getSelection() ?? selectionStateRef.current;
           }}
           tabIndex={mode === 'preview' ? 0 : undefined}
           onWheelCapture={mode === 'preview' ? markPreviewScrollIntent : undefined}
-          onPointerDownCapture={mode === 'preview' ? markPreviewScrollIntent : undefined}
           onTouchStartCapture={mode === 'preview' ? markPreviewScrollIntent : undefined}
           onKeyDownCapture={mode === 'preview' ? markPreviewScrollIntent : undefined}
           onScroll={mode === 'preview'

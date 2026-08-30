@@ -25,6 +25,8 @@ import {
 } from './html';
 import { decodeLocalResourceSource, isMissingResourceError } from './resourceCheck';
 import { classifyResourceLink } from './resourceLink';
+import { toChatAttachmentRange } from './chatContext';
+import { CopilotSelectionSnapshotStore } from './copilotSelectionSnapshot';
 
 const VIEW_TYPE = 'markdownEasyVisualEditor.editor';
 const VIEW_MODE_STATE_KEY = 'markdownEasyVisualEditor.viewMode';
@@ -55,8 +57,12 @@ interface ChangeHistoryEntry {
  */
 export function activate(context: vscode.ExtensionContext): void {
   // カスタムエディターと拡張機能の各コマンドをVS Codeへ登録する。
-  const provider = new MarkdownEasyVisualEditorProvider(context);
+  const copilotSelectionSnapshots = new CopilotSelectionSnapshotStore(
+    vscode.Uri.joinPath(context.globalStorageUri, 'copilot-selections')
+  );
+  const provider = new MarkdownEasyVisualEditorProvider(context, copilotSelectionSnapshots);
   context.subscriptions.push(
+    copilotSelectionSnapshots,
     vscode.window.registerCustomEditorProvider(VIEW_TYPE, provider, {
       supportsMultipleEditorsPerDocument: true,
       webviewOptions: { retainContextWhenHidden: true }
@@ -102,6 +108,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
     timer: ReturnType<typeof setTimeout>;
   }>();
   private readonly panelClientIds = new WeakMap<vscode.WebviewPanel, string>();
+  private copilotSelectionChain: Promise<void> = Promise.resolve();
   private activePanel?: vscode.WebviewPanel;
   private activeDocument?: vscode.TextDocument;
 
@@ -109,7 +116,10 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
    * 文書変更・設定変更・信頼状態変更の監視を登録する。
    * @param context 拡張機能のサブスクリプションを登録するコンテキスト。
    */
-  constructor(private readonly context: vscode.ExtensionContext) {
+  constructor(
+    private readonly context: vscode.ExtensionContext,
+    private readonly copilotSelectionSnapshots: CopilotSelectionSnapshotStore
+  ) {
     // 文書変更・設定変更・ワークスペース信頼変更を監視し、Webviewへ状態を反映する。
     context.subscriptions.push(
       vscode.workspace.onDidChangeTextDocument((event) => this.onDocumentChanged(event)),
@@ -258,6 +268,10 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
           return;
         case 'historyCommand': {
           await this.queueHistoryCommand(document, panel, message);
+          return;
+        }
+        case 'attachSelectionToCopilot': {
+          await this.attachSelectionToCopilot(document, panel, message);
           return;
         }
         case 'saveImages': {
@@ -498,6 +512,50 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
       this.post(panel, { type: 'operationFailed', requestId, message: text });
       void vscode.window.showErrorMessage(`${this.getMessages().host.errorPrefix}: ${text}`);
     }
+  }
+
+  /**
+   * Webviewで確定した選択範囲を、標準エディタを開かずCopilot Chatの添付コンテキストへ追加する。
+   */
+  private async attachSelectionToCopilot(
+    document: vscode.TextDocument,
+    panel: vscode.WebviewPanel,
+    message: Extract<WebviewToHostMessage, { type: 'attachSelectionToCopilot' }>
+  ): Promise<void> {
+    const operation = this.copilotSelectionChain
+      .catch(() => undefined)
+      .then(() => this.replaceCopilotSelection(document, panel, message));
+    this.copilotSelectionChain = operation;
+    await operation;
+  }
+
+  /** Copilot Chat上の直前の選択添付を削除し、最新の選択スナップショットへ差し替える。 */
+  private async replaceCopilotSelection(
+    document: vscode.TextDocument,
+    panel: vscode.WebviewPanel,
+    message: Extract<WebviewToHostMessage, { type: 'attachSelectionToCopilot' }>
+  ): Promise<void> {
+    const registeredClientId = this.panelClientIds.get(panel);
+    if (registeredClientId && registeredClientId !== message.clientId) return;
+
+    const documentKey = document.uri.toString();
+    await (this.editChains.get(documentKey) ?? Promise.resolve()).catch(() => undefined);
+
+    const documentLength = document.getText().length;
+    const from = Math.min(message.selection.from, message.selection.to);
+    const to = Math.max(message.selection.from, message.selection.to);
+    if (!Number.isInteger(from) || !Number.isInteger(to) || from < 0 || to > documentLength || from === to) {
+      return;
+    }
+
+    const start = document.positionAt(from);
+    const end = document.positionAt(to);
+    const selectedText = document.getText(new vscode.Range(start, end));
+    const snapshotUri = await this.copilotSelectionSnapshots.replace(document.uri, start, selectedText);
+    const range = toChatAttachmentRange(start, end);
+    await vscode.commands.executeCommand('workbench.action.chat.open', {
+      attachFiles: [{ uri: snapshotUri, range }]
+    });
   }
 
   /**
