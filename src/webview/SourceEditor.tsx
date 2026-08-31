@@ -27,7 +27,7 @@ import {
   type SourceEdit,
   type TextSelection
 } from '../shared/markdown';
-import { applyTextChanges, composeTextChanges, computeTextChanges, mapTextChanges, mapTextOffset, type TextChange } from '../shared/textChanges';
+import { computeTextChanges, mapTextOffset, type TextChange } from '../shared/textChanges';
 import { getScrollRatio } from '../shared/scroll';
 import type { Messages } from '../shared/messages';
 import { isMveDebugEnabled, mveDebug } from './debug';
@@ -70,7 +70,6 @@ const CARET_PRESERVING_LINE_ACTIONS = new Set<SourceAction>([
 ]);
 
 export interface TextEditorHandle {
-  flushPendingChanges(): void;
   insert(markdown: string, inline?: boolean): void;
   applyEdit(edit: SourceEdit): void;
   action(action: SourceAction): void;
@@ -352,7 +351,7 @@ interface Props {
   initialSelection?: TextSelection;
   searchHits?: readonly TextSelection[];
   activeSearchHit?: TextSelection;
-  onChange: (changes: TextChange[]) => void;
+  onChange: (beforeValue: string, value: string, changes: TextChange[]) => void;
   onInputActivity?: () => void;
   onSettled?: () => void;
   onSelectionChange?: (selection: TextSelection) => void;
@@ -404,14 +403,9 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(function SourceEdit
   const viewportRestoreActiveRef = useRef(false);
   const compositionActiveRef = useRef(false);
   const lineSeparatorCompartmentRef = useRef(new Compartment());
+  const lastSynchronizedValueRef = useRef(value);
   const deferredValueRef = useRef<string | undefined>(undefined);
   const compositionEndTimerRef = useRef<number | undefined>(undefined);
-  const bufferedChangeRef = useRef<{
-    baseLength: number;
-    changes: TextChange[];
-  } | undefined>(undefined);
-  const bufferedFlushTimerRef = useRef<number | undefined>(undefined);
-  const bufferedMaximumTimerRef = useRef<number | undefined>(undefined);
   const inputSettledTimerRef = useRef<number | undefined>(undefined);
   const [compositionNonce, setCompositionNonce] = useState(0);
   onChangeRef.current = onChange;
@@ -420,54 +414,6 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(function SourceEdit
   selectionRef.current = onSelectionChange;
   viewportRef.current = onViewportChange;
   viewportIntentRef.current = onUserScrollIntent;
-
-  const flushBufferedChanges = () => {
-    if (bufferedFlushTimerRef.current !== undefined) {
-      window.clearTimeout(bufferedFlushTimerRef.current);
-      bufferedFlushTimerRef.current = undefined;
-    }
-    if (bufferedMaximumTimerRef.current !== undefined) {
-      window.clearTimeout(bufferedMaximumTimerRef.current);
-      bufferedMaximumTimerRef.current = undefined;
-    }
-    const pending = bufferedChangeRef.current;
-    if (!pending) return;
-    bufferedChangeRef.current = undefined;
-    const nextLength = pending.baseLength + pending.changes.reduce(
-      (length, change) => length + change.text.length - change.rangeLength,
-      0
-    );
-    if (hostRef.current) hostRef.current.dataset.documentLength = String(nextLength);
-    onChangeRef.current(pending.changes);
-  };
-
-  const scheduleBufferedFlush = () => {
-    if (bufferedFlushTimerRef.current !== undefined) window.clearTimeout(bufferedFlushTimerRef.current);
-    bufferedFlushTimerRef.current = window.setTimeout(flushBufferedChanges, 80);
-    bufferedMaximumTimerRef.current ??= window.setTimeout(flushBufferedChanges, 500);
-  };
-
-  const bufferIncrementalChanges = (baseLength: number, changes: TextChange[]) => {
-    const pending = bufferedChangeRef.current;
-    if (pending) {
-      pending.changes = composeTextChanges(pending.changes, changes, pending.baseLength);
-    } else {
-      bufferedChangeRef.current = {
-        baseLength,
-        changes: changes.map((change) => ({ ...change }))
-      };
-    }
-    scheduleBufferedFlush();
-  };
-
-  const bufferMergedChanges = (baseLength: number, changes: TextChange[]) => {
-    if (bufferedChangeRef.current) flushBufferedChanges();
-    bufferedChangeRef.current = {
-      baseLength,
-      changes: changes.map((change) => ({ ...change }))
-    };
-    scheduleBufferedFlush();
-  };
 
   useEffect(() => {
     if (!hostRef.current) return;
@@ -523,7 +469,6 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(function SourceEdit
             if (inputSettledTimerRef.current !== undefined) window.clearTimeout(inputSettledTimerRef.current);
             inputSettledTimerRef.current = window.setTimeout(() => {
               inputSettledTimerRef.current = undefined;
-              flushBufferedChanges();
               onSettledRef.current?.();
             }, 220);
             viewportRestoreAnchorRef.current = undefined;
@@ -537,33 +482,6 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(function SourceEdit
                 text: inserted.sliceString(0, inserted.length, update.state.facet(EditorState.lineSeparator) ?? '\n')
               });
             });
-            const deferredValue = deferredValueRef.current;
-            if (deferredValue !== undefined) {
-              // IME入力中に届いた外部本文を保留し、ユーザー入力を優先して差分を統合する。
-              const startValue = update.startState.sliceDoc();
-              let nextValue: string;
-              try {
-                const deferredChanges = computeTextChanges(startValue, deferredValue);
-                changes = mapTextChanges(changes, deferredChanges, startValue.length, true);
-                nextValue = applyTextChanges(deferredValue, changes);
-                deferredValueRef.current = nextValue;
-              } catch (error) {
-                console.warn('[Markdown Easy Visual Editor] IME入力と外部変更を入力優先で統合しました。', error);
-                const deferredChanges = computeTextChanges(startValue, deferredValue);
-                changes = mapChangesPreferLocal(changes, deferredChanges, startValue.length);
-                nextValue = applyTextChanges(deferredValue, changes);
-                deferredValueRef.current = nextValue;
-              }
-              bufferMergedChanges(deferredValue.length, changes);
-              if (isMveDebugEnabled()) {
-                mveDebug('source.doc-changed', {
-                  changeCount: changes.length,
-                  changes: changes.slice(0, 8),
-                  nextLength: nextValue.length
-                });
-              }
-              return;
-            }
             if (isMveDebugEnabled()) {
               mveDebug('source.doc-changed', {
                 changeCount: changes.length,
@@ -577,7 +495,13 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(function SourceEdit
                   : undefined
               });
             }
-            bufferIncrementalChanges(externalDocumentLength(update.startState), changes);
+            const nextValue = externalDocumentValue(update.state);
+            const beforeValue = externalDocumentValue(update.startState);
+            if (hostRef.current) hostRef.current.dataset.documentLength = String(nextValue.length);
+            // 変更をためず、CodeMirrorが確定した現在値をその場で一度だけ親へ渡す。
+            // 親はこのスナップショットを基準にホスト同期を集約するため、入力を
+            // 遅延再適用したり、古い差分を後から二重適用したりしない。
+            onChangeRef.current(beforeValue, nextValue, changes);
           }
         }),
         EditorView.theme({
@@ -623,15 +547,6 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(function SourceEdit
     };
     /** タッチスクロールの開始状態を解除する。 */
     const endTouchScroll = () => { touchScrollActiveRef.current = false; };
-    /**
-     * CodeMirror外部のUndo/Redo入力を停止し、ホスト側の履歴処理へ任せる。
-     * @param event 入力前イベント。
-     */
-    const handleHistoryBeforeInput = (event: InputEvent) => {
-      if (event.inputType !== 'historyUndo' && event.inputType !== 'historyRedo') return;
-      event.preventDefault();
-      event.stopImmediatePropagation();
-    };
     /** IMEの変換開始を記録する。 */
     const beginComposition = () => { compositionActiveRef.current = true; };
     /** IMEの変換終了を記録し、保留した外部本文を再評価する。 */
@@ -643,7 +558,6 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(function SourceEdit
         setCompositionNonce((value) => value + 1);
       }, 0);
     };
-    const flushBeforeUnload = () => flushBufferedChanges();
     /**
      * 現在の表示アンカーをDOMデータ属性へ出力する。
      * @param anchor 出力する表示アンカー。
@@ -680,14 +594,12 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(function SourceEdit
     view.scrollDOM.addEventListener('pointerdown', beginPointerScroll, { passive: true });
     view.scrollDOM.addEventListener('touchstart', beginTouchScroll, { passive: true });
     view.scrollDOM.addEventListener('keydown', markUserScrollIntent);
-    view.contentDOM.addEventListener('beforeinput', handleHistoryBeforeInput, true);
     view.contentDOM.addEventListener('compositionstart', beginComposition);
     view.contentDOM.addEventListener('compositionend', endComposition);
     window.addEventListener('pointerup', endPointerScroll);
     window.addEventListener('pointercancel', endPointerScroll);
     window.addEventListener('touchend', endTouchScroll);
     window.addEventListener('touchcancel', endTouchScroll);
-    window.addEventListener('beforeunload', flushBeforeUnload);
     const resizeObserver = new ResizeObserver(() => {
       // レイアウトサイズ変更後に保存済み表示位置を復元し、復元対象がなければ現在位置を再通知する。
       const restoreAnchor = viewportRestoreAnchorRef.current;
@@ -717,7 +629,6 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(function SourceEdit
       write: (anchor) => { if (anchor) publishViewport(anchor); }
     });
     return () => {
-      flushBufferedChanges();
       // 入力settledタイマーを破棄する前に親へ完了通知し、ビュー切替直前の入力で
       // bodyの入力中フラグやプレビュー待機処理が残留しないようにする。
       onSettledRef.current?.();
@@ -727,7 +638,6 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(function SourceEdit
       view.scrollDOM.removeEventListener('pointerdown', beginPointerScroll);
       view.scrollDOM.removeEventListener('touchstart', beginTouchScroll);
       view.scrollDOM.removeEventListener('keydown', markUserScrollIntent);
-      view.contentDOM.removeEventListener('beforeinput', handleHistoryBeforeInput, true);
       view.contentDOM.removeEventListener('compositionstart', beginComposition);
       view.contentDOM.removeEventListener('compositionend', endComposition);
       if (compositionEndTimerRef.current !== undefined) window.clearTimeout(compositionEndTimerRef.current);
@@ -735,9 +645,6 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(function SourceEdit
       window.removeEventListener('pointercancel', endPointerScroll);
       window.removeEventListener('touchend', endTouchScroll);
       window.removeEventListener('touchcancel', endTouchScroll);
-      window.removeEventListener('beforeunload', flushBeforeUnload);
-      if (bufferedFlushTimerRef.current !== undefined) window.clearTimeout(bufferedFlushTimerRef.current);
-      if (bufferedMaximumTimerRef.current !== undefined) window.clearTimeout(bufferedMaximumTimerRef.current);
       if (inputSettledTimerRef.current !== undefined) window.clearTimeout(inputSettledTimerRef.current);
       resizeObserver.disconnect();
       if (selectionFrame) window.cancelAnimationFrame(selectionFrame);
@@ -755,10 +662,13 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(function SourceEdit
       deferredValueRef.current = value;
       return;
     }
-    // IME中に外部変更と合成した最新値は、親のプレビューstateが追いつく前でも優先する。
-    // ここで親valueへ戻すと、compositionend直後だけ入力文字が巻き戻る。
-    const synchronizedTarget = deferredValueRef.current ?? value;
+    const deferredValue = deferredValueRef.current;
     deferredValueRef.current = undefined;
+    const shouldSynchronize = deferredValue !== undefined || value !== lastSynchronizedValueRef.current;
+    lastSynchronizedValueRef.current = value;
+    // compositionendによる再評価で、親がまだ古いvalueのままなら入力を巻き戻さない。
+    if (!shouldSynchronize) return;
+    const synchronizedTarget = deferredValue ?? value;
     const currentValue = view.state.sliceDoc();
     if (currentValue === synchronizedTarget) return;
     // CodeMirror内部は改行を1文字で保持する。外部文書の改行形式を変更する場合も、
@@ -821,8 +731,6 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(function SourceEdit
   }, [searchHits, activeSearchHit]);
 
   useImperativeHandle(ref, () => ({
-    /** Flush the latest local editor snapshot to React/host synchronization. */
-    flushPendingChanges: () => flushBufferedChanges(),
     /** 選択範囲をMarkdown文字列で置換する。 */
     insert: (markdown) => replaceSelection(markdown),
     /** 共通編集結果をCodeMirrorへ適用する。 */
@@ -1242,6 +1150,11 @@ function externalDocumentLength(state: EditorState): number {
   return state.doc.length + (state.doc.lines - 1) * Math.max(0, separatorLength - 1);
 }
 
+/** CodeMirrorの現在値を、ホスト文書と同じ改行形式の全文スナップショットへ変換する。 */
+function externalDocumentValue(state: EditorState): string {
+  return state.doc.sliceString(0, state.doc.length, state.facet(EditorState.lineSeparator) ?? '\n');
+}
+
 /**
  * CodeMirror内部オフセットを外部本文の改行を含むオフセットへ変換する。
  * @param state オフセット変換対象のCodeMirror状態。
@@ -1289,28 +1202,6 @@ function externalOffsetToEditor(state: EditorState, offset: number): number {
 function externalOffsetToEditorValue(value: string, offset: number): number {
   const safeOffset = Math.max(0, Math.min(offset, value.length));
   return normalizeLineEndings(value.slice(0, safeOffset)).length;
-}
-
-/**
- * 外部変更と重なるローカル変更を、ローカル側を優先する境界規則で写像する。
- * @param changes ローカル側の変更一覧。
- * @param over 先に適用された外部変更一覧。
- * @param baseLength 両方の変更が基準とする本文長。
- * @returns 外部変更後の本文位置へ写像したローカル変更一覧。
- */
-function mapChangesPreferLocal(
-  changes: readonly TextChange[],
-  over: readonly TextChange[],
-  baseLength: number
-): TextChange[] {
-  return changes.map((change) => {
-    if (change.rangeLength === 0) {
-      return { ...change, rangeOffset: mapTextOffset(change.rangeOffset, over, baseLength, 1) };
-    }
-    const from = mapTextOffset(change.rangeOffset, over, baseLength, -1);
-    const to = mapTextOffset(change.rangeOffset + change.rangeLength, over, baseLength, 1);
-    return { ...change, rangeOffset: from, rangeLength: Math.max(0, to - from) };
-  });
 }
 
 /**

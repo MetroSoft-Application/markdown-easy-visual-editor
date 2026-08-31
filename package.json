@@ -2,7 +2,7 @@
   "name": "markdown-easy-visual-editor",
   "displayName": "Markdown Easy Visual Editor",
   "description": "A visual Markdown editor for VS Code with live preview, source editing, formatting tools, image support, and PDF export.",
-  "version": "1.0.17",
+  "version": "1.0.18",
   "publisher": "MetroSoft-Application",
   "icon": "resources/icon.png",
   "repository": {
@@ -129,6 +129,38 @@
         }
       ]
     },
+    "keybindings": [
+      {
+        "key": "ctrl+z",
+        "command": "markdownEasyVisualEditor.undo",
+        "when": "activeCustomEditor == markdownEasyVisualEditor.editor && !inputFocus"
+      },
+      {
+        "key": "ctrl+y",
+        "command": "markdownEasyVisualEditor.redo",
+        "when": "activeCustomEditor == markdownEasyVisualEditor.editor && !inputFocus"
+      },
+      {
+        "key": "ctrl+shift+z",
+        "command": "markdownEasyVisualEditor.redo",
+        "when": "activeCustomEditor == markdownEasyVisualEditor.editor && !inputFocus"
+      },
+      {
+        "key": "cmd+z",
+        "command": "markdownEasyVisualEditor.undo",
+        "when": "activeCustomEditor == markdownEasyVisualEditor.editor && !inputFocus"
+      },
+      {
+        "key": "cmd+y",
+        "command": "markdownEasyVisualEditor.redo",
+        "when": "activeCustomEditor == markdownEasyVisualEditor.editor && !inputFocus"
+      },
+      {
+        "key": "cmd+shift+z",
+        "command": "markdownEasyVisualEditor.redo",
+        "when": "activeCustomEditor == markdownEasyVisualEditor.editor && !inputFocus"
+      }
+    ],
     "configuration": {
       "title": "Markdown Easy Visual Editor",
       "properties": {
