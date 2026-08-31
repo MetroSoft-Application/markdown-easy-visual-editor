@@ -130,6 +130,10 @@ export interface Messages {
       alignCenter: string;
       alignRight: string;
       copyTsv: string;
+      tableEditor: string;
+      tableEditorColumnResize: string;
+      tableEditorRowResize: string;
+      tableEditorLayout: string;
       outline: string;
       search: string;
       split: string;
@@ -213,6 +217,8 @@ export interface Messages {
       sourceEditorClosed: string;
       documentChanged: string;
       resizeColumn: string;
+      resizeRow: string;
+      resizeEditor: string;
     };
     help: {
       shortcuts: string;
@@ -440,7 +446,9 @@ function createMessages(language: SupportedLanguage): Messages {
         copied: raw.app.tableEditor.copied,
         sourceEditorClosed: raw.app.tableEditor.sourceEditorClosed,
         documentChanged: raw.app.tableEditor.documentChanged,
-        resizeColumn: raw.app.tableEditor.resizeColumn
+        resizeColumn: raw.app.tableEditor.resizeColumn,
+        resizeRow: raw.app.tableEditor.resizeRow,
+        resizeEditor: raw.app.tableEditor.resizeEditor
       },
       help: raw.app.help,
       toast: {

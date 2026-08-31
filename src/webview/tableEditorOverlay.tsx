@@ -24,14 +24,46 @@ const MAX_COLUMNS = 20;
 const MIN_COLUMN_WIDTH = 96;
 const DEFAULT_COLUMN_WIDTH = 160;
 const ROW_HEADER_WIDTH = 42;
+const MIN_EDITOR_WIDTH = 560;
+const MIN_EDITOR_HEIGHT = 320;
+const DEFAULT_EDITOR_WIDTH = 860;
+const DEFAULT_EDITOR_HEIGHT = 600;
+const MIN_ROW_HEIGHT = 36;
+const MIN_TEXTAREA_HEIGHT = 34;
 let overlayRoot: Root | undefined;
 let overlayHost: HTMLDivElement | undefined;
 
 type CellSelection = { from: number; to: number };
 type ColumnResizeState = { column: number; startX: number; startWidth: number };
+type RowResizeState = { row: number; pointerId: number; startY: number; startHeight: number };
+type EditorSize = { width: number; height: number };
+type EditorDragState = {
+  pointerId: number;
+  startX: number;
+  startY: number;
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+};
+type EditorResizeState = {
+  pointerId: number;
+  startX: number;
+  startY: number;
+  startWidth: number;
+  startHeight: number;
+  left: number;
+  top: number;
+};
 
 function cellKey(row: number, column: number): string {
   return `${row}:${column}`;
+}
+
+function rowTextareaStyle(rowHeight: number | undefined): React.CSSProperties | undefined {
+  if (rowHeight === undefined) return undefined;
+  const cellHeight = Math.max(MIN_TEXTAREA_HEIGHT, rowHeight - 2);
+  return { height: `${cellHeight}px`, minHeight: `${cellHeight}px` };
 }
 
 /** 専用テーブルエディターをWebviewへ登録する。起動UIはReactのRibbon本体が担当する。 */
@@ -96,16 +128,30 @@ function TableEditorOverlay({ view, initial, messages, onClose }: {
   const [activeRow, setActiveRow] = useState(initial.activeRow);
   const [activeColumn, setActiveColumn] = useState(initial.activeColumn);
   const [status, setStatus] = useState('');
+  const [editorSize, setEditorSize] = useState<EditorSize>({ width: DEFAULT_EDITOR_WIDTH, height: DEFAULT_EDITOR_HEIGHT });
+  const [editorPosition, setEditorPosition] = useState<{ left: number; top: number }>();
+  const [rowHeights, setRowHeights] = useState<Array<number | undefined>>(() => Array.from({ length: initial.rows.length }, () => undefined));
   const initialColumnCount = Math.max(1, initial.alignments.length, ...initial.rows.map((row) => row.length));
   const [columnWidths, setColumnWidths] = useState<number[]>(() => Array.from({ length: initialColumnCount }, () => DEFAULT_COLUMN_WIDTH));
   const overlayRef = useRef<HTMLDivElement>(null);
   const cellSelectionRef = useRef(new Map<string, CellSelection>());
   const columnResizeRef = useRef<ColumnResizeState | undefined>(undefined);
+  const rowResizeRef = useRef<RowResizeState | undefined>(undefined);
+  const editorDragRef = useRef<EditorDragState | undefined>(undefined);
+  const editorResizeRef = useRef<EditorResizeState | undefined>(undefined);
   const columnCount = Math.max(1, alignments.length, ...rows.map((row) => row.length));
   const gridWidth = ROW_HEADER_WIDTH + Array.from({ length: columnCount }, (_, index) => columnWidths[index] ?? DEFAULT_COLUMN_WIDTH)
     .reduce((total, width) => total + width, 0);
   const cellCountLabel = `${rows.length} × ${columnCount}`;
   const currentAlignment = alignments[Math.min(activeColumn, alignments.length - 1)] ?? 'none';
+  const editorStyle: React.CSSProperties | undefined = editorPosition ? {
+    width: `${editorSize.width}px`,
+    height: `${editorSize.height}px`,
+    position: 'fixed',
+    left: `${editorPosition.left}px`,
+    top: `${editorPosition.top}px`,
+    transform: 'none'
+  } : undefined;
 
   useEffect(() => {
     const frame = requestAnimationFrame(() => focusCell(activeRow, activeColumn, false));
@@ -150,6 +196,75 @@ function TableEditorOverlay({ view, initial, messages, onClose }: {
     return () => {
       window.removeEventListener('mousemove', onMouseMove);
       window.removeEventListener('mouseup', onMouseUp);
+      document.body.style.cursor = '';
+      document.body.style.userSelect = '';
+    };
+  }, []);
+
+  useEffect(() => {
+    const onPointerMove = (event: PointerEvent) => {
+      const editorResize = editorResizeRef.current;
+      if (editorResize && event.pointerId === editorResize.pointerId) {
+        const maxWidth = Math.max(1, window.innerWidth - editorResize.left - 16);
+        const maxHeight = Math.max(1, window.innerHeight - editorResize.top - 16);
+        const minWidth = Math.min(MIN_EDITOR_WIDTH, maxWidth);
+        const minHeight = Math.min(MIN_EDITOR_HEIGHT, maxHeight);
+        const width = Math.min(maxWidth, Math.max(minWidth, editorResize.startWidth + event.clientX - editorResize.startX));
+        const height = Math.min(maxHeight, Math.max(minHeight, editorResize.startHeight + event.clientY - editorResize.startY));
+        setEditorSize((previous) => (
+          previous.width === width && previous.height === height ? previous : { width, height }
+        ));
+        return;
+      }
+      const editorDrag = editorDragRef.current;
+      if (editorDrag && event.pointerId === editorDrag.pointerId) {
+        const maxLeft = Math.max(16, window.innerWidth - editorDrag.width - 16);
+        const maxTop = Math.max(16, window.innerHeight - editorDrag.height - 16);
+        const left = Math.min(maxLeft, Math.max(16, editorDrag.left + event.clientX - editorDrag.startX));
+        const top = Math.min(maxTop, Math.max(16, editorDrag.top + event.clientY - editorDrag.startY));
+        setEditorPosition((previous) => (
+          previous?.left === left && previous.top === top ? previous : { left, top }
+        ));
+        return;
+      }
+      const rowResize = rowResizeRef.current;
+      if (!rowResize || event.pointerId !== rowResize.pointerId) return;
+      const height = Math.max(MIN_ROW_HEIGHT, Math.round(rowResize.startHeight + event.clientY - rowResize.startY));
+      setRowHeights((previous) => {
+        if (previous[rowResize.row] === height) return previous;
+        const next = previous.slice();
+        while (next.length <= rowResize.row) next.push(undefined);
+        next[rowResize.row] = height;
+        return next;
+      });
+    };
+    const onPointerUp = (event: PointerEvent) => {
+      if (editorResizeRef.current?.pointerId === event.pointerId) {
+        editorResizeRef.current = undefined;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+      if (editorDragRef.current?.pointerId === event.pointerId) {
+        editorDragRef.current = undefined;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+      if (rowResizeRef.current?.pointerId === event.pointerId) {
+        rowResizeRef.current = undefined;
+        document.body.style.cursor = '';
+        document.body.style.userSelect = '';
+      }
+    };
+    window.addEventListener('pointermove', onPointerMove);
+    window.addEventListener('pointerup', onPointerUp);
+    window.addEventListener('pointercancel', onPointerUp);
+    return () => {
+      window.removeEventListener('pointermove', onPointerMove);
+      window.removeEventListener('pointerup', onPointerUp);
+      window.removeEventListener('pointercancel', onPointerUp);
+      editorResizeRef.current = undefined;
+      editorDragRef.current = undefined;
+      rowResizeRef.current = undefined;
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
     };
@@ -204,6 +319,7 @@ function TableEditorOverlay({ view, initial, messages, onClose }: {
     setRows(nextRows);
     setAlignments(Array.from({ length: nextColumns }, (_, index) => next.alignments[index] ?? 'none'));
     setColumnWidths((previous) => Array.from({ length: nextColumns }, (_, index) => previous[index] ?? DEFAULT_COLUMN_WIDTH));
+    setRowHeights((previous) => Array.from({ length: nextRows.length }, (_, index) => previous[index]));
     cellSelectionRef.current.clear();
     setActiveRow(next.activeRow);
     setActiveColumn(next.activeColumn);
@@ -270,6 +386,107 @@ function TableEditorOverlay({ view, initial, messages, onClose }: {
       while (next.length <= column) next.push(DEFAULT_COLUMN_WIDTH);
       next[column] = Math.max(MIN_COLUMN_WIDTH, next[column] + delta);
       return next;
+    });
+  }
+
+  function startRowResize(event: React.PointerEvent<HTMLDivElement>, row: number): void {
+    if (event.button !== 0) return;
+    const rowElement = event.currentTarget.closest('tr');
+    if (!rowElement) return;
+    event.preventDefault();
+    event.stopPropagation();
+    rowResizeRef.current = {
+      row,
+      pointerId: event.pointerId,
+      startY: event.clientY,
+      startHeight: rowHeights[row] ?? Math.round(rowElement.getBoundingClientRect().height)
+    };
+    document.body.style.cursor = 'row-resize';
+    document.body.style.userSelect = 'none';
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function resizeRowByKeyboard(event: React.KeyboardEvent<HTMLDivElement>, row: number): void {
+    const delta = event.key === 'ArrowUp' ? -12 : event.key === 'ArrowDown' ? 12 : 0;
+    if (!delta) return;
+    const rowElement = event.currentTarget.closest('tr');
+    if (!rowElement) return;
+    event.preventDefault();
+    const height = Math.max(
+      MIN_ROW_HEIGHT,
+      (rowHeights[row] ?? Math.round(rowElement.getBoundingClientRect().height)) + delta
+    );
+    setRowHeights((previous) => {
+      const next = previous.slice();
+      while (next.length <= row) next.push(undefined);
+      next[row] = height;
+      return next;
+    });
+  }
+
+  function startEditorDrag(event: React.PointerEvent<HTMLElement>): void {
+    if (event.button !== 0) return;
+    if (event.target instanceof Element && event.target.closest('button')) return;
+    const element = overlayRef.current;
+    if (!element) return;
+    event.preventDefault();
+    const bounds = element.getBoundingClientRect();
+    setEditorPosition({ left: bounds.left, top: bounds.top });
+    setEditorSize({ width: bounds.width, height: bounds.height });
+    editorDragRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      left: bounds.left,
+      top: bounds.top,
+      width: bounds.width,
+      height: bounds.height
+    };
+    document.body.style.cursor = 'move';
+    document.body.style.userSelect = 'none';
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function startEditorResize(event: React.PointerEvent<HTMLDivElement>): void {
+    if (event.button !== 0) return;
+    const element = overlayRef.current;
+    if (!element) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const bounds = element.getBoundingClientRect();
+    setEditorPosition({ left: bounds.left, top: bounds.top });
+    setEditorSize({ width: bounds.width, height: bounds.height });
+    editorResizeRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      startWidth: bounds.width,
+      startHeight: bounds.height,
+      left: bounds.left,
+      top: bounds.top
+    };
+    document.body.style.cursor = 'nwse-resize';
+    document.body.style.userSelect = 'none';
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function resizeEditorByKeyboard(event: React.KeyboardEvent<HTMLDivElement>): void {
+    const widthDelta = event.key === 'ArrowLeft' ? -12 : event.key === 'ArrowRight' ? 12 : 0;
+    const heightDelta = event.key === 'ArrowUp' ? -12 : event.key === 'ArrowDown' ? 12 : 0;
+    if (!widthDelta && !heightDelta) return;
+    const element = overlayRef.current;
+    if (!element) return;
+    event.preventDefault();
+    const bounds = element.getBoundingClientRect();
+    const position = editorPosition ?? { left: bounds.left, top: bounds.top };
+    const maxWidth = Math.max(1, window.innerWidth - position.left - 16);
+    const maxHeight = Math.max(1, window.innerHeight - position.top - 16);
+    const minWidth = Math.min(MIN_EDITOR_WIDTH, maxWidth);
+    const minHeight = Math.min(MIN_EDITOR_HEIGHT, maxHeight);
+    setEditorPosition(position);
+    setEditorSize({
+      width: Math.min(maxWidth, Math.max(minWidth, bounds.width + widthDelta)),
+      height: Math.min(maxHeight, Math.max(minHeight, bounds.height + heightDelta))
     });
   }
 
@@ -368,8 +585,8 @@ function TableEditorOverlay({ view, initial, messages, onClose }: {
   }
 
   return (
-    <div ref={overlayRef} className="mve-table-editor" role="dialog" aria-modal="true" aria-label={messages.app.tableEditor.title}>
-      <header className="mve-table-editor-header">
+    <div ref={overlayRef} className="mve-table-editor" role="dialog" aria-modal="true" aria-label={messages.app.tableEditor.title} style={editorStyle}>
+      <header className="mve-table-editor-header" onPointerDown={startEditorDrag}>
         <strong>{messages.app.tableEditor.title}</strong>
         <span>{cellCountLabel}</span>
         <button type="button" className="mve-table-editor-close" title={messages.app.tableEditor.close} aria-label={messages.app.tableEditor.close} onClick={() => { onClose(); requestAnimationFrame(() => view.focus()); }}>×</button>
@@ -400,7 +617,22 @@ function TableEditorOverlay({ view, initial, messages, onClose }: {
           <tbody>
             {rows.map((row, rowIndex) => (
               <tr key={rowIndex} className={rowIndex === 0 ? 'mve-table-editor-header-row' : ''}>
-                <th scope="row" onClick={() => focusCell(rowIndex, 0)}>{rowIndex === 0 ? 'H' : rowIndex}</th>
+                <th scope="row" onClick={() => focusCell(rowIndex, 0)}>
+                  {rowIndex === 0 ? 'H' : rowIndex}
+                  <div
+                    className="mve-table-editor-row-resizer"
+                    role="separator"
+                    tabIndex={0}
+                    aria-orientation="horizontal"
+                    aria-label={`${messages.app.tableEditor.resizeRow} ${rowIndex + 1}`}
+                    aria-valuemin={MIN_ROW_HEIGHT}
+                    aria-valuenow={rowHeights[rowIndex] ?? MIN_ROW_HEIGHT}
+                    title={messages.app.tableEditor.resizeRow}
+                    onPointerDown={(event) => startRowResize(event, rowIndex)}
+                    onKeyDown={(event) => resizeRowByKeyboard(event, rowIndex)}
+                    onClick={(event) => event.stopPropagation()}
+                  />
+                </th>
                 {Array.from({ length: columnCount }, (_, columnIndex) => {
                   const alignment = alignments[columnIndex] ?? 'none';
                   const active = rowIndex === activeRow && columnIndex === activeColumn;
@@ -410,6 +642,7 @@ function TableEditorOverlay({ view, initial, messages, onClose }: {
                         rows={1}
                         spellCheck={false}
                         value={row[columnIndex] ?? ''}
+                        style={rowTextareaStyle(rowHeights[rowIndex])}
                         data-table-cell={`${rowIndex}:${columnIndex}`}
                         onFocus={(event) => rememberCellSelection(rowIndex, columnIndex, event.currentTarget)}
                         onSelect={(event) => rememberCellSelection(rowIndex, columnIndex, event.currentTarget)}
@@ -457,6 +690,17 @@ function TableEditorOverlay({ view, initial, messages, onClose }: {
           <button type="button" className="primary" onClick={apply}>{messages.app.tableEditor.apply}</button>
         </div>
       </footer>
+      <div
+        className="mve-table-editor-resizer"
+        role="separator"
+        tabIndex={0}
+        aria-orientation="horizontal"
+        aria-label={messages.app.tableEditor.resizeEditor}
+        aria-valuetext={`${Math.round(editorSize.width)} × ${Math.round(editorSize.height)}`}
+        title={messages.app.tableEditor.resizeEditor}
+        onPointerDown={startEditorResize}
+        onKeyDown={resizeEditorByKeyboard}
+      />
     </div>
   );
 }

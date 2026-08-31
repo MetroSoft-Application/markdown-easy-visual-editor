@@ -69,4 +69,4 @@
 
 ## 1.0.18
 
-- 
+- Improved the table editing UI.

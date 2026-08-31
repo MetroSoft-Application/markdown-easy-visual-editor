@@ -14,6 +14,7 @@ Markdown Easy Visual Editor is a VS Code extension for writing Markdown with a l
 - Paste or drop images into a document and save them as local assets.
 - Resize and align images directly in the preview.
 - Copy tables as TSV and paste spreadsheet data into Markdown tables.
+- Edit Markdown tables in a spreadsheet-like table editor, including direct cell editing, row and column operations, column-width and row-height adjustment, and moving or resizing the editor.
 - Review local links and images before exporting.
 - Preview and export your document as a PDF.
 - Export your document as HTML, with options for images and linked Markdown files.
@@ -62,9 +63,12 @@ Insert links, images, tables, horizontal rules, line breaks, code blocks, mathem
 
 Place the cursor inside a Markdown table to:
 
+- Open the table editor and edit cells directly.
 - Add or delete rows and columns.
 - Toggle the header row.
 - Align cells left, center, or right.
+- Drag column boundaries to adjust column widths and row-header boundaries to adjust an entire row's height.
+- Drag the title bar to move the table editor or the bottom-right corner to resize it.
 - Set a header name when adding a column.
 - Copy the table as tab-separated values with **Copy as TSV**.
 

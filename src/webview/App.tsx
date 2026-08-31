@@ -3090,6 +3090,10 @@ function HelpDialog({ topic, messages, onClose }: { topic: HelpTopic; messages: 
     {
       title: messages.ribbon.tabs.table,
       items: [
+        [messages.app.tableEditor.title, messages.ribbon.featureDescriptions.tableEditor],
+        [messages.app.tableEditor.resizeColumn, messages.ribbon.featureDescriptions.tableEditorColumnResize],
+        [messages.app.tableEditor.resizeRow, messages.ribbon.featureDescriptions.tableEditorRowResize],
+        [messages.app.tableEditor.resizeEditor, messages.ribbon.featureDescriptions.tableEditorLayout],
         [messages.ribbon.labels.addBefore, messages.ribbon.featureDescriptions.addBefore],
         [messages.ribbon.labels.deleteRow, messages.ribbon.featureDescriptions.deleteRow],
         [messages.ribbon.labels.deleteColumn, messages.ribbon.featureDescriptions.deleteColumn],

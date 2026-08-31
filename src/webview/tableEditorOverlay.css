@@ -10,6 +10,7 @@
 }
 
 .mve-table-editor {
+  position: relative;
   width: min(860px, 90vw);
   height: min(600px, 84vh);
   max-width: calc(100vw - 32px);
@@ -26,6 +27,31 @@
   box-shadow: 0 12px 40px rgb(0 0 0 / 40%);
 }
 
+.mve-table-editor-resizer {
+  position: absolute;
+  z-index: 4;
+  right: 3px;
+  bottom: 3px;
+  width: 14px;
+  height: 14px;
+  box-sizing: border-box;
+  border: 0;
+  border-radius: 2px;
+  background:
+    linear-gradient(135deg, transparent 0 46%, var(--vscode-descriptionForeground, #888) 46% 53%, transparent 53% 63%, var(--vscode-descriptionForeground, #888) 63% 70%, transparent 70%);
+  cursor: nwse-resize;
+  opacity: 0.55;
+  touch-action: none;
+}
+
+.mve-table-editor-resizer:hover,
+.mve-table-editor-resizer:focus-visible {
+  background:
+    linear-gradient(135deg, transparent 0 46%, var(--vscode-focusBorder, #007acc) 46% 53%, transparent 53% 63%, var(--vscode-focusBorder, #007acc) 63% 70%, transparent 70%);
+  opacity: 1;
+  outline: 0;
+}
+
 .mve-table-editor-header,
 .mve-table-editor-toolbar,
 .mve-table-editor-footer {
@@ -39,6 +65,9 @@
 .mve-table-editor-header {
   padding: 0 12px;
   border-bottom: 1px solid var(--vscode-panel-border, var(--mve-border));
+  cursor: move;
+  user-select: none;
+  touch-action: none;
 }
 
 .mve-table-editor-header strong {
@@ -138,6 +167,32 @@
   user-select: none;
 }
 
+.mve-table-editor-row-resizer {
+  position: absolute;
+  z-index: 3;
+  right: 0;
+  bottom: -4px;
+  left: 0;
+  width: auto;
+  height: 8px;
+  min-width: 0;
+  min-height: 0;
+  box-sizing: border-box;
+  padding: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  cursor: row-resize !important;
+  touch-action: none;
+}
+
+.mve-table-editor-row-resizer:hover,
+.mve-table-editor-row-resizer:focus-visible {
+  background: var(--vscode-focusBorder, #007acc) !important;
+  outline: 0;
+  opacity: 0.85;
+}
+
 .mve-table-editor-header-row td {
   background: color-mix(in srgb, var(--vscode-list-activeSelectionBackground, #264f78) 70%, var(--vscode-editor-background));
 }
@@ -165,7 +220,7 @@
   display: block;
   width: 100%;
   min-height: 34px;
-  resize: vertical;
+  resize: none;
   box-sizing: border-box;
   margin: 0;
   padding: 7px 9px;

@@ -123,6 +123,10 @@
           "alignCenter": "セルの内容を中央揃えにします。",
           "alignRight": "セルの内容を右寄せにします。",
           "copyTsv": "表をTSV形式でコピーします。",
+          "tableEditor": "セルを直接編集し、表全体をExcelに近い操作で編集します。",
+          "tableEditorColumnResize": "列境界をドラッグして列幅を調整します。",
+          "tableEditorRowResize": "行ヘッダーの境界をドラッグして行全体の高さを調整します。",
+          "tableEditorLayout": "タイトルバーで表編集UIを移動し、右下からサイズを変更します。",
           "outline": "見出し一覧を表示します。",
           "search": "文書内の文字列を検索・置換します。",
           "split": "テキストとプレビューを左右に表示します。",
@@ -312,7 +316,9 @@
         "copied": "TSVをコピーしました。",
         "sourceEditorClosed": "ソースエディターが閉じられました。",
         "documentChanged": "編集中に本文が変更されました。閉じて開き直してください。",
-        "resizeColumn": "列幅を変更"
+        "resizeColumn": "列幅を変更",
+        "resizeRow": "行の高さを変更",
+        "resizeEditor": "表編集UIのサイズを変更"
       },
       "help": {
         "shortcuts": "ショートカット",
@@ -543,6 +549,10 @@
           "alignCenter": "Center cell contents.",
           "alignRight": "Align cell contents to the right.",
           "copyTsv": "Copy the table as TSV.",
+          "tableEditor": "Edit cells directly and work with the whole table using spreadsheet-like controls.",
+          "tableEditorColumnResize": "Drag column boundaries to adjust column widths.",
+          "tableEditorRowResize": "Drag row-header boundaries to adjust the height of an entire row.",
+          "tableEditorLayout": "Drag the title bar to move the table editor and the bottom-right corner to resize it.",
           "outline": "Show the document outline.",
           "search": "Search and replace text in the document.",
           "split": "Show the text editor and preview side by side.",
@@ -732,7 +742,9 @@
         "copied": "TSV copied.",
         "sourceEditorClosed": "The source editor is no longer available.",
         "documentChanged": "The document changed while this editor was open. Reopen it before applying.",
-        "resizeColumn": "Resize column"
+        "resizeColumn": "Resize column",
+        "resizeRow": "Resize row",
+        "resizeEditor": "Resize table editor"
       },
       "help": {
         "shortcuts": "Shortcuts",
@@ -963,6 +975,10 @@
           "alignCenter": "将单元格内容居中。",
           "alignRight": "将单元格内容右对齐。",
           "copyTsv": "以TSV格式复制表格。",
+          "tableEditor": "直接编辑单元格，并使用类似电子表格的控件编辑整个表格。",
+          "tableEditorColumnResize": "拖动列边界调整列宽。",
+          "tableEditorRowResize": "拖动行标题边界调整整行高度。",
+          "tableEditorLayout": "拖动标题栏移动表格编辑器，并从右下角调整大小。",
           "outline": "显示文档大纲。",
           "search": "在文档中搜索并替换文本。",
           "split": "并排显示文本编辑器和预览。",
@@ -1152,7 +1168,9 @@
         "copied": "已复制 TSV。",
         "sourceEditorClosed": "源代码编辑器已关闭。",
         "documentChanged": "编辑器打开期间文档发生了变化。请关闭后重新打开。",
-        "resizeColumn": "调整列宽"
+        "resizeColumn": "调整列宽",
+        "resizeRow": "调整行高",
+        "resizeEditor": "调整表格编辑器大小"
       },
       "help": {
         "shortcuts": "快捷键",
@@ -1383,6 +1401,10 @@
           "alignCenter": "셀 내용을 가운데로 정렬합니다.",
           "alignRight": "셀 내용을 오른쪽으로 정렬합니다.",
           "copyTsv": "표를 TSV 형식으로 복사합니다.",
+          "tableEditor": "셀을 직접 편집하고 스프레드시트와 유사한 도구로 표 전체를 편집합니다.",
+          "tableEditorColumnResize": "열 경계를 끌어 열 너비를 조정합니다.",
+          "tableEditorRowResize": "행 머리글 경계를 끌어 행 전체의 높이를 조정합니다.",
+          "tableEditorLayout": "제목 표시줄을 끌어 표 편집기를 이동하고 오른쪽 아래 모서리에서 크기를 조정합니다.",
           "outline": "문서 개요를 표시합니다.",
           "search": "문서에서 텍스트를 검색하고 바꿉니다.",
           "split": "텍스트 편집기와 미리보기를 나란히 표시합니다.",
@@ -1572,7 +1594,9 @@
         "copied": "TSV를 복사했습니다.",
         "sourceEditorClosed": "소스 편집기를 더 이상 사용할 수 없습니다.",
         "documentChanged": "이 편집기를 여는 동안 문서가 변경되었습니다. 적용하기 전에 다시 여세요.",
-        "resizeColumn": "열 너비 조정"
+        "resizeColumn": "열 너비 조정",
+        "resizeRow": "행 높이 조정",
+        "resizeEditor": "표 편집기 크기 조정"
       },
       "help": {
         "shortcuts": "바로 가기",
@@ -1803,6 +1827,10 @@
           "alignCenter": "Centre le contenu des cellules.",
           "alignRight": "Aligne le contenu des cellules à droite.",
           "copyTsv": "Copie le tableau au format TSV.",
+          "tableEditor": "Modifier directement les cellules avec des commandes inspirées des tableurs.",
+          "tableEditorColumnResize": "Faites glisser les séparations de colonnes pour ajuster leur largeur.",
+          "tableEditorRowResize": "Faites glisser les séparations des en-têtes de lignes pour ajuster toute la hauteur d’une ligne.",
+          "tableEditorLayout": "Faites glisser la barre de titre pour déplacer l’éditeur et son coin inférieur droit pour le redimensionner.",
           "outline": "Affiche le plan du document.",
           "search": "Recherche et remplace du texte dans le document.",
           "split": "Affiche l’éditeur de texte et l’aperçu côte à côte.",
@@ -1992,7 +2020,9 @@
         "copied": "TSV copié.",
         "sourceEditorClosed": "L'éditeur source n'est plus disponible.",
         "documentChanged": "Le document a changé pendant que cet éditeur était ouvert. Rouvrez-le avant d'appliquer.",
-        "resizeColumn": "Redimensionner la colonne"
+        "resizeColumn": "Redimensionner la colonne",
+        "resizeRow": "Redimensionner la ligne",
+        "resizeEditor": "Redimensionner l’éditeur de tableau"
       },
       "help": {
         "shortcuts": "Raccourcis",
@@ -2223,6 +2253,10 @@
           "alignCenter": "Zentriert den Zellinhalt.",
           "alignRight": "Richtet den Zellinhalt rechtsbündig aus.",
           "copyTsv": "Kopiert die Tabelle als TSV.",
+          "tableEditor": "Zellen direkt bearbeiten und die gesamte Tabelle mit tabellenähnlichen Steuerelementen bearbeiten.",
+          "tableEditorColumnResize": "Spaltengrenzen ziehen, um die Spaltenbreite anzupassen.",
+          "tableEditorRowResize": "Grenzen der Zeilenköpfe ziehen, um die Höhe einer ganzen Zeile anzupassen.",
+          "tableEditorLayout": "Die Titelleiste zum Verschieben und die rechte untere Ecke zum Ändern der Größe des Tabelleneditors ziehen.",
           "outline": "Zeigt die Dokumentübersicht an.",
           "search": "Sucht und ersetzt Text im Dokument.",
           "split": "Zeigt Texteditor und Vorschau nebeneinander an.",
@@ -2412,7 +2446,9 @@
         "copied": "TSV kopiert.",
         "sourceEditorClosed": "Der Quelltext-Editor ist nicht mehr verfügbar.",
         "documentChanged": "Das Dokument wurde geändert, während dieser Editor geöffnet war. Öffnen Sie ihn vor dem Anwenden erneut.",
-        "resizeColumn": "Spaltenbreite ändern"
+        "resizeColumn": "Spaltenbreite ändern",
+        "resizeRow": "Zeilenhöhe ändern",
+        "resizeEditor": "Tabelleneditorgröße ändern"
       },
       "help": {
         "shortcuts": "Tastenkürzel",
@@ -2643,6 +2679,10 @@
           "alignCenter": "Centra el contenido de las celdas.",
           "alignRight": "Alinea a la derecha el contenido de las celdas.",
           "copyTsv": "Copia la tabla como TSV.",
+          "tableEditor": "Edita celdas directamente y trabaja con toda la tabla mediante controles similares a los de una hoja de cálculo.",
+          "tableEditorColumnResize": "Arrastra los límites de las columnas para ajustar sus anchos.",
+          "tableEditorRowResize": "Arrastra los límites de los encabezados de fila para ajustar la altura de toda una fila.",
+          "tableEditorLayout": "Arrastra la barra de título para mover el editor y la esquina inferior derecha para cambiar su tamaño.",
           "outline": "Muestra el esquema del documento.",
           "search": "Busca y reemplaza texto en el documento.",
           "split": "Muestra el editor de texto y la vista previa lado a lado.",
@@ -2832,7 +2872,9 @@
         "copied": "TSV copiado.",
         "sourceEditorClosed": "El editor de código fuente ya no está disponible.",
         "documentChanged": "El documento cambió mientras este editor estaba abierto. Vuelve a abrirlo antes de aplicar.",
-        "resizeColumn": "Cambiar el ancho de la columna"
+        "resizeColumn": "Cambiar el ancho de la columna",
+        "resizeRow": "Cambiar el alto de la fila",
+        "resizeEditor": "Cambiar el tamaño del editor de tablas"
       },
       "help": {
         "shortcuts": "Atajos",
