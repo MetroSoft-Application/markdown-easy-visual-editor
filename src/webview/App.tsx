@@ -294,6 +294,13 @@ export function App(): React.JSX.Element {
   const viewportUserIntentGenerationRef = useRef(0);
   const settledOperationIdsRef = useRef(new Set<string>());
   const resyncInFlightRef = useRef(false);
+  // 同じHostスナップショットへの再送は1回だけに制限し、失敗時の自動再同期ループを防ぐ。
+  // 全文連結キーを作らず、既存スナップショットへの参照だけを保持する。
+  const lastAutomaticRetryRef = useRef<{
+    version: number;
+    hostText: string;
+    localText: string;
+  } | undefined>(undefined);
   const persistViewStateRef = useRef<(viewModeOverride?: ViewMode) => void>(() => undefined);
   const persistViewStateTimerRef = useRef<number | undefined>(undefined);
   const pendingPersistViewModeRef = useRef<ViewMode | undefined>(undefined);
@@ -661,9 +668,6 @@ export function App(): React.JSX.Element {
    * @returns 何も返さない。
    */
   function handleHostMessage(message: HostToWebviewMessage): void {
-    if (message.type === 'externalChanges' || message.type === 'resyncRequired') {
-      sourceRef.current?.flushPendingChanges();
-    }
     const record = message as unknown as Record<string, unknown>;
     if (isMveDebugEnabled()) {
       mveDebug('host.message', {
@@ -747,6 +751,7 @@ export function App(): React.JSX.Element {
         versionRef.current = message.version;
         setVersion(message.version);
         inFlightOperationRef.current = undefined;
+        lastAutomaticRetryRef.current = undefined;
         rememberSettledOperation(message.opId);
         sendNextLocalOperation();
         flushHistoryCommands();
@@ -968,7 +973,22 @@ export function App(): React.JSX.Element {
     versionRef.current = nextVersion;
     setVersion(nextVersion);
     updateMarkdown(rebasedText, computeTextChanges(previousLocal, rebasedText), 'remote');
-    sendNextLocalOperation();
+    // 再同期後にローカル編集が残っている場合だけ再送する。同一スナップショットで
+    // 再び失敗した場合は保留し、同じ自動再送を無限に繰り返さない。
+    if (rebasedText !== nextHost) {
+      const previousRetry = lastAutomaticRetryRef.current;
+      const sameSnapshot = previousRetry?.version === nextVersion
+        && previousRetry.hostText === nextHost
+        && previousRetry.localText === rebasedText;
+      if (!sameSnapshot) {
+        lastAutomaticRetryRef.current = {
+          version: nextVersion,
+          hostText: nextHost,
+          localText: rebasedText
+        };
+        sendNextLocalOperation();
+      }
+    }
     flushHistoryCommands();
   }
 
@@ -990,9 +1010,8 @@ export function App(): React.JSX.Element {
     });
   }
 
-  /** CodeMirrorの差分スロットを確定し、プレビュー・出力用stateも同じ最新本文へ進める。 */
+  /** プレビュー・出力用stateを、即時同期済みの最新ローカル本文へ進める。 */
   function commitSourceSnapshot(): string {
-    sourceRef.current?.flushPendingChanges();
     const current = localTextRef.current;
     setMarkdown((previous) => previous === current ? previous : current);
     return current;
@@ -1014,10 +1033,9 @@ export function App(): React.JSX.Element {
    * @returns 何も返さない。
    */
   function flushHistoryCommands(): void {
-    if (resyncInFlightRef.current || inFlightOperationRef.current || localTextRef.current !== hostTextRef.current) {
-      sendNextLocalOperation();
-      return;
-    }
+    // 未同期のローカル編集は sourceEditorChange / 再同期処理が送信する。
+    // ここから再送すると、同一スナップショットへの再同期ループを迂回してしまう。
+    if (resyncInFlightRef.current || inFlightOperationRef.current || localTextRef.current !== hostTextRef.current) return;
     const command = pendingHistoryCommandsRef.current.shift();
     if (!command) return;
     vscode.postMessage({
@@ -1177,7 +1195,7 @@ export function App(): React.JSX.Element {
         else {
           const editor = getActiveEditor();
           const edit = editor
-            ? applyMarkdownTableAction(markdown, editor.getSelection(), command.action, { headerName: command.headerName })
+            ? applyMarkdownTableAction(localTextRef.current, editor.getSelection(), command.action, { headerName: command.headerName })
             : undefined;
           if (edit) editor?.applyEdit(edit);
           else setToast(messages.app.toast.tableCellRequired);
@@ -1765,7 +1783,7 @@ export function App(): React.JSX.Element {
   ): void {
     const previous = localTextRef.current;
     if (previous === nextText) return;
-    const changes = knownChanges ?? computeTextChanges(previous, nextText);
+    let changes = knownChanges ?? computeTextChanges(previous, nextText);
     if (isMveDebugEnabled()) {
       mveDebug('markdown.update', {
         origin,
@@ -1781,14 +1799,16 @@ export function App(): React.JSX.Element {
           throw new Error('Local text changes do not produce the current editor value.');
         }
       } catch (error) {
-        console.error('[Markdown Easy Visual Editor] ローカル差分の整合性を検証できませんでした。', error);
-        requestResync('local-change-validation-failed');
-        return;
+        // 差分の検証に失敗しても入力は止めない。エディタの確定全文から
+        // 差分を再計算し、今回の入力を必ずホスト同期へ乗せる。
+        console.error('[Markdown Easy Visual Editor] ローカル差分を全文から再計算します。', error);
+        changes = computeTextChanges(previous, nextText);
       }
     }
     // 外部差分は非同期scroll通知より先に届くことがあるため、変更前DOMから
     // 現在位置を同期取得してからオフセット写像する。古いRAFアンカーを写像しない。
     if (origin === 'remote') captureVisibleViewports();
+    if (origin === 'local') lastAutomaticRetryRef.current = undefined;
     mapStoredViewports(changes, previous.length);
     if (origin === 'remote') {
       // マウント中のCodeMirrorはscrollSnapshot().map(changeSet)で折り返し段まで
@@ -2258,12 +2278,43 @@ export function App(): React.JSX.Element {
   const splitPreviewInspect = useCallback((target: InspectorTarget) => changeInspector(target), [mode, splitView]);
   const splitPreviewNavigate = useCallback((href: string) => vscode.postMessage({ type: 'openResource', href }), []);
   const splitPreviewRendered = useCallback(() => handlePreviewRendered('splitPreview'), [mode, splitView]);
-  const sourceEditorChange = useCallback((changes: TextChange[]) => {
+  const sourceEditorChange = useCallback((beforeText: string, nextText: string, changes: TextChange[]) => {
     const previous = localTextRef.current;
-    updateMarkdownRef.current(applyTextChanges(previous, changes), changes, 'local', false);
+    let effectiveText = nextText;
+    let effectiveChanges = changes;
+    try {
+      if (beforeText !== previous) {
+        // 外部変更がReact/CodeMirrorへ届く途中でも、ユーザー入力を破棄しない。
+        // CodeMirror更新前の本文を基準に外部側の差分を作り、今回の入力だけを
+        // 最新のlocal本文へ写像する。これによりIME変換中の外部追記も残る。
+        const bridgeChanges = computeTextChanges(beforeText, previous);
+        try {
+          effectiveChanges = mapTextChanges(changes, bridgeChanges, beforeText.length, true);
+        } catch {
+          effectiveChanges = mapChangesPreferLocal(changes, bridgeChanges, beforeText.length);
+        }
+        effectiveText = applyTextChanges(previous, effectiveChanges);
+      } else if (applyTextChanges(previous, changes) !== nextText) {
+        // CodeMirror差分の基準が一致しない場合は、現在値同士から安全に再計算する。
+        effectiveChanges = computeTextChanges(previous, nextText);
+      }
+    } catch {
+      // 競合写像の一次経路で例外が出ても、古いCodeMirror全文をそのまま
+      // local本文へ戻さない。まず全文差分を作り直し、外部変更を含む現在本文へ
+      // ユーザー編集だけを再度写像することで、入力と外部変更の両方を保持する。
+      if (beforeText !== previous) {
+        const bridgeChanges = computeTextChanges(beforeText, previous);
+        const editorChanges = computeTextChanges(beforeText, nextText);
+        effectiveChanges = mapChangesPreferLocal(editorChanges, bridgeChanges, beforeText.length);
+        effectiveText = applyTextChanges(previous, effectiveChanges);
+      } else {
+        effectiveChanges = computeTextChanges(previous, nextText);
+        effectiveText = applyTextChanges(previous, effectiveChanges);
+      }
+    }
+    updateMarkdownRef.current(effectiveText, effectiveChanges, 'local', beforeText !== previous);
   }, []);
   const sourceEditorSettled = useCallback(() => {
-    sourceRef.current?.flushPendingChanges();
     stagePreviewViewportRestore();
     setMarkdown(localTextRef.current);
     delete document.body.dataset.mveInputActive;

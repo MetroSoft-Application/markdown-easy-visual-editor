@@ -32,6 +32,7 @@ try {
     window.__mveHoldLocalOperations = false;
     window.__mveHeldOperations = [];
     window.__mveAppliedOperations = new Set();
+    window.__mveAcks = [];
     window.__mveUndoStack = [];
     window.__mveRedoStack = [];
     window.acquireVsCodeApi = () => ({
@@ -52,16 +53,18 @@ try {
           }
           window.__mveHostVersion += 1;
           window.__mveAppliedOperations.add(`${message.clientId}\0${message.opId}`);
-          setTimeout(() => window.dispatchEvent(new MessageEvent('message', {
-            data: {
+          setTimeout(() => {
+            const ack = {
               type: 'editAck',
               clientId: message.clientId,
               opId: message.opId,
               baseVersion,
               version: window.__mveHostVersion,
               changes: message.changes
-            }
-          })), window.__mveAckDelay);
+            };
+            window.__mveAcks.push(ack);
+            window.dispatchEvent(new MessageEvent('message', { data: ack }));
+          }, window.__mveAckDelay);
         }
         if (message.type === 'historyCommand') {
           const sourceStack = message.command === 'undo' ? window.__mveUndoStack : window.__mveRedoStack;
@@ -154,6 +157,17 @@ try {
   }
   // 表エディターの実UIと、変更なし適用時の同期抑止を確認する。
   const sourceEditor = page.locator('.split-editor .cm-content');
+  const cutLine = page.locator('.split-editor .cm-line').filter({ hasText: 'Reference [link]' }).first();
+  await cutLine.click();
+  await sourceEditor.press('Home');
+  await sourceEditor.press('Shift+End');
+  const beforeCutText = await page.evaluate(() => window.__mveHostText);
+  await sourceEditor.press('Control+X');
+  await page.waitForFunction((text) => window.__mveHostText !== text, beforeCutText);
+  if (await page.evaluate(() => window.__mveHostText.includes('Reference [link]'))) throw new Error('Ctrl+X did not delete the selected line');
+  await sourceEditor.press('Control+Z');
+  await page.waitForFunction((text) => window.__mveHostText === text, beforeCutText);
+  await page.locator('.split-editor .cm-line').filter({ hasText: 'Reference [link]' }).first().waitFor();
   await sourceEditor.click();
   await sourceEditor.press('Control+End');
   const tableSourceLine = page.locator('.split-editor .cm-line').filter({ hasText: '| old | old2 |' }).first();
@@ -421,13 +435,16 @@ try {
   await page.waitForTimeout(1_200);
   const queuedOperations = await page.evaluate((start) => {
     window.__mveAckDelay = 0;
-    return window.__mveMessages.slice(start).filter((message) => message.type === 'localChanges');
+    return {
+      operations: window.__mveMessages.slice(start).filter((message) => message.type === 'localChanges'),
+      hostText: window.__mveHostText,
+      editorText: document.querySelector('.cm-content')?.textContent ?? ''
+    };
   }, queuedMessageStart);
-  if (queuedOperations.length !== 1) throw new Error(`local operation queue was not collapsed before synchronization: ${queuedOperations.length}`);
-  if (queuedOperations[0].changes.length !== 1
-    || queuedOperations[0].changes[0].rangeLength !== 0
-    || queuedOperations[0].changes[0].text !== 'ABC') {
-    throw new Error(`local operation queue did not compose pending changes: ${JSON.stringify(queuedOperations)}`);
+  if (queuedOperations.operations.length !== 2
+    || !queuedOperations.hostText.includes('second  \r\nXYABC')
+    || !queuedOperations.editorText.includes('XYABC')) {
+    throw new Error(`rapid input was not collapsed to one in-flight and one follow-up operation: ${JSON.stringify(queuedOperations)}`);
   }
   await page.getByRole('tab', { name: 'ホーム', exact: true }).click();
   await page.locator('button[title^="元に戻す"]').click();
@@ -440,6 +457,7 @@ try {
 
   const focusTarget = page.getByRole('button', { name: '検索', exact: true });
   await focusTarget.click();
+  await page.waitForFunction(() => document.activeElement?.getAttribute('aria-label') === '検索文字列');
   const activeBeforeBlurSync = await page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.textContent);
   await page.evaluate(() => {
     const baseVersion = window.__mveHostVersion;
@@ -452,7 +470,9 @@ try {
   });
   await page.waitForTimeout(50);
   const activeAfterBlurSync = await page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.textContent);
-  if (activeAfterBlurSync !== activeBeforeBlurSync) throw new Error('blurred host synchronization stole focus');
+  if (activeAfterBlurSync !== activeBeforeBlurSync) {
+    throw new Error(`blurred host synchronization stole focus: before=${JSON.stringify(activeBeforeBlurSync)}, after=${JSON.stringify(activeAfterBlurSync)}`);
+  }
   await page.locator('.ribbon-tabs [role="tab"]').nth(3).click();
 
   const outline = page.locator('[title="アウトラインの表示/非表示"]');
@@ -827,7 +847,13 @@ try {
     const beforeLocal = await page.evaluate(() => window.__mveMessages.filter((message) => message.type === 'localChanges').length);
     await page.locator('.cm-content').press('x');
     await page.waitForFunction((count) => window.__mveMessages.filter((message) => message.type === 'localChanges').length > count, beforeLocal);
-    await page.waitForTimeout(1);
+    const localOperation = await page.evaluate((count) => window.__mveMessages
+      .filter((message) => message.type === 'localChanges')[count], beforeLocal);
+    if (!localOperation) throw new Error(`local operation ${index} was not captured`);
+    // 実ホストはローカルWorkspaceEditのACKを先に返し、その後の外部変更を配信する。
+    // ACK前に外部通知を注入すると、プロトコル順序自体が壊れたテストになり、
+    // 実装の競合処理ではなくテストのタイミングを検証してしまう。
+    await page.waitForFunction((opId) => window.__mveAcks.some((message) => message.opId === opId), localOperation.opId);
     await page.evaluate((iteration) => {
       const baseVersion = window.__mveHostVersion;
       const text = `mix-${iteration}\r\n`;
@@ -890,6 +916,56 @@ try {
     || resyncResult.resync !== resyncMessageCounts.resync) {
     throw new Error(`settled operation resync did not converge silently: ${JSON.stringify({ resyncMessageCounts, resyncResult })}`);
   }
+  const retryLoopStart = await page.evaluate(() => ({
+    local: window.__mveMessages.filter((message) => message.type === 'localChanges').length,
+    resync: window.__mveMessages.filter((message) => message.type === 'requestResync').length
+  }));
+  await page.evaluate(() => { window.__mveHoldLocalOperations = true; });
+  await sourceEditor.type('retry-loop-input');
+  await page.waitForFunction(() => window.__mveHeldOperations.length === 1);
+  const firstHeld = await page.evaluate(() => window.__mveHeldOperations.shift());
+  await page.evaluate((operation) => {
+    const version = window.__mveHostVersion;
+    window.dispatchEvent(new MessageEvent('message', {
+      data: {
+        type: 'resyncRequired',
+        clientId: operation.clientId,
+        opId: operation.opId,
+        operationApplied: false,
+        text: window.__mveHostText,
+        version,
+        reason: 'same snapshot retry-loop test'
+      }
+    }));
+  }, firstHeld);
+  await page.waitForFunction(() => window.__mveHeldOperations.length === 1);
+  const secondHeld = await page.evaluate(() => window.__mveHeldOperations.shift());
+  await page.evaluate((operation) => {
+    window.dispatchEvent(new MessageEvent('message', {
+      data: {
+        type: 'resyncRequired',
+        clientId: operation.clientId,
+        opId: operation.opId,
+        operationApplied: false,
+        text: window.__mveHostText,
+        version: window.__mveHostVersion,
+        reason: 'same snapshot retry-loop test repeated'
+      }
+    }));
+  }, secondHeld);
+  await page.waitForTimeout(100);
+  const retryLoopResult = await page.evaluate((start) => ({
+    local: window.__mveMessages.filter((message) => message.type === 'localChanges').length - start.local,
+    resync: window.__mveMessages.filter((message) => message.type === 'requestResync').length - start.resync,
+    held: window.__mveHeldOperations.length,
+    inputStillVisible: document.querySelector('.cm-content')?.textContent?.includes('retry-loop-input') ?? false
+  }), retryLoopStart);
+  if (retryLoopResult.local !== 2 || retryLoopResult.resync !== 0 || retryLoopResult.held !== 0 || !retryLoopResult.inputStillVisible) {
+    throw new Error(`same-snapshot resync retried indefinitely or lost input: ${JSON.stringify(retryLoopResult)}`);
+  }
+  await page.evaluate(() => { window.__mveHoldLocalOperations = false; });
+  await sourceEditor.type(' recovered');
+  await page.waitForFunction(() => window.__mveHostText.includes('retry-loop-input recovered'));
   await page.evaluate(() => { window.__mveAckDelay = 0; });
   await context.close();
   if (errors.length) throw new Error(errors.join('\n'));
