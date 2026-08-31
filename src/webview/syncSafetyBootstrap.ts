@@ -10,10 +10,11 @@ interface AcquireScope {
 }
 
 const scope = globalThis as typeof globalThis & AcquireScope;
-const nativeAcquireVsCodeApi = scope.acquireVsCodeApi.bind(scope);
+const nativeAcquireVsCodeApi = scope.acquireVsCodeApi;
 const syncGuard = new SyncSafetyGuard();
 let guardedApi: VsCodeApi<unknown> | undefined;
 let rawApi: VsCodeApi<unknown> | undefined;
+let emergencyReloadScheduled = false;
 
 /**
  * VS Code API取得をAppより先に包み、すべてのlocalChangesへ安全ゲートを強制する。
@@ -29,16 +30,25 @@ scope.acquireVsCodeApi = <State = unknown>(): VsCodeApi<State> => {
         rawApi?.postMessage(message);
         return;
       }
+      const state = syncGuard.snapshot();
       console.error('[Markdown Easy Visual Editor] 自動書き込みを安全ガードで停止しました。', {
         reason: decision.reason,
         type: message.type,
         opId: message.type === 'localChanges' ? message.opId : undefined,
-        state: syncGuard.snapshot()
+        state
       });
       if (document.body) document.body.dataset.mveSyncGuard = 'blocked';
       // 遮断した操作はHostへ一切適用せず、authoritative snapshotだけを直接要求する。
       // AppにはlocalChangesを送ったように見えているため、opId付き再同期で必ず待機を解除する。
       rawApi?.postMessage(decision.recovery);
+
+      if (state.blockedWriteStreak >= 2 && !emergencyReloadScheduled) {
+        // Hostへの書き込みを止めてもWebview内部でプログラム変更が発生し続けるケースに備え、
+        // 2回目でJS実行コンテキスト自体を破棄する。再生成後はHostの確定本文からinitされる。
+        emergencyReloadScheduled = true;
+        if (document.body) document.body.dataset.mveSyncGuard = 'reloading';
+        window.setTimeout(() => window.location.reload(), 0);
+      }
     },
     getState: () => rawApi?.getState(),
     setState: (state) => rawApi?.setState(state)
@@ -53,7 +63,7 @@ function handleHostMessageCapture(event: MessageEvent): void {
   if (redistributedEvents.has(event) || !isHostMessage(event.data)) return;
   if (event.data.type === 'imagesSaved' && event.data.paths.length > 0) {
     // 画像選択/貼り付けは保存完了後に文書挿入されるため、非同期結果を元のユーザー意図として継承する。
-    syncGuard.noteMutationIntent('images-saved');
+    noteMutationIntent('images-saved');
   }
   const decision = syncGuard.handleInbound(event.data);
   if (decision.kind === 'drop') {
@@ -84,7 +94,25 @@ let pendingHistoryAfterComposition: { command: 'undo' | 'redo'; target: EventTar
 
 /** Ctrl/Cmd+Z/YをAppの単一履歴経路へ寄せるため、SourceEditor上のキー入力を記録する。 */
 function handleKeyDownCapture(event: KeyboardEvent): void {
-  if (!event.isTrusted || !isInsideSourceEditor(event.target)) return;
+  if (!event.isTrusted) return;
+  const target = event.target instanceof Element ? event.target : undefined;
+  if (target?.closest('.mve-table-editor')
+    && (event.ctrlKey || event.metaKey)
+    && !event.altKey
+    && event.key === 'Enter') {
+    noteMutationIntent('table-editor-apply-key');
+    return;
+  }
+  if (target?.closest('.app form')
+    && !event.ctrlKey
+    && !event.metaKey
+    && !event.altKey
+    && event.key === 'Enter') {
+    // リンクダイアログ等、Enter submitでMarkdownへ反映される経路を認可する。
+    noteMutationIntent('form-submit-key');
+  }
+  if (!isInsideSourceEditor(event.target)) return;
+
   const history = historyCommandForKey(event);
   if (history) {
     // Appが通常のkeydownを処理する。isComposing中はAppが意図的に無視するため記録しない。
@@ -100,7 +128,7 @@ function handleKeyDownCapture(event: KeyboardEvent): void {
     || event.key === 'Enter'
     || event.key === 'Tab'
   )) || (event.altKey && !event.ctrlKey && !event.metaKey && event.key === 'Enter');
-  if (directMutation) syncGuard.noteMutationIntent(`keydown:${event.key}`);
+  if (directMutation) noteMutationIntent(`keydown:${event.key}`);
 }
 
 /**
@@ -131,26 +159,28 @@ function handleBeforeInputCapture(event: InputEvent): void {
   }
 
   if (event.inputType.startsWith('insert') || event.inputType.startsWith('delete')) {
-    syncGuard.noteMutationIntent(`beforeinput:${event.inputType}`);
+    noteMutationIntent(`beforeinput:${event.inputType}`);
   }
 }
 
 function handlePasteCapture(event: ClipboardEvent): void {
-  if (event.isTrusted && isInsideApp(event.target)) syncGuard.noteMutationIntent('paste');
+  if (event.isTrusted && isInsideAppOrTableEditor(event.target)) noteMutationIntent('paste');
 }
 
 function handleDropCapture(event: DragEvent): void {
-  if (event.isTrusted && isInsideApp(event.target)) syncGuard.noteMutationIntent('drop');
+  if (event.isTrusted && isInsideAppOrTableEditor(event.target)) noteMutationIntent('drop');
 }
 
 function handleClickCapture(event: MouseEvent): void {
   if (!event.isTrusted || !(event.target instanceof Element)) return;
-  if (event.target.closest('.app button')) syncGuard.noteMutationIntent('button-click');
+  if (event.target.closest('.app button, .mve-table-editor button, .cm-tooltip-autocomplete')) {
+    noteMutationIntent('interactive-click');
+  }
 }
 
 function handlePointerDownCapture(event: PointerEvent): void {
   if (!event.isTrusted || event.button !== 0 || !(event.target instanceof Element)) return;
-  if (event.target.closest('.mve-image-handle')) syncGuard.noteMutationIntent('image-resize');
+  if (event.target.closest('.mve-image-handle')) noteMutationIntent('image-resize');
 }
 
 function handleCompositionStart(): void {
@@ -174,6 +204,11 @@ document.addEventListener('click', handleClickCapture, true);
 document.addEventListener('pointerdown', handlePointerDownCapture, true);
 document.addEventListener('compositionstart', handleCompositionStart, true);
 document.addEventListener('compositionend', handleCompositionEnd, true);
+
+function noteMutationIntent(reason: string): void {
+  syncGuard.noteMutationIntent(reason);
+  if (document.body?.dataset.mveSyncGuard === 'blocked') delete document.body.dataset.mveSyncGuard;
+}
 
 function historyCommandForKey(event: KeyboardEvent): 'undo' | 'redo' | undefined {
   if (!(event.ctrlKey || event.metaKey) || event.altKey) return undefined;
@@ -208,8 +243,8 @@ function isInsideSourceEditor(target: EventTarget | null): boolean {
   return target instanceof Element && Boolean(target.closest('.cm-content'));
 }
 
-function isInsideApp(target: EventTarget | null): boolean {
-  return target instanceof Element && Boolean(target.closest('.app'));
+function isInsideAppOrTableEditor(target: EventTarget | null): boolean {
+  return target instanceof Element && Boolean(target.closest('.app, .mve-table-editor'));
 }
 
 function isHostMessage(value: unknown): value is HostToWebviewMessage {
