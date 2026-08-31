@@ -1,3 +1,4 @@
+import './syncSafetyBootstrap';
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { EditorSelection } from '@codemirror/state';
@@ -6,7 +7,6 @@ import '@fontsource/noto-sans-jp/400.css';
 import '@fontsource/noto-sans-jp/700.css';
 import '@fontsource/noto-sans-mono/400.css';
 import 'katex/dist/katex.min.css';
-import './syncSafetyBootstrap';
 import { App } from './App';
 import './cmMarkdownAutocomplete';
 import './editorTheme.css';
