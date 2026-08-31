@@ -92,10 +92,35 @@ let recentHistoryKey: RecentHistoryKey | undefined;
 let compositionDepth = 0;
 let pendingHistoryAfterComposition: { command: 'undo' | 'redo'; target: EventTarget | null } | undefined;
 
-/** Ctrl/Cmd+Z/YをAppの単一履歴経路へ寄せるため、SourceEditor上のキー入力を記録する。 */
+/** Ctrl/Cmd+Z/YをAppの単一履歴経路へ寄せるため、Webview上のキー入力を正規化する。 */
 function handleKeyDownCapture(event: KeyboardEvent): void {
   if (!event.isTrusted) return;
   const target = event.target instanceof Element ? event.target : undefined;
+  const history = historyCommandForKey(event);
+
+  if (history && isInsideSourceEditor(event.target)) {
+    if (event.isComposing || compositionDepth > 0) {
+      // 変換中はAppもCodeMirrorも履歴を触らせず、compositionend後に1回だけ実行する。
+      event.preventDefault();
+      event.stopImmediatePropagation();
+      pendingHistoryAfterComposition = { command: history, target: event.target };
+      recentHistoryKey = undefined;
+      return;
+    }
+    // Appが通常のkeydownを処理する。beforeinputが後から重複しても識別できるよう記録する。
+    recentHistoryKey = { command: history, target: event.target, at: performance.now() };
+    return;
+  }
+
+  if (history && shouldRouteUnfocusedHistory(event.target)) {
+    // VS Code contributionのキーバインドに依存せず、body/rootへフォーカスが落ちても
+    // AppのrequestHistoryCommandへ同じ1経路で戻す。
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    dispatchHistoryKey(document.querySelector('.cm-content'), history);
+    return;
+  }
+
   if (target?.closest('.mve-table-editor')
     && (event.ctrlKey || event.metaKey)
     && !event.altKey
@@ -112,13 +137,6 @@ function handleKeyDownCapture(event: KeyboardEvent): void {
     noteMutationIntent('form-submit-key');
   }
   if (!isInsideSourceEditor(event.target)) return;
-
-  const history = historyCommandForKey(event);
-  if (history) {
-    // Appが通常のkeydownを処理する。isComposing中はAppが意図的に無視するため記録しない。
-    if (!event.isComposing) recentHistoryKey = { command: history, target: event.target, at: performance.now() };
-    return;
-  }
 
   if (event.isComposing) return;
   const directMutation = (!event.ctrlKey && !event.metaKey && !event.altKey && (
@@ -237,6 +255,15 @@ function sameHistoryTarget(left: EventTarget | null, right: EventTarget | null):
   if (left === right) return true;
   return left instanceof Node && right instanceof Node
     && (left.contains(right) || right.contains(left));
+}
+
+function shouldRouteUnfocusedHistory(target: EventTarget | null): boolean {
+  if (target instanceof Element) {
+    if (target.closest('input, textarea, select, [contenteditable="true"], .mve-table-editor')) return false;
+    if (target.closest('.app')) return false; // App自身がこのkeydownを処理する。
+    return target === document.body || target === document.documentElement || target.id === 'root';
+  }
+  return target === document || target === window;
 }
 
 function isInsideSourceEditor(target: EventTarget | null): boolean {
