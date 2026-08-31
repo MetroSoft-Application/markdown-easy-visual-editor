@@ -31,6 +31,7 @@ export interface SyncSafetySnapshot {
   resyncStreak: number;
   automaticReplayBudget: number;
   automaticWritesBlocked: boolean;
+  blockedWriteStreak: number;
   pendingOperationIds: string[];
 }
 
@@ -52,6 +53,7 @@ export class SyncSafetyGuard {
   private lastResyncIntentSerial = -1;
   private automaticReplayBudget = 0;
   private automaticWritesBlocked = false;
+  private blockedWriteStreak = 0;
   private readonly operations = new Map<string, KnownOperation>();
 
   /** 信頼できるユーザー操作が新しい文書変更を発生させ得ることを記録する。 */
@@ -61,6 +63,7 @@ export class SyncSafetyGuard {
     this.lastResyncIntentSerial = -1;
     this.automaticReplayBudget = 0;
     this.automaticWritesBlocked = false;
+    this.blockedWriteStreak = 0;
   }
 
   /** WebviewからHostへ送るメッセージを検査し、無因果な書き込みを遮断する。 */
@@ -135,6 +138,7 @@ export class SyncSafetyGuard {
       resyncStreak: this.resyncStreak,
       automaticReplayBudget: this.automaticReplayBudget,
       automaticWritesBlocked: this.automaticWritesBlocked,
+      blockedWriteStreak: this.blockedWriteStreak,
       pendingOperationIds: Array.from(this.operations.values())
         .filter((operation) => !operation.settled)
         .map((operation) => operation.opId)
@@ -246,6 +250,7 @@ export class SyncSafetyGuard {
   private blockLocalChanges(message: LocalChangesMessage, reason: string): SyncSafetyOutboundDecision {
     this.automaticReplayBudget = 0;
     this.automaticWritesBlocked = true;
+    this.blockedWriteStreak += 1;
     return {
       kind: 'block',
       reason,
