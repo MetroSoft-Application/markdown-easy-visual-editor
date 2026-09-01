@@ -749,6 +749,7 @@ try {
       document.addEventListener(type, (event) => window.__mveImeEvents.push({ type, data: event.data, inputType: event.inputType }), true);
     }
   });
+  const imeStart = await page.evaluate(() => Number(document.querySelector('.source-editor')?.getAttribute('data-selection-from')));
   await cdp.send('Input.imeSetComposition', { text: '変', selectionStart: 1, selectionEnd: 1 });
   await page.waitForTimeout(10);
   const imeAfterFirst = await page.evaluate(() => ({
@@ -767,21 +768,28 @@ try {
       data: { type: 'externalChanges', baseVersion, version: window.__mveHostVersion, changes: [change] }
     }));
   });
-  await cdp.send('Input.imeSetComposition', { text: '変換', selectionStart: 2, selectionEnd: 2 });
+  // Windows日本語IMEが予測候補の確定時までpreedit選択を入力開始位置へ置く経路を再現する。
+  await cdp.send('Input.imeSetComposition', { text: '変換', selectionStart: 0, selectionEnd: 0 });
   await cdp.send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
   await cdp.send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
-  await page.locator('.cm-content').dispatchEvent('compositionend', { data: '変換' });
+  await cdp.send('Input.insertText', { text: '変換' });
   await page.waitForTimeout(250);
-  const imeResult = await page.evaluate((start) => ({
+  const imeResult = await page.evaluate(() => ({
     hasInput: window.__mveHostText.includes('変'),
     hasExternal: window.__mveHostText.endsWith('ime-external'),
     tail: window.__mveHostText.slice(-80),
     resyncs: window.__mveMessages.filter((message) => message.type === 'requestResync').length,
     editorTail: document.querySelector('.cm-content')?.textContent?.slice(-80),
+    selectionFrom: Number(document.querySelector('.source-editor')?.getAttribute('data-selection-from')),
+    selectionTo: Number(document.querySelector('.source-editor')?.getAttribute('data-selection-to')),
     events: window.__mveImeEvents
   }));
   if (!imeResult.hasInput || !imeResult.hasExternal) {
     throw new Error(`host synchronization during composition lost IME input or external text: ${JSON.stringify(imeResult)}`);
+  }
+  const expectedImeSelection = imeStart + '変換'.length;
+  if (imeResult.selectionFrom !== expectedImeSelection || imeResult.selectionTo !== expectedImeSelection) {
+    throw new Error(`quick IME confirmation left the caret at the composition start: expected=${expectedImeSelection}, actual=${JSON.stringify(imeResult)}`);
   }
 
   const unackedResyncStart = await page.evaluate(() => {
