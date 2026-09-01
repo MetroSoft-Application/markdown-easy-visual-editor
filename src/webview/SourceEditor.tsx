@@ -351,7 +351,8 @@ interface Props {
   initialSelection?: TextSelection;
   searchHits?: readonly TextSelection[];
   activeSearchHit?: TextSelection;
-  onChange: (beforeValue: string, value: string, changes: TextChange[]) => void;
+  /** `isCompositionCommit` はIME確定時にまとめて通知した操作であることを示す。 */
+  onChange: (beforeValue: string, value: string, changes: TextChange[], isCompositionCommit?: boolean) => void;
   onInputActivity?: () => void;
   onSettled?: () => void;
   onSelectionChange?: (selection: TextSelection) => void;
@@ -402,6 +403,18 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(function SourceEdit
   const viewportRestoreAnchorRef = useRef<EditorViewportAnchor | undefined>(undefined);
   const viewportRestoreActiveRef = useRef(false);
   const compositionActiveRef = useRef(false);
+  const compositionSessionRef = useRef<{
+    /** 変換開始時点の外部文書。preedit差分は必ずこの本文を基準に確定する。 */
+    beforeValue: string;
+    from: number;
+    to: number;
+    changed: boolean;
+  } | undefined>(undefined);
+  const compositionHandoffRef = useRef<{
+    /** 確定直後にReactから届き得る、確定前の古い本文は再適用しない。 */
+    beforeValue: string;
+    deferredValue?: string;
+  } | undefined>(undefined);
   const lineSeparatorCompartmentRef = useRef(new Compartment());
   const lastSynchronizedValueRef = useRef(value);
   const deferredValueRef = useRef<string | undefined>(undefined);
@@ -450,8 +463,34 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(function SourceEdit
         keymap.of([...defaultKeymap, indentWithTab]),
         EditorView.lineWrapping,
         EditorView.updateListener.of((update) => {
-          // 選択変更を外部オフセットへ通知し、ユーザー編集だけを本文変更として送信する。
-          if (update.selectionSet) {
+          const isExternalSync = update.transactions.some(
+            (transaction) => transaction.annotation(externalSyncTransaction) === true
+          );
+          const isUserDocumentChange = update.docChanged && !suppressRef.current && !isExternalSync;
+          const compositionSession = compositionSessionRef.current;
+
+          // 変換途中の文書変更はCodeMirrorの内部だけで即時に反映する。
+          // 候補の更新ごとに親・ホストへ送ると差分の再配置が割り込み、確定文字列の
+          // 順序やキャレットを壊す。開始本文から確定本文への単一差分だけを送る。
+          if (compositionActiveRef.current && isUserDocumentChange && compositionSession) {
+            compositionSessionRef.current = {
+              ...compositionSession,
+              from: update.changes.mapPos(compositionSession.from, -1),
+              to: update.changes.mapPos(compositionSession.to, 1),
+              changed: true
+            };
+            inputActivityRef.current?.();
+            if (inputSettledTimerRef.current !== undefined) {
+              window.clearTimeout(inputSettledTimerRef.current);
+              inputSettledTimerRef.current = undefined;
+            }
+            viewportRestoreAnchorRef.current = undefined;
+            viewportRestoreGenerationRef.current += 1;
+            if (hostRef.current) hostRef.current.dataset.documentLength = String(externalDocumentLength(update.state));
+          }
+
+          // 変換中の選択通知も親の再描画・装飾更新の入口になるため、確定時まで隔離する。
+          if (update.selectionSet && !compositionActiveRef.current) {
             const main = update.state.selection.main;
             publishSelectionData(hostRef.current, update.state);
             publishSelection({
@@ -459,12 +498,8 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(function SourceEdit
               to: editorOffsetToExternal(update.state, main.to)
             });
           }
-          const isExternalSync = update.transactions.some(
-            (transaction) => transaction.annotation(externalSyncTransaction) === true
-          );
-          if (update.docChanged && !suppressRef.current && !isExternalSync) {
-            // 予約済みの全文プレビュー更新を、次の入力処理より先に失効させる。
-            // React stateは更新せず、親のタイマー/idle callbackだけをO(1)で破棄する。
+
+          if (isUserDocumentChange && !compositionActiveRef.current) {
             inputActivityRef.current?.();
             if (inputSettledTimerRef.current !== undefined) window.clearTimeout(inputSettledTimerRef.current);
             inputSettledTimerRef.current = window.setTimeout(() => {
@@ -475,7 +510,6 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(function SourceEdit
             viewportRestoreGenerationRef.current += 1;
             let changes: TextChange[] = [];
             update.changes.iterChanges((fromA, toA, _fromB, _toB, inserted) => {
-              // CodeMirror上の変更範囲を元文書の改行形式に戻してTextChangeへ変換する。
               changes.push({
                 rangeOffset: editorOffsetToExternal(update.startState, fromA),
                 rangeLength: update.startState.sliceDoc(fromA, toA).length,
@@ -498,9 +532,6 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(function SourceEdit
             const nextValue = externalDocumentValue(update.state);
             const beforeValue = externalDocumentValue(update.startState);
             if (hostRef.current) hostRef.current.dataset.documentLength = String(nextValue.length);
-            // 変更をためず、CodeMirrorが確定した現在値をその場で一度だけ親へ渡す。
-            // 親はこのスナップショットを基準にホスト同期を集約するため、入力を
-            // 遅延再適用したり、古い差分を後から二重適用したりしない。
             onChangeRef.current(beforeValue, nextValue, changes);
           }
         }),
@@ -547,16 +578,99 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(function SourceEdit
     };
     /** タッチスクロールの開始状態を解除する。 */
     const endTouchScroll = () => { touchScrollActiveRef.current = false; };
-    /** IMEの変換開始を記録する。 */
-    const beginComposition = () => { compositionActiveRef.current = true; };
-    /** IMEの変換終了を記録し、保留した外部本文を再評価する。 */
+    /** 確定したユーザー入力だけにsettled通知を予約する。 */
+    const scheduleInputSettled = () => {
+      inputActivityRef.current?.();
+      if (inputSettledTimerRef.current !== undefined) window.clearTimeout(inputSettledTimerRef.current);
+      inputSettledTimerRef.current = window.setTimeout(() => {
+        inputSettledTimerRef.current = undefined;
+        onSettledRef.current?.();
+      }, 220);
+    };
+    /**
+     * CodeMirrorがcompositionend直後のMutationRecordを反映してから、変換セッション全体を
+     * 開始本文からの一つの操作として親へ渡す。preeditは同期しない。
+     */
+    const settleComposition = () => {
+      if (!compositionActiveRef.current) return;
+      if (compositionEndTimerRef.current !== undefined) window.clearTimeout(compositionEndTimerRef.current);
+      compositionEndTimerRef.current = undefined;
+      const compositionSession = compositionSessionRef.current;
+      compositionSessionRef.current = undefined;
+      const main = view.state.selection.main;
+      const strandedAtStart = Boolean(
+        compositionSession
+        && compositionSession.changed
+        && compositionSession.to > compositionSession.from
+        && main.empty
+        && main.head === compositionSession.from
+      );
+      const selection = strandedAtStart
+        ? view.state.selection.replaceRange(EditorSelection.cursor(compositionSession!.to))
+        : view.state.selection;
+      // 同じ選択でも明示的に確定し、ブラウザーDOMのcaretとCodeMirror状態を再結合する。
+      view.dispatch({ selection });
+      const committedValue = externalDocumentValue(view.state);
+      const hasCommittedChange = Boolean(
+        compositionSession?.changed && committedValue !== compositionSession.beforeValue
+      );
+      if (hasCommittedChange && compositionSession) {
+        // 変換中に届いた親valueは確定前のスナップショットなので、確定直後に本文へ
+        // 書き戻さない。Appがこの操作を再配置した最終本文だけを受け入れる。
+        compositionHandoffRef.current = {
+          beforeValue: compositionSession.beforeValue,
+          deferredValue: deferredValueRef.current
+        };
+        scheduleInputSettled();
+        viewportRestoreAnchorRef.current = undefined;
+        viewportRestoreGenerationRef.current += 1;
+        if (hostRef.current) hostRef.current.dataset.documentLength = String(committedValue.length);
+        const changes = computeTextChanges(compositionSession.beforeValue, committedValue);
+        if (isMveDebugEnabled()) {
+          mveDebug('source.composition-commit', {
+            changeCount: changes.length,
+            changes: changes.slice(0, 8),
+            nextLength: committedValue.length
+          });
+        }
+        compositionActiveRef.current = false;
+        onChangeRef.current(compositionSession.beforeValue, committedValue, changes, true);
+      } else {
+        compositionActiveRef.current = false;
+      }
+      publishSelectionData(hostRef.current, view.state);
+      const settled = view.state.selection.main;
+      publishSelection({
+        from: editorOffsetToExternal(view.state, settled.from),
+        to: editorOffsetToExternal(view.state, settled.to)
+      });
+      setCompositionNonce((value) => value + 1);
+    };
+    /** IME変換を1つの原子トランザクションとして開始する。 */
+    const beginComposition = () => {
+      // 直前のcompositionendと次の入力開始が連続した場合も、前回分を失わず先に確定する。
+      if (compositionEndTimerRef.current !== undefined) settleComposition();
+      if (compositionActiveRef.current) return;
+      const selection = view.state.selection.main;
+      compositionActiveRef.current = true;
+      compositionSessionRef.current = {
+        beforeValue: externalDocumentValue(view.state),
+        from: selection.from,
+        to: selection.to,
+        changed: false
+      };
+    };
+    /** IMEの変換終了後、ブラウザーの保留DOM変更と同じタスクでは外部同期を再開しない。 */
     const endComposition = () => {
-      compositionActiveRef.current = false;
       if (compositionEndTimerRef.current !== undefined) window.clearTimeout(compositionEndTimerRef.current);
       compositionEndTimerRef.current = window.setTimeout(() => {
-        compositionEndTimerRef.current = undefined;
-        setCompositionNonce((value) => value + 1);
+        settleComposition();
       }, 0);
+    };
+    /** 次の物理入力がタイマーより先に来た場合、CodeMirrorのキーハンドラーより先に確定位置を直す。 */
+    const settleBeforeNextKey = (event: KeyboardEvent) => {
+      if (compositionEndTimerRef.current === undefined || event.isComposing) return;
+      settleComposition();
     };
     /**
      * 現在の表示アンカーをDOMデータ属性へ出力する。
@@ -594,6 +708,7 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(function SourceEdit
     view.scrollDOM.addEventListener('pointerdown', beginPointerScroll, { passive: true });
     view.scrollDOM.addEventListener('touchstart', beginTouchScroll, { passive: true });
     view.scrollDOM.addEventListener('keydown', markUserScrollIntent);
+    view.contentDOM.addEventListener('keydown', settleBeforeNextKey, true);
     view.contentDOM.addEventListener('compositionstart', beginComposition);
     view.contentDOM.addEventListener('compositionend', endComposition);
     window.addEventListener('pointerup', endPointerScroll);
@@ -638,9 +753,13 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(function SourceEdit
       view.scrollDOM.removeEventListener('pointerdown', beginPointerScroll);
       view.scrollDOM.removeEventListener('touchstart', beginTouchScroll);
       view.scrollDOM.removeEventListener('keydown', markUserScrollIntent);
+      view.contentDOM.removeEventListener('keydown', settleBeforeNextKey, true);
       view.contentDOM.removeEventListener('compositionstart', beginComposition);
       view.contentDOM.removeEventListener('compositionend', endComposition);
       if (compositionEndTimerRef.current !== undefined) window.clearTimeout(compositionEndTimerRef.current);
+      compositionActiveRef.current = false;
+      compositionSessionRef.current = undefined;
+      compositionHandoffRef.current = undefined;
       window.removeEventListener('pointerup', endPointerScroll);
       window.removeEventListener('pointercancel', endPointerScroll);
       window.removeEventListener('touchend', endTouchScroll);
@@ -662,19 +781,28 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(function SourceEdit
       deferredValueRef.current = value;
       return;
     }
-    const deferredValue = deferredValueRef.current;
-    deferredValueRef.current = undefined;
-    const shouldSynchronize = deferredValue !== undefined || value !== lastSynchronizedValueRef.current;
+    const shouldSynchronize = value !== lastSynchronizedValueRef.current;
     lastSynchronizedValueRef.current = value;
-    // compositionendによる再評価で、親がまだ古いvalueのままなら入力を巻き戻さない。
+    const currentValue = externalDocumentValue(view.state);
+    const compositionHandoff = compositionHandoffRef.current;
+    if (compositionHandoff) {
+      // Appが確定操作を再配置した本文を返した時だけ、変換中に保留した外部変更を
+      // CodeMirrorへ反映する。確定前の親スナップショットを優先して巻き戻してはいけない。
+      if (currentValue === value) {
+        compositionHandoffRef.current = undefined;
+        deferredValueRef.current = undefined;
+        return;
+      }
+      if (value === compositionHandoff.beforeValue || value === compositionHandoff.deferredValue) return;
+      compositionHandoffRef.current = undefined;
+    }
+    deferredValueRef.current = undefined;
     if (!shouldSynchronize) return;
-    const synchronizedTarget = deferredValue ?? value;
-    const currentValue = view.state.sliceDoc();
-    if (currentValue === synchronizedTarget) return;
+    if (currentValue === value) return;
     // CodeMirror内部は改行を1文字で保持する。外部文書の改行形式を変更する場合も、
     // 内部LFオフセットで差分を作ってからlineSeparatorを同一トランザクションで切り替える。
     const currentEditorValue = view.state.doc.sliceString(0, view.state.doc.length, '\n');
-    const nextEditorValue = normalizeLineEndings(synchronizedTarget);
+    const nextEditorValue = normalizeLineEndings(value);
     const changes = computeTextChanges(currentEditorValue, nextEditorValue);
     const editorChanges = changes.map((change) => ({
       from: change.rangeOffset,
@@ -683,7 +811,7 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(function SourceEdit
     }));
     const changeSet = view.state.changes(editorChanges);
     const snapshot = view.scrollDOM.clientHeight > 0 ? view.scrollSnapshot().map(changeSet) : undefined;
-    const nextLineSeparator = detectLineSeparator(synchronizedTarget);
+    const nextLineSeparator = detectLineSeparator(value);
     const lineSeparatorEffect = lineSeparatorCompartmentRef.current.reconfigure(
       EditorState.lineSeparator.of(nextLineSeparator)
     );
@@ -703,10 +831,10 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(function SourceEdit
     });
     suppressRef.current = false;
     if (hostRef.current) {
-      const synchronizedValue = view.state.sliceDoc();
+      const synchronizedValue = externalDocumentValue(view.state);
       hostRef.current.dataset.documentLength = String(synchronizedValue.length);
-      if (synchronizedValue !== synchronizedTarget) {
-        hostRef.current.dataset.documentMismatch = JSON.stringify(computeTextChanges(synchronizedTarget, synchronizedValue));
+      if (synchronizedValue !== value) {
+        hostRef.current.dataset.documentMismatch = JSON.stringify(computeTextChanges(value, synchronizedValue));
       } else {
         delete hostRef.current.dataset.documentMismatch;
       }
@@ -724,11 +852,11 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(function SourceEdit
   }, [value, compositionNonce]);
 
   useEffect(() => {
-    // 親から受け取った検索結果をCodeMirrorの装飾フィールドへ反映する。
+    // composition中は編集DOMへ装飾トランザクションを割り込ませず、確定後に最新結果だけを反映する。
     const view = viewRef.current;
-    if (!view) return;
+    if (!view || compositionActiveRef.current) return;
     view.dispatch({ effects: setSearchHighlights.of({ hits: searchHits, active: activeSearchHit }) });
-  }, [searchHits, activeSearchHit]);
+  }, [searchHits, activeSearchHit, compositionNonce]);
 
   useImperativeHandle(ref, () => ({
     /** 選択範囲をMarkdown文字列で置換する。 */

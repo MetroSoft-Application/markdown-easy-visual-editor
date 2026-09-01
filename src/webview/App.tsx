@@ -2278,7 +2278,12 @@ export function App(): React.JSX.Element {
   const splitPreviewInspect = useCallback((target: InspectorTarget) => changeInspector(target), [mode, splitView]);
   const splitPreviewNavigate = useCallback((href: string) => vscode.postMessage({ type: 'openResource', href }), []);
   const splitPreviewRendered = useCallback(() => handlePreviewRendered('splitPreview'), [mode, splitView]);
-  const sourceEditorChange = useCallback((beforeText: string, nextText: string, changes: TextChange[]) => {
+  const sourceEditorChange = useCallback((
+    beforeText: string,
+    nextText: string,
+    changes: TextChange[],
+    isCompositionCommit = false
+  ) => {
     const previous = localTextRef.current;
     let effectiveText = nextText;
     let effectiveChanges = changes;
@@ -2312,7 +2317,9 @@ export function App(): React.JSX.Element {
         effectiveText = applyTextChanges(previous, effectiveChanges);
       }
     }
-    updateMarkdownRef.current(effectiveText, effectiveChanges, 'local', beforeText !== previous);
+    // IMEは確定までReactへ本文を渡さない。確定操作は即座に再描画値にも反映し、
+    // 変換開始時の古いvalueがCodeMirrorへ書き戻される余地をなくす。
+    updateMarkdownRef.current(effectiveText, effectiveChanges, 'local', isCompositionCommit || beforeText !== previous);
   }, []);
   const sourceEditorSettled = useCallback(() => {
     stagePreviewViewportRestore();

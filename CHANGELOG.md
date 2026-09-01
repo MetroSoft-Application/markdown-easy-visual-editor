@@ -70,3 +70,7 @@
 ## 1.0.18
 
 - Improved the table editing UI.
+
+## 1.0.19
+
+- Fixed cursor misalignment caused by input lag.
