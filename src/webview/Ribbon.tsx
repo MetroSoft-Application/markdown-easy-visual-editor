@@ -52,7 +52,6 @@ export function Ribbon({ messages, mode, readOnly, activeMarks, outlineVisible, 
   // リボンの表示状態を管理し、選択中タブの各操作を親へコマンドとして通知する。
   const [tab, setTab] = useState<RibbonTab>('home');
   const [collapsed, setCollapsed] = useState(false);
-  const [pinned, setPinned] = useState(true);
   const [tableRows, setTableRows] = useState(3);
   const [tableColumns, setTableColumns] = useState(3);
   const [codeLanguage, setCodeLanguage] = useState('');
@@ -69,7 +68,7 @@ export function Ribbon({ messages, mode, readOnly, activeMarks, outlineVisible, 
 
   return (
     <header
-      className={`ribbon ${collapsed ? 'collapsed' : ''} ${pinned ? 'pinned' : ''}`}
+      className={`ribbon ${collapsed ? 'collapsed' : ''}`}
       onClickCapture={(event) => {
         const target = event.target instanceof Element ? event.target.closest('button') : null;
         if (!target) return;
@@ -122,18 +121,6 @@ export function Ribbon({ messages, mode, readOnly, activeMarks, outlineVisible, 
             onCommand={onCommand}
           />
         </div>
-        <button
-          type="button"
-          title={pinned ? messages.ribbon.unpin : messages.ribbon.pin}
-          className={pinned ? 'active' : ''}
-          onClick={() => {
-            const nextPinned = !pinned;
-            setPinned(nextPinned);
-            if (nextPinned) setCollapsed(false);
-          }}
-        >
-          {messages.ribbon.pin}
-        </button>
         <button type="button" title={collapsed ? messages.ribbon.expand : messages.ribbon.collapse} onClick={() => setCollapsed(!collapsed)}>
           {collapsed ? messages.ribbon.expand : messages.ribbon.collapse}
         </button>
