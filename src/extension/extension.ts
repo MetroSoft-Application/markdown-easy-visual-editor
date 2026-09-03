@@ -28,6 +28,7 @@ import { classifyResourceLink } from './resourceLink';
 
 const VIEW_TYPE = 'markdownEasyVisualEditor.editor';
 const VIEW_MODE_STATE_KEY = 'markdownEasyVisualEditor.viewMode';
+const PREVIEW_IMAGE_RESIZE_CONTROLS_STATE_KEY = 'markdownEasyVisualEditor.previewImageResizeControlsVisible';
 
 interface PendingHostOperation {
   panel: vscode.WebviewPanel;
@@ -328,6 +329,10 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
         }
         case 'setViewMode':
           await this.context.globalState.update(VIEW_MODE_STATE_KEY, message.viewMode);
+          this.broadcastSettings();
+          return;
+        case 'setPreviewImageResizeControlsVisible':
+          await this.context.globalState.update(PREVIEW_IMAGE_RESIZE_CONTROLS_STATE_KEY, message.visible);
           this.broadcastSettings();
           return;
         case 'openSource':
@@ -987,6 +992,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
       mermaidHostRendering: true,
       editorTheme: config.get<WebviewSettings['editorTheme']>('editor.theme', 'dark'),
       viewMode: normalizeViewMode(this.context.globalState.get<unknown>(VIEW_MODE_STATE_KEY)),
+      previewImageResizeControlsVisible: this.context.globalState.get<boolean>(PREVIEW_IMAGE_RESIZE_CONTROLS_STATE_KEY, true),
       workspaceTrusted: vscode.workspace.isTrusted
     };
   }
@@ -1107,7 +1113,7 @@ async function applyChangeBatch(document: vscode.TextDocument, changes: readonly
 
 /**
  * クライアントIDと操作IDから、操作履歴で使用する一意キーを作る。
- * @param clientId 操作元のクライアントID。
+ * @param clientId 操作元WebviewのクライアントID。
  * @param opId 操作ID。
  * @returns 操作を一意に識別する文字列。
  */
@@ -1127,7 +1133,7 @@ function normalizeViewMode(value: unknown): ViewMode {
  * @returns 対応する拡張子。未対応の場合はundefined。
  */
 function extensionForMime(mime: string): string | undefined {
-  // MIMEタイプを画像ファイルの拡張子へ変換する。
+  // MIMEタイプを画像ファイルの拡張子へ変換し、未対応形式はundefinedを返す。
   return (
     {
       'image/png': 'png',

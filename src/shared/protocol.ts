@@ -36,6 +36,8 @@ export interface WebviewSettings {
   mermaidHostRendering?: boolean;
   editorTheme?: EditorTheme;
   viewMode?: ViewMode;
+  /** プレビュー画像のリサイズ・配置操作UIを表示するか。未設定時は表示する。 */
+  previewImageResizeControlsVisible?: boolean;
   workspaceTrusted: boolean;
 }
 
@@ -107,6 +109,7 @@ export type WebviewToHostMessage =
   | { type: 'checkLocalResources'; requestId: string; markdown: string }
   | { type: 'setEditorTheme'; theme: EditorTheme }
   | { type: 'setViewMode'; viewMode: ViewMode }
+  | { type: 'setPreviewImageResizeControlsVisible'; visible: boolean }
   | {
       type: 'exportPdf';
       requestId: string;
