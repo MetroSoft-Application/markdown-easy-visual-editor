@@ -1,32 +1,47 @@
+import type { HostToWebviewMessage } from '../shared/protocol';
 import { sharedVsCodeApi } from './vscodeApi';
 
-const STATE_KEY = 'previewImageResizeControlsVisible';
+let visible = true;
+const listeners = new Set<(value: boolean) => void>();
 
-type PreviewPreferenceState = Record<string, unknown> & {
-  previewImageResizeControlsVisible?: boolean;
-};
-
-/** 保存済み状態から画像リサイズ操作UIの表示フラグを読む。未設定時は従来互換で表示する。 */
+/** Extension Hostから最後に受信した画像リサイズ操作UIの表示状態を返す。 */
 export function getPreviewImageResizeControlsVisible(): boolean {
-  const state = sharedVsCodeApi.getState() as PreviewPreferenceState | undefined;
-  return state?.previewImageResizeControlsVisible !== false;
+  return visible;
 }
 
-/** 画像リサイズ操作UIの表示フラグを保存し、現在のプレビューへ即時反映する。 */
-export function setPreviewImageResizeControlsVisible(visible: boolean): void {
-  const current = sharedVsCodeApi.getState();
-  const state = current !== null && typeof current === 'object' && !Array.isArray(current)
-    ? current as Record<string, unknown>
-    : {};
-  sharedVsCodeApi.setState({ ...state, [STATE_KEY]: visible });
-  applyPreviewImageResizeControlsVisibility(visible);
+/**
+ * 画像リサイズ操作UIのグローバル設定変更をExtension Hostへ要求する。
+ * 反応を待たず現在パネルへも即時反映し、HostからのsettingsChangedで全パネルを確定同期する。
+ */
+export function setPreviewImageResizeControlsVisible(next: boolean): void {
+  applyPreviewImageResizeControlsVisibility(next);
+  sharedVsCodeApi.postMessage({ type: 'setPreviewImageResizeControlsVisible', visible: next });
 }
 
-/** Webview起動時に保存済みの表示フラグをDOMへ反映する。 */
+/** 表示状態変更を購読する。Ribbonは別Markdownからの設定変更もここで追従する。 */
+export function subscribePreviewImageResizeControlsVisible(listener: (value: boolean) => void): () => void {
+  listeners.add(listener);
+  listener(visible);
+  return () => listeners.delete(listener);
+}
+
+/** Webview起動時にHost設定通知を監視し、すべてのMarkdownパネルで同じ表示状態へ同期する。 */
 export function installPreviewImageResizeControls(): void {
-  applyPreviewImageResizeControlsVisibility(getPreviewImageResizeControlsVisible());
+  window.addEventListener('message', handleHostSettings);
+  applyPreviewImageResizeControlsVisibility(true);
 }
 
-function applyPreviewImageResizeControlsVisibility(visible: boolean): void {
-  document.documentElement.dataset.mveImageResizeControls = visible ? 'visible' : 'hidden';
+function handleHostSettings(event: MessageEvent): void {
+  const message = event.data as HostToWebviewMessage | undefined;
+  if (!message || (message.type !== 'init' && message.type !== 'settingsChanged')) return;
+  applyPreviewImageResizeControlsVisibility(message.settings.previewImageResizeControlsVisible !== false);
+}
+
+function applyPreviewImageResizeControlsVisibility(next: boolean): void {
+  const changed = visible !== next;
+  visible = next;
+  document.documentElement.dataset.mveImageResizeControls = next ? 'visible' : 'hidden';
+  if (changed) {
+    for (const listener of listeners) listener(next);
+  }
 }
