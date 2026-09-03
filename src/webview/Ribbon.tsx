@@ -1,9 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import type { EditorMode, EditorTheme, HtmlExportOptions } from '../shared/protocol';
 import type { MarkdownTableAction } from '../shared/markdown';
 import type { Messages } from '../shared/messages';
 import { mveDebug } from './debug';
-import { getPreviewImageResizeControlsVisible, setPreviewImageResizeControlsVisible } from './previewImageResizeControls';
+import {
+  getPreviewImageResizeControlsVisible,
+  setPreviewImageResizeControlsVisible,
+  subscribePreviewImageResizeControlsVisible
+} from './previewImageResizeControls';
 import type { SourceAction } from './SourceEditor';
 import { sharedVsCodeApi } from './vscodeApi';
 
@@ -57,6 +61,11 @@ export function Ribbon({ messages, mode, readOnly, activeMarks, outlineVisible, 
   const [htmlOptions, setHtmlOptions] = useState<HtmlExportOptions>({ embedImages: false, convertLinkedMarkdown: false, saveWithoutDialog: true });
   const [imageResizeControlsVisible, setImageResizeControlsVisibleState] = useState(getPreviewImageResizeControlsVisible);
   const japanese = document.documentElement.lang.toLowerCase().startsWith('ja');
+
+  useEffect(
+    () => subscribePreviewImageResizeControlsVisible(setImageResizeControlsVisibleState),
+    []
+  );
 
   return (
     <header
@@ -244,11 +253,7 @@ export function Ribbon({ messages, mode, readOnly, activeMarks, outlineVisible, 
                   label={japanese ? '画像リサイズ' : 'Image resize'}
                   active={imageResizeControlsVisible}
                   title={japanese ? 'プレビュー画像のリサイズ操作を表示または非表示にします' : 'Show or hide image resize controls in the preview'}
-                  onClick={() => {
-                    const next = !imageResizeControlsVisible;
-                    setImageResizeControlsVisibleState(next);
-                    setPreviewImageResizeControlsVisible(next);
-                  }}
+                  onClick={() => setPreviewImageResizeControlsVisible(!imageResizeControlsVisible)}
                 />
               </Group>
               <Group label={japanese ? 'テーマ' : 'Theme'}>
