@@ -70,7 +70,6 @@ export function Ribbon({ messages, mode, readOnly, activeMarks, outlineVisible, 
   return (
     <header
       className={`ribbon ${collapsed ? 'collapsed' : ''} ${pinned ? 'pinned' : ''}`}
-      onMouseLeave={() => { if (!pinned) setCollapsed(true); }}
       onClickCapture={(event) => {
         const target = event.target instanceof Element ? event.target.closest('button') : null;
         if (!target) return;
@@ -123,7 +122,16 @@ export function Ribbon({ messages, mode, readOnly, activeMarks, outlineVisible, 
             onCommand={onCommand}
           />
         </div>
-        <button type="button" title={pinned ? messages.ribbon.unpin : messages.ribbon.pin} className={pinned ? 'active' : ''} onClick={() => setPinned(!pinned)}>
+        <button
+          type="button"
+          title={pinned ? messages.ribbon.unpin : messages.ribbon.pin}
+          className={pinned ? 'active' : ''}
+          onClick={() => {
+            const nextPinned = !pinned;
+            setPinned(nextPinned);
+            if (nextPinned) setCollapsed(false);
+          }}
+        >
           {messages.ribbon.pin}
         </button>
         <button type="button" title={collapsed ? messages.ribbon.expand : messages.ribbon.collapse} onClick={() => setCollapsed(!collapsed)}>
@@ -412,7 +420,7 @@ function Tool({
   title?: string;
   onClick: () => void;
 }): React.JSX.Element {
-  // ラベル・ショートカット・状態を持つ共通のリボンボタンを描画する。
+  // ラベル・ショートカット・状態を持つ共通のリボンボタンとして描画する。
   return (
     <button
       type="button"
