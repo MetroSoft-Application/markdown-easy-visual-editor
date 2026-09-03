@@ -3,6 +3,7 @@ import type { EditorMode, EditorTheme, HtmlExportOptions } from '../shared/proto
 import type { MarkdownTableAction } from '../shared/markdown';
 import type { Messages } from '../shared/messages';
 import { mveDebug } from './debug';
+import { getPreviewImageResizeControlsVisible, setPreviewImageResizeControlsVisible } from './previewImageResizeControls';
 import type { SourceAction } from './SourceEditor';
 import { sharedVsCodeApi } from './vscodeApi';
 
@@ -54,6 +55,7 @@ export function Ribbon({ messages, mode, readOnly, activeMarks, outlineVisible, 
   const [emoji, setEmoji] = useState(DOCUMENT_EMOJIS[0]);
   const [headerName, setHeaderName] = useState('');
   const [htmlOptions, setHtmlOptions] = useState<HtmlExportOptions>({ embedImages: false, convertLinkedMarkdown: false, saveWithoutDialog: true });
+  const [imageResizeControlsVisible, setImageResizeControlsVisibleState] = useState(getPreviewImageResizeControlsVisible);
   const japanese = document.documentElement.lang.toLowerCase().startsWith('ja');
 
   return (
@@ -236,6 +238,18 @@ export function Ribbon({ messages, mode, readOnly, activeMarks, outlineVisible, 
                   onClick={() => onCommand({ type: 'toggleOutline' })}
                 />
                 <span className="ribbon-hint">{messages.ribbon.hintZoom}</span>
+              </Group>
+              <Group label={japanese ? 'プレビュー' : 'Preview'}>
+                <Tool
+                  label={japanese ? '画像リサイズ' : 'Image resize'}
+                  active={imageResizeControlsVisible}
+                  title={japanese ? 'プレビュー画像のリサイズ操作を表示または非表示にします' : 'Show or hide image resize controls in the preview'}
+                  onClick={() => {
+                    const next = !imageResizeControlsVisible;
+                    setImageResizeControlsVisibleState(next);
+                    setPreviewImageResizeControlsVisible(next);
+                  }}
+                />
               </Group>
               <Group label={japanese ? 'テーマ' : 'Theme'}>
                 <label className="ribbon-select-label">
