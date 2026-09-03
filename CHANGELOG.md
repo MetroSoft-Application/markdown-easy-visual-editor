@@ -74,3 +74,8 @@
 ## 1.0.19
 
 - Fixed cursor misalignment caused by input lag.
+
+## 1.0.20
+
+- Remove the “Pin” button.
+- Add a button to toggle the resize feature.
