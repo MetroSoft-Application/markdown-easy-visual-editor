@@ -199,6 +199,17 @@ The **Export** tab can convert the current Markdown document to HTML.
 
 When linked Markdown conversion is enabled, each linked Markdown file is also written as an HTML file in the corresponding location. Mermaid diagrams are rendered as SVG in the generated HTML. HTML export requires a trusted workspace.
 
+## Export from the VS Code Explorer
+
+You can export a `.md` or `.markdown` file directly from the VS Code Explorer:
+
+1. Right-click the Markdown file in the Explorer.
+2. Select **Markdown Easy Visual Editor: Export PDF** or **Markdown Easy Visual Editor: Export HTML**.
+
+If the file is not already open in Markdown Easy Visual Editor, the extension opens it automatically, waits for the editor and preview to initialize, and then starts the export. Explorer exports use exactly the same Markdown conversion, preview rendering, Mermaid rendering, CSS, and export pipeline as the buttons in the **Export** tab. The entry point therefore does not change the generated PDF or HTML output.
+
+By default, the exported file is saved beside the source Markdown file as `<name>.pdf` or `<name>.html`, using the same default export options as the editor UI.
+
 ## Settings
 
 Open VS Code Settings and search for **Markdown Easy Visual Editor**.

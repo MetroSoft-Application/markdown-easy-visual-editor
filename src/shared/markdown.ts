@@ -181,8 +181,8 @@ export function prefixOrderedList(source: string, selection: TextSelection): Sou
     const changed = caretOnly && lines.length === 1 && !lines[0].trim()
         ? [`${orderedListNumberBefore(source, from)}. `]
         : allOrdered
-        ? lines.map((line) => line.replace(/^(\s*)\d+[.)]\s+/, '$1'))
-        : orderedListLines(lines, orderedListNumberBefore(source, from));
+            ? lines.map((line) => line.replace(/^(\s*)\d+[.)]\s+/, '$1'))
+            : orderedListLines(lines, orderedListNumberBefore(source, from));
     const text = changed.join('\n');
     return {
         text: source.slice(0, from) + text + source.slice(to),

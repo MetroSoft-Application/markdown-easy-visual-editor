@@ -2,5 +2,5 @@ html[data-mve-image-resize-controls='hidden'] .split-preview .mve-image-badge,
 html[data-mve-image-resize-controls='hidden'] .split-preview .mve-image-handle,
 html[data-mve-image-resize-controls='hidden'] .split-preview .mve-image-align-actions,
 html[data-mve-image-resize-controls='hidden'] .split-preview .mve-image-reset {
-  display: none !important;
+    display: none !important;
 }

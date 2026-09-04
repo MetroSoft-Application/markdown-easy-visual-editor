@@ -10,5 +10,5 @@ const nativeAcquireVsCodeApi = acquireVsCodeApi;
 export const sharedVsCodeApi = nativeAcquireVsCodeApi();
 
 (globalThis as typeof globalThis & {
-  acquireVsCodeApi: <State = unknown>() => VsCodeApi<State>;
+    acquireVsCodeApi: <State = unknown>() => VsCodeApi<State>;
 }).acquireVsCodeApi = <State = unknown>() => sharedVsCodeApi as VsCodeApi<State>;

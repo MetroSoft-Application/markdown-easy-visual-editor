@@ -1,7 +1,18 @@
-import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import DOMPurify from 'dompurify';
-import TurndownService from 'turndown';
-import { gfm as turndownGfm } from 'turndown-plugin-gfm';
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import DOMPurify from "dompurify";
+import TurndownService from "turndown";
+import { gfm as turndownGfm } from "turndown-plugin-gfm";
+import {
+  DEFAULT_HTML_EXPORT_OPTIONS,
+  DEFAULT_PDF_OPTIONS,
+} from "../shared/protocol";
 import type {
   EditorMode,
   HostToWebviewMessage,
@@ -11,8 +22,8 @@ import type {
   VsCodeApi,
   ViewMode,
   WebviewSettings,
-  WebviewToHostMessage
-} from '../shared/protocol';
+  WebviewToHostMessage,
+} from "../shared/protocol";
 import {
   applyMarkdownTableAction,
   applyMarkdownTableTsv,
@@ -30,38 +41,46 @@ import {
   type Diagnostic,
   type OutlineItem,
   type TextSelection,
-  wordStats
-} from '../shared/markdown';
+  wordStats,
+} from "../shared/markdown";
 import {
   applyTextChanges,
   computeTextChanges,
   mapTextChanges,
   mapTextOffset,
-  type TextChange
-} from '../shared/textChanges';
+  type TextChange,
+} from "../shared/textChanges";
 import {
   alignImageInMarkdown,
   resetImageSizeInMarkdown,
   resizeImageInMarkdown,
-  type ImageAlignment
-} from '../shared/imageResize';
-import { getMessages, type Messages } from '../shared/messages';
-import { prepareExportHtml } from '../shared/exportHtml';
-import { createClientId } from './id';
-import { isMveDebugEnabled, mveDebug } from './debug';
-import { escapeHtml, renderMarkdown, sanitizeRenderedMarkdown } from './markdownRenderer';
-import type { UnsafeMarkdownBlock } from './markdownRendererCore';
-import { acceptMermaidRenderResult } from './mermaidRenderer';
-import { RenderedMarkdown, type InspectorTarget } from './RenderedMarkdown';
-import { PdfDocumentPreview } from './PdfDocumentPreview';
-import { Ribbon, type RibbonCommand } from './Ribbon';
-import { SourceEditor, type EditorViewportAnchor, type TextEditorHandle } from './SourceEditor';
+  type ImageAlignment,
+} from "../shared/imageResize";
+import { getMessages, type Messages } from "../shared/messages";
+import { prepareExportHtml } from "../shared/exportHtml";
+import { createClientId } from "./id";
+import { isMveDebugEnabled, mveDebug } from "./debug";
+import {
+  escapeHtml,
+  renderMarkdown,
+  sanitizeRenderedMarkdown,
+} from "./markdownRenderer";
+import type { UnsafeMarkdownBlock } from "./markdownRendererCore";
+import { acceptMermaidRenderResult } from "./mermaidRenderer";
+import { RenderedMarkdown, type InspectorTarget } from "./RenderedMarkdown";
+import { PdfDocumentPreview } from "./PdfDocumentPreview";
+import { Ribbon, type RibbonCommand } from "./Ribbon";
+import {
+  SourceEditor,
+  type EditorViewportAnchor,
+  type TextEditorHandle,
+} from "./SourceEditor";
 import {
   capturePreviewViewport,
   restoreScrollRatio,
   restorePreviewViewport,
-  type PreviewViewportAnchor
-} from './scrollAnchors';
+  type PreviewViewportAnchor,
+} from "./scrollAnchors";
 
 declare const acquireVsCodeApi: <State = unknown>() => VsCodeApi<State>;
 
@@ -73,7 +92,7 @@ interface PersistedState {
   zoom?: number;
   /** 通常表示で選択したペイン構成。splitViewは旧バージョン互換用に残す。 */
   viewMode?: ViewMode;
-  splitView?: 'both' | 'text' | 'preview';
+  splitView?: "both" | "text" | "preview";
   sourceViewport?: EditorViewportAnchor;
   splitPreviewViewport?: PreviewViewportAnchor;
   previewOnlyViewport?: PreviewViewportAnchor;
@@ -96,10 +115,10 @@ interface OutlineDragState {
   outline: OutlineItem[];
   dragging: boolean;
   targetIndex?: number;
-  position?: 'before' | 'after';
+  position?: "before" | "after";
 }
 
-type LocalResourceCheckPurpose = 'preflight' | 'pdf';
+type LocalResourceCheckPurpose = "preflight" | "pdf";
 
 interface LocalResourceCheckRequest {
   markdown: string;
@@ -118,30 +137,28 @@ interface PdfPreviewState {
 const vscode = acquireVsCodeApi<PersistedState>();
 const CROSS_PANE_SCROLL_SYNC_MS = 32;
 const DEFAULT_SETTINGS: WebviewSettings = {
-  language: 'ja',
-  imageDirectory: 'assets/${documentBasename}',
+  language: "ja",
+  imageDirectory: "assets/${documentBasename}",
   maxPasteSizeMb: 20,
   remoteImagesEnabled: true,
-  mermaidTheme: 'auto',
-  viewMode: 'both',
-  workspaceTrusted: false
+  mermaidTheme: "auto",
+  viewMode: "both",
+  workspaceTrusted: false,
 };
-const DEFAULT_PDF: PdfOptions = {
-  format: 'A4',
-  orientation: 'portrait',
-  margins: { top: 15, right: 15, bottom: 15, left: 15 },
-  header: '',
-  footer: '{page}/{pages}',
-  saveWithoutDialog: true
-};
-
 const PREVIEW_UPDATE_DELAY_MS = 120;
 const OUTLINE_DRAG_THRESHOLD_PX = 6;
 
-type HelpTopic = 'shortcuts' | 'features';
+type HelpTopic = "shortcuts" | "features";
 
-function mergeDiagnostics(markdown: string, localResourceDiagnostics: Diagnostic[], language: WebviewSettings['language']): Diagnostic[] {
-  return mergeCollectedDiagnostics(collectDiagnostics(markdown, language), localResourceDiagnostics);
+function mergeDiagnostics(
+  markdown: string,
+  localResourceDiagnostics: Diagnostic[],
+  language: WebviewSettings["language"],
+): Diagnostic[] {
+  return mergeCollectedDiagnostics(
+    collectDiagnostics(markdown, language),
+    localResourceDiagnostics,
+  );
 }
 
 interface MarkdownPreviewSnapshot {
@@ -162,16 +179,25 @@ interface MarkdownWorkerResponse {
   error?: string;
 }
 
-function mergeCollectedDiagnostics(staticDiagnostics: Diagnostic[], localResourceDiagnostics: Diagnostic[]): Diagnostic[] {
+function mergeCollectedDiagnostics(
+  staticDiagnostics: Diagnostic[],
+  localResourceDiagnostics: Diagnostic[],
+): Diagnostic[] {
   const missingImages = new Set(
     localResourceDiagnostics
-      .filter((item) => item.code === 'missing-local-image' && item.source)
-      .map((item) => item.source as string)
+      .filter((item) => item.code === "missing-local-image" && item.source)
+      .map((item) => item.source as string),
   );
-  const filteredStaticDiagnostics = staticDiagnostics.filter((item) => (
-    item.code !== 'local-image' || !item.source || !missingImages.has(item.source)
-  ));
-  return sortDiagnostics([...filteredStaticDiagnostics, ...localResourceDiagnostics]);
+  const filteredStaticDiagnostics = staticDiagnostics.filter(
+    (item) =>
+      item.code !== "local-image" ||
+      !item.source ||
+      !missingImages.has(item.source),
+  );
+  return sortDiagnostics([
+    ...filteredStaticDiagnostics,
+    ...localResourceDiagnostics,
+  ]);
 }
 
 /**
@@ -180,105 +206,137 @@ function mergeCollectedDiagnostics(staticDiagnostics: Diagnostic[], localResourc
  */
 export function App(): React.JSX.Element {
   const restored = vscode.getState();
-  const hasRestoredViewMode = restored?.viewMode !== undefined || restored?.splitView !== undefined;
+  const hasRestoredViewMode =
+    restored?.viewMode !== undefined || restored?.splitView !== undefined;
   // modeのpreviewは印刷プレビュー用の一時状態だったため、通常表示としては復元しない。
-  const [mode, setMode] = useState<EditorMode>('split');
-  const [outlineVisible, setOutlineVisible] = useState(restored?.outlineVisible ?? true);
-  const [outlineWidth, setOutlineWidth] = useState(() => clampOutlineWidth(restored?.outlineWidth ?? 220));
-  const [splitRatio, setSplitRatio] = useState(() => clampSplitRatio(restored?.splitRatio ?? 0.5));
+  const [mode, setMode] = useState<EditorMode>("split");
+  const [outlineVisible, setOutlineVisible] = useState(
+    restored?.outlineVisible ?? true,
+  );
+  const [outlineWidth, setOutlineWidth] = useState(() =>
+    clampOutlineWidth(restored?.outlineWidth ?? 220),
+  );
+  const [splitRatio, setSplitRatio] = useState(() =>
+    clampSplitRatio(restored?.splitRatio ?? 0.5),
+  );
   const [zoom, setZoom] = useState(() => clampZoom(restored?.zoom ?? 1));
   const zoomRef = useRef(zoom);
   zoomRef.current = zoom;
-  const [splitView, setSplitView] = useState<ViewMode>(restoreViewMode(restored?.viewMode ?? restored?.splitView));
+  const [splitView, setSplitView] = useState<ViewMode>(
+    restoreViewMode(restored?.viewMode ?? restored?.splitView),
+  );
   const [initialized, setInitialized] = useState(false);
-  const [markdown, setMarkdown] = useState('');
+  const [markdown, setMarkdown] = useState("");
   // 入力経路と、解析・HTML化が重い表示経路を分離する。入力が再開した場合は
   // 既に予約済みの全文更新を同期的に取り消し、キーイベントへ割り込ませない。
-  const [previewMarkdown, cancelPendingPreviewUpdate] = useInterruptibleDebouncedValue(
-    markdown,
-    PREVIEW_UPDATE_DELAY_MS
-  );
+  const [previewMarkdown, cancelPendingPreviewUpdate] =
+    useInterruptibleDebouncedValue(markdown, PREVIEW_UPDATE_DELAY_MS);
   const [version, setVersion] = useState(0);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
-  const [previewSnapshot, cancelActivePreviewRender] = useMarkdownPreviewSnapshot(
-    previewMarkdown,
-    settings.remoteImagesEnabled,
-    settings.language
-  );
+  const [previewSnapshot, cancelActivePreviewRender] =
+    useMarkdownPreviewSnapshot(
+      previewMarkdown,
+      settings.remoteImagesEnabled,
+      settings.language,
+    );
   const cancelPreviewWork = useCallback(() => {
-    if (document.body.dataset.mveInputActive !== 'true') {
-      document.body.dataset.mveInputActive = 'true';
-      window.dispatchEvent(new Event('mve-preview-input-active'));
+    if (document.body.dataset.mveInputActive !== "true") {
+      document.body.dataset.mveInputActive = "true";
+      window.dispatchEvent(new Event("mve-preview-input-active"));
     }
     cancelPendingPreviewUpdate();
     cancelActivePreviewRender();
   }, [cancelPendingPreviewUpdate, cancelActivePreviewRender]);
   const renderedPreviewMarkdown = previewSnapshot.markdown;
-  const messages = useMemo(() => getMessages(settings.language), [settings.language]);
+  const messages = useMemo(
+    () => getMessages(settings.language),
+    [settings.language],
+  );
   useEffect(() => {
     if (settings.language) document.documentElement.lang = settings.language;
   }, [settings.language]);
   // HTML/PDFの出力先は白背景のため、VS CodeのダークテーマをSVGへ持ち込まない。
-  const exportSettings = useMemo(() => ({ ...settings, mermaidTheme: 'default' as const }), [settings]);
+  const exportSettings = useMemo(
+    () => ({ ...settings, mermaidTheme: "default" as const }),
+    [settings],
+  );
   const [activeMarks, setActiveMarks] = useState<Record<string, boolean>>({});
   const activeMarksRef = useRef<Record<string, boolean>>({});
   const [inspector, setInspector] = useState<InspectorTarget>();
   const [diagnosticsVisible, setDiagnosticsVisible] = useState(false);
-  const [localResourceDiagnostics, setLocalResourceDiagnostics] = useState<Diagnostic[]>([]);
+  const [localResourceDiagnostics, setLocalResourceDiagnostics] = useState<
+    Diagnostic[]
+  >([]);
   const [printPreview, setPrintPreview] = useState(false);
   const [printSettingsVisible, setPrintSettingsVisible] = useState(false);
   const [helpTopic, setHelpTopic] = useState<HelpTopic>();
   const [searchVisible, setSearchVisible] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchReplacement, setSearchReplacement] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchReplacement, setSearchReplacement] = useState("");
   const [searchIndex, setSearchIndex] = useState(0);
   const [linkDialogVisible, setLinkDialogVisible] = useState(false);
-  const [linkHref, setLinkHref] = useState('https://example.com');
-  const [linkLabel, setLinkLabel] = useState('');
-  const [pdfOptions, setPdfOptions] = useState(DEFAULT_PDF);
-  const [pdfPreview, setPdfPreview] = useState<PdfPreviewState>({ requestId: '', loading: false });
-  const [htmlRenderRequest, setHtmlRenderRequest] = useState<Extract<HostToWebviewMessage, { type: 'renderHtmlDocuments' }>>();
+  const [linkHref, setLinkHref] = useState("https://example.com");
+  const [linkLabel, setLinkLabel] = useState("");
+  const [pdfOptions, setPdfOptions] = useState(DEFAULT_PDF_OPTIONS);
+  const [htmlOptions, setHtmlOptions] = useState(DEFAULT_HTML_EXPORT_OPTIONS);
+  const [pdfPreview, setPdfPreview] = useState<PdfPreviewState>({
+    requestId: "",
+    loading: false,
+  });
+  const [htmlRenderRequest, setHtmlRenderRequest] =
+    useState<Extract<HostToWebviewMessage, { type: "renderHtmlDocuments" }>>();
   const [exportStageRequested, setExportStageRequested] = useState(false);
-  const [toast, setToast] = useState('');
+  const [toast, setToast] = useState("");
 
   const clientIdRef = useRef(createClientId());
   const sourceRef = useRef<TextEditorHandle>(null);
   const splitPreviewRef = useRef<HTMLDivElement>(null);
   const editorAreaRef = useRef<HTMLElement>(null);
   const exportRootRef = useRef<HTMLDivElement>(null);
-  const exportStageWaitersRef = useRef<Array<(root: HTMLDivElement | undefined) => void>>([]);
+  const exportStageWaitersRef = useRef<
+    Array<(root: HTMLDivElement | undefined) => void>
+  >([]);
+  const previewSnapshotWaitersRef = useRef<Array<() => void>>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const hostTextRef = useRef('');
-  const localTextRef = useRef('');
+  const hostTextRef = useRef("");
+  const localTextRef = useRef("");
   const markdownForSelectionRef = useRef(markdown);
-  const updateMarkdownRef = useRef<(
-    nextText: string,
-    knownChanges?: TextChange[],
-    origin?: 'local' | 'remote',
-    updateRenderedState?: boolean
-  ) => void>(() => undefined);
+  const updateMarkdownRef = useRef<
+    (
+      nextText: string,
+      knownChanges?: TextChange[],
+      origin?: "local" | "remote",
+      updateRenderedState?: boolean,
+    ) => void
+  >(() => undefined);
   const versionRef = useRef(0);
   const initializedRef = useRef(false);
   // ACK待ちは常に1件だけとし、その間の入力はlocalTextRefの最新値へ上書き集約する。
-  const inFlightOperationRef = useRef<PendingLocalOperation | undefined>(undefined);
-  const pendingHistoryCommandsRef = useRef<Array<'undo' | 'redo'>>([]);
+  const inFlightOperationRef = useRef<PendingLocalOperation | undefined>(
+    undefined,
+  );
+  const pendingHistoryCommandsRef = useRef<Array<"undo" | "redo">>([]);
   const selectionStateRef = useRef<TextSelection>({ from: 0, to: 0 });
   const imageRequestsRef = useRef(new Set<string>());
   const pdfRequestsRef = useRef(new Set<string>());
   const htmlRequestsRef = useRef(new Set<string>());
-  const pdfPreviewRequestRef = useRef('');
+  const pdfPreviewRequestRef = useRef("");
   const pdfPreviewSignatureRef = useRef<string | undefined>(undefined);
   const pdfPreviewTimerRef = useRef<number | undefined>(undefined);
-  const resourceCheckRequestsRef = useRef(new Map<string, LocalResourceCheckRequest>());
+  const resourceCheckRequestsRef = useRef(
+    new Map<string, LocalResourceCheckRequest>(),
+  );
   const resourceCheckGenerationRef = useRef(0);
-  const latestResourceCheckRequestRef = useRef('');
+  const latestResourceCheckRequestRef = useRef("");
   const viewportStateRef = useRef({
     source: restored?.sourceViewport,
     splitPreview: restored?.splitPreviewViewport,
-    previewOnly: restored?.previewOnlyViewport
+    previewOnly: restored?.previewOnlyViewport,
   });
   const pendingViewportRestoreRef = useRef(false);
-  const pendingSourceViewportRestoreRef = useRef<EditorViewportAnchor | undefined>(undefined);
+  const pendingSourceViewportRestoreRef = useRef<
+    EditorViewportAnchor | undefined
+  >(undefined);
   const skipNextSourceViewportRestoreRef = useRef(false);
   const pendingPreviewViewportRestoreRef = useRef<{
     splitPreview?: PreviewViewportAnchor;
@@ -286,27 +344,40 @@ export function App(): React.JSX.Element {
   }>({});
   const pendingNavigationRef = useRef<TextSelection | undefined>(undefined);
   const recentRibbonCommandsRef = useRef(new Map<string, number>());
-  const previousModeBeforePrintRef = useRef<EditorMode>('split');
+  const previousModeBeforePrintRef = useRef<EditorMode>("split");
   const previewUserScrollPendingRef = useRef(new WeakSet<HTMLElement>());
   const previewPointerScrollActiveRef = useRef(new WeakSet<HTMLElement>());
   const previewTouchScrollActiveRef = useRef(new WeakSet<HTMLElement>());
   const outlineDragRef = useRef<OutlineDragState | undefined>(undefined);
-  const [outlineDrag, setOutlineDrag] = useState<OutlineDragState | undefined>(undefined);
+  const [outlineDrag, setOutlineDrag] = useState<OutlineDragState | undefined>(
+    undefined,
+  );
   // 復元が複数・遅延scrollイベントを発生させても、明示入力まで逆同期させない。
   const programmaticPreviewScrollsRef = useRef(new WeakSet<HTMLElement>());
-  const pendingPreviewScrollsRef = useRef(new Map<HTMLElement, {
-    kind: 'splitPreview' | 'previewOnly';
-    userInitiated: boolean;
-  }>());
+  const pendingPreviewScrollsRef = useRef(
+    new Map<
+      HTMLElement,
+      {
+        kind: "splitPreview" | "previewOnly";
+        userInitiated: boolean;
+      }
+    >(),
+  );
   const previewScrollFrameRef = useRef<number | undefined>(undefined);
   const previewToSourceSyncTimerRef = useRef<number | undefined>(undefined);
   const sourceToPreviewSyncTimerRef = useRef<number | undefined>(undefined);
-  const pendingPreviewToSourceAnchorRef = useRef<PreviewViewportAnchor | undefined>(undefined);
-  const pendingSourceToPreviewAnchorRef = useRef<EditorViewportAnchor | undefined>(undefined);
+  const pendingPreviewToSourceAnchorRef = useRef<
+    PreviewViewportAnchor | undefined
+  >(undefined);
+  const pendingSourceToPreviewAnchorRef = useRef<
+    EditorViewportAnchor | undefined
+  >(undefined);
   const lastPreviewToSourceSyncRef = useRef(0);
   const lastSourceToPreviewSyncRef = useRef(0);
   const lastPreviewUserScrollAtRef = useRef(0);
-  const pendingRenderedPreviewKindsRef = useRef(new Set<'splitPreview' | 'previewOnly'>());
+  const pendingRenderedPreviewKindsRef = useRef(
+    new Set<"splitPreview" | "previewOnly">(),
+  );
   const renderedPreviewRestoreFrameRef = useRef<number | undefined>(undefined);
   const renderedPreviewRestoreTimerRef = useRef<number | undefined>(undefined);
   const viewportUserIntentGenerationRef = useRef(0);
@@ -314,15 +385,22 @@ export function App(): React.JSX.Element {
   const resyncInFlightRef = useRef(false);
   // 同じHostスナップショットへの再送は1回だけに制限し、失敗時の自動再同期ループを防ぐ。
   // 全文連結キーを作らず、既存スナップショットへの参照だけを保持する。
-  const lastAutomaticRetryRef = useRef<{
-    version: number;
-    hostText: string;
-    localText: string;
-  } | undefined>(undefined);
-  const persistViewStateRef = useRef<(viewModeOverride?: ViewMode) => void>(() => undefined);
+  const lastAutomaticRetryRef = useRef<
+    | {
+        version: number;
+        hostText: string;
+        localText: string;
+      }
+    | undefined
+  >(undefined);
+  const persistViewStateRef = useRef<(viewModeOverride?: ViewMode) => void>(
+    () => undefined,
+  );
   const persistViewStateTimerRef = useRef<number | undefined>(undefined);
   const pendingPersistViewModeRef = useRef<ViewMode | undefined>(undefined);
-  const hostMessageHandlerRef = useRef<(message: HostToWebviewMessage) => void>(() => undefined);
+  const hostMessageHandlerRef = useRef<(message: HostToWebviewMessage) => void>(
+    () => undefined,
+  );
   versionRef.current = version;
   markdownForSelectionRef.current = markdown;
   hostMessageHandlerRef.current = handleHostMessage;
@@ -332,32 +410,41 @@ export function App(): React.JSX.Element {
    * @returns 操作対象のエディター。プレビューのみの場合はundefined。
    */
   function getActiveEditor(): TextEditorHandle | undefined {
-    if (mode === 'split' && splitView !== 'preview') return sourceRef.current ?? undefined;
+    if (mode === "split" && splitView !== "preview")
+      return sourceRef.current ?? undefined;
     return undefined;
   }
 
   const outline = previewSnapshot.outline;
   const diagnostics = useMemo(
-    () => mergeCollectedDiagnostics(previewSnapshot.diagnostics, localResourceDiagnostics),
-    [previewSnapshot.diagnostics, localResourceDiagnostics]
+    () =>
+      mergeCollectedDiagnostics(
+        previewSnapshot.diagnostics,
+        localResourceDiagnostics,
+      ),
+    [previewSnapshot.diagnostics, localResourceDiagnostics],
   );
-  const diagnosticSummary = useMemo(() => summarizeDiagnostics(diagnostics), [diagnostics]);
+  const diagnosticSummary = useMemo(
+    () => summarizeDiagnostics(diagnostics),
+    [diagnostics],
+  );
   const stats = previewSnapshot.stats;
   const searchHits = useMemo(
     () => findSearchHits(renderedPreviewMarkdown, searchQuery),
-    [renderedPreviewMarkdown, searchQuery]
+    [renderedPreviewMarkdown, searchQuery],
   );
   const previewHtml = previewSnapshot.html;
 
   useEffect(() => {
     // ホストへWebviewの準備完了を通知し、以後のメッセージを現在のハンドラーへ渡す。
-    mveDebug('webview.ready', { clientId: clientIdRef.current });
-    vscode.postMessage({ type: 'ready', clientId: clientIdRef.current });
+    mveDebug("webview.ready", { clientId: clientIdRef.current });
+    vscode.postMessage({ type: "ready", clientId: clientIdRef.current });
     /** ホストから受信したメッセージをアプリのメッセージ処理へ渡す。 */
-    const onMessage = (event: MessageEvent<HostToWebviewMessage>) => hostMessageHandlerRef.current(event.data);
-    window.addEventListener('message', onMessage);
+    const onMessage = (event: MessageEvent<HostToWebviewMessage>) =>
+      hostMessageHandlerRef.current(event.data);
+    window.addEventListener("message", onMessage);
     return () => {
-      window.removeEventListener('message', onMessage);
+      window.removeEventListener("message", onMessage);
       if (persistViewStateTimerRef.current !== undefined) {
         window.clearTimeout(persistViewStateTimerRef.current);
         persistViewStateTimerRef.current = undefined;
@@ -390,6 +477,18 @@ export function App(): React.JSX.Element {
   }, []);
 
   useEffect(() => {
+    if (!initialized) return;
+    // Explorer起点の出力が描画要求を送る前に、init反映済みのApp状態を保証する。
+    vscode.postMessage({ type: "initialized", clientId: clientIdRef.current });
+  }, [initialized]);
+
+  useEffect(() => {
+    if (previewSnapshot.markdown !== localTextRef.current) return;
+    const waiters = previewSnapshotWaitersRef.current.splice(0);
+    waiters.forEach((resolve) => resolve());
+  }, [previewSnapshot.markdown]);
+
+  useEffect(() => {
     // 表示モードやレイアウト設定をVS CodeのWebview状態へ保存する。
     persistViewState();
   }, [outlineVisible, outlineWidth, splitRatio, zoom, splitView]);
@@ -397,7 +496,9 @@ export function App(): React.JSX.Element {
   useEffect(() => {
     // 本文が変わったら、前の本文に対するローカル参照診断を破棄する。
     resourceCheckGenerationRef.current += 1;
-    setLocalResourceDiagnostics((previous) => previous.length ? [] : previous);
+    setLocalResourceDiagnostics((previous) =>
+      previous.length ? [] : previous,
+    );
   }, [markdown]);
 
   useEffect(() => {
@@ -406,7 +507,8 @@ export function App(): React.JSX.Element {
 
   useEffect(() => {
     if (!printPreview || !initialized || !settings.workspaceTrusted) return;
-    if (pdfPreviewTimerRef.current !== undefined) window.clearTimeout(pdfPreviewTimerRef.current);
+    if (pdfPreviewTimerRef.current !== undefined)
+      window.clearTimeout(pdfPreviewTimerRef.current);
     pdfPreviewTimerRef.current = window.setTimeout(() => {
       pdfPreviewTimerRef.current = undefined;
       requestPdfPreview();
@@ -417,7 +519,15 @@ export function App(): React.JSX.Element {
         pdfPreviewTimerRef.current = undefined;
       }
     };
-  }, [initialized, markdown, pdfOptions, printPreview, settings.language, settings.remoteImagesEnabled, version]);
+  }, [
+    initialized,
+    markdown,
+    pdfOptions,
+    printPreview,
+    settings.language,
+    settings.remoteImagesEnabled,
+    version,
+  ]);
 
   useEffect(() => {
     // 検索パネルが開いた直後に入力欄へフォーカスし、既存文字列を選択する。
@@ -433,7 +543,7 @@ export function App(): React.JSX.Element {
     // 検索結果の現在位置をソースエディターへ選択・表示する。
     if (!searchVisible || !searchHits.length) return;
     const active = searchHits[Math.min(searchIndex, searchHits.length - 1)];
-    if (mode === 'split' && splitView !== 'preview') {
+    if (mode === "split" && splitView !== "preview") {
       sourceRef.current?.setSelection(active);
       sourceRef.current?.revealRange(active);
     }
@@ -441,7 +551,9 @@ export function App(): React.JSX.Element {
 
   useEffect(() => {
     // リモート画像設定をCSSから参照できるbody属性へ反映する。
-    document.body.dataset.remoteImagesEnabled = String(settings.remoteImagesEnabled);
+    document.body.dataset.remoteImagesEnabled = String(
+      settings.remoteImagesEnabled,
+    );
   }, [settings.remoteImagesEnabled]);
 
   useEffect(() => {
@@ -454,8 +566,8 @@ export function App(): React.JSX.Element {
       event.preventDefault();
       adjustZoom(event.deltaY < 0 ? 0.1 : -0.1);
     };
-    editorArea.addEventListener('wheel', onWheel, { passive: false });
-    return () => editorArea.removeEventListener('wheel', onWheel);
+    editorArea.addEventListener("wheel", onWheel, { passive: false });
+    return () => editorArea.removeEventListener("wheel", onWheel);
   }, [initialized]);
 
   /** 現在の表示倍率を変更し、PDFを含む表示位置を維持する。 */
@@ -465,17 +577,23 @@ export function App(): React.JSX.Element {
     const previous = zoomRef.current;
     const next = clampZoom(previous + delta);
     if (next === previous) {
-      mveDebug('zoom.unchanged', { delta, zoom: previous, mode, splitView, printPreview });
+      mveDebug("zoom.unchanged", {
+        delta,
+        zoom: previous,
+        mode,
+        splitView,
+        printPreview,
+      });
       return;
     }
     zoomRef.current = next;
-    mveDebug('zoom.changed', {
+    mveDebug("zoom.changed", {
       delta,
       previous,
       next,
       mode,
       splitView,
-      printPreview
+      printPreview,
     });
     setZoom(next);
   }
@@ -483,19 +601,25 @@ export function App(): React.JSX.Element {
   useLayoutEffect(() => {
     // 保留した選択移動または表示位置復元をレイアウト確定後に実行する。
     const navigation = pendingNavigationRef.current;
-    if (navigation && mode === 'split' && splitView !== 'preview' && sourceRef.current) {
+    if (
+      navigation &&
+      mode === "split" &&
+      splitView !== "preview" &&
+      sourceRef.current
+    ) {
       sourceRef.current.setSelection(navigation);
       sourceRef.current.revealRange(navigation);
       const preview = splitPreviewRef.current;
       if (preview) {
         const previewAnchor: PreviewViewportAnchor = {
           offset: navigation.from,
-          topOffset: 18
+          topOffset: 18,
         };
         viewportStateRef.current.splitPreview = previewAnchor;
         // CodeMirrorのrevealRangeと同じ描画世代で、プレビューも選択位置へ揃える。
         requestAnimationFrame(() => {
-          if (splitPreviewRef.current === preview) restorePreview(preview, previewAnchor);
+          if (splitPreviewRef.current === preview)
+            restorePreview(preview, previewAnchor);
         });
       }
       pendingNavigationRef.current = undefined;
@@ -511,13 +635,23 @@ export function App(): React.JSX.Element {
       pendingViewportRestoreRef.current = false;
     });
     return () => cancelAnimationFrame(frame);
-  }, [mode, splitView, zoom, splitRatio, outlineVisible, diagnosticsVisible, Boolean(inspector), markdown, renderedPreviewMarkdown]);
+  }, [
+    mode,
+    splitView,
+    zoom,
+    splitRatio,
+    outlineVisible,
+    diagnosticsVisible,
+    Boolean(inspector),
+    markdown,
+    renderedPreviewMarkdown,
+  ]);
 
   useLayoutEffect(() => {
     const area = editorAreaRef.current;
-    const split = area?.querySelector<HTMLElement>('.split-editor');
-    const source = area?.querySelector<HTMLElement>('.split-source-pane');
-    const preview = area?.querySelector<HTMLElement>('.split-preview-pane');
+    const split = area?.querySelector<HTMLElement>(".split-editor");
+    const source = area?.querySelector<HTMLElement>(".split-source-pane");
+    const preview = area?.querySelector<HTMLElement>(".split-preview-pane");
     if (!area) return;
     const size = (element: HTMLElement | null) => {
       if (!element) return undefined;
@@ -526,38 +660,55 @@ export function App(): React.JSX.Element {
       return {
         width: Math.round(rect.width * 100) / 100,
         height: Math.round(rect.height * 100) / 100,
-        display: style.display
+        display: style.display,
       };
     };
-    mveDebug('view.layout', {
+    mveDebug("view.layout", {
       mode,
       splitView,
       editorArea: size(area),
       split: size(split ?? null),
       source: size(source ?? null),
       preview: size(preview ?? null),
-      columns: split ? getComputedStyle(split).gridTemplateColumns : undefined
+      columns: split ? getComputedStyle(split).gridTemplateColumns : undefined,
     });
-  }, [initialized, mode, splitView, outlineVisible, splitRatio, zoom, diagnosticsVisible, Boolean(inspector)]);
+  }, [
+    initialized,
+    mode,
+    splitView,
+    outlineVisible,
+    splitRatio,
+    zoom,
+    diagnosticsVisible,
+    Boolean(inspector),
+  ]);
 
   useEffect(() => {
     // リサイズ中に各ペインの表示アンカーを保存し、リサイズ後に同じ位置へ戻す。
     let frame = 0;
     let resetSnapshotTimer = 0;
-    let resizeSnapshot: {
-      source?: EditorViewportAnchor;
-      splitPreview?: PreviewViewportAnchor;
-      previewOnly?: PreviewViewportAnchor;
-      intentGeneration: number;
-    } | undefined;
+    let resizeSnapshot:
+      | {
+          source?: EditorViewportAnchor;
+          splitPreview?: PreviewViewportAnchor;
+          previewOnly?: PreviewViewportAnchor;
+          intentGeneration: number;
+        }
+      | undefined;
     /** ウィンドウサイズ変更時の表示スナップショットを作成または更新する。 */
     const onResize = () => {
       if (!resizeSnapshot) {
         resizeSnapshot = {
-          source: viewportStateRef.current.source ? { ...viewportStateRef.current.source } : undefined,
-          splitPreview: viewportStateRef.current.splitPreview ? { ...viewportStateRef.current.splitPreview } : undefined,
-          previewOnly: viewportStateRef.current.previewOnly ? { ...viewportStateRef.current.previewOnly } : undefined,
-          intentGeneration: viewportUserIntentGenerationRef.current
+          source: viewportStateRef.current.source
+            ? { ...viewportStateRef.current.source }
+            : undefined,
+          splitPreview: viewportStateRef.current.splitPreview
+            ? { ...viewportStateRef.current.splitPreview }
+            : undefined,
+          previewOnly: viewportStateRef.current.previewOnly
+            ? { ...viewportStateRef.current.previewOnly }
+            : undefined,
+          intentGeneration: viewportUserIntentGenerationRef.current,
         };
       }
       pendingSourceViewportRestoreRef.current = resizeSnapshot.source
@@ -566,54 +717,74 @@ export function App(): React.JSX.Element {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(() => {
         const snapshot = resizeSnapshot;
-        if (!snapshot || snapshot.intentGeneration !== viewportUserIntentGenerationRef.current) return;
-        if (mode === 'split' && splitView !== 'preview' && snapshot.source) {
+        if (
+          !snapshot ||
+          snapshot.intentGeneration !== viewportUserIntentGenerationRef.current
+        )
+          return;
+        if (mode === "split" && splitView !== "preview" && snapshot.source) {
           sourceRef.current?.restoreViewport(snapshot.source);
         }
-        if (mode === 'split' && splitView !== 'text' && splitPreviewRef.current && snapshot.splitPreview) {
+        if (
+          mode === "split" &&
+          splitView !== "text" &&
+          splitPreviewRef.current &&
+          snapshot.splitPreview
+        ) {
           restorePreview(splitPreviewRef.current, snapshot.splitPreview);
         }
-        if (mode === 'preview' && editorAreaRef.current && snapshot.previewOnly) {
+        if (
+          mode === "preview" &&
+          editorAreaRef.current &&
+          snapshot.previewOnly
+        ) {
           restorePreview(editorAreaRef.current, snapshot.previewOnly);
         }
       });
       window.clearTimeout(resetSnapshotTimer);
-      resetSnapshotTimer = window.setTimeout(() => { resizeSnapshot = undefined; }, 120);
+      resetSnapshotTimer = window.setTimeout(() => {
+        resizeSnapshot = undefined;
+      }, 120);
     };
     /** プレビューのポインタースクロール状態を解除する。 */
     const endPreviewPointerScroll = () => {
       const splitPreview = splitPreviewRef.current;
       const editorArea = editorAreaRef.current;
-      if (splitPreview) previewPointerScrollActiveRef.current.delete(splitPreview);
+      if (splitPreview)
+        previewPointerScrollActiveRef.current.delete(splitPreview);
       if (editorArea) previewPointerScrollActiveRef.current.delete(editorArea);
     };
     /** プレビューのタッチスクロール状態を解除する。 */
     const endPreviewTouchScroll = () => {
       const splitPreview = splitPreviewRef.current;
       const editorArea = editorAreaRef.current;
-      if (splitPreview) previewTouchScrollActiveRef.current.delete(splitPreview);
+      if (splitPreview)
+        previewTouchScrollActiveRef.current.delete(splitPreview);
       if (editorArea) previewTouchScrollActiveRef.current.delete(editorArea);
     };
-    window.addEventListener('resize', onResize);
-    window.addEventListener('pointerup', endPreviewPointerScroll);
-    window.addEventListener('pointercancel', endPreviewPointerScroll);
-    window.addEventListener('touchend', endPreviewTouchScroll);
-    window.addEventListener('touchcancel', endPreviewTouchScroll);
+    window.addEventListener("resize", onResize);
+    window.addEventListener("pointerup", endPreviewPointerScroll);
+    window.addEventListener("pointercancel", endPreviewPointerScroll);
+    window.addEventListener("touchend", endPreviewTouchScroll);
+    window.addEventListener("touchcancel", endPreviewTouchScroll);
     return () => {
       cancelAnimationFrame(frame);
       window.clearTimeout(resetSnapshotTimer);
-      window.removeEventListener('resize', onResize);
-      window.removeEventListener('pointerup', endPreviewPointerScroll);
-      window.removeEventListener('pointercancel', endPreviewPointerScroll);
-      window.removeEventListener('touchend', endPreviewTouchScroll);
-      window.removeEventListener('touchcancel', endPreviewTouchScroll);
+      window.removeEventListener("resize", onResize);
+      window.removeEventListener("pointerup", endPreviewPointerScroll);
+      window.removeEventListener("pointercancel", endPreviewPointerScroll);
+      window.removeEventListener("touchend", endPreviewTouchScroll);
+      window.removeEventListener("touchcancel", endPreviewTouchScroll);
     };
   }, [initialized, mode, splitView]);
 
-  useEffect(() => () => {
-    outlineDragRef.current = undefined;
-    document.body.classList.remove('mve-dragging-outline');
-  }, []);
+  useEffect(
+    () => () => {
+      outlineDragRef.current = undefined;
+      document.body.classList.remove("mve-dragging-outline");
+    },
+    [],
+  );
 
   useEffect(() => {
     // 貼り付け・ドラッグ&ドロップ・キーボードショートカットを文書編集へ接続する。
@@ -621,15 +792,22 @@ export function App(): React.JSX.Element {
     const onPaste = (event: ClipboardEvent) => void handlePaste(event);
     /** 編集可能な場合だけ画像ファイルのドラッグを受け付ける。 */
     const onDragOver = (event: DragEvent) => {
-      if (isEditingEnabled(mode, splitView) && Array.from(event.dataTransfer?.items ?? []).some((item) => item.kind === 'file')) {
+      if (
+        isEditingEnabled(mode, splitView) &&
+        Array.from(event.dataTransfer?.items ?? []).some(
+          (item) => item.kind === "file",
+        )
+      ) {
         event.preventDefault();
-        if (event.dataTransfer) event.dataTransfer.dropEffect = 'copy';
+        if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
       }
     };
     /** ドロップされた画像ファイルをローカル保存して本文へ挿入する。 */
     const onDrop = (event: DragEvent) => {
       if (!isEditingEnabled(mode, splitView)) return;
-      const files = Array.from(event.dataTransfer?.files ?? []).filter(isImageFile);
+      const files = Array.from(event.dataTransfer?.files ?? []).filter(
+        isImageFile,
+      );
       if (!files.length) return;
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -638,17 +816,26 @@ export function App(): React.JSX.Element {
     /** 検索ショートカットと表内改行ショートカットを処理する。 */
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target instanceof Element ? event.target : undefined;
-      const inApp = Boolean(target?.closest('.app')) || target === document.body;
-      const inSourceEditor = Boolean(target?.closest('.cm-content'));
-      const inFormControl = Boolean(target?.closest('input, textarea, select'));
-      if (inApp && (inSourceEditor || !inFormControl) && !event.isComposing
-        && (event.ctrlKey || event.metaKey) && !event.altKey) {
+      const inApp =
+        Boolean(target?.closest(".app")) || target === document.body;
+      const inSourceEditor = Boolean(target?.closest(".cm-content"));
+      const inFormControl = Boolean(target?.closest("input, textarea, select"));
+      if (
+        inApp &&
+        (inSourceEditor || !inFormControl) &&
+        !event.isComposing &&
+        (event.ctrlKey || event.metaKey) &&
+        !event.altKey
+      ) {
         const key = event.key.toLowerCase();
-        const command = key === 'z'
-          ? (event.shiftKey ? 'redo' : 'undo')
-          : key === 'y' && !event.shiftKey
-            ? 'redo'
-            : undefined;
+        const command =
+          key === "z"
+            ? event.shiftKey
+              ? "redo"
+              : "undo"
+            : key === "y" && !event.shiftKey
+              ? "redo"
+              : undefined;
         if (command) {
           event.preventDefault();
           event.stopImmediatePropagation();
@@ -656,32 +843,36 @@ export function App(): React.JSX.Element {
           return;
         }
       }
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
+      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
         event.preventDefault();
         openSearch();
         return;
       }
-      if (event.altKey && event.key === 'Enter' && isEditingEnabled(mode, splitView)) {
+      if (
+        event.altKey &&
+        event.key === "Enter" &&
+        isEditingEnabled(mode, splitView)
+      ) {
         event.preventDefault();
-        getActiveEditor()?.action('cellBreak');
+        getActiveEditor()?.action("cellBreak");
       }
     };
-    document.addEventListener('paste', onPaste, true);
-    document.addEventListener('dragover', onDragOver, true);
-    document.addEventListener('drop', onDrop, true);
-    document.addEventListener('keydown', onKeyDown, true);
+    document.addEventListener("paste", onPaste, true);
+    document.addEventListener("dragover", onDragOver, true);
+    document.addEventListener("drop", onDrop, true);
+    document.addEventListener("keydown", onKeyDown, true);
     return () => {
-      document.removeEventListener('paste', onPaste, true);
-      document.removeEventListener('dragover', onDragOver, true);
-      document.removeEventListener('drop', onDrop, true);
-      document.removeEventListener('keydown', onKeyDown, true);
+      document.removeEventListener("paste", onPaste, true);
+      document.removeEventListener("dragover", onDragOver, true);
+      document.removeEventListener("drop", onDrop, true);
+      document.removeEventListener("keydown", onKeyDown, true);
     };
   }, [mode, splitView, settings.maxPasteSizeMb]);
 
   useEffect(() => {
     // 通知トーストを一定時間後に自動的に閉じる。
     if (!toast) return;
-    const timer = window.setTimeout(() => setToast(''), 2600);
+    const timer = window.setTimeout(() => setToast(""), 2600);
     return () => window.clearTimeout(timer);
   }, [toast]);
 
@@ -693,37 +884,46 @@ export function App(): React.JSX.Element {
   function handleHostMessage(message: HostToWebviewMessage): void {
     const record = message as unknown as Record<string, unknown>;
     if (isMveDebugEnabled()) {
-      mveDebug('host.message', {
+      mveDebug("host.message", {
         type: message.type,
         clientId: record.clientId,
         opId: record.opId,
         baseVersion: record.baseVersion,
         version: record.version,
-        reason: record.reason
+        reason: record.reason,
       });
     }
     // ホスト側の判定タイミングによって自分の操作がexternalChangesとして返る場合がある。
     // これを未反映のローカル操作としてリベースすると、末尾挿入が同じ内容を二重に挿入する。
-    if (message.type === 'externalChanges'
-      && message.clientId === clientIdRef.current
-      && message.opId
-      && !settledOperationIdsRef.current.has(message.opId)) {
+    if (
+      message.type === "externalChanges" &&
+      message.clientId === clientIdRef.current &&
+      message.opId &&
+      !settledOperationIdsRef.current.has(message.opId)
+    ) {
       handleHostMessage({
-        type: 'editAck',
+        type: "editAck",
         clientId: message.clientId,
         opId: message.opId,
         baseVersion: message.baseVersion,
         version: message.version,
-        changes: message.changes
+        changes: message.changes,
       });
       return;
     }
     switch (message.type) {
-      case 'init':
+      case "init":
         if (initializedRef.current) {
           setSettings(message.settings);
-          if (message.version !== versionRef.current || message.text !== hostTextRef.current) {
-            applyResyncSnapshot(message.text, message.version, '再初期化通知を受信しました。');
+          if (
+            message.version !== versionRef.current ||
+            message.text !== hostTextRef.current
+          ) {
+            applyResyncSnapshot(
+              message.text,
+              message.version,
+              "再初期化通知を受信しました。",
+            );
           }
           return;
         }
@@ -742,33 +942,45 @@ export function App(): React.JSX.Element {
           setMarkdown(message.text);
         }
         return;
-      case 'editAck': {
+      case "editAck": {
         if (message.clientId !== clientIdRef.current) return;
         const pending = inFlightOperationRef.current;
         if (!pending || pending.opId !== message.opId) {
           if (!settledOperationIdsRef.current.has(message.opId)) {
-            console.warn('[Markdown Easy Visual Editor] 順序外のACKを破棄しました。', message.opId);
-            requestResync('unexpected-ack', message.opId);
+            console.warn(
+              "[Markdown Easy Visual Editor] 順序外のACKを破棄しました。",
+              message.opId,
+            );
+            requestResync("unexpected-ack", message.opId);
           }
           return;
         }
         if (message.baseVersion !== versionRef.current) {
-          console.warn('[Markdown Easy Visual Editor] ACKの文書versionが一致しないため再同期します。', {
-            expected: versionRef.current,
-            received: message.baseVersion,
-            opId: message.opId
-          });
-          requestResync('ack-version-mismatch', message.opId);
+          console.warn(
+            "[Markdown Easy Visual Editor] ACKの文書versionが一致しないため再同期します。",
+            {
+              expected: versionRef.current,
+              received: message.baseVersion,
+              opId: message.opId,
+            },
+          );
+          requestResync("ack-version-mismatch", message.opId);
           return;
         }
         try {
-          hostTextRef.current = applyTextChanges(hostTextRef.current, message.changes);
+          hostTextRef.current = applyTextChanges(
+            hostTextRef.current,
+            message.changes,
+          );
           if (hostTextRef.current !== pending.resultText) {
             throw new Error(messages.app.errors.ackMismatch);
           }
         } catch (error) {
-          console.warn('[Markdown Easy Visual Editor] ACK差分を適用できないため再同期します。', error);
-          requestResync('ack-apply-failed', message.opId);
+          console.warn(
+            "[Markdown Easy Visual Editor] ACK差分を適用できないため再同期します。",
+            error,
+          );
+          requestResync("ack-apply-failed", message.opId);
           return;
         }
         versionRef.current = message.version;
@@ -780,96 +992,170 @@ export function App(): React.JSX.Element {
         flushHistoryCommands();
         return;
       }
-      case 'externalChanges':
+      case "externalChanges":
         applyExternalChanges(message);
         return;
-      case 'resyncRequired':
+      case "resyncRequired":
         if (message.clientId !== clientIdRef.current) return;
         applyResyncSnapshot(
           message.text,
           message.version,
           message.reason,
           message.opId,
-          message.operationApplied
+          message.operationApplied,
         );
         return;
-      case 'settingsChanged':
+      case "settingsChanged":
         setSettings(message.settings);
-        if (message.settings.viewMode) setSplitView(restoreViewMode(message.settings.viewMode));
+        if (message.settings.viewMode)
+          setSplitView(restoreViewMode(message.settings.viewMode));
         return;
-      case 'mermaidRendered':
+      case "mermaidRendered":
         acceptMermaidRenderResult(message);
         return;
-      case 'imagesSaved':
+      case "imagesSaved":
         imageRequestsRef.current.delete(message.requestId);
         if (message.paths.length) {
-          getActiveEditor()?.insert(message.paths.map((item) => imageMarkdown(item, messages.editor.defaultImageAlt)).join('\n'), true);
+          getActiveEditor()?.insert(
+            message.paths
+              .map((item) =>
+                imageMarkdown(item, messages.editor.defaultImageAlt),
+              )
+              .join("\n"),
+            true,
+          );
           setToast(messages.app.toast.imagesSaved(message.paths.length));
         }
         return;
-      case 'localResourcesChecked':
+      case "localResourcesChecked":
         {
-          const request = resourceCheckRequestsRef.current.get(message.requestId);
+          const request = resourceCheckRequestsRef.current.get(
+            message.requestId,
+          );
           resourceCheckRequestsRef.current.delete(message.requestId);
-          if (!request
-            || request.markdown !== markdown
-            || request.version !== versionRef.current
-            || request.generation !== resourceCheckGenerationRef.current
-            || message.requestId !== latestResourceCheckRequestRef.current) return;
-          if (message.diagnostics.length && request.purpose === 'pdf') {
+          if (
+            !request ||
+            request.markdown !== markdown ||
+            request.version !== versionRef.current ||
+            request.generation !== resourceCheckGenerationRef.current ||
+            message.requestId !== latestResourceCheckRequestRef.current
+          )
+            return;
+          if (message.diagnostics.length && request.purpose === "pdf") {
             const detail = message.diagnostics
-              .map((item) => `${item.line ? `行${item.line}: ` : ''}${item.message}`)
-              .join(' / ');
-            setToast(messages.app.toast.pdfResourceWarnings(message.diagnostics.length, detail));
-          } else if (request.purpose === 'preflight') {
-            const summary = summarizeDiagnostics(mergeDiagnostics(markdown, message.diagnostics, settings.language));
-            setToast(messages.app.toast.preflightSummary(summary.errors.length, summary.warnings.length, summary.infos.length));
+              .map(
+                (item) =>
+                  `${item.line ? `行${item.line}: ` : ""}${item.message}`,
+              )
+              .join(" / ");
+            setToast(
+              messages.app.toast.pdfResourceWarnings(
+                message.diagnostics.length,
+                detail,
+              ),
+            );
+          } else if (request.purpose === "preflight") {
+            const summary = summarizeDiagnostics(
+              mergeDiagnostics(
+                markdown,
+                message.diagnostics,
+                settings.language,
+              ),
+            );
+            setToast(
+              messages.app.toast.preflightSummary(
+                summary.errors.length,
+                summary.warnings.length,
+                summary.infos.length,
+              ),
+            );
           }
         }
         setLocalResourceDiagnostics(message.diagnostics);
         return;
-      case 'operationFailed':
+      case "operationFailed":
         {
-          if (message.requestId && message.requestId === pdfPreviewRequestRef.current) {
-            setPdfPreview((previous) => ({ ...previous, loading: false, error: message.message }));
-            console.error('[Markdown Easy Visual Editor] PDF preview failed.', message.message);
+          if (
+            message.requestId &&
+            message.requestId === pdfPreviewRequestRef.current
+          ) {
+            setPdfPreview((previous) => ({
+              ...previous,
+              loading: false,
+              error: message.message,
+            }));
+            console.error(
+              "[Markdown Easy Visual Editor] PDF preview failed.",
+              message.message,
+            );
             return;
           }
-          const imageFailed = message.requestId ? imageRequestsRef.current.delete(message.requestId) : false;
-          const pdfFailed = message.requestId ? pdfRequestsRef.current.delete(message.requestId) : false;
-          const htmlFailed = message.requestId ? htmlRequestsRef.current.delete(message.requestId) : false;
+          const imageFailed = message.requestId
+            ? imageRequestsRef.current.delete(message.requestId)
+            : false;
+          const pdfFailed = message.requestId
+            ? pdfRequestsRef.current.delete(message.requestId)
+            : false;
+          const htmlFailed = message.requestId
+            ? htmlRequestsRef.current.delete(message.requestId)
+            : false;
           const resourceCheckRequest = message.requestId
             ? resourceCheckRequestsRef.current.get(message.requestId)
             : undefined;
-          const resourceCheckFailed = message.requestId ? resourceCheckRequestsRef.current.delete(message.requestId) : false;
-          setToast(imageFailed ? messages.app.toast.imageSaveFailed(message.message)
-            : pdfFailed ? messages.app.toast.pdfExportFailed(message.message)
-              : htmlFailed ? messages.app.toast.htmlExportFailed(message.message)
-              : resourceCheckFailed
-                ? messages.app.toast.resourceCheckFailed(message.message, resourceCheckRequest?.purpose === 'pdf')
-                : messages.app.toast.operationFailed(message.message));
+          const resourceCheckFailed = message.requestId
+            ? resourceCheckRequestsRef.current.delete(message.requestId)
+            : false;
+          setToast(
+            imageFailed
+              ? messages.app.toast.imageSaveFailed(message.message)
+              : pdfFailed
+                ? messages.app.toast.pdfExportFailed(message.message)
+                : htmlFailed
+                  ? messages.app.toast.htmlExportFailed(message.message)
+                  : resourceCheckFailed
+                    ? messages.app.toast.resourceCheckFailed(
+                        message.message,
+                        resourceCheckRequest?.purpose === "pdf",
+                      )
+                    : messages.app.toast.operationFailed(message.message),
+          );
         }
-            console.error('[Markdown Easy Visual Editor] 操作に失敗しました。', message.message);
+        console.error(
+          "[Markdown Easy Visual Editor] 操作に失敗しました。",
+          message.message,
+        );
         return;
-      case 'pdfExported':
+      case "pdfExported":
         pdfRequestsRef.current.delete(message.requestId);
         setToast(messages.app.toast.pdfExported(message.path));
         return;
-      case 'htmlExported':
+      case "htmlExported":
         htmlRequestsRef.current.delete(message.requestId);
-        setToast(messages.app.toast.htmlExported(message.paths[0] ?? '', message.paths.length));
+        setToast(
+          messages.app.toast.htmlExported(
+            message.paths[0] ?? "",
+            message.paths.length,
+          ),
+        );
         return;
-      case 'renderHtmlDocuments':
+      case "renderHtmlDocuments":
         setHtmlRenderRequest(message);
         return;
-      case 'pdfPreviewReady':
+      case "pdfPreviewReady":
         if (message.requestId !== pdfPreviewRequestRef.current) return;
-        setPdfPreview({ requestId: message.requestId, pdfBase64: message.pdfBase64, loading: false });
+        setPdfPreview({
+          requestId: message.requestId,
+          pdfBase64: message.pdfBase64,
+          loading: false,
+        });
         return;
-      case 'hostCommand':
-        if (message.command === 'insertImage') requestImagePicker();
-        if (message.command === 'exportPdf') void requestPdfExport();
-        if (message.command === 'undo' || message.command === 'redo') requestHistoryCommand(message.command);
+      case "hostCommand":
+        if (message.command === "insertImage") requestImagePicker();
+        if (message.command === "exportPdf") void requestPdfExport();
+        if (message.command === "exportHtml")
+          void requestHtmlExport(htmlOptions);
+        if (message.command === "undo" || message.command === "redo")
+          requestHistoryCommand(message.command);
         return;
     }
   }
@@ -879,9 +1165,13 @@ export function App(): React.JSX.Element {
    * @param message 外部差分と新しい文書バージョンを含むメッセージ。
    * @returns 何も返さない。
    */
-  function applyExternalChanges(message: Extract<HostToWebviewMessage, { type: 'externalChanges' }>): void {
+  function applyExternalChanges(
+    message: Extract<HostToWebviewMessage, { type: "externalChanges" }>,
+  ): void {
     if (message.baseVersion !== versionRef.current) {
-      requestResync(`外部変更の基準versionが一致しません: ${message.baseVersion}/${versionRef.current}`);
+      requestResync(
+        `外部変更の基準versionが一致しません: ${message.baseVersion}/${versionRef.current}`,
+      );
       return;
     }
     const previousHost = hostTextRef.current;
@@ -890,15 +1180,18 @@ export function App(): React.JSX.Element {
       try {
         // clientId/opIdが欠落した自己エコーでも、ホスト結果が送信中操作と一致するならACKとして確定する。
         // 一致しない場合だけ通常の外部変更リベースへ進み、末尾貼り付けを再挿入しない。
-        const externallyApplied = applyTextChanges(previousHost, message.changes);
+        const externallyApplied = applyTextChanges(
+          previousHost,
+          message.changes,
+        );
         if (externallyApplied === operation.resultText) {
           handleHostMessage({
-            type: 'editAck',
+            type: "editAck",
             clientId: clientIdRef.current,
             opId: operation.opId,
             baseVersion: message.baseVersion,
             version: message.version,
-            changes: message.changes
+            changes: message.changes,
           });
           return;
         }
@@ -909,23 +1202,27 @@ export function App(): React.JSX.Element {
     try {
       const previousLocal = localTextRef.current;
       const nextHost = applyTextChanges(previousHost, message.changes);
-      const remoteClientId = message.clientId ?? 'host';
-      const localBeforeRemote = clientIdRef.current.localeCompare(remoteClientId) < 0;
+      const remoteClientId = message.clientId ?? "host";
+      const localBeforeRemote =
+        clientIdRef.current.localeCompare(remoteClientId) < 0;
       const localChanges = computeTextChanges(previousHost, previousLocal);
       const mappedLocal = mapTextChanges(
         localChanges,
         message.changes,
         previousHost.length,
-        localBeforeRemote
+        localBeforeRemote,
       );
       const rebasedLocal = applyTextChanges(nextHost, mappedLocal);
       if (operation) {
-        if (operation.baseText !== previousHost) throw new Error(messages.app.errors.pendingOperationChain(operation.opId));
+        if (operation.baseText !== previousHost)
+          throw new Error(
+            messages.app.errors.pendingOperationChain(operation.opId),
+          );
         const mappedOperation = mapTextChanges(
           operation.changes,
           message.changes,
           previousHost.length,
-          localBeforeRemote
+          localBeforeRemote,
         );
         operation.baseVersion = message.version;
         operation.baseText = nextHost;
@@ -935,12 +1232,19 @@ export function App(): React.JSX.Element {
       hostTextRef.current = nextHost;
       versionRef.current = message.version;
       setVersion(message.version);
-      updateMarkdown(rebasedLocal, computeTextChanges(previousLocal, rebasedLocal), 'remote');
+      updateMarkdown(
+        rebasedLocal,
+        computeTextChanges(previousLocal, rebasedLocal),
+        "remote",
+      );
       if (!operation) sendNextLocalOperation();
       flushHistoryCommands();
     } catch (error) {
-      console.warn('[Markdown Easy Visual Editor] 外部変更を統合できないため再同期します。', error);
-      requestResync('external-rebase-failed');
+      console.warn(
+        "[Markdown Easy Visual Editor] 外部変更を統合できないため再同期します。",
+        error,
+      );
+      requestResync("external-rebase-failed");
     }
   }
 
@@ -958,7 +1262,7 @@ export function App(): React.JSX.Element {
     nextVersion: number,
     reason: string,
     opId?: string,
-    operationApplied?: boolean
+    operationApplied?: boolean,
   ): void {
     const previousHost = hostTextRef.current;
     const previousLocal = localTextRef.current;
@@ -967,47 +1271,70 @@ export function App(): React.JSX.Element {
     if (operation) rememberSettledOperation(operation.opId);
     if (opId) rememberSettledOperation(opId);
     resyncInFlightRef.current = false;
-    console.warn('[Markdown Easy Visual Editor] 文書同期を再確認しました。', {
+    console.warn("[Markdown Easy Visual Editor] 文書同期を再確認しました。", {
       reason,
       opId,
       operationApplied,
-      nextVersion
+      nextVersion,
     });
-    const refersToOperation = Boolean(operation && (!opId || opId === operation.opId));
-    const wasApplied = Boolean(refersToOperation && operation && (
-      operationApplied ?? (nextHost === operation.resultText || nextHost === previousLocal)
-    ));
-    const rebaseBase = wasApplied && operation ? operation.resultText : operation?.baseText ?? previousHost;
+    const refersToOperation = Boolean(
+      operation && (!opId || opId === operation.opId),
+    );
+    const wasApplied = Boolean(
+      refersToOperation &&
+      operation &&
+      (operationApplied ??
+        (nextHost === operation.resultText || nextHost === previousLocal)),
+    );
+    const rebaseBase =
+      wasApplied && operation
+        ? operation.resultText
+        : (operation?.baseText ?? previousHost);
     let rebasedText = nextHost;
     try {
       if (previousLocal !== rebaseBase) {
         const localChanges = computeTextChanges(rebaseBase, previousLocal);
         const remoteChanges = computeTextChanges(rebaseBase, nextHost);
-        const mapped = mapChangesPreferLocal(localChanges, remoteChanges, rebaseBase.length);
+        const mapped = mapChangesPreferLocal(
+          localChanges,
+          remoteChanges,
+          rebaseBase.length,
+        );
         rebasedText = applyTextChanges(nextHost, mapped);
       }
     } catch (error) {
-      console.error('[Markdown Easy Visual Editor] 入力を保持した自動再適用で補正しました。', error);
+      console.error(
+        "[Markdown Easy Visual Editor] 入力を保持した自動再適用で補正しました。",
+        error,
+      );
       const localChanges = computeTextChanges(rebaseBase, previousLocal);
       const remoteChanges = computeTextChanges(rebaseBase, nextHost);
-      rebasedText = applyTextChanges(nextHost, mapChangesPreferLocal(localChanges, remoteChanges, rebaseBase.length));
+      rebasedText = applyTextChanges(
+        nextHost,
+        mapChangesPreferLocal(localChanges, remoteChanges, rebaseBase.length),
+      );
     }
     hostTextRef.current = nextHost;
     versionRef.current = nextVersion;
     setVersion(nextVersion);
-    updateMarkdown(rebasedText, computeTextChanges(previousLocal, rebasedText), 'remote');
+    updateMarkdown(
+      rebasedText,
+      computeTextChanges(previousLocal, rebasedText),
+      "remote",
+    );
     // 再同期後にローカル編集が残っている場合だけ再送する。同一スナップショットで
     // 再び失敗した場合は保留し、同じ自動再送を無限に繰り返さない。
     if (rebasedText !== nextHost) {
       const previousRetry = lastAutomaticRetryRef.current;
-      const sameSnapshot = previousRetry?.version === nextVersion
-        && previousRetry.hostText === nextHost
-        && previousRetry.localText === rebasedText;
+      const sameSnapshot =
+        previousRetry?.version === nextVersion &&
+        previousRetry.hostText === nextHost &&
+        previousRetry.localText === rebasedText;
       if (!sameSnapshot) {
         lastAutomaticRetryRef.current = {
           version: nextVersion,
           hostText: nextHost,
-          localText: rebasedText
+          localText: rebasedText,
         };
         sendNextLocalOperation();
       }
@@ -1021,22 +1348,25 @@ export function App(): React.JSX.Element {
    * @param opId 再同期対象の保留操作ID。
    * @returns 何も返さない。
    */
-  function requestResync(reason: string, opId = inFlightOperationRef.current?.opId): void {
+  function requestResync(
+    reason: string,
+    opId = inFlightOperationRef.current?.opId,
+  ): void {
     if (resyncInFlightRef.current) return;
     resyncInFlightRef.current = true;
     vscode.postMessage({
-      type: 'requestResync',
+      type: "requestResync",
       clientId: clientIdRef.current,
       opId,
       version: versionRef.current,
-      reason
+      reason,
     });
   }
 
   /** プレビュー・出力用stateを、即時同期済みの最新ローカル本文へ進める。 */
   function commitSourceSnapshot(): string {
     const current = localTextRef.current;
-    setMarkdown((previous) => previous === current ? previous : current);
+    setMarkdown((previous) => (previous === current ? previous : current));
     return current;
   }
 
@@ -1045,7 +1375,7 @@ export function App(): React.JSX.Element {
    * @param command 実行する履歴コマンド。
    * @returns 何も返さない。
    */
-  function requestHistoryCommand(command: 'undo' | 'redo'): void {
+  function requestHistoryCommand(command: "undo" | "redo"): void {
     commitSourceSnapshot();
     pendingHistoryCommandsRef.current.push(command);
     flushHistoryCommands();
@@ -1058,13 +1388,18 @@ export function App(): React.JSX.Element {
   function flushHistoryCommands(): void {
     // 未同期のローカル編集は sourceEditorChange / 再同期処理が送信する。
     // ここから再送すると、同一スナップショットへの再同期ループを迂回してしまう。
-    if (resyncInFlightRef.current || inFlightOperationRef.current || localTextRef.current !== hostTextRef.current) return;
+    if (
+      resyncInFlightRef.current ||
+      inFlightOperationRef.current ||
+      localTextRef.current !== hostTextRef.current
+    )
+      return;
     const command = pendingHistoryCommandsRef.current.shift();
     if (!command) return;
     vscode.postMessage({
-      type: 'historyCommand',
+      type: "historyCommand",
       clientId: clientIdRef.current,
-      command
+      command,
     });
   }
 
@@ -1090,7 +1425,7 @@ export function App(): React.JSX.Element {
     const savedViewMode = viewModeOverride ?? splitView;
     vscode.setState({
       // 印刷プレビュー中にWebviewが再生成されても、通常の表示設定を復元する。
-      mode: 'split',
+      mode: "split",
       outlineVisible,
       outlineWidth,
       splitRatio,
@@ -1099,13 +1434,14 @@ export function App(): React.JSX.Element {
       viewMode: savedViewMode,
       sourceViewport: viewportStateRef.current.source,
       splitPreviewViewport: viewportStateRef.current.splitPreview,
-      previewOnlyViewport: viewportStateRef.current.previewOnly
+      previewOnlyViewport: viewportStateRef.current.previewOnly,
     });
   }
 
   /** スクロール中の状態保存をフレームごとにVS Codeへ送らず、最新位置だけを保存する。 */
   function schedulePersistViewState(viewModeOverride?: ViewMode): void {
-    if (viewModeOverride !== undefined) pendingPersistViewModeRef.current = viewModeOverride;
+    if (viewModeOverride !== undefined)
+      pendingPersistViewModeRef.current = viewModeOverride;
     if (persistViewStateTimerRef.current !== undefined) return;
     persistViewStateTimerRef.current = window.setTimeout(() => {
       persistViewStateTimerRef.current = undefined;
@@ -1123,18 +1459,20 @@ export function App(): React.JSX.Element {
    * @returns 何も返さない。
    */
   function changeMode(nextMode: EditorMode): void {
-    mveDebug('view.change-mode', { from: mode, to: nextMode, splitView });
+    mveDebug("view.change-mode", { from: mode, to: nextMode, splitView });
     captureVisibleViewports();
     const activeSelection = sourceRef.current?.getSelection();
     if (activeSelection) {
       selectionStateRef.current = activeSelection;
     }
-    if (nextMode === 'preview' && !viewportStateRef.current.previewOnly) {
-      viewportStateRef.current.previewOnly = viewportStateRef.current.splitPreview
-        ?? viewportStateRef.current.source;
+    if (nextMode === "preview" && !viewportStateRef.current.previewOnly) {
+      viewportStateRef.current.previewOnly =
+        viewportStateRef.current.splitPreview ??
+        viewportStateRef.current.source;
     }
-    if (nextMode === 'split' && viewportStateRef.current.previewOnly) {
-      viewportStateRef.current.splitPreview ??= viewportStateRef.current.previewOnly;
+    if (nextMode === "split" && viewportStateRef.current.previewOnly) {
+      viewportStateRef.current.splitPreview ??=
+        viewportStateRef.current.previewOnly;
       viewportStateRef.current.source ??= viewportStateRef.current.previewOnly;
     }
     pendingViewportRestoreRef.current = true;
@@ -1146,20 +1484,20 @@ export function App(): React.JSX.Element {
    * @param nextView 切り替え先のペイン構成。
    * @returns 何も返さない。
    */
-  function changeSplitView(nextView: 'both' | 'text' | 'preview'): void {
-    mveDebug('view.change-split', { from: splitView, to: nextView, mode });
+  function changeSplitView(nextView: "both" | "text" | "preview"): void {
+    mveDebug("view.change-split", { from: splitView, to: nextView, mode });
     captureVisibleViewports();
-    if (nextView !== 'text' && !viewportStateRef.current.splitPreview) {
+    if (nextView !== "text" && !viewportStateRef.current.splitPreview) {
       viewportStateRef.current.splitPreview = viewportStateRef.current.source;
     }
-    if (nextView !== 'preview' && !viewportStateRef.current.source) {
+    if (nextView !== "preview" && !viewportStateRef.current.source) {
       viewportStateRef.current.source = viewportStateRef.current.splitPreview;
     }
     pendingViewportRestoreRef.current = true;
     setSplitView(nextView);
-    setMode('split');
+    setMode("split");
     persistViewState(nextView);
-    vscode.postMessage({ type: 'setViewMode', viewMode: nextView });
+    vscode.postMessage({ type: "setViewMode", viewMode: nextView });
   }
 
   /**
@@ -1174,73 +1512,88 @@ export function App(): React.JSX.Element {
     const now = performance.now();
     const previous = recentRibbonCommandsRef.current.get(commandKey);
     recentRibbonCommandsRef.current.set(commandKey, now);
-    const delta = previous === undefined ? undefined : Math.round((now - previous) * 100) / 100;
-    mveDebug('ribbon.command-received', { command, delta });
+    const delta =
+      previous === undefined
+        ? undefined
+        : Math.round((now - previous) * 100) / 100;
+    mveDebug("ribbon.command-received", { command, delta });
     // 印刷プレビューは「設定を再表示」「通常表示へ戻る」を同じボタンで行うため、
     // 高速な意図的連続操作を重複ジェスチャーとして抑止しない。
-    if (command.type !== 'togglePrintPreview' && previous !== undefined && now - previous < 250) {
-      mveDebug('ribbon.command-suppressed', { command, delta });
+    if (
+      command.type !== "togglePrintPreview" &&
+      previous !== undefined &&
+      now - previous < 250
+    ) {
+      mveDebug("ribbon.command-suppressed", { command, delta });
       return;
     }
-    mveDebug('ribbon.command-applied', { command });
+    mveDebug("ribbon.command-applied", { command });
 
     switch (command.type) {
-      case 'sourceAction':
+      case "sourceAction":
         getActiveEditor()?.action(command.action);
         return;
-      case 'historyCommand':
+      case "historyCommand":
         requestHistoryCommand(command.command);
         return;
-      case 'heading':
+      case "heading":
         getActiveEditor()?.heading(command.level);
         return;
-      case 'insert':
+      case "insert":
         getActiveEditor()?.insert(command.value);
         return;
-      case 'tableInsert':
-        getActiveEditor()?.insert(`\n${createTableMarkdown(command.rows, command.columns)}\n`);
+      case "tableInsert":
+        getActiveEditor()?.insert(
+          `\n${createTableMarkdown(command.rows, command.columns)}\n`,
+        );
         return;
-      case 'codeBlock':
+      case "codeBlock":
         getActiveEditor()?.codeBlock(command.language);
         return;
-      case 'link': {
+      case "link": {
         if (!getActiveEditor()) return;
-        setLinkHref('https://example.com');
-        setLinkLabel('');
+        setLinkHref("https://example.com");
+        setLinkLabel("");
         setLinkDialogVisible(true);
         return;
       }
-      case 'image':
+      case "image":
         requestImagePicker();
         return;
-      case 'table':
-        if (command.action === 'insert') getActiveEditor()?.insert(`\n${createTableMarkdown()}\n`);
+      case "table":
+        if (command.action === "insert")
+          getActiveEditor()?.insert(`\n${createTableMarkdown()}\n`);
         else {
           const editor = getActiveEditor();
           const edit = editor
-            ? applyMarkdownTableAction(localTextRef.current, editor.getSelection(), command.action, { headerName: command.headerName })
+            ? applyMarkdownTableAction(
+                localTextRef.current,
+                editor.getSelection(),
+                command.action,
+                { headerName: command.headerName },
+              )
             : undefined;
           if (edit) editor?.applyEdit(edit);
           else setToast(messages.app.toast.tableCellRequired);
         }
         return;
-      case 'copyTableTsv':
+      case "copyTableTsv":
         void copyTableTsv();
         return;
-      case 'splitView':
+      case "splitView":
         changeSplitView(command.view);
         return;
-      case 'toggleOutline':
+      case "toggleOutline":
         prepareLayoutRestore();
         setOutlineVisible((value) => !value);
         return;
-      case 'toggleInspector':
+      case "toggleInspector":
         if (inspector) changeInspector(undefined);
         return;
-      case 'runPreflightCheck':
+      case "runPreflightCheck":
         runPreflightCheck();
         return;
-      case 'togglePrintPreview':
+      case "togglePrintPreview":
         if (printPreview) {
           if (!printSettingsVisible) {
             setPrintSettingsVisible(true);
@@ -1253,27 +1606,27 @@ export function App(): React.JSX.Element {
           previousModeBeforePrintRef.current = mode;
           setPrintPreview(true);
           setPrintSettingsVisible(true);
-          changeMode('preview');
+          changeMode("preview");
         }
         return;
-      case 'openSource':
-        vscode.postMessage({ type: 'openSource' });
+      case "openSource":
+        vscode.postMessage({ type: "openSource" });
         return;
-      case 'exportPdf':
+      case "exportPdf":
         void requestPdfExport();
         return;
-      case 'exportHtml':
+      case "exportHtml":
         void requestHtmlExport(command.options);
         return;
-      case 'find': {
+      case "find": {
         openSearch();
         return;
       }
-      case 'showShortcuts':
-        setHelpTopic('shortcuts');
+      case "showShortcuts":
+        setHelpTopic("shortcuts");
         return;
-      case 'showFeatures':
-        setHelpTopic('features');
+      case "showFeatures":
+        setHelpTopic("features");
         return;
     }
   }
@@ -1285,9 +1638,21 @@ export function App(): React.JSX.Element {
   function runPreflightCheck(): void {
     prepareLayoutRestore();
     setDiagnosticsVisible(true);
-    requestLocalResourceCheck('preflight');
-    const currentSummary = summarizeDiagnostics(mergeDiagnostics(localTextRef.current, localResourceDiagnostics, settings.language));
-    setToast(messages.app.toast.preflightSummary(currentSummary.errors.length, currentSummary.warnings.length, currentSummary.infos.length));
+    requestLocalResourceCheck("preflight");
+    const currentSummary = summarizeDiagnostics(
+      mergeDiagnostics(
+        localTextRef.current,
+        localResourceDiagnostics,
+        settings.language,
+      ),
+    );
+    setToast(
+      messages.app.toast.preflightSummary(
+        currentSummary.errors.length,
+        currentSummary.warnings.length,
+        currentSummary.infos.length,
+      ),
+    );
   }
 
   /** ローカル画像・リンクの実在確認をホストへ依頼する。 */
@@ -1299,9 +1664,13 @@ export function App(): React.JSX.Element {
       markdown: currentMarkdown,
       version: versionRef.current,
       generation: resourceCheckGenerationRef.current,
-      purpose
+      purpose,
     });
-    vscode.postMessage({ type: 'checkLocalResources', requestId, markdown: currentMarkdown });
+    vscode.postMessage({
+      type: "checkLocalResources",
+      requestId,
+      markdown: currentMarkdown,
+    });
   }
 
   /**
@@ -1309,8 +1678,8 @@ export function App(): React.JSX.Element {
    * @returns 何も返さない。
    */
   function openSearch(): void {
-    if (mode === 'preview') changeMode('split');
-    if (splitView === 'preview') changeSplitView('text');
+    if (mode === "preview") changeMode("split");
+    if (splitView === "preview") changeSplitView("text");
     setSearchVisible(true);
   }
 
@@ -1341,7 +1710,8 @@ export function App(): React.JSX.Element {
    */
   function jumpToSearch(direction: 1 | -1): void {
     if (!searchHits.length) return;
-    const nextIndex = (searchIndex + direction + searchHits.length) % searchHits.length;
+    const nextIndex =
+      (searchIndex + direction + searchHits.length) % searchHits.length;
     const hit = searchHits[nextIndex];
     setSearchIndex(nextIndex);
     navigateToSelection(hit);
@@ -1355,12 +1725,18 @@ export function App(): React.JSX.Element {
   function replaceSearch(all: boolean): void {
     if (!searchQuery || !searchHits.length) return;
     if (all) {
-      updateMarkdown(localTextRef.current.split(searchQuery).join(searchReplacement));
+      updateMarkdown(
+        localTextRef.current.split(searchQuery).join(searchReplacement),
+      );
       setSearchIndex(0);
       return;
     }
     const hit = searchHits[searchIndex] ?? searchHits[0];
-    updateMarkdown(localTextRef.current.slice(0, hit.from) + searchReplacement + localTextRef.current.slice(hit.to));
+    updateMarkdown(
+      localTextRef.current.slice(0, hit.from) +
+        searchReplacement +
+        localTextRef.current.slice(hit.to),
+    );
     setSearchIndex(Math.max(0, Math.min(searchIndex, searchHits.length - 2)));
   }
 
@@ -1372,10 +1748,10 @@ export function App(): React.JSX.Element {
   async function handlePaste(event: ClipboardEvent): Promise<void> {
     if (!isEditingEnabled(mode, splitView)) return;
     const target = event.target;
-    if (!(target instanceof Element) || !target.closest('.cm-content')) return;
+    if (!(target instanceof Element) || !target.closest(".cm-content")) return;
     const items = Array.from(event.clipboardData?.items ?? []);
     const imageFiles = items
-      .filter((item) => item.kind === 'file' && item.type.startsWith('image/'))
+      .filter((item) => item.kind === "file" && item.type.startsWith("image/"))
       .map((item) => item.getAsFile())
       .filter((file): file is File => Boolean(file));
     if (imageFiles.length) {
@@ -1384,14 +1760,25 @@ export function App(): React.JSX.Element {
       await saveImageFiles(imageFiles);
       return;
     }
-    const html = event.clipboardData?.getData('text/html');
+    const html = event.clipboardData?.getData("text/html");
     const editor = getActiveEditor();
-    const plainText = event.clipboardData?.getData('text/plain') ?? '';
-    const hasHtmlTable = /<table\b[^>]*>[\s\S]*<\/table>/i.test(html ?? '');
-    const hasTsvMime = Array.from(event.clipboardData?.types ?? []).some((type) => type === 'text/tab-separated-values' || type === 'text/tsv');
-    const hasTableClipboard = hasHtmlTable || (!html && (hasTsvMime || plainText.includes('\t')));
-    if (editor && hasTableClipboard && !isMarkdownCodeFencePosition(localTextRef.current, editor.getSelection())) {
-      const edit = applyMarkdownTableTsv(localTextRef.current, editor.getSelection(), plainText);
+    const plainText = event.clipboardData?.getData("text/plain") ?? "";
+    const hasHtmlTable = /<table\b[^>]*>[\s\S]*<\/table>/i.test(html ?? "");
+    const hasTsvMime = Array.from(event.clipboardData?.types ?? []).some(
+      (type) => type === "text/tab-separated-values" || type === "text/tsv",
+    );
+    const hasTableClipboard =
+      hasHtmlTable || (!html && (hasTsvMime || plainText.includes("\t")));
+    if (
+      editor &&
+      hasTableClipboard &&
+      !isMarkdownCodeFencePosition(localTextRef.current, editor.getSelection())
+    ) {
+      const edit = applyMarkdownTableTsv(
+        localTextRef.current,
+        editor.getSelection(),
+        plainText,
+      );
       event.preventDefault();
       event.stopImmediatePropagation();
       if (edit) {
@@ -1404,8 +1791,14 @@ export function App(): React.JSX.Element {
     if (html && editor) {
       event.preventDefault();
       event.stopImmediatePropagation();
-      const safe = DOMPurify.sanitize(html, { FORBID_TAGS: ['script', 'style', 'iframe', 'object'] });
-      const turndown = new TurndownService({ headingStyle: 'atx', bulletListMarker: '-', codeBlockStyle: 'fenced' });
+      const safe = DOMPurify.sanitize(html, {
+        FORBID_TAGS: ["script", "style", "iframe", "object"],
+      });
+      const turndown = new TurndownService({
+        headingStyle: "atx",
+        bulletListMarker: "-",
+        codeBlockStyle: "fenced",
+      });
       turndown.use(turndownGfm);
       editor.insert(turndown.turndown(safe) || plainText);
       return;
@@ -1424,7 +1817,9 @@ export function App(): React.JSX.Element {
    */
   async function copyTableTsv(): Promise<void> {
     const editor = getActiveEditor();
-    const tsv = editor ? markdownTableToTsv(localTextRef.current, editor.getSelection()) : undefined;
+    const tsv = editor
+      ? markdownTableToTsv(localTextRef.current, editor.getSelection())
+      : undefined;
     if (tsv === undefined) {
       setToast(messages.app.toast.tableCellRequired);
       return;
@@ -1433,7 +1828,11 @@ export function App(): React.JSX.Element {
       await writeClipboardText(tsv);
       setToast(messages.app.toast.tableCopied);
     } catch (error) {
-      setToast(messages.app.toast.cannotCopyTsv(error instanceof Error ? error.message : undefined));
+      setToast(
+        messages.app.toast.cannotCopyTsv(
+          error instanceof Error ? error.message : undefined,
+        ),
+      );
     }
   }
 
@@ -1447,14 +1846,14 @@ export function App(): React.JSX.Element {
       await navigator.clipboard.writeText(text);
       return;
     }
-    const textarea = document.createElement('textarea');
+    const textarea = document.createElement("textarea");
     textarea.value = text;
-    textarea.setAttribute('readonly', '');
-    textarea.style.position = 'fixed';
-    textarea.style.opacity = '0';
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.opacity = "0";
     document.body.appendChild(textarea);
     textarea.select();
-    const copied = document.execCommand('copy');
+    const copied = document.execCommand("copy");
     textarea.remove();
     if (!copied) throw new Error(messages.app.errors.clipboardUnavailable);
   }
@@ -1467,10 +1866,13 @@ export function App(): React.JSX.Element {
   async function saveImageFiles(files: File[]): Promise<void> {
     try {
       const images: ImagePayload[] = [];
-      for (const file of files) images.push(await fileToPayload(file, settings.maxPasteSizeMb, messages));
+      for (const file of files)
+        images.push(
+          await fileToPayload(file, settings.maxPasteSizeMb, messages),
+        );
       const requestId = createClientId();
       imageRequestsRef.current.add(requestId);
-      vscode.postMessage({ type: 'saveImages', requestId, images });
+      vscode.postMessage({ type: "saveImages", requestId, images });
     } catch (error) {
       setToast(error instanceof Error ? error.message : String(error));
     }
@@ -1483,19 +1885,43 @@ export function App(): React.JSX.Element {
   function requestImagePicker(): void {
     const requestId = createClientId();
     imageRequestsRef.current.add(requestId);
-    vscode.postMessage({ type: 'pickImage', requestId });
+    vscode.postMessage({ type: "pickImage", requestId });
   }
 
-  /**
-   * 診断結果を通知したうえで、印刷用HTMLとPDF設定をホストへ送信する。
-   * @returns PDF出力要求の送信が完了するPromise。
-   */
+  /** プレビューWorkerが現在の本文を反映するまで待つ。 */
+  async function waitForCurrentPreviewSnapshot(): Promise<boolean> {
+    if (previewSnapshot.markdown === localTextRef.current) return true;
+    return new Promise((resolve) => {
+      let waiter: (() => void) | undefined;
+      const timeout = window.setTimeout(() => {
+        const index = waiter
+          ? previewSnapshotWaitersRef.current.indexOf(waiter)
+          : -1;
+        if (index >= 0) previewSnapshotWaitersRef.current.splice(index, 1);
+        resolve(false);
+      }, 15_000);
+      waiter = () => {
+        window.clearTimeout(timeout);
+        const index = previewSnapshotWaitersRef.current.indexOf(
+          waiter as () => void,
+        );
+        if (index >= 0) previewSnapshotWaitersRef.current.splice(index, 1);
+        resolve(true);
+      };
+      previewSnapshotWaitersRef.current.push(waiter);
+    });
+  }
+
+  /** PDF/HTML出力用の描画ステージをDOMへ用意し、描画完了を待つ。 */
   async function ensureExportRoot(): Promise<HTMLDivElement | undefined> {
-    if (exportRootRef.current && (printPreview || exportStageRequested)) return exportRootRef.current;
+    if (exportRootRef.current && (printPreview || exportStageRequested))
+      return exportRootRef.current;
     return new Promise((resolve) => {
       let waiter: ((root: HTMLDivElement | undefined) => void) | undefined;
       const timeout = window.setTimeout(() => {
-        const index = waiter ? exportStageWaitersRef.current.indexOf(waiter) : -1;
+        const index = waiter
+          ? exportStageWaitersRef.current.indexOf(waiter)
+          : -1;
         if (index >= 0) exportStageWaitersRef.current.splice(index, 1);
         resolve(exportRootRef.current ?? undefined);
       }, 15_000);
@@ -1513,30 +1939,55 @@ export function App(): React.JSX.Element {
       setToast(messages.app.toast.workspaceTrustRequired);
       return;
     }
-    requestLocalResourceCheck('pdf');
+    if (!(await waitForCurrentPreviewSnapshot())) {
+      setToast(
+        messages.app.toast.operationFailed(
+          `${messages.renderer.mermaidError}: timeout`,
+        ),
+      );
+      return;
+    }
+    requestLocalResourceCheck("pdf");
     const currentMarkdown = localTextRef.current;
-    const currentSummary = summarizeDiagnostics(mergeDiagnostics(currentMarkdown, localResourceDiagnostics, settings.language));
+    const currentSummary = summarizeDiagnostics(
+      mergeDiagnostics(
+        currentMarkdown,
+        localResourceDiagnostics,
+        settings.language,
+      ),
+    );
     const diagnosticNotice = currentSummary.errors.length
       ? currentSummary.errors
-        .map((item) => `${item.line ? `行${item.line}: ` : ''}${item.message}`)
-        .join(' / ')
-      : '';
-    if (diagnosticNotice) setToast(messages.app.toast.pdfStartedWithDiagnostics(currentSummary.errors.length, diagnosticNotice));
+          .map(
+            (item) => `${item.line ? `行${item.line}: ` : ""}${item.message}`,
+          )
+          .join(" / ")
+      : "";
+    if (diagnosticNotice)
+      setToast(
+        messages.app.toast.pdfStartedWithDiagnostics(
+          currentSummary.errors.length,
+          diagnosticNotice,
+        ),
+      );
     const root = await ensureExportRoot();
-    if (!await waitForHtmlMermaidRendering(root)) {
+    if (!(await waitForHtmlMermaidRendering(root))) {
       setToast(`${messages.renderer.mermaidError}: timeout`);
       if (!printPreview) setExportStageRequested(false);
       return;
     }
-    const html = root ? serializeExportHtml(root) : `<pre>${escapeHtml(currentMarkdown)}</pre>`;
-    if (!root) setToast(messages.app.toast.pdfFallbackToMarkdown(diagnosticNotice));
+    const html = root
+      ? serializeExportHtml(root)
+      : `<pre>${escapeHtml(currentMarkdown)}</pre>`;
+    if (!root)
+      setToast(messages.app.toast.pdfFallbackToMarkdown(diagnosticNotice));
     const requestId = createClientId();
     const message: WebviewToHostMessage = {
-      type: 'exportPdf',
+      type: "exportPdf",
       requestId,
       html,
       css: collectPrintableCss(),
-      options: pdfOptions
+      options: pdfOptions,
     };
     pdfRequestsRef.current.add(requestId);
     vscode.postMessage(message);
@@ -1552,8 +2003,16 @@ export function App(): React.JSX.Element {
       setToast(messages.app.toast.workspaceTrustRequired);
       return;
     }
+    if (!(await waitForCurrentPreviewSnapshot())) {
+      setToast(
+        messages.app.toast.operationFailed(
+          `${messages.renderer.mermaidError}: timeout`,
+        ),
+      );
+      return;
+    }
     const root = await ensureExportRoot();
-    if (!await waitForHtmlMermaidRendering(root)) {
+    if (!(await waitForHtmlMermaidRendering(root))) {
       setToast(`${messages.renderer.mermaidError}: timeout`);
       if (!printPreview) setExportStageRequested(false);
       return;
@@ -1562,12 +2021,14 @@ export function App(): React.JSX.Element {
     const currentMarkdown = localTextRef.current;
     htmlRequestsRef.current.add(requestId);
     vscode.postMessage({
-      type: 'exportHtml',
+      type: "exportHtml",
       requestId,
       markdown: currentMarkdown,
-      html: root ? serializeExportHtml(root) : `<pre>${escapeHtml(currentMarkdown)}</pre>`,
+      html: root
+        ? serializeExportHtml(root)
+        : `<pre>${escapeHtml(currentMarkdown)}</pre>`,
       css: collectPrintableCss(),
-      options
+      options,
     });
     if (!printPreview) {
       exportRootRef.current = null;
@@ -1576,14 +2037,22 @@ export function App(): React.JSX.Element {
   }
 
   /** HTML出力直前に、非同期のMermaid描画が完了するまで待つ。 */
-  async function waitForHtmlMermaidRendering(root: HTMLDivElement | null | undefined = exportRootRef.current): Promise<boolean> {
+  async function waitForHtmlMermaidRendering(
+    root: HTMLDivElement | null | undefined = exportRootRef.current,
+  ): Promise<boolean> {
     if (!root) return true;
     const deadline = Date.now() + 60_000;
-    while (root.querySelector('.mermaid:not([data-mermaid-status]), .mermaid[data-mermaid-status="rendering"]')
-      && Date.now() < deadline) {
+    while (
+      root.querySelector(
+        '.mermaid:not([data-mermaid-status]), .mermaid[data-mermaid-status="rendering"]',
+      ) &&
+      Date.now() < deadline
+    ) {
       await new Promise<void>((resolve) => window.setTimeout(resolve, 50));
     }
-    return !root.querySelector('.mermaid:not([data-mermaid-status]), .mermaid[data-mermaid-status="rendering"]');
+    return !root.querySelector(
+      '.mermaid:not([data-mermaid-status]), .mermaid[data-mermaid-status="rendering"]',
+    );
   }
 
   /**
@@ -1593,8 +2062,16 @@ export function App(): React.JSX.Element {
   function requestPdfPreview(): void {
     if (!printPreview || !settings.workspaceTrusted) return;
     const root = exportRootRef.current;
-    if (!root || root.querySelector('.mermaid:not([data-mermaid-status]), .mermaid[data-mermaid-status="rendering"]')) return;
-    const html = root ? serializeExportHtml(root) : `<pre>${escapeHtml(markdown)}</pre>`;
+    if (
+      !root ||
+      root.querySelector(
+        '.mermaid:not([data-mermaid-status]), .mermaid[data-mermaid-status="rendering"]',
+      )
+    )
+      return;
+    const html = root
+      ? serializeExportHtml(root)
+      : `<pre>${escapeHtml(markdown)}</pre>`;
     // 画像のloadやResizeObserverでexport-stageのDOMが変わっても、同じ本文のPDFを再生成しない。
     // 画像サイズの変更はMarkdown本文が変わるため、このキーも変わる。
     const signature = `${settings.language}\0${settings.remoteImagesEnabled}\0${settings.mermaidTheme}\0${JSON.stringify(pdfOptions)}\0${markdown}`;
@@ -1602,19 +2079,24 @@ export function App(): React.JSX.Element {
     pdfPreviewSignatureRef.current = signature;
     const requestId = createClientId();
     pdfPreviewRequestRef.current = requestId;
-    setPdfPreview((previous) => ({ ...previous, requestId, loading: true, error: undefined }));
+    setPdfPreview((previous) => ({
+      ...previous,
+      requestId,
+      loading: true,
+      error: undefined,
+    }));
     const css = collectPrintableCss(false);
-    mveDebug('pdf.preview-request', {
+    mveDebug("pdf.preview-request", {
       requestId,
       htmlChars: html.length,
-      cssChars: css.length
+      cssChars: css.length,
     });
     vscode.postMessage({
-      type: 'renderPdfPreview',
+      type: "renderPdfPreview",
       requestId,
       html,
       css,
-      options: pdfOptions
+      options: pdfOptions,
     });
   }
 
@@ -1624,7 +2106,8 @@ export function App(): React.JSX.Element {
     const waiters = exportStageWaitersRef.current.splice(0);
     waiters.forEach((resolve) => resolve(exportRootRef.current ?? undefined));
     if (printPreview && settings.workspaceTrusted) {
-      if (pdfPreviewTimerRef.current !== undefined) window.clearTimeout(pdfPreviewTimerRef.current);
+      if (pdfPreviewTimerRef.current !== undefined)
+        window.clearTimeout(pdfPreviewTimerRef.current);
       pdfPreviewTimerRef.current = window.setTimeout(() => {
         pdfPreviewTimerRef.current = undefined;
         requestPdfPreview();
@@ -1640,17 +2123,41 @@ export function App(): React.JSX.Element {
    */
   function updateInspector(nextSource: string, alt?: string): void {
     if (!inspector) return;
-    if (inspector.type === 'mermaid') {
-      updateMarkdown(replaceDelimitedBlock(localTextRef.current, '```mermaid', '```', inspector.source, nextSource));
-      setInspector({ type: 'mermaid', source: nextSource });
-    } else if (inspector.type === 'math') {
-      const blockUpdated = replaceDelimitedBlock(localTextRef.current, '$$', '$$', inspector.source, nextSource);
-      updateMarkdown(blockUpdated.replace(`$${inspector.source}$`, `$${nextSource}$`));
-      setInspector({ type: 'math', source: nextSource });
+    if (inspector.type === "mermaid") {
+      updateMarkdown(
+        replaceDelimitedBlock(
+          localTextRef.current,
+          "```mermaid",
+          "```",
+          inspector.source,
+          nextSource,
+        ),
+      );
+      setInspector({ type: "mermaid", source: nextSource });
+    } else if (inspector.type === "math") {
+      const blockUpdated = replaceDelimitedBlock(
+        localTextRef.current,
+        "$$",
+        "$$",
+        inspector.source,
+        nextSource,
+      );
+      updateMarkdown(
+        blockUpdated.replace(`$${inspector.source}$`, `$${nextSource}$`),
+      );
+      setInspector({ type: "math", source: nextSource });
     } else {
       const escaped = escapeRegExp(inspector.source);
-      updateMarkdown(localTextRef.current.replace(new RegExp(`!\\[[^\\]]*\\]\\(${escaped}\\)`), imageMarkdown(inspector.source, alt || messages.editor.defaultImageAlt)));
-      setInspector({ ...inspector, alt: alt || '' });
+      updateMarkdown(
+        localTextRef.current.replace(
+          new RegExp(`!\\[[^\\]]*\\]\\(${escaped}\\)`),
+          imageMarkdown(
+            inspector.source,
+            alt || messages.editor.defaultImageAlt,
+          ),
+        ),
+      );
+      setInspector({ ...inspector, alt: alt || "" });
     }
   }
 
@@ -1661,8 +2168,10 @@ export function App(): React.JSX.Element {
    * @returns 何も返しません。
    */
   function resizePreviewImage(imageIndex: number, width: number): void {
-    if (!(mode === 'split' && splitView !== 'text')) return;
-    updateMarkdown(resizeImageInMarkdown(localTextRef.current, imageIndex, width));
+    if (!(mode === "split" && splitView !== "text")) return;
+    updateMarkdown(
+      resizeImageInMarkdown(localTextRef.current, imageIndex, width),
+    );
   }
 
   /**
@@ -1671,7 +2180,7 @@ export function App(): React.JSX.Element {
    * @returns 何も返しません。
    */
   function resetPreviewImage(imageIndex: number): void {
-    if (!(mode === 'split' && splitView !== 'text')) return;
+    if (!(mode === "split" && splitView !== "text")) return;
     updateMarkdown(resetImageSizeInMarkdown(localTextRef.current, imageIndex));
   }
 
@@ -1681,9 +2190,14 @@ export function App(): React.JSX.Element {
    * @param alignment 新しい揃え位置です。
    * @returns 何も返しません。
    */
-  function alignPreviewImage(imageIndex: number, alignment: ImageAlignment): void {
-    if (!(mode === 'split' && splitView !== 'text')) return;
-    updateMarkdown(alignImageInMarkdown(localTextRef.current, imageIndex, alignment));
+  function alignPreviewImage(
+    imageIndex: number,
+    alignment: ImageAlignment,
+  ): void {
+    if (!(mode === "split" && splitView !== "text")) return;
+    updateMarkdown(
+      alignImageInMarkdown(localTextRef.current, imageIndex, alignment),
+    );
   }
 
   /**
@@ -1722,16 +2236,18 @@ export function App(): React.JSX.Element {
    */
   function goToOutlineOffset(offset: number): void {
     const nextSelection = { from: offset, to: offset };
-    if (mode === 'split' && splitView === 'preview') {
+    if (mode === "split" && splitView === "preview") {
       selectionStateRef.current = nextSelection;
       revealOutlineInSplitPreview(offset, false);
       return;
     }
     navigateToSelection(nextSelection);
-    if (mode === 'split' && splitView === 'both') {
+    if (mode === "split" && splitView === "both") {
       // CodeMirrorの選択行とスクロール位置が確定してから、同じ高さへプレビューを揃える。
       window.requestAnimationFrame(() => {
-        window.requestAnimationFrame(() => revealOutlineInSplitPreview(offset, true));
+        window.requestAnimationFrame(() =>
+          revealOutlineInSplitPreview(offset, true),
+        );
       });
     }
   }
@@ -1742,20 +2258,27 @@ export function App(): React.JSX.Element {
    * @param alignWithSource ソースの選択行と同じ画面上の高さへ揃えるかどうか。
    * @returns 何も返さない。
    */
-  function revealOutlineInSplitPreview(offset: number, alignWithSource: boolean): void {
+  function revealOutlineInSplitPreview(
+    offset: number,
+    alignWithSource: boolean,
+  ): void {
     const preview = splitPreviewRef.current;
     if (!preview) return;
-    const sourcePane = preview.closest('.split-editor')
-      ?.querySelector<HTMLElement>('.split-source-pane:not(.pane-hidden)');
-    const sourceScroller = sourcePane?.querySelector<HTMLElement>('.cm-scroller');
-    const activeLine = sourcePane?.querySelector<HTMLElement>('.cm-activeLine');
-    const topOffset = alignWithSource && sourceScroller && activeLine
-      ? activeLine.getBoundingClientRect().top - sourceScroller.getBoundingClientRect().top
-      : 18;
+    const sourcePane = preview
+      .closest(".split-editor")
+      ?.querySelector<HTMLElement>(".split-source-pane:not(.pane-hidden)");
+    const sourceScroller =
+      sourcePane?.querySelector<HTMLElement>(".cm-scroller");
+    const activeLine = sourcePane?.querySelector<HTMLElement>(".cm-activeLine");
+    const topOffset =
+      alignWithSource && sourceScroller && activeLine
+        ? activeLine.getBoundingClientRect().top -
+          sourceScroller.getBoundingClientRect().top
+        : 18;
     const anchor: PreviewViewportAnchor = { offset, topOffset };
     viewportStateRef.current.splitPreview = anchor;
     pendingPreviewViewportRestoreRef.current.splitPreview = undefined;
-    pendingRenderedPreviewKindsRef.current.delete('splitPreview');
+    pendingRenderedPreviewKindsRef.current.delete("splitPreview");
     pendingViewportRestoreRef.current = false;
     restorePreview(preview, anchor);
   }
@@ -1782,9 +2305,9 @@ export function App(): React.JSX.Element {
    */
   function navigateToSelection(nextSelection: TextSelection): void {
     selectionStateRef.current = nextSelection;
-    if (mode !== 'split' || splitView === 'preview') {
+    if (mode !== "split" || splitView === "preview") {
       pendingNavigationRef.current = nextSelection;
-      changeSplitView('both');
+      changeSplitView("both");
       return;
     }
     sourceRef.current?.setSelection(nextSelection);
@@ -1801,39 +2324,44 @@ export function App(): React.JSX.Element {
   function updateMarkdown(
     nextText: string,
     knownChanges?: TextChange[],
-    origin: 'local' | 'remote' = 'local',
-    updateRenderedState = true
+    origin: "local" | "remote" = "local",
+    updateRenderedState = true,
   ): void {
     const previous = localTextRef.current;
     if (previous === nextText) return;
     let changes = knownChanges ?? computeTextChanges(previous, nextText);
     if (isMveDebugEnabled()) {
-      mveDebug('markdown.update', {
+      mveDebug("markdown.update", {
         origin,
         previousLength: previous.length,
         nextLength: nextText.length,
         changeCount: changes.length,
-        changes: changes.slice(0, 8)
+        changes: changes.slice(0, 8),
       });
     }
-    if (origin === 'local') {
+    if (origin === "local") {
       try {
         if (applyTextChanges(previous, changes) !== nextText) {
-          throw new Error('Local text changes do not produce the current editor value.');
+          throw new Error(
+            "Local text changes do not produce the current editor value.",
+          );
         }
       } catch (error) {
         // 差分の検証に失敗しても入力は止めない。エディタの確定全文から
         // 差分を再計算し、今回の入力を必ずホスト同期へ乗せる。
-        console.error('[Markdown Easy Visual Editor] ローカル差分を全文から再計算します。', error);
+        console.error(
+          "[Markdown Easy Visual Editor] ローカル差分を全文から再計算します。",
+          error,
+        );
         changes = computeTextChanges(previous, nextText);
       }
     }
     // 外部差分は非同期scroll通知より先に届くことがあるため、変更前DOMから
     // 現在位置を同期取得してからオフセット写像する。古いRAFアンカーを写像しない。
-    if (origin === 'remote') captureVisibleViewports();
-    if (origin === 'local') lastAutomaticRetryRef.current = undefined;
+    if (origin === "remote") captureVisibleViewports();
+    if (origin === "local") lastAutomaticRetryRef.current = undefined;
     mapStoredViewports(changes, previous.length);
-    if (origin === 'remote') {
+    if (origin === "remote") {
       // マウント中のCodeMirrorはscrollSnapshot().map(changeSet)で折り返し段まで
       // 正確に追従するため、App側の文字オフセット復元を重ねない。
       pendingSourceViewportRestoreRef.current = undefined;
@@ -1844,8 +2372,13 @@ export function App(): React.JSX.Element {
       const currentSelection = selectionStateRef.current;
       const collapsed = currentSelection.from === currentSelection.to;
       const mappedSelection = {
-        from: mapTextOffset(currentSelection.from, changes, previous.length, collapsed ? 1 : -1),
-        to: mapTextOffset(currentSelection.to, changes, previous.length, 1)
+        from: mapTextOffset(
+          currentSelection.from,
+          changes,
+          previous.length,
+          collapsed ? 1 : -1,
+        ),
+        to: mapTextOffset(currentSelection.to, changes, previous.length, 1),
       };
       selectionStateRef.current = mappedSelection;
     }
@@ -1854,7 +2387,7 @@ export function App(): React.JSX.Element {
       stagePreviewViewportRestore();
       setMarkdown(nextText);
     }
-    if (origin === 'local') sendNextLocalOperation();
+    if (origin === "local") sendNextLocalOperation();
   }
 
   updateMarkdownRef.current = updateMarkdown;
@@ -1875,24 +2408,24 @@ export function App(): React.JSX.Element {
       baseVersion: versionRef.current,
       baseText,
       resultText,
-      changes
+      changes,
     };
     inFlightOperationRef.current = current;
     if (isMveDebugEnabled()) {
-      mveDebug('sync.local-sent', {
+      mveDebug("sync.local-sent", {
         opId: current.opId,
         baseVersion: current.baseVersion,
         pendingCount: 1,
         changeCount: current.changes.length,
-        changes: current.changes.slice(0, 8)
+        changes: current.changes.slice(0, 8),
       });
     }
     vscode.postMessage({
-      type: 'localChanges',
+      type: "localChanges",
       clientId: clientIdRef.current,
       opId: current.opId,
       baseVersion: current.baseVersion,
-      changes: current.changes
+      changes: current.changes,
     });
   }
 
@@ -1904,15 +2437,30 @@ export function App(): React.JSX.Element {
    */
   function mapStoredViewports(changes: TextChange[], baseLength: number): void {
     if (!changes.length) return;
-    for (const key of ['source', 'splitPreview', 'previewOnly'] as const) {
+    for (const key of ["source", "splitPreview", "previewOnly"] as const) {
       const anchor = viewportStateRef.current[key];
       if (!anchor) continue;
-      anchor.offset = mapTextOffset(Math.min(anchor.offset, baseLength), changes, baseLength, -1);
-      if ('blockFrom' in anchor && anchor.blockFrom !== undefined) {
-        anchor.blockFrom = mapTextOffset(Math.min(anchor.blockFrom, baseLength), changes, baseLength, -1);
+      anchor.offset = mapTextOffset(
+        Math.min(anchor.offset, baseLength),
+        changes,
+        baseLength,
+        -1,
+      );
+      if ("blockFrom" in anchor && anchor.blockFrom !== undefined) {
+        anchor.blockFrom = mapTextOffset(
+          Math.min(anchor.blockFrom, baseLength),
+          changes,
+          baseLength,
+          -1,
+        );
       }
-      if ('endOffset' in anchor && anchor.endOffset !== undefined) {
-        anchor.endOffset = mapTextOffset(Math.min(anchor.endOffset, baseLength), changes, baseLength, 1);
+      if ("endOffset" in anchor && anchor.endOffset !== undefined) {
+        anchor.endOffset = mapTextOffset(
+          Math.min(anchor.endOffset, baseLength),
+          changes,
+          baseLength,
+          1,
+        );
       }
     }
   }
@@ -1922,16 +2470,19 @@ export function App(): React.JSX.Element {
    * @returns 何も返さない。
    */
   function captureVisibleViewports(): void {
-    if (mode === 'split' && splitView !== 'preview') {
-      viewportStateRef.current.source = sourceRef.current?.getViewport() ?? viewportStateRef.current.source;
+    if (mode === "split" && splitView !== "preview") {
+      viewportStateRef.current.source =
+        sourceRef.current?.getViewport() ?? viewportStateRef.current.source;
     }
-    if (mode === 'split' && splitView !== 'text' && splitPreviewRef.current) {
-      viewportStateRef.current.splitPreview = capturePreviewViewport(splitPreviewRef.current)
-        ?? viewportStateRef.current.splitPreview;
+    if (mode === "split" && splitView !== "text" && splitPreviewRef.current) {
+      viewportStateRef.current.splitPreview =
+        capturePreviewViewport(splitPreviewRef.current) ??
+        viewportStateRef.current.splitPreview;
     }
-    if (mode === 'preview' && editorAreaRef.current) {
-      viewportStateRef.current.previewOnly = capturePreviewViewport(editorAreaRef.current)
-        ?? viewportStateRef.current.previewOnly;
+    if (mode === "preview" && editorAreaRef.current) {
+      viewportStateRef.current.previewOnly =
+        capturePreviewViewport(editorAreaRef.current) ??
+        viewportStateRef.current.previewOnly;
     }
   }
 
@@ -1940,17 +2491,19 @@ export function App(): React.JSX.Element {
    * @returns 何も返さない。
    */
   function restoreVisibleViewports(): void {
-    const sourceAnchor = pendingSourceViewportRestoreRef.current ?? viewportStateRef.current.source;
+    const sourceAnchor =
+      pendingSourceViewportRestoreRef.current ??
+      viewportStateRef.current.source;
     if (skipNextSourceViewportRestoreRef.current) {
       skipNextSourceViewportRestoreRef.current = false;
-    } else if (mode === 'split' && splitView !== 'preview' && sourceAnchor) {
+    } else if (mode === "split" && splitView !== "preview" && sourceAnchor) {
       sourceRef.current?.restoreViewport(sourceAnchor);
     }
-    if (mode === 'split' && splitView !== 'text' && splitPreviewRef.current) {
-      restorePendingPreview('splitPreview', splitPreviewRef.current);
+    if (mode === "split" && splitView !== "text" && splitPreviewRef.current) {
+      restorePendingPreview("splitPreview", splitPreviewRef.current);
     }
-    if (mode === 'preview' && editorAreaRef.current) {
-      restorePendingPreview('previewOnly', editorAreaRef.current);
+    if (mode === "preview" && editorAreaRef.current) {
+      restorePendingPreview("previewOnly", editorAreaRef.current);
     }
   }
 
@@ -1962,9 +2515,12 @@ export function App(): React.JSX.Element {
         : undefined,
       previewOnly: viewportStateRef.current.previewOnly
         ? { ...viewportStateRef.current.previewOnly }
-        : undefined
+        : undefined,
     };
-    mveDebug('preview.restore.staged', pendingPreviewViewportRestoreRef.current);
+    mveDebug(
+      "preview.restore.staged",
+      pendingPreviewViewportRestoreRef.current,
+    );
   }
 
   /**
@@ -1973,20 +2529,27 @@ export function App(): React.JSX.Element {
    * @param userInitiated ユーザー操作によるスクロールかどうか。
    * @returns 何も返さない。
    */
-  function handleSourceViewport(anchor: EditorViewportAnchor, userInitiated: boolean): void {
+  function handleSourceViewport(
+    anchor: EditorViewportAnchor,
+    userInitiated: boolean,
+  ): void {
     const pendingRestore = pendingSourceViewportRestoreRef.current;
     if (userInitiated) {
       pendingSourceViewportRestoreRef.current = undefined;
     } else if (pendingRestore) {
-      const containsTarget = pendingRestore.offset >= anchor.offset
-        && pendingRestore.offset <= (anchor.endOffset ?? anchor.offset);
-      if (containsTarget && Math.abs(anchor.topOffset - pendingRestore.topOffset) <= 1) {
+      const containsTarget =
+        pendingRestore.offset >= anchor.offset &&
+        pendingRestore.offset <= (anchor.endOffset ?? anchor.offset);
+      if (
+        containsTarget &&
+        Math.abs(anchor.topOffset - pendingRestore.topOffset) <= 1
+      ) {
         // 復元対象の論理オフセットと画面上位置を維持しつつ、可視終端と
         // スクロール比は復元後の実測値へ更新する。
         viewportStateRef.current.source = {
           ...anchor,
           offset: pendingRestore.offset,
-          topOffset: pendingRestore.topOffset
+          topOffset: pendingRestore.topOffset,
         };
         pendingSourceViewportRestoreRef.current = undefined;
         schedulePersistViewState();
@@ -1995,13 +2558,13 @@ export function App(): React.JSX.Element {
     }
     viewportStateRef.current.source = anchor;
     schedulePersistViewState();
-    if (!userInitiated || mode !== 'split' || splitView !== 'both') return;
+    if (!userInitiated || mode !== "split" || splitView !== "both") return;
     const preview = splitPreviewRef.current;
     if (!preview) return;
     const previewAnchor = {
       offset: anchor.offset,
       topOffset: anchor.topOffset,
-      scrollRatio: anchor.scrollRatio
+      scrollRatio: anchor.scrollRatio,
     };
     viewportStateRef.current.splitPreview = previewAnchor;
     scheduleSourceToPreviewSync(previewAnchor);
@@ -2012,7 +2575,9 @@ export function App(): React.JSX.Element {
    * @param event スクロール開始を示すDOMイベント。
    * @returns 何も返さない。
    */
-  function markPreviewScrollIntent(event: React.SyntheticEvent<HTMLElement>): void {
+  function markPreviewScrollIntent(
+    event: React.SyntheticEvent<HTMLElement>,
+  ): void {
     viewportUserIntentGenerationRef.current += 1;
     const container = event.currentTarget;
     if (container === splitPreviewRef.current) {
@@ -2025,8 +2590,10 @@ export function App(): React.JSX.Element {
     skipNextSourceViewportRestoreRef.current = false;
     programmaticPreviewScrollsRef.current.delete(container);
     previewUserScrollPendingRef.current.add(container);
-    if (event.type === 'pointerdown') previewPointerScrollActiveRef.current.add(container);
-    if (event.type === 'touchstart') previewTouchScrollActiveRef.current.add(container);
+    if (event.type === "pointerdown")
+      previewPointerScrollActiveRef.current.add(container);
+    if (event.type === "touchstart")
+      previewTouchScrollActiveRef.current.add(container);
   }
 
   /**
@@ -2035,19 +2602,22 @@ export function App(): React.JSX.Element {
    * @param container スクロールイベントを発生させたコンテナー。
    * @returns 何も返さない。
    */
-  function handlePreviewScroll(kind: 'splitPreview' | 'previewOnly', container: HTMLElement): void {
+  function handlePreviewScroll(
+    kind: "splitPreview" | "previewOnly",
+    container: HTMLElement,
+  ): void {
     const startedAt = performance.now();
     const programmatic = programmaticPreviewScrollsRef.current.has(container);
     const pending = pendingPreviewScrollsRef.current.get(container);
     pendingPreviewScrollsRef.current.set(container, {
       kind,
-      userInitiated: (pending?.userInitiated ?? false) || !programmatic
+      userInitiated: (pending?.userInitiated ?? false) || !programmatic,
     });
-    mveDebug('preview.scroll.queued', {
+    mveDebug("preview.scroll.queued", {
       kind,
       programmatic,
       pendingUserInitiated: (pending?.userInitiated ?? false) || !programmatic,
-      scrollTop: container.scrollTop
+      scrollTop: container.scrollTop,
     });
     if (previewScrollFrameRef.current === undefined) {
       previewScrollFrameRef.current = window.requestAnimationFrame(() => {
@@ -2059,15 +2629,18 @@ export function App(): React.JSX.Element {
         });
       });
     }
-    performance.clearMeasures('mve-preview-scroll-handler');
-    performance.measure('mve-preview-scroll-handler', { start: startedAt, end: performance.now() });
+    performance.clearMeasures("mve-preview-scroll-handler");
+    performance.measure("mve-preview-scroll-handler", {
+      start: startedAt,
+      end: performance.now(),
+    });
   }
 
   /** 同一描画フレーム内で重複したプレビュースクロールを、最新位置に対して一度だけ反映する。 */
   function processPreviewScroll(
-    kind: 'splitPreview' | 'previewOnly',
+    kind: "splitPreview" | "previewOnly",
     container: HTMLElement,
-    userInitiated: boolean
+    userInitiated: boolean,
   ): void {
     const startedAt = performance.now();
     try {
@@ -2084,11 +2657,11 @@ export function App(): React.JSX.Element {
       if (programmaticPreviewScrollsRef.current.has(container)) return;
       const anchor = capturePreviewViewport(container);
       if (!anchor) return;
-      mveDebug('preview.scroll.processed', {
+      mveDebug("preview.scroll.processed", {
         kind,
         userInitiated,
         anchor,
-        scrollTop: container.scrollTop
+        scrollTop: container.scrollTop,
       });
       viewportStateRef.current[kind] = anchor;
       if (!userInitiated) {
@@ -2100,20 +2673,20 @@ export function App(): React.JSX.Element {
       lastPreviewUserScrollAtRef.current = performance.now();
       previewUserScrollPendingRef.current.delete(container);
       schedulePersistViewState();
-      if (
-        kind !== 'splitPreview'
-        || mode !== 'split'
-        || splitView !== 'both'
-      ) return;
+      if (kind !== "splitPreview" || mode !== "split" || splitView !== "both")
+        return;
       viewportStateRef.current.source = {
         offset: anchor.offset,
         topOffset: anchor.topOffset,
-        scrollRatio: anchor.scrollRatio
+        scrollRatio: anchor.scrollRatio,
       };
       schedulePreviewToSourceSync(viewportStateRef.current.source);
     } finally {
-      performance.clearMeasures('mve-preview-scroll-sync');
-      performance.measure('mve-preview-scroll-sync', { start: startedAt, end: performance.now() });
+      performance.clearMeasures("mve-preview-scroll-sync");
+      performance.measure("mve-preview-scroll-sync", {
+        start: startedAt,
+        end: performance.now(),
+      });
     }
   }
 
@@ -2121,14 +2694,18 @@ export function App(): React.JSX.Element {
   function schedulePreviewToSourceSync(anchor: PreviewViewportAnchor): void {
     pendingPreviewToSourceAnchorRef.current = anchor;
     if (previewToSourceSyncTimerRef.current !== undefined) return;
-    const delay = Math.max(0, CROSS_PANE_SCROLL_SYNC_MS - (performance.now() - lastPreviewToSourceSyncRef.current));
+    const delay = Math.max(
+      0,
+      CROSS_PANE_SCROLL_SYNC_MS -
+        (performance.now() - lastPreviewToSourceSyncRef.current),
+    );
     previewToSourceSyncTimerRef.current = window.setTimeout(() => {
       previewToSourceSyncTimerRef.current = undefined;
       lastPreviewToSourceSyncRef.current = performance.now();
       const pending = pendingPreviewToSourceAnchorRef.current;
       pendingPreviewToSourceAnchorRef.current = undefined;
       if (!pending) return;
-      mveDebug('preview.scroll.sync-source', { pending });
+      mveDebug("preview.scroll.sync-source", { pending });
       if (pending.scrollRatio !== undefined) {
         sourceRef.current?.restoreScrollRatio(pending.scrollRatio);
       } else {
@@ -2141,7 +2718,11 @@ export function App(): React.JSX.Element {
   function scheduleSourceToPreviewSync(anchor: EditorViewportAnchor): void {
     pendingSourceToPreviewAnchorRef.current = anchor;
     if (sourceToPreviewSyncTimerRef.current !== undefined) return;
-    const delay = Math.max(0, CROSS_PANE_SCROLL_SYNC_MS - (performance.now() - lastSourceToPreviewSyncRef.current));
+    const delay = Math.max(
+      0,
+      CROSS_PANE_SCROLL_SYNC_MS -
+        (performance.now() - lastSourceToPreviewSyncRef.current),
+    );
     sourceToPreviewSyncTimerRef.current = window.setTimeout(() => {
       sourceToPreviewSyncTimerRef.current = undefined;
       lastSourceToPreviewSyncRef.current = performance.now();
@@ -2163,20 +2744,26 @@ export function App(): React.JSX.Element {
    * @param anchor 復元対象のプレビューアンカー。
    * @returns 何も返さない。
    */
-  function restorePreview(container: HTMLElement, anchor: PreviewViewportAnchor): void {
+  function restorePreview(
+    container: HTMLElement,
+    anchor: PreviewViewportAnchor,
+  ): void {
     programmaticPreviewScrollsRef.current.add(container);
     const before = container.scrollTop;
     const restored = restorePreviewViewport(container, anchor);
-    mveDebug('preview.restore.result', {
+    mveDebug("preview.restore.result", {
       restored,
       before,
       after: container.scrollTop,
-      anchor
+      anchor,
     });
   }
 
   /** プレビューを先頭または末尾へ移動し、同期スクロールを無限に発生させない。 */
-  function restorePreviewScrollRatio(container: HTMLElement, ratio: number): void {
+  function restorePreviewScrollRatio(
+    container: HTMLElement,
+    ratio: number,
+  ): void {
     programmaticPreviewScrollsRef.current.add(container);
     restoreScrollRatio(container, ratio);
   }
@@ -2186,16 +2773,22 @@ export function App(): React.JSX.Element {
    * @param kind 描画が完了したプレビューの種類。
    * @returns 何も返さない。
    */
-  function handlePreviewRendered(kind: 'splitPreview' | 'previewOnly'): void {
+  function handlePreviewRendered(kind: "splitPreview" | "previewOnly"): void {
     pendingRenderedPreviewKindsRef.current.add(kind);
     scheduleRenderedPreviewRestore();
   }
 
   /** レイアウト変化後の表示位置復元を集約し、ユーザースクロール中は完了後まで延期する。 */
   function scheduleRenderedPreviewRestore(): void {
-    if (renderedPreviewRestoreFrameRef.current !== undefined
-      || renderedPreviewRestoreTimerRef.current !== undefined) return;
-    const delay = Math.max(0, 100 - (performance.now() - lastPreviewUserScrollAtRef.current));
+    if (
+      renderedPreviewRestoreFrameRef.current !== undefined ||
+      renderedPreviewRestoreTimerRef.current !== undefined
+    )
+      return;
+    const delay = Math.max(
+      0,
+      100 - (performance.now() - lastPreviewUserScrollAtRef.current),
+    );
     if (delay > 0) {
       renderedPreviewRestoreTimerRef.current = window.setTimeout(() => {
         renderedPreviewRestoreTimerRef.current = undefined;
@@ -2203,26 +2796,35 @@ export function App(): React.JSX.Element {
       }, delay);
       return;
     }
-    renderedPreviewRestoreFrameRef.current = window.requestAnimationFrame(() => {
-      renderedPreviewRestoreFrameRef.current = undefined;
-      const kinds = Array.from(pendingRenderedPreviewKindsRef.current);
-      pendingRenderedPreviewKindsRef.current.clear();
-      kinds.forEach((pendingKind) => {
-        const container = pendingKind === 'splitPreview' ? splitPreviewRef.current : editorAreaRef.current;
-        if (container) restorePendingPreview(pendingKind, container);
-      });
-    });
+    renderedPreviewRestoreFrameRef.current = window.requestAnimationFrame(
+      () => {
+        renderedPreviewRestoreFrameRef.current = undefined;
+        const kinds = Array.from(pendingRenderedPreviewKindsRef.current);
+        pendingRenderedPreviewKindsRef.current.clear();
+        kinds.forEach((pendingKind) => {
+          const container =
+            pendingKind === "splitPreview"
+              ? splitPreviewRef.current
+              : editorAreaRef.current;
+          if (container) restorePendingPreview(pendingKind, container);
+        });
+      },
+    );
   }
 
   /** 固定済みアンカーを優先してプレビューを復元し、以後のscrollイベントを通常処理へ戻す。 */
   function restorePendingPreview(
-    kind: 'splitPreview' | 'previewOnly',
-    container: HTMLElement
+    kind: "splitPreview" | "previewOnly",
+    container: HTMLElement,
   ): void {
     const staged = pendingPreviewViewportRestoreRef.current[kind];
     const anchor = staged ?? viewportStateRef.current[kind];
     if (!anchor) return;
-    mveDebug('preview.restore.applied', { kind, staged: Boolean(staged), anchor });
+    mveDebug("preview.restore.applied", {
+      kind,
+      staged: Boolean(staged),
+      anchor,
+    });
     restorePreview(container, anchor);
     if (staged === pendingPreviewViewportRestoreRef.current[kind]) {
       pendingPreviewViewportRestoreRef.current[kind] = undefined;
@@ -2242,54 +2844,77 @@ export function App(): React.JSX.Element {
     /** 分割境界の移動量から左右ペインの比率を更新する。 */
     const move = (moveEvent: PointerEvent) => {
       const bounds = container.getBoundingClientRect();
-      if (bounds.width) setSplitRatio(clampSplitRatio((moveEvent.clientX - bounds.left) / bounds.width));
+      if (bounds.width)
+        setSplitRatio(
+          clampSplitRatio((moveEvent.clientX - bounds.left) / bounds.width),
+        );
     };
     /** 分割リサイズを終了し、表示位置を復元して状態を保存する。 */
     const end = () => {
-      window.removeEventListener('pointermove', move);
-      document.body.classList.remove('mve-resizing-split');
+      window.removeEventListener("pointermove", move);
+      document.body.classList.remove("mve-resizing-split");
       restoreVisibleViewports();
       pendingViewportRestoreRef.current = false;
       persistViewState();
     };
-    document.body.classList.add('mve-resizing-split');
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', end, { once: true });
+    document.body.classList.add("mve-resizing-split");
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", end, { once: true });
   }
 
   /** 右クリックドラッグ中のポインター位置から、同階層のドロップ候補を更新する。 */
-  function updateOutlineDrag(event: React.PointerEvent<HTMLButtonElement>): void {
+  function updateOutlineDrag(
+    event: React.PointerEvent<HTMLButtonElement>,
+  ): void {
     const current = outlineDragRef.current;
     if (!current || current.pointerId !== event.pointerId) return;
-    const distance = Math.hypot(event.clientX - current.startX, event.clientY - current.startY);
+    const distance = Math.hypot(
+      event.clientX - current.startX,
+      event.clientY - current.startY,
+    );
     if (!current.dragging && distance < OUTLINE_DRAG_THRESHOLD_PX) return;
 
-    if (!current.dragging) document.body.classList.add('mve-dragging-outline');
-    const element = document.elementFromPoint(event.clientX, event.clientY)
-      ?.closest<HTMLButtonElement>('button[data-outline-index]');
-    const targetIndex = element ? Number(element.dataset.outlineIndex) : Number.NaN;
+    if (!current.dragging) document.body.classList.add("mve-dragging-outline");
+    const element = document
+      .elementFromPoint(event.clientX, event.clientY)
+      ?.closest<HTMLButtonElement>("button[data-outline-index]");
+    const targetIndex = element
+      ? Number(element.dataset.outlineIndex)
+      : Number.NaN;
     let nextTargetIndex: number | undefined;
-    let position: 'before' | 'after' | undefined;
-    if (element && Number.isInteger(targetIndex)
-      && canMoveOutlineSection(current.outline, current.sourceIndex, targetIndex)) {
+    let position: "before" | "after" | undefined;
+    if (
+      element &&
+      Number.isInteger(targetIndex) &&
+      canMoveOutlineSection(current.outline, current.sourceIndex, targetIndex)
+    ) {
       nextTargetIndex = targetIndex;
-      if (isOutlineEmptyParentTarget(current.outline, current.sourceIndex, targetIndex)) {
-        position = 'after';
+      if (
+        isOutlineEmptyParentTarget(
+          current.outline,
+          current.sourceIndex,
+          targetIndex,
+        )
+      ) {
+        position = "after";
       } else {
         const bounds = element.getBoundingClientRect();
-        position = event.clientY < bounds.top + bounds.height / 2 ? 'before' : 'after';
+        position =
+          event.clientY < bounds.top + bounds.height / 2 ? "before" : "after";
       }
     }
     const next: OutlineDragState = {
       ...current,
       dragging: true,
       targetIndex: nextTargetIndex,
-      position
+      position,
     };
     outlineDragRef.current = next;
-    if (current.dragging !== next.dragging
-      || current.targetIndex !== next.targetIndex
-      || current.position !== next.position) {
+    if (
+      current.dragging !== next.dragging ||
+      current.targetIndex !== next.targetIndex ||
+      current.position !== next.position
+    ) {
       setOutlineDrag(next);
     }
     event.preventDefault();
@@ -2298,20 +2923,25 @@ export function App(): React.JSX.Element {
   /** 右クリックドラッグを終了し、妥当な兄弟位置だけへセクションを移動する。 */
   function finishOutlineDrag(
     event: React.PointerEvent<HTMLButtonElement>,
-    cancelled = false
+    cancelled = false,
   ): void {
     const current = outlineDragRef.current;
     if (!current || current.pointerId !== event.pointerId) return;
     if (current.dragging) event.preventDefault();
-    if (!cancelled && isEditingEnabled(mode, splitView) && current.dragging
-      && current.targetIndex !== undefined && current.position
-      && localTextRef.current === current.markdown) {
+    if (
+      !cancelled &&
+      isEditingEnabled(mode, splitView) &&
+      current.dragging &&
+      current.targetIndex !== undefined &&
+      current.position &&
+      localTextRef.current === current.markdown
+    ) {
       const nextText = moveOutlineSection(
         current.markdown,
         current.outline,
         current.sourceIndex,
         current.targetIndex,
-        current.position
+        current.position,
       );
       if (nextText && nextText !== current.markdown) {
         prepareLayoutRestore();
@@ -2320,14 +2950,17 @@ export function App(): React.JSX.Element {
     }
     outlineDragRef.current = undefined;
     setOutlineDrag(undefined);
-    document.body.classList.remove('mve-dragging-outline');
+    document.body.classList.remove("mve-dragging-outline");
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
   }
 
   /** 右ボタン押下時だけ、アウトラインのセクション移動候補を保持する。 */
-  function beginOutlineDrag(event: React.PointerEvent<HTMLButtonElement>, sourceIndex: number): void {
+  function beginOutlineDrag(
+    event: React.PointerEvent<HTMLButtonElement>,
+    sourceIndex: number,
+  ): void {
     if (event.button !== 2 || !isEditingEnabled(mode, splitView)) return;
     // プレビューが遅延中の古いオフセットで本文を壊さないよう、最新描画済みのときだけ開始する。
     if (previewSnapshot.markdown !== markdown) return;
@@ -2338,7 +2971,7 @@ export function App(): React.JSX.Element {
       startY: event.clientY,
       markdown,
       outline: [...outline],
-      dragging: false
+      dragging: false,
     };
     outlineDragRef.current = next;
     setOutlineDrag(next);
@@ -2365,100 +2998,144 @@ export function App(): React.JSX.Element {
     };
     /** アウトラインリサイズを終了し、表示位置を復元して状態を保存する。 */
     const end = () => {
-      window.removeEventListener('pointermove', move);
-      document.body.classList.remove('mve-resizing-outline');
+      window.removeEventListener("pointermove", move);
+      document.body.classList.remove("mve-resizing-outline");
       restoreVisibleViewports();
       pendingViewportRestoreRef.current = false;
       persistViewState();
     };
-    document.body.classList.add('mve-resizing-outline');
-    window.addEventListener('pointermove', move);
-    window.addEventListener('pointerup', end, { once: true });
+    document.body.classList.add("mve-resizing-outline");
+    window.addEventListener("pointermove", move);
+    window.addEventListener("pointerup", end, { once: true });
   }
 
-  const imageResizeEnabled = mode === 'split' && splitView !== 'text';
+  const imageResizeEnabled = mode === "split" && splitView !== "text";
   const splitPreviewImageResize = useCallback(
-    (imageIndex: number, width: number) => { if (imageResizeEnabled) resizePreviewImage(imageIndex, width); },
-    [imageResizeEnabled, mode, splitView]
+    (imageIndex: number, width: number) => {
+      if (imageResizeEnabled) resizePreviewImage(imageIndex, width);
+    },
+    [imageResizeEnabled, mode, splitView],
   );
   const splitPreviewImageReset = useCallback(
-    (imageIndex: number) => { if (imageResizeEnabled) resetPreviewImage(imageIndex); },
-    [imageResizeEnabled, mode, splitView]
+    (imageIndex: number) => {
+      if (imageResizeEnabled) resetPreviewImage(imageIndex);
+    },
+    [imageResizeEnabled, mode, splitView],
   );
   const splitPreviewImageAlign = useCallback(
-    (imageIndex: number, alignment: ImageAlignment) => { if (imageResizeEnabled) alignPreviewImage(imageIndex, alignment); },
-    [imageResizeEnabled, mode, splitView]
+    (imageIndex: number, alignment: ImageAlignment) => {
+      if (imageResizeEnabled) alignPreviewImage(imageIndex, alignment);
+    },
+    [imageResizeEnabled, mode, splitView],
   );
-  const splitPreviewInspect = useCallback((target: InspectorTarget) => changeInspector(target), [mode, splitView]);
-  const splitPreviewNavigate = useCallback((href: string) => vscode.postMessage({ type: 'openResource', href }), []);
-  const splitPreviewRendered = useCallback(() => handlePreviewRendered('splitPreview'), [mode, splitView]);
-  const sourceEditorChange = useCallback((
-    beforeText: string,
-    nextText: string,
-    changes: TextChange[],
-    isCompositionCommit = false
-  ) => {
-    const previous = localTextRef.current;
-    let effectiveText = nextText;
-    let effectiveChanges = changes;
-    try {
-      if (beforeText !== previous) {
-        // 外部変更がReact/CodeMirrorへ届く途中でも、ユーザー入力を破棄しない。
-        // CodeMirror更新前の本文を基準に外部側の差分を作り、今回の入力だけを
-        // 最新のlocal本文へ写像する。これによりIME変換中の外部追記も残る。
-        const bridgeChanges = computeTextChanges(beforeText, previous);
-        try {
-          effectiveChanges = mapTextChanges(changes, bridgeChanges, beforeText.length, true);
-        } catch {
-          effectiveChanges = mapChangesPreferLocal(changes, bridgeChanges, beforeText.length);
+  const splitPreviewInspect = useCallback(
+    (target: InspectorTarget) => changeInspector(target),
+    [mode, splitView],
+  );
+  const splitPreviewNavigate = useCallback(
+    (href: string) => vscode.postMessage({ type: "openResource", href }),
+    [],
+  );
+  const splitPreviewRendered = useCallback(
+    () => handlePreviewRendered("splitPreview"),
+    [mode, splitView],
+  );
+  const sourceEditorChange = useCallback(
+    (
+      beforeText: string,
+      nextText: string,
+      changes: TextChange[],
+      isCompositionCommit = false,
+    ) => {
+      const previous = localTextRef.current;
+      let effectiveText = nextText;
+      let effectiveChanges = changes;
+      try {
+        if (beforeText !== previous) {
+          // 外部変更がReact/CodeMirrorへ届く途中でも、ユーザー入力を破棄しない。
+          // CodeMirror更新前の本文を基準に外部側の差分を作り、今回の入力だけを
+          // 最新のlocal本文へ写像する。これによりIME変換中の外部追記も残る。
+          const bridgeChanges = computeTextChanges(beforeText, previous);
+          try {
+            effectiveChanges = mapTextChanges(
+              changes,
+              bridgeChanges,
+              beforeText.length,
+              true,
+            );
+          } catch {
+            effectiveChanges = mapChangesPreferLocal(
+              changes,
+              bridgeChanges,
+              beforeText.length,
+            );
+          }
+          effectiveText = applyTextChanges(previous, effectiveChanges);
+        } else if (applyTextChanges(previous, changes) !== nextText) {
+          // CodeMirror差分の基準が一致しない場合は、現在値同士から安全に再計算する。
+          effectiveChanges = computeTextChanges(previous, nextText);
         }
-        effectiveText = applyTextChanges(previous, effectiveChanges);
-      } else if (applyTextChanges(previous, changes) !== nextText) {
-        // CodeMirror差分の基準が一致しない場合は、現在値同士から安全に再計算する。
-        effectiveChanges = computeTextChanges(previous, nextText);
+      } catch {
+        // 競合写像の一次経路で例外が出ても、古いCodeMirror全文をそのまま
+        // local本文へ戻さない。まず全文差分を作り直し、外部変更を含む現在本文へ
+        // ユーザー編集だけを再度写像することで、入力と外部変更の両方を保持する。
+        if (beforeText !== previous) {
+          const bridgeChanges = computeTextChanges(beforeText, previous);
+          const editorChanges = computeTextChanges(beforeText, nextText);
+          effectiveChanges = mapChangesPreferLocal(
+            editorChanges,
+            bridgeChanges,
+            beforeText.length,
+          );
+          effectiveText = applyTextChanges(previous, effectiveChanges);
+        } else {
+          effectiveChanges = computeTextChanges(previous, nextText);
+          effectiveText = applyTextChanges(previous, effectiveChanges);
+        }
       }
-    } catch {
-      // 競合写像の一次経路で例外が出ても、古いCodeMirror全文をそのまま
-      // local本文へ戻さない。まず全文差分を作り直し、外部変更を含む現在本文へ
-      // ユーザー編集だけを再度写像することで、入力と外部変更の両方を保持する。
-      if (beforeText !== previous) {
-        const bridgeChanges = computeTextChanges(beforeText, previous);
-        const editorChanges = computeTextChanges(beforeText, nextText);
-        effectiveChanges = mapChangesPreferLocal(editorChanges, bridgeChanges, beforeText.length);
-        effectiveText = applyTextChanges(previous, effectiveChanges);
-      } else {
-        effectiveChanges = computeTextChanges(previous, nextText);
-        effectiveText = applyTextChanges(previous, effectiveChanges);
-      }
-    }
-    // IMEは確定までReactへ本文を渡さない。確定操作は即座に再描画値にも反映し、
-    // 変換開始時の古いvalueがCodeMirrorへ書き戻される余地をなくす。
-    updateMarkdownRef.current(effectiveText, effectiveChanges, 'local', isCompositionCommit || beforeText !== previous);
-  }, []);
+      // IMEは確定までReactへ本文を渡さない。確定操作は即座に再描画値にも反映し、
+      // 変換開始時の古いvalueがCodeMirrorへ書き戻される余地をなくす。
+      updateMarkdownRef.current(
+        effectiveText,
+        effectiveChanges,
+        "local",
+        isCompositionCommit || beforeText !== previous,
+      );
+    },
+    [],
+  );
   const sourceEditorSettled = useCallback(() => {
     stagePreviewViewportRestore();
     setMarkdown(localTextRef.current);
     delete document.body.dataset.mveInputActive;
-    window.dispatchEvent(new Event('mve-preview-input-settled'));
+    window.dispatchEvent(new Event("mve-preview-input-settled"));
   }, []);
 
-  const sourceEditorSelectionChange = useCallback((nextSelection: TextSelection) => {
-    selectionStateRef.current = nextSelection;
-    const source = markdownForSelectionRef.current;
-    const nextMarks = nextSelection.from === nextSelection.to
-      ? {}
-      : inferMarks(source.slice(nextSelection.from, nextSelection.to));
-    const previous = activeMarksRef.current;
-    const previousKeys = Object.keys(previous);
-    const nextKeys = Object.keys(nextMarks);
-    if (previousKeys.length === nextKeys.length
-      && nextKeys.every((key) => previous[key] === nextMarks[key])) return;
-    activeMarksRef.current = nextMarks;
-    setActiveMarks(nextMarks);
-  }, []);
+  const sourceEditorSelectionChange = useCallback(
+    (nextSelection: TextSelection) => {
+      selectionStateRef.current = nextSelection;
+      const source = markdownForSelectionRef.current;
+      const nextMarks =
+        nextSelection.from === nextSelection.to
+          ? {}
+          : inferMarks(source.slice(nextSelection.from, nextSelection.to));
+      const previous = activeMarksRef.current;
+      const previousKeys = Object.keys(previous);
+      const nextKeys = Object.keys(nextMarks);
+      if (
+        previousKeys.length === nextKeys.length &&
+        nextKeys.every((key) => previous[key] === nextMarks[key])
+      )
+        return;
+      activeMarksRef.current = nextMarks;
+      setActiveMarks(nextMarks);
+    },
+    [],
+  );
   const sourceEditorViewportChange = useCallback(
-    (anchor: EditorViewportAnchor, userInitiated: boolean) => handleSourceViewport(anchor, userInitiated),
-    [mode, splitView]
+    (anchor: EditorViewportAnchor, userInitiated: boolean) =>
+      handleSourceViewport(anchor, userInitiated),
+    [mode, splitView],
   );
   const sourceEditorUserScrollIntent = useCallback(() => {
     viewportUserIntentGenerationRef.current += 1;
@@ -2468,14 +3145,16 @@ export function App(): React.JSX.Element {
     pendingViewportRestoreRef.current = false;
   }, []);
 
-  if (!initialized) return <div className="startup">{messages.app.startup}</div>;
+  if (!initialized)
+    return <div className="startup">{messages.app.startup}</div>;
 
   const readOnly = !isEditingEnabled(mode, splitView);
-  const splitColumns = splitView === 'both'
-    ? `minmax(0, ${splitRatio}fr) 8px minmax(0, ${1 - splitRatio}fr)`
-    : 'minmax(0, 1fr)';
+  const splitColumns =
+    splitView === "both"
+      ? `minmax(0, ${splitRatio}fr) 8px minmax(0, ${1 - splitRatio}fr)`
+      : "minmax(0, 1fr)";
   return (
-    <div className={`app ${printPreview ? 'print-preview-mode' : ''}`}>
+    <div className={`app ${printPreview ? "print-preview-mode" : ""}`}>
       <Ribbon
         messages={messages}
         mode={mode}
@@ -2483,110 +3162,211 @@ export function App(): React.JSX.Element {
         activeMarks={activeMarks}
         outlineVisible={outlineVisible}
         splitView={splitView}
+        htmlOptions={htmlOptions}
+        onHtmlOptionsChange={setHtmlOptions}
         onCommand={handleRibbon}
       />
       <div className="workspace">
         {outlineVisible ? (
           <>
-          <aside className="outline-panel" style={{ flexBasis: `${outlineWidth}px` }} aria-label={messages.app.outline}>
-            <div className="outline-header">
-              <h2>{messages.app.outline}</h2>
-              <button type="button" title={messages.app.hideOutline} aria-label={messages.app.hideOutline} onClick={() => { prepareLayoutRestore(); setOutlineVisible(false); }}>×</button>
-            </div>
-            {outline.length ? (
-              <nav>
-                {outline.map((item, index) => (
-                  <button
-                    key={`${item.offset}-${item.id}`}
-                    className={`outline-item${outlineDrag?.dragging && outlineDrag.sourceIndex === index ? ' outline-drag-source' : ''}${outlineDrag?.targetIndex === index && outlineDrag.position ? ` outline-drop-${outlineDrag.position}` : ''}`}
-                    data-outline-index={index}
-                    data-dragging={outlineDrag?.dragging && outlineDrag.sourceIndex === index ? 'true' : undefined}
-                    aria-disabled={readOnly}
-                    style={{ paddingLeft: `${8 + item.level * 10}px` }}
-                    onClick={(event) => { if (event.button === 0) goToOutlineOffset(item.offset); }}
-                    onPointerDown={(event) => beginOutlineDrag(event, index)}
-                    onPointerMove={updateOutlineDrag}
-                    onPointerUp={finishOutlineDrag}
-                    onPointerCancel={(event) => finishOutlineDrag(event, true)}
-                    onContextMenu={(event) => event.preventDefault()}
-                  >
-                    {item.text}
-                  </button>
-                ))}
-              </nav>
-            ) : (
-              <p>{messages.app.noHeadings}</p>
-            )}
-          </aside>
-          <div
-            className="outline-resizer"
-            role="separator"
-            aria-orientation="vertical"
-            aria-label={messages.app.outlineWidth}
-            aria-valuemin={160}
-            aria-valuemax={420}
-            aria-valuenow={outlineWidth}
-            tabIndex={0}
-            onPointerDown={beginOutlineResize}
-            onKeyDown={(event) => {
-              if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
-                setOutlineWidth((value) => clampOutlineWidth(value + (event.key === 'ArrowLeft' ? -10 : 10)));
-              }
-            }}
-          />
+            <aside
+              className="outline-panel"
+              style={{ flexBasis: `${outlineWidth}px` }}
+              aria-label={messages.app.outline}
+            >
+              <div className="outline-header">
+                <h2>{messages.app.outline}</h2>
+                <button
+                  type="button"
+                  title={messages.app.hideOutline}
+                  aria-label={messages.app.hideOutline}
+                  onClick={() => {
+                    prepareLayoutRestore();
+                    setOutlineVisible(false);
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+              {outline.length ? (
+                <nav>
+                  {outline.map((item, index) => (
+                    <button
+                      key={`${item.offset}-${item.id}`}
+                      className={`outline-item${outlineDrag?.dragging && outlineDrag.sourceIndex === index ? " outline-drag-source" : ""}${outlineDrag?.targetIndex === index && outlineDrag.position ? ` outline-drop-${outlineDrag.position}` : ""}`}
+                      data-outline-index={index}
+                      data-dragging={
+                        outlineDrag?.dragging &&
+                        outlineDrag.sourceIndex === index
+                          ? "true"
+                          : undefined
+                      }
+                      aria-disabled={readOnly}
+                      style={{ paddingLeft: `${8 + item.level * 10}px` }}
+                      onClick={(event) => {
+                        if (event.button === 0) goToOutlineOffset(item.offset);
+                      }}
+                      onPointerDown={(event) => beginOutlineDrag(event, index)}
+                      onPointerMove={updateOutlineDrag}
+                      onPointerUp={finishOutlineDrag}
+                      onPointerCancel={(event) =>
+                        finishOutlineDrag(event, true)
+                      }
+                      onContextMenu={(event) => event.preventDefault()}
+                    >
+                      {item.text}
+                    </button>
+                  ))}
+                </nav>
+              ) : (
+                <p>{messages.app.noHeadings}</p>
+              )}
+            </aside>
+            <div
+              className="outline-resizer"
+              role="separator"
+              aria-orientation="vertical"
+              aria-label={messages.app.outlineWidth}
+              aria-valuemin={160}
+              aria-valuemax={420}
+              aria-valuenow={outlineWidth}
+              tabIndex={0}
+              onPointerDown={beginOutlineResize}
+              onKeyDown={(event) => {
+                if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+                  setOutlineWidth((value) =>
+                    clampOutlineWidth(
+                      value + (event.key === "ArrowLeft" ? -10 : 10),
+                    ),
+                  );
+                }
+              }}
+            />
           </>
         ) : (
-          <button className="outline-reopen" type="button" title={messages.app.showOutline} aria-label={messages.app.showOutline} onClick={() => { prepareLayoutRestore(); setOutlineVisible(true); }}>›</button>
+          <button
+            className="outline-reopen"
+            type="button"
+            title={messages.app.showOutline}
+            aria-label={messages.app.showOutline}
+            onClick={() => {
+              prepareLayoutRestore();
+              setOutlineVisible(true);
+            }}
+          >
+            ›
+          </button>
         )}
         <main
           ref={editorAreaRef}
           className="editor-area"
           onMouseUp={() => {
-            selectionStateRef.current = getActiveEditor()?.getSelection() ?? selectionStateRef.current;
+            selectionStateRef.current =
+              getActiveEditor()?.getSelection() ?? selectionStateRef.current;
           }}
-          tabIndex={mode === 'preview' ? 0 : undefined}
-          onWheelCapture={mode === 'preview' ? markPreviewScrollIntent : undefined}
-          onPointerDownCapture={mode === 'preview' ? markPreviewScrollIntent : undefined}
-          onTouchStartCapture={mode === 'preview' ? markPreviewScrollIntent : undefined}
-          onKeyDownCapture={mode === 'preview' ? markPreviewScrollIntent : undefined}
-          onScroll={mode === 'preview'
-            ? (event) => handlePreviewScroll('previewOnly', event.currentTarget)
-            : undefined}
+          tabIndex={mode === "preview" ? 0 : undefined}
+          onWheelCapture={
+            mode === "preview" ? markPreviewScrollIntent : undefined
+          }
+          onPointerDownCapture={
+            mode === "preview" ? markPreviewScrollIntent : undefined
+          }
+          onTouchStartCapture={
+            mode === "preview" ? markPreviewScrollIntent : undefined
+          }
+          onKeyDownCapture={
+            mode === "preview" ? markPreviewScrollIntent : undefined
+          }
+          onScroll={
+            mode === "preview"
+              ? (event) =>
+                  handlePreviewScroll("previewOnly", event.currentTarget)
+              : undefined
+          }
         >
           {searchVisible && (
-            <section className="search-panel" aria-label={messages.app.searchAndReplace}>
+            <section
+              className="search-panel"
+              aria-label={messages.app.searchAndReplace}
+            >
               <input
                 ref={searchInputRef}
                 aria-label={messages.app.searchText}
                 placeholder={messages.ribbon.search}
                 value={searchQuery}
-                onChange={(event) => { setSearchQuery(event.target.value); setSearchIndex(0); }}
+                onChange={(event) => {
+                  setSearchQuery(event.target.value);
+                  setSearchIndex(0);
+                }}
                 onKeyDown={(event) => {
-                  if (event.key === 'Escape') closeSearch();
-                  if (event.key === 'Enter') jumpToSearch(event.shiftKey ? -1 : 1);
+                  if (event.key === "Escape") closeSearch();
+                  if (event.key === "Enter")
+                    jumpToSearch(event.shiftKey ? -1 : 1);
                 }}
               />
-              <input aria-label={messages.app.replacementText} placeholder={messages.app.replacement} value={searchReplacement} onChange={(event) => setSearchReplacement(event.target.value)} />
-              <span className="search-count">{searchHits.length ? `${searchIndex + 1}/${searchHits.length}` : '0/0'}</span>
-              <button type="button" onClick={() => jumpToSearch(-1)} disabled={!searchHits.length} title={messages.app.previousMatch}>{messages.app.previousMatch}</button>
-              <button type="button" onClick={() => jumpToSearch(1)} disabled={!searchHits.length} title={messages.app.nextMatch}>{messages.app.nextMatch}</button>
-              <button type="button" onClick={() => replaceSearch(false)} disabled={!searchQuery}>{messages.app.replacement}</button>
-              <button type="button" onClick={() => replaceSearch(true)} disabled={!searchQuery}>{messages.app.replaceAll}</button>
-              <button type="button" onClick={closeSearch}>{messages.app.close}</button>
+              <input
+                aria-label={messages.app.replacementText}
+                placeholder={messages.app.replacement}
+                value={searchReplacement}
+                onChange={(event) => setSearchReplacement(event.target.value)}
+              />
+              <span className="search-count">
+                {searchHits.length
+                  ? `${searchIndex + 1}/${searchHits.length}`
+                  : "0/0"}
+              </span>
+              <button
+                type="button"
+                onClick={() => jumpToSearch(-1)}
+                disabled={!searchHits.length}
+                title={messages.app.previousMatch}
+              >
+                {messages.app.previousMatch}
+              </button>
+              <button
+                type="button"
+                onClick={() => jumpToSearch(1)}
+                disabled={!searchHits.length}
+                title={messages.app.nextMatch}
+              >
+                {messages.app.nextMatch}
+              </button>
+              <button
+                type="button"
+                onClick={() => replaceSearch(false)}
+                disabled={!searchQuery}
+              >
+                {messages.app.replacement}
+              </button>
+              <button
+                type="button"
+                onClick={() => replaceSearch(true)}
+                disabled={!searchQuery}
+              >
+                {messages.app.replaceAll}
+              </button>
+              <button type="button" onClick={closeSearch}>
+                {messages.app.close}
+              </button>
             </section>
           )}
-          {mode === 'split' && (
+          {mode === "split" && (
             <div
-              className={`split-editor ${splitView === 'both' ? '' : 'single-pane'}`}
+              className={`split-editor ${splitView === "both" ? "" : "single-pane"}`}
               style={{ gridTemplateColumns: splitColumns }}
             >
-              <div className={`split-source-pane ${splitView === 'preview' ? 'pane-hidden' : ''}`} style={{ fontSize: `${zoom}em` }}>
+              <div
+                className={`split-source-pane ${splitView === "preview" ? "pane-hidden" : ""}`}
+                style={{ fontSize: `${zoom}em` }}
+              >
                 <SourceEditor
                   ref={sourceRef}
                   value={markdown}
                   initialSelection={selectionStateRef.current}
                   searchHits={searchVisible ? searchHits : []}
-                  activeSearchHit={searchVisible ? searchHits[searchIndex] : undefined}
+                  activeSearchHit={
+                    searchVisible ? searchHits[searchIndex] : undefined
+                  }
                   messages={messages}
                   placeholder={messages.editor.placeholder}
                   onChange={sourceEditorChange}
@@ -2598,7 +3378,7 @@ export function App(): React.JSX.Element {
                 />
               </div>
               <div
-                className={`split-divider ${splitView === 'both' ? '' : 'pane-hidden'}`}
+                className={`split-divider ${splitView === "both" ? "" : "pane-hidden"}`}
                 role="separator"
                 aria-orientation="vertical"
                 aria-label={messages.app.splitBoundary}
@@ -2608,30 +3388,42 @@ export function App(): React.JSX.Element {
                 tabIndex={0}
                 onPointerDown={beginSplitResize}
                 onKeyDown={(event) => {
-                  if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+                  if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
                     prepareLayoutRestore();
-                    setSplitRatio((value) => clampSplitRatio(value + (event.key === 'ArrowLeft' ? -0.02 : 0.02)));
+                    setSplitRatio((value) =>
+                      clampSplitRatio(
+                        value + (event.key === "ArrowLeft" ? -0.02 : 0.02),
+                      ),
+                    );
                   }
                 }}
               />
               <div
                 ref={splitPreviewRef}
-                className={`split-preview ${splitView === 'text' ? 'pane-hidden' : ''}`}
+                className={`split-preview ${splitView === "text" ? "pane-hidden" : ""}`}
                 style={{ fontSize: `${zoom}em` }}
-                tabIndex={splitView !== 'text' ? 0 : undefined}
+                tabIndex={splitView !== "text" ? 0 : undefined}
                 onWheel={markPreviewScrollIntent}
                 onPointerDown={markPreviewScrollIntent}
                 onTouchStart={markPreviewScrollIntent}
                 onKeyDown={markPreviewScrollIntent}
-                onScroll={(event) => handlePreviewScroll('splitPreview', event.currentTarget)}
+                onScroll={(event) =>
+                  handlePreviewScroll("splitPreview", event.currentTarget)
+                }
               >
                 <RenderedMarkdown
                   markdown={renderedPreviewMarkdown}
                   html={previewHtml}
                   settings={settings}
-                  onImageResize={imageResizeEnabled ? splitPreviewImageResize : undefined}
-                  onImageReset={imageResizeEnabled ? splitPreviewImageReset : undefined}
-                  onImageAlign={imageResizeEnabled ? splitPreviewImageAlign : undefined}
+                  onImageResize={
+                    imageResizeEnabled ? splitPreviewImageResize : undefined
+                  }
+                  onImageReset={
+                    imageResizeEnabled ? splitPreviewImageReset : undefined
+                  }
+                  onImageAlign={
+                    imageResizeEnabled ? splitPreviewImageAlign : undefined
+                  }
                   onInspect={splitPreviewInspect}
                   onNavigate={splitPreviewNavigate}
                   onRendered={splitPreviewRendered}
@@ -2640,7 +3432,7 @@ export function App(): React.JSX.Element {
               </div>
             </div>
           )}
-          {mode === 'preview' && (
+          {mode === "preview" && (
             <PdfPreview
               markdown={renderedPreviewMarkdown}
               html={previewHtml}
@@ -2652,9 +3444,11 @@ export function App(): React.JSX.Element {
               pdfLoading={pdfPreview.loading}
               pdfError={pdfPreview.error}
               onInspect={(target) => changeInspector(target)}
-              onNavigate={(href) => vscode.postMessage({ type: 'openResource', href })}
+              onNavigate={(href) =>
+                vscode.postMessage({ type: "openResource", href })
+              }
               onZoom={adjustZoom}
-              onRendered={() => handlePreviewRendered('previewOnly')}
+              onRendered={() => handlePreviewRendered("previewOnly")}
             />
           )}
         </main>
@@ -2665,52 +3459,186 @@ export function App(): React.JSX.Element {
             messages={messages}
             onChange={updateInspector}
             onClose={() => changeInspector(undefined)}
-            onOpenResource={(href) => vscode.postMessage({ type: 'openResource', href })}
+            onOpenResource={(href) =>
+              vscode.postMessage({ type: "openResource", href })
+            }
           />
         )}
         {diagnosticsVisible && (
           <aside className="diagnostics-panel">
-            <div className="panel-title"><h2>{messages.app.diagnosticsTitle}</h2><button onClick={() => { prepareLayoutRestore(); setDiagnosticsVisible(false); }}>{messages.app.close}</button></div>
+            <div className="panel-title">
+              <h2>{messages.app.diagnosticsTitle}</h2>
+              <button
+                onClick={() => {
+                  prepareLayoutRestore();
+                  setDiagnosticsVisible(false);
+                }}
+              >
+                {messages.app.close}
+              </button>
+            </div>
             <p className="diagnostic-summary">
-              {messages.app.severity.error} {diagnosticSummary.errors.length} / {messages.app.severity.warning} {diagnosticSummary.warnings.length} / {messages.app.severity.info} {diagnosticSummary.infos.length}
+              {messages.app.severity.error} {diagnosticSummary.errors.length} /{" "}
+              {messages.app.severity.warning}{" "}
+              {diagnosticSummary.warnings.length} / {messages.app.severity.info}{" "}
+              {diagnosticSummary.infos.length}
             </p>
             <p className="diagnostic-help">{messages.app.diagnosticHelp}</p>
-            {diagnostics.length ? diagnostics.map((item, index) => (
-              <div key={`${item.code}-${index}`} className={`diagnostic ${item.severity}`}>
-                <strong>{messages.app.severity[item.severity]}</strong>
-                {item.line ? <button type="button" className="diagnostic-location" onClick={() => goToDiagnosticLine(item.line as number)}>{messages.app.line(item.line as number)}</button> : null}
-                <span>{item.message}</span>
-              </div>
-            )) : <p>{messages.app.noProblems}</p>}
+            {diagnostics.length ? (
+              diagnostics.map((item, index) => (
+                <div
+                  key={`${item.code}-${index}`}
+                  className={`diagnostic ${item.severity}`}
+                >
+                  <strong>{messages.app.severity[item.severity]}</strong>
+                  {item.line ? (
+                    <button
+                      type="button"
+                      className="diagnostic-location"
+                      onClick={() => goToDiagnosticLine(item.line as number)}
+                    >
+                      {messages.app.line(item.line as number)}
+                    </button>
+                  ) : null}
+                  <span>{item.message}</span>
+                </div>
+              ))
+            ) : (
+              <p>{messages.app.noProblems}</p>
+            )}
           </aside>
         )}
         {printPreview && printSettingsVisible && (
           <aside className="pdf-settings-panel">
-            <div className="panel-title"><h2>{messages.app.printSettings}</h2><button onClick={() => setPrintSettingsVisible(false)}>{messages.app.close}</button></div>
+            <div className="panel-title">
+              <h2>{messages.app.printSettings}</h2>
+              <button onClick={() => setPrintSettingsVisible(false)}>
+                {messages.app.close}
+              </button>
+            </div>
             <p>{messages.app.printSettingsHelp}</p>
-            <label>{messages.app.paper}<select value={pdfOptions.format} onChange={(event) => setPdfOptions({ ...pdfOptions, format: event.target.value as PdfOptions['format'] })}><option>A4</option><option>A3</option><option>Letter</option></select></label>
-            <label>{messages.app.orientation}<select value={pdfOptions.orientation} onChange={(event) => setPdfOptions({ ...pdfOptions, orientation: event.target.value as PdfOptions['orientation'] })}><option value="portrait">{messages.app.portrait}</option><option value="landscape">{messages.app.landscape}</option></select></label>
-            <label>{messages.app.header}<input value={pdfOptions.header} onChange={(event) => setPdfOptions({ ...pdfOptions, header: event.target.value })} /></label>
-            <label>{messages.app.footer}<input value={pdfOptions.footer} onChange={(event) => setPdfOptions({ ...pdfOptions, footer: event.target.value })} /></label>
+            <label>
+              {messages.app.paper}
+              <select
+                value={pdfOptions.format}
+                onChange={(event) =>
+                  setPdfOptions({
+                    ...pdfOptions,
+                    format: event.target.value as PdfOptions["format"],
+                  })
+                }
+              >
+                <option>A4</option>
+                <option>A3</option>
+                <option>Letter</option>
+              </select>
+            </label>
+            <label>
+              {messages.app.orientation}
+              <select
+                value={pdfOptions.orientation}
+                onChange={(event) =>
+                  setPdfOptions({
+                    ...pdfOptions,
+                    orientation: event.target
+                      .value as PdfOptions["orientation"],
+                  })
+                }
+              >
+                <option value="portrait">{messages.app.portrait}</option>
+                <option value="landscape">{messages.app.landscape}</option>
+              </select>
+            </label>
+            <label>
+              {messages.app.header}
+              <input
+                value={pdfOptions.header}
+                onChange={(event) =>
+                  setPdfOptions({ ...pdfOptions, header: event.target.value })
+                }
+              />
+            </label>
+            <label>
+              {messages.app.footer}
+              <input
+                value={pdfOptions.footer}
+                onChange={(event) =>
+                  setPdfOptions({ ...pdfOptions, footer: event.target.value })
+                }
+              />
+            </label>
             <fieldset className="pdf-margin-fields">
               <legend>{messages.app.margins}</legend>
-              {(['top', 'right', 'bottom', 'left'] as const).map((side) => (
-                <label key={side}>{({ top: messages.app.top, right: messages.app.right, bottom: messages.app.bottom, left: messages.app.left } as const)[side]}
-                  <input type="number" min={0} max={50} value={pdfOptions.margins[side]} onChange={(event) => setPdfOptions({ ...pdfOptions, margins: { ...pdfOptions.margins, [side]: clampPdfMargin(event.target.value) } })} />
+              {(["top", "right", "bottom", "left"] as const).map((side) => (
+                <label key={side}>
+                  {
+                    (
+                      {
+                        top: messages.app.top,
+                        right: messages.app.right,
+                        bottom: messages.app.bottom,
+                        left: messages.app.left,
+                      } as const
+                    )[side]
+                  }
+                  <input
+                    type="number"
+                    min={0}
+                    max={50}
+                    value={pdfOptions.margins[side]}
+                    onChange={(event) =>
+                      setPdfOptions({
+                        ...pdfOptions,
+                        margins: {
+                          ...pdfOptions.margins,
+                          [side]: clampPdfMargin(event.target.value),
+                        },
+                      })
+                    }
+                  />
                 </label>
               ))}
             </fieldset>
-            <label className="pdf-checkbox"><input type="checkbox" checked={pdfOptions.saveWithoutDialog} onChange={(event) => setPdfOptions({ ...pdfOptions, saveWithoutDialog: event.target.checked })} /> {messages.app.withoutDialog}</label>
-            <button className="primary" onClick={() => void requestPdfExport()}>{messages.ribbon.labels.exportPdf}</button>
+            <label className="pdf-checkbox">
+              <input
+                type="checkbox"
+                checked={pdfOptions.saveWithoutDialog}
+                onChange={(event) =>
+                  setPdfOptions({
+                    ...pdfOptions,
+                    saveWithoutDialog: event.target.checked,
+                  })
+                }
+              />{" "}
+              {messages.app.withoutDialog}
+            </label>
+            <button className="primary" onClick={() => void requestPdfExport()}>
+              {messages.ribbon.labels.exportPdf}
+            </button>
           </aside>
         )}
       </div>
       <footer className="status-bar">
-        <span>{modeLabel(mode, messages)}</span><span>{messages.app.status.lines(stats.lines)}</span><span>{messages.app.status.textCharacters(stats.text)}</span><span>{messages.app.status.markdownCharacters(stats.markdown)}</span><span>{messages.app.status.zoom(Math.round(zoom * 100))}</span><span>{inFlightOperationRef.current || localTextRef.current !== hostTextRef.current ? messages.app.status.syncing : messages.app.status.synced}</span>
+        <span>{modeLabel(mode, messages)}</span>
+        <span>{messages.app.status.lines(stats.lines)}</span>
+        <span>{messages.app.status.textCharacters(stats.text)}</span>
+        <span>{messages.app.status.markdownCharacters(stats.markdown)}</span>
+        <span>{messages.app.status.zoom(Math.round(zoom * 100))}</span>
+        <span>
+          {inFlightOperationRef.current ||
+          localTextRef.current !== hostTextRef.current
+            ? messages.app.status.syncing
+            : messages.app.status.synced}
+        </span>
       </footer>
       {(printPreview || exportStageRequested) && (
         <div className="export-stage" aria-hidden="true">
-          <RenderedMarkdown markdown={renderedPreviewMarkdown} html={previewHtml} settings={exportSettings} onRendered={handleExportRendered} />
+          <RenderedMarkdown
+            markdown={renderedPreviewMarkdown}
+            html={previewHtml}
+            settings={exportSettings}
+            onRendered={handleExportRendered}
+          />
         </div>
       )}
       {htmlRenderRequest && (
@@ -2719,15 +3647,21 @@ export function App(): React.JSX.Element {
           settings={exportSettings}
           onRendered={(documents) => {
             vscode.postMessage({
-              type: 'htmlDocumentsRendered',
+              type: "htmlDocumentsRendered",
               requestId: htmlRenderRequest.requestId,
-              documents
+              documents,
             });
             setHtmlRenderRequest(undefined);
           }}
         />
       )}
-      {helpTopic && <HelpDialog topic={helpTopic} messages={messages} onClose={() => setHelpTopic(undefined)} />}
+      {helpTopic && (
+        <HelpDialog
+          topic={helpTopic}
+          messages={messages}
+          onClose={() => setHelpTopic(undefined)}
+        />
+      )}
       {linkDialogVisible && (
         <LinkDialog
           href={linkHref}
@@ -2739,7 +3673,11 @@ export function App(): React.JSX.Element {
           onClose={() => setLinkDialogVisible(false)}
         />
       )}
-      {toast && <div className="toast" role="status">{toast}</div>}
+      {toast && (
+        <div className="toast" role="status">
+          {toast}
+        </div>
+      )}
     </div>
   );
 }
@@ -2749,7 +3687,14 @@ export function App(): React.JSX.Element {
  * @param props インスペクターの対象、表示設定、変更・終了・参照先操作のコールバック。
  * @returns インスペクターパネルのReact要素。
  */
-function Inspector({ target, settings, messages, onChange, onClose, onOpenResource }: {
+function Inspector({
+  target,
+  settings,
+  messages,
+  onChange,
+  onClose,
+  onOpenResource,
+}: {
   target: InspectorTarget;
   settings: WebviewSettings;
   messages: Messages;
@@ -2758,15 +3703,65 @@ function Inspector({ target, settings, messages, onChange, onClose, onOpenResour
   onOpenResource: (href: string) => void;
 }): React.JSX.Element {
   const [source, setSource] = useState(target.source);
-  const [alt, setAlt] = useState(target.type === 'image' ? target.alt : '');
-  useEffect(() => { setSource(target.source); if (target.type === 'image') setAlt(target.alt); }, [target]);
+  const [alt, setAlt] = useState(target.type === "image" ? target.alt : "");
+  useEffect(() => {
+    setSource(target.source);
+    if (target.type === "image") setAlt(target.alt);
+  }, [target]);
   return (
     <aside className="inspector-panel">
-      <div className="panel-title"><h2>{target.type === 'mermaid' ? messages.app.inspector.mermaid : target.type === 'math' ? messages.app.inspector.math : messages.app.inspector.image}</h2><button onClick={onClose}>{messages.app.close}</button></div>
-      {target.type === 'image' ? (
-        <><img src={source} alt={alt} /><label>{messages.app.inspector.alt}<input value={alt} onChange={(event) => setAlt(event.target.value)} /></label><label>{messages.app.inspector.reference}<input value={source} readOnly /></label><button onClick={() => onOpenResource(source)}>{messages.app.inspector.openFile}</button><button className="primary" onClick={() => onChange(source, alt)}>{messages.app.inspector.apply}</button></>
+      <div className="panel-title">
+        <h2>
+          {target.type === "mermaid"
+            ? messages.app.inspector.mermaid
+            : target.type === "math"
+              ? messages.app.inspector.math
+              : messages.app.inspector.image}
+        </h2>
+        <button onClick={onClose}>{messages.app.close}</button>
+      </div>
+      {target.type === "image" ? (
+        <>
+          <img src={source} alt={alt} />
+          <label>
+            {messages.app.inspector.alt}
+            <input
+              value={alt}
+              onChange={(event) => setAlt(event.target.value)}
+            />
+          </label>
+          <label>
+            {messages.app.inspector.reference}
+            <input value={source} readOnly />
+          </label>
+          <button onClick={() => onOpenResource(source)}>
+            {messages.app.inspector.openFile}
+          </button>
+          <button className="primary" onClick={() => onChange(source, alt)}>
+            {messages.app.inspector.apply}
+          </button>
+        </>
       ) : (
-        <><textarea value={source} spellCheck={false} onChange={(event) => setSource(event.target.value)} /><div className="inspector-preview"><RenderedMarkdown markdown={target.type === 'mermaid' ? `\`\`\`mermaid\n${source}\n\`\`\`` : `$$\n${source}\n$$`} settings={settings} /></div><button className="primary" onClick={() => onChange(source)}>{messages.app.inspector.apply}</button></>
+        <>
+          <textarea
+            value={source}
+            spellCheck={false}
+            onChange={(event) => setSource(event.target.value)}
+          />
+          <div className="inspector-preview">
+            <RenderedMarkdown
+              markdown={
+                target.type === "mermaid"
+                  ? `\`\`\`mermaid\n${source}\n\`\`\``
+                  : `$$\n${source}\n$$`
+              }
+              settings={settings}
+            />
+          </div>
+          <button className="primary" onClick={() => onChange(source)}>
+            {messages.app.inspector.apply}
+          </button>
+        </>
       )}
     </aside>
   );
@@ -2775,14 +3770,14 @@ function Inspector({ target, settings, messages, onChange, onClose, onOpenResour
 function useMarkdownPreviewSnapshot(
   markdown: string,
   remoteImagesEnabled: boolean,
-  language: WebviewSettings['language']
+  language: WebviewSettings["language"],
 ): [MarkdownPreviewSnapshot, () => void] {
   const [snapshot, setSnapshot] = useState<MarkdownPreviewSnapshot>({
-    markdown: '',
-    html: '',
+    markdown: "",
+    html: "",
     outline: [],
     diagnostics: [],
-    stats: { markdown: 0, text: 0, lines: 1 }
+    stats: { markdown: 0, text: 0, lines: 1 },
   });
   const workerRef = useRef<Worker | undefined>(undefined);
   const workerBusyRef = useRef(false);
@@ -2806,23 +3801,26 @@ function useMarkdownPreviewSnapshot(
     const startedAt = performance.now();
     const applySynchronousFallback = (error: unknown) => {
       if (generationRef.current !== id) return;
-      document.body.dataset.mveMarkdownWorkerStatus = 'fallback';
-      console.error('[Markdown Easy Visual Editor] Markdown Workerを利用できないため同期描画へ切り替えます。', error);
+      document.body.dataset.mveMarkdownWorkerStatus = "fallback";
+      console.error(
+        "[Markdown Easy Visual Editor] Markdown Workerを利用できないため同期描画へ切り替えます。",
+        error,
+      );
       const fallbackStartedAt = performance.now();
       setSnapshot({
         markdown,
         html: renderMarkdown(markdown, { remoteImagesEnabled, language }),
         outline: getOutline(markdown),
         diagnostics: collectDiagnostics(markdown, language),
-        stats: wordStats(markdown)
+        stats: wordStats(markdown),
       });
-      recordLatestPerformanceMeasure('mve-preview-markdown', fallbackStartedAt);
+      recordLatestPerformanceMeasure("mve-preview-markdown", fallbackStartedAt);
     };
     const startWorker = async () => {
       try {
         let worker = workerRef.current;
         if (!worker) {
-          document.body.dataset.mveMarkdownWorkerStatus = 'loading';
+          document.body.dataset.mveMarkdownWorkerStatus = "loading";
           const workerUrl = await resolveMarkdownWorkerLaunchUrl();
           if (generationRef.current !== id) return;
           worker = new Worker(workerUrl);
@@ -2830,43 +3828,71 @@ function useMarkdownPreviewSnapshot(
         }
         if (generationRef.current !== id) return;
         workerBusyRef.current = true;
-        document.body.dataset.mveMarkdownWorkerStatus = 'running';
+        document.body.dataset.mveMarkdownWorkerStatus = "running";
         worker.onmessage = (event: MessageEvent<MarkdownWorkerResponse>) => {
-          recordLatestPerformanceMark('mve-preview-worker-response');
+          recordLatestPerformanceMark("mve-preview-worker-response");
           const response = event.data;
-          if (response.id !== id || generationRef.current !== id || workerRef.current !== worker) return;
+          if (
+            response.id !== id ||
+            generationRef.current !== id ||
+            workerRef.current !== worker
+          )
+            return;
           workerBusyRef.current = false;
-          if (response.error || !response.unsafeBlocks || response.markdown === undefined
-            || !response.outline || !response.diagnostics || !response.stats) {
+          if (
+            response.error ||
+            !response.unsafeBlocks ||
+            response.markdown === undefined ||
+            !response.outline ||
+            !response.diagnostics ||
+            !response.stats
+          ) {
             applySynchronousFallback(response.error);
             return;
           }
-          document.body.dataset.mveMarkdownWorkerStatus = 'ready';
-          recordLatestPerformanceMeasure('mve-preview-markdown-worker', startedAt);
-          cancelSanitizationRef.current = sanitizeMarkdownBlocks(response.unsafeBlocks, () => (
-            generationRef.current === id
-          ), (html, maximumChunkDuration) => {
-            recordLatestPerformanceMark('mve-preview-sanitize-complete');
-            cancelSanitizationRef.current = () => undefined;
-            recordPerformanceDuration('mve-preview-markdown', maximumChunkDuration);
-            if (generationRef.current !== id) return;
-            setSnapshot({
-              markdown: response.markdown as string,
-              html,
-              outline: response.outline as OutlineItem[],
-              diagnostics: response.diagnostics as Diagnostic[],
-              stats: response.stats as { markdown: number; text: number; lines: number }
-            });
-          });
+          document.body.dataset.mveMarkdownWorkerStatus = "ready";
+          recordLatestPerformanceMeasure(
+            "mve-preview-markdown-worker",
+            startedAt,
+          );
+          cancelSanitizationRef.current = sanitizeMarkdownBlocks(
+            response.unsafeBlocks,
+            () => generationRef.current === id,
+            (html, maximumChunkDuration) => {
+              recordLatestPerformanceMark("mve-preview-sanitize-complete");
+              cancelSanitizationRef.current = () => undefined;
+              recordPerformanceDuration(
+                "mve-preview-markdown",
+                maximumChunkDuration,
+              );
+              if (generationRef.current !== id) return;
+              setSnapshot({
+                markdown: response.markdown as string,
+                html,
+                outline: response.outline as OutlineItem[],
+                diagnostics: response.diagnostics as Diagnostic[],
+                stats: response.stats as {
+                  markdown: number;
+                  text: number;
+                  lines: number;
+                },
+              });
+            },
+          );
         };
         worker.onerror = (event) => {
-          if (generationRef.current !== id || workerRef.current !== worker) return;
+          if (generationRef.current !== id || workerRef.current !== worker)
+            return;
           workerBusyRef.current = false;
           worker.terminate();
           workerRef.current = undefined;
           applySynchronousFallback(event.message);
         };
-        worker.postMessage({ id, markdown, options: { remoteImagesEnabled, language } });
+        worker.postMessage({
+          id,
+          markdown,
+          options: { remoteImagesEnabled, language },
+        });
       } catch (error) {
         applySynchronousFallback(error);
       }
@@ -2875,11 +3901,14 @@ function useMarkdownPreviewSnapshot(
     return cancelActiveRender;
   }, [markdown, remoteImagesEnabled, language, cancelActiveRender]);
 
-  useEffect(() => () => {
-    workerRef.current?.terminate();
-    workerRef.current = undefined;
-    workerBusyRef.current = false;
-  }, []);
+  useEffect(
+    () => () => {
+      workerRef.current?.terminate();
+      workerRef.current = undefined;
+      workerBusyRef.current = false;
+    },
+    [],
+  );
 
   return [snapshot, cancelActiveRender];
 }
@@ -2889,8 +3918,13 @@ let markdownWorkerBlobUrlPromise: Promise<string> | undefined;
 function resolveMarkdownWorkerResourceUrl(): string {
   const configured = document.body.dataset.mveMarkdownWorkerUri;
   if (configured) return configured;
-  const script = Array.from(document.scripts).find((candidate) => /(?:^|\/)webview\.js(?:[?#]|$)/.test(candidate.src));
-  return new URL('markdown-worker.js', script?.src || document.baseURI).toString();
+  const script = Array.from(document.scripts).find((candidate) =>
+    /(?:^|\/)webview\.js(?:[?#]|$)/.test(candidate.src),
+  );
+  return new URL(
+    "markdown-worker.js",
+    script?.src || document.baseURI,
+  ).toString();
 }
 
 async function resolveMarkdownWorkerLaunchUrl(): Promise<string> {
@@ -2898,7 +3932,10 @@ async function resolveMarkdownWorkerLaunchUrl(): Promise<string> {
   if (/^(?:blob:|data:)/i.test(resourceUrl)) return resourceUrl;
   markdownWorkerBlobUrlPromise ??= fetch(resourceUrl)
     .then((response) => {
-      if (!response.ok) throw new Error(`Markdown Workerの取得に失敗しました (${response.status})`);
+      if (!response.ok)
+        throw new Error(
+          `Markdown Workerの取得に失敗しました (${response.status})`,
+        );
       return response.blob();
     })
     .then((blob) => URL.createObjectURL(blob))
@@ -2912,10 +3949,10 @@ async function resolveMarkdownWorkerLaunchUrl(): Promise<string> {
 function sanitizeMarkdownBlocks(
   unsafeBlocks: UnsafeMarkdownBlock[],
   shouldContinue: () => boolean,
-  onComplete: (html: string, maximumChunkDuration: number) => void
+  onComplete: (html: string, maximumChunkDuration: number) => void,
 ): () => void {
   if (!unsafeBlocks.length) {
-    onComplete('', 0);
+    onComplete("", 0);
     return () => undefined;
   }
   const sanitized: string[] = [];
@@ -2923,7 +3960,7 @@ function sanitizeMarkdownBlocks(
   let cancelled = false;
   let timer: number | undefined;
   let maximumChunkDuration = 0;
-  let slowestBlock = { duration: 0, length: 0, prefix: '' };
+  let slowestBlock = { duration: 0, length: 0, prefix: "" };
   const close = () => {
     cancelled = true;
     if (timer !== undefined) window.clearTimeout(timer);
@@ -2939,26 +3976,37 @@ function sanitizeMarkdownBlocks(
     do {
       const block = unsafeBlocks[index++];
       const blockStartedAt = performance.now();
-      sanitized.push(block.requiresSanitization ? sanitizeRenderedMarkdown(block.html) : block.html);
+      sanitized.push(
+        block.requiresSanitization
+          ? sanitizeRenderedMarkdown(block.html)
+          : block.html,
+      );
       const blockDuration = performance.now() - blockStartedAt;
       if (blockDuration > slowestBlock.duration) {
         slowestBlock = {
           duration: blockDuration,
           length: block.html.length,
-          prefix: block.html.slice(0, 100)
+          prefix: block.html.slice(0, 100),
         };
       }
     } while (index < unsafeBlocks.length && performance.now() - startedAt < 4);
-    maximumChunkDuration = Math.max(maximumChunkDuration, performance.now() - startedAt);
+    maximumChunkDuration = Math.max(
+      maximumChunkDuration,
+      performance.now() - startedAt,
+    );
     if (index < unsafeBlocks.length) {
       timer = window.setTimeout(runChunk, 0);
       return;
     }
     close();
-    performance.clearMarks('mve-preview-sanitize-slowest');
-    performance.mark('mve-preview-sanitize-slowest', { detail: slowestBlock });
-    (globalThis as typeof globalThis & { __mveSlowestSanitizeBlock?: typeof slowestBlock }).__mveSlowestSanitizeBlock = slowestBlock;
-    onComplete(sanitized.join(''), maximumChunkDuration);
+    performance.clearMarks("mve-preview-sanitize-slowest");
+    performance.mark("mve-preview-sanitize-slowest", { detail: slowestBlock });
+    (
+      globalThis as typeof globalThis & {
+        __mveSlowestSanitizeBlock?: typeof slowestBlock;
+      }
+    ).__mveSlowestSanitizeBlock = slowestBlock;
+    onComplete(sanitized.join(""), maximumChunkDuration);
   };
   timer = window.setTimeout(runChunk, 0);
   return close;
@@ -2979,7 +4027,10 @@ function recordPerformanceDuration(name: string, duration: number): void {
   performance.measure(name, { start: 0, duration });
 }
 
-function useInterruptibleDebouncedValue<T>(value: T, delay: number): [T, () => void] {
+function useInterruptibleDebouncedValue<T>(
+  value: T,
+  delay: number,
+): [T, () => void] {
   const [debounced, setDebounced] = useState(value);
   const initialValueRef = useRef(value);
   const firstNonInitialValueRef = useRef(false);
@@ -2995,7 +4046,9 @@ function useInterruptibleDebouncedValue<T>(value: T, delay: number): [T, () => v
       timerRef.current = undefined;
     }
     if (idleHandleRef.current !== undefined) {
-      const idleWindow = window as Window & { cancelIdleCallback?: (handle: number) => void };
+      const idleWindow = window as Window & {
+        cancelIdleCallback?: (handle: number) => void;
+      };
       if (idleUsesTimeoutRef.current || !idleWindow.cancelIdleCallback) {
         window.clearTimeout(idleHandleRef.current);
       } else {
@@ -3006,7 +4059,8 @@ function useInterruptibleDebouncedValue<T>(value: T, delay: number): [T, () => v
   }, []);
 
   useEffect(() => {
-    if (!firstNonInitialValueRef.current && value === initialValueRef.current) return;
+    if (!firstNonInitialValueRef.current && value === initialValueRef.current)
+      return;
     // 初回のホスト文書だけは起動時の表示を遅らせない。
     if (!firstNonInitialValueRef.current) {
       firstNonInitialValueRef.current = true;
@@ -3023,11 +4077,16 @@ function useInterruptibleDebouncedValue<T>(value: T, delay: number): [T, () => v
         setDebounced(value);
       };
       const idleWindow = window as Window & {
-        requestIdleCallback?: (callback: () => void, options?: { timeout: number }) => number;
+        requestIdleCallback?: (
+          callback: () => void,
+          options?: { timeout: number },
+        ) => number;
       };
       if (idleWindow.requestIdleCallback) {
         idleUsesTimeoutRef.current = false;
-        idleHandleRef.current = idleWindow.requestIdleCallback(commit, { timeout: 750 });
+        idleHandleRef.current = idleWindow.requestIdleCallback(commit, {
+          timeout: 750,
+        });
       } else {
         idleUsesTimeoutRef.current = true;
         idleHandleRef.current = window.setTimeout(commit, 0);
@@ -3049,8 +4108,12 @@ function serializeExportHtml(element: HTMLElement): string {
  * @param props Markdown本文、表示設定、PDF設定、プレビュー内操作のコールバック。
  * @returns 印刷プレビューのReact要素。
  */
-function HtmlDocumentRenderStage({ request, settings, onRendered }: {
-  request: Extract<HostToWebviewMessage, { type: 'renderHtmlDocuments' }>;
+function HtmlDocumentRenderStage({
+  request,
+  settings,
+  onRendered,
+}: {
+  request: Extract<HostToWebviewMessage, { type: "renderHtmlDocuments" }>;
   settings: WebviewSettings;
   onRendered: (documents: Array<{ id: string; html: string }>) => void;
 }): React.JSX.Element {
@@ -3064,10 +4127,12 @@ function HtmlDocumentRenderStage({ request, settings, onRendered }: {
     renderedRef.current.set(id, serializeExportHtml(element));
     if (renderedRef.current.size !== request.documents.length) return;
     completedRef.current = true;
-    onRenderedRef.current(request.documents.map((document) => ({
-      id: document.id,
-      html: renderedRef.current.get(document.id) ?? ''
-    })));
+    onRenderedRef.current(
+      request.documents.map((document) => ({
+        id: document.id,
+        html: renderedRef.current.get(document.id) ?? "",
+      })),
+    );
   }
 
   return (
@@ -3084,7 +4149,21 @@ function HtmlDocumentRenderStage({ request, settings, onRendered }: {
   );
 }
 
-function PdfPreview({ markdown, html, settings, options, zoom, messages, pdfBase64, pdfLoading, pdfError, onInspect, onNavigate, onZoom, onRendered }: {
+function PdfPreview({
+  markdown,
+  html,
+  settings,
+  options,
+  zoom,
+  messages,
+  pdfBase64,
+  pdfLoading,
+  pdfError,
+  onInspect,
+  onNavigate,
+  onZoom,
+  onRendered,
+}: {
   markdown: string;
   html: string;
   settings: WebviewSettings;
@@ -3109,25 +4188,61 @@ function PdfPreview({ markdown, html, settings, options, zoom, messages, pdfBase
 
   return (
     <div
-      className={`pdf-preview-shell ${pdfBase64 ? 'pdf-preview-shell-ready' : ''}`}
+      className={`pdf-preview-shell ${pdfBase64 ? "pdf-preview-shell-ready" : ""}`}
       data-pdf-format={options.format}
       data-pdf-orientation={options.orientation}
       data-pdf-zoom={zoom}
     >
-      <div className="pdf-preview-toolbar" role="toolbar" aria-label={messages.ribbon.hintZoom}>
-        <button type="button" aria-label="PDFズームアウト" title={messages.ribbon.hintZoom} onClick={() => { mveDebug('pdf.zoom-button', { delta: -0.1, zoom }); onZoom(-0.1); }}>−</button>
-        <span className="pdf-preview-zoom-value">{Math.round(zoom * 100)}%</span>
-        <button type="button" aria-label="PDFズームイン" title={messages.ribbon.hintZoom} onClick={() => { mveDebug('pdf.zoom-button', { delta: 0.1, zoom }); onZoom(0.1); }}>＋</button>
+      <div
+        className="pdf-preview-toolbar"
+        role="toolbar"
+        aria-label={messages.ribbon.hintZoom}
+      >
+        <button
+          type="button"
+          aria-label="PDFズームアウト"
+          title={messages.ribbon.hintZoom}
+          onClick={() => {
+            mveDebug("pdf.zoom-button", { delta: -0.1, zoom });
+            onZoom(-0.1);
+          }}
+        >
+          −
+        </button>
+        <span className="pdf-preview-zoom-value">
+          {Math.round(zoom * 100)}%
+        </span>
+        <button
+          type="button"
+          aria-label="PDFズームイン"
+          title={messages.ribbon.hintZoom}
+          onClick={() => {
+            mveDebug("pdf.zoom-button", { delta: 0.1, zoom });
+            onZoom(0.1);
+          }}
+        >
+          ＋
+        </button>
       </div>
       {!showPdfLayer && (
         <p className="pdf-preview-status" aria-live="polite">
-          {pdfError ? 'PDFプレビューを表示できません。' : pdfLoading ? 'PDFを生成しています。' : pdfBase64 ? 'PDFページを描画しています。' : 'PDFプレビューを準備しています。'}
+          {pdfError
+            ? "PDFプレビューを表示できません。"
+            : pdfLoading
+              ? "PDFを生成しています。"
+              : pdfBase64
+                ? "PDFページを描画しています。"
+                : "PDFプレビューを準備しています。"}
         </p>
       )}
       {!showPdfLayer && (
         <div className="pdf-preview-live-layer">
           <div className="pdf-preview-live-content" style={{ zoom }}>
-            {options.header && <div className="pdf-preview-header">{formatPdfTemplate(options.header)}</div>}
+            {options.header && (
+              <div className="pdf-preview-header">
+                {formatPdfTemplate(options.header)}
+              </div>
+            )}
             <RenderedMarkdown
               markdown={markdown}
               html={html}
@@ -3138,18 +4253,28 @@ function PdfPreview({ markdown, html, settings, options, zoom, messages, pdfBase
               onRendered={() => onRendered()}
               deferMermaid
             />
-            {options.footer && <div className="pdf-preview-footer">{formatPdfTemplate(options.footer)}</div>}
+            {options.footer && (
+              <div className="pdf-preview-footer">
+                {formatPdfTemplate(options.footer)}
+              </div>
+            )}
           </div>
         </div>
       )}
       {pdfBase64 && (
-        <div className={`pdf-preview-pdf-layer ${showPdfLayer ? '' : 'is-preparing'}`}>
+        <div
+          className={`pdf-preview-pdf-layer ${showPdfLayer ? "" : "is-preparing"}`}
+        >
           <PdfDocumentPreview
             data={pdfBase64}
             pageRatio={dimensions.width / dimensions.height}
             zoom={zoom}
             onRendered={() => {
-              mveDebug('pdf.preview-layer-ready', { zoom, format: options.format, orientation: options.orientation });
+              mveDebug("pdf.preview-layer-ready", {
+                zoom,
+                format: options.format,
+                orientation: options.orientation,
+              });
               setPdfCanvasReady(true);
               onRendered();
             }}
@@ -3157,7 +4282,17 @@ function PdfPreview({ markdown, html, settings, options, zoom, messages, pdfBase
         </div>
       )}
       {pdfError && <p className="pdf-preview-error">{pdfError}</p>}
-      <p className="pdf-preview-note">{options.format} · {options.orientation === 'portrait' ? messages.app.portrait : messages.app.landscape} / {messages.app.margins} {messages.app.top}{options.margins.top} · {messages.app.right}{options.margins.right} · {messages.app.bottom}{options.margins.bottom} · {messages.app.left}{options.margins.left} mm</p>
+      <p className="pdf-preview-note">
+        {options.format} ·{" "}
+        {options.orientation === "portrait"
+          ? messages.app.portrait
+          : messages.app.landscape}{" "}
+        / {messages.app.margins} {messages.app.top}
+        {options.margins.top} · {messages.app.right}
+        {options.margins.right} · {messages.app.bottom}
+        {options.margins.bottom} · {messages.app.left}
+        {options.margins.left} mm
+      </p>
     </div>
   );
 }
@@ -3167,7 +4302,15 @@ function PdfPreview({ markdown, html, settings, options, zoom, messages, pdfBase
  * @param props 現在の入力値と各入力・適用・終了操作のコールバック。
  * @returns リンク入力ダイアログのReact要素。
  */
-function LinkDialog({ href, label, messages, onHrefChange, onLabelChange, onApply, onClose }: {
+function LinkDialog({
+  href,
+  label,
+  messages,
+  onHrefChange,
+  onLabelChange,
+  onApply,
+  onClose,
+}: {
   href: string;
   label: string;
   messages: Messages;
@@ -3177,12 +4320,50 @@ function LinkDialog({ href, label, messages, onHrefChange, onLabelChange, onAppl
   onClose: () => void;
 }): React.JSX.Element {
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="link-dialog-title">
-      <form className="help-dialog link-dialog" onSubmit={(event) => { event.preventDefault(); onApply(); }}>
-        <div className="panel-title"><h2 id="link-dialog-title">{messages.app.link.title}</h2><button type="button" onClick={onClose}>{messages.app.close}</button></div>
-        <label>{messages.app.link.url}<input autoFocus type="url" value={href} onChange={(event) => onHrefChange(event.target.value)} placeholder={messages.app.link.urlPlaceholder} /></label>
-        <label>{messages.app.link.text} {messages.app.link.textHint}<input value={label} onChange={(event) => onLabelChange(event.target.value)} /></label>
-        <div className="dialog-actions"><button type="button" onClick={onClose}>{messages.app.link.cancel}</button><button className="primary" type="submit">{messages.app.link.insert}</button></div>
+    <div
+      className="modal-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="link-dialog-title"
+    >
+      <form
+        className="help-dialog link-dialog"
+        onSubmit={(event) => {
+          event.preventDefault();
+          onApply();
+        }}
+      >
+        <div className="panel-title">
+          <h2 id="link-dialog-title">{messages.app.link.title}</h2>
+          <button type="button" onClick={onClose}>
+            {messages.app.close}
+          </button>
+        </div>
+        <label>
+          {messages.app.link.url}
+          <input
+            autoFocus
+            type="url"
+            value={href}
+            onChange={(event) => onHrefChange(event.target.value)}
+            placeholder={messages.app.link.urlPlaceholder}
+          />
+        </label>
+        <label>
+          {messages.app.link.text} {messages.app.link.textHint}
+          <input
+            value={label}
+            onChange={(event) => onLabelChange(event.target.value)}
+          />
+        </label>
+        <div className="dialog-actions">
+          <button type="button" onClick={onClose}>
+            {messages.app.link.cancel}
+          </button>
+          <button className="primary" type="submit">
+            {messages.app.link.insert}
+          </button>
+        </div>
       </form>
     </div>
   );
@@ -3193,10 +4374,19 @@ function LinkDialog({ href, label, messages, onHrefChange, onLabelChange, onAppl
  * @param props 表示するヘルプ種別とダイアログを閉じるコールバック。
  * @returns ヘルプダイアログのReact要素。
  */
-function HelpDialog({ topic, messages, onClose }: { topic: HelpTopic; messages: Messages; onClose: () => void }): React.JSX.Element {
-  const title = topic === 'shortcuts'
-    ? messages.app.help.shortcuts
-    : messages.ribbon.labels.features;
+function HelpDialog({
+  topic,
+  messages,
+  onClose,
+}: {
+  topic: HelpTopic;
+  messages: Messages;
+  onClose: () => void;
+}): React.JSX.Element {
+  const title =
+    topic === "shortcuts"
+      ? messages.app.help.shortcuts
+      : messages.ribbon.labels.features;
   const featureSections = [
     {
       title: messages.ribbon.tabs.home,
@@ -3204,38 +4394,92 @@ function HelpDialog({ topic, messages, onClose }: { topic: HelpTopic; messages: 
         [messages.ribbon.labels.undo, messages.ribbon.featureDescriptions.undo],
         [messages.ribbon.labels.redo, messages.ribbon.featureDescriptions.redo],
         [messages.ribbon.labels.bold, messages.ribbon.featureDescriptions.bold],
-        [messages.ribbon.labels.italic, messages.ribbon.featureDescriptions.italic],
-        [messages.ribbon.labels.clearInline, messages.ribbon.featureDescriptions.clearInline],
-        [messages.ribbon.labels.clearBlock, messages.ribbon.featureDescriptions.clearBlock]
-      ]
+        [
+          messages.ribbon.labels.italic,
+          messages.ribbon.featureDescriptions.italic,
+        ],
+        [
+          messages.ribbon.labels.clearInline,
+          messages.ribbon.featureDescriptions.clearInline,
+        ],
+        [
+          messages.ribbon.labels.clearBlock,
+          messages.ribbon.featureDescriptions.clearBlock,
+        ],
+      ],
     },
     {
       title: messages.ribbon.tabs.insert,
       items: [
         [messages.ribbon.labels.link, messages.ribbon.featureDescriptions.link],
-        [messages.ribbon.labels.image, messages.ribbon.featureDescriptions.image],
-        [messages.ribbon.labels.insertTable, messages.ribbon.featureDescriptions.insertTable],
-        [messages.ribbon.labels.codeBlock, messages.ribbon.featureDescriptions.codeBlock],
+        [
+          messages.ribbon.labels.image,
+          messages.ribbon.featureDescriptions.image,
+        ],
+        [
+          messages.ribbon.labels.insertTable,
+          messages.ribbon.featureDescriptions.insertTable,
+        ],
+        [
+          messages.ribbon.labels.codeBlock,
+          messages.ribbon.featureDescriptions.codeBlock,
+        ],
         [messages.ribbon.labels.math, messages.ribbon.featureDescriptions.math],
-        [messages.ribbon.labels.footnote, messages.ribbon.featureDescriptions.footnote],
-        [messages.ribbon.labels.toc, messages.ribbon.featureDescriptions.toc]
-      ]
+        [
+          messages.ribbon.labels.footnote,
+          messages.ribbon.featureDescriptions.footnote,
+        ],
+        [messages.ribbon.labels.toc, messages.ribbon.featureDescriptions.toc],
+      ],
     },
     {
       title: messages.ribbon.tabs.table,
       items: [
-        [messages.app.tableEditor.title, messages.ribbon.featureDescriptions.tableEditor],
-        [messages.app.tableEditor.resizeColumn, messages.ribbon.featureDescriptions.tableEditorColumnResize],
-        [messages.app.tableEditor.resizeRow, messages.ribbon.featureDescriptions.tableEditorRowResize],
-        [messages.app.tableEditor.resizeEditor, messages.ribbon.featureDescriptions.tableEditorLayout],
-        [messages.ribbon.labels.addBefore, messages.ribbon.featureDescriptions.addBefore],
-        [messages.ribbon.labels.deleteRow, messages.ribbon.featureDescriptions.deleteRow],
-        [messages.ribbon.labels.deleteColumn, messages.ribbon.featureDescriptions.deleteColumn],
-        [messages.ribbon.labels.alignLeft, messages.ribbon.featureDescriptions.alignLeft],
-        [messages.ribbon.labels.alignCenter, messages.ribbon.featureDescriptions.alignCenter],
-        [messages.ribbon.labels.alignRight, messages.ribbon.featureDescriptions.alignRight],
-        [messages.ribbon.labels.copyTsv, messages.ribbon.featureDescriptions.copyTsv]
-      ]
+        [
+          messages.app.tableEditor.title,
+          messages.ribbon.featureDescriptions.tableEditor,
+        ],
+        [
+          messages.app.tableEditor.resizeColumn,
+          messages.ribbon.featureDescriptions.tableEditorColumnResize,
+        ],
+        [
+          messages.app.tableEditor.resizeRow,
+          messages.ribbon.featureDescriptions.tableEditorRowResize,
+        ],
+        [
+          messages.app.tableEditor.resizeEditor,
+          messages.ribbon.featureDescriptions.tableEditorLayout,
+        ],
+        [
+          messages.ribbon.labels.addBefore,
+          messages.ribbon.featureDescriptions.addBefore,
+        ],
+        [
+          messages.ribbon.labels.deleteRow,
+          messages.ribbon.featureDescriptions.deleteRow,
+        ],
+        [
+          messages.ribbon.labels.deleteColumn,
+          messages.ribbon.featureDescriptions.deleteColumn,
+        ],
+        [
+          messages.ribbon.labels.alignLeft,
+          messages.ribbon.featureDescriptions.alignLeft,
+        ],
+        [
+          messages.ribbon.labels.alignCenter,
+          messages.ribbon.featureDescriptions.alignCenter,
+        ],
+        [
+          messages.ribbon.labels.alignRight,
+          messages.ribbon.featureDescriptions.alignRight,
+        ],
+        [
+          messages.ribbon.labels.copyTsv,
+          messages.ribbon.featureDescriptions.copyTsv,
+        ],
+      ],
     },
     {
       title: messages.ribbon.tabs.view,
@@ -3243,34 +4487,71 @@ function HelpDialog({ topic, messages, onClose }: { topic: HelpTopic; messages: 
         [messages.ribbon.outline, messages.ribbon.featureDescriptions.outline],
         [messages.ribbon.search, messages.ribbon.featureDescriptions.search],
         [messages.ribbon.split, messages.ribbon.featureDescriptions.split],
-        [messages.ribbon.textOnly, messages.ribbon.featureDescriptions.textOnly],
-        [messages.ribbon.previewOnly, messages.ribbon.featureDescriptions.previewOnly]
-      ]
+        [
+          messages.ribbon.textOnly,
+          messages.ribbon.featureDescriptions.textOnly,
+        ],
+        [
+          messages.ribbon.previewOnly,
+          messages.ribbon.featureDescriptions.previewOnly,
+        ],
+      ],
     },
     {
       title: messages.ribbon.tabs.export,
       items: [
-        [messages.ribbon.labels.printPreview, messages.ribbon.featureDescriptions.printPreview],
-        [messages.ribbon.labels.exportPdf, messages.ribbon.featureDescriptions.exportPdf],
-        [messages.ribbon.labels.preflight, messages.ribbon.featureDescriptions.preflight]
-      ]
-    }
+        [
+          messages.ribbon.labels.printPreview,
+          messages.ribbon.featureDescriptions.printPreview,
+        ],
+        [
+          messages.ribbon.labels.exportPdf,
+          messages.ribbon.featureDescriptions.exportPdf,
+        ],
+        [
+          messages.ribbon.labels.preflight,
+          messages.ribbon.featureDescriptions.preflight,
+        ],
+      ],
+    },
   ];
   return (
-    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="help-dialog-title">
+    <div
+      className="modal-backdrop"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="help-dialog-title"
+    >
       <section className="help-dialog">
-        <div className="panel-title"><h2 id="help-dialog-title">{title}</h2><button onClick={onClose}>{messages.app.close}</button></div>
-        {topic === 'shortcuts' && (
-          <table><tbody><tr><th>Ctrl+V</th><td>{messages.app.help.shortcutImage}</td></tr><tr><th>Alt+Enter</th><td>{messages.app.help.shortcutTableBreak}</td></tr></tbody></table>
+        <div className="panel-title">
+          <h2 id="help-dialog-title">{title}</h2>
+          <button onClick={onClose}>{messages.app.close}</button>
+        </div>
+        {topic === "shortcuts" && (
+          <table>
+            <tbody>
+              <tr>
+                <th>Ctrl+V</th>
+                <td>{messages.app.help.shortcutImage}</td>
+              </tr>
+              <tr>
+                <th>Alt+Enter</th>
+                <td>{messages.app.help.shortcutTableBreak}</td>
+              </tr>
+            </tbody>
+          </table>
         )}
-        {topic === 'features' && (
+        {topic === "features" && (
           <div className="feature-list">
             {featureSections.map((section) => (
               <section key={section.title}>
                 <h3>{section.title}</h3>
                 <ul>
                   {section.items.map(([label, description]) => (
-                    <li key={label}><strong>{label}</strong><span>{description}</span></li>
+                    <li key={label}>
+                      <strong>{label}</strong>
+                      <span>{description}</span>
+                    </li>
                   ))}
                 </ul>
               </section>
@@ -3289,17 +4570,39 @@ function HelpDialog({ topic, messages, onClose }: { topic: HelpTopic; messages: 
  * @returns ファイル名、MIMEタイプ、Base64本文を含むペイロード。
  * @throws Error ファイルがサイズ上限を超える場合、またはBMPのPNG変換に失敗した場合。
  */
-async function fileToPayload(file: File, maxSizeMb: number, messages: Messages): Promise<ImagePayload> {
-  if (file.size > maxSizeMb * 1024 * 1024) throw new Error(messages.app.errors.imageSize(maxSizeMb));
-  if (file.type === 'image/bmp') {
+async function fileToPayload(
+  file: File,
+  maxSizeMb: number,
+  messages: Messages,
+): Promise<ImagePayload> {
+  if (file.size > maxSizeMb * 1024 * 1024)
+    throw new Error(messages.app.errors.imageSize(maxSizeMb));
+  if (file.type === "image/bmp") {
     const bitmap = await createImageBitmap(file);
-    const canvas = document.createElement('canvas');
-    canvas.width = bitmap.width; canvas.height = bitmap.height;
-    canvas.getContext('2d')?.drawImage(bitmap, 0, 0);
-    const blob = await new Promise<Blob>((resolve, reject) => canvas.toBlob((value) => value ? resolve(value) : reject(new Error(messages.app.errors.bmpConversion)), 'image/png'));
-    return { name: file.name.replace(/\.bmp$/i, '.png'), mime: 'image/png', base64: await blobBase64(blob) };
+    const canvas = document.createElement("canvas");
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    canvas.getContext("2d")?.drawImage(bitmap, 0, 0);
+    const blob = await new Promise<Blob>((resolve, reject) =>
+      canvas.toBlob(
+        (value) =>
+          value
+            ? resolve(value)
+            : reject(new Error(messages.app.errors.bmpConversion)),
+        "image/png",
+      ),
+    );
+    return {
+      name: file.name.replace(/\.bmp$/i, ".png"),
+      mime: "image/png",
+      base64: await blobBase64(blob),
+    };
   }
-  return { name: file.name, mime: file.type || 'image/png', base64: await blobBase64(file) };
+  return {
+    name: file.name,
+    mime: file.type || "image/png",
+    base64: await blobBase64(file),
+  };
 }
 
 /**
@@ -3308,7 +4611,10 @@ async function fileToPayload(file: File, maxSizeMb: number, messages: Messages):
  * @returns 画像として扱える場合はtrue。
  */
 function isImageFile(file: File): boolean {
-  return file.type.startsWith('image/') || /\.(?:png|jpe?g|gif|webp|bmp|svg)$/i.test(file.name);
+  return (
+    file.type.startsWith("image/") ||
+    /\.(?:png|jpe?g|gif|webp|bmp|svg)$/i.test(file.name)
+  );
 }
 
 /**
@@ -3319,8 +4625,9 @@ function isImageFile(file: File): boolean {
 async function blobBase64(blob: Blob): Promise<string> {
   const buffer = await blob.arrayBuffer();
   const bytes = new Uint8Array(buffer);
-  let binary = '';
-  for (let offset = 0; offset < bytes.length; offset += 0x8000) binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
+  let binary = "";
+  for (let offset = 0; offset < bytes.length; offset += 0x8000)
+    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
   return btoa(binary);
 }
 
@@ -3330,7 +4637,15 @@ async function blobBase64(blob: Blob): Promise<string> {
  * @returns 各書式が含まれているかを示す真偽値の集合。
  */
 function inferMarks(value: string): Record<string, boolean> {
-  return { bold: /\*\*[^*]+\*\*/.test(value), italic: /(?:^|[^*])\*[^*]+\*/.test(value), strike: /~~.+~~/.test(value), underline: /\+\+.+\+\+/.test(value), highlight: /==.+==/.test(value), inlineCode: /`[^`]+`/.test(value), link: /\[[^\]]+]\([^)]+\)/.test(value) };
+  return {
+    bold: /\*\*[^*]+\*\*/.test(value),
+    italic: /(?:^|[^*])\*[^*]+\*/.test(value),
+    strike: /~~.+~~/.test(value),
+    underline: /\+\+.+\+\+/.test(value),
+    highlight: /==.+==/.test(value),
+    inlineCode: /`[^`]+`/.test(value),
+    link: /\[[^\]]+]\([^)]+\)/.test(value),
+  };
 }
 
 /**
@@ -3339,7 +4654,10 @@ function inferMarks(value: string): Record<string, boolean> {
  * @param query 検索する文字列。
  * @returns 一致箇所の開始位置と終了位置の配列。
  */
-function findSearchHits(value: string, query: string): Array<{ from: number; to: number }> {
+function findSearchHits(
+  value: string,
+  query: string,
+): Array<{ from: number; to: number }> {
   if (!query) return [];
   const hits: Array<{ from: number; to: number }> = [];
   let offset = 0;
@@ -3366,13 +4684,17 @@ function clampSplitRatio(value: number): number {
  * @param options PDF出力設定。
  * @returns ページの幅と高さ。
  */
-function pdfPageDimensions(options: PdfOptions): { width: number; height: number } {
-  const dimensions = options.format === 'A3'
-    ? { width: 297, height: 420 }
-    : options.format === 'Letter'
-      ? { width: 216, height: 279 }
-      : { width: 210, height: 297 };
-  return options.orientation === 'landscape'
+function pdfPageDimensions(options: PdfOptions): {
+  width: number;
+  height: number;
+} {
+  const dimensions =
+    options.format === "A3"
+      ? { width: 297, height: 420 }
+      : options.format === "Letter"
+        ? { width: 216, height: 279 }
+        : { width: 210, height: 297 };
+  return options.orientation === "landscape"
     ? { width: dimensions.height, height: dimensions.width }
     : dimensions;
 }
@@ -3383,7 +4705,7 @@ function pdfPageDimensions(options: PdfOptions): { width: number; height: number
  * @returns ライブプレビュー表示用に置換した文字列。
  */
 function formatPdfTemplate(value: string): string {
-  return value.replace(/\{page\}/g, '1').replace(/\{pages\}/g, '1');
+  return value.replace(/\{page\}/g, "1").replace(/\{pages\}/g, "1");
 }
 
 /**
@@ -3393,7 +4715,9 @@ function formatPdfTemplate(value: string): string {
  */
 function clampPdfMargin(value: string): number {
   const parsed = Number(value);
-  return Number.isFinite(parsed) ? Math.max(0, Math.min(50, Math.round(parsed))) : 0;
+  return Number.isFinite(parsed)
+    ? Math.max(0, Math.min(50, Math.round(parsed)))
+    : 0;
 }
 
 /**
@@ -3402,7 +4726,10 @@ function clampPdfMargin(value: string): number {
  * @returns 160から420pxの範囲に収めた幅。
  */
 function clampOutlineWidth(value: number): number {
-  return Math.max(160, Math.min(420, Number.isFinite(value) ? Math.round(value) : 220));
+  return Math.max(
+    160,
+    Math.min(420, Number.isFinite(value) ? Math.round(value) : 220),
+  );
 }
 
 /**
@@ -3424,21 +4751,29 @@ function clampZoom(value: number): number {
 function mapChangesPreferLocal(
   changes: readonly TextChange[],
   over: readonly TextChange[],
-  baseLength: number
+  baseLength: number,
 ): TextChange[] {
   return [...changes]
     .sort((left, right) => left.rangeOffset - right.rangeOffset)
     .map((change) => {
       const start = change.rangeOffset;
       if (change.rangeLength === 0) {
-        return { ...change, rangeOffset: mapTextOffset(start, over, baseLength, 1) };
+        return {
+          ...change,
+          rangeOffset: mapTextOffset(start, over, baseLength, 1),
+        };
       }
       const mappedStart = mapTextOffset(start, over, baseLength, -1);
-      const mappedEnd = mapTextOffset(start + change.rangeLength, over, baseLength, 1);
+      const mappedEnd = mapTextOffset(
+        start + change.rangeLength,
+        over,
+        baseLength,
+        1,
+      );
       return {
         ...change,
         rangeOffset: mappedStart,
-        rangeLength: Math.max(0, mappedEnd - mappedStart)
+        rangeLength: Math.max(0, mappedEnd - mappedStart),
       };
     });
 }
@@ -3449,13 +4784,16 @@ function mapChangesPreferLocal(
  * @param splitView 分割モード時に表示するペイン。
  * @returns テキスト編集を許可する場合はtrue。
  */
-function isEditingEnabled(mode: EditorMode, splitView: 'both' | 'text' | 'preview'): boolean {
-  return mode !== 'preview' && !(mode === 'split' && splitView === 'preview');
+function isEditingEnabled(
+  mode: EditorMode,
+  splitView: "both" | "text" | "preview",
+): boolean {
+  return mode !== "preview" && !(mode === "split" && splitView === "preview");
 }
 
 /** Webview状態から有効な通常表示モードを復元する。 */
 function restoreViewMode(value: unknown): ViewMode {
-  return value === 'text' || value === 'preview' ? value : 'both';
+  return value === "text" || value === "preview" ? value : "both";
 }
 
 /**
@@ -3464,7 +4802,9 @@ function restoreViewMode(value: unknown): ViewMode {
  * @returns モードの表示名。
  */
 function modeLabel(mode: EditorMode, messages: Messages): string {
-  return mode === 'split' ? messages.app.status.modeSplit : messages.app.status.modePreview;
+  return mode === "split"
+    ? messages.app.status.modeSplit
+    : messages.app.status.modePreview;
 }
 
 /**
@@ -3476,14 +4816,34 @@ function modeLabel(mode: EditorMode, messages: Messages): string {
  * @param next 置換後に挿入する本文。
  * @returns 条件に一致したブロックを置換したMarkdown本文。
  */
-function replaceDelimitedBlock(markdown: string, opening: string, closing: string, previous: string, next: string): string {
-  const pattern = new RegExp(`(${escapeRegExp(opening)}[^\\r\\n]*(\\r\\n|\\r|\\n))([\\s\\S]*?)(\\r\\n|\\r|\\n)${escapeRegExp(closing)}`, 'g');
-  const normalizedPrevious = previous.replace(/\r\n?|\n/g, '\n');
-  return markdown.replace(pattern, (whole, prefix: string, openingEol: string, body: string, closingEol: string) => {
-    if (body.replace(/\r\n?|\n/g, '\n') !== normalizedPrevious) return whole;
-    const replacement = next.replace(/\r\n?|\n/g, '\n').replace(/\n/g, openingEol);
-    return `${prefix}${replacement}${closingEol}${closing}`;
-  });
+function replaceDelimitedBlock(
+  markdown: string,
+  opening: string,
+  closing: string,
+  previous: string,
+  next: string,
+): string {
+  const pattern = new RegExp(
+    `(${escapeRegExp(opening)}[^\\r\\n]*(\\r\\n|\\r|\\n))([\\s\\S]*?)(\\r\\n|\\r|\\n)${escapeRegExp(closing)}`,
+    "g",
+  );
+  const normalizedPrevious = previous.replace(/\r\n?|\n/g, "\n");
+  return markdown.replace(
+    pattern,
+    (
+      whole,
+      prefix: string,
+      openingEol: string,
+      body: string,
+      closingEol: string,
+    ) => {
+      if (body.replace(/\r\n?|\n/g, "\n") !== normalizedPrevious) return whole;
+      const replacement = next
+        .replace(/\r\n?|\n/g, "\n")
+        .replace(/\n/g, openingEol);
+      return `${prefix}${replacement}${closingEol}${closing}`;
+    },
+  );
 }
 
 /**
@@ -3491,7 +4851,9 @@ function replaceDelimitedBlock(markdown: string, opening: string, closing: strin
  * @param value エスケープ対象の文字列。
  * @returns 正規表現へ埋め込めるエスケープ済み文字列。
  */
-function escapeRegExp(value: string): string { return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'); }
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
 const PRINT_CONTENT_CSS = `
 body{font-family:"Noto Sans JP","Yu Gothic UI",sans-serif;color:#202124;line-height:1.75;font-size:11pt}
@@ -3512,9 +4874,14 @@ function collectPrintableCss(includeEmbeddedFonts = true): string {
   for (const sheet of Array.from(document.styleSheets)) {
     try {
       for (const rule of Array.from(sheet.cssRules)) {
-        if (!includeEmbeddedFonts && rule.type === CSSRule.FONT_FACE_RULE) continue;
+        if (!includeEmbeddedFonts && rule.type === CSSRule.FONT_FACE_RULE)
+          continue;
         const css = rule.cssText;
-        if ((includeEmbeddedFonts && css.startsWith('@font-face')) || css.includes('.katex') || css.includes('.hljs')) {
+        if (
+          (includeEmbeddedFonts && css.startsWith("@font-face")) ||
+          css.includes(".katex") ||
+          css.includes(".hljs")
+        ) {
           rules.push(css);
         }
       }
@@ -3522,5 +4889,5 @@ function collectPrintableCss(includeEmbeddedFonts = true): string {
       // 読み取りが禁止されたスタイルシートは印刷本文の生成を妨げないよう除外する。
     }
   }
-  return rules.join('\n');
+  return rules.join("\n");
 }

@@ -1,5 +1,5 @@
 /* 通常Markdownプレビューは利用可能なペイン幅全体を使用する。PDF用紙プレビューの固定幅には影響させない。 */
 .split-preview .rendered-markdown,
 .preview-only {
-  max-width: none;
+    max-width: none;
 }

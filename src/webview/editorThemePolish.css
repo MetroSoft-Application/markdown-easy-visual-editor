@@ -1,97 +1,97 @@
 /* styles.css 後段の直書き色・個別UIを独自テーマへ揃える最終補正。 */
 body[data-editor-theme="light"] {
-  --vscode-badge-background: #ddf4ff !important;
-  --vscode-badge-foreground: #0969da !important;
-  --vscode-notifications-background: #ffffff !important;
-  --vscode-notifications-foreground: #1f2328 !important;
-  --vscode-notifications-border: #d0d7de !important;
-  --vscode-notificationsWarningIcon-foreground: #9a6700 !important;
-  --vscode-button-border: #d0d7de !important;
+    --vscode-badge-background: #ddf4ff !important;
+    --vscode-badge-foreground: #0969da !important;
+    --vscode-notifications-background: #ffffff !important;
+    --vscode-notifications-foreground: #1f2328 !important;
+    --vscode-notifications-border: #d0d7de !important;
+    --vscode-notificationsWarningIcon-foreground: #9a6700 !important;
+    --vscode-button-border: #d0d7de !important;
 }
 
 body[data-editor-theme="dark"] {
-  --vscode-badge-background: #1f3a5f !important;
-  --vscode-badge-foreground: #79c0ff !important;
-  --vscode-notifications-background: #161b22 !important;
-  --vscode-notifications-foreground: #e6edf3 !important;
-  --vscode-notifications-border: #30363d !important;
-  --vscode-notificationsWarningIcon-foreground: #d29922 !important;
-  --vscode-button-border: #30363d !important;
+    --vscode-badge-background: #1f3a5f !important;
+    --vscode-badge-foreground: #79c0ff !important;
+    --vscode-notifications-background: #161b22 !important;
+    --vscode-notifications-foreground: #e6edf3 !important;
+    --vscode-notifications-border: #30363d !important;
+    --vscode-notificationsWarningIcon-foreground: #d29922 !important;
+    --vscode-button-border: #30363d !important;
 }
 
 body[data-editor-theme] .ribbon-checkbox,
 body[data-editor-theme] .link-dialog label,
 body[data-editor-theme] .pdf-margin-fields legend {
-  color: var(--mve-theme-muted) !important;
+    color: var(--mve-theme-muted) !important;
 }
 
 body[data-editor-theme] .feature-list section,
 body[data-editor-theme] .table-of-contents {
-  color: var(--mve-theme-text) !important;
-  background: var(--mve-theme-surface-alt) !important;
-  border-color: var(--mve-theme-border) !important;
+    color: var(--mve-theme-text) !important;
+    background: var(--mve-theme-surface-alt) !important;
+    border-color: var(--mve-theme-border) !important;
 }
 
 body[data-editor-theme] .feature-list li strong {
-  color: var(--mve-theme-text) !important;
+    color: var(--mve-theme-text) !important;
 }
 
 body[data-editor-theme] .feature-list li span {
-  color: var(--mve-theme-muted) !important;
+    color: var(--mve-theme-muted) !important;
 }
 
 body[data-editor-theme] .diagnostic {
-  color: var(--mve-theme-text) !important;
-  background: var(--mve-theme-active) !important;
+    color: var(--mve-theme-text) !important;
+    background: var(--mve-theme-active) !important;
 }
 
 body[data-editor-theme] .diagnostic-location {
-  color: var(--mve-theme-accent) !important;
-  background: transparent !important;
+    color: var(--mve-theme-accent) !important;
+    background: transparent !important;
 }
 
 body[data-editor-theme] .mve-image-badge {
-  color: var(--vscode-badge-foreground) !important;
-  background: var(--vscode-badge-background) !important;
-  border-color: var(--mve-theme-border) !important;
+    color: var(--vscode-badge-foreground) !important;
+    background: var(--vscode-badge-background) !important;
+    border-color: var(--mve-theme-border) !important;
 }
 
 body[data-editor-theme] .mve-image-align-button,
 body[data-editor-theme] .mve-image-reset,
 body[data-editor-theme] .mve-image-handle {
-  color: var(--vscode-button-foreground) !important;
-  background: var(--vscode-button-background) !important;
-  border-color: var(--mve-theme-accent) !important;
+    color: var(--vscode-button-foreground) !important;
+    background: var(--vscode-button-background) !important;
+    border-color: var(--mve-theme-accent) !important;
 }
 
 body[data-editor-theme] .page-break::after {
-  color: var(--mve-theme-muted) !important;
-  background: var(--mve-theme-bg) !important;
+    color: var(--mve-theme-muted) !important;
+    background: var(--mve-theme-bg) !important;
 }
 
 body[data-editor-theme] .blocked-image {
-  color: var(--mve-theme-muted) !important;
-  border-color: var(--mve-theme-border) !important;
-  background: var(--mve-theme-surface-alt) !important;
+    color: var(--mve-theme-muted) !important;
+    border-color: var(--mve-theme-border) !important;
+    background: var(--mve-theme-surface-alt) !important;
 }
 
 body[data-editor-theme] .print-preview-mode .editor-area {
-  background: var(--mve-theme-surface-alt) !important;
+    background: var(--mve-theme-surface-alt) !important;
 }
 
 body[data-editor-theme] .pdf-preview-toolbar {
-  background: var(--mve-theme-surface-alt) !important;
+    background: var(--mve-theme-surface-alt) !important;
 }
 
 body[data-editor-theme] .pdf-preview-zoom-value,
 body[data-editor-theme] .pdf-preview-loading,
 body[data-editor-theme] .pdf-preview-error,
 body[data-editor-theme] .pdf-page-error {
-  color: var(--mve-theme-text) !important;
+    color: var(--mve-theme-text) !important;
 }
 
 body[data-editor-theme] .pdf-preview-toolbar button:hover {
-  background: var(--mve-theme-active) !important;
+    background: var(--mve-theme-active) !important;
 }
 
 /* PDFの紙面だけはアプリテーマから切り離し、実際の印刷結果と同じ白背景を維持する。 */
@@ -99,56 +99,63 @@ body[data-editor-theme] .pdf-preview-live-content,
 body[data-editor-theme] .pdf-preview-live-content .rendered-markdown,
 body[data-editor-theme] .pdf-preview-content,
 body[data-editor-theme] .pdf-page {
-  color: #202124 !important;
-  background: #ffffff !important;
-  color-scheme: light !important;
+    color: #202124 !important;
+    background: #ffffff !important;
+    color-scheme: light !important;
 }
 
 body[data-editor-theme] .pdf-preview-live-content .rendered-markdown a {
-  color: #0969da !important;
+    color: #0969da !important;
 }
+
 body[data-editor-theme] .pdf-preview-live-content .rendered-markdown pre,
 body[data-editor-theme] .pdf-preview-live-content .rendered-markdown code,
 body[data-editor-theme] .pdf-preview-live-content .rendered-markdown blockquote,
 body[data-editor-theme] .pdf-preview-live-content .rendered-markdown .markdown-alert {
-  color: #202124 !important;
-  background: #f5f5f5 !important;
-  border-color: #d0d7de !important;
+    color: #202124 !important;
+    background: #f5f5f5 !important;
+    border-color: #d0d7de !important;
 }
+
 body[data-editor-theme] .pdf-preview-live-content .rendered-markdown th {
-  color: #202124 !important;
-  background: #eaf1fb !important;
+    color: #202124 !important;
+    background: #eaf1fb !important;
 }
+
 body[data-editor-theme] .pdf-preview-live-content .rendered-markdown th,
 body[data-editor-theme] .pdf-preview-live-content .rendered-markdown td {
-  border-color: #888 !important;
+    border-color: #888 !important;
 }
 
 /* highlight.js の固定ダーク配色をライトテーマ時だけ読みやすい配色へ置き換える。 */
 body[data-editor-theme="light"] .rendered-markdown .hljs-keyword,
 body[data-editor-theme="light"] .rendered-markdown .hljs-selector-tag,
 body[data-editor-theme="light"] .rendered-markdown .hljs-literal {
-  color: #8250df !important;
+    color: #8250df !important;
 }
+
 body[data-editor-theme="light"] .rendered-markdown .hljs-string,
 body[data-editor-theme="light"] .rendered-markdown .hljs-attr {
-  color: #0a3069 !important;
+    color: #0a3069 !important;
 }
+
 body[data-editor-theme="light"] .rendered-markdown .hljs-title,
 body[data-editor-theme="light"] .rendered-markdown .hljs-section {
-  color: #953800 !important;
+    color: #953800 !important;
 }
+
 body[data-editor-theme="light"] .rendered-markdown .hljs-comment {
-  color: #6e7781 !important;
+    color: #6e7781 !important;
 }
+
 body[data-editor-theme="light"] .rendered-markdown .hljs-number {
-  color: #0550ae !important;
+    color: #0550ae !important;
 }
 
 /* markは両テーマでコントラストを保証する。 */
 body[data-editor-theme] .rendered-markdown mark {
-  color: #24292f !important;
-  background: #fff8c5 !important;
+    color: #24292f !important;
+    background: #fff8c5 !important;
 }
 
 /* OSネイティブフォームにも選択テーマを伝える。 */
@@ -156,5 +163,5 @@ body[data-editor-theme] input,
 body[data-editor-theme] select,
 body[data-editor-theme] textarea,
 body[data-editor-theme] button {
-  color-scheme: inherit !important;
+    color-scheme: inherit !important;
 }

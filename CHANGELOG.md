@@ -83,3 +83,7 @@
 ## 1.1.0
 
 - Added a feature to move sections by right-clicking in the outline.
+
+## 1.1.1
+
+- Added a feature to export HTML and PDF files from Explorer.

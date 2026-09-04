@@ -1,23 +1,23 @@
-import React from 'react';
-import { createRoot } from 'react-dom/client';
-import { EditorSelection } from '@codemirror/state';
-import { EditorView } from '@codemirror/view';
-import '@fontsource/noto-sans-jp/400.css';
-import '@fontsource/noto-sans-jp/700.css';
-import '@fontsource/noto-sans-mono/400.css';
-import 'katex/dist/katex.min.css';
-import { App } from './App';
-import './cmMarkdownAutocomplete';
-import './editorTheme.css';
-import './editorThemePolish.css';
-import './previewFullWidth.css';
-import './previewImageResizeControls.css';
-import './tableEditorOverlay.css';
-import { getMessages } from '../shared/messages';
-import { installEditorThemeController } from './editorThemeController';
-import { installPreviewImageResizeControls } from './previewImageResizeControls';
-import { installSelectedTextSearchTransfer } from './searchSelectedText';
-import { installTableEditorOverlay } from './tableEditorOverlay';
+import React from "react";
+import { createRoot } from "react-dom/client";
+import { EditorSelection } from "@codemirror/state";
+import { EditorView } from "@codemirror/view";
+import "@fontsource/noto-sans-jp/400.css";
+import "@fontsource/noto-sans-jp/700.css";
+import "@fontsource/noto-sans-mono/400.css";
+import "katex/dist/katex.min.css";
+import { App } from "./App";
+import "./cmMarkdownAutocomplete";
+import "./editorTheme.css";
+import "./editorThemePolish.css";
+import "./previewFullWidth.css";
+import "./previewImageResizeControls.css";
+import "./tableEditorOverlay.css";
+import { getMessages } from "../shared/messages";
+import { installEditorThemeController } from "./editorThemeController";
+import { installPreviewImageResizeControls } from "./previewImageResizeControls";
+import { installSelectedTextSearchTransfer } from "./searchSelectedText";
+import { installTableEditorOverlay } from "./tableEditorOverlay";
 
 /**
  * 行番号の左クリック完了後に、その論理行のテキスト全体を選択する。
@@ -26,14 +26,24 @@ import { installTableEditorOverlay } from './tableEditorOverlay';
  */
 function handleLineNumberClick(event: MouseEvent): void {
   if (event.button !== 0 || !(event.target instanceof Element)) return;
-  const gutterElement = event.target.closest<HTMLElement>('.cm-lineNumbers .cm-gutterElement');
+  const gutterElement = event.target.closest<HTMLElement>(
+    ".cm-lineNumbers .cm-gutterElement",
+  );
   if (!gutterElement) return;
-  const editorElement = gutterElement.closest<HTMLElement>('.cm-editor');
+  const editorElement = gutterElement.closest<HTMLElement>(".cm-editor");
   if (!editorElement) return;
   const view = EditorView.findFromDOM(editorElement);
   if (!view) return;
-  const lineNumber = Number.parseInt(gutterElement.textContent?.trim() ?? '', 10);
-  if (!Number.isInteger(lineNumber) || lineNumber < 1 || lineNumber > view.state.doc.lines) return;
+  const lineNumber = Number.parseInt(
+    gutterElement.textContent?.trim() ?? "",
+    10,
+  );
+  if (
+    !Number.isInteger(lineNumber) ||
+    lineNumber < 1 ||
+    lineNumber > view.state.doc.lines
+  )
+    return;
   const line = view.state.doc.line(lineNumber);
   view.dispatch({ selection: EditorSelection.range(line.from, line.to) });
   view.focus();
@@ -48,9 +58,14 @@ function installTableEditorToolbarActivationGuard(): () => void {
   let consumedSerial = -1;
   let activationButton: HTMLButtonElement | undefined;
 
-  const toolbarButton = (target: EventTarget | null): HTMLButtonElement | undefined => {
+  const toolbarButton = (
+    target: EventTarget | null,
+  ): HTMLButtonElement | undefined => {
     if (!(target instanceof Element)) return undefined;
-    return target.closest<HTMLButtonElement>('.mve-table-editor-toolbar button') ?? undefined;
+    return (
+      target.closest<HTMLButtonElement>(".mve-table-editor-toolbar button") ??
+      undefined
+    );
   };
 
   const arm = (button: HTMLButtonElement) => {
@@ -65,7 +80,7 @@ function installTableEditorToolbarActivationGuard(): () => void {
   };
 
   const onKeyDown = (event: KeyboardEvent) => {
-    if (event.repeat || (event.key !== 'Enter' && event.key !== ' ')) return;
+    if (event.repeat || (event.key !== "Enter" && event.key !== " ")) return;
     const button = toolbarButton(event.target);
     if (button && !button.disabled) arm(button);
   };
@@ -87,19 +102,19 @@ function installTableEditorToolbarActivationGuard(): () => void {
     consumedSerial = activationSerial;
   };
 
-  document.addEventListener('pointerdown', onPointerDown, true);
-  document.addEventListener('keydown', onKeyDown, true);
-  document.addEventListener('click', onClick, true);
+  document.addEventListener("pointerdown", onPointerDown, true);
+  document.addEventListener("keydown", onKeyDown, true);
+  document.addEventListener("click", onClick, true);
   return () => {
-    document.removeEventListener('pointerdown', onPointerDown, true);
-    document.removeEventListener('keydown', onKeyDown, true);
-    document.removeEventListener('click', onClick, true);
+    document.removeEventListener("pointerdown", onPointerDown, true);
+    document.removeEventListener("keydown", onKeyDown, true);
+    document.removeEventListener("click", onClick, true);
   };
 }
 
-const root = document.getElementById('root');
-if (!root) throw new Error(getMessages('en').internal.rootNotFound);
-root.addEventListener('click', handleLineNumberClick);
+const root = document.getElementById("root");
+if (!root) throw new Error(getMessages("en").internal.rootNotFound);
+root.addEventListener("click", handleLineNumberClick);
 installEditorThemeController();
 installPreviewImageResizeControls();
 installSelectedTextSearchTransfer();
@@ -110,5 +125,5 @@ installTableEditorOverlay();
 createRoot(root).render(
   <React.StrictMode>
     <App />
-  </React.StrictMode>
+  </React.StrictMode>,
 );
