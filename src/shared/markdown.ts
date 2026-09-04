@@ -19,6 +19,8 @@ export interface OutlineItem {
     id: string;
 }
 
+export type OutlineMovePosition = 'before' | 'after';
+
 export interface MarkdownBlock {
     from: number;
     to: number;
@@ -765,6 +767,31 @@ function isInsideMarkdownFence(lines: string[], lineIndex: number): boolean {
     return Boolean(fenceCharacter);
 }
 
+/** Markdownのフェンスコードブロックに含まれる行番号（0始まり）を取得する。 */
+function getFencedMarkdownLineIndexes(lines: string[]): Set<number> {
+    const fencedLineIndexes = new Set<number>();
+    let fenceCharacter = '';
+    let fenceLength = 0;
+    for (let index = 0; index < lines.length; index += 1) {
+        const match = /^\s{0,3}(`{3,}|~{3,})(.*)$/.exec(lines[index]);
+        if (fenceCharacter) {
+            fencedLineIndexes.add(index);
+            if (match && match[1][0] === fenceCharacter
+                && match[1].length >= fenceLength
+                && /^[ \t]*$/.test(match[2])) {
+                fenceCharacter = '';
+                fenceLength = 0;
+            }
+            continue;
+        }
+        if (!match) continue;
+        fencedLineIndexes.add(index);
+        fenceCharacter = match[1][0];
+        fenceLength = match[1].length;
+    }
+    return fencedLineIndexes;
+}
+
 /**
  * Markdown表セルをExcel向けの表示文字列へ変換する。
  * @param value Markdown表セルの値。
@@ -977,11 +1004,17 @@ export function getOutline(markdown: string): OutlineItem[] {
     // Markdownの見出しを走査し、表示名・行番号・文書内位置・重複しないIDを収集する。
     const items: OutlineItem[] = [];
     const duplicateCount = new Map<string, number>();
+    const lines = markdown.split(/\r\n|\r|\n/);
+    const fencedLineIndexes = getFencedMarkdownLineIndexes(lines);
     let lineNumber = 1;
     for (const lineMatch of markdown.matchAll(/[^\r\n]*(?:\r\n|\r|\n|$)/g)) {
         const rawLine = lineMatch[0];
         if (!rawLine && lineMatch.index === markdown.length) break;
         const line = rawLine.replace(/(?:\r\n|\r|\n)$/, '');
+        if (fencedLineIndexes.has(lineNumber - 1)) {
+            lineNumber += 1;
+            continue;
+        }
         const match = /^(#{1,6})\s+(.+?)(?:\s+\{#([^}]+)\})?\s*#*\s*$/.exec(line);
         if (match) {
             // 装飾記号を除いた見出し文字列から、明示IDまたは自動生成IDを決める。
@@ -1000,6 +1033,92 @@ export function getOutline(markdown: string): OutlineItem[] {
         lineNumber += 1;
     }
     return items;
+}
+
+/**
+ * 2つのアウトライン項目を、見出しレベルを変えずに移動できるか判定する。
+ * 親が変わる移動は許可するが、見出しレベルが変わる移動は許可しない。
+ * ただし、子を持たない1階層上の見出しは、子を追加するターゲットとして許可する。
+ */
+export function canMoveOutlineSection(
+    outline: readonly OutlineItem[],
+    sourceIndex: number,
+    targetIndex: number
+): boolean {
+    if (sourceIndex === targetIndex) return false;
+    const source = outline[sourceIndex];
+    const target = outline[targetIndex];
+    if (!source || !target) return false;
+    return source.level === target.level || isOutlineEmptyParentTarget(outline, sourceIndex, targetIndex);
+}
+
+/** 移動元の1階層上にあり、配下に見出しを持たないターゲットか判定する。 */
+export function isOutlineEmptyParentTarget(
+    outline: readonly OutlineItem[],
+    sourceIndex: number,
+    targetIndex: number
+): boolean {
+    const source = outline[sourceIndex];
+    const target = outline[targetIndex];
+    if (!source || !target || source.level !== target.level + 1) return false;
+    const next = outline[targetIndex + 1];
+    return !next || next.level <= target.level;
+}
+
+/**
+ * アウトライン項目を、配下の子孫見出しごと同じ見出しレベルの位置へ移動する。
+ * 不正な階層移動や実質的な移動にならない場合はundefinedを返す。
+ */
+export function moveOutlineSection(
+    markdown: string,
+    outline: readonly OutlineItem[],
+    sourceIndex: number,
+    targetIndex: number,
+    position: OutlineMovePosition
+): string | undefined {
+    if (!canMoveOutlineSection(outline, sourceIndex, targetIndex)) return undefined;
+    const source = outline[sourceIndex];
+    const target = outline[targetIndex];
+    const sourceTo = findOutlineSectionEnd(markdown, outline, sourceIndex);
+    const targetTo = findOutlineSectionEnd(markdown, outline, targetIndex);
+    if (source.offset < 0 || source.offset > markdown.length
+        || sourceTo < source.offset || sourceTo > markdown.length
+        || target.offset < 0 || target.offset > markdown.length
+        || targetTo < target.offset || targetTo > markdown.length) return undefined;
+
+    const block = markdown.slice(source.offset, sourceTo);
+    const withoutSource = markdown.slice(0, source.offset) + markdown.slice(sourceTo);
+    const insertionPosition = isOutlineEmptyParentTarget(outline, sourceIndex, targetIndex) ? 'after' : position;
+    const originalInsertion = insertionPosition === 'before' ? target.offset : targetTo;
+    const insertion = originalInsertion - (source.offset < originalInsertion ? sourceTo - source.offset : 0);
+    if (insertion < 0 || insertion > withoutSource.length) return undefined;
+    if (insertion === source.offset) return undefined;
+
+    const before = withoutSource.slice(0, insertion);
+    const after = withoutSource.slice(insertion);
+    const lineSeparator = getMarkdownLineSeparator(markdown);
+    const separatorBefore = before && !endsWithLineBreak(before) ? lineSeparator : '';
+    const separatorAfter = after && !endsWithLineBreak(block) ? lineSeparator : '';
+    return before + separatorBefore + block + separatorAfter + after;
+}
+
+/** 対象見出しから、次の同レベル以上の見出し直前までをセクション範囲とする。 */
+function findOutlineSectionEnd(markdown: string, outline: readonly OutlineItem[], index: number): number {
+    const source = outline[index];
+    if (!source) return -1;
+    for (let candidate = index + 1; candidate < outline.length; candidate += 1) {
+        if (outline[candidate].level <= source.level) return outline[candidate].offset;
+    }
+    return markdown.length;
+}
+
+function getMarkdownLineSeparator(markdown: string): string {
+    const match = /\r\n|\r|\n/.exec(markdown);
+    return match?.[0] ?? '\n';
+}
+
+function endsWithLineBreak(value: string): boolean {
+    return /(?:\r\n|\r|\n)$/.test(value);
 }
 
 /**

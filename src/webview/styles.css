@@ -308,6 +308,7 @@ button:disabled {
 }
 /* アウトラインパネルの配置・サイズ・操作状態を整える。 */
 .outline-panel nav button {
+  position: relative;
   overflow: hidden;
   padding-block: 5px;
   border: 0;
@@ -319,6 +320,33 @@ button:disabled {
 /* アウトラインパネルの配置・サイズ・操作状態を整える。 */
 .outline-panel nav button:hover {
   background: var(--vscode-list-hoverBackground);
+}
+/* 右クリックドラッグ中の移動元と有効な挿入位置を表示する。 */
+.outline-panel nav button.outline-drag-source {
+  opacity: .45;
+  cursor: grabbing;
+}
+.outline-panel nav button.outline-drop-before::before,
+.outline-panel nav button.outline-drop-after::after {
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: 2px;
+  background: var(--vscode-focusBorder);
+  content: '';
+  pointer-events: none;
+}
+.outline-panel nav button.outline-drop-before::before {
+  top: 0;
+}
+.outline-panel nav button.outline-drop-after::after {
+  bottom: 0;
+}
+/* 右クリックドラッグ中は選択と通常カーソルを抑制する。 */
+body.mve-dragging-outline,
+body.mve-dragging-outline .outline-panel nav button {
+  cursor: grabbing;
+  user-select: none;
 }
 /* アウトラインパネルの配置・サイズ・操作状態を整える。 */
 .outline-panel p {

@@ -2,7 +2,7 @@
   "name": "markdown-easy-visual-editor",
   "displayName": "Markdown Easy Visual Editor",
   "description": "A visual Markdown editor for VS Code with live preview, source editing, formatting tools, image support, and PDF export.",
-  "version": "1.0.20",
+  "version": "1.1.0",
   "publisher": "MetroSoft-Application",
   "icon": "resources/icon.png",
   "repository": {
@@ -246,6 +246,7 @@
     "test": "vitest run",
     "test:extension": "npm run build && node scripts/test-extension-host.mjs",
     "test:ime": "node scripts/ime-caret-smoke.mjs",
+    "test:outline-reorder": "npm run build && node scripts/outline-reorder-smoke.mjs",
     "test:smoke": "node scripts/smoke-fast.mjs",
     "test:smoke-build": "npm run build && npm run test:smoke",
     "test:sample-matrix": "npm run build && node scripts/sample-matrix.mjs",

@@ -16,12 +16,15 @@ import type {
 import {
   applyMarkdownTableAction,
   applyMarkdownTableTsv,
+  canMoveOutlineSection,
   collectDiagnostics,
   createTableMarkdown,
   getOutline,
   imageMarkdown,
   isMarkdownCodeFencePosition,
+  isOutlineEmptyParentTarget,
   markdownTableToTsv,
+  moveOutlineSection,
   sortDiagnostics,
   summarizeDiagnostics,
   type Diagnostic,
@@ -84,6 +87,18 @@ interface PendingLocalOperation {
   changes: TextChange[];
 }
 
+interface OutlineDragState {
+  sourceIndex: number;
+  pointerId: number;
+  startX: number;
+  startY: number;
+  markdown: string;
+  outline: OutlineItem[];
+  dragging: boolean;
+  targetIndex?: number;
+  position?: 'before' | 'after';
+}
+
 type LocalResourceCheckPurpose = 'preflight' | 'pdf';
 
 interface LocalResourceCheckRequest {
@@ -121,6 +136,7 @@ const DEFAULT_PDF: PdfOptions = {
 };
 
 const PREVIEW_UPDATE_DELAY_MS = 120;
+const OUTLINE_DRAG_THRESHOLD_PX = 6;
 
 type HelpTopic = 'shortcuts' | 'features';
 
@@ -274,6 +290,8 @@ export function App(): React.JSX.Element {
   const previewUserScrollPendingRef = useRef(new WeakSet<HTMLElement>());
   const previewPointerScrollActiveRef = useRef(new WeakSet<HTMLElement>());
   const previewTouchScrollActiveRef = useRef(new WeakSet<HTMLElement>());
+  const outlineDragRef = useRef<OutlineDragState | undefined>(undefined);
+  const [outlineDrag, setOutlineDrag] = useState<OutlineDragState | undefined>(undefined);
   // 復元が複数・遅延scrollイベントを発生させても、明示入力まで逆同期させない。
   const programmaticPreviewScrollsRef = useRef(new WeakSet<HTMLElement>());
   const pendingPreviewScrollsRef = useRef(new Map<HTMLElement, {
@@ -592,6 +610,11 @@ export function App(): React.JSX.Element {
     };
   }, [initialized, mode, splitView]);
 
+  useEffect(() => () => {
+    outlineDragRef.current = undefined;
+    document.body.classList.remove('mve-dragging-outline');
+  }, []);
+
   useEffect(() => {
     // 貼り付け・ドラッグ&ドロップ・キーボードショートカットを文書編集へ接続する。
     /** 貼り付けイベントを画像またはHTML貼り付け処理へ渡す。 */
@@ -615,7 +638,7 @@ export function App(): React.JSX.Element {
     /** 検索ショートカットと表内改行ショートカットを処理する。 */
     const onKeyDown = (event: KeyboardEvent) => {
       const target = event.target instanceof Element ? event.target : undefined;
-      const inApp = Boolean(target?.closest('.app'));
+      const inApp = Boolean(target?.closest('.app')) || target === document.body;
       const inSourceEditor = Boolean(target?.closest('.cm-content'));
       const inFormControl = Boolean(target?.closest('input, textarea, select'));
       if (inApp && (inSourceEditor || !inFormControl) && !event.isComposing
@@ -2234,6 +2257,97 @@ export function App(): React.JSX.Element {
     window.addEventListener('pointerup', end, { once: true });
   }
 
+  /** 右クリックドラッグ中のポインター位置から、同階層のドロップ候補を更新する。 */
+  function updateOutlineDrag(event: React.PointerEvent<HTMLButtonElement>): void {
+    const current = outlineDragRef.current;
+    if (!current || current.pointerId !== event.pointerId) return;
+    const distance = Math.hypot(event.clientX - current.startX, event.clientY - current.startY);
+    if (!current.dragging && distance < OUTLINE_DRAG_THRESHOLD_PX) return;
+
+    if (!current.dragging) document.body.classList.add('mve-dragging-outline');
+    const element = document.elementFromPoint(event.clientX, event.clientY)
+      ?.closest<HTMLButtonElement>('button[data-outline-index]');
+    const targetIndex = element ? Number(element.dataset.outlineIndex) : Number.NaN;
+    let nextTargetIndex: number | undefined;
+    let position: 'before' | 'after' | undefined;
+    if (element && Number.isInteger(targetIndex)
+      && canMoveOutlineSection(current.outline, current.sourceIndex, targetIndex)) {
+      nextTargetIndex = targetIndex;
+      if (isOutlineEmptyParentTarget(current.outline, current.sourceIndex, targetIndex)) {
+        position = 'after';
+      } else {
+        const bounds = element.getBoundingClientRect();
+        position = event.clientY < bounds.top + bounds.height / 2 ? 'before' : 'after';
+      }
+    }
+    const next: OutlineDragState = {
+      ...current,
+      dragging: true,
+      targetIndex: nextTargetIndex,
+      position
+    };
+    outlineDragRef.current = next;
+    if (current.dragging !== next.dragging
+      || current.targetIndex !== next.targetIndex
+      || current.position !== next.position) {
+      setOutlineDrag(next);
+    }
+    event.preventDefault();
+  }
+
+  /** 右クリックドラッグを終了し、妥当な兄弟位置だけへセクションを移動する。 */
+  function finishOutlineDrag(
+    event: React.PointerEvent<HTMLButtonElement>,
+    cancelled = false
+  ): void {
+    const current = outlineDragRef.current;
+    if (!current || current.pointerId !== event.pointerId) return;
+    if (current.dragging) event.preventDefault();
+    if (!cancelled && isEditingEnabled(mode, splitView) && current.dragging
+      && current.targetIndex !== undefined && current.position
+      && localTextRef.current === current.markdown) {
+      const nextText = moveOutlineSection(
+        current.markdown,
+        current.outline,
+        current.sourceIndex,
+        current.targetIndex,
+        current.position
+      );
+      if (nextText && nextText !== current.markdown) {
+        prepareLayoutRestore();
+        updateMarkdownRef.current(nextText);
+      }
+    }
+    outlineDragRef.current = undefined;
+    setOutlineDrag(undefined);
+    document.body.classList.remove('mve-dragging-outline');
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+  }
+
+  /** 右ボタン押下時だけ、アウトラインのセクション移動候補を保持する。 */
+  function beginOutlineDrag(event: React.PointerEvent<HTMLButtonElement>, sourceIndex: number): void {
+    if (event.button !== 2 || !isEditingEnabled(mode, splitView)) return;
+    // プレビューが遅延中の古いオフセットで本文を壊さないよう、最新描画済みのときだけ開始する。
+    if (previewSnapshot.markdown !== markdown) return;
+    const next: OutlineDragState = {
+      sourceIndex,
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      markdown,
+      outline: [...outline],
+      dragging: false
+    };
+    outlineDragRef.current = next;
+    setOutlineDrag(next);
+    // 右ボタン押下ではブラウザが通常フォーカスを移さないため、ドラッグ後のUndo/RedoをWebviewへ届ける。
+    event.currentTarget.focus({ preventScroll: true });
+    event.currentTarget.setPointerCapture(event.pointerId);
+    event.preventDefault();
+  }
+
   /**
    * アウトライン境界のポインター操作を開始し、移動量から幅を更新する。
    * @param event アウトライン境界のポインターダウンイベント。
@@ -2381,8 +2495,21 @@ export function App(): React.JSX.Element {
             </div>
             {outline.length ? (
               <nav>
-                {outline.map((item) => (
-                  <button key={`${item.offset}-${item.id}`} style={{ paddingLeft: `${8 + item.level * 10}px` }} onClick={() => goToOutlineOffset(item.offset)}>
+                {outline.map((item, index) => (
+                  <button
+                    key={`${item.offset}-${item.id}`}
+                    className={`outline-item${outlineDrag?.dragging && outlineDrag.sourceIndex === index ? ' outline-drag-source' : ''}${outlineDrag?.targetIndex === index && outlineDrag.position ? ` outline-drop-${outlineDrag.position}` : ''}`}
+                    data-outline-index={index}
+                    data-dragging={outlineDrag?.dragging && outlineDrag.sourceIndex === index ? 'true' : undefined}
+                    aria-disabled={readOnly}
+                    style={{ paddingLeft: `${8 + item.level * 10}px` }}
+                    onClick={(event) => { if (event.button === 0) goToOutlineOffset(item.offset); }}
+                    onPointerDown={(event) => beginOutlineDrag(event, index)}
+                    onPointerMove={updateOutlineDrag}
+                    onPointerUp={finishOutlineDrag}
+                    onPointerCancel={(event) => finishOutlineDrag(event, true)}
+                    onContextMenu={(event) => event.preventDefault()}
+                  >
                     {item.text}
                   </button>
                 ))}

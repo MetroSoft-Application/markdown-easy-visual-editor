@@ -45,6 +45,39 @@ Use **View > Outline** to show or hide the heading outline. Select a heading in 
 
 The ribbon can be pinned or collapsed when you need more space for your document.
 
+### Reorder sections from the outline
+
+Right-click and drag an outline item to reorder the corresponding Markdown section. The dragged heading and all of its descendants move together. A drop position is shown before or after the target heading.
+
+The heading level must not change during a move:
+
+- A parent can be moved to another parent at the same heading level, together with all of its children.
+- A child can be moved to another parent when it remains at the same heading level. Its descendants move with it.
+- A child can be dropped on a parent with no child headings. It becomes the first child of that parent without changing its heading level.
+- Moves between different heading levels, such as moving a `#` heading onto a `##` heading, are not allowed.
+
+For example, moving `# A` after `# B` carries the entire `# A` section:
+
+```text
+Before:                 After:
+# A                     # B
+## A-1                  ## B-1
+# B                     # A
+## B-1                  ## A-1
+```
+
+Moving `## A-1` after `## B-1` changes its parent while keeping it a level-2 heading:
+
+```text
+Before:                 After:
+# A                     # A
+## A-1                  # B
+# B                     ## B-1
+## B-1                  ## A-1
+```
+
+Undo and redo can be used after a successful outline move. Left-clicking an outline item continues to navigate to that heading.
+
 ## Edit and format Markdown
 
 The ribbon is organized into tabs so common actions are easy to find.

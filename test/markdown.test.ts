@@ -7,8 +7,10 @@ import {
   createTableMarkdown,
   applyMarkdownTableAction,
   applyMarkdownTableTsv,
+  canMoveOutlineSection,
   formatMarkdown,
   getOutline,
+  moveOutlineSection,
   indentSelectedLines,
   imageMarkdown,
   isMarkdownCodeFencePosition,
@@ -311,6 +313,64 @@ describe('Markdown structures', () => {
   it('extracts a Japanese outline with stable ids', () => {
     const outline = getOutline('# 概要\n\n## 詳細\n## 詳細');
     expect(outline.map((item) => item.id)).toEqual(['概要', '詳細', '詳細-1']);
+  });
+
+  it('ignores headings inside fenced code blocks', () => {
+    const source = [
+      '# Visible',
+      '```markdown',
+      '# Hidden backtick heading',
+      '## Hidden backtick child',
+      '```',
+      '## Visible child',
+      '~~~text',
+      '# Hidden tilde heading',
+      '~~~',
+      '# Last visible'
+    ].join('\n');
+    expect(getOutline(source).map(({ text, level }) => ({ text, level }))).toEqual([
+      { text: 'Visible', level: 1 },
+      { text: 'Visible child', level: 2 },
+      { text: 'Last visible', level: 1 }
+    ]);
+    expect(getOutline('# Visible\n```markdown\n# Hidden\n').map((item) => item.text)).toEqual(['Visible']);
+  });
+
+  it('moves a parent section with all descendants', () => {
+    const source = '# A\n## A-1\n### A-1-a\n\n# B\n## B-1\n\n# C\nC';
+    const outline = getOutline(source);
+    expect(moveOutlineSection(source, outline, 0, 3, 'after')).toBe(
+      '# B\n## B-1\n\n# A\n## A-1\n### A-1-a\n\n# C\nC'
+    );
+  });
+
+  it('moves a child to another parent without changing its level', () => {
+    const source = '# A\n## A-1\n### A-1-a\n## A-2\n\n# B\n## B-1';
+    const outline = getOutline(source);
+    expect(moveOutlineSection(source, outline, 1, 3, 'after')).toBe(
+      '# A\n## A-2\n\n## A-1\n### A-1-a\n# B\n## B-1'
+    );
+    expect(moveOutlineSection(source, outline, 1, 5, 'after')).toBe(
+      '# A\n## A-2\n\n# B\n## B-1\n## A-1\n### A-1-a\n'
+    );
+  });
+
+  it('rejects moves that change a heading level', () => {
+    const source = '# A\n## A-1\n### A-1-a\n## A-2\n\n# B\n## B-1';
+    const outline = getOutline(source);
+    expect(canMoveOutlineSection(outline, 1, 5)).toBe(true);
+    expect(canMoveOutlineSection(outline, 1, 4)).toBe(false);
+    expect(canMoveOutlineSection(outline, 0, 5)).toBe(false);
+    expect(moveOutlineSection(source, outline, 1, 4, 'before')).toBeUndefined();
+    expect(moveOutlineSection(source, outline, 0, 5, 'after')).toBeUndefined();
+  });
+
+  it('moves a child into a parent with no children', () => {
+    const source = '# A\n## A-1\n### A-1-a\n\n# Empty\nEmpty body\n';
+    const outline = getOutline(source);
+    expect(moveOutlineSection(source, outline, 1, 3, 'before')).toBe(
+      '# A\n# Empty\nEmpty body\n## A-1\n### A-1-a\n\n'
+    );
   });
 
   it('reports outline offsets in the original CRLF coordinate space', () => {

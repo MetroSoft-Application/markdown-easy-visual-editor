@@ -8,8 +8,12 @@ if (where.status !== 0) throw new Error('VS Code CLI (code) が見つかりま�
 const candidates = where.stdout.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
 const codePath = candidates.find((value) => value.toLowerCase().endsWith('.cmd')) ?? candidates[0];
 if (!codePath) throw new Error('VS Code CLIのパスを解決できません。');
-const codeRoot = path.resolve(path.dirname(codePath), '..');
-const codeExecutable = path.join(codeRoot, 'Code.exe');
+const codeRoot = codePath.toLowerCase().endsWith('.exe')
+  ? path.dirname(codePath)
+  : path.resolve(path.dirname(codePath), '..');
+const codeExecutable = codePath.toLowerCase().endsWith('.exe')
+  ? codePath
+  : path.join(codeRoot, 'Code.exe');
 await access(codeExecutable);
 const cliPath = await findCli(codeRoot);
 
@@ -39,6 +43,13 @@ try {
 }
 
 async function findCli(root) {
+  const directCandidate = path.join(root, 'resources', 'app', 'out', 'cli.js');
+  try {
+    await access(directCandidate);
+    return directCandidate;
+  } catch {
+    // VS Codeのインストール形式によってresourcesが子ディレクトリにある場合がある。
+  }
   for (const entry of await readdir(root, { withFileTypes: true })) {
     if (!entry.isDirectory()) continue;
     const candidate = path.join(root, entry.name, 'resources', 'app', 'out', 'cli.js');

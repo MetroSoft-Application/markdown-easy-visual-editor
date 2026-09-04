@@ -1,6 +1,6 @@
 # Changelog
 
-## [1.0.0]
+## 1.0.0
 
 - First release.
 
@@ -79,3 +79,7 @@
 
 - Remove the “Pin” button.
 - Add a button to toggle the resize feature.
+
+## 1.1.0
+
+- Added a feature to move sections by right-clicking in the outline.
