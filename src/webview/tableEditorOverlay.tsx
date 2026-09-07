@@ -10,6 +10,13 @@ import {
 } from "../shared/markdown";
 import { getMessages, type Messages } from "../shared/messages";
 import {
+  createTableEditorHistory,
+  recordTableEditorHistory,
+  redoTableEditorHistory,
+  undoTableEditorHistory,
+  type TableEditorHistorySnapshot,
+} from "./tableEditorHistory";
+import {
   readTableEditorDraft,
   insertTableEditorLineBreak,
   prepareTableEditorApply,
@@ -60,6 +67,41 @@ type EditorResizeState = {
   left: number;
   top: number;
 };
+type TableEditorPolishText = {
+  modified: string;
+  discard: string;
+};
+
+const TABLE_EDITOR_POLISH_TEXT: Record<string, TableEditorPolishText> = {
+  ja: {
+    modified: "未適用の変更",
+    discard: "未適用の変更を破棄しますか？",
+  },
+  en: {
+    modified: "Unapplied changes",
+    discard: "Discard unapplied changes?",
+  },
+  "zh-cn": {
+    modified: "有未应用的更改",
+    discard: "要放弃未应用的更改吗？",
+  },
+  ko: {
+    modified: "적용되지 않은 변경 사항",
+    discard: "적용되지 않은 변경 사항을 버리시겠습니까?",
+  },
+  fr: {
+    modified: "Modifications non appliquées",
+    discard: "Abandonner les modifications non appliquées ?",
+  },
+  de: {
+    modified: "Nicht angewendete Änderungen",
+    discard: "Nicht angewendete Änderungen verwerfen?",
+  },
+  es: {
+    modified: "Cambios sin aplicar",
+    discard: "¿Descartar los cambios sin aplicar?",
+  },
+};
 
 function cellKey(row: number, column: number): string {
   return `${row}:${column}`;
@@ -71,6 +113,15 @@ function rowTextareaStyle(
   if (rowHeight === undefined) return undefined;
   const cellHeight = Math.max(MIN_TEXTAREA_HEIGHT, rowHeight - 2);
   return { height: `${cellHeight}px`, minHeight: `${cellHeight}px` };
+}
+
+function tableEditorPolishText(language: string): TableEditorPolishText {
+  const normalized = language.trim().toLowerCase().replace(/_/g, "-");
+  if (normalized === "zh" || normalized.startsWith("zh-cn")) {
+    return TABLE_EDITOR_POLISH_TEXT["zh-cn"];
+  }
+  const primary = normalized.split("-")[0];
+  return TABLE_EDITOR_POLISH_TEXT[primary] ?? TABLE_EDITOR_POLISH_TEXT.en;
 }
 
 /** 専用テーブルエディターをWebviewへ登録する。起動UIはReactのRibbon本体が担当する。 */
@@ -153,6 +204,7 @@ function TableEditorOverlay({
   const [activeRow, setActiveRow] = useState(initial.activeRow);
   const [activeColumn, setActiveColumn] = useState(initial.activeColumn);
   const [status, setStatus] = useState("");
+  const [historyRevision, setHistoryRevision] = useState(0);
   const [editorSize, setEditorSize] = useState<EditorSize>({
     width: DEFAULT_EDITOR_WIDTH,
     height: DEFAULT_EDITOR_HEIGHT,
@@ -178,6 +230,9 @@ function TableEditorOverlay({
   const rowResizeRef = useRef<RowResizeState | undefined>(undefined);
   const editorDragRef = useRef<EditorDragState | undefined>(undefined);
   const editorResizeRef = useRef<EditorResizeState | undefined>(undefined);
+  const historyRef = useRef(createTableEditorHistory());
+  const initialRenderedTextRef = useRef(renderTableEditorDraft(initial).text);
+  const polishText = tableEditorPolishText(document.documentElement.lang);
   const columnCount = Math.max(
     1,
     alignments.length,
@@ -192,6 +247,11 @@ function TableEditorOverlay({
   const cellCountLabel = `${rows.length} × ${columnCount}`;
   const currentAlignment =
     alignments[Math.min(activeColumn, alignments.length - 1)] ?? "none";
+  const currentRenderedText = renderTableEditorDraft(currentDraft()).text;
+  const isDirty = currentRenderedText !== initialRenderedTextRef.current;
+  const canUndo = historyRef.current.undo.length > 0;
+  const canRedo = historyRef.current.redo.length > 0;
+  void historyRevision;
   const editorStyle: React.CSSProperties | undefined = editorPosition
     ? {
         width: `${editorSize.width}px`,
@@ -212,12 +272,28 @@ function TableEditorOverlay({
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      const accelerator = event.ctrlKey || event.metaKey;
+      const key = event.key.toLowerCase();
+      if (accelerator && key === "z") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        if (event.shiftKey) redoDraft();
+        else undoDraft();
+        return;
+      }
+      if (accelerator && key === "y") {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        redoDraft();
+        return;
+      }
       if (event.key === "Escape") {
         event.preventDefault();
-        onClose();
-        requestAnimationFrame(() => view.focus());
-      } else if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+        event.stopImmediatePropagation();
+        requestClose();
+      } else if (accelerator && event.key === "Enter") {
         event.preventDefault();
+        event.stopImmediatePropagation();
         apply();
       }
     };
@@ -382,6 +458,56 @@ function TableEditorOverlay({
     };
   }
 
+  function currentHistorySnapshot(): TableEditorHistorySnapshot {
+    return {
+      rows: rows.map((row) => row.slice()),
+      alignments: Array.from(
+        { length: columnCount },
+        (_, index) => alignments[index] ?? "none",
+      ),
+      activeRow,
+      activeColumn,
+    };
+  }
+
+  function recordHistory(): void {
+    recordTableEditorHistory(historyRef.current, currentHistorySnapshot());
+    setHistoryRevision((value) => value + 1);
+  }
+
+  function undoDraft(): void {
+    const previous = undoTableEditorHistory(
+      historyRef.current,
+      currentHistorySnapshot(),
+    );
+    if (!previous) return;
+    restoreHistorySnapshot(previous);
+    setHistoryRevision((value) => value + 1);
+  }
+
+  function redoDraft(): void {
+    const next = redoTableEditorHistory(
+      historyRef.current,
+      currentHistorySnapshot(),
+    );
+    if (!next) return;
+    restoreHistorySnapshot(next);
+    setHistoryRevision((value) => value + 1);
+  }
+
+  function restoreHistorySnapshot(snapshot: TableEditorHistorySnapshot): void {
+    replaceDraft(
+      {
+        ...initial,
+        rows: snapshot.rows,
+        alignments: snapshot.alignments,
+        activeRow: snapshot.activeRow,
+        activeColumn: snapshot.activeColumn,
+      },
+      false,
+    );
+  }
+
   function focusCell(
     row: number,
     column: number,
@@ -408,7 +534,7 @@ function TableEditorOverlay({
     });
   }
 
-  function replaceDraft(next: TableEditorDraft): void {
+  function replaceDraft(next: TableEditorDraft, captureHistory = true): void {
     const nextRows = next.rows.map((row) => row.slice());
     const nextColumns = Math.max(
       1,
@@ -419,13 +545,22 @@ function TableEditorOverlay({
       setStatus(messages.app.tableEditor.rowColumnLimit(MAX_ROWS, MAX_COLUMNS));
       return;
     }
-    setRows(nextRows);
-    setAlignments(
-      Array.from(
+    const normalizedNext: TableEditorDraft = {
+      ...next,
+      rows: nextRows,
+      alignments: Array.from(
         { length: nextColumns },
         (_, index) => next.alignments[index] ?? "none",
       ),
-    );
+    };
+    if (
+      captureHistory &&
+      renderTableEditorDraft(normalizedNext).text !== currentRenderedText
+    ) {
+      recordHistory();
+    }
+    setRows(normalizedNext.rows);
+    setAlignments(normalizedNext.alignments);
     setColumnWidths((previous) =>
       Array.from(
         { length: nextColumns },
@@ -449,6 +584,9 @@ function TableEditorOverlay({
   }
 
   function updateCell(row: number, column: number, value: string): void {
+    const normalized = value.replace(/\r\n|\r|\n/g, "<br>");
+    if ((rows[row]?.[column] ?? "") === normalized) return;
+    recordHistory();
     setRows((previous) =>
       previous.map((current, rowIndex) => {
         if (rowIndex !== row) return current;
@@ -456,7 +594,7 @@ function TableEditorOverlay({
           { length: columnCount },
           (_, index) => current[index] ?? "",
         );
-        next[column] = value.replace(/\r\n|\r|\n/g, "<br>");
+        next[column] = normalized;
         return next;
       }),
     );
@@ -485,6 +623,7 @@ function TableEditorOverlay({
       selection?.from ?? value.length,
       selection?.to ?? value.length,
     );
+    recordHistory();
     const key = cellKey(activeRow, activeColumn);
     setRows((previous) =>
       previous.map((current, rowIndex) => {
@@ -675,6 +814,8 @@ function TableEditorOverlay({
   }
 
   function clearAlignment(): void {
+    if (currentAlignment === "none") return;
+    recordHistory();
     setAlignments((previous) =>
       Array.from({ length: columnCount }, (_, index) =>
         index === activeColumn ? "none" : (previous[index] ?? "none"),
@@ -726,6 +867,16 @@ function TableEditorOverlay({
     }
   }
 
+  function closeAndRestoreFocus(): void {
+    onClose();
+    requestAnimationFrame(() => view.focus());
+  }
+
+  function requestClose(): void {
+    if (isDirty && !window.confirm(polishText.discard)) return;
+    closeAndRestoreFocus();
+  }
+
   /**
    * ドラフトをCodeMirrorへ1トランザクションで適用する。
    * SourceEditorの通常更新リスナーが受信するため、以降はリボン編集と同じApp/host同期経路を通る。
@@ -737,15 +888,12 @@ function TableEditorOverlay({
     }
     const current = view.state.doc.toString();
     const prepared = prepareTableEditorApply(currentDraft(), current);
-    // 表の一部だけでなく本文全体を比較し、外部変更後の古い範囲への適用を防ぐ。
     if (prepared.kind === "stale") {
       setStatus(messages.app.tableEditor.documentChanged);
       return;
     }
-    // 変更なしでdispatchしない。無意味なCodeMirror変更通知と同期処理を発生させない。
     if (prepared.kind === "noop") {
-      onClose();
-      requestAnimationFrame(() => view.focus());
+      closeAndRestoreFocus();
       return;
     }
     const changeSet = view.state.changes({
@@ -762,8 +910,7 @@ function TableEditorOverlay({
       selection: EditorSelection.cursor(initial.from + prepared.caretOffset),
       effects: snapshot,
     });
-    onClose();
-    requestAnimationFrame(() => view.focus());
+    closeAndRestoreFocus();
   }
 
   return (
@@ -781,81 +928,110 @@ function TableEditorOverlay({
       >
         <strong>{messages.app.tableEditor.title}</strong>
         <span>{cellCountLabel}</span>
+        {isDirty && (
+          <span
+            className="mve-table-editor-dirty"
+            title={polishText.modified}
+            aria-label={polishText.modified}
+          >
+            ● {polishText.modified}
+          </span>
+        )}
         <button
           type="button"
           className="mve-table-editor-close"
           title={messages.app.tableEditor.close}
           aria-label={messages.app.tableEditor.close}
-          onClick={() => {
-            onClose();
-            requestAnimationFrame(() => view.focus());
-          }}
+          onClick={requestClose}
         >
           ×
         </button>
       </header>
       <div className="mve-table-editor-toolbar" role="toolbar">
-        <button
-          type="button"
-          onClick={() => applySharedTableAction("rowAfter")}
-          disabled={rows.length >= MAX_ROWS}
-        >
-          {messages.app.tableEditor.addRow}
-        </button>
-        <button
-          type="button"
-          onClick={() => applySharedTableAction("deleteRow")}
-          disabled={activeRow === 0 || rows.length <= 1}
-        >
-          {messages.app.tableEditor.deleteRow}
-        </button>
-        <span className="mve-table-editor-separator" />
-        <button
-          type="button"
-          onClick={() => applySharedTableAction("colAfter")}
-          disabled={columnCount >= MAX_COLUMNS}
-        >
-          {messages.app.tableEditor.addColumn}
-        </button>
-        <button
-          type="button"
-          onClick={() => applySharedTableAction("deleteColumn")}
-          disabled={columnCount <= 1}
-        >
-          {messages.app.tableEditor.deleteColumn}
-        </button>
-        <span className="mve-table-editor-separator" />
-        <ToolbarToggle
-          label={messages.app.tableEditor.alignLeft}
-          active={currentAlignment === "left"}
-          onClick={() => applySharedTableAction("alignLeft")}
-        />
-        <ToolbarToggle
-          label={messages.app.tableEditor.alignCenter}
-          active={currentAlignment === "center"}
-          onClick={() => applySharedTableAction("alignCenter")}
-        />
-        <ToolbarToggle
-          label={messages.app.tableEditor.alignRight}
-          active={currentAlignment === "right"}
-          onClick={() => applySharedTableAction("alignRight")}
-        />
-        <ToolbarToggle
-          label={messages.app.tableEditor.clearAlignment}
-          active={currentAlignment === "none"}
-          onClick={clearAlignment}
-        />
-        <span className="mve-table-editor-separator" />
-        <button type="button" onClick={() => void copyTsv()}>
-          {messages.app.tableEditor.copyTsv}
-        </button>
-        <button
-          type="button"
-          title={messages.ribbon.labels.cellBreak}
-          onClick={insertLineBreak}
-        >
-          {messages.ribbon.labels.cellBreak}
-        </button>
+        <ToolbarGroup label={messages.ribbon.groups.history}>
+          <button
+            type="button"
+            title={`${messages.ribbon.labels.undo} (Ctrl+Z)`}
+            onClick={undoDraft}
+            disabled={!canUndo}
+          >
+            {messages.ribbon.labels.undo}
+          </button>
+          <button
+            type="button"
+            title={`${messages.ribbon.labels.redo} (Ctrl+Y / Ctrl+Shift+Z)`}
+            onClick={redoDraft}
+            disabled={!canRedo}
+          >
+            {messages.ribbon.labels.redo}
+          </button>
+        </ToolbarGroup>
+        <ToolbarGroup label={messages.ribbon.groups.rows}>
+          <button
+            type="button"
+            onClick={() => applySharedTableAction("rowAfter")}
+            disabled={rows.length >= MAX_ROWS}
+          >
+            {messages.app.tableEditor.addRow}
+          </button>
+          <button
+            type="button"
+            onClick={() => applySharedTableAction("deleteRow")}
+            disabled={activeRow === 0 || rows.length <= 1}
+          >
+            {messages.app.tableEditor.deleteRow}
+          </button>
+        </ToolbarGroup>
+        <ToolbarGroup label={messages.ribbon.groups.columns}>
+          <button
+            type="button"
+            onClick={() => applySharedTableAction("colAfter")}
+            disabled={columnCount >= MAX_COLUMNS}
+          >
+            {messages.app.tableEditor.addColumn}
+          </button>
+          <button
+            type="button"
+            onClick={() => applySharedTableAction("deleteColumn")}
+            disabled={columnCount <= 1}
+          >
+            {messages.app.tableEditor.deleteColumn}
+          </button>
+        </ToolbarGroup>
+        <ToolbarGroup label={messages.ribbon.groups.alignment}>
+          <ToolbarToggle
+            label={messages.app.tableEditor.alignLeft}
+            active={currentAlignment === "left"}
+            onClick={() => applySharedTableAction("alignLeft")}
+          />
+          <ToolbarToggle
+            label={messages.app.tableEditor.alignCenter}
+            active={currentAlignment === "center"}
+            onClick={() => applySharedTableAction("alignCenter")}
+          />
+          <ToolbarToggle
+            label={messages.app.tableEditor.alignRight}
+            active={currentAlignment === "right"}
+            onClick={() => applySharedTableAction("alignRight")}
+          />
+          <ToolbarToggle
+            label={messages.app.tableEditor.clearAlignment}
+            active={currentAlignment === "none"}
+            onClick={clearAlignment}
+          />
+        </ToolbarGroup>
+        <ToolbarGroup label={messages.ribbon.groups.excel} last>
+          <button type="button" onClick={() => void copyTsv()}>
+            {messages.app.tableEditor.copyTsv}
+          </button>
+          <button
+            type="button"
+            title={messages.ribbon.labels.cellBreak}
+            onClick={insertLineBreak}
+          >
+            {messages.ribbon.labels.cellBreak}
+          </button>
+        </ToolbarGroup>
       </div>
       <div className="mve-table-editor-grid-wrap">
         <table
@@ -987,13 +1163,7 @@ function TableEditorOverlay({
           {status || messages.app.tableEditor.navigationHint}
         </span>
         <div className="mve-table-editor-actions">
-          <button
-            type="button"
-            onClick={() => {
-              onClose();
-              requestAnimationFrame(() => view.focus());
-            }}
-          >
+          <button type="button" onClick={requestClose}>
             {messages.app.tableEditor.cancel}
           </button>
           <button type="button" className="primary" onClick={apply}>
@@ -1012,6 +1182,27 @@ function TableEditorOverlay({
         onPointerDown={startEditorResize}
         onKeyDown={resizeEditorByKeyboard}
       />
+    </div>
+  );
+}
+
+function ToolbarGroup({
+  label,
+  children,
+  last = false,
+}: {
+  label: string;
+  children: React.ReactNode;
+  last?: boolean;
+}): React.JSX.Element {
+  return (
+    <div
+      className={`mve-table-editor-toolbar-group${last ? " last" : ""}`}
+      role="group"
+      aria-label={label}
+    >
+      <span className="mve-table-editor-toolbar-label">{label}</span>
+      <div className="mve-table-editor-toolbar-controls">{children}</div>
     </div>
   );
 }
