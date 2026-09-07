@@ -16,7 +16,7 @@
     max-width: calc(100vw - 32px);
     max-height: calc(100vh - 32px);
     display: grid;
-    grid-template-rows: 46px 48px minmax(0, 1fr) 48px;
+    grid-template-rows: 46px auto minmax(0, 1fr) 48px;
     box-sizing: border-box;
     overflow: hidden;
     border: 1px solid var(--vscode-panel-border, var(--mve-border));
@@ -79,6 +79,11 @@
     font-size: 12px;
 }
 
+.mve-table-editor-header .mve-table-editor-dirty {
+    color: var(--vscode-editorWarning-foreground, #cca700);
+    font-weight: 600;
+}
+
 .mve-table-editor-close {
     margin-left: auto;
     min-width: 30px;
@@ -86,9 +91,44 @@
 }
 
 .mve-table-editor-toolbar {
-    padding: 7px 8px;
+    align-items: stretch;
+    gap: 0;
+    padding: 6px 8px;
     border-bottom: 1px solid var(--vscode-panel-border, var(--mve-border));
     overflow-x: auto;
+    overflow-y: hidden;
+}
+
+.mve-table-editor-toolbar-group {
+    flex: 0 0 auto;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 3px;
+    padding: 0 9px;
+    border-right: 1px solid var(--vscode-panel-border, var(--mve-border));
+}
+
+.mve-table-editor-toolbar-group:first-child {
+    padding-left: 0;
+}
+
+.mve-table-editor-toolbar-group.last {
+    border-right: 0;
+    padding-right: 0;
+}
+
+.mve-table-editor-toolbar-label {
+    color: var(--vscode-descriptionForeground);
+    font-size: 10px;
+    line-height: 1.1;
+    white-space: nowrap;
+}
+
+.mve-table-editor-toolbar-controls {
+    display: flex;
+    align-items: center;
+    gap: 4px;
 }
 
 .mve-table-editor button {
@@ -100,6 +140,10 @@
     font: inherit;
     cursor: pointer;
     white-space: nowrap;
+}
+
+.mve-table-editor-toolbar button {
+    padding: 4px 8px;
 }
 
 .mve-table-editor button:hover:not(:disabled) {
@@ -126,14 +170,8 @@
     cursor: default;
 }
 
-.mve-table-editor-separator {
-    width: 1px;
-    align-self: stretch;
-    background: var(--vscode-panel-border, var(--mve-border));
-    margin: 0 2px;
-}
-
 .mve-table-editor-grid-wrap {
+    position: relative;
     min-height: 0;
     overflow: auto;
     padding: 10px 8px 28px;
@@ -155,6 +193,9 @@
 }
 
 .mve-table-editor-grid th {
+    position: sticky;
+    left: 0;
+    z-index: 3;
     width: 42px;
     min-width: 42px;
     max-width: 42px;
@@ -167,9 +208,26 @@
     user-select: none;
 }
 
+.mve-table-editor-header-row > th,
+.mve-table-editor-header-row > td {
+    position: sticky;
+    top: 0;
+    z-index: 4;
+}
+
+.mve-table-editor-header-row > th {
+    left: 0;
+    z-index: 6;
+    background: var(--vscode-editorGutter-background, var(--mve-panel));
+}
+
+.mve-table-editor-header-row > td {
+    background: color-mix(in srgb, var(--vscode-list-activeSelectionBackground, #264f78) 70%, var(--vscode-editor-background));
+}
+
 .mve-table-editor-row-resizer {
     position: absolute;
-    z-index: 3;
+    z-index: 7;
     right: 0;
     bottom: -4px;
     left: 0;
@@ -193,15 +251,10 @@
     opacity: 0.85;
 }
 
-.mve-table-editor-header-row td {
-    background: color-mix(in srgb, var(--vscode-list-activeSelectionBackground, #264f78) 70%, var(--vscode-editor-background));
-}
-
 .mve-table-editor-grid td[data-active="true"] {
     outline: 2px solid var(--vscode-focusBorder, #007acc);
     outline-offset: -2px;
-    position: relative;
-    z-index: 1;
+    z-index: 5;
 }
 
 .mve-table-editor-grid td[data-alignment="left"] textarea {
@@ -240,7 +293,7 @@
 .mve-table-editor-column-resizer {
     display: block;
     position: absolute;
-    z-index: 3;
+    z-index: 7;
     top: 0;
     right: -4px;
     bottom: 0;
@@ -316,6 +369,12 @@
 
     .mve-table-editor-toolbar {
         flex-wrap: wrap;
+        overflow-y: auto;
+        max-height: 136px;
+    }
+
+    .mve-table-editor-toolbar-group {
+        padding: 3px 7px;
     }
 
     .mve-table-editor-footer {
