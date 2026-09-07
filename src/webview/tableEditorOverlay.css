@@ -254,6 +254,10 @@
 .mve-table-editor-grid td[data-active="true"] {
     outline: 2px solid var(--vscode-focusBorder, #007acc);
     outline-offset: -2px;
+    z-index: 2;
+}
+
+.mve-table-editor-header-row > td[data-active="true"] {
     z-index: 5;
 }
 
