@@ -3201,7 +3201,6 @@ export function App(): React.JSX.Element {
                           ? "true"
                           : undefined
                       }
-                      aria-disabled={readOnly}
                       style={{ paddingLeft: `${8 + item.level * 10}px` }}
                       onClick={(event) => {
                         if (event.button === 0) goToOutlineOffset(item.offset);

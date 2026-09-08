@@ -85,7 +85,7 @@ try {
   await page.addScriptTag({ content: webviewBundle });
   await page.waitForFunction(() => window.__mveMessages.some((message) => message.type === 'ready'));
 
-  const source = '最中最中に\r\n文字入力\r\n最中に何か入力';
+  const source = '最中最中に\n文字入力\n最中に何か入力';
   await page.evaluate((text) => {
     window.__mveHostText = text;
     window.dispatchEvent(new MessageEvent('message', {
@@ -136,7 +136,7 @@ try {
   }
   await page.evaluate(() => {
     const baseVersion = window.__mveHostVersion;
-    const text = '\r\n外部エディター追記';
+    const text = '\n外部エディター追記';
     const change = { rangeOffset: window.__mveHostText.length, rangeLength: 0, text };
     window.__mveHostText += text;
     window.__mveHostVersion += 1;
@@ -195,7 +195,7 @@ try {
   }));
   const committedText = `${firstComposition.at(-1)}${secondComposition.at(-1)}`;
   const expected = start + committedText.length;
-  const expectedHostText = `${source.slice(0, start)}${committedText}${source.slice(start)}\r\n外部エディター追記`;
+  const expectedHostText = `${source.slice(0, start)}${committedText}${source.slice(start)}\n外部エディター追記`;
   if (result.events.filter((event) => event.type === 'compositionend').length !== 2
     || result.hostText !== expectedHostText
     || selectionBeforeNextKey !== expected

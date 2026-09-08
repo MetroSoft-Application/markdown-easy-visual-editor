@@ -87,3 +87,7 @@
 ## 1.1.1
 
 - Added a feature to export HTML and PDF files from Explorer.
+
+## 1.1.2
+
+- Input bug fix.

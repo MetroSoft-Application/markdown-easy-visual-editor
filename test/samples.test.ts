@@ -5,7 +5,8 @@ import { collectDiagnostics, getOutline, splitMarkdownBlocks } from '../src/shar
 
 const sampleRoot = path.resolve('sample');
 const sampleFiles = readdirSync(sampleRoot)
-  .filter((name) => name.endsWith('.md'))
+  // sample/ は手元の検証用ファイルも置けるため、製品の回帰fixtureだけを対象にする。
+  .filter((name) => /^(?:\d{2}-.+|outline-reorder-undo|README)\.md$/.test(name))
   .map((name) => path.join(sampleRoot, name));
 
 describe('sample Markdown documents', () => {

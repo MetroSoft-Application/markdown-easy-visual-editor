@@ -9,7 +9,12 @@ import type {
     WebviewToHostMessage
 } from '../shared/protocol';
 import { collectLocalResourceReferences, sortDiagnostics, type Diagnostic } from '../shared/markdown';
-import { applyTextChanges, mapTextChanges, validateTextChanges, type TextChange } from '../shared/textChanges';
+import { applyTextChanges, computeTextChanges, mapTextChanges, validateTextChanges, type TextChange } from '../shared/textChanges';
+import {
+    canonicalizeContentChanges,
+    materializeCanonicalChanges,
+    toCanonicalText
+} from '../shared/canonicalText';
 import { getMessages, resolveLanguage, type Messages } from '../shared/messages';
 import { acquirePdfBrowser, closePdfBrowser, exportPdf, renderPdf } from './pdf';
 import {
@@ -35,7 +40,9 @@ interface PendingHostOperation {
     clientId: string;
     opId: string;
     appliedBaseVersion: number;
+    /** Webview同期座標系のLF正規化済み本文。 */
     baseText: string;
+    /** Webview同期座標系のLF正規化済み期待本文。 */
     expectedText: string;
     changes: TextChange[];
 }
@@ -43,7 +50,9 @@ interface PendingHostOperation {
 interface ChangeHistoryEntry {
     baseVersion: number;
     version: number;
+    /** LF正規化済み本文の長さ。 */
     baseLength: number;
+    /** LF正規化済み本文を基準とする変更。 */
     changes: TextChange[];
     clientId?: string;
     opId?: string;
@@ -94,6 +103,8 @@ export async function deactivate(): Promise<void> {
 class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvider {
     private readonly panels = new Map<string, Set<vscode.WebviewPanel>>();
     private readonly documents = new Map<string, vscode.TextDocument>();
+    /** 文書versionごとの同期基準。物理EOLではなく常にLFで保持する。 */
+    private readonly canonicalDocumentTexts = new Map<string, string>();
     private readonly activeOperations = new Map<string, PendingHostOperation>();
     private readonly activeOperationKeysByDocument = new Map<string, string>();
     private readonly changeHistory = new Map<string, ChangeHistoryEntry[]>();
@@ -145,6 +156,10 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
         // 文書とWebviewパネルを登録し、HTML・メッセージ受信・破棄時の後処理を設定する。
         const key = document.uri.toString();
         this.documents.set(key, document);
+        // 空文書でもTextDocument.eolとは無関係に、同期本文の座標系をLFへ固定する。
+        if (!this.canonicalDocumentTexts.has(key)) {
+            this.canonicalDocumentTexts.set(key, toCanonicalText(document.getText()));
+        }
         const group = this.panels.get(key) ?? new Set<vscode.WebviewPanel>();
         group.add(webviewPanel);
         this.panels.set(key, group);
@@ -181,6 +196,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
             if (!group.size) {
                 this.panels.delete(key);
                 this.documents.delete(key);
+                this.canonicalDocumentTexts.delete(key);
                 this.changeHistory.delete(key);
                 this.rejectPanelReady(key);
                 const operationKey = this.activeOperationKeysByDocument.get(key);
@@ -350,7 +366,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
                     this.panelInitialized.delete(panel);
                     this.post(panel, {
                         type: 'init',
-                        text: document.getText(),
+                        text: this.canonicalText(document),
                         version: document.version,
                         uri: document.uri.toString(),
                         settings: this.getSettings()
@@ -468,7 +484,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
                         operationApplied: message.opId
                             ? this.wasOperationApplied(documentKey, message.clientId, message.opId)
                             : undefined,
-                        text: document.getText(),
+                        text: this.canonicalText(document),
                         version: document.version,
                         reason: message.reason
                     });
@@ -715,8 +731,15 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
             });
             return;
         }
+
+        const currentCanonicalText = this.canonicalText(document);
+        const knownCanonicalText = this.canonicalDocumentTexts.get(key);
+        if (knownCanonicalText !== undefined && knownCanonicalText !== currentCanonicalText) {
+            this.sendResync(panel, document, message.clientId, message.opId, '文書変更通知より先に本文差分を検出したため再同期します。');
+            return;
+        }
         let changes = message.changes;
-        let baseLength = document.getText().length;
+        let baseLength = currentCanonicalText.length;
         if (message.baseVersion !== document.version) {
             // 古いバージョンからの差分は履歴を順に適用して現在の本文位置へ写像する。
             const history = this.historySince(key, message.baseVersion, document.version);
@@ -730,10 +753,10 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
                 const before = message.clientId.localeCompare(entry.clientId ?? 'host') < 0;
                 changes = mapTextChanges(changes, entry.changes, entry.baseLength, before);
             }
-            baseLength = document.getText().length;
+            baseLength = currentCanonicalText.length;
         }
         validateTextChanges(changes, baseLength);
-        const baseText = document.getText();
+        const baseText = currentCanonicalText;
         // 変更後に期待する本文を計算し、実質的に変更がない要求はACKだけ返す。
         const expected = applyTextChanges(baseText, changes);
         if (expected === baseText) {
@@ -759,7 +782,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
         });
         this.activeOperationKeysByDocument.set(key, operationKey);
         // 適用中の操作を記録し、後続の文書変更通知で自分の書き込みと判定できるようにする。
-        const applied = await applyChangeBatch(document, changes);
+        const applied = await applyChangeBatch(document, baseText, changes);
         hostDebug('[MVE host] localChanges apply result', {
             document: document.uri.toString(),
             opId: message.opId,
@@ -779,7 +802,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
         if (active?.opId === message.opId) {
             this.activeOperations.delete(operationKey);
             if (this.activeOperationKeysByDocument.get(key) === operationKey) this.activeOperationKeysByDocument.delete(key);
-            if (document.getText() !== active.expectedText) {
+            if (this.canonicalText(document) !== active.expectedText) {
                 this.sendResync(panel, document, message.clientId, message.opId, '適用後の文書が期待値と一致しません。');
             } else {
                 this.post(panel, {
@@ -806,11 +829,34 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
         if (!panels) return;
         const operationKey = this.activeOperationKeysByDocument.get(key);
         const active = operationKey ? this.activeOperations.get(operationKey) : undefined;
-        const changes = event.contentChanges.map((change) => ({
-            rangeOffset: change.rangeOffset,
-            rangeLength: change.rangeLength,
-            text: change.text
-        }));
+        const nextCanonicalText = toCanonicalText(event.document.getText());
+        const previousCanonicalText = this.canonicalDocumentTexts.get(key);
+        if (previousCanonicalText === undefined) {
+            // パネル登録中は本来到達しない。履歴の基準を捏造せず、現在スナップショットを正として再同期する。
+            this.canonicalDocumentTexts.set(key, nextCanonicalText);
+            for (const panel of panels) {
+                const clientId = this.panelClientIds.get(panel);
+                if (clientId) this.sendResync(panel, event.document, clientId, undefined, '同期基準本文を再構築しました。');
+            }
+            return;
+        }
+
+        let changes: TextChange[];
+        if (previousCanonicalText === nextCanonicalText) {
+            // EOLだけの変更は同期本文上ではno-op。ただしversion遷移は履歴へ残す。
+            changes = [];
+        } else {
+            try {
+                changes = canonicalizeContentChanges(previousCanonicalText, event.contentChanges);
+                if (applyTextChanges(previousCanonicalText, changes) !== nextCanonicalText) {
+                    changes = computeTextChanges(previousCanonicalText, nextCanonicalText);
+                }
+            } catch (error) {
+                console.warn('[Markdown Easy Visual Editor] 文書変更をLF座標へ変換できないため全文差分へフォールバックします。', error);
+                changes = computeTextChanges(previousCanonicalText, nextCanonicalText);
+            }
+        }
+        this.canonicalDocumentTexts.set(key, nextCanonicalText);
         hostDebug('[MVE host] document changed', {
             document: key,
             version: event.document.version,
@@ -818,22 +864,13 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
             changes: changes.slice(0, 8),
             activeOpId: active?.opId
         });
-        if (!changes.length) {
-            hostDebug('[MVE host] document changed ignored (no content changes)', {
-                document: key,
-                version: event.document.version,
-                activeOpId: active?.opId
-            });
-            return;
-        }
         const baseVersion = event.document.version - 1;
-        const baseLength = event.document.getText().length
-            - changes.reduce((total, change) => total + change.text.length - change.rangeLength, 0);
+        const baseLength = previousCanonicalText.length;
         const matchesActiveOperation = Boolean(
             active
             && baseVersion === active.appliedBaseVersion
             // 変更配列の形ではなく、同じ基準版から期待本文へ到達したかで自分の操作を判定する。
-            && event.document.getText() === active.expectedText
+            && nextCanonicalText === active.expectedText
         );
         const entry: ChangeHistoryEntry = {
             baseVersion,
@@ -941,10 +978,15 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
             clientId,
             opId,
             operationApplied: opId ? this.wasOperationApplied(document.uri.toString(), clientId, opId) : undefined,
-            text: document.getText(),
+            text: this.canonicalText(document),
             version: document.version,
             reason
         });
+    }
+
+    /** 現在のVS Code文書を同期プロトコルのLF座標系へ変換する。スナップショット更新は変更イベントだけが行う。 */
+    private canonicalText(document: vscode.TextDocument): string {
+        return toCanonicalText(document.getText());
     }
 
     /**
@@ -1201,16 +1243,25 @@ function hostDebug(message: string, details: Record<string, unknown>): void {
     if (process.env.MVE_DEBUG === '1') console.info(message, details);
 }
 
-async function applyChangeBatch(document: vscode.TextDocument, changes: readonly TextChange[]): Promise<boolean> {
-    // 差分をVS CodeのWorkspaceEditへ変換し、文書へ一括適用する。
-    validateTextChanges(changes, document.getText().length);
+async function applyChangeBatch(
+    document: vscode.TextDocument,
+    canonicalBaseText: string,
+    changes: readonly TextChange[]
+): Promise<boolean> {
+    // LF同期座標の差分を、現在のVS Code文書EOLを保ったWorkspaceEditへ変換する。
+    validateTextChanges(changes, canonicalBaseText.length);
+    const currentCanonicalText = toCanonicalText(document.getText());
+    if (currentCanonicalText !== canonicalBaseText) {
+        throw new Error('Document changed before canonical edit application.');
+    }
+    const eol = document.eol === vscode.EndOfLine.CRLF ? '\r\n' : '\n';
     const edit = new vscode.WorkspaceEdit();
-    for (const change of changes) {
+    for (const change of materializeCanonicalChanges(canonicalBaseText, changes, eol)) {
         edit.replace(
             document.uri,
             new vscode.Range(
-                document.positionAt(change.rangeOffset),
-                document.positionAt(change.rangeOffset + change.rangeLength)
+                new vscode.Position(change.range.start.line, change.range.start.character),
+                new vscode.Position(change.range.end.line, change.range.end.character)
             ),
             change.text
         );

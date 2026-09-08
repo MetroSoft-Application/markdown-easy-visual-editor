@@ -28,6 +28,7 @@ try {
     window.__mveMessages = [];
     window.__mveHostVersion = 1;
     window.__mveHostText = '';
+    window.__mvePhysicalText = '';
     window.__mveAckDelay = 0;
     window.__mveHoldLocalOperations = false;
     window.__mveHeldOperations = [];
@@ -51,6 +52,7 @@ try {
               + change.text
               + window.__mveHostText.slice(change.rangeOffset + change.rangeLength);
           }
+          window.__mvePhysicalText = window.__mveHostText.replace(/\n/g, '\r\n');
           window.__mveHostVersion += 1;
           window.__mveAppliedOperations.add(`${message.clientId}\0${message.opId}`);
           setTimeout(() => {
@@ -75,6 +77,7 @@ try {
           targetStack.push(previousText);
           const baseVersion = window.__mveHostVersion;
           window.__mveHostText = nextText;
+          window.__mvePhysicalText = nextText.replace(/\n/g, '\r\n');
           window.__mveHostVersion += 1;
           setTimeout(() => window.dispatchEvent(new MessageEvent('message', {
             data: {
@@ -117,14 +120,42 @@ try {
   await page.addStyleTag({ path: path.resolve('dist/webview.css') });
   await page.addScriptTag({ path: path.resolve('dist/webview.js') });
   await page.waitForFunction(() => window.__mveMessages.some((message) => message.type === 'ready'));
+  const settings = { language: 'ja', imageDirectory: 'assets/${documentBasename}', maxPasteSizeMb: 20, remoteImagesEnabled: false, mermaidTheme: 'default', workspaceTrusted: true };
+  await page.evaluate((initSettings) => window.dispatchEvent(new MessageEvent('message', {
+    data: { type: 'init', text: '', version: 1, uri: 'file:///C:/empty-crlf.md', settings: initSettings }
+  })), settings);
+  await page.locator('.split-editor .cm-content').waitFor();
+  const emptyCrLfStart = await page.evaluate(() => ({
+    local: window.__mveMessages.filter((message) => message.type === 'localChanges').length,
+    resync: window.__mveMessages.filter((message) => message.type === 'requestResync').length
+  }));
+  await page.locator('.split-editor .cm-content').press('Enter');
+  await page.waitForFunction(() => window.__mveHostText === '\n' && window.__mvePhysicalText === '\r\n');
+  await page.waitForTimeout(300);
+  const emptyCrLfResult = await page.evaluate((start) => ({
+    text: window.__mveHostText,
+    physicalText: window.__mvePhysicalText,
+    local: window.__mveMessages.filter((message) => message.type === 'localChanges').length - start.local,
+    resync: window.__mveMessages.filter((message) => message.type === 'requestResync').length - start.resync
+  }), emptyCrLfStart);
+  if (emptyCrLfResult.text !== '\n' || emptyCrLfResult.physicalText !== '\r\n'
+    || emptyCrLfResult.local !== 1 || emptyCrLfResult.resync !== 0) {
+    throw new Error(`first empty CRLF line did not converge once: ${JSON.stringify(emptyCrLfResult)}`);
+  }
   const source = ('# Smoke\n\nfirst\\\nsecond\n\nReference [link][target] and note[^note].\n\n<!-- ordinary comment -->\n\n<div>raw-one</div>\n<div>raw-two</div>\n\n[target]: https://example.com\n\n[^note]: footnote body\n\n```ts\nconst value = 1;\n```\n'
     + Array.from({ length: 220 }, (_, index) => `\n## Long section ${index}\n\n${'content '.repeat(16)}${index}\n`).join('')
-    + '\n| H1 | H2 |\n| --- | --- |\n| old | old2 |\n')
-    .replace(/\n/g, '\r\n');
-  await page.evaluate((text) => { window.__mveHostText = text; }, source);
-  await page.evaluate((text) => window.dispatchEvent(new MessageEvent('message', {
-    data: { type: 'init', text, version: 1, uri: 'file:///C:/smoke.md', settings: { language: 'ja', imageDirectory: 'assets/${documentBasename}', maxPasteSizeMb: 20, remoteImagesEnabled: false, mermaidTheme: 'default', workspaceTrusted: true } }
-  })), source);
+    + '\n| H1 | H2 |\n| --- | --- |\n| old | old2 |\n');
+  const sourceVersion = await page.evaluate((text) => {
+    window.__mveHostText = text;
+    window.__mvePhysicalText = text.replace(/\n/g, '\r\n');
+    window.__mveHostVersion += 1;
+    window.__mveUndoStack = [];
+    window.__mveRedoStack = [];
+    return window.__mveHostVersion;
+  }, source);
+  await page.evaluate(({ text, version, initSettings }) => window.dispatchEvent(new MessageEvent('message', {
+    data: { type: 'init', text, version, uri: 'file:///C:/smoke.md', settings: initSettings }
+  })), { text: source, version: sourceVersion, initSettings: settings });
   try {
     await page.locator('.split-editor').waitFor();
     await page.waitForFunction((expectedLength) => (
@@ -200,10 +231,19 @@ try {
   if (noOpLocalChanges.length !== 0) throw new Error(`untouched table apply emitted synchronization: ${JSON.stringify(noOpLocalChanges)}`);
   const editMessageStart = await page.evaluate(() => window.__mveMessages.length);
   await page.getByRole('button', { name: '表を編集', exact: true }).click();
+  await page.locator('[data-table-cell="1:0"]').click();
   await page.locator('[data-table-cell="1:0"]').fill('beforeafter');
   await page.getByRole('button', { name: 'セル内改行', exact: true }).click();
   await page.getByRole('button', { name: '適用', exact: true }).click();
-  await page.waitForFunction(() => window.__mveHostText.includes('| beforeafter<br> | old2 |'));
+  try {
+    await page.waitForFunction(() => window.__mveHostText.includes('| beforeafter<br> | old2 |'));
+  } catch (error) {
+    const state = await page.evaluate(() => ({
+      hostTail: window.__mveHostText.slice(-300),
+      messages: window.__mveMessages.slice(-5)
+    }));
+    throw new Error(`${error instanceof Error ? error.message : String(error)}\nTable edit state: ${JSON.stringify(state)}`);
+  }
   const tableEditMessages = await page.evaluate((start) => window.__mveMessages
     .slice(start).filter((message) => message.type === 'localChanges'), editMessageStart);
   if (tableEditMessages.length !== 1) throw new Error(`table apply emitted ${tableEditMessages.length} synchronization operations`);
@@ -226,7 +266,7 @@ try {
   await sourceEditor.press('End');
   await sourceEditor.type('  \nX');
   await page.waitForFunction((start) => window.__mveMessages.filter((message) => message.type === 'localChanges').length > start, sourceEditMessageStart);
-  if (!(await page.evaluate(() => window.__mveHostText.includes('second  \r\n')))) throw new Error('two-space hardbreak was removed during source edit');
+  if (!(await page.evaluate(() => window.__mveHostText.includes('second  \n')))) throw new Error('two-space hardbreak was removed during source edit');
   const beforeRibbonUndo = await page.evaluate(() => window.__mveHostText);
   await sourceEditor.press('Z');
   await page.waitForFunction((text) => window.__mveHostText.length === text.length + 1, beforeRibbonUndo);
@@ -265,7 +305,7 @@ try {
   }));
   await page.evaluate(() => {
     const baseVersion = window.__mveHostVersion;
-    const change = { rangeOffset: window.__mveHostText.length, rangeLength: 0, text: '\r\nexternal-host-change' };
+    const change = { rangeOffset: window.__mveHostText.length, rangeLength: 0, text: '\nexternal-host-change' };
     window.__mveHostText += change.text;
     window.__mveHostVersion += 1;
     window.dispatchEvent(new MessageEvent('message', {
@@ -304,7 +344,7 @@ try {
   });
   const { insertedLength: topInsertionLength, documentLength: expectedTopInsertionDocumentLength } = await page.evaluate(() => {
     const baseVersion = window.__mveHostVersion;
-    const prefix = Array.from({ length: 40 }, (_, index) => `# inserted-${index}\r\n\r\nbody\r\n\r\n`).join('');
+    const prefix = Array.from({ length: 40 }, (_, index) => `# inserted-${index}\n\nbody\n\n`).join('');
     const change = { rangeOffset: 0, rangeLength: 0, text: prefix };
     window.__mveHostText = prefix + window.__mveHostText;
     window.__mveHostVersion += 1;
@@ -419,12 +459,8 @@ try {
   if (!(await page.locator('.split-editor .cm-editor.cm-focused').count())) throw new Error('focused editor did not retain its natural focus');
   await sourceEditor.type('Y');
   await page.waitForTimeout(350);
-  if (!(await page.evaluate(() => window.__mveHostText.includes('second  \r\nXY')))) throw new Error('blank-line edit moved the caret');
-  const loneLf = await page.evaluate(() => {
-    const match = /(^|[^\r])\n/.exec(window.__mveHostText);
-    return match ? { index: match.index, sample: JSON.stringify(window.__mveHostText.slice(Math.max(0, match.index - 20), match.index + 30)) } : undefined;
-  });
-  if (loneLf) throw new Error(`CRLF was normalized during source edit at ${loneLf.index}: ${loneLf.sample}`);
+  if (!(await page.evaluate(() => window.__mveHostText.includes('second  \nXY')))) throw new Error('blank-line edit moved the caret');
+  if (await page.evaluate(() => window.__mveHostText.includes('\r'))) throw new Error('host protocol text is not LF-normalized');
   const queuedMessageStart = await page.evaluate(() => {
     window.__mveAckDelay = 500;
     return window.__mveMessages.length;
@@ -442,14 +478,14 @@ try {
     };
   }, queuedMessageStart);
   if (queuedOperations.operations.length !== 2
-    || !queuedOperations.hostText.includes('second  \r\nXYABC')
+    || !queuedOperations.hostText.includes('second  \nXYABC')
     || !queuedOperations.editorText.includes('XYABC')) {
     throw new Error(`rapid input was not collapsed to one in-flight and one follow-up operation: ${JSON.stringify(queuedOperations)}`);
   }
   await page.getByRole('tab', { name: 'ホーム', exact: true }).click();
   await page.locator('button[title^="元に戻す"]').click();
   await page.waitForTimeout(50);
-  if (!(await page.evaluate(() => window.__mveHostText.startsWith('# inserted-0\r\n')))) {
+  if (!(await page.evaluate(() => window.__mveHostText.startsWith('# inserted-0\n')))) {
     throw new Error('undo incorrectly reverted an external host change');
   }
   await page.locator('button[title^="やり直す"]').click();
@@ -461,7 +497,7 @@ try {
   const activeBeforeBlurSync = await page.evaluate(() => document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.textContent);
   await page.evaluate(() => {
     const baseVersion = window.__mveHostVersion;
-    const change = { rangeOffset: window.__mveHostText.length, rangeLength: 0, text: '\r\nblurred-host-change' };
+    const change = { rangeOffset: window.__mveHostText.length, rangeLength: 0, text: '\nblurred-host-change' };
     window.__mveHostText += change.text;
     window.__mveHostVersion += 1;
     window.dispatchEvent(new MessageEvent('message', {
@@ -722,7 +758,7 @@ try {
   if (printPreviewAnchor !== String(caretBeforePreview)) throw new Error(`print preview mode did not preserve the preview anchor: expected=${caretBeforePreview}, actual=${printPreviewAnchor}`);
   const previewPrefixLength = await page.evaluate(() => {
     const baseVersion = window.__mveHostVersion;
-    const prefix = '# preview-external\r\n\r\n';
+    const prefix = '# preview-external\n\n';
     const change = { rangeOffset: 0, rangeLength: 0, text: prefix };
     window.__mveHostText = prefix + window.__mveHostText;
     window.__mveHostVersion += 1;
@@ -761,7 +797,7 @@ try {
   await page.waitForTimeout(10);
   await page.evaluate(() => {
     const baseVersion = window.__mveHostVersion;
-    const change = { rangeOffset: window.__mveHostText.length, rangeLength: 0, text: '\r\nime-external' };
+    const change = { rangeOffset: window.__mveHostText.length, rangeLength: 0, text: '\nime-external' };
     window.__mveHostText += change.text;
     window.__mveHostVersion += 1;
     window.dispatchEvent(new MessageEvent('message', {
@@ -800,7 +836,7 @@ try {
   await page.waitForFunction(() => window.__mveHeldOperations.length === 1);
   await page.evaluate(() => {
     const operation = window.__mveHeldOperations.shift();
-    const externalText = 'unacked-external\r\n';
+    const externalText = 'unacked-external\n';
     const externalBaseVersion = window.__mveHostVersion;
     window.__mveHostText = externalText + window.__mveHostText;
     window.__mveHostVersion += 1;
@@ -840,7 +876,7 @@ try {
   await page.waitForTimeout(20);
   const unackedResult = await page.evaluate((resyncStart) => ({
     resyncs: window.__mveMessages.filter((message) => message.type === 'requestResync').length - resyncStart,
-    converged: window.__mveHostText.includes('unacked-external\r\n') && window.__mveHostText.includes('u'),
+    converged: window.__mveHostText.includes('unacked-external\n') && window.__mveHostText.includes('u'),
     requests: window.__mveMessages.filter((message) => message.type === 'requestResync').slice(resyncStart)
   }), unackedResyncStart);
   if (unackedResult.resyncs !== 0 || !unackedResult.converged) {
@@ -864,7 +900,7 @@ try {
     await page.waitForFunction((opId) => window.__mveAcks.some((message) => message.opId === opId), localOperation.opId);
     await page.evaluate((iteration) => {
       const baseVersion = window.__mveHostVersion;
-      const text = `mix-${iteration}\r\n`;
+      const text = `mix-${iteration}\n`;
       const change = { rangeOffset: 0, rangeLength: 0, text };
       window.__mveHostText = text + window.__mveHostText;
       window.__mveHostVersion += 1;
@@ -877,8 +913,8 @@ try {
   const mixedResult = await page.evaluate((start) => ({
     localCount: window.__mveMessages.filter((message) => message.type === 'localChanges').length - start.localCount,
     resyncCount: window.__mveMessages.filter((message) => message.type === 'requestResync').length - start.resyncCount,
-    hasFirst: window.__mveHostText.includes('mix-0\r\n'),
-    hasLast: window.__mveHostText.startsWith('mix-49\r\n')
+    hasFirst: window.__mveHostText.includes('mix-0\n'),
+    hasLast: window.__mveHostText.startsWith('mix-49\n')
   }), mixedStart);
   if (mixedResult.localCount !== 50 || mixedResult.resyncCount !== 0 || !mixedResult.hasFirst || !mixedResult.hasLast) {
     throw new Error(`100 mixed local/external operations did not converge: ${JSON.stringify(mixedResult)}`);
@@ -977,7 +1013,7 @@ try {
   await page.evaluate(() => { window.__mveAckDelay = 0; });
   await context.close();
   if (errors.length) throw new Error(errors.join('\n'));
-  console.log('高速スモーク: 表編集の列幅変更・セル内改行、フォーカス非介入、スクロール保持、CRLF、分割表示、ズーム、空白可視化、ハイライトを確認しました。');
+  console.log('高速スモーク: 空CRLF文書の単一改行同期、LFプロトコル、表編集、フォーカス非介入、スクロール保持、分割表示、ズーム、空白可視化、ハイライトを確認しました。');
 } finally {
   await browser.close();
 }

@@ -30,6 +30,36 @@ async function run() {
   const markdownPath = path.join(temporaryDirectory, '動作確認.md');
   const uri = vscode.Uri.file(markdownPath);
   try {
+    const emptyUri = vscode.Uri.file(path.join(temporaryDirectory, 'empty-crlf.md'));
+    await vscode.workspace.fs.writeFile(emptyUri, Buffer.from('', 'utf8'));
+    const emptyDocument = await vscode.workspace.openTextDocument(emptyUri);
+    const emptyEditor = await vscode.window.showTextDocument(emptyDocument);
+    assert.equal(await emptyEditor.edit((builder) => builder.setEndOfLine(vscode.EndOfLine.CRLF)), true);
+    await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+    await vscode.commands.executeCommand('vscode.openWith', emptyUri, 'markdownEasyVisualEditor.editor');
+    await waitFor(() => {
+      const input = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
+      return input && 'viewType' in input && input.viewType === 'markdownEasyVisualEditor.editor';
+    }, 'Empty CRLF document did not open in the custom editor.');
+    await new Promise((resolve) => setTimeout(resolve, 500));
+
+    let emptyDocumentChangeCount = 0;
+    const emptyChangeDisposable = vscode.workspace.onDidChangeTextDocument((event) => {
+      if (event.document.uri.toString() === emptyUri.toString()) emptyDocumentChangeCount += 1;
+    });
+    try {
+      const leadingNewline = new vscode.WorkspaceEdit();
+      leadingNewline.insert(emptyUri, new vscode.Position(0, 0), '\n');
+      assert.equal(await vscode.workspace.applyEdit(leadingNewline), true);
+      await waitFor(() => emptyDocument.getText() === '\r\n', 'The first CRLF newline was not applied exactly once.');
+      await new Promise((resolve) => setTimeout(resolve, 750));
+      assert.equal(emptyDocument.getText(), '\r\n', 'The first CRLF newline kept growing.');
+      assert.equal(emptyDocumentChangeCount, 1, 'The first CRLF newline caused repeated document changes.');
+    } finally {
+      emptyChangeDisposable.dispose();
+    }
+    await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+
     await vscode.workspace.fs.writeFile(uri, Buffer.from('# 動作確認\n\n初期テキスト\n', 'utf8'));
     const document = await vscode.workspace.openTextDocument(uri);
     await vscode.commands.executeCommand('vscode.openWith', uri, 'markdownEasyVisualEditor.editor');
