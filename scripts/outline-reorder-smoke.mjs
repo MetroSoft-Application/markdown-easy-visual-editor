@@ -43,7 +43,7 @@ const executablePath = await findFile(path.resolve('.chromium'), 'chrome-headles
 if (!executablePath) throw new Error('Chromium is not installed.');
 const webviewBundle = await readFile(path.resolve('dist/webview.js'), 'utf8');
 const markdownWorkerBundle = await readFile(path.resolve('dist/markdown-worker.js'), 'utf8');
-const fixture = await readFile(path.resolve('test/fixtures/outline-reorder-undo.md'), 'utf8');
+const fixture = (await readFile(path.resolve('test/fixtures/outline-reorder-undo.md'), 'utf8')).replace(/\r\n?/g, '\n');
 const initialText = stripInstructions(fixture);
 const initialLines = initialText.split('\n');
 const topLevelHeadings = initialLines.filter((line) => /^#\s+/.test(line));

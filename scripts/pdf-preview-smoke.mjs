@@ -18,7 +18,7 @@ const executablePath = await findFile(path.resolve('.chromium'), 'chrome-headles
 if (!executablePath) throw new Error('Chromiumがありません。npm run pdf:install-browserを実行してください。');
 
 const root = path.resolve('dist');
-const largeSample = await readFile('sample/09-large-document.md', 'utf8');
+const largeSample = (await readFile('sample/09-large-document.md', 'utf8')).replace(/\r\n?/g, '\n');
 const server = createServer(async (request, response) => {
   const name = request.url === '/' ? 'index.html' : request.url?.slice(1) ?? '';
   try {

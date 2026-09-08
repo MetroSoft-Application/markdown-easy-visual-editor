@@ -21,7 +21,7 @@ for (const index of [1, 2, 3, 4, 5, 6, 7, 9, 11]) {
   const prefix = String(index).padStart(2, '0');
   const file = entries.find((entry) => entry.startsWith(`${prefix}-`) && entry.endsWith('.md'));
   if (!file) throw new Error(`sample/${prefix} がありません。`);
-  samples[index] = await readFile(path.resolve('sample', file), 'utf8');
+  samples[index] = (await readFile(path.resolve('sample', file), 'utf8')).replace(/\r\n?/g, '\n');
 }
 const localSvg = await readFile(path.resolve('sample/assets/local-sample.svg'));
 const markdownWorkerScript = await readFile(path.resolve('dist/markdown-worker.js'));

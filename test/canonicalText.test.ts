@@ -4,6 +4,8 @@ import {
     canonicalPositionAt,
     canonicalizeContentChanges,
     fromCanonicalText,
+    indexCanonicalText,
+    materializeCanonicalChanges,
     toCanonicalText
 } from '../src/shared/canonicalText';
 import { applyTextChanges } from '../src/shared/textChanges';
@@ -20,6 +22,34 @@ describe('canonical text synchronization boundary', () => {
         expect(canonicalOffsetAt(text, { line: 1, character: 1 })).toBe(4);
         expect(canonicalPositionAt(text, 4)).toEqual({ line: 1, character: 1 });
         expect(canonicalPositionAt(text, text.length)).toEqual({ line: 2, character: 2 });
+    });
+
+    it('indexes one large document once for a batch of disjoint changes', () => {
+        const lines = Array.from({ length: 2_000 }, (_, index) => `line-${index}`);
+        const previous = lines.join('\n');
+        const contentChanges = Array.from({ length: 200 }, (_, index) => {
+            const line = index * 10;
+            return {
+                range: {
+                    start: { line, character: 0 },
+                    end: { line, character: 0 }
+                },
+                text: `${index}:`
+            };
+        });
+
+        const changes = canonicalizeContentChanges(previous, contentChanges);
+        expect(changes).toHaveLength(contentChanges.length);
+        expect(changes[0]).toEqual({ rangeOffset: 0, rangeLength: 0, text: '0:' });
+        expect(changes.at(-1)?.rangeOffset).toBe(previous.indexOf('line-1990'));
+        expect(applyTextChanges(previous, changes)).toContain('199:line-1990');
+    });
+
+    it('uses the indexed coordinate boundary on newline characters and the final empty line', () => {
+        const index = indexCanonicalText('ab\n');
+        expect(index.positionAt(2)).toEqual({ line: 0, character: 2 });
+        expect(index.positionAt(3)).toEqual({ line: 1, character: 0 });
+        expect(index.offsetAt({ line: 1, character: 0 })).toBe(3);
     });
 
     it('reduces the first physical CRLF in an empty document to exactly one logical newline', () => {
@@ -40,7 +70,15 @@ describe('canonical text synchronization boundary', () => {
         const base = '';
         const webviewChange = [{ rangeOffset: 0, rangeLength: 0, text: '\n' }];
         const expected = applyTextChanges(base, webviewChange);
-        const physicalDocumentAfterWorkspaceEdit = '\r\n';
+        const workspaceEdits = materializeCanonicalChanges(base, webviewChange, '\r\n');
+        expect(workspaceEdits).toEqual([{
+            range: {
+                start: { line: 0, character: 0 },
+                end: { line: 0, character: 0 }
+            },
+            text: '\r\n'
+        }]);
+        const physicalDocumentAfterWorkspaceEdit = workspaceEdits[0].text;
         const hostResult = toCanonicalText(physicalDocumentAfterWorkspaceEdit);
         const hostChanges = canonicalizeContentChanges(base, [{
             range: {
