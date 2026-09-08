@@ -58,6 +58,11 @@ export interface WebviewSettings {
     workspaceTrusted: boolean;
 }
 
+/**
+ * WebviewとExtension Host間の本文差分。
+ * `rangeOffset` / `rangeLength` / `text` はすべてLF正規化済み本文を基準とし、
+ * VS Code文書の物理EOL（LF/CRLF）はExtension Host境界でのみ変換する。
+ */
 export interface TextChange {
     rangeOffset: number;
     rangeLength: number;
@@ -77,6 +82,7 @@ export interface MermaidInteraction {
 export type HostToWebviewMessage =
     | {
         type: 'init';
+        /** LF正規化済み本文。 */
         text: string;
         version: number;
         uri: string;
@@ -89,6 +95,7 @@ export type HostToWebviewMessage =
         clientId: string;
         opId?: string;
         operationApplied?: boolean;
+        /** LF正規化済み本文。 */
         text: string;
         version: number;
         reason: string;
