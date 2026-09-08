@@ -649,6 +649,11 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
         }
 
         const currentCanonicalText = this.canonicalText(document);
+        const knownCanonicalText = this.canonicalDocumentTexts.get(key);
+        if (knownCanonicalText !== undefined && knownCanonicalText !== currentCanonicalText) {
+            this.sendResync(panel, document, message.clientId, message.opId, '文書変更通知より先に本文差分を検出したため再同期します。');
+            return;
+        }
         let changes = message.changes;
         let baseLength = currentCanonicalText.length;
         if (message.baseVersion !== document.version) {
@@ -859,12 +864,9 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
         });
     }
 
-    /** 現在のVS Code文書を同期プロトコルのLF座標系へ変換し、文書スナップショットも更新する。 */
+    /** 現在のVS Code文書を同期プロトコルのLF座標系へ変換する。スナップショット更新は変更イベントだけが行う。 */
     private canonicalText(document: vscode.TextDocument): string {
-        const key = document.uri.toString();
-        const current = toCanonicalText(document.getText());
-        this.canonicalDocumentTexts.set(key, current);
-        return current;
+        return toCanonicalText(document.getText());
     }
 
     private async saveImages(document: vscode.TextDocument, images: ImagePayload[]): Promise<string[]> {
@@ -1059,9 +1061,7 @@ function hostDebug(message: string, details: Record<string, unknown>): void {
     if (process.env.MVE_DEBUG === '1') console.info(message, details);
 }
 
-/**
- * LF同期座標の変更を、現在のVS Code文書EOLを保ったWorkspaceEditへ変換する。
- */
+/** LF同期座標の変更を、現在のVS Code文書EOLを保ったWorkspaceEditへ変換する。 */
 async function applyChangeBatch(
     document: vscode.TextDocument,
     canonicalBaseText: string,
