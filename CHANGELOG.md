@@ -91,3 +91,7 @@
 ## 1.1.2
 
 - Input bug fix.
+
+## 1.1.3
+
+- Improved the table editing UI.
