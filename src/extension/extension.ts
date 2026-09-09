@@ -33,6 +33,7 @@ import { classifyResourceLink } from './resourceLink';
 
 const VIEW_TYPE = 'markdownEasyVisualEditor.editor';
 const VIEW_MODE_STATE_KEY = 'markdownEasyVisualEditor.viewMode';
+const SCROLL_SYNC_STATE_KEY = 'markdownEasyVisualEditor.scrollSyncEnabled';
 const PREVIEW_IMAGE_RESIZE_CONTROLS_STATE_KEY = 'markdownEasyVisualEditor.previewImageResizeControlsVisible';
 
 interface PendingHostOperation {
@@ -452,6 +453,10 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
                 }
                 case 'setViewMode':
                     await this.context.globalState.update(VIEW_MODE_STATE_KEY, message.viewMode);
+                    this.broadcastSettings();
+                    return;
+                case 'setScrollSyncEnabled':
+                    await this.context.globalState.update(SCROLL_SYNC_STATE_KEY, message.enabled);
                     this.broadcastSettings();
                     return;
                 case 'setPreviewImageResizeControlsVisible':
@@ -1141,6 +1146,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
             mermaidHostRendering: true,
             editorTheme: config.get<WebviewSettings['editorTheme']>('editor.theme', 'dark'),
             viewMode: normalizeViewMode(this.context.globalState.get<unknown>(VIEW_MODE_STATE_KEY)),
+            scrollSyncEnabled: this.context.globalState.get<boolean>(SCROLL_SYNC_STATE_KEY, true),
             previewImageResizeControlsVisible: this.context.globalState.get<boolean>(PREVIEW_IMAGE_RESIZE_CONTROLS_STATE_KEY, true),
             workspaceTrusted: vscode.workspace.isTrusted
         };

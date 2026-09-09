@@ -95,3 +95,7 @@
 ## 1.1.3
 
 - Improved the table editing UI.
+
+## 1.1.4
+
+- Add a scroll sync/async flag.

@@ -37,7 +37,13 @@ export type RibbonCommand =
   | { type: "tableInsert"; rows: number; columns: number }
   | { type: "codeBlock"; language: string }
   | { type: "splitView"; view: "both" | "text" | "preview" }
-  | { type: "toggleOutline" | "toggleInspector" | "togglePrintPreview" }
+  | {
+      type:
+        | "toggleOutline"
+        | "toggleScrollSync"
+        | "toggleInspector"
+        | "togglePrintPreview";
+    }
   | { type: "runPreflightCheck" }
   | { type: "showShortcuts" | "showFeatures" }
   | { type: "openSource" | "exportPdf" | "find" }
@@ -49,6 +55,7 @@ interface Props {
   readOnly: boolean;
   activeMarks: Record<string, boolean>;
   outlineVisible: boolean;
+  scrollSyncEnabled: boolean;
   splitView: "both" | "text" | "preview";
   htmlOptions: HtmlExportOptions;
   onHtmlOptionsChange: (options: HtmlExportOptions) => void;
@@ -66,6 +73,7 @@ export function Ribbon({
   readOnly,
   activeMarks,
   outlineVisible,
+  scrollSyncEnabled,
   splitView,
   htmlOptions,
   onHtmlOptionsChange,
@@ -564,6 +572,12 @@ export function Ribbon({
                   active={outlineVisible}
                   title={messages.ribbon.outlineTitle}
                   onClick={() => onCommand({ type: "toggleOutline" })}
+                />
+                <Tool
+                  label={messages.ribbon.scrollSync}
+                  active={scrollSyncEnabled}
+                  title={messages.ribbon.scrollSyncTitle}
+                  onClick={() => onCommand({ type: "toggleScrollSync" })}
                 />
                 <span className="ribbon-hint">{messages.ribbon.hintZoom}</span>
               </Group>

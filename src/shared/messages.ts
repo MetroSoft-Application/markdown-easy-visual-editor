@@ -16,6 +16,8 @@ export interface Messages {
         sourceTitle: string;
         outline: string;
         outlineTitle: string;
+        scrollSync: string;
+        scrollSyncTitle: string;
         search: string;
         split: string;
         textOnly: string;
@@ -355,6 +357,8 @@ function createMessages(language: SupportedLanguage): Messages {
             sourceTitle: raw.ribbon.sourceTitle,
             outline: raw.ribbon.outline,
             outlineTitle: raw.ribbon.outlineTitle,
+            scrollSync: raw.ribbon.scrollSync,
+            scrollSyncTitle: raw.ribbon.scrollSyncTitle,
             search: raw.ribbon.search,
             split: raw.ribbon.split,
             textOnly: raw.ribbon.textOnly,

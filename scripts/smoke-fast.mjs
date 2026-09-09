@@ -36,6 +36,7 @@ try {
     window.__mveAcks = [];
     window.__mveUndoStack = [];
     window.__mveRedoStack = [];
+    window.__mveGlobalSettings = undefined;
     window.acquireVsCodeApi = () => ({
       postMessage: (message) => {
         window.__mveMessages.push(message);
@@ -101,6 +102,15 @@ try {
             reason: message.reason
           }
         })), 0);
+        if (message.type === 'setScrollSyncEnabled') {
+          window.__mveGlobalSettings = {
+            ...window.__mveGlobalSettings,
+            scrollSyncEnabled: message.enabled
+          };
+          setTimeout(() => window.dispatchEvent(new MessageEvent('message', {
+            data: { type: 'settingsChanged', settings: window.__mveGlobalSettings }
+          })), 0);
+        }
       },
       getState: () => undefined,
       setState: () => undefined
@@ -121,9 +131,12 @@ try {
   await page.addScriptTag({ path: path.resolve('dist/webview.js') });
   await page.waitForFunction(() => window.__mveMessages.some((message) => message.type === 'ready'));
   const settings = { language: 'ja', imageDirectory: 'assets/${documentBasename}', maxPasteSizeMb: 20, remoteImagesEnabled: false, mermaidTheme: 'default', workspaceTrusted: true };
-  await page.evaluate((initSettings) => window.dispatchEvent(new MessageEvent('message', {
-    data: { type: 'init', text: '', version: 1, uri: 'file:///C:/empty-crlf.md', settings: initSettings }
-  })), settings);
+  await page.evaluate((initSettings) => {
+    window.__mveGlobalSettings = { ...initSettings, scrollSyncEnabled: true };
+    window.dispatchEvent(new MessageEvent('message', {
+      data: { type: 'init', text: '', version: 1, uri: 'file:///C:/empty-crlf.md', settings: window.__mveGlobalSettings }
+    }));
+  }, settings);
   await page.locator('.split-editor .cm-content').waitFor();
   const emptyCrLfStart = await page.evaluate(() => ({
     local: window.__mveMessages.filter((message) => message.type === 'localChanges').length,
@@ -153,9 +166,9 @@ try {
     window.__mveRedoStack = [];
     return window.__mveHostVersion;
   }, source);
-  await page.evaluate(({ text, version, initSettings }) => window.dispatchEvent(new MessageEvent('message', {
-    data: { type: 'init', text, version, uri: 'file:///C:/smoke.md', settings: initSettings }
-  })), { text: source, version: sourceVersion, initSettings: settings });
+  await page.evaluate(({ text, version }) => window.dispatchEvent(new MessageEvent('message', {
+    data: { type: 'init', text, version, uri: 'file:///C:/smoke.md', settings: window.__mveGlobalSettings }
+  })), { text: source, version: sourceVersion });
   try {
     await page.locator('.split-editor').waitFor();
     await page.waitForFunction((expectedLength) => (
@@ -207,21 +220,22 @@ try {
   await page.getByRole('button', { name: '表を編集', exact: true }).click();
   await page.locator('.mve-table-editor').waitFor();
   if (await page.locator('.mve-table-editor-grid tbody tr').count() !== 2) throw new Error('table editor did not read the table');
-  await page.locator('.mve-table-editor-toolbar button').first().click();
+  await page.getByRole('button', { name: '＋行', exact: true }).click();
   if (await page.locator('.mve-table-editor-grid tbody tr').count() !== 3) throw new Error('table editor row draft action did not apply once');
   for (let index = 0; index < 4; index += 1) {
     await page.getByRole('button', { name: '＋列', exact: true }).click();
   }
   const tableColumnBefore = await page.locator('.mve-table-editor-grid col').nth(1).evaluate((element) => element.getBoundingClientRect().width);
-  const columnResizerBounds = await page.locator('.mve-table-editor-column-resizer').first().boundingBox();
-  if (!columnResizerBounds) throw new Error('table editor column resizer is not visible');
-  await page.mouse.move(columnResizerBounds.x + 4, columnResizerBounds.y + 12);
-  await page.mouse.down();
-  await page.mouse.move(columnResizerBounds.x + 64, columnResizerBounds.y + 12);
-  await page.mouse.up();
+  const columnResizer = page.locator('.mve-table-editor-column-resizer').first();
+  await columnResizer.press('ArrowRight');
+  await columnResizer.press('ArrowRight');
+  await columnResizer.press('ArrowRight');
+  await columnResizer.press('ArrowRight');
   const tableColumnAfter = await page.locator('.mve-table-editor-grid col').nth(1).evaluate((element) => element.getBoundingClientRect().width);
   if (tableColumnAfter < tableColumnBefore + 40) throw new Error(`table editor column did not resize: before=${tableColumnBefore}, after=${tableColumnAfter}`);
+  page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: 'キャンセル', exact: true }).click();
+  await page.locator('.mve-table-editor').waitFor({ state: 'detached' });
   const noOpMessageStart = await page.evaluate(() => window.__mveMessages.length);
   await page.getByRole('button', { name: '表を編集', exact: true }).click();
   await page.getByRole('button', { name: '適用', exact: true }).click();
@@ -549,6 +563,35 @@ try {
   await page.getByRole('tab', { name: '表示', exact: true }).click();
   await page.getByRole('button', { name: '左右分割', exact: true }).click();
   await page.locator('.split-editor').waitFor();
+  const scrollSync = page.getByRole('button', { name: 'スクロール同期', exact: true });
+  if (await scrollSync.getAttribute('aria-pressed') !== 'true') throw new Error('scroll sync is not enabled by default');
+  await scrollSync.click();
+  await page.waitForFunction(() => document.querySelector('button[title="テキストとプレビューのスクロール位置を同期します"]')?.getAttribute('aria-pressed') === 'false');
+  const scrollSyncDisabledMessage = await page.evaluate(() => [...window.__mveMessages]
+    .reverse()
+    .find((message) => message.type === 'setScrollSyncEnabled'));
+  if (scrollSyncDisabledMessage?.enabled !== false) throw new Error(`scroll sync OFF was not sent to host: ${JSON.stringify(scrollSyncDisabledMessage)}`);
+  await page.waitForTimeout(300);
+  const previewBeforeDisabledSourceScroll = await page.locator('.split-preview').evaluate((element) => element.scrollTop);
+  await page.locator('.cm-scroller').dispatchEvent('wheel', { deltaY: 1 });
+  await page.locator('.cm-scroller').evaluate((element) => {
+    const maximum = element.scrollHeight - element.clientHeight;
+    element.scrollTop = element.scrollTop < maximum / 2 ? maximum : 0;
+  });
+  await page.waitForTimeout(150);
+  const disabledScrollPositions = await page.evaluate(() => ({
+    source: document.querySelector('.cm-scroller')?.scrollTop ?? 0,
+    preview: document.querySelector('.split-preview')?.scrollTop ?? 0
+  }));
+  if (Math.abs(disabledScrollPositions.preview - previewBeforeDisabledSourceScroll) > 1) {
+    throw new Error(`scroll sync OFF still moved the other pane: ${JSON.stringify(disabledScrollPositions)}`);
+  }
+  await page.evaluate(({ text, version }) => window.dispatchEvent(new MessageEvent('message', {
+    data: { type: 'init', text, version, uri: 'file:///C:/another-document.md', settings: window.__mveGlobalSettings }
+  })), { text: await page.evaluate(() => window.__mveHostText), version: await page.evaluate(() => window.__mveHostVersion) });
+  if (await scrollSync.getAttribute('aria-pressed') !== 'false') throw new Error('scroll sync setting did not persist across documents');
+  await scrollSync.click();
+  await page.waitForFunction(() => document.querySelector('button[title="テキストとプレビューのスクロール位置を同期します"]')?.getAttribute('aria-pressed') === 'true');
   const divider = page.locator('.split-divider');
   const before = await page.locator('.split-editor').evaluate((element) => getComputedStyle(element).gridTemplateColumns);
   const bounds = await divider.boundingBox();
@@ -1013,7 +1056,7 @@ try {
   await page.evaluate(() => { window.__mveAckDelay = 0; });
   await context.close();
   if (errors.length) throw new Error(errors.join('\n'));
-  console.log('高速スモーク: 空CRLF文書の単一改行同期、LFプロトコル、表編集、フォーカス非介入、スクロール保持、分割表示、ズーム、空白可視化、ハイライトを確認しました。');
+  console.log('高速スモーク: 空CRLF文書の単一改行同期、LFプロトコル、表編集、フォーカス非介入、スクロール同期設定、スクロール保持、分割表示、ズーム、空白可視化、ハイライトを確認しました。');
 } finally {
   await browser.close();
 }

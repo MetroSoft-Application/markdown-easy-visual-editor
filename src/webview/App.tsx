@@ -143,6 +143,7 @@ const DEFAULT_SETTINGS: WebviewSettings = {
   remoteImagesEnabled: true,
   mermaidTheme: "auto",
   viewMode: "both",
+  scrollSyncEnabled: true,
   workspaceTrusted: false,
 };
 const PREVIEW_UPDATE_DELAY_MS = 120;
@@ -233,6 +234,9 @@ export function App(): React.JSX.Element {
     useInterruptibleDebouncedValue(markdown, PREVIEW_UPDATE_DELAY_MS);
   const [version, setVersion] = useState(0);
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const scrollSyncEnabled = settings.scrollSyncEnabled !== false;
+  const scrollSyncEnabledRef = useRef(scrollSyncEnabled);
+  scrollSyncEnabledRef.current = scrollSyncEnabled;
   const [previewSnapshot, cancelActivePreviewRender] =
     useMarkdownPreviewSnapshot(
       previewMarkdown,
@@ -914,7 +918,7 @@ export function App(): React.JSX.Element {
     switch (message.type) {
       case "init":
         if (initializedRef.current) {
-          setSettings(message.settings);
+          applyHostSettings(message.settings);
           if (
             message.version !== versionRef.current ||
             message.text !== hostTextRef.current
@@ -933,7 +937,7 @@ export function App(): React.JSX.Element {
         hostTextRef.current = message.text;
         versionRef.current = message.version;
         setVersion(message.version);
-        setSettings(message.settings);
+        applyHostSettings(message.settings);
         if (!hasRestoredViewMode && message.settings.viewMode) {
           setSplitView(restoreViewMode(message.settings.viewMode));
         }
@@ -1006,7 +1010,7 @@ export function App(): React.JSX.Element {
         );
         return;
       case "settingsChanged":
-        setSettings(message.settings);
+        applyHostSettings(message.settings);
         if (message.settings.viewMode)
           setSplitView(restoreViewMode(message.settings.viewMode));
         return;
@@ -1587,6 +1591,17 @@ export function App(): React.JSX.Element {
         prepareLayoutRestore();
         setOutlineVisible((value) => !value);
         return;
+      case "toggleScrollSync": {
+        const enabled = !scrollSyncEnabledRef.current;
+        scrollSyncEnabledRef.current = enabled;
+        if (!enabled) cancelPendingCrossPaneScrollSync();
+        setSettings((current) => ({
+          ...current,
+          scrollSyncEnabled: enabled,
+        }));
+        vscode.postMessage({ type: "setScrollSyncEnabled", enabled });
+        return;
+      }
       case "toggleInspector":
         if (inspector) changeInspector(undefined);
         return;
@@ -2558,7 +2573,13 @@ export function App(): React.JSX.Element {
     }
     viewportStateRef.current.source = anchor;
     schedulePersistViewState();
-    if (!userInitiated || mode !== "split" || splitView !== "both") return;
+    if (
+      !scrollSyncEnabledRef.current ||
+      !userInitiated ||
+      mode !== "split" ||
+      splitView !== "both"
+    )
+      return;
     const preview = splitPreviewRef.current;
     if (!preview) return;
     const previewAnchor = {
@@ -2673,7 +2694,12 @@ export function App(): React.JSX.Element {
       lastPreviewUserScrollAtRef.current = performance.now();
       previewUserScrollPendingRef.current.delete(container);
       schedulePersistViewState();
-      if (kind !== "splitPreview" || mode !== "split" || splitView !== "both")
+      if (
+        !scrollSyncEnabledRef.current ||
+        kind !== "splitPreview" ||
+        mode !== "split" ||
+        splitView !== "both"
+      )
         return;
       viewportStateRef.current.source = {
         offset: anchor.offset,
@@ -2692,6 +2718,7 @@ export function App(): React.JSX.Element {
 
   /** プレビューからソースへの追従描画を最新1件・最大約30Hzに制限する。 */
   function schedulePreviewToSourceSync(anchor: PreviewViewportAnchor): void {
+    if (!scrollSyncEnabledRef.current) return;
     pendingPreviewToSourceAnchorRef.current = anchor;
     if (previewToSourceSyncTimerRef.current !== undefined) return;
     const delay = Math.max(
@@ -2704,7 +2731,7 @@ export function App(): React.JSX.Element {
       lastPreviewToSourceSyncRef.current = performance.now();
       const pending = pendingPreviewToSourceAnchorRef.current;
       pendingPreviewToSourceAnchorRef.current = undefined;
-      if (!pending) return;
+      if (!scrollSyncEnabledRef.current || !pending) return;
       mveDebug("preview.scroll.sync-source", { pending });
       if (pending.scrollRatio !== undefined) {
         sourceRef.current?.restoreScrollRatio(pending.scrollRatio);
@@ -2716,6 +2743,7 @@ export function App(): React.JSX.Element {
 
   /** ソースからプレビューへの追従描画を最新1件・最大約30Hzに制限する。 */
   function scheduleSourceToPreviewSync(anchor: EditorViewportAnchor): void {
+    if (!scrollSyncEnabledRef.current) return;
     pendingSourceToPreviewAnchorRef.current = anchor;
     if (sourceToPreviewSyncTimerRef.current !== undefined) return;
     const delay = Math.max(
@@ -2729,13 +2757,35 @@ export function App(): React.JSX.Element {
       const pending = pendingSourceToPreviewAnchorRef.current;
       pendingSourceToPreviewAnchorRef.current = undefined;
       const preview = splitPreviewRef.current;
-      if (!pending || !preview) return;
+      if (!scrollSyncEnabledRef.current || !pending || !preview) return;
       if (pending.scrollRatio !== undefined) {
         restorePreviewScrollRatio(preview, pending.scrollRatio);
       } else {
         restorePreview(preview, pending);
       }
     }, delay);
+  }
+
+  /** OFFへ切り替えた直前に予約されていたペイン間スクロール同期を破棄する。 */
+  function cancelPendingCrossPaneScrollSync(): void {
+    if (previewToSourceSyncTimerRef.current !== undefined) {
+      window.clearTimeout(previewToSourceSyncTimerRef.current);
+      previewToSourceSyncTimerRef.current = undefined;
+    }
+    if (sourceToPreviewSyncTimerRef.current !== undefined) {
+      window.clearTimeout(sourceToPreviewSyncTimerRef.current);
+      sourceToPreviewSyncTimerRef.current = undefined;
+    }
+    pendingPreviewToSourceAnchorRef.current = undefined;
+    pendingSourceToPreviewAnchorRef.current = undefined;
+  }
+
+  /** Hostから受け取った全体設定を反映し、スクロール同期OFFを即座に確定する。 */
+  function applyHostSettings(nextSettings: WebviewSettings): void {
+    const enabled = nextSettings.scrollSyncEnabled !== false;
+    scrollSyncEnabledRef.current = enabled;
+    if (!enabled) cancelPendingCrossPaneScrollSync();
+    setSettings(nextSettings);
   }
 
   /**
@@ -3161,6 +3211,7 @@ export function App(): React.JSX.Element {
         readOnly={readOnly}
         activeMarks={activeMarks}
         outlineVisible={outlineVisible}
+        scrollSyncEnabled={scrollSyncEnabled}
         splitView={splitView}
         htmlOptions={htmlOptions}
         onHtmlOptionsChange={setHtmlOptions}

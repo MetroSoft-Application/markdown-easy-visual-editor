@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { getMessages, resolveLanguage } from '../src/shared/messages';
+import { getMessages, resolveLanguage, SUPPORTED_LANGUAGES } from '../src/shared/messages';
 import localeCatalog from '../src/shared/locales.json';
 
 describe('message language resolution', () => {
@@ -28,6 +28,10 @@ describe('message language resolution', () => {
     expect(getMessages('fr').ribbon.tabs.home).toBe('Accueil');
     expect(getMessages('de').ribbon.tabs.home).toBe('Start');
     expect(getMessages('es').ribbon.tabs.home).toBe('Inicio');
+    for (const language of SUPPORTED_LANGUAGES) {
+      expect(getMessages(language).ribbon.scrollSync, language).toBeTruthy();
+      expect(getMessages(language).ribbon.scrollSyncTitle, language).toBeTruthy();
+    }
   });
 
   it('keeps a complete independent catalog for every supported language', () => {
