@@ -1,8 +1,8 @@
-import mermaid from 'mermaid';
 import { createClientId } from './id';
 import { getMessages, type SupportedLanguage } from '../shared/messages';
 import type { HostToWebviewMessage, MermaidInteraction } from '../shared/protocol';
 import { sharedVsCodeApi } from './vscodeApi';
+import { webviewAssetUrl, webviewScriptNonce } from './assets';
 
 export type MermaidTheme = 'default' | 'dark' | 'neutral';
 
@@ -19,7 +19,17 @@ interface InlineRenderTask {
 }
 const inlineRenderQueue: InlineRenderTask[] = [];
 let activeInlineRender: InlineRenderTask | undefined;
+interface MermaidRuntime {
+    initialize(config: Record<string, unknown>): void;
+    parse(source: string): Promise<unknown>;
+    render(id: string, source: string): Promise<{ svg: string }>;
+}
+declare global {
+    var mermaid: MermaidRuntime | undefined;
+}
+let mermaidRuntimePromise: Promise<MermaidRuntime> | undefined;
 const HOST_RENDER_TIMEOUT_MS = 35_000;
+const COMPACT_PREVIEW_SVG_LIMIT = 80_000;
 export interface MermaidRenderResult {
     svg: string;
     pngBase64?: string;
@@ -60,9 +70,20 @@ export function renderMermaidSvg(
     theme: MermaidTheme,
     signal?: AbortSignal,
     useHostRenderer = false,
-    allowInlineFallback = true
+    allowInlineFallback = true,
+    preferInlineIfCompact = false
 ): Promise<MermaidRenderResult> {
     if (useHostRenderer) {
+        if (preferInlineIfCompact) {
+            return renderMermaidInline(source, theme, signal)
+                .then((rendered) => rendered.svg.length < COMPACT_PREVIEW_SVG_LIMIT
+                    ? rendered
+                    : requestHostRender(source, theme, signal))
+                .catch((error) => {
+                    if (error instanceof MermaidRenderCancelledError) throw error;
+                    return requestHostRender(source, theme, signal);
+                });
+        }
         return requestHostRender(source, theme, signal)
             .catch((error) => {
                 if (!(error instanceof MermaidHostRenderError) || !error.unavailable || !allowInlineFallback) throw error;
@@ -176,6 +197,8 @@ async function drainInlineRenderQueue(): Promise<void> {
         activeInlineRender = task;
         task.started = true;
         try {
+            const mermaid = await loadMermaidRuntime();
+            if (task.cancelled || task.signal?.aborted) throw new MermaidRenderCancelledError();
             mermaid.initialize({
                 startOnLoad: false,
                 securityLevel: 'strict',
@@ -193,6 +216,37 @@ async function drainInlineRenderQueue(): Promise<void> {
             if (activeInlineRender === task) activeInlineRender = undefined;
         }
     }
+}
+
+/** Host 描画が利用できない場合だけ、Webview 内 Mermaid を別ファイルから読む。 */
+function loadMermaidRuntime(): Promise<MermaidRuntime> {
+    if (typeof globalThis.mermaid?.initialize === 'function') {
+        return Promise.resolve(globalThis.mermaid);
+    }
+    mermaidRuntimePromise ??= new Promise<MermaidRuntime>((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = webviewAssetUrl(
+            'mermaid.min.js',
+            document.body.dataset.mveMermaidUri
+        );
+        script.async = true;
+        const nonce = webviewScriptNonce();
+        if (nonce) script.nonce = nonce;
+        script.addEventListener('load', () => {
+            if (typeof globalThis.mermaid?.initialize === 'function') {
+                resolve(globalThis.mermaid);
+                return;
+            }
+            mermaidRuntimePromise = undefined;
+            reject(new Error('Mermaid runtime did not initialize.'));
+        }, { once: true });
+        script.addEventListener('error', () => {
+            mermaidRuntimePromise = undefined;
+            reject(new Error('Mermaid runtime could not be loaded.'));
+        }, { once: true });
+        document.head.append(script);
+    });
+    return mermaidRuntimePromise;
 }
 
 function cancelInlineRender(task: InlineRenderTask): void {

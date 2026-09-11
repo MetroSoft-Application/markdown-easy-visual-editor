@@ -59,12 +59,11 @@ import {
 import { getMessages, type Messages } from "../shared/messages";
 import { prepareExportHtml } from "../shared/exportHtml";
 import { createClientId } from "./id";
+import { webviewAssetUrl } from "./assets";
 import { isMveDebugEnabled, mveDebug } from "./debug";
-import {
-  escapeHtml,
-  renderMarkdown,
-  sanitizeRenderedMarkdown,
-} from "./markdownRenderer";
+import { escapeHtml } from "../shared/escapeHtml";
+import { sanitizeRenderedMarkdown } from "./markdownSanitizer";
+import { renderMarkdownFallback } from "./markdownFallback";
 import type { UnsafeMarkdownBlock } from "./markdownRendererCore";
 import { acceptMermaidRenderResult } from "./mermaidRenderer";
 import { RenderedMarkdown, type InspectorTarget } from "./RenderedMarkdown";
@@ -242,6 +241,7 @@ export function App(): React.JSX.Element {
       previewMarkdown,
       settings.remoteImagesEnabled,
       settings.language,
+      initialized,
     );
   const cancelPreviewWork = useCallback(() => {
     if (document.body.dataset.mveInputActive !== "true") {
@@ -315,6 +315,8 @@ export function App(): React.JSX.Element {
   >(() => undefined);
   const versionRef = useRef(0);
   const initializedRef = useRef(false);
+  const startupReportedRef = useRef(false);
+  const startupMermaidReportedRef = useRef(false);
   // ACK待ちは常に1件だけとし、その間の入力はlocalTextRefの最新値へ上書き集約する。
   const inFlightOperationRef = useRef<PendingLocalOperation | undefined>(
     undefined,
@@ -727,7 +729,7 @@ export function App(): React.JSX.Element {
         )
           return;
         if (mode === "split" && splitView !== "preview" && snapshot.source) {
-          sourceRef.current?.restoreViewport(snapshot.source);
+          restoreSource(snapshot.source);
         }
         if (
           mode === "split" &&
@@ -2001,7 +2003,7 @@ export function App(): React.JSX.Element {
       type: "exportPdf",
       requestId,
       html,
-      css: collectPrintableCss(),
+      css: await collectEmbeddedPrintableCss(),
       options: pdfOptions,
     };
     pdfRequestsRef.current.add(requestId);
@@ -2042,7 +2044,7 @@ export function App(): React.JSX.Element {
       html: root
         ? serializeExportHtml(root)
         : `<pre>${escapeHtml(currentMarkdown)}</pre>`,
-      css: collectPrintableCss(),
+      css: await collectEmbeddedPrintableCss(),
       options,
     });
     if (!printPreview) {
@@ -2512,7 +2514,7 @@ export function App(): React.JSX.Element {
     if (skipNextSourceViewportRestoreRef.current) {
       skipNextSourceViewportRestoreRef.current = false;
     } else if (mode === "split" && splitView !== "preview" && sourceAnchor) {
-      sourceRef.current?.restoreViewport(sourceAnchor);
+      restoreSource(sourceAnchor);
     }
     if (mode === "split" && splitView !== "text" && splitPreviewRef.current) {
       restorePendingPreview("splitPreview", splitPreviewRef.current);
@@ -2733,11 +2735,7 @@ export function App(): React.JSX.Element {
       pendingPreviewToSourceAnchorRef.current = undefined;
       if (!scrollSyncEnabledRef.current || !pending) return;
       mveDebug("preview.scroll.sync-source", { pending });
-      if (pending.scrollRatio !== undefined) {
-        sourceRef.current?.restoreScrollRatio(pending.scrollRatio);
-      } else {
-        sourceRef.current?.restoreViewport(pending);
-      }
+      restoreSource(pending);
     }, delay);
   }
 
@@ -2788,6 +2786,15 @@ export function App(): React.JSX.Element {
     setSettings(nextSettings);
   }
 
+  /** ソース表示を復元し、本文アンカーで表現できない先頭・末尾では境界比率を優先する。 */
+  function restoreSource(anchor: EditorViewportAnchor): void {
+    if (anchor.scrollRatio !== undefined) {
+      sourceRef.current?.restoreScrollRatio(anchor.scrollRatio);
+    } else {
+      sourceRef.current?.restoreViewport(anchor);
+    }
+  }
+
   /**
    * プレビューのプログラムスクロールを記録し、指定された表示アンカーへ移動する。
    * @param container スクロール位置を変更するプレビュー。
@@ -2800,7 +2807,14 @@ export function App(): React.JSX.Element {
   ): void {
     programmaticPreviewScrollsRef.current.add(container);
     const before = container.scrollTop;
-    const restored = restorePreviewViewport(container, anchor);
+    // 先頭・末尾は本文ブロックの位置だけでは余白を表現できないため、
+    // 描画完了・リサイズ・表示切替を含むすべての復元経路で境界比率を優先する。
+    // ここで分岐しないと、同期で一度最下端へ到達しても遅延描画完了後の
+    // アンカー復元によって最終ブロックの先頭側へ戻される。
+    const restored =
+      anchor.scrollRatio !== undefined
+        ? restoreScrollRatio(container, anchor.scrollRatio)
+        : restorePreviewViewport(container, anchor);
     mveDebug("preview.restore.result", {
       restored,
       before,
@@ -2824,8 +2838,30 @@ export function App(): React.JSX.Element {
    * @returns 何も返さない。
    */
   function handlePreviewRendered(kind: "splitPreview" | "previewOnly"): void {
+    if (
+      settings.startupProbe &&
+      initialized &&
+      !startupReportedRef.current &&
+      renderedPreviewMarkdown === localTextRef.current
+    ) {
+      startupReportedRef.current = true;
+      vscode.postMessage({
+        type: "startupReady",
+        clientId: clientIdRef.current,
+        markdownLength: renderedPreviewMarkdown.length,
+      });
+    }
     pendingRenderedPreviewKindsRef.current.add(kind);
     scheduleRenderedPreviewRestore();
+  }
+
+  function handleStartupMermaidRendered(): void {
+    if (!settings.startupProbe || startupMermaidReportedRef.current) return;
+    startupMermaidReportedRef.current = true;
+    vscode.postMessage({
+      type: "startupMermaidReady",
+      clientId: clientIdRef.current,
+    });
   }
 
   /** レイアウト変化後の表示位置復元を集約し、ユーザースクロール中は完了後まで延期する。 */
@@ -3088,7 +3124,13 @@ export function App(): React.JSX.Element {
   );
   const splitPreviewRendered = useCallback(
     () => handlePreviewRendered("splitPreview"),
-    [mode, splitView],
+    [
+      initialized,
+      mode,
+      renderedPreviewMarkdown,
+      settings.startupProbe,
+      splitView,
+    ],
   );
   const sourceEditorChange = useCallback(
     (
@@ -3477,6 +3519,7 @@ export function App(): React.JSX.Element {
                   onInspect={splitPreviewInspect}
                   onNavigate={splitPreviewNavigate}
                   onRendered={splitPreviewRendered}
+                  onMermaidRendered={handleStartupMermaidRendered}
                   deferMermaid
                 />
               </div>
@@ -3821,6 +3864,7 @@ function useMarkdownPreviewSnapshot(
   markdown: string,
   remoteImagesEnabled: boolean,
   language: WebviewSettings["language"],
+  enabled: boolean,
 ): [MarkdownPreviewSnapshot, () => void] {
   const [snapshot, setSnapshot] = useState<MarkdownPreviewSnapshot>({
     markdown: "",
@@ -3847,9 +3891,10 @@ function useMarkdownPreviewSnapshot(
 
   useEffect(() => {
     cancelActiveRender();
+    if (!enabled) return;
     const id = generationRef.current;
     const startedAt = performance.now();
-    const applySynchronousFallback = (error: unknown) => {
+    const applySynchronousFallback = async (error: unknown) => {
       if (generationRef.current !== id) return;
       document.body.dataset.mveMarkdownWorkerStatus = "fallback";
       console.error(
@@ -3857,9 +3902,24 @@ function useMarkdownPreviewSnapshot(
         error,
       );
       const fallbackStartedAt = performance.now();
+      let html: string;
+      try {
+        html = await renderMarkdownFallback(markdown, {
+          remoteImagesEnabled,
+          language,
+        });
+      } catch (fallbackError) {
+        if (generationRef.current !== id) return;
+        console.error(
+          "[Markdown Easy Visual Editor] Markdown フォールバックを読み込めませんでした。",
+          fallbackError,
+        );
+        html = `<pre>${escapeHtml(markdown)}</pre>`;
+      }
+      if (generationRef.current !== id) return;
       setSnapshot({
         markdown,
-        html: renderMarkdown(markdown, { remoteImagesEnabled, language }),
+        html,
         outline: getOutline(markdown),
         diagnostics: collectDiagnostics(markdown, language),
         stats: wordStats(markdown),
@@ -3897,7 +3957,7 @@ function useMarkdownPreviewSnapshot(
             !response.diagnostics ||
             !response.stats
           ) {
-            applySynchronousFallback(response.error);
+            void applySynchronousFallback(response.error);
             return;
           }
           document.body.dataset.mveMarkdownWorkerStatus = "ready";
@@ -3936,7 +3996,7 @@ function useMarkdownPreviewSnapshot(
           workerBusyRef.current = false;
           worker.terminate();
           workerRef.current = undefined;
-          applySynchronousFallback(event.message);
+          void applySynchronousFallback(event.message);
         };
         worker.postMessage({
           id,
@@ -3944,12 +4004,12 @@ function useMarkdownPreviewSnapshot(
           options: { remoteImagesEnabled, language },
         });
       } catch (error) {
-        applySynchronousFallback(error);
+        void applySynchronousFallback(error);
       }
     };
     void startWorker();
     return cancelActiveRender;
-  }, [markdown, remoteImagesEnabled, language, cancelActiveRender]);
+  }, [markdown, remoteImagesEnabled, language, enabled, cancelActiveRender]);
 
   useEffect(
     () => () => {
@@ -4940,4 +5000,27 @@ function collectPrintableCss(includeEmbeddedFonts = true): string {
     }
   }
   return rules.join("\n");
+}
+
+let exportFontCssPromise: Promise<string> | undefined;
+
+/** 出力時だけ自己完結したフォント CSS を取得し、従来と同じ埋め込み出力を保つ。 */
+async function collectEmbeddedPrintableCss(): Promise<string> {
+  exportFontCssPromise ??= fetch(
+    webviewAssetUrl(
+      "export-fonts.css",
+      document.body.dataset.mveExportFontsUri,
+    ),
+  )
+    .then((response) => {
+      if (!response.ok) {
+        throw new Error(`Unable to load export fonts (${response.status})`);
+      }
+      return response.text();
+    })
+    .catch((error) => {
+      exportFontCssPromise = undefined;
+      throw error;
+    });
+  return `${collectPrintableCss(false)}\n${await exportFontCssPromise}`;
 }

@@ -5,6 +5,8 @@
 .understand-anything/**
 **/AGENTS.md
 .vscode/**
+.vscode-test/**
+.benchmark-baseline/**
 src/**
 test/**
 scripts/**

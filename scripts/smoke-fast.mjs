@@ -227,12 +227,16 @@ try {
   }
   const tableColumnBefore = await page.locator('.mve-table-editor-grid col').nth(1).evaluate((element) => element.getBoundingClientRect().width);
   const columnResizer = page.locator('.mve-table-editor-column-resizer').first();
-  await columnResizer.press('ArrowRight');
-  await columnResizer.press('ArrowRight');
-  await columnResizer.press('ArrowRight');
-  await columnResizer.press('ArrowRight');
+  const tableColumnStateBefore = Number(await columnResizer.getAttribute('aria-valuenow'));
+  for (let step = 1; step <= 4; step += 1) {
+    await columnResizer.press('ArrowRight');
+    await page.waitForFunction((expected) => Number(document.querySelector('.mve-table-editor-column-resizer')?.getAttribute('aria-valuenow')) === expected, tableColumnStateBefore + step * 12);
+  }
   const tableColumnAfter = await page.locator('.mve-table-editor-grid col').nth(1).evaluate((element) => element.getBoundingClientRect().width);
-  if (tableColumnAfter < tableColumnBefore + 40) throw new Error(`table editor column did not resize: before=${tableColumnBefore}, after=${tableColumnAfter}`);
+  const tableColumnStateAfter = Number(await columnResizer.getAttribute('aria-valuenow'));
+  if (tableColumnStateAfter !== tableColumnStateBefore + 48 || tableColumnAfter <= tableColumnBefore) {
+    throw new Error(`table editor column did not resize: state=${tableColumnStateBefore}->${tableColumnStateAfter}, rendered=${tableColumnBefore}->${tableColumnAfter}`);
+  }
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: 'キャンセル', exact: true }).click();
   await page.locator('.mve-table-editor').waitFor({ state: 'detached' });
@@ -279,8 +283,10 @@ try {
   await sourceEditor.press('ArrowDown');
   await sourceEditor.press('End');
   await sourceEditor.type('  \nX');
-  await page.waitForFunction((start) => window.__mveMessages.filter((message) => message.type === 'localChanges').length > start, sourceEditMessageStart);
-  if (!(await page.evaluate(() => window.__mveHostText.includes('second  \n')))) throw new Error('two-space hardbreak was removed during source edit');
+  await page.waitForFunction(() => window.__mveHostText.includes('second  \n'));
+  if ((await page.evaluate(() => window.__mveMessages.filter((message) => message.type === 'localChanges').length)) <= sourceEditMessageStart) {
+    throw new Error('source edit did not emit a synchronization operation');
+  }
   const beforeRibbonUndo = await page.evaluate(() => window.__mveHostText);
   await sourceEditor.press('Z');
   await page.waitForFunction((text) => window.__mveHostText.length === text.length + 1, beforeRibbonUndo);
@@ -312,12 +318,12 @@ try {
   await page.locator('.split-preview').dispatchEvent('wheel', { deltaY: 1 });
   await page.locator('.cm-scroller').evaluate((element) => { element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.7; });
   await page.locator('.split-preview').evaluate((element) => { element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.7; });
-  await page.waitForTimeout(50);
+  await page.waitForTimeout(200);
   const beforeExternal = await page.evaluate(() => ({
     source: document.querySelector('.cm-scroller')?.scrollTop ?? 0,
     preview: document.querySelector('.split-preview')?.scrollTop ?? 0
   }));
-  await page.evaluate(() => {
+  const externalLength = await page.evaluate(() => {
     const baseVersion = window.__mveHostVersion;
     const change = { rangeOffset: window.__mveHostText.length, rangeLength: 0, text: '\nexternal-host-change' };
     window.__mveHostText += change.text;
@@ -325,8 +331,12 @@ try {
     window.dispatchEvent(new MessageEvent('message', {
       data: { type: 'externalChanges', baseVersion, version: window.__mveHostVersion, changes: [change] }
     }));
+    return window.__mveHostText.length;
   });
-  await page.waitForTimeout(50);
+  await page.waitForFunction((length) => (
+    Number(document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-document-length')) === length
+  ), externalLength);
+  await page.waitForTimeout(100);
   const afterExternal = await page.evaluate(() => ({
     source: document.querySelector('.cm-scroller')?.scrollTop ?? 0,
     preview: document.querySelector('.split-preview')?.scrollTop ?? 0
@@ -592,6 +602,74 @@ try {
   if (await scrollSync.getAttribute('aria-pressed') !== 'false') throw new Error('scroll sync setting did not persist across documents');
   await scrollSync.click();
   await page.waitForFunction(() => document.querySelector('button[title="テキストとプレビューのスクロール位置を同期します"]')?.getAttribute('aria-pressed') === 'true');
+  await page.evaluate(() => {
+    window.__mveDebugEnabled = true;
+    window.__mveDebugLog = [];
+  });
+  await page.locator('.cm-scroller').dispatchEvent('wheel', { deltaY: -10_000 });
+  await page.locator('.cm-scroller').evaluate((element) => { element.scrollTop = 0; });
+  await page.waitForTimeout(150);
+  const topScrollState = await page.evaluate(() => ({
+    source: document.querySelector('.cm-scroller')?.scrollTop ?? Number.POSITIVE_INFINITY,
+    preview: document.querySelector('.split-preview')?.scrollTop ?? Number.POSITIVE_INFINITY
+  }));
+  if (topScrollState.source > 1 || topScrollState.preview > 1) {
+    throw new Error(`source top scroll did not synchronize to preview top: ${JSON.stringify(topScrollState)}`);
+  }
+  await page.evaluate(() => {
+    window.__mveBottomScrollSamples = [];
+    window.__mveBottomScrollSampler = window.setInterval(() => {
+      const preview = document.querySelector('.split-preview');
+      if (!preview) return;
+      window.__mveBottomScrollSamples.push({
+        at: performance.now(),
+        gap: preview.scrollHeight - preview.clientHeight - preview.scrollTop
+      });
+    }, 16);
+  });
+  await page.locator('.cm-scroller').dispatchEvent('wheel', { deltaY: 10_000 });
+  await page.locator('.cm-scroller').evaluate((element) => { element.scrollTop = element.scrollHeight; });
+  await page.waitForTimeout(800);
+  const bottomScrollState = await page.evaluate(() => {
+    window.clearInterval(window.__mveBottomScrollSampler);
+    const source = document.querySelector('.cm-scroller');
+    const preview = document.querySelector('.split-preview');
+    const samples = window.__mveBottomScrollSamples ?? [];
+    return {
+      sourceGap: source ? source.scrollHeight - source.clientHeight - source.scrollTop : Number.POSITIVE_INFINITY,
+      previewGap: preview ? preview.scrollHeight - preview.clientHeight - preview.scrollTop : Number.POSITIVE_INFINITY,
+      minimumPreviewGap: samples.length ? Math.min(...samples.map((sample) => sample.gap)) : Number.POSITIVE_INFINITY,
+      samples: samples.slice(-12),
+      debug: (window.__mveDebugLog ?? []).slice(-30)
+    };
+  });
+  if (bottomScrollState.sourceGap > 1 || bottomScrollState.previewGap > 1) {
+    throw new Error(`source bottom scroll did not remain synchronized at preview bottom: ${JSON.stringify(bottomScrollState)}`);
+  }
+  await page.locator('.split-preview').dispatchEvent('wheel', { deltaY: -10_000 });
+  await page.locator('.split-preview').evaluate((element) => { element.scrollTop = 0; });
+  await page.waitForTimeout(150);
+  const reverseTopScrollState = await page.evaluate(() => ({
+    source: document.querySelector('.cm-scroller')?.scrollTop ?? Number.POSITIVE_INFINITY,
+    preview: document.querySelector('.split-preview')?.scrollTop ?? Number.POSITIVE_INFINITY
+  }));
+  if (reverseTopScrollState.source > 1 || reverseTopScrollState.preview > 1) {
+    throw new Error(`preview top scroll did not synchronize to source top: ${JSON.stringify(reverseTopScrollState)}`);
+  }
+  await page.locator('.split-preview').dispatchEvent('wheel', { deltaY: 10_000 });
+  await page.locator('.split-preview').evaluate((element) => { element.scrollTop = element.scrollHeight; });
+  await page.waitForTimeout(300);
+  const reverseBottomScrollState = await page.evaluate(() => {
+    const source = document.querySelector('.cm-scroller');
+    const preview = document.querySelector('.split-preview');
+    return {
+      sourceGap: source ? source.scrollHeight - source.clientHeight - source.scrollTop : Number.POSITIVE_INFINITY,
+      previewGap: preview ? preview.scrollHeight - preview.clientHeight - preview.scrollTop : Number.POSITIVE_INFINITY
+    };
+  });
+  if (reverseBottomScrollState.sourceGap > 1 || reverseBottomScrollState.previewGap > 1) {
+    throw new Error(`preview bottom scroll did not synchronize to source bottom: ${JSON.stringify(reverseBottomScrollState)}`);
+  }
   const divider = page.locator('.split-divider');
   const before = await page.locator('.split-editor').evaluate((element) => getComputedStyle(element).gridTemplateColumns);
   const bounds = await divider.boundingBox();
@@ -605,6 +683,19 @@ try {
   const zoomBefore = await page.locator('.status-bar').textContent();
   await page.locator('.editor-area').dispatchEvent('wheel', { deltaY: -100, ctrlKey: true });
   await page.waitForFunction((value) => document.querySelector('.status-bar')?.textContent !== value, zoomBefore);
+  await page.waitForTimeout(300);
+  const resizedBottomScrollState = await page.evaluate(() => {
+    window.__mveDebugEnabled = false;
+    const source = document.querySelector('.cm-scroller');
+    const preview = document.querySelector('.split-preview');
+    return {
+      sourceGap: source ? source.scrollHeight - source.clientHeight - source.scrollTop : Number.POSITIVE_INFINITY,
+      previewGap: preview ? preview.scrollHeight - preview.clientHeight - preview.scrollTop : Number.POSITIVE_INFINITY
+    };
+  });
+  if (resizedBottomScrollState.sourceGap > 1 || resizedBottomScrollState.previewGap > 1) {
+    throw new Error(`pane resize or zoom did not preserve synchronized bottom: ${JSON.stringify(resizedBottomScrollState)}`);
+  }
 
   await page.locator('.cm-scroller').dispatchEvent('wheel', { deltaY: 1 });
   await page.locator('.cm-scroller').evaluate((element) => { element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.55; });
@@ -675,7 +766,12 @@ try {
   await page.getByRole('button', { name: 'テキストのみ', exact: true }).click();
   await page.locator('.split-source-pane').waitFor();
   await page.locator('.split-preview').waitFor({ state: 'hidden' });
-  await page.waitForTimeout(50);
+  await page.waitForFunction((target) => {
+    const editor = document.querySelector('.source-editor');
+    const from = Number(editor?.getAttribute('data-viewport-offset'));
+    const to = Number(editor?.getAttribute('data-viewport-end-offset'));
+    return from <= target && target <= to;
+  }, anchorsBeforeModeChange.source, { timeout: 2_000 });
   if (!(await page.locator('.cm-visible-space').count())) throw new Error('source whitespace markers are missing');
   if (!(await page.locator('.cm-content span[class*="ͼ"], .cm-content .tok-keyword, .cm-content .tok-string').count())) {
     throw new Error('source syntax highlighting is missing');

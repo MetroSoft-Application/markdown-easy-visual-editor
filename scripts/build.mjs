@@ -1,5 +1,5 @@
 import * as esbuild from 'esbuild';
-import { copyFile, mkdir } from 'node:fs/promises';
+import { copyFile, mkdir, rm } from 'node:fs/promises';
 
 const watch = process.argv.includes('--watch');
 
@@ -12,6 +12,15 @@ const extensionOptions = {
   target: 'node20',
   sourcemap: false,
   external: ['vscode'],
+  plugins: [{
+    name: 'defer-playwright-runtime',
+    setup(build) {
+      build.onResolve({ filter: /^playwright-core$/ }, () => ({
+        path: './playwright.js',
+        external: true
+      }));
+    }
+  }],
   logLevel: 'info'
 };
 
@@ -25,7 +34,8 @@ const webviewOptions = {
   define: { 'process.env.NODE_ENV': JSON.stringify(watch ? 'development' : 'production') },
   minify: !watch,
   sourcemap: false,
-  loader: { '.woff2': 'dataurl', '.woff': 'dataurl', '.ttf': 'dataurl' },
+  loader: { '.woff2': 'file', '.woff': 'file', '.ttf': 'file' },
+  assetNames: 'fonts/[name]-[hash]',
   logLevel: 'info'
 };
 
@@ -41,6 +51,33 @@ const markdownWorkerOptions = {
   logLevel: 'info'
 };
 
+const markdownFallbackOptions = {
+  ...markdownWorkerOptions,
+  entryPoints: ['src/webview/markdownRenderer.ts'],
+  outfile: 'dist/markdown-fallback.js',
+  globalName: 'mveMarkdownFallback'
+};
+
+const exportFontOptions = {
+  entryPoints: ['src/webview/exportFonts.css'],
+  bundle: true,
+  outfile: 'dist/export-fonts.css',
+  minify: !watch,
+  loader: { '.woff2': 'dataurl', '.woff': 'dataurl', '.ttf': 'dataurl' },
+  logLevel: 'info'
+};
+
+const playwrightOptions = {
+  entryPoints: ['playwright-core'],
+  bundle: true,
+  outfile: 'dist/playwright.js',
+  platform: 'node',
+  format: 'cjs',
+  target: 'node20',
+  sourcemap: false,
+  logLevel: 'info'
+};
+
 async function copyAssets() {
   await mkdir('dist', { recursive: true });
   await Promise.all([
@@ -52,18 +89,32 @@ async function copyAssets() {
   ]);
 }
 
+// dist は生成物専用である。過去ビルドの chunk や runtime を VSIX へ混入させない。
+await rm('dist', { recursive: true, force: true });
 await copyAssets();
 
 if (watch) {
   const extensionContext = await esbuild.context(extensionOptions);
   const webviewContext = await esbuild.context(webviewOptions);
   const markdownWorkerContext = await esbuild.context(markdownWorkerOptions);
-  await Promise.all([extensionContext.watch(), webviewContext.watch(), markdownWorkerContext.watch()]);
+  const markdownFallbackContext = await esbuild.context(markdownFallbackOptions);
+  const exportFontContext = await esbuild.context(exportFontOptions);
+  await esbuild.build(playwrightOptions);
+  await Promise.all([
+    extensionContext.watch(),
+    webviewContext.watch(),
+    markdownWorkerContext.watch(),
+    markdownFallbackContext.watch(),
+    exportFontContext.watch()
+  ]);
   console.log('Watching extension and webview...');
 } else {
   await Promise.all([
     esbuild.build(extensionOptions),
     esbuild.build(webviewOptions),
-    esbuild.build(markdownWorkerOptions)
+    esbuild.build(markdownWorkerOptions),
+    esbuild.build(markdownFallbackOptions),
+    esbuild.build(exportFontOptions),
+    esbuild.build(playwrightOptions)
   ]);
 }

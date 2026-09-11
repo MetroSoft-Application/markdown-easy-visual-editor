@@ -66,6 +66,17 @@ interface PanelReadyWaiter {
     reject: (error: Error) => void;
 }
 
+interface StartupTiming {
+    uri: string;
+    documentLength: number;
+    resolveStartedAt: number;
+    webviewReadyMs?: number;
+    initializedMs?: number;
+    previewReadyMs?: number;
+    firstMermaidRequestedMs?: number;
+    firstMermaidReadyMs?: number;
+}
+
 /**
  * カスタムエディターとMarkdown Easy Visual EditorのコマンドをVS Codeへ登録する。
  * @param context 拡張機能のサブスクリプションとURIを保持するVS Codeコンテキスト。
@@ -73,7 +84,8 @@ interface PanelReadyWaiter {
  */
 export function activate(context: vscode.ExtensionContext): void {
     // カスタムエディターと拡張機能の各コマンドをVS Codeへ登録する。
-    const provider = new MarkdownEasyVisualEditorProvider(context);
+    const startupBenchmarkEnabled = process.env.MVE_STARTUP_BENCHMARK === '1';
+    const provider = new MarkdownEasyVisualEditorProvider(context, startupBenchmarkEnabled);
     context.subscriptions.push(
         vscode.window.registerCustomEditorProvider(VIEW_TYPE, provider, {
             supportsMultipleEditorsPerDocument: true,
@@ -90,6 +102,12 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand('markdownEasyVisualEditor.undo', () => provider.executeHistoryCommand('undo')),
         vscode.commands.registerCommand('markdownEasyVisualEditor.redo', () => provider.executeHistoryCommand('redo')),
     );
+    if (startupBenchmarkEnabled) {
+        context.subscriptions.push(vscode.commands.registerCommand(
+            'markdownEasyVisualEditor._getStartupTiming',
+            (uri?: vscode.Uri | string) => provider.getStartupTiming(uri)
+        ));
+    }
 }
 
 /**
@@ -126,6 +144,8 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
     private readonly openingDocuments = new Map<string, Promise<void>>();
     private readonly panelClientIds = new WeakMap<vscode.WebviewPanel, string>();
     private readonly panelInitialized = new WeakSet<vscode.WebviewPanel>();
+    private readonly panelStartupTimings = new WeakMap<vscode.WebviewPanel, StartupTiming>();
+    private readonly startupTimings = new Map<string, StartupTiming>();
     private activePanel?: vscode.WebviewPanel;
     private activeDocument?: vscode.TextDocument;
 
@@ -133,7 +153,10 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
      * 文書変更・設定変更・信頼状態変更の監視を登録する。
      * @param context 拡張機能のサブスクリプションを登録するコンテキスト。
      */
-    constructor(private readonly context: vscode.ExtensionContext) {
+    constructor(
+        private readonly context: vscode.ExtensionContext,
+        private readonly startupBenchmarkEnabled = false
+    ) {
         // 文書変更・設定変更・ワークスペース信頼変更を監視し、Webviewへ状態を反映する。
         context.subscriptions.push(
             vscode.workspace.onDidChangeTextDocument((event) => this.onDocumentChanged(event)),
@@ -156,6 +179,15 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
     ): Promise<void> {
         // 文書とWebviewパネルを登録し、HTML・メッセージ受信・破棄時の後処理を設定する。
         const key = document.uri.toString();
+        if (this.startupBenchmarkEnabled) {
+            const timing: StartupTiming = {
+                uri: key,
+                documentLength: document.getText().length,
+                resolveStartedAt: Date.now()
+            };
+            this.panelStartupTimings.set(webviewPanel, timing);
+            this.startupTimings.set(key, timing);
+        }
         this.documents.set(key, document);
         // 空文書でもTextDocument.eolとは無関係に、同期本文の座標系をLFへ固定する。
         if (!this.canonicalDocumentTexts.has(key)) {
@@ -209,6 +241,15 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
                 this.activeDocument = undefined;
             }
         });
+    }
+
+    /** 開発用の実 VS Code 起動計測結果を返す。 */
+    getStartupTiming(uri?: vscode.Uri | string): Omit<StartupTiming, 'resolveStartedAt'> | undefined {
+        const key = typeof uri === 'string' ? uri : uri?.toString();
+        const timing = key ? this.startupTimings.get(key) : [...this.startupTimings.values()].at(-1);
+        if (!timing) return undefined;
+        const { resolveStartedAt: _resolveStartedAt, ...result } = timing;
+        return result;
     }
 
     /**
@@ -364,6 +405,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
                 case 'ready':
                     // 初期接続したWebviewへクライアントID・本文・バージョン・設定を返す。
                     this.panelClientIds.set(panel, message.clientId);
+                    this.markStartup(panel, 'webviewReadyMs');
                     this.panelInitialized.delete(panel);
                     this.post(panel, {
                         type: 'init',
@@ -376,7 +418,16 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
                 case 'initialized':
                     if (this.panelClientIds.get(panel) !== message.clientId) return;
                     this.panelInitialized.add(panel);
+                    this.markStartup(panel, 'initializedMs');
                     this.resolvePanelReady(document.uri.toString(), panel);
+                    return;
+                case 'startupReady':
+                    if (this.panelClientIds.get(panel) !== message.clientId) return;
+                    this.markStartup(panel, 'previewReadyMs');
+                    return;
+                case 'startupMermaidReady':
+                    if (this.panelClientIds.get(panel) !== message.clientId) return;
+                    this.markStartup(panel, 'firstMermaidReadyMs');
                     return;
                 case 'localChanges':
                     await this.queueWebviewEdit(document, panel, message);
@@ -401,6 +452,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
                     return;
                 }
                 case 'renderMermaid': {
+                    this.markStartup(panel, 'firstMermaidRequestedMs');
                     const previous = this.mermaidRenderControllers.get(message.requestId);
                     previous?.controller.abort();
                     const controller = new AbortController();
@@ -1148,8 +1200,21 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
             viewMode: normalizeViewMode(this.context.globalState.get<unknown>(VIEW_MODE_STATE_KEY)),
             scrollSyncEnabled: this.context.globalState.get<boolean>(SCROLL_SYNC_STATE_KEY, true),
             previewImageResizeControlsVisible: this.context.globalState.get<boolean>(PREVIEW_IMAGE_RESIZE_CONTROLS_STATE_KEY, true),
-            workspaceTrusted: vscode.workspace.isTrusted
+            workspaceTrusted: vscode.workspace.isTrusted,
+            startupProbe: this.startupBenchmarkEnabled || undefined
         };
+    }
+
+    private markStartup(
+        panel: vscode.WebviewPanel,
+        field: 'webviewReadyMs' | 'initializedMs' | 'previewReadyMs' | 'firstMermaidRequestedMs' | 'firstMermaidReadyMs'
+    ): void {
+        const timing = this.panelStartupTimings.get(panel);
+        if (!timing || timing[field] !== undefined) return;
+        timing[field] = Date.now() - timing.resolveStartedAt;
+        if (field === 'previewReadyMs' || field === 'firstMermaidReadyMs') {
+            console.info(`[MVE startup] ${JSON.stringify(this.getStartupTiming(timing.uri))}`);
+        }
     }
 
     private getLanguage() {
@@ -1203,6 +1268,9 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
         // Webviewで読み込むリソースURIとCSP nonceを作り、安全なHTMLシェルを生成する。
         const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'webview.js'));
         const markdownWorkerUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'markdown-worker.js'));
+        const markdownFallbackUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'markdown-fallback.js'));
+        const exportFontsUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'export-fonts.css'));
+        const mermaidUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'mermaid.min.js'));
         const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'styles.css'));
         const bundledStyleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'webview.css'));
         const baseUri = webview.asWebviewUri(vscode.Uri.joinPath(document.uri, '..'));
@@ -1219,7 +1287,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
           <link rel="stylesheet" href="${bundledStyleUri}">
           <title>Markdown Easy Visual Editor</title>
         </head>
-        <body data-mve-markdown-worker-uri="${markdownWorkerUri.toString()}">
+        <body data-mve-markdown-worker-uri="${markdownWorkerUri.toString()}" data-mve-markdown-fallback-uri="${markdownFallbackUri.toString()}" data-mve-export-fonts-uri="${exportFontsUri.toString()}" data-mve-mermaid-uri="${mermaidUri.toString()}">
           <div id="root"></div>
           <script nonce="${nonce}" src="${scriptUri}"></script>
         </body>
