@@ -292,8 +292,10 @@ function TableEditorOverlay({
   const rowResizeRef = useRef<RowResizeState | undefined>(undefined);
   const editorDragRef = useRef<EditorDragState | undefined>(undefined);
   const editorResizeRef = useRef<EditorResizeState | undefined>(undefined);
-  const selectionDragRef = useRef<{ row: number; column: number }>();
-  const gridDragRef = useRef<GridDragState>();
+  const selectionDragRef = useRef<
+    { row: number; column: number } | undefined
+  >(undefined);
+  const gridDragRef = useRef<GridDragState | undefined>(undefined);
   const historyRef = useRef(createTableEditorHistory());
   const initialRenderedTextRef = useRef(renderTableEditorDraft(initial).text);
   const polishText = tableEditorPolishText(document.documentElement.lang);
@@ -1065,7 +1067,14 @@ function TableEditorOverlay({
     }
     working.activeRow = Math.min(activeRow, working.rows.length - 1);
     working.activeColumn = Math.min(activeColumn, working.alignments.length - 1);
-    replaceDraft(working);
+    if (renderTableEditorDraft(working).text === currentRenderedText) return;
+    recordHistory();
+    setRows(working.rows.map((row) => row.slice()));
+    setAlignments(working.alignments.slice());
+    setActiveRow(working.activeRow);
+    setActiveColumn(working.activeColumn);
+    cellSelectionRef.current.clear();
+    setStatus("");
   }
 
   function clearAlignment(): void {
