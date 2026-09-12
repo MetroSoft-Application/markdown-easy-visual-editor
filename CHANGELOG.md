@@ -103,3 +103,8 @@
 ## 1.1.5
 
 - Speed up first launch of extensions.
+
+## 1.1.6
+
+- Added a function to swap rows and columns.
+- Added functions to select rows and columns.
