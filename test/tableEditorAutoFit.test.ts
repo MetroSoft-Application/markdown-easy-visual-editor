@@ -7,11 +7,11 @@ import {
 describe('table editor auto-fit sizing', () => {
   it('fits the widest cell and includes horizontal chrome', () => {
     const width = calculateAutoFitColumnWidth(
-      ['A', 'longest', 'mid'],
+      ['A', 'longest text', 'mid'],
       (value) => value.length * 10,
       20,
     );
-    expect(width).toBe(90 < 96 ? 96 : 90);
+    expect(width).toBe(140);
   });
 
   it('uses the minimum width for empty or short content', () => {
