@@ -14,6 +14,7 @@ import { getMessages } from "../shared/messages";
 import { installEditorThemeController } from "./editorThemeController";
 import { installPreviewImageResizeControls } from "./previewImageResizeControls";
 import { installSelectedTextSearchTransfer } from "./searchSelectedText";
+import { installTableEditorAutoFit } from "./tableEditorAutoFit";
 import { installTableEditorOverlay } from "./tableEditorOverlay";
 
 /**
@@ -117,6 +118,7 @@ installPreviewImageResizeControls();
 installSelectedTextSearchTransfer();
 installTableEditorToolbarActivationGuard();
 installTableEditorOverlay();
+installTableEditorAutoFit();
 
 /** Reactのルート要素へアプリケーション本体をStrictMode付きで描画する。 */
 createRoot(root).render(
