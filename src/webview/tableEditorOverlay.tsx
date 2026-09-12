@@ -10,6 +10,17 @@ import {
 } from "../shared/markdown";
 import { getMessages, type Messages } from "../shared/messages";
 import {
+  clearTableGridRange,
+  moveTableGridColumn,
+  moveTableGridItem,
+  moveTableGridRow,
+  normalizeTableGridRange,
+  tableGridColumnLabel,
+  tableGridRangeCellCount,
+  tableGridRangeContains,
+  type TableGridRange,
+} from "../shared/tableGrid";
+import {
   createTableEditorHistory,
   recordTableEditorHistory,
   redoTableEditorHistory,
@@ -67,39 +78,82 @@ type EditorResizeState = {
   left: number;
   top: number;
 };
+type GridSelectionKind = "cells" | "row" | "column" | "all";
+type GridDragState = { kind: "row" | "column"; source: number };
+type GridDropTarget = { kind: "row" | "column"; index: number };
 type TableEditorPolishText = {
   modified: string;
   discard: string;
+  selection: string;
+  cells: string;
+  selectAll: string;
+  dragRow: string;
+  dragColumn: string;
 };
 
 const TABLE_EDITOR_POLISH_TEXT: Record<string, TableEditorPolishText> = {
   ja: {
     modified: "未適用の変更",
     discard: "未適用の変更を破棄しますか？",
+    selection: "選択",
+    cells: "セル",
+    selectAll: "すべてのセルを選択",
+    dragRow: "行をドラッグして並べ替え",
+    dragColumn: "列をドラッグして並べ替え",
   },
   en: {
     modified: "Unapplied changes",
     discard: "Discard unapplied changes?",
+    selection: "Selection",
+    cells: "cells",
+    selectAll: "Select all cells",
+    dragRow: "Drag to reorder row",
+    dragColumn: "Drag to reorder column",
   },
   "zh-cn": {
     modified: "有未应用的更改",
     discard: "要放弃未应用的更改吗？",
+    selection: "选择",
+    cells: "个单元格",
+    selectAll: "选择所有单元格",
+    dragRow: "拖动以重新排列行",
+    dragColumn: "拖动以重新排列列",
   },
   ko: {
     modified: "적용되지 않은 변경 사항",
     discard: "적용되지 않은 변경 사항을 버리시겠습니까?",
+    selection: "선택",
+    cells: "셀",
+    selectAll: "모든 셀 선택",
+    dragRow: "드래그하여 행 순서 변경",
+    dragColumn: "드래그하여 열 순서 변경",
   },
   fr: {
     modified: "Modifications non appliquées",
     discard: "Abandonner les modifications non appliquées ?",
+    selection: "Sélection",
+    cells: "cellules",
+    selectAll: "Sélectionner toutes les cellules",
+    dragRow: "Faire glisser pour réordonner la ligne",
+    dragColumn: "Faire glisser pour réordonner la colonne",
   },
   de: {
     modified: "Nicht angewendete Änderungen",
     discard: "Nicht angewendete Änderungen verwerfen?",
+    selection: "Auswahl",
+    cells: "Zellen",
+    selectAll: "Alle Zellen auswählen",
+    dragRow: "Ziehen, um Zeile neu anzuordnen",
+    dragColumn: "Ziehen, um Spalte neu anzuordnen",
   },
   es: {
     modified: "Cambios sin aplicar",
     discard: "¿Descartar los cambios sin aplicar?",
+    selection: "Selección",
+    cells: "celdas",
+    selectAll: "Seleccionar todas las celdas",
+    dragRow: "Arrastrar para reordenar la fila",
+    dragColumn: "Arrastrar para reordenar la columna",
   },
 };
 
@@ -203,6 +257,14 @@ function TableEditorOverlay({
   );
   const [activeRow, setActiveRow] = useState(initial.activeRow);
   const [activeColumn, setActiveColumn] = useState(initial.activeColumn);
+  const [gridSelection, setGridSelection] = useState<TableGridRange>(() => ({
+    anchorRow: initial.activeRow,
+    anchorColumn: initial.activeColumn,
+    focusRow: initial.activeRow,
+    focusColumn: initial.activeColumn,
+  }));
+  const [selectionKind, setSelectionKind] = useState<GridSelectionKind>("cells");
+  const [dragTarget, setDragTarget] = useState<GridDropTarget>();
   const [status, setStatus] = useState("");
   const [historyRevision, setHistoryRevision] = useState(0);
   const [editorSize, setEditorSize] = useState<EditorSize>({
@@ -230,6 +292,10 @@ function TableEditorOverlay({
   const rowResizeRef = useRef<RowResizeState | undefined>(undefined);
   const editorDragRef = useRef<EditorDragState | undefined>(undefined);
   const editorResizeRef = useRef<EditorResizeState | undefined>(undefined);
+  const selectionDragRef = useRef<
+    { row: number; column: number } | undefined
+  >(undefined);
+  const gridDragRef = useRef<GridDragState | undefined>(undefined);
   const historyRef = useRef(createTableEditorHistory());
   const initialRenderedTextRef = useRef(renderTableEditorDraft(initial).text);
   const polishText = tableEditorPolishText(document.documentElement.lang);
@@ -238,6 +304,28 @@ function TableEditorOverlay({
     alignments.length,
     ...rows.map((row) => row.length),
   );
+  const normalizedSelection = normalizeTableGridRange(
+    gridSelection,
+    rows.length,
+    columnCount,
+  );
+  const selectedCellCount = tableGridRangeCellCount(normalizedSelection);
+  const hasGridRange = selectedCellCount > 1 || selectionKind !== "cells";
+  const selectedColumns = Array.from(
+    {
+      length:
+        normalizedSelection.toColumn - normalizedSelection.fromColumn + 1,
+    },
+    (_, index) => normalizedSelection.fromColumn + index,
+  );
+  const selectedAlignmentValues = selectedColumns.map(
+    (column) => alignments[column] ?? "none",
+  );
+  const currentAlignment = selectedAlignmentValues.every(
+    (value) => value === selectedAlignmentValues[0],
+  )
+    ? selectedAlignmentValues[0]
+    : undefined;
   const gridWidth =
     ROW_HEADER_WIDTH +
     Array.from(
@@ -245,12 +333,11 @@ function TableEditorOverlay({
       (_, index) => columnWidths[index] ?? DEFAULT_COLUMN_WIDTH,
     ).reduce((total, width) => total + width, 0);
   const cellCountLabel = `${rows.length} × ${columnCount}`;
-  const currentAlignment =
-    alignments[Math.min(activeColumn, alignments.length - 1)] ?? "none";
   const currentRenderedText = renderTableEditorDraft(currentDraft()).text;
   const isDirty = currentRenderedText !== initialRenderedTextRef.current;
   const canUndo = historyRef.current.undo.length > 0;
   const canRedo = historyRef.current.redo.length > 0;
+  const selectionSummary = createSelectionSummary();
   void historyRevision;
   const editorStyle: React.CSSProperties | undefined = editorPosition
     ? {
@@ -274,6 +361,15 @@ function TableEditorOverlay({
     const onKeyDown = (event: KeyboardEvent) => {
       const accelerator = event.ctrlKey || event.metaKey;
       const key = event.key.toLowerCase();
+      const insideGrid =
+        event.target instanceof Element &&
+        Boolean(event.target.closest(".mve-table-editor-grid"));
+      if (accelerator && key === "c" && insideGrid && hasGridRange) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        void copyTsv(true);
+        return;
+      }
       if (accelerator && key === "z") {
         event.preventDefault();
         event.stopImmediatePropagation();
@@ -285,6 +381,17 @@ function TableEditorOverlay({
         event.preventDefault();
         event.stopImmediatePropagation();
         redoDraft();
+        return;
+      }
+      if (
+        insideGrid &&
+        hasGridRange &&
+        !accelerator &&
+        (event.key === "Delete" || event.key === "Backspace")
+      ) {
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        clearSelectedCells();
         return;
       }
       if (event.key === "Escape") {
@@ -404,6 +511,7 @@ function TableEditorOverlay({
       });
     };
     const onPointerUp = (event: PointerEvent) => {
+      selectionDragRef.current = undefined;
       if (editorResizeRef.current?.pointerId === event.pointerId) {
         editorResizeRef.current = undefined;
         document.body.style.cursor = "";
@@ -427,6 +535,7 @@ function TableEditorOverlay({
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("pointercancel", onPointerUp);
+      selectionDragRef.current = undefined;
       editorResizeRef.current = undefined;
       editorDragRef.current = undefined;
       rowResizeRef.current = undefined;
@@ -508,6 +617,16 @@ function TableEditorOverlay({
     );
   }
 
+  function singleCellSelection(row: number, column: number): void {
+    setGridSelection({
+      anchorRow: row,
+      anchorColumn: column,
+      focusRow: row,
+      focusColumn: column,
+    });
+    setSelectionKind("cells");
+  }
+
   function focusCell(
     row: number,
     column: number,
@@ -519,6 +638,7 @@ function TableEditorOverlay({
     const safeColumn = Math.max(0, Math.min(column, columns - 1));
     setActiveRow(safeRow);
     setActiveColumn(safeColumn);
+    singleCellSelection(safeRow, safeColumn);
     requestAnimationFrame(() => {
       const element = overlayRef.current?.querySelector<HTMLTextAreaElement>(
         `[data-table-cell="${safeRow}:${safeColumn}"]`,
@@ -607,10 +727,119 @@ function TableEditorOverlay({
   ): void {
     setActiveRow(row);
     setActiveColumn(column);
+    if (!selectionDragRef.current) singleCellSelection(row, column);
     cellSelectionRef.current.set(cellKey(row, column), {
       from: element.selectionStart,
       to: element.selectionEnd,
     });
+  }
+
+  function beginCellSelection(
+    event: React.PointerEvent<HTMLTableCellElement>,
+    row: number,
+    column: number,
+  ): void {
+    if (event.button !== 0) return;
+    if (
+      event.target instanceof Element &&
+      event.target.closest(".mve-table-editor-column-resizer")
+    ) {
+      return;
+    }
+    setActiveRow(row);
+    setActiveColumn(column);
+    setSelectionKind("cells");
+    if (event.shiftKey) {
+      event.preventDefault();
+      selectionDragRef.current = undefined;
+      setGridSelection((previous) => ({
+        ...previous,
+        focusRow: row,
+        focusColumn: column,
+      }));
+      return;
+    }
+    selectionDragRef.current = { row, column };
+    singleCellSelection(row, column);
+  }
+
+  function extendCellSelection(
+    event: React.PointerEvent<HTMLTableCellElement>,
+    row: number,
+    column: number,
+  ): void {
+    const anchor = selectionDragRef.current;
+    if (!anchor || (event.buttons & 1) === 0) return;
+    setSelectionKind("cells");
+    setGridSelection({
+      anchorRow: anchor.row,
+      anchorColumn: anchor.column,
+      focusRow: row,
+      focusColumn: column,
+    });
+    setActiveRow(row);
+    setActiveColumn(column);
+  }
+
+  function selectRow(row: number): void {
+    setActiveRow(row);
+    setActiveColumn(Math.min(activeColumn, columnCount - 1));
+    setGridSelection({
+      anchorRow: row,
+      focusRow: row,
+      anchorColumn: 0,
+      focusColumn: columnCount - 1,
+    });
+    setSelectionKind("row");
+  }
+
+  function selectColumn(column: number): void {
+    setActiveColumn(column);
+    setActiveRow(Math.min(activeRow, rows.length - 1));
+    setGridSelection({
+      anchorRow: 0,
+      focusRow: rows.length - 1,
+      anchorColumn: column,
+      focusColumn: column,
+    });
+    setSelectionKind("column");
+  }
+
+  function selectAllCells(): void {
+    setActiveRow(0);
+    setActiveColumn(0);
+    setGridSelection({
+      anchorRow: 0,
+      focusRow: rows.length - 1,
+      anchorColumn: 0,
+      focusColumn: columnCount - 1,
+    });
+    setSelectionKind("all");
+  }
+
+  function clearSelectedCells(): void {
+    let changed = false;
+    for (
+      let row = normalizedSelection.fromRow;
+      row <= normalizedSelection.toRow && !changed;
+      row += 1
+    ) {
+      for (
+        let column = normalizedSelection.fromColumn;
+        column <= normalizedSelection.toColumn;
+        column += 1
+      ) {
+        if ((rows[row]?.[column] ?? "") !== "") {
+          changed = true;
+          break;
+        }
+      }
+    }
+    if (!changed) return;
+    recordHistory();
+    setRows(clearTableGridRange(rows, normalizedSelection));
+    cellSelectionRef.current.clear();
+    setStatus("");
   }
 
   function insertLineBreak(): void {
@@ -636,6 +865,7 @@ function TableEditorOverlay({
         return next;
       }),
     );
+    singleCellSelection(activeRow, activeColumn);
     cellSelectionRef.current.set(key, {
       from: edit.caretOffset,
       to: edit.caretOffset,
@@ -813,12 +1043,49 @@ function TableEditorOverlay({
     if (next) replaceDraft(next);
   }
 
-  function clearAlignment(): void {
-    if (currentAlignment === "none") return;
+  /** 選択範囲が複数列なら、既存の共通配置操作を列ごとに適用する。 */
+  function applySharedAlignmentAction(
+    action: "alignLeft" | "alignCenter" | "alignRight",
+  ): void {
+    let working = currentDraft();
+    for (const column of selectedColumns) {
+      const positioned: TableEditorDraft = {
+        ...working,
+        activeRow: Math.min(activeRow, working.rows.length - 1),
+        activeColumn: column,
+      };
+      const rendered = renderTableEditorDraft(positioned);
+      const edit = applyMarkdownTableAction(
+        rendered.text,
+        { from: rendered.caretOffset, to: rendered.caretOffset },
+        action,
+      );
+      if (!edit) return;
+      const next = readTableEditorDraft(edit.text, edit.selection.from);
+      if (!next) return;
+      working = next;
+    }
+    working.activeRow = Math.min(activeRow, working.rows.length - 1);
+    working.activeColumn = Math.min(activeColumn, working.alignments.length - 1);
+    if (renderTableEditorDraft(working).text === currentRenderedText) return;
     recordHistory();
+    setRows(working.rows.map((row) => row.slice()));
+    setAlignments(working.alignments.slice());
+    setActiveRow(working.activeRow);
+    setActiveColumn(working.activeColumn);
+    cellSelectionRef.current.clear();
+    setStatus("");
+  }
+
+  function clearAlignment(): void {
+    if (selectedColumns.every((column) => (alignments[column] ?? "none") === "none")) {
+      return;
+    }
+    recordHistory();
+    const selected = new Set(selectedColumns);
     setAlignments((previous) =>
       Array.from({ length: columnCount }, (_, index) =>
-        index === activeColumn ? "none" : (previous[index] ?? "none"),
+        selected.has(index) ? "none" : (previous[index] ?? "none"),
       ),
     );
   }
@@ -837,11 +1104,156 @@ function TableEditorOverlay({
     );
   }
 
+  function moveRow(source: number, target: number): void {
+    const safeTarget = Math.max(1, Math.min(rows.length - 1, target));
+    if (source <= 0 || source >= rows.length || source === safeTarget) return;
+    recordHistory();
+    setRows(moveTableGridRow(rows, source, safeTarget));
+    setRowHeights((previous) =>
+      moveTableGridItem(previous, source, safeTarget),
+    );
+    setActiveRow(safeTarget);
+    setGridSelection({
+      anchorRow: safeTarget,
+      focusRow: safeTarget,
+      anchorColumn: 0,
+      focusColumn: columnCount - 1,
+    });
+    setSelectionKind("row");
+    cellSelectionRef.current.clear();
+    setStatus("");
+  }
+
+  function moveColumn(source: number, target: number): void {
+    const safeTarget = Math.max(0, Math.min(columnCount - 1, target));
+    if (source < 0 || source >= columnCount || source === safeTarget) return;
+    const moved = moveTableGridColumn(rows, alignments, source, safeTarget);
+    recordHistory();
+    setRows(moved.rows);
+    setAlignments(moved.alignments as TableEditorAlignment[]);
+    setColumnWidths((previous) =>
+      moveTableGridItem(previous, source, safeTarget),
+    );
+    setActiveColumn(safeTarget);
+    setGridSelection({
+      anchorRow: 0,
+      focusRow: rows.length - 1,
+      anchorColumn: safeTarget,
+      focusColumn: safeTarget,
+    });
+    setSelectionKind("column");
+    cellSelectionRef.current.clear();
+    setStatus("");
+  }
+
+  function startRowDrag(event: React.DragEvent<HTMLElement>, row: number): void {
+    if (row <= 0) return;
+    selectRow(row);
+    gridDragRef.current = { kind: "row", source: row };
+    setDragTarget({ kind: "row", index: row });
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", `mve-table-row:${row}`);
+  }
+
+  function startColumnDrag(
+    event: React.DragEvent<HTMLElement>,
+    column: number,
+  ): void {
+    selectColumn(column);
+    gridDragRef.current = { kind: "column", source: column };
+    setDragTarget({ kind: "column", index: column });
+    event.dataTransfer.effectAllowed = "move";
+    event.dataTransfer.setData("text/plain", `mve-table-column:${column}`);
+  }
+
+  function allowRowDrop(event: React.DragEvent, row: number): void {
+    if (row <= 0 || gridDragRef.current?.kind !== "row") return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    setDragTarget((previous) =>
+      previous?.kind === "row" && previous.index === row
+        ? previous
+        : { kind: "row", index: row },
+    );
+  }
+
+  function allowColumnDrop(event: React.DragEvent, column: number): void {
+    if (gridDragRef.current?.kind !== "column") return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = "move";
+    setDragTarget((previous) =>
+      previous?.kind === "column" && previous.index === column
+        ? previous
+        : { kind: "column", index: column },
+    );
+  }
+
+  function dropRow(event: React.DragEvent, row: number): void {
+    const drag = gridDragRef.current;
+    if (drag?.kind !== "row" || row <= 0) return;
+    event.preventDefault();
+    moveRow(drag.source, row);
+    endGridDrag();
+  }
+
+  function dropColumn(event: React.DragEvent, column: number): void {
+    const drag = gridDragRef.current;
+    if (drag?.kind !== "column") return;
+    event.preventDefault();
+    moveColumn(drag.source, column);
+    endGridDrag();
+  }
+
+  function endGridDrag(): void {
+    gridDragRef.current = undefined;
+    setDragTarget(undefined);
+  }
+
+  function handleRowDragKey(
+    event: React.KeyboardEvent<HTMLElement>,
+    row: number,
+  ): void {
+    if (!event.altKey) return;
+    const target =
+      event.key === "ArrowUp"
+        ? row - 1
+        : event.key === "ArrowDown"
+          ? row + 1
+          : row;
+    if (target === row || target <= 0 || target >= rows.length) return;
+    event.preventDefault();
+    moveRow(row, target);
+  }
+
+  function handleColumnDragKey(
+    event: React.KeyboardEvent<HTMLElement>,
+    column: number,
+  ): void {
+    if (!event.altKey) return;
+    const target =
+      event.key === "ArrowLeft"
+        ? column - 1
+        : event.key === "ArrowRight"
+          ? column + 1
+          : column;
+    if (target === column || target < 0 || target >= columnCount) return;
+    event.preventDefault();
+    moveColumn(column, target);
+  }
+
   /** Excel等のTSV貼り付けもリボン/本文貼り付けと同じapplyMarkdownTableTsvへ渡す。 */
   function pasteTsv(event: React.ClipboardEvent<HTMLTextAreaElement>): void {
     const value = event.clipboardData.getData("text/plain");
     if (!/[\t\r\n]/.test(value)) return;
-    const rendered = renderTableEditorDraft(currentDraft());
+    const targetRow = hasGridRange ? normalizedSelection.fromRow : activeRow;
+    const targetColumn = hasGridRange
+      ? normalizedSelection.fromColumn
+      : activeColumn;
+    const rendered = renderTableEditorDraft({
+      ...currentDraft(),
+      activeRow: targetRow,
+      activeColumn: targetColumn,
+    });
     const edit = applyMarkdownTableTsv(
       rendered.text,
       { from: rendered.caretOffset, to: rendered.caretOffset },
@@ -854,10 +1266,41 @@ function TableEditorOverlay({
     replaceDraft(next);
   }
 
-  /** TSVコピーも既存のmarkdownTableToTsvを利用し、リボンと同じ変換規則にする。 */
-  async function copyTsv(): Promise<void> {
+  function selectedTsv(): string {
+    const selectedRows = rows
+      .slice(normalizedSelection.fromRow, normalizedSelection.toRow + 1)
+      .map((row) =>
+        row.slice(
+          normalizedSelection.fromColumn,
+          normalizedSelection.toColumn + 1,
+        ),
+      );
+    const selectedAlignments = alignments.slice(
+      normalizedSelection.fromColumn,
+      normalizedSelection.toColumn + 1,
+    );
+    const rendered = renderTableEditorDraft({
+      ...initial,
+      rows: selectedRows,
+      alignments: selectedAlignments,
+      activeRow: 0,
+      activeColumn: 0,
+    });
+    return (
+      markdownTableToTsv(rendered.text, {
+        from: rendered.caretOffset,
+        to: rendered.caretOffset,
+      }) ?? ""
+    );
+  }
+
+  /** TSVコピーは単一セル選択時の従来動作を保ち、範囲選択時だけ選択範囲をコピーする。 */
+  async function copyTsv(forceSelection = false): Promise<void> {
     try {
-      await writeClipboardText(tsv, messages.app.errors.clipboardUnavailable);
+      await writeClipboardText(
+        forceSelection || hasGridRange ? selectedTsv() : tsv,
+        messages.app.errors.clipboardUnavailable,
+      );
       setStatus(messages.app.tableEditor.copied);
       window.setTimeout(() => setStatus(""), 1200);
     } catch (copyError) {
@@ -865,6 +1308,41 @@ function TableEditorOverlay({
         copyError instanceof Error ? copyError.message : String(copyError),
       );
     }
+  }
+
+  function rowIsSelected(row: number): boolean {
+    return (
+      normalizedSelection.fromColumn === 0 &&
+      normalizedSelection.toColumn === columnCount - 1 &&
+      row >= normalizedSelection.fromRow &&
+      row <= normalizedSelection.toRow
+    );
+  }
+
+  function columnIsSelected(column: number): boolean {
+    return (
+      normalizedSelection.fromRow === 0 &&
+      normalizedSelection.toRow === rows.length - 1 &&
+      column >= normalizedSelection.fromColumn &&
+      column <= normalizedSelection.toColumn
+    );
+  }
+
+  function createSelectionSummary(): string {
+    const from = cellAddress(
+      normalizedSelection.fromRow,
+      normalizedSelection.fromColumn,
+    );
+    const to = cellAddress(
+      normalizedSelection.toRow,
+      normalizedSelection.toColumn,
+    );
+    const range = from === to ? from : `${from}–${to}`;
+    return `${polishText.selection}: ${range} / ${selectedCellCount} ${polishText.cells}`;
+  }
+
+  function cellAddress(row: number, column: number): string {
+    return `${tableGridColumnLabel(column)}:${row === 0 ? "H" : row}`;
   }
 
   function closeAndRestoreFocus(): void {
@@ -1002,17 +1480,17 @@ function TableEditorOverlay({
           <ToolbarToggle
             label={messages.app.tableEditor.alignLeft}
             active={currentAlignment === "left"}
-            onClick={() => applySharedTableAction("alignLeft")}
+            onClick={() => applySharedAlignmentAction("alignLeft")}
           />
           <ToolbarToggle
             label={messages.app.tableEditor.alignCenter}
             active={currentAlignment === "center"}
-            onClick={() => applySharedTableAction("alignCenter")}
+            onClick={() => applySharedAlignmentAction("alignCenter")}
           />
           <ToolbarToggle
             label={messages.app.tableEditor.alignRight}
             active={currentAlignment === "right"}
-            onClick={() => applySharedTableAction("alignRight")}
+            onClick={() => applySharedAlignmentAction("alignRight")}
           />
           <ToolbarToggle
             label={messages.app.tableEditor.clearAlignment}
@@ -1028,6 +1506,7 @@ function TableEditorOverlay({
             type="button"
             title={messages.ribbon.labels.cellBreak}
             onClick={insertLineBreak}
+            disabled={hasGridRange}
           >
             {messages.ribbon.labels.cellBreak}
           </button>
@@ -1049,14 +1528,119 @@ function TableEditorOverlay({
               />
             ))}
           </colgroup>
+          <thead>
+            <tr className="mve-table-editor-column-selector-row">
+              <th
+                className="mve-table-editor-corner"
+                scope="col"
+                tabIndex={0}
+                title={polishText.selectAll}
+                aria-label={polishText.selectAll}
+                aria-selected={selectionKind === "all"}
+                data-selected={selectionKind === "all" ? "true" : "false"}
+                onClick={selectAllCells}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" || event.key === " ") {
+                    event.preventDefault();
+                    selectAllCells();
+                  }
+                }}
+              >
+                ◢
+              </th>
+              {Array.from({ length: columnCount }, (_, columnIndex) => (
+                <th
+                  key={columnIndex}
+                  className="mve-table-editor-column-selector"
+                  scope="col"
+                  tabIndex={0}
+                  aria-selected={columnIsSelected(columnIndex)}
+                  data-selected={columnIsSelected(columnIndex) ? "true" : "false"}
+                  data-drop-target={
+                    dragTarget?.kind === "column" &&
+                    dragTarget.index === columnIndex
+                      ? "true"
+                      : "false"
+                  }
+                  onClick={() => selectColumn(columnIndex)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      selectColumn(columnIndex);
+                    }
+                  }}
+                  onDragOver={(event) => allowColumnDrop(event, columnIndex)}
+                  onDrop={(event) => dropColumn(event, columnIndex)}
+                >
+                  <span>{tableGridColumnLabel(columnIndex)}</span>
+                  <span
+                    className="mve-table-editor-axis-drag-handle"
+                    role="button"
+                    tabIndex={0}
+                    draggable
+                    title={polishText.dragColumn}
+                    aria-label={`${polishText.dragColumn} ${tableGridColumnLabel(columnIndex)}`}
+                    onPointerDown={(event) => event.stopPropagation()}
+                    onClick={(event) => event.stopPropagation()}
+                    onDragStart={(event) =>
+                      startColumnDrag(event, columnIndex)
+                    }
+                    onDragEnd={endGridDrag}
+                    onKeyDown={(event) =>
+                      handleColumnDragKey(event, columnIndex)
+                    }
+                  >
+                    ⋮⋮
+                  </span>
+                </th>
+              ))}
+            </tr>
+          </thead>
           <tbody>
             {rows.map((row, rowIndex) => (
               <tr
                 key={rowIndex}
                 className={rowIndex === 0 ? "mve-table-editor-header-row" : ""}
+                data-drop-target={
+                  dragTarget?.kind === "row" && dragTarget.index === rowIndex
+                    ? "true"
+                    : "false"
+                }
+                onDragOver={(event) => allowRowDrop(event, rowIndex)}
+                onDrop={(event) => dropRow(event, rowIndex)}
               >
-                <th scope="row" onClick={() => focusCell(rowIndex, 0)}>
-                  {rowIndex === 0 ? "H" : rowIndex}
+                <th
+                  className="mve-table-editor-row-selector"
+                  scope="row"
+                  tabIndex={0}
+                  aria-selected={rowIsSelected(rowIndex)}
+                  data-selected={rowIsSelected(rowIndex) ? "true" : "false"}
+                  onClick={() => selectRow(rowIndex)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      selectRow(rowIndex);
+                    }
+                  }}
+                >
+                  <span>{rowIndex === 0 ? "H" : rowIndex}</span>
+                  {rowIndex > 0 && (
+                    <span
+                      className="mve-table-editor-axis-drag-handle"
+                      role="button"
+                      tabIndex={0}
+                      draggable
+                      title={polishText.dragRow}
+                      aria-label={`${polishText.dragRow} ${rowIndex}`}
+                      onPointerDown={(event) => event.stopPropagation()}
+                      onClick={(event) => event.stopPropagation()}
+                      onDragStart={(event) => startRowDrag(event, rowIndex)}
+                      onDragEnd={endGridDrag}
+                      onKeyDown={(event) => handleRowDragKey(event, rowIndex)}
+                    >
+                      ⋮
+                    </span>
+                  )}
                   <div
                     className="mve-table-editor-row-resizer"
                     role="separator"
@@ -1075,11 +1659,23 @@ function TableEditorOverlay({
                   const alignment = alignments[columnIndex] ?? "none";
                   const active =
                     rowIndex === activeRow && columnIndex === activeColumn;
+                  const selected = tableGridRangeContains(
+                    normalizedSelection,
+                    rowIndex,
+                    columnIndex,
+                  );
                   return (
                     <td
                       key={columnIndex}
                       data-alignment={alignment}
                       data-active={active ? "true" : "false"}
+                      data-selected={selected ? "true" : "false"}
+                      onPointerDown={(event) =>
+                        beginCellSelection(event, rowIndex, columnIndex)
+                      }
+                      onPointerEnter={(event) =>
+                        extendCellSelection(event, rowIndex, columnIndex)
+                      }
                     >
                       <textarea
                         rows={1}
@@ -1095,18 +1691,22 @@ function TableEditorOverlay({
                           )
                         }
                         onSelect={(event) =>
-                          rememberCellSelection(
-                            rowIndex,
-                            columnIndex,
-                            event.currentTarget,
+                          cellSelectionRef.current.set(
+                            cellKey(rowIndex, columnIndex),
+                            {
+                              from: event.currentTarget.selectionStart,
+                              to: event.currentTarget.selectionEnd,
+                            },
                           )
                         }
                         onChange={(event) => {
                           updateCell(rowIndex, columnIndex, event.target.value);
-                          rememberCellSelection(
-                            rowIndex,
-                            columnIndex,
-                            event.currentTarget,
+                          cellSelectionRef.current.set(
+                            cellKey(rowIndex, columnIndex),
+                            {
+                              from: event.currentTarget.selectionStart,
+                              to: event.currentTarget.selectionEnd,
+                            },
                           );
                         }}
                         onPaste={pasteTsv}
@@ -1159,8 +1759,9 @@ function TableEditorOverlay({
               ? "mve-table-editor-status visible"
               : "mve-table-editor-status"
           }
+          title={status || selectionSummary}
         >
-          {status || messages.app.tableEditor.navigationHint}
+          {status || `${selectionSummary} · ${messages.app.tableEditor.navigationHint}`}
         </span>
         <div className="mve-table-editor-actions">
           <button type="button" onClick={requestClose}>
