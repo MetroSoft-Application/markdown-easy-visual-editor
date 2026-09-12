@@ -480,11 +480,6 @@ export function Ribbon({
                   disabled={readOnly}
                   onClick={() => tableCommand("deleteRow")}
                 />
-                <Tool
-                  label={messages.ribbon.labels.toggleHeader}
-                  disabled={readOnly}
-                  onClick={() => tableCommand("header")}
-                />
               </Group>
               <Group label={messages.ribbon.groups.columns}>
                 <Tool
