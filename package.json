@@ -2,7 +2,7 @@
   "name": "markdown-easy-visual-editor",
   "displayName": "Markdown Easy Visual Editor",
   "description": "A visual Markdown editor for VS Code with live preview, source editing, formatting tools, image support, and PDF export.",
-  "version": "1.1.4",
+  "version": "1.1.5",
   "publisher": "MetroSoft-Application",
   "icon": "resources/icon.png",
   "repository": {
@@ -258,7 +258,11 @@
     "watch": "node scripts/build.mjs --watch",
     "check": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.webview.json --noEmit",
     "test": "vitest run",
+    "test:startup": "npm run build && node scripts/startup-regression.mjs",
+    "benchmark:vscode-startup": "npm run build && node scripts/benchmark-vscode-startup.mjs",
+    "test:lazy-runtime": "npm run build && node scripts/lazy-runtime-smoke.mjs",
     "test:extension": "npm run build && node scripts/test-extension-host.mjs",
+    "test:packaged-extension": "npm run build && node scripts/test-packaged-extension.mjs",
     "test:ime": "node scripts/ime-caret-smoke.mjs",
     "test:outline-reorder": "npm run build && node scripts/outline-reorder-smoke.mjs",
     "test:smoke": "node scripts/smoke-fast.mjs",
@@ -267,7 +271,7 @@
     "test:pdf-preview": "npm run build && node scripts/pdf-preview-smoke.mjs",
     "test:watch": "vitest",
     "pdf:install-browser": "node scripts/install-pdf-browser.mjs",
-    "package": "npm run check && npm test && npm run build && npm run test:smoke && npm run test:sample-matrix && vsce package --target win32-x64 --no-dependencies --allow-missing-repository --out markdown-easy-visual-editor-0.1.0-win32-x64.vsix"
+    "package": "npm run check && npm test && npm run build && node scripts/startup-regression.mjs && node scripts/lazy-runtime-smoke.mjs && npm run test:smoke && npm run test:sample-matrix && vsce package --target win32-x64 --no-dependencies --allow-missing-repository --out markdown-easy-visual-editor-0.1.0-win32-x64.vsix"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.1",
@@ -308,6 +312,7 @@
     "@types/react-dom": "^19.2.3",
     "@types/turndown": "^5.0.5",
     "@types/vscode": "^1.100.0",
+    "@vscode/test-electron": "^3.1.0",
     "@vscode/vsce": "^3.9.2",
     "esbuild": "^0.28.2",
     "typescript": "^7.0.2",

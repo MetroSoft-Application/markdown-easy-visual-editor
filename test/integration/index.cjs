@@ -44,8 +44,23 @@ async function run() {
     await new Promise((resolve) => setTimeout(resolve, 500));
 
     let emptyDocumentChangeCount = 0;
+    const emptyDocumentChanges = [];
     const emptyChangeDisposable = vscode.workspace.onDidChangeTextDocument((event) => {
-      if (event.document.uri.toString() === emptyUri.toString()) emptyDocumentChangeCount += 1;
+      if (
+        event.document.uri.toString() === emptyUri.toString() &&
+        event.contentChanges.length > 0
+      ) {
+        emptyDocumentChangeCount += 1;
+        emptyDocumentChanges.push({
+          version: event.document.version,
+          text: event.document.getText(),
+          changes: event.contentChanges.map((change) => ({
+            rangeOffset: change.rangeOffset,
+            rangeLength: change.rangeLength,
+            text: change.text
+          }))
+        });
+      }
     });
     try {
       const leadingNewline = new vscode.WorkspaceEdit();
@@ -54,7 +69,11 @@ async function run() {
       await waitFor(() => emptyDocument.getText() === '\r\n', 'The first CRLF newline was not applied exactly once.');
       await new Promise((resolve) => setTimeout(resolve, 750));
       assert.equal(emptyDocument.getText(), '\r\n', 'The first CRLF newline kept growing.');
-      assert.equal(emptyDocumentChangeCount, 1, 'The first CRLF newline caused repeated document changes.');
+      assert.equal(
+        emptyDocumentChangeCount,
+        1,
+        `The first CRLF newline caused repeated document changes: ${JSON.stringify(emptyDocumentChanges)}`
+      );
     } finally {
       emptyChangeDisposable.dispose();
     }
@@ -80,6 +99,21 @@ async function run() {
     assert.equal(await document.save(), true, 'Markdown文書を保存できませんでした。');
     assert.match(await fs.readFile(markdownPath, 'utf8'), /保存確認/, '保存内容がディスクへ反映されませんでした。');
 
+    const htmlPath = markdownPath.replace(/\.md$/i, '.html');
+    await vscode.commands.executeCommand('markdownEasyVisualEditor.exportHtml', uri);
+    await waitFor(async () => fileHasBytes(htmlPath), '遅延フォントを含むHTML出力が完了しませんでした。', 30_000);
+    const exportedHtml = await fs.readFile(htmlPath, 'utf8');
+    assert.match(exportedHtml, /保存確認/, 'HTML出力へ最新の本文が反映されませんでした。');
+    assert.match(exportedHtml, /@font-face/, 'HTML出力から埋め込みフォントが欠落しました。');
+    assert.match(exportedHtml, /data:font\//, 'HTML出力のフォントが自己完結していません。');
+
+    const pdfPath = markdownPath.replace(/\.md$/i, '.pdf');
+    await vscode.commands.executeCommand('markdownEasyVisualEditor.exportPdf', uri);
+    await waitFor(async () => fileHasBytes(pdfPath), '遅延PlaywrightによるPDF出力が完了しませんでした。', 60_000);
+    const pdfHeader = (await fs.readFile(pdfPath)).subarray(0, 5).toString('ascii');
+    assert.equal(pdfHeader, '%PDF-', 'PDF出力が正しいPDFファイルではありません。');
+
+    await new Promise((resolve) => setTimeout(resolve, 750));
     await vscode.commands.executeCommand('markdownEasyVisualEditor.undo');
     await waitFor(() => !document.getText().includes('保存確認'), 'extension undo command did not update the document.');
     await vscode.commands.executeCommand('markdownEasyVisualEditor.redo');
@@ -98,10 +132,18 @@ async function run() {
 async function waitFor(predicate, message, timeout = 10_000) {
   const deadline = Date.now() + timeout;
   while (Date.now() < deadline) {
-    if (predicate()) return;
+    if (await predicate()) return;
     await new Promise((resolve) => setTimeout(resolve, 100));
   }
   throw new Error(message);
+}
+
+async function fileHasBytes(filePath) {
+  try {
+    return (await fs.stat(filePath)).size > 0;
+  } catch {
+    return false;
+  }
 }
 
 module.exports = { run };

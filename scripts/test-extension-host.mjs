@@ -1,66 +1,28 @@
-import { spawnSync } from 'node:child_process';
-import { access, mkdtemp, readdir, rm } from 'node:fs/promises';
+import { runTests } from '@vscode/test-electron';
+import { mkdtemp, rm } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 
-const where = spawnSync('where.exe', ['code'], { encoding: 'utf8' });
-if (where.status !== 0) throw new Error('VS Code CLI (code) が見つかりません。');
-const candidates = where.stdout.split(/\r?\n/).map((value) => value.trim()).filter(Boolean);
-const codePath = candidates.find((value) => value.toLowerCase().endsWith('.cmd')) ?? candidates[0];
-if (!codePath) throw new Error('VS Code CLIのパスを解決できません。');
-const codeRoot = codePath.toLowerCase().endsWith('.exe')
-  ? path.dirname(codePath)
-  : path.resolve(path.dirname(codePath), '..');
-const codeExecutable = codePath.toLowerCase().endsWith('.exe')
-  ? codePath
-  : path.join(codeRoot, 'Code.exe');
-await access(codeExecutable);
-const cliPath = await findCli(codeRoot);
+delete process.env.ELECTRON_RUN_AS_NODE;
+delete process.env.VSCODE_DEV;
 
 const profileRoot = await mkdtemp(path.join(os.tmpdir(), 'markdown-easy-visual-editor-vscode-'));
 try {
-  const result = spawnSync(codeExecutable, [cliPath,
-    `--user-data-dir=${path.join(profileRoot, 'data')}`,
-    `--extensions-dir=${path.join(profileRoot, 'extensions')}`,
-    '--disable-extensions',
-    '--skip-welcome',
-    '--skip-release-notes',
-    `--extensionDevelopmentPath=${path.resolve('.')}`,
-    `--extensionTestsPath=${path.resolve('test/integration/index.cjs')}`
-  ], {
-    cwd: path.resolve('.'),
-    encoding: 'utf8',
-    timeout: 60_000,
-    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1', VSCODE_DEV: '' }
+  await runTests({
+    version: 'stable',
+    extensionDevelopmentPath: path.resolve('.'),
+    extensionTestsPath: path.resolve('test/integration/index.cjs'),
+    launchArgs: [
+      `--user-data-dir=${path.join(profileRoot, 'data')}`,
+      `--extensions-dir=${path.join(profileRoot, 'extensions')}`,
+      '--disable-extensions',
+      '--skip-welcome',
+      '--skip-release-notes'
+    ]
   });
-  if (result.stdout) process.stdout.write(result.stdout);
-  if (result.stderr) process.stderr.write(result.stderr);
-  if (result.error) throw result.error;
-  if (result.status !== 0) throw new Error(`Extension Host統合テストが終了コード ${result.status} で失敗しました。`);
-  console.log('Extension Host起動、Custom Editor表示、保存、Undo/Redoを確認しました。');
+  console.log('Extension Host起動、Custom Editor表示、保存、HTML/PDF出力、Undo/Redoを確認しました。');
 } finally {
   await removeProfile(profileRoot);
-}
-
-async function findCli(root) {
-  const directCandidate = path.join(root, 'resources', 'app', 'out', 'cli.js');
-  try {
-    await access(directCandidate);
-    return directCandidate;
-  } catch {
-    // VS Codeのインストール形式によってresourcesが子ディレクトリにある場合がある。
-  }
-  for (const entry of await readdir(root, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue;
-    const candidate = path.join(root, entry.name, 'resources', 'app', 'out', 'cli.js');
-    try {
-      await access(candidate);
-      return candidate;
-    } catch {
-      // 次のVS Codeビルドディレクトリを確認する。
-    }
-  }
-  throw new Error('VS Code cli.jsが見つかりません。');
 }
 
 async function removeProfile(profileRoot) {

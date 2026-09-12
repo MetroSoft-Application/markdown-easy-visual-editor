@@ -58,6 +58,8 @@ export interface WebviewSettings {
     /** プレビュー画像のリサイズ・配置操作UIを表示するか。未設定時は表示する。 */
     previewImageResizeControlsVisible?: boolean;
     workspaceTrusted: boolean;
+    /** 開発用の実 VS Code 起動計測を有効にする。 */
+    startupProbe?: boolean;
 }
 
 /**
@@ -129,6 +131,8 @@ export type HostToWebviewMessage =
 export type WebviewToHostMessage =
     | { type: 'ready'; clientId: string }
     | { type: 'initialized'; clientId: string }
+    | { type: 'startupReady'; clientId: string; markdownLength: number }
+    | { type: 'startupMermaidReady'; clientId: string }
     | { type: 'localChanges'; clientId: string; opId: string; baseVersion: number; changes: TextChange[] }
     | { type: 'historyCommand'; clientId: string; command: 'undo' | 'redo' }
     | { type: 'saveImages'; requestId: string; images: ImagePayload[] }

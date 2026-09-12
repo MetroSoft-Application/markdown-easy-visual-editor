@@ -99,3 +99,7 @@
 ## 1.1.4
 
 - Add a scroll sync/async flag.
+
+## 1.1.5
+
+- Speed up first launch of extensions.

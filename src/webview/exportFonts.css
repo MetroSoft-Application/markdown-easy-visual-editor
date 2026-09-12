@@ -1,0 +1,5 @@
+/* PDF/HTML 出力時だけ取得し、保存物へ従来どおりフォントを埋め込む。 */
+@import "@fontsource/noto-sans-jp/400.css";
+@import "@fontsource/noto-sans-jp/700.css";
+@import "@fontsource/noto-sans-mono/400.css";
+@import "katex/dist/katex.min.css";

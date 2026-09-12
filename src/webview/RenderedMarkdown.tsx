@@ -1,8 +1,8 @@
-import React, { useEffect, useLayoutEffect, useMemo, useRef } from "react";
+import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ImageAlignment } from "../shared/imageResize";
 import type { MermaidInteraction, WebviewSettings } from "../shared/protocol";
 import { getMessages } from "../shared/messages";
-import { renderMarkdown } from "./markdownRenderer";
+import { renderMarkdownFallback } from "./markdownFallback";
 import {
   mermaidErrorMessage,
   renderMermaidSvg,
@@ -27,6 +27,7 @@ interface Props {
   onImageAlign?: (imageIndex: number, alignment: ImageAlignment) => void;
   onNavigate?: (href: string) => void;
   onRendered?: (element: HTMLElement) => void;
+  onMermaidRendered?: () => void;
   deferMermaid?: boolean;
 }
 
@@ -37,7 +38,7 @@ interface Props {
  */
 function RenderedMarkdownView({
   markdown,
-  html: providedHtml,
+  html,
   settings,
   className = "",
   onInspect,
@@ -46,8 +47,9 @@ function RenderedMarkdownView({
   onImageAlign,
   onNavigate,
   onRendered,
+  onMermaidRendered,
   deferMermaid = false,
-}: Props): React.JSX.Element {
+}: Props & { html: string }): React.JSX.Element {
   // MarkdownをHTMLへ変換し、Mermaid・画像・リンクの表示後処理を行うプレビューを描画する。
   const rootRef = useRef<HTMLDivElement>(null);
   const renderedBlocksRef = useRef<RenderedDomBlock[]>([]);
@@ -60,23 +62,15 @@ function RenderedMarkdownView({
   );
   const mermaidCacheRef = useRef(new MermaidResultCache());
   const onRenderedRef = useRef(onRendered);
+  const onMermaidRenderedRef = useRef(onMermaidRendered);
   const onImageResizeRef = useRef(onImageResize);
   const onImageResetRef = useRef(onImageReset);
   const onImageAlignRef = useRef(onImageAlign);
   onRenderedRef.current = onRendered;
+  onMermaidRenderedRef.current = onMermaidRendered;
   onImageResizeRef.current = onImageResize;
   onImageResetRef.current = onImageReset;
   onImageAlignRef.current = onImageAlign;
-  const html = useMemo(
-    () =>
-      providedHtml ??
-      renderMarkdown(markdown, {
-        remoteImagesEnabled: settings.remoteImagesEnabled,
-        language: settings.language,
-      }),
-    [providedHtml, markdown, settings.language, settings.remoteImagesEnabled],
-  );
-
   useLayoutEffect(() => {
     const root = rootRef.current;
     if (!root) return;
@@ -341,6 +335,7 @@ function RenderedMarkdownView({
               controller.signal,
               settings.mermaidHostRendering === true,
               !deferMermaid,
+              deferMermaid,
             );
             if (
               !node.isConnected ||
@@ -354,6 +349,7 @@ function RenderedMarkdownView({
             )
               return;
             node.dataset.mermaidStatus = "ready";
+            onMermaidRenderedRef.current?.();
             mermaidCacheRef.current.set(`block:${blockKey}`, rendered);
             if (deferMermaid && rendered.external) {
               mermaidCacheRef.current.set(sourceCacheKey, rendered);
@@ -374,6 +370,7 @@ function RenderedMarkdownView({
             )
               return;
             node.dataset.mermaidStatus = "error";
+            onMermaidRenderedRef.current?.();
             const message = document.createElement("pre");
             message.className = "mermaid-error-message";
             message.textContent = mermaidErrorMessage(error, settings.language);
@@ -683,7 +680,64 @@ function RenderedMarkdownView({
   );
 }
 
-export const RenderedMarkdown = React.memo(RenderedMarkdownView);
+/** HTML 未計算の補助プレビューだけ、分離済み Markdown ランタイムを遅延ロードする。 */
+function RenderedMarkdownLoader(props: Props): React.JSX.Element {
+  const { markdown, html, settings } = props;
+  const [rendered, setRendered] = useState<{
+    markdown: string;
+    language: string;
+    remoteImagesEnabled: boolean;
+    html: string;
+  }>();
+  const [error, setError] = useState<unknown>();
+
+  useEffect(() => {
+    if (html !== undefined) return;
+    let cancelled = false;
+    setError(undefined);
+    void renderMarkdownFallback(markdown, {
+      remoteImagesEnabled: settings.remoteImagesEnabled,
+      language: settings.language,
+    })
+      .then((value) => {
+        if (cancelled) return;
+        setRendered({
+          markdown,
+          language: settings.language,
+          remoteImagesEnabled: settings.remoteImagesEnabled,
+          html: value,
+        });
+      })
+      .catch((reason: unknown) => {
+        if (!cancelled) setError(reason);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [html, markdown, settings.language, settings.remoteImagesEnabled]);
+
+  if (html !== undefined) {
+    return <RenderedMarkdownView {...props} html={html} />;
+  }
+  if (error) {
+    return (
+      <div className="markdown-render-error" role="alert">
+        {String(error)}
+      </div>
+    );
+  }
+  if (
+    !rendered ||
+    rendered.markdown !== markdown ||
+    rendered.language !== settings.language ||
+    rendered.remoteImagesEnabled !== settings.remoteImagesEnabled
+  ) {
+    return <div aria-busy="true" />;
+  }
+  return <RenderedMarkdownView {...props} html={rendered.html} />;
+}
+
+export const RenderedMarkdown = React.memo(RenderedMarkdownLoader);
 
 interface RenderedDomBlock {
   signature: string;
