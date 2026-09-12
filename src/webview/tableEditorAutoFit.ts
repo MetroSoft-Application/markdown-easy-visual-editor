@@ -1,6 +1,10 @@
-const MIN_COLUMN_WIDTH = 96;
-const MAX_AUTO_COLUMN_WIDTH = 720;
-const MIN_ROW_HEIGHT = 36;
+import {
+  calculateAutoFitColumnWidth,
+  rowResetStepCount,
+  TABLE_EDITOR_MIN_COLUMN_WIDTH,
+  TABLE_EDITOR_MIN_ROW_HEIGHT,
+} from "../shared/tableEditorSizing";
+
 const COLUMN_RESIZER_SELECTOR = ".mve-table-editor-column-resizer";
 const ROW_RESIZER_SELECTOR = ".mve-table-editor-row-resizer";
 const TABLE_EDITOR_SELECTOR = ".mve-table-editor";
@@ -74,32 +78,6 @@ const AUTO_FIT_TEXT: Record<string, AutoFitText> = {
     rowHint: "Restablece las filas seleccionadas a la altura predeterminada. También puede hacer doble clic en el borde de una fila",
   },
 };
-
-/** テキスト群と計測関数から、表エディターの自動列幅を決定する。 */
-export function calculateAutoFitColumnWidth(
-  values: readonly string[],
-  measureText: (value: string) => number,
-  horizontalChrome = 24,
-  minimum = MIN_COLUMN_WIDTH,
-  maximum = MAX_AUTO_COLUMN_WIDTH,
-): number {
-  let widest = 0;
-  for (const value of values) {
-    const lines = value.split(/\r\n|\r|\n/);
-    for (const line of lines) widest = Math.max(widest, measureText(line));
-  }
-  return Math.max(minimum, Math.min(maximum, Math.ceil(widest + horizontalChrome)));
-}
-
-/** 現在行高を既定値へ戻すために必要な12px刻みの操作回数を返す。 */
-export function rowResetStepCount(
-  current: number,
-  minimum = MIN_ROW_HEIGHT,
-  step = 12,
-): number {
-  if (!Number.isFinite(current) || current <= minimum) return 0;
-  return Math.ceil((current - minimum) / step);
-}
 
 /**
  * 専用表エディターへ表示サイズの補助操作を追加する。
@@ -262,7 +240,11 @@ function autoFitColumns(editor: HTMLElement, columns: readonly number[]): void {
     if (!cells.length) continue;
 
     const target = measuredColumnWidth(cells);
-    const current = numericAttribute(resizer, "aria-valuenow", MIN_COLUMN_WIDTH);
+    const current = numericAttribute(
+      resizer,
+      "aria-valuenow",
+      TABLE_EDITOR_MIN_COLUMN_WIDTH,
+    );
     if (Math.abs(target - current) < 1) continue;
     resizeColumnThroughExistingHandler(resizer, target - current);
   }
@@ -332,7 +314,11 @@ async function resetRows(editor: HTMLElement, rows: readonly number[]): Promise<
     for (let row = 0; row < resizers.length; row += 1) {
       if (!wanted.has(row)) continue;
       const resizer = resizers[row];
-      const current = numericAttribute(resizer, "aria-valuenow", MIN_ROW_HEIGHT);
+      const current = numericAttribute(
+        resizer,
+        "aria-valuenow",
+        TABLE_EDITOR_MIN_ROW_HEIGHT,
+      );
       if (rowResetStepCount(current) === 0) continue;
       resizer.dispatchEvent(
         new KeyboardEvent("keydown", {
@@ -359,7 +345,9 @@ function parseCellAddress(value: string | undefined): { row: number; column: num
 }
 
 function numericAttribute(element: Element, name: string, fallback: number): number {
-  const value = Number(element.getAttribute(name));
+  const raw = element.getAttribute(name);
+  if (raw === null) return fallback;
+  const value = Number(raw);
   return Number.isFinite(value) ? value : fallback;
 }
 
