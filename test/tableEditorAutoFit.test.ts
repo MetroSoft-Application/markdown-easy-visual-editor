@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   calculateAutoFitColumnWidth,
   rowResetStepCount,
-} from '../src/webview/tableEditorAutoFit';
+} from '../src/shared/tableEditorSizing';
 
 describe('table editor auto-fit sizing', () => {
   it('fits the widest cell and includes horizontal chrome', () => {
