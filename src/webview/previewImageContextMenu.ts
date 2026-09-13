@@ -12,9 +12,11 @@ type CopyImageText = {
 };
 
 interface PreparedClipboardImage {
-  blob: Blob;
-  type: string;
-  convertedToPng: boolean;
+  source: string;
+  html: string;
+  originalBlob?: Blob;
+  originalType?: string;
+  pngBlob?: Blob;
 }
 
 const COPY_IMAGE_TEXT: Record<string, CopyImageText> = {
@@ -71,7 +73,7 @@ const COPY_IMAGE_TEXT: Record<string, CopyImageText> = {
 
 /**
  * プレビュー上のMarkdown画像へ右クリックメニューを追加し、画像本体をクリップボードへコピーする。
- * 元画像形式をClipboard APIが受け付ける場合はその形式を維持し、未対応形式だけPNGへ変換する。
+ * 元形式を利用できる環境では元形式を保持し、貼り付け互換用の画像・HTML・テキスト表現も用意する。
  * Markdown本文や画像の表示サイズは変更しない。
  */
 export function installPreviewImageContextMenu(): () => void {
@@ -101,7 +103,12 @@ export function installPreviewImageContextMenu(): () => void {
   };
 
   const onPointerDown = (event: PointerEvent) => {
-    if (!menu || !(event.target instanceof Node) || menu.contains(event.target)) return;
+    if (
+      !menu ||
+      !(event.target instanceof Node) ||
+      menu.contains(event.target)
+    )
+      return;
     closeMenu();
   };
 
@@ -129,10 +136,16 @@ export function installPreviewImageContextMenu(): () => void {
     window.removeEventListener("resize", onViewportChange);
     window.removeEventListener("blur", onViewportChange);
     document.removeEventListener("scroll", onViewportChange, true);
-    document.querySelectorAll(`.${TOAST_CLASS}`).forEach((node) => node.remove());
+    document
+      .querySelectorAll(`.${TOAST_CLASS}`)
+      .forEach((node) => node.remove());
   };
 
-  function openMenu(image: HTMLImageElement, clientX: number, clientY: number): void {
+  function openMenu(
+    image: HTMLImageElement,
+    clientX: number,
+    clientY: number,
+  ): void {
     closeMenu();
     const currentGeneration = generation;
     const text = copyImageText(document.documentElement.lang);
@@ -173,27 +186,16 @@ export function installPreviewImageContextMenu(): () => void {
 
     button.addEventListener("click", () => {
       if (!prepared) return;
-      const clipboard = navigator.clipboard;
-      if (!clipboard?.write || typeof ClipboardItem === "undefined") {
-        closeMenu();
-        showToast(text.failed, true);
-        return;
-      }
-      // write()自体をクリックハンドラー内で開始し、Webviewのユーザー操作権限を維持する。
-      const write = clipboard.write([
-        new ClipboardItem({ [prepared.type]: prepared.blob }),
-      ]);
+      const target = prepared;
       closeMenu();
-      void write
-        .then(() => showToast(text.copied, false))
+      void copyPreparedImage(image, target)
+        .then((copied) => {
+          showToast(copied ? text.copied : text.failed, !copied);
+        })
         .catch((error: unknown) => {
           console.warn(
             "[Markdown Easy Visual Editor] Preview image clipboard write failed.",
-            {
-              error,
-              type: prepared?.type,
-              convertedToPng: prepared?.convertedToPng,
-            },
+            error,
           );
           showToast(text.failed, true);
         });
@@ -202,7 +204,9 @@ export function installPreviewImageContextMenu(): () => void {
 
   function showToast(message: string, error: boolean): void {
     if (toastTimer !== undefined) window.clearTimeout(toastTimer);
-    document.querySelectorAll(`.${TOAST_CLASS}`).forEach((node) => node.remove());
+    document
+      .querySelectorAll(`.${TOAST_CLASS}`)
+      .forEach((node) => node.remove());
     const toast = document.createElement("div");
     toast.className = TOAST_CLASS;
     toast.dataset.state = error ? "error" : "success";
@@ -242,42 +246,188 @@ function positionMenu(
 async function prepareClipboardImage(
   image: HTMLImageElement,
 ): Promise<PreparedClipboardImage> {
-  const source = image.currentSrc || image.src;
-  if (!source) throw new Error("Image source is empty.");
+  const renderedSource = image.currentSrc || image.src;
+  if (!renderedSource) throw new Error("Image source is empty.");
+
+  const source =
+    image.dataset.originalSrc || image.getAttribute("src") || renderedSource;
+  const alt = image.getAttribute("alt") ?? "";
+  const prepared: PreparedClipboardImage = {
+    source,
+    html: `<img src="${escapeHtmlAttribute(source)}" alt="${escapeHtmlAttribute(alt)}">`,
+  };
 
   try {
-    const blob = source.startsWith("data:")
-      ? dataUrlToBlob(source)
-      : await fetchImageBlob(source);
-    const type = resolveImageMimeType(
-      blob.type,
-      image.dataset.originalSrc || source,
+    const blob = renderedSource.startsWith("data:")
+      ? dataUrlToBlob(renderedSource)
+      : await fetchImageBlob(renderedSource);
+    const type = resolveImageMimeType(blob.type, source);
+    if (type) {
+      prepared.originalType = type;
+      prepared.originalBlob =
+        blob.type === type ? blob : blob.slice(0, blob.size, type);
+      if (type === "image/png") prepared.pngBlob = prepared.originalBlob;
+    }
+  } catch (error) {
+    console.warn(
+      "[Markdown Easy Visual Editor] Original preview image bytes are unavailable; using rendered image fallback.",
+      error,
     );
+  }
 
-    if (type && clipboardSupportsType(type)) {
-      const original = blob.type === type ? blob : blob.slice(0, blob.size, type);
-      return { blob: original, type, convertedToPng: false };
+  if (!prepared.pngBlob) {
+    try {
+      prepared.pngBlob = await rasterizeElementToPng(image);
+    } catch (elementError) {
+      if (prepared.originalBlob) {
+        try {
+          prepared.pngBlob = await rasterizeBlobToPng(prepared.originalBlob);
+        } catch (blobError) {
+          console.warn(
+            "[Markdown Easy Visual Editor] Preview image PNG compatibility representation failed.",
+            { elementError, blobError },
+          );
+        }
+      }
+    }
+  }
+
+  if (!prepared.originalBlob && !prepared.pngBlob) {
+    throw new Error("Image data is unavailable.");
+  }
+  return prepared;
+}
+
+async function copyPreparedImage(
+  image: HTMLImageElement,
+  prepared: PreparedClipboardImage,
+): Promise<boolean> {
+  const clipboard = navigator.clipboard;
+  if (clipboard?.write && typeof ClipboardItem !== "undefined") {
+    const representations: Record<string, Blob> = {
+      "text/html": new Blob([prepared.html], { type: "text/html" }),
+      "text/plain": new Blob([prepared.source], { type: "text/plain" }),
+    };
+
+    const originalSupported = Boolean(
+      prepared.originalBlob &&
+        prepared.originalType &&
+        clipboardSupportsType(prepared.originalType),
+    );
+    if (
+      originalSupported &&
+      prepared.originalBlob &&
+      prepared.originalType
+    ) {
+      representations[prepared.originalType] = prepared.originalBlob;
+    }
+    if (prepared.pngBlob && !representations["image/png"]) {
+      representations["image/png"] = prepared.pngBlob;
     }
 
-    const png = await rasterizeBlobToPng(blob);
-    return { blob: png, type: "image/png", convertedToPng: true };
-  } catch (primaryError) {
-    // リモート画像はCSP/CORSでfetchできない場合がある。描画済みDOMから読める場合のみ
-    // PNGへフォールバックする。これは元バイト列を取得できない場合の最終手段。
     try {
-      const png = await rasterizeElementToPng(image);
-      return { blob: png, type: "image/png", convertedToPng: true };
-    } catch {
-      throw primaryError;
+      await writeClipboardWithFocusRetry(
+        clipboard,
+        new ClipboardItem(representations),
+      );
+      return true;
+    } catch (richError) {
+      console.warn(
+        "[Markdown Easy Visual Editor] Rich preview image clipboard write failed; retrying image representation.",
+        richError,
+      );
+
+      if (
+        originalSupported &&
+        prepared.originalBlob &&
+        prepared.originalType
+      ) {
+        try {
+          await writeClipboardWithFocusRetry(
+            clipboard,
+            new ClipboardItem({
+              [prepared.originalType]: prepared.originalBlob,
+            }),
+          );
+          return true;
+        } catch (originalError) {
+          console.warn(
+            "[Markdown Easy Visual Editor] Original-format image clipboard write failed.",
+            originalError,
+          );
+        }
+      }
+
+      if (prepared.pngBlob) {
+        try {
+          await writeClipboardWithFocusRetry(
+            clipboard,
+            new ClipboardItem({ "image/png": prepared.pngBlob }),
+          );
+          return true;
+        } catch (pngError) {
+          console.warn(
+            "[Markdown Easy Visual Editor] PNG compatibility clipboard write failed.",
+            pngError,
+          );
+        }
+      }
+    }
+  }
+
+  return copyRenderedImageBySelection(image);
+}
+
+async function writeClipboardWithFocusRetry(
+  clipboard: Clipboard,
+  item: ClipboardItem,
+  retries = 5,
+): Promise<void> {
+  if (!document.hasFocus() && retries > 0) {
+    await new Promise<void>((resolve) => window.setTimeout(resolve, 20));
+    return writeClipboardWithFocusRetry(clipboard, item, retries - 1);
+  }
+  await clipboard.write([item]);
+}
+
+function copyRenderedImageBySelection(image: HTMLImageElement): boolean {
+  const selection = window.getSelection();
+  if (!selection) return false;
+
+  const previousRanges: Range[] = [];
+  for (let index = 0; index < selection.rangeCount; index += 1) {
+    previousRanges.push(selection.getRangeAt(index).cloneRange());
+  }
+
+  try {
+    selection.removeAllRanges();
+    const range = document.createRange();
+    range.selectNode(image);
+    selection.addRange(range);
+    return document.execCommand("copy");
+  } catch (error) {
+    console.warn(
+      "[Markdown Easy Visual Editor] Preview image selection-copy fallback failed.",
+      error,
+    );
+    return false;
+  } finally {
+    selection.removeAllRanges();
+    for (const range of previousRanges) {
+      try {
+        selection.addRange(range);
+      } catch {
+        // DOM更新済みの古い選択範囲は復元しない。
+      }
     }
   }
 }
 
-/** ClipboardItemが元MIMEを受け付ける場合だけその形式を使う。PNGは仕様上必須対応。 */
+/** ClipboardItemが元MIMEを受け付ける場合だけその形式を使う。 */
 export function clipboardSupportsType(type: string): boolean {
   const normalized = normalizeMimeType(type);
-  if (normalized === "image/png") return true;
   if (!normalized || typeof ClipboardItem === "undefined") return false;
+  if (normalized === "image/png") return true;
   const supports = (
     ClipboardItem as typeof ClipboardItem & {
       supports?: (mimeType: string) => boolean;
@@ -459,6 +609,14 @@ function waitForImageLoad(image: HTMLImageElement): Promise<void> {
     image.addEventListener("load", loaded, { once: true });
     image.addEventListener("error", failed, { once: true });
   });
+}
+
+function escapeHtmlAttribute(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/"/g, "&quot;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;");
 }
 
 function copyImageText(language: string): CopyImageText {
