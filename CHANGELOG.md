@@ -113,3 +113,7 @@
 
 - Speed up first launch of extensions.
 - Modify the settings so that the save path can be configured from the ribbon.
+
+## 1.1.8
+
+- Added a feature to copy images from the preview.
