@@ -253,7 +253,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
         });
     }
 
-    /** 開発用の実 VS Code 起動計測結果を返す。 */
+    /** 開発用の実 VS Code起動ベンチマークへ、記録済み時刻を返す。 */
     getStartupTiming(uri?: vscode.Uri | string): Omit<StartupTiming, 'resolveStartedAt'> | undefined {
         const key = typeof uri === 'string' ? uri : uri?.toString();
         const timing = key ? this.startupTimings.get(key) : [...this.startupTimings.values()].at(-1);
@@ -1057,7 +1057,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
         opId: string | undefined,
         reason: string
     ): void {
-        // 最新本文・バージョン・操作適用状態をパネルへ送り、Webviewを再同期させる。
+        // 最新本文・バージョン・操作適用状態をパネルへ送り、クライアントを再同期させる。
         this.post(panel, {
             type: 'resyncRequired',
             clientId,
@@ -1101,7 +1101,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
             if (bytes.byteLength > maxBytes) {
                 throw new Error(messages.app.errors.imageSize(settings.maxPasteSizeMb));
             }
-            const extension = extensionForMime(image.mime);
+            const extension = extensionForMime(image.mime) ?? imageExtensionFromName(image.name, image.mime);
             if (!extension) throw new Error(messages.host.unsupportedImage(image.mime));
             if (extension === 'svg') bytes = Buffer.from(sanitizeSvg(bytes.toString('utf8')), 'utf8');
             const timestamp = compactTimestamp(new Date());
@@ -1124,7 +1124,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
             canSelectFiles: true,
             canSelectFolders: false,
             canSelectMany: true,
-            filters: { Images: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg'] },
+            filters: { Images: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'avif', 'apng', 'ico', 'heic', 'heif', 'jxl', 'tif', 'tiff'] },
             openLabel: this.getMessages().ribbon.labels.image
         });
         if (!selected?.length) return [];
@@ -1421,13 +1421,35 @@ function extensionForMime(mime: string): string | undefined {
     return (
         {
             'image/png': 'png',
+            'image/apng': 'apng',
             'image/jpeg': 'jpg',
             'image/jpg': 'jpg',
             'image/gif': 'gif',
             'image/webp': 'webp',
-            'image/svg+xml': 'svg'
+            'image/svg+xml': 'svg',
+            'image/bmp': 'bmp',
+            'image/x-ms-bmp': 'bmp',
+            'image/avif': 'avif',
+            'image/x-icon': 'ico',
+            'image/vnd.microsoft.icon': 'ico',
+            'image/heic': 'heic',
+            'image/heif': 'heif',
+            'image/jxl': 'jxl',
+            'image/tiff': 'tiff'
         } as Record<string, string>
     )[mime.toLowerCase()];
+}
+
+const SAFE_IMAGE_EXTENSIONS = new Set([
+    'png', 'apng', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'avif',
+    'ico', 'heic', 'heif', 'jxl', 'tif', 'tiff'
+]);
+
+/** MIME表にないimage/*でも、コピー元の安全な画像拡張子を保持する。 */
+function imageExtensionFromName(name: string | undefined, mime: string): string | undefined {
+    if (!mime.toLowerCase().startsWith('image/') || !name) return undefined;
+    const extension = path.extname(name).slice(1).toLowerCase();
+    return SAFE_IMAGE_EXTENSIONS.has(extension) ? extension : undefined;
 }
 
 /**
@@ -1441,12 +1463,20 @@ function mimeForFile(filePath: string): string {
     return (
         {
             '.png': 'image/png',
+            '.apng': 'image/apng',
             '.jpg': 'image/jpeg',
             '.jpeg': 'image/jpeg',
             '.gif': 'image/gif',
             '.webp': 'image/webp',
             '.svg': 'image/svg+xml',
-            '.bmp': 'image/bmp'
+            '.bmp': 'image/bmp',
+            '.avif': 'image/avif',
+            '.ico': 'image/x-icon',
+            '.heic': 'image/heic',
+            '.heif': 'image/heif',
+            '.jxl': 'image/jxl',
+            '.tif': 'image/tiff',
+            '.tiff': 'image/tiff'
         } as Record<string, string>
     )[extension] ?? 'application/octet-stream';
 }
