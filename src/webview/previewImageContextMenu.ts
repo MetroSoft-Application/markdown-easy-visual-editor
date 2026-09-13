@@ -11,6 +11,12 @@ type CopyImageText = {
   failed: string;
 };
 
+interface PreparedClipboardImage {
+  blob: Blob;
+  type: string;
+  convertedToPng: boolean;
+}
+
 const COPY_IMAGE_TEXT: Record<string, CopyImageText> = {
   ja: {
     copy: "画像をコピー",
@@ -64,7 +70,8 @@ const COPY_IMAGE_TEXT: Record<string, CopyImageText> = {
 };
 
 /**
- * プレビュー上のMarkdown画像へ右クリックメニューを追加し、画像本体をPNGとしてコピーする。
+ * プレビュー上のMarkdown画像へ右クリックメニューを追加し、画像本体をクリップボードへコピーする。
+ * 元画像形式をClipboard APIが受け付ける場合はその形式を維持し、未対応形式だけPNGへ変換する。
  * Markdown本文や画像の表示サイズは変更しない。
  */
 export function installPreviewImageContextMenu(): () => void {
@@ -144,17 +151,20 @@ export function installPreviewImageContextMenu(): () => void {
     menu = nextMenu;
     positionMenu(nextMenu, image, clientX, clientY);
 
-    let preparedPng: Blob | undefined;
-    void prepareClipboardPng(image)
-      .then((blob) => {
+    let prepared: PreparedClipboardImage | undefined;
+    void prepareClipboardImage(image)
+      .then((value) => {
         if (generation !== currentGeneration || menu !== nextMenu) return;
-        preparedPng = blob;
+        prepared = value;
         button.disabled = false;
         button.textContent = text.copy;
         button.focus({ preventScroll: true });
       })
       .catch((error: unknown) => {
-        console.warn("[Markdown Easy Visual Editor] Preview image copy preparation failed.", error);
+        console.warn(
+          "[Markdown Easy Visual Editor] Preview image copy preparation failed.",
+          error,
+        );
         if (generation !== currentGeneration || menu !== nextMenu) return;
         button.disabled = true;
         button.textContent = text.unavailable;
@@ -162,7 +172,7 @@ export function installPreviewImageContextMenu(): () => void {
       });
 
     button.addEventListener("click", () => {
-      if (!preparedPng) return;
+      if (!prepared) return;
       const clipboard = navigator.clipboard;
       if (!clipboard?.write || typeof ClipboardItem === "undefined") {
         closeMenu();
@@ -171,13 +181,20 @@ export function installPreviewImageContextMenu(): () => void {
       }
       // write()自体をクリックハンドラー内で開始し、Webviewのユーザー操作権限を維持する。
       const write = clipboard.write([
-        new ClipboardItem({ "image/png": preparedPng }),
+        new ClipboardItem({ [prepared.type]: prepared.blob }),
       ]);
       closeMenu();
       void write
         .then(() => showToast(text.copied, false))
         .catch((error: unknown) => {
-          console.warn("[Markdown Easy Visual Editor] Preview image clipboard write failed.", error);
+          console.warn(
+            "[Markdown Easy Visual Editor] Preview image clipboard write failed.",
+            {
+              error,
+              type: prepared?.type,
+              convertedToPng: prepared?.convertedToPng,
+            },
+          );
           showToast(text.failed, true);
         });
     });
@@ -222,7 +239,9 @@ function positionMenu(
   menu.style.top = `${Math.round(top)}px`;
 }
 
-async function prepareClipboardPng(image: HTMLImageElement): Promise<Blob> {
+async function prepareClipboardImage(
+  image: HTMLImageElement,
+): Promise<PreparedClipboardImage> {
   const source = image.currentSrc || image.src;
   if (!source) throw new Error("Image source is empty.");
 
@@ -230,17 +249,73 @@ async function prepareClipboardPng(image: HTMLImageElement): Promise<Blob> {
     const blob = source.startsWith("data:")
       ? dataUrlToBlob(source)
       : await fetchImageBlob(source);
-    if (blob.type.toLowerCase() === "image/png") return blob;
-    return await rasterizeBlobToPng(blob);
+    const type = resolveImageMimeType(
+      blob.type,
+      image.dataset.originalSrc || source,
+    );
+
+    if (type && clipboardSupportsType(type)) {
+      const original = blob.type === type ? blob : blob.slice(0, blob.size, type);
+      return { blob: original, type, convertedToPng: false };
+    }
+
+    const png = await rasterizeBlobToPng(blob);
+    return { blob: png, type: "image/png", convertedToPng: true };
   } catch (primaryError) {
-    // リモート画像はCSP/CORSでfetchできない場合がある。同一生成元として描画済みなら
-    // DOM画像からのラスタライズが成功するため、最後にその経路も試す。
+    // リモート画像はCSP/CORSでfetchできない場合がある。描画済みDOMから読める場合のみ
+    // PNGへフォールバックする。これは元バイト列を取得できない場合の最終手段。
     try {
-      return await rasterizeElementToPng(image);
+      const png = await rasterizeElementToPng(image);
+      return { blob: png, type: "image/png", convertedToPng: true };
     } catch {
       throw primaryError;
     }
   }
+}
+
+/** ClipboardItemが元MIMEを受け付ける場合だけその形式を使う。PNGは仕様上必須対応。 */
+export function clipboardSupportsType(type: string): boolean {
+  const normalized = normalizeMimeType(type);
+  if (normalized === "image/png") return true;
+  if (!normalized || typeof ClipboardItem === "undefined") return false;
+  const supports = (
+    ClipboardItem as typeof ClipboardItem & {
+      supports?: (mimeType: string) => boolean;
+    }
+  ).supports;
+  if (typeof supports !== "function") return false;
+  try {
+    return supports(normalized);
+  } catch {
+    return false;
+  }
+}
+
+function resolveImageMimeType(type: string, source: string): string {
+  const normalized = normalizeMimeType(type);
+  if (normalized.startsWith("image/")) return normalized;
+  return imageMimeTypeFromSource(source);
+}
+
+function normalizeMimeType(type: string): string {
+  const normalized = type.split(";", 1)[0]?.trim().toLowerCase() ?? "";
+  if (normalized === "image/jpg" || normalized === "image/pjpeg") {
+    return "image/jpeg";
+  }
+  if (normalized === "image/svg") return "image/svg+xml";
+  return normalized;
+}
+
+function imageMimeTypeFromSource(source: string): string {
+  const value = source.split(/[?#]/, 1)[0]?.toLowerCase() ?? "";
+  if (/\.png$/.test(value)) return "image/png";
+  if (/\.jpe?g$/.test(value)) return "image/jpeg";
+  if (/\.webp$/.test(value)) return "image/webp";
+  if (/\.gif$/.test(value)) return "image/gif";
+  if (/\.svg$/.test(value)) return "image/svg+xml";
+  if (/\.bmp$/.test(value)) return "image/bmp";
+  if (/\.avif$/.test(value)) return "image/avif";
+  return "";
 }
 
 async function fetchImageBlob(source: string): Promise<Blob> {
@@ -259,7 +334,7 @@ async function fetchImageBlob(source: string): Promise<Blob> {
 function dataUrlToBlob(source: string): Blob {
   const match = /^data:([^;,]*)([^,]*?),(.*)$/s.exec(source);
   if (!match) throw new Error("Invalid data image URL.");
-  const mime = match[1] || "application/octet-stream";
+  const mime = normalizeMimeType(match[1] || "application/octet-stream");
   const metadata = match[2] ?? "";
   const payload = match[3] ?? "";
   if (/;base64/i.test(metadata)) {
@@ -304,7 +379,9 @@ async function rasterizeElementToPng(image: HTMLImageElement): Promise<Blob> {
   if (!image.complete) await waitForImageLoad(image);
   const width = image.naturalWidth;
   const height = image.naturalHeight;
-  if (width <= 0 || height <= 0) throw new Error("Image dimensions are unavailable.");
+  if (width <= 0 || height <= 0) {
+    throw new Error("Image dimensions are unavailable.");
+  }
   return rasterizeCanvasSource(image, width, height);
 }
 
@@ -340,12 +417,17 @@ async function rasterizeCanvasSource(
   });
 }
 
-/** 巨大画像でクリップボード変換が過剰なメモリを確保しないよう表示比率を保って制限する。 */
+/** 巨大画像でフォールバック変換が過剰なメモリを確保しないよう表示比率を保って制限する。 */
 export function fitClipboardDimensions(
   width: number,
   height: number,
 ): { width: number; height: number } {
-  if (!Number.isFinite(width) || !Number.isFinite(height) || width <= 0 || height <= 0) {
+  if (
+    !Number.isFinite(width) ||
+    !Number.isFinite(height) ||
+    width <= 0 ||
+    height <= 0
+  ) {
     throw new Error("Invalid image dimensions.");
   }
   const scale = Math.min(
