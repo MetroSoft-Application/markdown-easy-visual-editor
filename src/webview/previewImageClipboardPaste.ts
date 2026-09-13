@@ -6,7 +6,7 @@ interface PreservedImagePaste {
 /**
  * プレビュー画像コピーがHTML表現へ保持した元画像バイト列をFileへ戻し、
  * App既存の画像貼り付け処理へ再投入する。
- * Markdown本文へdata URLを直接挿入しない。
+ * Markdown本文へdata URLを直接挿入せず、画像形式も変換しない。
  */
 export function installPreviewImageClipboardPaste(): () => void {
   const onPaste = (event: ClipboardEvent) => {
@@ -32,6 +32,8 @@ export function installPreviewImageClipboardPaste(): () => void {
     event.preventDefault();
     event.stopImmediatePropagation();
 
+    // React側の既存pasteハンドラーへ、通常の画像ファイル貼り付けとして渡す。
+    // この合成イベントには埋め込みHTMLを含めないため、このハンドラー自身では再処理されない。
     const forwarded = new ClipboardEvent("paste", {
       bubbles: true,
       cancelable: true,
@@ -47,7 +49,7 @@ export function installPreviewImageClipboardPaste(): () => void {
 
 /**
  * この拡張機能の画像コピーだけを識別し、HTMLに埋め込まれた元形式data URLを
- * 同じMIME・同じバイト列のFileへ復元する。
+ * 同じバイト列のFileへ復元する。
  */
 export function readPreservedImagePaste(
   clipboard: DataTransfer | null,
@@ -66,11 +68,18 @@ export function readPreservedImagePaste(
   const parsed = decodeImageDataUrl(dataUrl);
   if (!parsed) return undefined;
 
-  const extension = extensionForImageMime(parsed.type);
-  const fileName = `clipboard-image.${extension}`;
+  const originalSource = image.getAttribute("data-mve-original-src") ?? "";
+  const extension =
+    imageExtensionFromSource(originalSource) ?? extensionForImageMime(parsed.type);
+
+  // Appの既存BMP貼り付けは image/bmp だけをPNG化するため、同義MIMEで元BMPを保持する。
+  // ホスト側では image/x-ms-bmp を .bmp として正式に受け付ける。
+  const fileType = parsed.type === "image/bmp" ? "image/x-ms-bmp" : parsed.type;
   return {
     type: parsed.type,
-    file: new File([parsed.bytes], fileName, { type: parsed.type }),
+    file: new File([parsed.bytes], `clipboard-image.${extension}`, {
+      type: fileType,
+    }),
   };
 }
 
@@ -96,6 +105,12 @@ export function decodeImageDataUrl(
   } catch {
     return undefined;
   }
+}
+
+function imageExtensionFromSource(source: string): string | undefined {
+  const clean = source.split(/[?#]/, 1)[0] ?? "";
+  const match = /\.([a-z0-9]{1,12})$/i.exec(clean);
+  return match?.[1]?.toLowerCase();
 }
 
 function extensionForImageMime(type: string): string {
