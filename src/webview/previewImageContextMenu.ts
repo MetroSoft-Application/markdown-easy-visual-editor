@@ -1,7 +1,5 @@
 const MENU_CLASS = "mve-preview-image-context-menu";
 const TOAST_CLASS = "mve-preview-image-copy-toast";
-const MAX_CLIPBOARD_DIMENSION = 16_384;
-const MAX_CLIPBOARD_PIXELS = 64 * 1024 * 1024;
 
 type CopyImageText = {
   copy: string;
@@ -13,10 +11,11 @@ type CopyImageText = {
 
 interface PreparedClipboardImage {
   source: string;
+  type: string;
+  blob: Blob;
+  dataUrl: string;
   html: string;
-  originalBlob?: Blob;
-  originalType?: string;
-  pngBlob?: Blob;
+  markdown: string;
 }
 
 const COPY_IMAGE_TEXT: Record<string, CopyImageText> = {
@@ -72,9 +71,10 @@ const COPY_IMAGE_TEXT: Record<string, CopyImageText> = {
 };
 
 /**
- * プレビュー上のMarkdown画像へ右クリックメニューを追加し、画像本体をクリップボードへコピーする。
- * 元形式を利用できる環境では元形式を保持し、貼り付け互換用の画像・HTML・テキスト表現も用意する。
- * Markdown本文や画像の表示サイズは変更しない。
+ * プレビュー上のMarkdown画像へ右クリックメニューを追加し、元画像のバイト列を保持してコピーする。
+ * PNG・JPEG・WebP・GIF・SVG・BMP・AVIF等を別形式へ変換しない。
+ * OSのClipboard画像MIMEが元形式を直接受け付けない場合でも、同一バイト列のdata URLを
+ * HTMLとMarkdown表現へ載せ、貼り付け時に画像内容とMIMEを保持できるようにする。
  */
 export function installPreviewImageContextMenu(): () => void {
   let menu: HTMLDivElement | undefined;
@@ -188,7 +188,7 @@ export function installPreviewImageContextMenu(): () => void {
       if (!prepared) return;
       const target = prepared;
       closeMenu();
-      void copyPreparedImage(image, target)
+      void copyPreparedImage(target)
         .then((copied) => {
           showToast(copied ? text.copied : text.failed, !copied);
         })
@@ -251,131 +251,90 @@ async function prepareClipboardImage(
 
   const source =
     image.dataset.originalSrc || image.getAttribute("src") || renderedSource;
+  const blob = renderedSource.startsWith("data:")
+    ? dataUrlToBlob(renderedSource)
+    : await fetchImageBlob(renderedSource);
+  const type = resolveImageMimeType(blob.type, source);
+  if (!type || !type.startsWith("image/")) {
+    throw new Error("Image MIME type is unavailable.");
+  }
+
+  const originalBlob =
+    normalizeMimeType(blob.type) === type
+      ? blob
+      : blob.slice(0, blob.size, type);
+  if (!originalBlob.size) throw new Error("Image data is empty.");
+
+  const dataUrl = await blobToDataUrl(originalBlob, type);
   const alt = image.getAttribute("alt") ?? "";
-  const prepared: PreparedClipboardImage = {
+  return {
     source,
-    html: `<img src="${escapeHtmlAttribute(source)}" alt="${escapeHtmlAttribute(alt)}">`,
+    type,
+    blob: originalBlob,
+    dataUrl,
+    html: `<img src="${escapeHtmlAttribute(dataUrl)}" alt="${escapeHtmlAttribute(alt)}" data-mve-original-src="${escapeHtmlAttribute(source)}">`,
+    markdown: `![${escapeMarkdownAlt(alt)}](${dataUrl})`,
   };
-
-  try {
-    const blob = renderedSource.startsWith("data:")
-      ? dataUrlToBlob(renderedSource)
-      : await fetchImageBlob(renderedSource);
-    const type = resolveImageMimeType(blob.type, source);
-    if (type) {
-      prepared.originalType = type;
-      prepared.originalBlob =
-        blob.type === type ? blob : blob.slice(0, blob.size, type);
-      if (type === "image/png") prepared.pngBlob = prepared.originalBlob;
-    }
-  } catch (error) {
-    console.warn(
-      "[Markdown Easy Visual Editor] Original preview image bytes are unavailable; using rendered image fallback.",
-      error,
-    );
-  }
-
-  if (!prepared.pngBlob) {
-    try {
-      prepared.pngBlob = await rasterizeElementToPng(image);
-    } catch (elementError) {
-      if (prepared.originalBlob) {
-        try {
-          prepared.pngBlob = await rasterizeBlobToPng(prepared.originalBlob);
-        } catch (blobError) {
-          console.warn(
-            "[Markdown Easy Visual Editor] Preview image PNG compatibility representation failed.",
-            { elementError, blobError },
-          );
-        }
-      }
-    }
-  }
-
-  if (!prepared.originalBlob && !prepared.pngBlob) {
-    throw new Error("Image data is unavailable.");
-  }
-  return prepared;
 }
 
 async function copyPreparedImage(
-  image: HTMLImageElement,
   prepared: PreparedClipboardImage,
 ): Promise<boolean> {
   const clipboard = navigator.clipboard;
   if (clipboard?.write && typeof ClipboardItem !== "undefined") {
-    const representations: Record<string, Blob> = {
-      "text/html": new Blob([prepared.html], { type: "text/html" }),
-      "text/plain": new Blob([prepared.source], { type: "text/plain" }),
-    };
+    const html = new Blob([prepared.html], { type: "text/html" });
+    const markdown = new Blob([prepared.markdown], { type: "text/plain" });
 
-    const originalSupported = Boolean(
-      prepared.originalBlob &&
-        prepared.originalType &&
-        clipboardSupportsType(prepared.originalType),
-    );
-    if (
-      originalSupported &&
-      prepared.originalBlob &&
-      prepared.originalType
-    ) {
-      representations[prepared.originalType] = prepared.originalBlob;
-    }
-    if (prepared.pngBlob && !representations["image/png"]) {
-      representations["image/png"] = prepared.pngBlob;
+    if (clipboardSupportsType(prepared.type)) {
+      try {
+        await writeClipboardWithFocusRetry(
+          clipboard,
+          new ClipboardItem({
+            [prepared.type]: prepared.blob,
+            "text/html": html,
+            "text/plain": markdown,
+          }),
+        );
+        return true;
+      } catch (richError) {
+        console.warn(
+          "[Markdown Easy Visual Editor] Original-format clipboard write with fallback representations failed.",
+          richError,
+        );
+      }
+
+      try {
+        await writeClipboardWithFocusRetry(
+          clipboard,
+          new ClipboardItem({ [prepared.type]: prepared.blob }),
+        );
+        return true;
+      } catch (imageError) {
+        console.warn(
+          "[Markdown Easy Visual Editor] Original-format image clipboard write failed.",
+          imageError,
+        );
+      }
     }
 
     try {
       await writeClipboardWithFocusRetry(
         clipboard,
-        new ClipboardItem(representations),
+        new ClipboardItem({
+          "text/html": html,
+          "text/plain": markdown,
+        }),
       );
       return true;
-    } catch (richError) {
+    } catch (htmlError) {
       console.warn(
-        "[Markdown Easy Visual Editor] Rich preview image clipboard write failed; retrying image representation.",
-        richError,
+        "[Markdown Easy Visual Editor] Embedded original-image clipboard write failed.",
+        htmlError,
       );
-
-      if (
-        originalSupported &&
-        prepared.originalBlob &&
-        prepared.originalType
-      ) {
-        try {
-          await writeClipboardWithFocusRetry(
-            clipboard,
-            new ClipboardItem({
-              [prepared.originalType]: prepared.originalBlob,
-            }),
-          );
-          return true;
-        } catch (originalError) {
-          console.warn(
-            "[Markdown Easy Visual Editor] Original-format image clipboard write failed.",
-            originalError,
-          );
-        }
-      }
-
-      if (prepared.pngBlob) {
-        try {
-          await writeClipboardWithFocusRetry(
-            clipboard,
-            new ClipboardItem({ "image/png": prepared.pngBlob }),
-          );
-          return true;
-        } catch (pngError) {
-          console.warn(
-            "[Markdown Easy Visual Editor] PNG compatibility clipboard write failed.",
-            pngError,
-          );
-        }
-      }
     }
   }
 
-  return copyRenderedImageBySelection(image);
+  return copyEmbeddedImageBySelection(prepared);
 }
 
 async function writeClipboardWithFocusRetry(
@@ -390,7 +349,9 @@ async function writeClipboardWithFocusRetry(
   await clipboard.write([item]);
 }
 
-function copyRenderedImageBySelection(image: HTMLImageElement): boolean {
+function copyEmbeddedImageBySelection(
+  prepared: PreparedClipboardImage,
+): boolean {
   const selection = window.getSelection();
   if (!selection) return false;
 
@@ -399,15 +360,25 @@ function copyRenderedImageBySelection(image: HTMLImageElement): boolean {
     previousRanges.push(selection.getRangeAt(index).cloneRange());
   }
 
+  const container = document.createElement("span");
+  container.contentEditable = "true";
+  container.setAttribute("aria-hidden", "true");
+  container.style.position = "fixed";
+  container.style.left = "-100000px";
+  container.style.top = "0";
+  container.style.opacity = "0";
+  container.innerHTML = prepared.html;
+  document.body.append(container);
+
   try {
     selection.removeAllRanges();
     const range = document.createRange();
-    range.selectNode(image);
+    range.selectNodeContents(container);
     selection.addRange(range);
     return document.execCommand("copy");
   } catch (error) {
     console.warn(
-      "[Markdown Easy Visual Editor] Preview image selection-copy fallback failed.",
+      "[Markdown Easy Visual Editor] Embedded preview image copy fallback failed.",
       error,
     );
     return false;
@@ -420,20 +391,22 @@ function copyRenderedImageBySelection(image: HTMLImageElement): boolean {
         // DOM更新済みの古い選択範囲は復元しない。
       }
     }
+    container.remove();
   }
 }
 
-/** ClipboardItemが元MIMEを受け付ける場合だけその形式を使う。 */
+/** ClipboardItemが元MIMEを受け付ける場合だけ画像バイト列を直接追加する。 */
 export function clipboardSupportsType(type: string): boolean {
   const normalized = normalizeMimeType(type);
   if (!normalized || typeof ClipboardItem === "undefined") return false;
-  if (normalized === "image/png") return true;
   const supports = (
     ClipboardItem as typeof ClipboardItem & {
       supports?: (mimeType: string) => boolean;
     }
   ).supports;
-  if (typeof supports !== "function") return false;
+  if (typeof supports !== "function") {
+    return normalized === "image/png";
+  }
   try {
     return supports(normalized);
   } catch {
@@ -453,6 +426,7 @@ function normalizeMimeType(type: string): string {
     return "image/jpeg";
   }
   if (normalized === "image/svg") return "image/svg+xml";
+  if (normalized === "image/x-ms-bmp") return "image/bmp";
   return normalized;
 }
 
@@ -498,117 +472,13 @@ function dataUrlToBlob(source: string): Blob {
   return new Blob([decodeURIComponent(payload)], { type: mime });
 }
 
-async function rasterizeBlobToPng(blob: Blob): Promise<Blob> {
-  if (typeof createImageBitmap === "function") {
-    try {
-      const bitmap = await createImageBitmap(blob);
-      try {
-        return await rasterizeCanvasSource(bitmap, bitmap.width, bitmap.height);
-      } finally {
-        bitmap.close();
-      }
-    } catch {
-      // SVGなどcreateImageBitmapが扱えない形式はHTMLImageElementへフォールバックする。
-    }
+async function blobToDataUrl(blob: Blob, type: string): Promise<string> {
+  const buffer = new Uint8Array(await blob.arrayBuffer());
+  let binary = "";
+  for (let offset = 0; offset < buffer.length; offset += 0x8000) {
+    binary += String.fromCharCode(...buffer.subarray(offset, offset + 0x8000));
   }
-
-  const objectUrl = URL.createObjectURL(blob);
-  try {
-    const image = new Image();
-    image.decoding = "async";
-    image.src = objectUrl;
-    if (typeof image.decode === "function") await image.decode();
-    else await waitForImageLoad(image);
-    return await rasterizeElementToPng(image);
-  } finally {
-    URL.revokeObjectURL(objectUrl);
-  }
-}
-
-async function rasterizeElementToPng(image: HTMLImageElement): Promise<Blob> {
-  if (!image.complete) await waitForImageLoad(image);
-  const width = image.naturalWidth;
-  const height = image.naturalHeight;
-  if (width <= 0 || height <= 0) {
-    throw new Error("Image dimensions are unavailable.");
-  }
-  return rasterizeCanvasSource(image, width, height);
-}
-
-async function rasterizeCanvasSource(
-  source: CanvasImageSource,
-  width: number,
-  height: number,
-): Promise<Blob> {
-  const size = fitClipboardDimensions(width, height);
-  if (typeof OffscreenCanvas !== "undefined") {
-    const canvas = new OffscreenCanvas(size.width, size.height);
-    const context = canvas.getContext("2d");
-    if (!context) throw new Error("Clipboard canvas is unavailable.");
-    context.drawImage(source, 0, 0, size.width, size.height);
-    return canvas.convertToBlob({ type: "image/png" });
-  }
-
-  const canvas = document.createElement("canvas");
-  canvas.width = size.width;
-  canvas.height = size.height;
-  const context = canvas.getContext("2d");
-  if (!context) throw new Error("Clipboard canvas is unavailable.");
-  context.drawImage(source, 0, 0, size.width, size.height);
-  return new Promise<Blob>((resolve, reject) => {
-    try {
-      canvas.toBlob((blob) => {
-        if (blob) resolve(blob);
-        else reject(new Error("PNG conversion failed."));
-      }, "image/png");
-    } catch (error) {
-      reject(error);
-    }
-  });
-}
-
-/** 巨大画像でフォールバック変換が過剰なメモリを確保しないよう表示比率を保って制限する。 */
-export function fitClipboardDimensions(
-  width: number,
-  height: number,
-): { width: number; height: number } {
-  if (
-    !Number.isFinite(width) ||
-    !Number.isFinite(height) ||
-    width <= 0 ||
-    height <= 0
-  ) {
-    throw new Error("Invalid image dimensions.");
-  }
-  const scale = Math.min(
-    1,
-    MAX_CLIPBOARD_DIMENSION / width,
-    MAX_CLIPBOARD_DIMENSION / height,
-    Math.sqrt(MAX_CLIPBOARD_PIXELS / (width * height)),
-  );
-  return {
-    width: Math.max(1, Math.round(width * scale)),
-    height: Math.max(1, Math.round(height * scale)),
-  };
-}
-
-function waitForImageLoad(image: HTMLImageElement): Promise<void> {
-  return new Promise((resolve, reject) => {
-    const loaded = () => {
-      cleanup();
-      resolve();
-    };
-    const failed = () => {
-      cleanup();
-      reject(new Error("Image could not be decoded."));
-    };
-    const cleanup = () => {
-      image.removeEventListener("load", loaded);
-      image.removeEventListener("error", failed);
-    };
-    image.addEventListener("load", loaded, { once: true });
-    image.addEventListener("error", failed, { once: true });
-  });
+  return `data:${type};base64,${window.btoa(binary)}`;
 }
 
 function escapeHtmlAttribute(value: string): string {
@@ -617,6 +487,10 @@ function escapeHtmlAttribute(value: string): string {
     .replace(/"/g, "&quot;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;");
+}
+
+function escapeMarkdownAlt(value: string): string {
+  return value.replace(/\\/g, "\\\\").replace(/\]/g, "\\]");
 }
 
 function copyImageText(language: string): CopyImageText {
