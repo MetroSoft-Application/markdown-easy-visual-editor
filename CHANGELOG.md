@@ -112,3 +112,4 @@
 ## 1.1.7
 
 - Speed up first launch of extensions.
+- Modify the settings so that the save path can be configured from the ribbon.

@@ -10,7 +10,7 @@ export type LanguageSetting = 'auto' | SupportedLanguage;
 
 export interface Messages {
     ribbon: {
-        tabs: { home: string; insert: string; table: string; view: string; export: string; help: string };
+        tabs: { home: string; insert: string; table: string; view: string; export: string; settings: string; help: string };
         label: string;
         source: string;
         sourceTitle: string;
@@ -148,6 +148,13 @@ export interface Messages {
         hintZoom: string;
         codeLanguages: ReadonlyArray<{ value: string; label: string }>;
         snippets: { mermaid: string; footnote: string; note: string; warning: string };
+        settings: {
+            images: string;
+            imageDirectory: string;
+            imageDirectoryPlaceholder: string;
+            imageDirectoryHint: string;
+            apply: string;
+        };
     };
     app: {
         startup: string;
@@ -379,7 +386,8 @@ function createMessages(language: SupportedLanguage): Messages {
             featureDescriptions: raw.ribbon.labels.featureDescriptions,
             hintZoom: raw.ribbon.hintZoom,
             codeLanguages: raw.ribbon.codeLanguages,
-            snippets: raw.ribbon.snippets
+            snippets: raw.ribbon.snippets,
+            settings: raw.ribbon.settings
         },
         app: {
             startup: raw.app.startup,

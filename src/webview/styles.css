@@ -260,6 +260,55 @@ button:disabled {
     width: 48px;
 }
 
+/* 設定タブのパスルールを、説明を保ったまま横並びで編集できるようにする。 */
+.ribbon-setting-form {
+    display: block;
+}
+
+.ribbon-setting-form label {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: 2px;
+    color: var(--vscode-descriptionForeground);
+    font-size: 10px;
+}
+
+.ribbon-setting-form input {
+    width: 280px;
+    height: 28px;
+    padding: 3px 6px;
+    border: 1px solid var(--vscode-input-border, var(--mve-border));
+    color: var(--vscode-input-foreground);
+    background: var(--vscode-input-background);
+}
+
+.ribbon-setting-form input:focus {
+    outline: 1px solid var(--vscode-focusBorder);
+    outline-offset: -1px;
+}
+
+.ribbon-setting-hint {
+    max-width: 300px;
+    padding: 2px;
+    color: var(--vscode-descriptionForeground);
+    font-size: 10px;
+    line-height: 1.35;
+    white-space: normal;
+}
+
+.ribbon-settings-group {
+    flex: 0 0 auto;
+}
+
+.ribbon-settings-group .ribbon-controls {
+    flex-direction: column;
+    flex-wrap: nowrap;
+    align-items: flex-start;
+    width: auto;
+    max-width: 334px;
+}
+
 /* 編集領域を横方向のワークスペースとして配置する。 */
 .workspace {
     display: flex;

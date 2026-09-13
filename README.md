@@ -135,6 +135,8 @@ The extension saves pasted and selected images locally and inserts a relative Ma
 assets/<document-name>/
 ```
 
+To change this rule from the editor, open the **Settings** tab and edit **Image save path rule**. The value is relative to the Markdown file; `${documentBasename}` is replaced with the document name without its extension, and `.` saves images beside the document.
+
 When a preview is visible, select an image to inspect its alt text and reference. You can also drag its resize handle or use the alignment controls. Changes are written back to the Markdown source.
 
 PNG, JPEG, GIF, WebP, BMP, and SVG images are supported. BMP images are converted to PNG when they are saved.
@@ -212,7 +214,7 @@ By default, the exported file is saved beside the source Markdown file as `<name
 
 ## Settings
 
-Open VS Code Settings and search for **Markdown Easy Visual Editor**.
+Open the editor's **Settings** tab for image save paths. For all settings, open VS Code Settings and search for **Markdown Easy Visual Editor**.
 
 | Setting | Purpose | Default |
 | --- | --- | --- |

@@ -140,10 +140,11 @@ export type WebviewToHostMessage =
     | { type: 'startupMermaidReady'; clientId: string }
     | { type: 'localChanges'; clientId: string; opId: string; baseVersion: number; changes: TextChange[] }
     | { type: 'historyCommand'; clientId: string; command: 'undo' | 'redo' }
-    | { type: 'saveImages'; requestId: string; images: ImagePayload[] }
-    | { type: 'pickImage'; requestId: string }
+    | { type: 'saveImages'; requestId: string; images: ImagePayload[]; imageDirectory: string }
+    | { type: 'pickImage'; requestId: string; imageDirectory: string }
     | { type: 'checkLocalResources'; requestId: string; markdown: string }
     | { type: 'setEditorTheme'; theme: EditorTheme }
+    | { type: 'setImageDirectory'; directory: string }
     | { type: 'setViewMode'; viewMode: ViewMode }
     | { type: 'setScrollSyncEnabled'; enabled: boolean }
     | { type: 'setPreviewImageResizeControlsVisible'; visible: boolean }

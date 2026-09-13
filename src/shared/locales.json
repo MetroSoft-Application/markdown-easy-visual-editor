@@ -7,6 +7,7 @@
         "table": "表",
         "view": "表示",
         "export": "出力",
+        "settings": "設定",
         "help": "ヘルプ"
       },
       "label": "Markdown編集リボン",
@@ -144,6 +145,13 @@
         "headerPlaceholder": "例: 合計"
       },
       "hintZoom": "Ctrl+ホイール: 拡大縮小",
+      "settings": {
+        "images": "画像",
+        "imageDirectory": "画像保存先のパスルール",
+        "imageDirectoryPlaceholder": "assets/${documentBasename}",
+        "imageDirectoryHint": "Markdownファイルからの相対パスを指定します。${documentBasename} は拡張子なしの文書名に置換されます。",
+        "apply": "適用"
+      },
       "codeLanguages": [
         {
           "value": "",
@@ -435,6 +443,7 @@
         "table": "Table",
         "view": "View",
         "export": "Export",
+        "settings": "Settings",
         "help": "Help"
       },
       "label": "Markdown editing ribbon",
@@ -572,6 +581,13 @@
         "headerPlaceholder": "e.g. Total"
       },
       "hintZoom": "Ctrl+wheel: Zoom",
+      "settings": {
+        "images": "Images",
+        "imageDirectory": "Image save path rule",
+        "imageDirectoryPlaceholder": "assets/${documentBasename}",
+        "imageDirectoryHint": "Enter a path relative to the Markdown file. ${documentBasename} becomes the document name without its extension; . saves beside the document.",
+        "apply": "Apply"
+      },
       "snippets": {
         "mermaid": "\n```mermaid\ngraph TD\n  A[Start] --> B[Done]\n```\n",
         "footnote": "[^1]\n\n[^1]: Footnote text",
@@ -863,6 +879,7 @@
         "table": "表格",
         "view": "视图",
         "export": "导出",
+        "settings": "设置",
         "help": "帮助"
       },
       "label": "Markdown编辑功能区",
@@ -1000,6 +1017,13 @@
         "headerPlaceholder": "例如：合计"
       },
       "hintZoom": "Ctrl+滚轮：缩放",
+      "settings": {
+        "images": "图像",
+        "imageDirectory": "图像保存路径规则",
+        "imageDirectoryPlaceholder": "assets/${documentBasename}",
+        "imageDirectoryHint": "请输入相对于 Markdown 文件的路径。${documentBasename} 会替换为不含扩展名的文档名；. 表示与文档相同的文件夹。",
+        "apply": "应用"
+      },
       "codeLanguages": [
         {
           "value": "",
@@ -1291,6 +1315,7 @@
         "table": "표",
         "view": "보기",
         "export": "내보내기",
+        "settings": "설정",
         "help": "도움말"
       },
       "label": "Markdown 편집 리본",
@@ -1428,6 +1453,13 @@
         "headerPlaceholder": "예: 합계"
       },
       "hintZoom": "Ctrl+휠: 확대/축소",
+      "settings": {
+        "images": "이미지",
+        "imageDirectory": "이미지 저장 경로 규칙",
+        "imageDirectoryPlaceholder": "assets/${documentBasename}",
+        "imageDirectoryHint": "Markdown 파일 기준의 상대 경로를 입력하세요. ${documentBasename}은 확장자를 뺀 문서 이름으로 바뀌며, .은 문서와 같은 폴더를 뜻합니다.",
+        "apply": "적용"
+      },
       "codeLanguages": [
         {
           "value": "",
@@ -1719,6 +1751,7 @@
         "table": "Tableau",
         "view": "Affichage",
         "export": "Exporter",
+        "settings": "Paramètres",
         "help": "Aide"
       },
       "label": "Éditeur Markdown",
@@ -1856,6 +1889,13 @@
         "headerPlaceholder": "Saisissez un en-tête"
       },
       "hintZoom": "Ctrl+molette : zoomer/réduire",
+      "settings": {
+        "images": "Images",
+        "imageDirectory": "Règle du chemin d’enregistrement",
+        "imageDirectoryPlaceholder": "assets/${documentBasename}",
+        "imageDirectoryHint": "Saisissez un chemin relatif au fichier Markdown. ${documentBasename} devient le nom du document sans extension ; . enregistre à côté du document.",
+        "apply": "Appliquer"
+      },
       "codeLanguages": [
         {
           "value": "",
@@ -2147,6 +2187,7 @@
         "table": "Tabelle",
         "view": "Ansicht",
         "export": "Export",
+        "settings": "Einstellungen",
         "help": "Hilfe"
       },
       "label": "Markdown-Editor",
@@ -2284,6 +2325,13 @@
         "headerPlaceholder": "Kopfzeile eingeben"
       },
       "hintZoom": "Strg+Mausrad: vergrößern/verkleinern",
+      "settings": {
+        "images": "Bilder",
+        "imageDirectory": "Pfadregel zum Speichern von Bildern",
+        "imageDirectoryPlaceholder": "assets/${documentBasename}",
+        "imageDirectoryHint": "Geben Sie einen Pfad relativ zur Markdown-Datei ein. ${documentBasename} wird durch den Dokumentnamen ohne Erweiterung ersetzt; . speichert neben dem Dokument.",
+        "apply": "Anwenden"
+      },
       "codeLanguages": [
         {
           "value": "",
@@ -2575,6 +2623,7 @@
         "table": "Tabla",
         "view": "Vista",
         "export": "Exportar",
+        "settings": "Configuración",
         "help": "Ayuda"
       },
       "label": "Editor de Markdown",
@@ -2712,6 +2761,13 @@
         "headerPlaceholder": "Escribe un encabezado"
       },
       "hintZoom": "Ctrl+rueda: acercar/alejar",
+      "settings": {
+        "images": "Imágenes",
+        "imageDirectory": "Regla de ruta para guardar imágenes",
+        "imageDirectoryPlaceholder": "assets/${documentBasename}",
+        "imageDirectoryHint": "Introduce una ruta relativa al archivo Markdown. ${documentBasename} se sustituye por el nombre del documento sin extensión; . guarda junto al documento.",
+        "apply": "Aplicar"
+      },
       "codeLanguages": [
         {
           "value": "",

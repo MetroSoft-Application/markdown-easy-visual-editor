@@ -112,6 +112,15 @@ try {
             data: { type: 'settingsChanged', settings: window.__mveGlobalSettings }
           })), 0);
         }
+        if (message.type === 'setImageDirectory') {
+          window.__mveGlobalSettings = {
+            ...window.__mveGlobalSettings,
+            imageDirectory: message.directory
+          };
+          setTimeout(() => window.dispatchEvent(new MessageEvent('message', {
+            data: { type: 'settingsChanged', settings: window.__mveGlobalSettings }
+          })), 300);
+        }
       },
       getState: () => undefined,
       setState: () => undefined
@@ -140,6 +149,39 @@ try {
     }));
   }, settings);
   await page.locator('.split-editor .cm-content').waitFor();
+  await page.setViewportSize({ width: 475, height: 720 });
+  await page.getByRole('tab', { name: '設定', exact: true }).click();
+  const imageDirectoryInput = page.getByRole('textbox', { name: '画像保存先のパスルール', exact: true });
+  await imageDirectoryInput.fill('images/${documentBasename}');
+  const settingBounds = await page.evaluate(() => {
+    const group = document.querySelector('.ribbon-settings-group')?.getBoundingClientRect();
+    const input = document.querySelector('.ribbon-setting-form input')?.getBoundingClientRect();
+    return group && input
+      ? { groupWidth: group.width, groupRight: group.right, inputWidth: input.width, inputRight: input.right }
+      : undefined;
+  });
+  if (!settingBounds
+    || settingBounds.groupWidth > 350
+    || settingBounds.inputWidth < 329
+    || settingBounds.inputWidth > 331
+    || settingBounds.inputRight > settingBounds.groupRight + 1) {
+    throw new Error(`image setting controls overflowed their group: ${JSON.stringify(settingBounds)}`);
+  }
+  if (await page.locator('.ribbon-setting-form button').count()) {
+    throw new Error('image setting form still contains an apply button');
+  }
+  await imageDirectoryInput.press('Enter');
+  await page.getByRole('tab', { name: '挿入', exact: true }).click();
+  await page.locator('button[title^="画像"]').click();
+  const requestedImageDirectory = await page.evaluate(() => [...window.__mveMessages]
+    .reverse().find((message) => message.type === 'pickImage')?.imageDirectory);
+  if (requestedImageDirectory !== 'images/${documentBasename}') {
+    throw new Error(`image setting was not applied to the next save request: ${requestedImageDirectory}`);
+  }
+  await page.waitForFunction(() => window.__mveGlobalSettings.imageDirectory === 'images/${documentBasename}');
+  await page.getByRole('tab', { name: 'ホーム', exact: true }).click();
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await page.waitForTimeout(500);
   const emptyCrLfStart = await page.evaluate(() => ({
     local: window.__mveMessages.filter((message) => message.type === 'localChanges').length,
     resync: window.__mveMessages.filter((message) => message.type === 'requestResync').length
@@ -1190,7 +1232,7 @@ try {
   await page.evaluate(() => { window.__mveAckDelay = 0; });
   await context.close();
   if (errors.length) throw new Error(errors.join('\n'));
-  console.log('高速スモーク: 空CRLF文書の単一改行同期、LFプロトコル、表編集、フォーカス非介入、スクロール同期設定、スクロール保持、分割表示、ズーム、空白可視化、ハイライトを確認しました。');
+  console.log('高速スモーク: 空CRLF文書の単一改行同期、LFプロトコル、画像保存先設定、表編集、フォーカス非介入、スクロール同期設定、スクロール保持、分割表示、ズーム、空白可視化、ハイライトを確認しました。');
 } finally {
   await browser.close();
 }

@@ -8,6 +8,7 @@ import type {
     WebviewSettings,
     WebviewToHostMessage
 } from '../shared/protocol';
+import { resolveImageDirectoryRule } from '../shared/imageDirectory';
 import { collectLocalResourceReferences, sortDiagnostics, type Diagnostic } from '../shared/markdown';
 import { applyTextChanges, computeTextChanges, mapTextChanges, validateTextChanges, type TextChange } from '../shared/textChanges';
 import {
@@ -421,7 +422,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
                         text: this.canonicalText(document),
                         version: document.version,
                         uri: document.uri.toString(),
-                        settings: this.getSettings()
+                        settings: this.getSettings(document)
                     });
                     return;
                 case 'initialized':
@@ -450,12 +451,12 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
                     return;
                 }
                 case 'saveImages': {
-                    const paths = await this.saveImages(document, message.images);
+                    const paths = await this.saveImages(document, message.images, message.imageDirectory);
                     this.post(panel, { type: 'imagesSaved', requestId: message.requestId, paths });
                     return;
                 }
                 case 'pickImage': {
-                    const paths = await this.pickAndSaveImages(document);
+                    const paths = await this.pickAndSaveImages(document, message.imageDirectory);
                     this.post(panel, { type: 'imagesSaved', requestId: message.requestId, paths });
                     return;
                 }
@@ -513,6 +514,20 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
                 case 'setEditorTheme': {
                     const config = vscode.workspace.getConfiguration('markdownEasyVisualEditor');
                     await config.update('editor.theme', message.theme, vscode.ConfigurationTarget.Global);
+                    this.broadcastSettings();
+                    return;
+                }
+                case 'setImageDirectory': {
+                    const normalized = resolveImageDirectoryRule(message.directory, 'document');
+                    if (!normalized) throw new Error(this.getMessages().host.invalidImageDirectory);
+                    const config = vscode.workspace.getConfiguration('markdownEasyVisualEditor', document.uri);
+                    const inspected = config.inspect<string>('images.directory');
+                    const target = inspected?.workspaceFolderValue !== undefined
+                        ? vscode.ConfigurationTarget.WorkspaceFolder
+                        : inspected?.workspaceValue !== undefined
+                            ? vscode.ConfigurationTarget.Workspace
+                            : vscode.ConfigurationTarget.Global;
+                    await config.update('images.directory', message.directory.trim(), target);
                     this.broadcastSettings();
                     return;
                 }
@@ -1066,14 +1081,18 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
      * @returns 保存した画像の相対パス一覧。
      * @throws 未保存文書、サイズ超過、未対応形式、または保存失敗の場合。
      */
-    private async saveImages(document: vscode.TextDocument, images: ImagePayload[]): Promise<string[]> {
+    private async saveImages(
+        document: vscode.TextDocument,
+        images: ImagePayload[],
+        imageDirectory = this.getSettings(document).imageDirectory
+    ): Promise<string[]> {
         // 画像を設定された保存先へ書き込み、Markdownから参照する相対パスを返す。
         const messages = this.getMessages();
         if (document.uri.scheme === 'untitled') throw new Error(messages.host.imageDocumentMustBeSaved);
         if (!images.length) return [];
-        const settings = this.getSettings();
+        const settings = this.getSettings(document);
         const maxBytes = settings.maxPasteSizeMb * 1024 * 1024;
-        const assetDirectory = await this.ensureAssetDirectory(document);
+        const assetDirectory = await this.ensureAssetDirectory(document, imageDirectory);
         const results: string[] = [];
 
         for (const image of images) {
@@ -1099,7 +1118,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
      * @param document 画像を参照するMarkdown文書。
      * @returns 保存した画像の相対パス一覧を解決するPromise。
      */
-    private async pickAndSaveImages(document: vscode.TextDocument): Promise<string[]> {
+    private async pickAndSaveImages(document: vscode.TextDocument, imageDirectory: string): Promise<string[]> {
         // ファイル選択ダイアログで画像を選び、保存処理が受け取れるペイロードへ変換する。
         const selected = await vscode.window.showOpenDialog({
             canSelectFiles: true,
@@ -1119,7 +1138,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
                 base64: Buffer.from(bytes).toString('base64')
             });
         }
-        return this.saveImages(document, payloads);
+        return this.saveImages(document, payloads, imageDirectory);
     }
 
     /**
@@ -1128,17 +1147,18 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
      * @returns 作成または確認したアセットディレクトリのURI。
      * @throws 絶対パスや親ディレクトリを含む安全でない設定の場合。
      */
-    private async ensureAssetDirectory(document: vscode.TextDocument): Promise<vscode.Uri> {
+    private async ensureAssetDirectory(document: vscode.TextDocument, imageDirectory: string): Promise<vscode.Uri> {
         // 設定値のプレースホルダーを展開し、安全な相対パスの画像保存先を作成する。
-        const configured = this.getSettings().imageDirectory.replace(
-            /\$\{documentBasename\}/g,
+        const normalized = resolveImageDirectoryRule(
+            imageDirectory,
             path.basename(document.uri.fsPath, path.extname(document.uri.fsPath))
         );
-        const normalized = configured.replace(/\\/g, '/').replace(/^\.\//, '');
-        if (!normalized || normalized.startsWith('/') || normalized.split('/').includes('..')) {
+        if (!normalized) {
             throw new Error(this.getMessages().host.invalidImageDirectory);
         }
-        const target = vscode.Uri.joinPath(document.uri, '..', ...normalized.split('/').filter(Boolean));
+        const target = normalized === '.'
+            ? vscode.Uri.joinPath(document.uri, '..')
+            : vscode.Uri.joinPath(document.uri, '..', ...normalized.split('/'));
         await vscode.workspace.fs.createDirectory(target);
         return target;
     }
@@ -1199,9 +1219,9 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
      * VS Codeの設定値とワークスペース信頼状態からWebview設定を作る。
      * @returns Webviewへ送信する設定値。
      */
-    private getSettings(): WebviewSettings {
+    private getSettings(document?: vscode.TextDocument): WebviewSettings {
         // VS Code設定とワークスペース信頼状態をWebview用の設定オブジェクトへまとめる。
-        const config = vscode.workspace.getConfiguration('markdownEasyVisualEditor');
+        const config = vscode.workspace.getConfiguration('markdownEasyVisualEditor', document?.uri);
         return {
             language: this.getLanguage(),
             imageDirectory: config.get('images.directory', 'assets/${documentBasename}'),
@@ -1261,11 +1281,12 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
      */
     private broadcastSettings(): void {
         // 登録されているすべてのパネルへ現在の設定を通知する。
-        for (const panels of this.panels.values()) {
+        for (const [key, panels] of this.panels) {
+            const settings = this.getSettings(this.documents.get(key));
             for (const panel of panels) {
                 this.post(panel, {
                     type: 'settingsChanged',
-                    settings: this.getSettings()
+                    settings
                 });
             }
         }
@@ -1289,7 +1310,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
         const bundledStyleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'webview.css'));
         const baseUri = webview.asWebviewUri(vscode.Uri.joinPath(document.uri, '..'));
         const nonce = randomUUID().replace(/-/g, '');
-        const settings = this.getSettings();
+        const settings = this.getSettings(document);
         const allowRemote = settings.remoteImagesEnabled ? ' https: http:' : '';
         const canonicalText = this.canonicalText(document);
         // 巨大文書をHTML内で複製すると逆にパース・メモリ負荷が増えるため、

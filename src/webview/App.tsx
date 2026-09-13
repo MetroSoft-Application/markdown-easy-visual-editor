@@ -899,7 +899,12 @@ export function App(): React.JSX.Element {
       document.removeEventListener("drop", onDrop, true);
       document.removeEventListener("keydown", onKeyDown, true);
     };
-  }, [mode, splitView, settings.maxPasteSizeMb]);
+  }, [
+    mode,
+    splitView,
+    settings.maxPasteSizeMb,
+    settings.imageDirectory,
+  ]);
 
   useEffect(() => {
     // 通知トーストを一定時間後に自動的に閉じる。
@@ -1662,6 +1667,16 @@ export function App(): React.JSX.Element {
       case "exportHtml":
         void requestHtmlExport(command.options);
         return;
+      case "setImageDirectory":
+        setSettings((current) => ({
+          ...current,
+          imageDirectory: command.directory,
+        }));
+        vscode.postMessage({
+          type: "setImageDirectory",
+          directory: command.directory,
+        });
+        return;
       case "find": {
         openSearch();
         return;
@@ -1916,7 +1931,12 @@ export function App(): React.JSX.Element {
         );
       const requestId = createClientId();
       imageRequestsRef.current.add(requestId);
-      vscode.postMessage({ type: "saveImages", requestId, images });
+      vscode.postMessage({
+        type: "saveImages",
+        requestId,
+        images,
+        imageDirectory: settings.imageDirectory,
+      });
     } catch (error) {
       setToast(error instanceof Error ? error.message : String(error));
     }
@@ -1929,7 +1949,11 @@ export function App(): React.JSX.Element {
   function requestImagePicker(): void {
     const requestId = createClientId();
     imageRequestsRef.current.add(requestId);
-    vscode.postMessage({ type: "pickImage", requestId });
+    vscode.postMessage({
+      type: "pickImage",
+      requestId,
+      imageDirectory: settings.imageDirectory,
+    });
   }
 
   /** プレビューWorkerが現在の本文を反映するまで待つ。 */
@@ -3339,6 +3363,7 @@ export function App(): React.JSX.Element {
         scrollSyncEnabled={scrollSyncEnabled}
         splitView={splitView}
         htmlOptions={htmlOptions}
+        imageDirectory={settings.imageDirectory}
         onHtmlOptionsChange={setHtmlOptions}
         onCommand={handleRibbon}
       />

@@ -23,6 +23,7 @@ export type RibbonTab =
   | "table"
   | "view"
   | "export"
+  | "settings"
   | "help";
 
 export type RibbonCommand =
@@ -47,6 +48,7 @@ export type RibbonCommand =
   | { type: "runPreflightCheck" }
   | { type: "showShortcuts" | "showFeatures" }
   | { type: "openSource" | "exportPdf" | "find" }
+  | { type: "setImageDirectory"; directory: string }
   | { type: "exportHtml"; options: HtmlExportOptions };
 
 interface Props {
@@ -58,6 +60,7 @@ interface Props {
   scrollSyncEnabled: boolean;
   splitView: "both" | "text" | "preview";
   htmlOptions: HtmlExportOptions;
+  imageDirectory: string;
   onHtmlOptionsChange: (options: HtmlExportOptions) => void;
   onCommand: (command: RibbonCommand) => void;
 }
@@ -76,6 +79,7 @@ export function Ribbon({
   scrollSyncEnabled,
   splitView,
   htmlOptions,
+  imageDirectory,
   onHtmlOptionsChange,
   onCommand,
 }: Props): React.JSX.Element {
@@ -87,6 +91,8 @@ export function Ribbon({
   const [codeLanguage, setCodeLanguage] = useState("");
   const [emoji, setEmoji] = useState(DOCUMENT_EMOJIS[0]);
   const [headerName, setHeaderName] = useState("");
+  const [imageDirectoryDraft, setImageDirectoryDraft] =
+    useState(imageDirectory);
   const [imageResizeControlsVisible, setImageResizeControlsVisibleState] =
     useState(getPreviewImageResizeControlsVisible);
   const japanese = document.documentElement.lang.toLowerCase().startsWith("ja");
@@ -98,6 +104,8 @@ export function Ribbon({
       ),
     [],
   );
+
+  useEffect(() => setImageDirectoryDraft(imageDirectory), [imageDirectory]);
 
   return (
     <header
@@ -688,6 +696,40 @@ export function Ribbon({
               </Group>
             </>
           )}
+          {tab === "settings" && (
+            <>
+              <Group
+                label={messages.ribbon.settings.images}
+                className="ribbon-settings-group"
+              >
+                <form
+                  className="ribbon-setting-form"
+                  onSubmit={(event) => {
+                    event.preventDefault();
+                    saveImageDirectory();
+                  }}
+                >
+                  <label>
+                    <span>{messages.ribbon.settings.imageDirectory}</span>
+                    <input
+                      value={imageDirectoryDraft}
+                      placeholder={
+                        messages.ribbon.settings.imageDirectoryPlaceholder
+                      }
+                      spellCheck={false}
+                      onChange={(event) =>
+                        setImageDirectoryDraft(event.target.value)
+                      }
+                      onBlur={saveImageDirectory}
+                    />
+                  </label>
+                </form>
+                <span className="ribbon-setting-hint">
+                  {messages.ribbon.settings.imageDirectoryHint}
+                </span>
+              </Group>
+            </>
+          )}
           {tab === "help" && (
             <>
               <Group label={messages.ribbon.groups.help}>
@@ -741,6 +783,13 @@ export function Ribbon({
           : undefined,
     });
   }
+
+  /** 入力中の画像保存先ルールを親コンポーネントへ渡す。 */
+  function saveImageDirectory(): void {
+    const directory = imageDirectoryDraft.trim();
+    if (!directory || directory === imageDirectory) return;
+    onCommand({ type: "setImageDirectory", directory });
+  }
 }
 
 /** 選択中の通常表示モードを示し、どのリボンタブからでも切り替えられるボタンを描画する。 */
@@ -778,13 +827,15 @@ function ViewModeButton({
 function Group({
   label,
   children,
+  className,
 }: {
   label: string;
   children: React.ReactNode;
+  className?: string;
 }): React.JSX.Element {
   // リボン内の操作群をラベル付きのセクションとしてまとめる。
   return (
-    <section className="ribbon-group">
+    <section className={`ribbon-group${className ? ` ${className}` : ""}`}>
       <div className="ribbon-controls">{children}</div>
       <span className="ribbon-group-label">{label}</span>
     </section>
@@ -827,7 +878,15 @@ function Tool({
   );
 }
 
-const TABS: RibbonTab[] = ["home", "insert", "table", "view", "export", "help"];
+const TABS: RibbonTab[] = [
+  "home",
+  "insert",
+  "table",
+  "view",
+  "export",
+  "settings",
+  "help",
+];
 
 // 文書の構造・参照・状態を示す用途に絞った絵文字一覧。
 const DOCUMENT_EMOJIS = [
