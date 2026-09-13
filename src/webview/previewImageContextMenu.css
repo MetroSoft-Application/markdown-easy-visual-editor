@@ -1,0 +1,64 @@
+.mve-preview-image-context-menu {
+    position: fixed;
+    z-index: 2200;
+    min-width: 180px;
+    max-width: min(320px, calc(100vw - 16px));
+    padding: 4px;
+    border: 1px solid var(--vscode-menu-border, var(--vscode-panel-border, #454545));
+    border-radius: 5px;
+    background: var(--vscode-menu-background, var(--vscode-editorWidget-background, #252526));
+    color: var(--vscode-menu-foreground, var(--vscode-foreground));
+    box-shadow: 0 6px 20px rgb(0 0 0 / 30%);
+}
+
+.mve-preview-image-context-menu button {
+    display: block;
+    width: 100%;
+    min-height: 28px;
+    box-sizing: border-box;
+    padding: 5px 9px;
+    border: 0;
+    border-radius: 3px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.mve-preview-image-context-menu button:hover:not(:disabled),
+.mve-preview-image-context-menu button:focus-visible {
+    outline: 0;
+    background: var(--vscode-menu-selectionBackground, var(--vscode-list-activeSelectionBackground, #04395e));
+    color: var(--vscode-menu-selectionForeground, var(--vscode-list-activeSelectionForeground, #fff));
+}
+
+.mve-preview-image-context-menu button:disabled {
+    opacity: 0.65;
+    cursor: default;
+}
+
+.mve-preview-image-context-menu[data-state="error"] button:disabled {
+    color: var(--vscode-errorForeground, #f48771);
+    opacity: 1;
+}
+
+.mve-preview-image-copy-toast {
+    position: fixed;
+    right: 18px;
+    bottom: 18px;
+    z-index: 2300;
+    max-width: min(420px, calc(100vw - 36px));
+    padding: 9px 12px;
+    border: 1px solid var(--vscode-notifications-border, var(--vscode-panel-border, #454545));
+    border-radius: 4px;
+    background: var(--vscode-notifications-background, var(--vscode-editorWidget-background, #252526));
+    color: var(--vscode-notifications-foreground, var(--vscode-foreground));
+    box-shadow: 0 4px 18px rgb(0 0 0 / 28%);
+    font-size: 12px;
+}
+
+.mve-preview-image-copy-toast[data-state="error"] {
+    color: var(--vscode-errorForeground, #f48771);
+}
