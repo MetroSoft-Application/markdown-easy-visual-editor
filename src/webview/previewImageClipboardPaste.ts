@@ -25,6 +25,8 @@ export function installPreviewImageClipboardPaste(): () => void {
         "[Markdown Easy Visual Editor] Could not reconstruct copied preview image as a file.",
         error,
       );
+      event.preventDefault();
+      event.stopImmediatePropagation();
       return;
     }
 
@@ -40,6 +42,24 @@ export function installPreviewImageClipboardPaste(): () => void {
       composed: true,
       clipboardData: transfer,
     });
+
+    // Chromium実装差でClipboardEventInit.clipboardDataが反映されない場合も、
+    // App側から同じDataTransferを読めるように補完する。
+    if (!forwarded.clipboardData?.items.length) {
+      try {
+        Object.defineProperty(forwarded, "clipboardData", {
+          configurable: true,
+          value: transfer,
+        });
+      } catch (error) {
+        console.warn(
+          "[Markdown Easy Visual Editor] Could not attach copied preview image to paste event.",
+          error,
+        );
+        return;
+      }
+    }
+
     target.dispatchEvent(forwarded);
   };
 
@@ -48,8 +68,8 @@ export function installPreviewImageClipboardPaste(): () => void {
 }
 
 /**
- * この拡張機能の画像コピーだけを識別し、HTMLに埋め込まれた元形式data URLを
- * 同じバイト列のFileへ復元する。
+ * HTMLに埋め込まれた元形式data URLを同じバイト列のFileへ復元する。
+ * data-mve-original-srcが残っていれば元拡張子を優先し、失われていてもMIMEから復元する。
  */
 export function readPreservedImagePaste(
   clipboard: DataTransfer | null,
@@ -59,8 +79,8 @@ export function readPreservedImagePaste(
   if (!html) return undefined;
 
   const documentNode = new DOMParser().parseFromString(html, "text/html");
-  const image = documentNode.querySelector<HTMLImageElement>(
-    "img[data-mve-original-src]",
+  const image = Array.from(documentNode.querySelectorAll<HTMLImageElement>("img")).find(
+    (candidate) => /^data:image\//i.test(candidate.getAttribute("src")?.trim() ?? ""),
   );
   if (!image) return undefined;
 
@@ -117,6 +137,8 @@ function extensionForImageMime(type: string): string {
   switch (normalizeMimeType(type)) {
     case "image/png":
       return "png";
+    case "image/apng":
+      return "apng";
     case "image/jpeg":
       return "jpg";
     case "image/gif":
@@ -129,6 +151,17 @@ function extensionForImageMime(type: string): string {
       return "bmp";
     case "image/avif":
       return "avif";
+    case "image/x-icon":
+    case "image/vnd.microsoft.icon":
+      return "ico";
+    case "image/heic":
+      return "heic";
+    case "image/heif":
+      return "heif";
+    case "image/jxl":
+      return "jxl";
+    case "image/tiff":
+      return "tiff";
     default:
       return "img";
   }
