@@ -25,12 +25,14 @@ for (const index of [1, 2, 3, 4, 5, 6, 7, 9, 11]) {
 }
 const localSvg = await readFile(path.resolve('sample/assets/local-sample.svg'));
 const markdownWorkerScript = await readFile(path.resolve('dist/markdown-worker.js'));
+const markdownRichWorkerScript = await readFile(path.resolve('dist/markdown-rich-worker.js'));
 const mermaidPngPlaceholder = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
 const browser = await chromium.launch({ executablePath, headless: true });
 const rendererBrowser = await chromium.launch({ executablePath, headless: true });
 try {
   const context = await browser.newContext();
   const rendererContext = await rendererBrowser.newContext();
+  const pageErrors = [];
   await context.addInitScript(() => {
     window.__mveMessages = [];
     window.__mveHostVersion = 1;
@@ -81,6 +83,8 @@ try {
   let lightweightMermaidRendering = false;
   const cancelledRenderRequests = new Set();
   const page = await context.newPage();
+  page.on('pageerror', (error) => pageErrors.push(error.message));
+  page.on('console', (message) => { if (message.type() === 'error') pageErrors.push(message.text()); });
   let closingContext = false;
   await page.exposeFunction('__mveHostPostMessage', (message) => {
     if (closingContext) return;
@@ -151,17 +155,28 @@ try {
   await page.route('https://mve.test/dist/markdown-worker.js', async (route) => {
     await route.fulfill({ status: 200, contentType: 'text/javascript', body: markdownWorkerScript });
   });
+  await page.route('https://mve.test/dist/markdown-rich-worker.js', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'text/javascript',
+      body: markdownRichWorkerScript
+    });
+  });
   await page.route('https://mve.test/sample/', async (route) => {
     await route.fulfill({
       status: 200,
       contentType: 'text/html',
-      body: '<!doctype html><html lang="ja"><head><meta charset="utf-8"><base href="https://mve.test/sample/"></head><body data-mve-markdown-worker-uri="https://mve.test/dist/markdown-worker.js"><div id="root"></div></body></html>'
+      body: '<!doctype html><html lang="ja"><head><meta charset="utf-8"><base href="https://mve.test/sample/"></head><body data-mve-markdown-worker-uri="https://mve.test/dist/markdown-worker.js" data-mve-markdown-rich-worker-uri="https://mve.test/dist/markdown-rich-worker.js"><div id="root"></div></body></html>'
     });
   });
   await page.goto('https://mve.test/sample/');
   await page.addStyleTag({ path: path.resolve('dist/styles.css') });
   await page.addScriptTag({ path: path.resolve('dist/webview.js') });
-  await page.waitForFunction(() => window.__mveMessages.some((message) => message.type === 'ready'));
+  try {
+    await page.waitForFunction(() => window.__mveMessages.some((message) => message.type === 'ready'));
+  } catch (error) {
+    throw new Error(`Webview did not become ready: ${pageErrors.join(' | ')}`, { cause: error });
+  }
   const settings = { imageDirectory: 'assets/${documentBasename}', maxPasteSizeMb: 20, remoteImagesEnabled: false, mermaidTheme: 'default', mermaidHostRendering: true, workspaceTrusted: true };
   await page.evaluate((value) => { window.__mveHostText = value; }, samples[1]);
   await page.evaluate(({ value, settings: initSettings }) => window.dispatchEvent(new MessageEvent('message', { data: { type: 'init', text: value, version: 1, uri: 'file:///C:/sample.md', settings: initSettings } })), { value: samples[1], settings });
@@ -211,6 +226,10 @@ try {
   if ((await page.locator('.split-preview table').count()) < 2) throw new Error('sample/04 のテーブルを確認できません。');
   await load(5);
   if ((await page.locator('.split-preview .code-figure').count()) < 1) throw new Error('sample/05 のコードブロックを確認できません。');
+  await page.waitForFunction(() => document.body.dataset.mveMarkdownWorkerStatus === 'ready');
+  if (!(await page.locator('.split-preview code .hljs-keyword, .split-preview code .hljs-built_in, .split-preview code .hljs-selector-tag').count())) {
+    throw new Error('sample/05 の遅延シンタックスハイライトを確認できません。');
+  }
   await page.locator('.split-preview .mermaid').first().scrollIntoViewIfNeeded();
   await page.waitForFunction(() => document.querySelectorAll('.split-preview .mermaid[data-mermaid-status="ready"]').length >= 1);
   await load(6);
@@ -231,14 +250,22 @@ try {
   // 実際のホイール操作と同じ意図を先に通知し、大規模図を確実に可視範囲へ入れる。
   await page.locator('.split-preview').dispatchEvent('wheel', { deltaY: 1 });
   await page.locator('.split-preview .mermaid').first().evaluate((node) => node.scrollIntoView({ block: 'center' }));
-  await page.waitForFunction(() => {
-    const container = document.querySelector('.split-preview');
-    const node = container?.querySelector('.mermaid');
-    if (!container || !node) return false;
-    const viewport = container.getBoundingClientRect();
-    const rect = node.getBoundingClientRect();
-    return rect.bottom >= viewport.top && rect.top <= viewport.bottom;
-  });
+  try {
+    await page.waitForFunction(() => {
+      const container = document.querySelector('.split-preview');
+      const node = container?.querySelector('.mermaid');
+      if (!container || !node) return false;
+      const viewport = container.getBoundingClientRect();
+      const rect = node.getBoundingClientRect();
+      return rect.bottom >= viewport.top && rect.top <= viewport.bottom;
+    });
+  } catch (error) {
+    const state = await page.evaluate(() => ({
+      previewScrollTop: document.querySelector('.split-preview')?.scrollTop,
+      debug: (window.__mveDebugLog ?? []).slice(-100)
+    }));
+    throw new Error(`preview user scroll was overwritten: ${JSON.stringify(state)}`, { cause: error });
+  }
   await page.evaluate(() => {
     window.__mveResponsiveness = { startedAt: performance.now(), previous: performance.now(), maximumGap: 0, ticks: 0 };
     window.__mveLongTasks = [];
@@ -272,7 +299,8 @@ try {
       requestCount: window.__mveMessages.filter((message) => message.type === 'renderMermaid').length,
       lastMessages: window.__mveMessages.slice(-5).map((message) => message.type),
       documentLength: document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-document-length'),
-      renderRevision: document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-render-revision')
+      renderRevision: document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-render-revision'),
+      debug: (window.__mveDebugLog ?? []).slice(-80)
     }));
     throw new Error(`sample/11 Mermaid render request did not start: ${JSON.stringify(mermaidWaitState)}`, { cause: error });
   }
@@ -384,11 +412,28 @@ try {
   await page.waitForFunction((expectedLength) => (
     Number(document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-document-length')) === expectedLength
   ), sustainedStart.hostLength + typedText.length, { timeout: 30_000 });
-  await page.waitForFunction(() => {
-    const diagrams = [...document.querySelectorAll('.split-preview .mermaid')];
-    return diagrams.some((node) => ['ready', 'error'].includes(node.getAttribute('data-mermaid-status')))
-      && !diagrams.some((node) => node.getAttribute('data-mermaid-status') === 'rendering');
-  }, undefined, { timeout: 30_000 });
+  try {
+    await page.waitForFunction(() => {
+      const diagrams = [...document.querySelectorAll('.split-preview .mermaid')];
+      return diagrams.some((node) => ['ready', 'error'].includes(node.getAttribute('data-mermaid-status')))
+        && !diagrams.some((node) => node.getAttribute('data-mermaid-status') === 'rendering');
+    }, undefined, { timeout: 30_000 });
+  } catch (error) {
+    const state = await page.evaluate(() => ({
+      workerStatus: document.body.dataset.mveMarkdownWorkerStatus,
+      diagrams: [...document.querySelectorAll('.split-preview .mermaid')].map((node) => ({
+        status: node.getAttribute('data-mermaid-status'),
+        source: decodeURIComponent(node.getAttribute('data-mermaid-source') ?? '').slice(0, 80)
+      })),
+      outstandingOperations: window.__mveOutstandingOperations,
+      recentMessages: window.__mveMessages.slice(-10).map((message) => ({
+        type: message.type,
+        requestId: message.requestId
+      })),
+      debug: (window.__mveDebugLog ?? []).slice(-30)
+    }));
+    throw new Error(`continuous Mermaid rendering did not settle: ${JSON.stringify(state)}`, { cause: error });
+  }
   await page.waitForTimeout(500);
   const sustained = await page.evaluate((start) => {
     clearInterval(window.__mveSustainedTimer);

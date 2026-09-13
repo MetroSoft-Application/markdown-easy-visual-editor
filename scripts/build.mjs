@@ -40,7 +40,7 @@ const webviewOptions = {
 };
 
 const markdownWorkerOptions = {
-  entryPoints: ['src/webview/markdownRender.worker.ts'],
+  entryPoints: ['src/webview/markdownRenderLight.worker.ts'],
   bundle: true,
   outfile: 'dist/markdown-worker.js',
   platform: 'browser',
@@ -49,6 +49,12 @@ const markdownWorkerOptions = {
   define: { 'process.env.NODE_ENV': JSON.stringify(watch ? 'development' : 'production') },
   minify: !watch,
   logLevel: 'info'
+};
+
+const markdownRichWorkerOptions = {
+  ...markdownWorkerOptions,
+  entryPoints: ['src/webview/markdownRender.worker.ts'],
+  outfile: 'dist/markdown-rich-worker.js'
 };
 
 const markdownFallbackOptions = {
@@ -97,6 +103,7 @@ if (watch) {
   const extensionContext = await esbuild.context(extensionOptions);
   const webviewContext = await esbuild.context(webviewOptions);
   const markdownWorkerContext = await esbuild.context(markdownWorkerOptions);
+  const markdownRichWorkerContext = await esbuild.context(markdownRichWorkerOptions);
   const markdownFallbackContext = await esbuild.context(markdownFallbackOptions);
   const exportFontContext = await esbuild.context(exportFontOptions);
   await esbuild.build(playwrightOptions);
@@ -104,6 +111,7 @@ if (watch) {
     extensionContext.watch(),
     webviewContext.watch(),
     markdownWorkerContext.watch(),
+    markdownRichWorkerContext.watch(),
     markdownFallbackContext.watch(),
     exportFontContext.watch()
   ]);
@@ -113,6 +121,7 @@ if (watch) {
     esbuild.build(extensionOptions),
     esbuild.build(webviewOptions),
     esbuild.build(markdownWorkerOptions),
+    esbuild.build(markdownRichWorkerOptions),
     esbuild.build(markdownFallbackOptions),
     esbuild.build(exportFontOptions),
     esbuild.build(playwrightOptions)

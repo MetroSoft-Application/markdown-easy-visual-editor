@@ -1170,9 +1170,8 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
           !Number.isFinite(ratio)
         )
           return;
-        viewportRestoreAnchorRef.current = undefined;
-        viewportRestoreActiveRef.current = false;
-        viewportRestoreGenerationRef.current += 1;
+        viewportRestoreActiveRef.current = true;
+        const generation = ++viewportRestoreGenerationRef.current;
         const maxScrollTop = Math.max(
           0,
           view.scrollDOM.scrollHeight - view.scrollDOM.clientHeight,
@@ -1181,6 +1180,24 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
         programmaticScrollPendingRef.current =
           Math.abs(view.scrollDOM.scrollTop - nextScrollTop) > 0.5;
         view.scrollDOM.scrollTop = nextScrollTop;
+        const anchor = readViewport(view);
+        if (!anchor) {
+          viewportRestoreActiveRef.current = false;
+          return;
+        }
+        anchor.scrollRatio = Math.min(1, Math.max(0, ratio));
+        viewportRestoreAnchorRef.current = { ...anchor };
+        restoreViewportUntilSettled(
+          view,
+          anchor,
+          hostRef.current,
+          programmaticScrollPendingRef,
+          () => viewportRestoreGenerationRef.current === generation,
+          (restored) => viewportRef.current?.(restored, false),
+          () => {
+            viewportRestoreActiveRef.current = false;
+          },
+        );
       },
     }));
 
@@ -1713,7 +1730,12 @@ function restoreViewportUntilSettled(
     if (!isCurrent()) return;
     const offset = externalOffsetToEditor(view.state, anchor.offset);
     const block = view.lineBlockAt(offset);
-    const nextScrollTop = Math.max(0, block.top - anchor.topOffset);
+    const nextScrollTop = anchor.scrollRatio !== undefined
+      ? Math.min(1, Math.max(0, anchor.scrollRatio)) * Math.max(
+          0,
+          view.scrollDOM.scrollHeight - view.scrollDOM.clientHeight,
+        )
+      : Math.max(0, block.top - anchor.topOffset);
     programmaticScrollPendingRef.current =
       Math.abs(view.scrollDOM.scrollTop - nextScrollTop) > 0.5;
     view.scrollDOM.scrollTop = nextScrollTop;
@@ -1722,12 +1744,14 @@ function restoreViewportUntilSettled(
       publishViewportData(host, restored);
       onRestored(restored);
     }
-    const settled = Boolean(
-      restored &&
-      anchor.offset >= restored.offset &&
-      anchor.offset <= (restored.endOffset ?? restored.offset) &&
-      Math.abs(restored.topOffset - anchor.topOffset) <= 1,
-    );
+    const settled = anchor.scrollRatio !== undefined
+      ? restored?.scrollRatio === anchor.scrollRatio
+      : Boolean(
+          restored &&
+          anchor.offset >= restored.offset &&
+          anchor.offset <= (restored.endOffset ?? restored.offset) &&
+          Math.abs(restored.topOffset - anchor.topOffset) <= 1,
+        );
     if (restored && (attempt < 8 || (!settled && attempt < 16))) {
       restoreViewportUntilSettled(
         view,

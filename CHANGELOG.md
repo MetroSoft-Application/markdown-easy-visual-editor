@@ -108,3 +108,7 @@
 
 - Added a function to swap rows and columns.
 - Added functions to select rows and columns.
+
+## 1.1.7
+
+- Speed up first launch of extensions.

@@ -3,7 +3,7 @@ import { createRoot } from "react-dom/client";
 import { EditorSelection } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import "katex/dist/katex.min.css";
-import { App } from "./App";
+import { App, preloadMarkdownWorker } from "./App";
 import "./cmMarkdownAutocomplete";
 import "./editorTheme.css";
 import "./editorThemePolish.css";
@@ -15,6 +15,10 @@ import { installEditorThemeController } from "./editorThemeController";
 import { installPreviewImageResizeControls } from "./previewImageResizeControls";
 import { installSelectedTextSearchTransfer } from "./searchSelectedText";
 import { installTableEditorOverlay } from "./tableEditorOverlay";
+
+(globalThis as typeof globalThis & { __mveBundleExecutedAt?: number })
+  .__mveBundleExecutedAt = performance.now();
+preloadMarkdownWorker();
 
 /**
  * 行番号の左クリック完了後に、その論理行のテキスト全体を選択する。

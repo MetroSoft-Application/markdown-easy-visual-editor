@@ -1,5 +1,6 @@
 import { collectDiagnostics, getOutline, wordStats } from '../shared/markdown';
 import { renderMarkdownUnsafeBlocks, type RenderOptions } from './markdownRendererCore';
+import { highlightCode } from './codeHighlighter';
 
 interface RenderRequest {
     id: number;
@@ -13,7 +14,7 @@ self.addEventListener('message', (event: MessageEvent<RenderRequest>) => {
         self.postMessage({
             id,
             markdown,
-            unsafeBlocks: renderMarkdownUnsafeBlocks(markdown, options),
+            unsafeBlocks: renderMarkdownUnsafeBlocks(markdown, options, highlightCode),
             outline: getOutline(markdown),
             diagnostics: collectDiagnostics(markdown, options.language),
             stats: wordStats(markdown)

@@ -43,6 +43,7 @@ const executablePath = await findFile(path.resolve('.chromium'), 'chrome-headles
 if (!executablePath) throw new Error('Chromium is not installed.');
 const webviewBundle = await readFile(path.resolve('dist/webview.js'), 'utf8');
 const markdownWorkerBundle = await readFile(path.resolve('dist/markdown-worker.js'), 'utf8');
+const markdownRichWorkerBundle = await readFile(path.resolve('dist/markdown-rich-worker.js'), 'utf8');
 const fixture = (await readFile(path.resolve('test/fixtures/outline-reorder-undo.md'), 'utf8')).replace(/\r\n?/g, '\n');
 const initialText = stripInstructions(fixture);
 const initialLines = initialText.split('\n');
@@ -153,9 +154,10 @@ try {
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
   await page.goto('about:blank');
   await page.setContent('<!doctype html><html lang="ja"><head><meta charset="utf-8"></head><body><div id="root"></div></body></html>');
-  await page.evaluate((workerSource) => {
+  await page.evaluate(({ workerSource, richWorkerSource }) => {
     document.body.dataset.mveMarkdownWorkerUri = URL.createObjectURL(new Blob([workerSource], { type: 'text/javascript' }));
-  }, markdownWorkerBundle);
+    document.body.dataset.mveMarkdownRichWorkerUri = URL.createObjectURL(new Blob([richWorkerSource], { type: 'text/javascript' }));
+  }, { workerSource: markdownWorkerBundle, richWorkerSource: markdownRichWorkerBundle });
   await page.addStyleTag({ path: path.resolve('dist/styles.css') });
   await page.addStyleTag({ path: path.resolve('dist/webview.css') });
   await page.addScriptTag({ path: path.resolve('dist/webview.js') });

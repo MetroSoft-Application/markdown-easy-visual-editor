@@ -17,6 +17,7 @@ const executablePath = await findFile(path.resolve('.chromium'), 'chrome-headles
 if (!executablePath) throw new Error('Chromium がありません。npm run pdf:install-browser を実行してください。');
 const webviewBundle = await readFile(path.resolve('dist/webview.js'), 'utf8');
 const markdownWorkerBundle = await readFile(path.resolve('dist/markdown-worker.js'), 'utf8');
+const markdownRichWorkerBundle = await readFile(path.resolve('dist/markdown-rich-worker.js'), 'utf8');
 const browser = await chromium.launch({ executablePath, headless: true });
 
 try {
@@ -77,9 +78,10 @@ try {
   page.setDefaultTimeout(5_000);
   await page.goto('about:blank');
   await page.setContent('<!doctype html><html lang="ja"><head><meta charset="utf-8"></head><body><div id="root"></div></body></html>');
-  await page.evaluate((workerSource) => {
+  await page.evaluate(({ workerSource, richWorkerSource }) => {
     document.body.dataset.mveMarkdownWorkerUri = URL.createObjectURL(new Blob([workerSource], { type: 'text/javascript' }));
-  }, markdownWorkerBundle);
+    document.body.dataset.mveMarkdownRichWorkerUri = URL.createObjectURL(new Blob([richWorkerSource], { type: 'text/javascript' }));
+  }, { workerSource: markdownWorkerBundle, richWorkerSource: markdownRichWorkerBundle });
   await page.addStyleTag({ path: path.resolve('dist/styles.css') });
   await page.addStyleTag({ path: path.resolve('dist/webview.css') });
   await page.addScriptTag({ content: webviewBundle });

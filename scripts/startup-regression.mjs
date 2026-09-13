@@ -5,6 +5,7 @@ const limits = {
   'extension.js': 512 * 1024,
   'webview.js': 2 * 1024 * 1024,
   'webview.css': 256 * 1024,
+  'markdown-worker.js': 512 * 1024,
   total: 48 * 1024 * 1024
 };
 
@@ -12,6 +13,7 @@ const requiredTopLevelFiles = [
   'export-fonts.css',
   'extension.js',
   'markdown-fallback.js',
+  'markdown-rich-worker.js',
   'markdown-worker.js',
   'mermaid.min.js',
   'pdf.worker.min.mjs',
@@ -43,6 +45,7 @@ const totalBytes = Object.values(sizes).reduce((sum, size) => sum + size, 0) + f
 assertAtMost('extension.js', sizes['extension.js'], limits['extension.js']);
 assertAtMost('webview.js', sizes['webview.js'], limits['webview.js']);
 assertAtMost('webview.css', sizes['webview.css'], limits['webview.css']);
+assertAtMost('markdown-worker.js', sizes['markdown-worker.js'], limits['markdown-worker.js']);
 assertAtMost('dist 合計', totalBytes, limits.total);
 if (fontFiles.length < 10) throw new Error('KaTeX の外部フォント成果物が不足しています。');
 
@@ -54,7 +57,7 @@ if (/playwright-core[\\/]lib[\\/](?:coreBundle|utilsBundle)/.test(extension)) {
 if (!extension.includes('./playwright.js')) {
   throw new Error('Playwright の遅延ロード参照が Extension Host バンドルにありません。');
 }
-if (!webview.includes('markdown-fallback.js') || !webview.includes('mermaid.min.js')) {
+if (!webview.includes('markdown-rich-worker.js') || !webview.includes('markdown-fallback.js') || !webview.includes('mermaid.min.js')) {
   throw new Error('Webview の障害時ランタイム遅延ロード参照が不足しています。');
 }
 if (sizes['export-fonts.css'] < 1024 * 1024 || sizes['playwright.js'] < 1024 * 1024) {

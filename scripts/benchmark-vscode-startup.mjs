@@ -19,6 +19,11 @@ const scenarios = [
   ['mermaid-first', mermaidPath, true]
 ];
 const repetitions = Math.max(1, Number.parseInt(process.env.MVE_STARTUP_RUNS ?? '3', 10) || 3);
+const regressionLimits = {
+  plain: { endToEndMs: 2300, previewReadyMs: 1400 },
+  representative: { endToEndMs: 2800, previewReadyMs: 1800 },
+  'mermaid-first': { endToEndMs: 2500, previewReadyMs: 1200, firstMermaidReadyMs: 1700 }
+};
 
 try {
   for (const [name, filePath, waitForMermaid] of scenarios) {
@@ -67,7 +72,9 @@ try {
         await removeProfile(profileRoot);
       }
     }
-    console.log(`${name} median: ${JSON.stringify(medianTiming(samples))}`);
+    const median = medianTiming(samples);
+    console.log(`${name} median: ${JSON.stringify(median)}`);
+    if (repetitions >= 3) assertStartupLimits(name, median, regressionLimits[name]);
   }
 } finally {
   await rm(temporaryRoot, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
@@ -82,6 +89,15 @@ function medianTiming(samples) {
     result[key] = values.length % 2 ? values[middle] : Math.round((values[middle - 1] + values[middle]) / 2);
   }
   return result;
+}
+
+function assertStartupLimits(name, timing, limits) {
+  for (const [metric, maximum] of Object.entries(limits)) {
+    const actual = timing[metric];
+    if (!Number.isFinite(actual) || actual > maximum) {
+      throw new Error(`${name} の実VS Code起動性能が回帰しました: ${metric}=${actual}ms > ${maximum}ms`);
+    }
+  }
 }
 
 async function removeProfile(profileRoot) {

@@ -79,7 +79,7 @@ async function run() {
     }
     await vscode.commands.executeCommand('workbench.action.closeAllEditors');
 
-    await vscode.workspace.fs.writeFile(uri, Buffer.from('# 動作確認\n\n初期テキスト\n', 'utf8'));
+    await vscode.workspace.fs.writeFile(uri, Buffer.from('# 動作確認\n\n初期テキスト\n\n```html\n</script><script>globalThis.bootstrapUnsafe = true</script>\n```\n', 'utf8'));
     const document = await vscode.workspace.openTextDocument(uri);
     await vscode.commands.executeCommand('vscode.openWith', uri, 'markdownEasyVisualEditor.editor');
     await waitFor(() => {
@@ -104,6 +104,7 @@ async function run() {
     await waitFor(async () => fileHasBytes(htmlPath), '遅延フォントを含むHTML出力が完了しませんでした。', 30_000);
     const exportedHtml = await fs.readFile(htmlPath, 'utf8');
     assert.match(exportedHtml, /保存確認/, 'HTML出力へ最新の本文が反映されませんでした。');
+    assert.match(exportedHtml, /bootstrapUnsafe/, 'script終端を含む初期Markdownが欠落しました。');
     assert.match(exportedHtml, /@font-face/, 'HTML出力から埋め込みフォントが欠落しました。');
     assert.match(exportedHtml, /data:font\//, 'HTML出力のフォントが自己完結していません。');
 

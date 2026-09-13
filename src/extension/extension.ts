@@ -36,6 +36,14 @@ const VIEW_MODE_STATE_KEY = 'markdownEasyVisualEditor.viewMode';
 const SCROLL_SYNC_STATE_KEY = 'markdownEasyVisualEditor.scrollSyncEnabled';
 const PREVIEW_IMAGE_RESIZE_CONTROLS_STATE_KEY = 'markdownEasyVisualEditor.previewImageResizeControlsVisible';
 
+/** JSONをnonce付きインラインscriptへ安全に埋め込める文字列へ変換する。 */
+function serializeInlineJson(value: unknown): string {
+    return JSON.stringify(value)
+        .replace(/</g, '\\u003c')
+        .replace(/\u2028/g, '\\u2028')
+        .replace(/\u2029/g, '\\u2029');
+}
+
 interface PendingHostOperation {
     panel: vscode.WebviewPanel;
     clientId: string;
@@ -75,6 +83,7 @@ interface StartupTiming {
     previewReadyMs?: number;
     firstMermaidRequestedMs?: number;
     firstMermaidReadyMs?: number;
+    webviewMetrics?: Record<string, number>;
 }
 
 /**
@@ -423,6 +432,10 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
                     return;
                 case 'startupReady':
                     if (this.panelClientIds.get(panel) !== message.clientId) return;
+                    if (message.metrics) {
+                        const timing = this.panelStartupTimings.get(panel);
+                        if (timing) timing.webviewMetrics = message.metrics;
+                    }
                     this.markStartup(panel, 'previewReadyMs');
                     return;
                 case 'startupMermaidReady':
@@ -1268,6 +1281,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
         // Webviewで読み込むリソースURIとCSP nonceを作り、安全なHTMLシェルを生成する。
         const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'webview.js'));
         const markdownWorkerUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'markdown-worker.js'));
+        const markdownRichWorkerUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'markdown-rich-worker.js'));
         const markdownFallbackUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'markdown-fallback.js'));
         const exportFontsUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'export-fonts.css'));
         const mermaidUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'mermaid.min.js'));
@@ -1275,7 +1289,19 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
         const bundledStyleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'webview.css'));
         const baseUri = webview.asWebviewUri(vscode.Uri.joinPath(document.uri, '..'));
         const nonce = randomUUID().replace(/-/g, '');
-        const allowRemote = this.getSettings().remoteImagesEnabled ? ' https: http:' : '';
+        const settings = this.getSettings();
+        const allowRemote = settings.remoteImagesEnabled ? ' https: http:' : '';
+        const canonicalText = this.canonicalText(document);
+        // 巨大文書をHTML内で複製すると逆にパース・メモリ負荷が増えるため、
+        // 通常サイズだけを即時起動し、それ以上は従来のinitメッセージへ戻す。
+        const bootstrap = canonicalText.length <= 2 * 1024 * 1024
+            ? serializeInlineJson({
+                text: canonicalText,
+                version: document.version,
+                uri: document.uri.toString(),
+                settings
+            })
+            : 'undefined';
         return `<!doctype html>
       <html lang="${this.getLanguage()}">
         <head>
@@ -1286,8 +1312,9 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
           <link rel="stylesheet" href="${styleUri}">
           <link rel="stylesheet" href="${bundledStyleUri}">
           <title>Markdown Easy Visual Editor</title>
+          <script nonce="${nonce}">globalThis.__mveBootstrap=${bootstrap};</script>
         </head>
-        <body data-mve-markdown-worker-uri="${markdownWorkerUri.toString()}" data-mve-markdown-fallback-uri="${markdownFallbackUri.toString()}" data-mve-export-fonts-uri="${exportFontsUri.toString()}" data-mve-mermaid-uri="${mermaidUri.toString()}">
+        <body data-mve-markdown-worker-uri="${markdownWorkerUri.toString()}" data-mve-markdown-rich-worker-uri="${markdownRichWorkerUri.toString()}" data-mve-markdown-fallback-uri="${markdownFallbackUri.toString()}" data-mve-export-fonts-uri="${exportFontsUri.toString()}" data-mve-mermaid-uri="${mermaidUri.toString()}">
           <div id="root"></div>
           <script nonce="${nonce}" src="${scriptUri}"></script>
         </body>

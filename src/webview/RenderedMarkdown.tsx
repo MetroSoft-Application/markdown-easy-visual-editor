@@ -765,6 +765,10 @@ function reconcileRenderedBlocks(
     previous.length !== root.children.length ||
     previous.some((entry, index) => root.children[index] !== entry.node)
   ) {
+    reuseCompletedMermaidNodes(
+      Array.from(root.children),
+      next.map((entry) => entry.node),
+    );
     root.replaceChildren(...next.map((entry) => entry.node));
     return next;
   }
@@ -802,6 +806,10 @@ function reconcileRenderedBlocks(
     nextSuffix -= 1;
   }
 
+  reuseCompletedMermaidNodes(
+    previous.slice(prefix, previousSuffix + 1).map((entry) => entry.node),
+    next.slice(prefix, nextSuffix + 1).map((entry) => entry.node),
+  );
   for (let index = prefix; index <= previousSuffix; index += 1)
     previous[index].node.remove();
   if (prefix <= nextSuffix) {
@@ -815,6 +823,47 @@ function reconcileRenderedBlocks(
   return next;
 }
 
+function reuseCompletedMermaidNodes(
+  previousBlocks: Element[],
+  nextBlocks: Element[],
+): void {
+  const completed = new Map<string, HTMLElement[]>();
+  for (const block of previousBlocks) {
+    const candidates = block.matches(".mermaid[data-mermaid-status]")
+      ? [block as HTMLElement]
+      : Array.from(
+          block.querySelectorAll<HTMLElement>(
+            ".mermaid[data-mermaid-status]",
+          ),
+        );
+    for (const node of candidates) {
+      if (
+        !(
+          node.dataset.mermaidStatus === "ready" ||
+          node.dataset.mermaidStatus === "error"
+        )
+      )
+        continue;
+      const key = node.dataset.mermaidSource ?? "";
+      const nodes = completed.get(key) ?? [];
+      nodes.push(node);
+      completed.set(key, nodes);
+    }
+  }
+  for (const block of nextBlocks) {
+    const candidates = block.matches(".mermaid")
+      ? [block as HTMLElement]
+      : Array.from(block.querySelectorAll<HTMLElement>(".mermaid"));
+    for (const candidate of candidates) {
+      const nodes = completed.get(candidate.dataset.mermaidSource ?? "");
+      const retained = nodes?.shift();
+      if (!retained) continue;
+      syncRenderedBlockAttributes(retained, candidate);
+      candidate.replaceWith(retained);
+    }
+  }
+}
+
 function renderedBlockSignature(node: Element): string {
   if (node.classList.contains("markdown-source-block")) {
     return `source:${node.className}\0${node.innerHTML}`;
@@ -823,11 +872,19 @@ function renderedBlockSignature(node: Element): string {
 }
 
 function syncRenderedBlockAttributes(current: Element, next: Element): void {
+  const preservedRuntimeAttributes = current.classList.contains("mermaid")
+    ? ["data-mermaid-status", "data-mve-export-svg"]
+        .map((name) => [name, current.getAttribute(name)] as const)
+        .filter((entry): entry is readonly [string, string] => entry[1] !== null)
+    : [];
   Array.from(current.attributes).forEach((attribute) =>
     current.removeAttribute(attribute.name),
   );
   Array.from(next.attributes).forEach((attribute) =>
     current.setAttribute(attribute.name, attribute.value),
+  );
+  preservedRuntimeAttributes.forEach(([name, value]) =>
+    current.setAttribute(name, value),
   );
 }
 

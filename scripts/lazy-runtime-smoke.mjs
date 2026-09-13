@@ -10,6 +10,7 @@ const allowedAssets = new Set([
   'export-fonts.css',
   'markdown-fallback.js',
   'markdown-worker.js',
+  'markdown-rich-worker.js',
   'mermaid.min.js',
   'styles.css',
   'webview.css',
@@ -50,6 +51,7 @@ const origin = `http://127.0.0.1:${address.port}`;
 const browser = await chromium.launch({ executablePath, headless: true });
 try {
   await verifyMarkdownFallback();
+  await verifyRichMarkdownFallback();
   await verifyInlineMermaidFallback();
   await verifyCompactMermaidAvoidsHostStartup();
   await verifyLargeMermaidKeepsHostIsolation();
@@ -167,6 +169,23 @@ async function verifyMarkdownFallback() {
   }
 }
 
+async function verifyRichMarkdownFallback() {
+  const markdown = '# Rich fallback\n\n```javascript\nconst answer = 42;\n```\n';
+  const page = await openEditor(markdown, {
+    workerUri: `${origin}/dist/markdown-worker.js`,
+    richWorkerUri: `${origin}/dist/missing-rich-worker.js`,
+    mermaidHostRendering: true
+  });
+  try {
+    await page.waitForFunction(() => (
+      document.body.dataset.mveMarkdownWorkerStatus === 'fallback'
+      && document.querySelector('.split-preview .hljs-keyword')?.textContent === 'const'
+    ), undefined, { timeout: 20_000 });
+  } finally {
+    await page.close();
+  }
+}
+
 async function verifyInlineMermaidFallback() {
   const markdown = '# Mermaid\n\n```mermaid\ngraph TD\n  A --> B\n```\n';
   const page = await openEditor(markdown, {
@@ -223,13 +242,18 @@ async function verifyLazyExportFonts() {
   }
 }
 
-async function openEditor(markdown, { workerUri, mermaidHostRendering }) {
+async function openEditor(markdown, {
+  workerUri,
+  richWorkerUri = `${origin}/dist/markdown-rich-worker.js`,
+  mermaidHostRendering
+}) {
   const page = await browser.newPage();
   const errors = [];
   page.on('pageerror', (error) => errors.push(error.message));
   await page.goto(origin);
-  await page.evaluate(({ markdown, mermaidHostRendering, workerUri, origin }) => {
+  await page.evaluate(({ markdown, mermaidHostRendering, workerUri, richWorkerUri, origin }) => {
     document.body.dataset.mveMarkdownWorkerUri = workerUri;
+    document.body.dataset.mveMarkdownRichWorkerUri = richWorkerUri;
     document.body.dataset.mveMarkdownFallbackUri = `${origin}/dist/markdown-fallback.js`;
     document.body.dataset.mveMermaidUri = `${origin}/dist/mermaid.min.js`;
     document.body.dataset.mveExportFontsUri = `${origin}/dist/export-fonts.css`;
@@ -263,7 +287,7 @@ async function openEditor(markdown, { workerUri, mermaidHostRendering }) {
       getState: () => undefined,
       setState: () => undefined
     });
-  }, { markdown, mermaidHostRendering, workerUri, origin });
+  }, { markdown, mermaidHostRendering, workerUri, richWorkerUri, origin });
   await page.addStyleTag({ url: `${origin}/dist/styles.css` });
   await page.addStyleTag({ url: `${origin}/dist/webview.css` });
   await page.addScriptTag({ url: `${origin}/dist/webview.js` });

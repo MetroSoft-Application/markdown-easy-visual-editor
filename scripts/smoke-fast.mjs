@@ -17,6 +17,7 @@ const executablePath = await findFile(path.resolve('.chromium'), 'chrome-headles
 if (!executablePath) throw new Error('Chromium がありません。npm run pdf:install-browser を実行してください。');
 const webviewBundle = await readFile(path.resolve('dist/webview.js'), 'utf8');
 const markdownWorkerBundle = await readFile(path.resolve('dist/markdown-worker.js'), 'utf8');
+const markdownRichWorkerBundle = await readFile(path.resolve('dist/markdown-rich-worker.js'), 'utf8');
 if (/react\.development\.js|@milkdown|MILKDOWN_LISTENER/.test(webviewBundle)) {
   throw new Error('製品Webviewバンドルに開発用ReactまたはMilkdownが残っています。');
 }
@@ -123,9 +124,10 @@ try {
   page.on('console', (message) => { if (message.type() === 'error') errors.push(message.text()); });
   await page.goto('about:blank');
   await page.setContent('<!doctype html><html lang="ja"><head><meta charset="utf-8"></head><body><div id="root"></div></body></html>');
-  await page.evaluate((workerSource) => {
+  await page.evaluate(({ workerSource, richWorkerSource }) => {
     document.body.dataset.mveMarkdownWorkerUri = URL.createObjectURL(new Blob([workerSource], { type: 'text/javascript' }));
-  }, markdownWorkerBundle);
+    document.body.dataset.mveMarkdownRichWorkerUri = URL.createObjectURL(new Blob([richWorkerSource], { type: 'text/javascript' }));
+  }, { workerSource: markdownWorkerBundle, richWorkerSource: markdownRichWorkerBundle });
   await page.addStyleTag({ path: path.resolve('dist/styles.css') });
   await page.addStyleTag({ path: path.resolve('dist/webview.css') });
   await page.addScriptTag({ path: path.resolve('dist/webview.js') });
@@ -306,6 +308,10 @@ try {
   await page.waitForFunction((text) => window.__mveHostText.length === text.length, beforeKeyboardUndo);
   await sourceEditor.press('Control+Z');
   await page.waitForFunction((text) => window.__mveHostText === text, beforeRibbonUndo);
+  await page.evaluate(() => {
+    window.__mveDebugEnabled = true;
+    window.__mveDebugLog = [];
+  });
   await sourceEditor.press('Control+Home');
   await sourceEditor.press('ArrowDown');
   await sourceEditor.press('ArrowDown');
@@ -319,10 +325,23 @@ try {
   await page.locator('.cm-scroller').evaluate((element) => { element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.7; });
   await page.locator('.split-preview').evaluate((element) => { element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.7; });
   await page.waitForTimeout(200);
-  const beforeExternal = await page.evaluate(() => ({
-    source: document.querySelector('.cm-scroller')?.scrollTop ?? 0,
-    preview: document.querySelector('.split-preview')?.scrollTop ?? 0
-  }));
+  const beforeExternal = await page.evaluate(() => {
+    const preview = document.querySelector('.split-preview');
+    const bounds = preview?.getBoundingClientRect();
+    const hit = bounds
+      ? document.elementFromPoint(bounds.left + bounds.width / 2, bounds.top + 1)
+      : undefined;
+    const block = hit?.closest('[data-source-from]')
+      ?? [...(preview?.querySelectorAll('[data-source-from]') ?? [])]
+        .find((element) => element.getBoundingClientRect().bottom > (bounds?.top ?? 0) + 1);
+    const blockBounds = block?.getBoundingClientRect();
+    return {
+      source: document.querySelector('.cm-scroller')?.scrollTop ?? 0,
+      preview: preview?.scrollTop ?? 0,
+      previewOffset: Number(block?.getAttribute('data-source-from')),
+      previewTopOffset: (blockBounds?.top ?? 0) - (bounds?.top ?? 0)
+    };
+  });
   const externalLength = await page.evaluate(() => {
     const baseVersion = window.__mveHostVersion;
     const change = { rangeOffset: window.__mveHostText.length, rangeLength: 0, text: '\nexternal-host-change' };
@@ -337,12 +356,29 @@ try {
     Number(document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-document-length')) === length
   ), externalLength);
   await page.waitForTimeout(100);
-  const afterExternal = await page.evaluate(() => ({
-    source: document.querySelector('.cm-scroller')?.scrollTop ?? 0,
-    preview: document.querySelector('.split-preview')?.scrollTop ?? 0
-  }));
+  const afterExternal = await page.evaluate(() => {
+    const preview = document.querySelector('.split-preview');
+    const bounds = preview?.getBoundingClientRect();
+    const hit = bounds
+      ? document.elementFromPoint(bounds.left + bounds.width / 2, bounds.top + 1)
+      : undefined;
+    const block = hit?.closest('[data-source-from]')
+      ?? [...(preview?.querySelectorAll('[data-source-from]') ?? [])]
+        .find((element) => element.getBoundingClientRect().bottom > (bounds?.top ?? 0) + 1);
+    const blockBounds = block?.getBoundingClientRect();
+    return {
+      source: document.querySelector('.cm-scroller')?.scrollTop ?? 0,
+      preview: preview?.scrollTop ?? 0,
+      previewOffset: Number(block?.getAttribute('data-source-from')),
+      previewTopOffset: (blockBounds?.top ?? 0) - (bounds?.top ?? 0),
+      debug: (window.__mveDebugLog ?? []).slice(-80)
+    };
+  });
   if (Math.abs(afterExternal.source - beforeExternal.source) > 1) throw new Error(`host synchronization moved source scroll: ${beforeExternal.source} -> ${afterExternal.source}`);
-  if (Math.abs(afterExternal.preview - beforeExternal.preview) > 1) throw new Error(`host synchronization moved preview scroll: ${beforeExternal.preview} -> ${afterExternal.preview}`);
+  if (afterExternal.previewOffset !== beforeExternal.previewOffset
+    || Math.abs(afterExternal.previewTopOffset - beforeExternal.previewTopOffset) > 1) {
+    throw new Error(`host synchronization moved preview viewport: ${JSON.stringify(beforeExternal)} -> ${JSON.stringify(afterExternal)}`);
+  }
   const beforeTopInsertion = await page.evaluate(() => {
     const preview = document.querySelector('.split-preview');
     const previewBounds = preview?.getBoundingClientRect();
@@ -438,7 +474,8 @@ try {
         previewBlockFrom: from,
         previewBlockTo: to,
         previewProgress: progress,
-        previewScrollTop: preview?.scrollTop
+        previewScrollTop: preview?.scrollTop,
+        debug: (window.__mveDebugLog ?? []).slice(-100)
       };
     });
     throw new Error(`external viewport did not restore: before=${JSON.stringify(beforeTopInsertion)}, after=${JSON.stringify(anchorState)}, inserted=${topInsertionLength}`, { cause: error });
@@ -664,7 +701,8 @@ try {
     const preview = document.querySelector('.split-preview');
     return {
       sourceGap: source ? source.scrollHeight - source.clientHeight - source.scrollTop : Number.POSITIVE_INFINITY,
-      previewGap: preview ? preview.scrollHeight - preview.clientHeight - preview.scrollTop : Number.POSITIVE_INFINITY
+      previewGap: preview ? preview.scrollHeight - preview.clientHeight - preview.scrollTop : Number.POSITIVE_INFINITY,
+      debug: (window.__mveDebugLog ?? []).slice(-40)
     };
   });
   if (reverseBottomScrollState.sourceGap > 1 || reverseBottomScrollState.previewGap > 1) {

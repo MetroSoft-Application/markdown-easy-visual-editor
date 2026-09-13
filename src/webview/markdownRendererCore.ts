@@ -1,4 +1,3 @@
-import hljs from 'highlight.js';
 import katex from 'katex';
 import { Marked, Renderer, type Token } from 'marked';
 import { getOutline, slugify } from '../shared/markdown';
@@ -28,31 +27,7 @@ export interface UnsafeMarkdownBlock {
     requiresSanitization: boolean;
 }
 
-// Markdownを1文字編集するたびに、変更されていないコードブロックまで
-// highlight.jsで再解析しない。キーは言語と本文の組み合わせなので、結果の
-// 再利用によってHTMLの内容やハイライト規則は変わらない。
-const highlightedCodeCache = new Map<string, string>();
-const MAX_HIGHLIGHTED_CODE_CACHE_ENTRIES = 96;
-
-function getHighlightedCode(text: string, language: string): string {
-    const key = `${language || 'auto'}\u0000${text}`;
-    const cached = highlightedCodeCache.get(key);
-    if (cached !== undefined) {
-        // 頻繁に使われるブロックをキャッシュから追い出しにくくする。
-        highlightedCodeCache.delete(key);
-        highlightedCodeCache.set(key, cached);
-        return cached;
-    }
-    const highlighted = language && hljs.getLanguage(language)
-        ? hljs.highlight(text, { language }).value
-        : hljs.highlightAuto(text).value;
-    highlightedCodeCache.set(key, highlighted);
-    if (highlightedCodeCache.size > MAX_HIGHLIGHTED_CODE_CACHE_ENTRIES) {
-        const oldest = highlightedCodeCache.keys().next().value as string | undefined;
-        if (oldest !== undefined) highlightedCodeCache.delete(oldest);
-    }
-    return highlighted;
-}
+export type CodeHighlighter = (text: string, language: string) => string | undefined;
 
 /**
  * MarkdownをmarkedでHTMLへ変換し、拡張記法を追加してDOMPurifyで無害化する。
@@ -60,7 +35,11 @@ function getHighlightedCode(text: string, language: string): string {
  * @param options リモート画像などの描画設定。
  * @returns 無害化済みのプレビューHTML。
  */
-export function renderMarkdownUnsafeBlocks(markdown: string, options: RenderOptions): UnsafeMarkdownBlock[] {
+export function renderMarkdownUnsafeBlocks(
+    markdown: string,
+    options: RenderOptions,
+    highlightCode?: CodeHighlighter
+): UnsafeMarkdownBlock[] {
     // 見出しIDと脚注参照番号を1回の描画中だけ保持し、同名見出しや複数参照を区別する。
     const messages = getMessages(options.language ?? 'ja');
     const renderer = new Renderer();
@@ -123,12 +102,7 @@ export function renderMarkdownUnsafeBlocks(markdown: string, options: RenderOpti
         if (language === 'mermaid') {
             return `<div class="diagram-block mermaid" data-mermaid-source="${escapeAttribute(encodeURIComponent(text))}">${escapeHtml(text)}</div>`;
         }
-        let highlighted = escapeHtml(text);
-        if (language && hljs.getLanguage(language)) {
-            highlighted = getHighlightedCode(text, language);
-        } else if (!language) {
-            highlighted = getHighlightedCode(text, language);
-        }
+        const highlighted = highlightCode?.(text, language) ?? escapeHtml(text);
         return `<figure class="code-figure" data-language="${escapeAttribute(language)}"><figcaption><span>${escapeHtml(language || messages.editor.plainText)}</span><button type="button" data-copy-code="true">${messages.renderer.copy}</button></figcaption><pre><code class="hljs language-${escapeAttribute(language)}">${highlighted}</code></pre></figure>`;
     };
 
@@ -180,8 +154,12 @@ export function renderMarkdownUnsafeBlocks(markdown: string, options: RenderOpti
     return blocks.map((block) => ({ ...block, html: renderAlerts(block.html, messages) }));
 }
 
-export function renderMarkdownUnsafe(markdown: string, options: RenderOptions): string {
-    return renderMarkdownUnsafeBlocks(markdown, options).map((block) => block.html).join('');
+export function renderMarkdownUnsafe(
+    markdown: string,
+    options: RenderOptions,
+    highlightCode?: CodeHighlighter
+): string {
+    return renderMarkdownUnsafeBlocks(markdown, options, highlightCode).map((block) => block.html).join('');
 }
 
 function isLocalMarkdownLink(href: string): boolean {

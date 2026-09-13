@@ -131,7 +131,12 @@ export type HostToWebviewMessage =
 export type WebviewToHostMessage =
     | { type: 'ready'; clientId: string }
     | { type: 'initialized'; clientId: string }
-    | { type: 'startupReady'; clientId: string; markdownLength: number }
+    | {
+        type: 'startupReady';
+        clientId: string;
+        markdownLength: number;
+        metrics?: Record<string, number>;
+    }
     | { type: 'startupMermaidReady'; clientId: string }
     | { type: 'localChanges'; clientId: string; opId: string; baseVersion: number; changes: TextChange[] }
     | { type: 'historyCommand'; clientId: string; command: 'undo' | 'redo' }

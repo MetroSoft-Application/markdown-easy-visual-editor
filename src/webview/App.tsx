@@ -171,12 +171,25 @@ interface MarkdownPreviewSnapshot {
 
 interface MarkdownWorkerResponse {
   id: number;
+  preliminary?: boolean;
   markdown?: string;
   unsafeBlocks?: UnsafeMarkdownBlock[];
   outline?: OutlineItem[];
   diagnostics?: Diagnostic[];
   stats?: { markdown: number; text: number; lines: number };
   error?: string;
+}
+
+interface WebviewBootstrap {
+  text: string;
+  version: number;
+  uri: string;
+  settings: WebviewSettings;
+}
+
+function readWebviewBootstrap(): WebviewBootstrap | undefined {
+  return (globalThis as typeof globalThis & { __mveBootstrap?: WebviewBootstrap })
+    .__mveBootstrap;
 }
 
 function mergeCollectedDiagnostics(
@@ -206,6 +219,7 @@ function mergeCollectedDiagnostics(
  */
 export function App(): React.JSX.Element {
   const restored = vscode.getState();
+  const bootstrap = readWebviewBootstrap();
   const hasRestoredViewMode =
     restored?.viewMode !== undefined || restored?.splitView !== undefined;
   // modeのpreviewは印刷プレビュー用の一時状態だったため、通常表示としては復元しない。
@@ -223,16 +237,20 @@ export function App(): React.JSX.Element {
   const zoomRef = useRef(zoom);
   zoomRef.current = zoom;
   const [splitView, setSplitView] = useState<ViewMode>(
-    restoreViewMode(restored?.viewMode ?? restored?.splitView),
+    restoreViewMode(
+      restored?.viewMode ?? restored?.splitView ?? bootstrap?.settings.viewMode,
+    ),
   );
-  const [initialized, setInitialized] = useState(false);
-  const [markdown, setMarkdown] = useState("");
+  const [initialized, setInitialized] = useState(Boolean(bootstrap));
+  const [markdown, setMarkdown] = useState(bootstrap?.text ?? "");
   // 入力経路と、解析・HTML化が重い表示経路を分離する。入力が再開した場合は
   // 既に予約済みの全文更新を同期的に取り消し、キーイベントへ割り込ませない。
   const [previewMarkdown, cancelPendingPreviewUpdate] =
     useInterruptibleDebouncedValue(markdown, PREVIEW_UPDATE_DELAY_MS);
-  const [version, setVersion] = useState(0);
-  const [settings, setSettings] = useState(DEFAULT_SETTINGS);
+  const [version, setVersion] = useState(bootstrap?.version ?? 0);
+  const [settings, setSettings] = useState(
+    bootstrap?.settings ?? DEFAULT_SETTINGS,
+  );
   const scrollSyncEnabled = settings.scrollSyncEnabled !== false;
   const scrollSyncEnabledRef = useRef(scrollSyncEnabled);
   scrollSyncEnabledRef.current = scrollSyncEnabled;
@@ -242,6 +260,7 @@ export function App(): React.JSX.Element {
       settings.remoteImagesEnabled,
       settings.language,
       initialized,
+      stagePreviewRefinementViewportRestore,
     );
   const cancelPreviewWork = useCallback(() => {
     if (document.body.dataset.mveInputActive !== "true") {
@@ -302,8 +321,8 @@ export function App(): React.JSX.Element {
   >([]);
   const previewSnapshotWaitersRef = useRef<Array<() => void>>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
-  const hostTextRef = useRef("");
-  const localTextRef = useRef("");
+  const hostTextRef = useRef(bootstrap?.text ?? "");
+  const localTextRef = useRef(bootstrap?.text ?? "");
   const markdownForSelectionRef = useRef(markdown);
   const updateMarkdownRef = useRef<
     (
@@ -313,10 +332,16 @@ export function App(): React.JSX.Element {
       updateRenderedState?: boolean,
     ) => void
   >(() => undefined);
-  const versionRef = useRef(0);
-  const initializedRef = useRef(false);
+  const versionRef = useRef(bootstrap?.version ?? 0);
+  const initializedRef = useRef(Boolean(bootstrap));
   const startupReportedRef = useRef(false);
   const startupMermaidReportedRef = useRef(false);
+  const startupInitReceivedAtRef = useRef<number | undefined>(
+    bootstrap
+      ? (globalThis as typeof globalThis & { __mveBundleExecutedAt?: number })
+          .__mveBundleExecutedAt
+      : undefined,
+  );
   // ACK待ちは常に1件だけとし、その間の入力はlocalTextRefの最新値へ上書き集約する。
   const inFlightOperationRef = useRef<PendingLocalOperation | undefined>(
     undefined,
@@ -387,6 +412,7 @@ export function App(): React.JSX.Element {
   const renderedPreviewRestoreFrameRef = useRef<number | undefined>(undefined);
   const renderedPreviewRestoreTimerRef = useRef<number | undefined>(undefined);
   const viewportUserIntentGenerationRef = useRef(0);
+  const sourceViewportIntentGenerationRef = useRef(0);
   const settledOperationIdsRef = useRef(new Set<string>());
   const resyncInFlightRef = useRef(false);
   // 同じHostスナップショットへの再送は1回だけに制限し、失敗時の自動再同期ループを防ぐ。
@@ -934,6 +960,7 @@ export function App(): React.JSX.Element {
           return;
         }
         initializedRef.current = true;
+        startupInitReceivedAtRef.current = performance.now();
         resyncInFlightRef.current = false;
         setInitialized(true);
         hostTextRef.current = message.text;
@@ -2540,6 +2567,14 @@ export function App(): React.JSX.Element {
     );
   }
 
+  /** 軽量描画から完全描画へ差し替える直前の、DOM上の最新位置を固定する。 */
+  function stagePreviewRefinementViewportRestore(): void {
+    // scrollイベントのRAF通知より先に完全描画が返っても、古い保存アンカーで
+    // ユーザーが移動した直後のプレビューを巻き戻さないよう実測値を先に読む。
+    captureVisibleViewports();
+    stagePreviewViewportRestore();
+  }
+
   /**
    * ソースエディターの表示位置を保存し、分割表示時はプレビュー位置にも同期する。
    * @param anchor ソースエディターから通知された表示アンカー。
@@ -2578,6 +2613,8 @@ export function App(): React.JSX.Element {
     if (
       !scrollSyncEnabledRef.current ||
       !userInitiated ||
+      sourceViewportIntentGenerationRef.current !==
+        viewportUserIntentGenerationRef.current ||
       mode !== "split" ||
       splitView !== "both"
     )
@@ -2601,6 +2638,8 @@ export function App(): React.JSX.Element {
   function markPreviewScrollIntent(
     event: React.SyntheticEvent<HTMLElement>,
   ): void {
+    cancelPendingCrossPaneScrollSync();
+    cancelPendingRenderedPreviewRestore();
     viewportUserIntentGenerationRef.current += 1;
     const container = event.currentTarget;
     if (container === splitPreviewRef.current) {
@@ -2631,6 +2670,26 @@ export function App(): React.JSX.Element {
   ): void {
     const startedAt = performance.now();
     const programmatic = programmaticPreviewScrollsRef.current.has(container);
+    const explicitUserIntent =
+      previewUserScrollPendingRef.current.has(container) ||
+      previewPointerScrollActiveRef.current.has(container) ||
+      previewTouchScrollActiveRef.current.has(container);
+    if (
+      !programmatic &&
+      (explicitUserIntent || !pendingPreviewViewportRestoreRef.current[kind])
+    ) {
+      cancelPendingCrossPaneScrollSync();
+      cancelPendingRenderedPreviewRestore();
+      // wheel/pointer/touch開始後に段階描画が完了すると、描画側が新しい復元予約を
+      // 作る場合がある。明示的なユーザー操作を常に優先し、その予約だけを破棄する。
+      if (explicitUserIntent) {
+        pendingPreviewViewportRestoreRef.current[kind] = undefined;
+      }
+      viewportUserIntentGenerationRef.current += 1;
+      lastPreviewUserScrollAtRef.current = performance.now();
+      const immediateAnchor = capturePreviewViewport(container);
+      if (immediateAnchor) viewportStateRef.current[kind] = immediateAnchor;
+    }
     const pending = pendingPreviewScrollsRef.current.get(container);
     pendingPreviewScrollsRef.current.set(container, {
       kind,
@@ -2849,6 +2908,7 @@ export function App(): React.JSX.Element {
         type: "startupReady",
         clientId: clientIdRef.current,
         markdownLength: renderedPreviewMarkdown.length,
+        metrics: collectStartupMetrics(startupInitReceivedAtRef.current),
       });
     }
     pendingRenderedPreviewKindsRef.current.add(kind);
@@ -2892,10 +2952,26 @@ export function App(): React.JSX.Element {
             pendingKind === "splitPreview"
               ? splitPreviewRef.current
               : editorAreaRef.current;
-          if (container) restorePendingPreview(pendingKind, container);
+          if (
+            container &&
+            !pendingPreviewScrollsRef.current.get(container)?.userInitiated
+          )
+            restorePendingPreview(pendingKind, container);
         });
       },
     );
+  }
+
+  function cancelPendingRenderedPreviewRestore(): void {
+    if (renderedPreviewRestoreFrameRef.current !== undefined) {
+      window.cancelAnimationFrame(renderedPreviewRestoreFrameRef.current);
+      renderedPreviewRestoreFrameRef.current = undefined;
+    }
+    if (renderedPreviewRestoreTimerRef.current !== undefined) {
+      window.clearTimeout(renderedPreviewRestoreTimerRef.current);
+      renderedPreviewRestoreTimerRef.current = undefined;
+    }
+    pendingRenderedPreviewKindsRef.current.clear();
   }
 
   /** 固定済みアンカーを優先してプレビューを復元し、以後のscrollイベントを通常処理へ戻す。 */
@@ -2925,15 +3001,18 @@ export function App(): React.JSX.Element {
   function beginSplitResize(event: React.PointerEvent<HTMLDivElement>): void {
     event.preventDefault();
     captureVisibleViewports();
+    pendingViewportRestoreRef.current = true;
     const container = event.currentTarget.parentElement;
     if (!container) return;
     /** 分割境界の移動量から左右ペインの比率を更新する。 */
     const move = (moveEvent: PointerEvent) => {
       const bounds = container.getBoundingClientRect();
-      if (bounds.width)
+      if (bounds.width) {
+        pendingViewportRestoreRef.current = true;
         setSplitRatio(
           clampSplitRatio((moveEvent.clientX - bounds.left) / bounds.width),
         );
+      }
     };
     /** 分割リサイズを終了し、表示位置を復元して状態を保存する。 */
     const end = () => {
@@ -3230,7 +3309,11 @@ export function App(): React.JSX.Element {
     [mode, splitView],
   );
   const sourceEditorUserScrollIntent = useCallback(() => {
+    cancelPendingCrossPaneScrollSync();
+    cancelPendingRenderedPreviewRestore();
     viewportUserIntentGenerationRef.current += 1;
+    sourceViewportIntentGenerationRef.current =
+      viewportUserIntentGenerationRef.current;
     pendingSourceViewportRestoreRef.current = undefined;
     skipNextSourceViewportRestoreRef.current = false;
     pendingPreviewViewportRestoreRef.current = {};
@@ -3865,6 +3948,7 @@ function useMarkdownPreviewSnapshot(
   remoteImagesEnabled: boolean,
   language: WebviewSettings["language"],
   enabled: boolean,
+  onBeforeRefinement: () => void,
 ): [MarkdownPreviewSnapshot, () => void] {
   const [snapshot, setSnapshot] = useState<MarkdownPreviewSnapshot>({
     markdown: "",
@@ -3877,6 +3961,8 @@ function useMarkdownPreviewSnapshot(
   const workerBusyRef = useRef(false);
   const cancelSanitizationRef = useRef<() => void>(() => undefined);
   const generationRef = useRef(0);
+  const onBeforeRefinementRef = useRef(onBeforeRefinement);
+  onBeforeRefinementRef.current = onBeforeRefinement;
 
   const cancelActiveRender = useCallback(() => {
     generationRef.current += 1;
@@ -3926,14 +4012,16 @@ function useMarkdownPreviewSnapshot(
       });
       recordLatestPerformanceMeasure("mve-preview-markdown", fallbackStartedAt);
     };
-    const startWorker = async () => {
+    const startWorker = async (rich = false, refinement = false) => {
       try {
         let worker = workerRef.current;
         if (!worker) {
           document.body.dataset.mveMarkdownWorkerStatus = "loading";
-          const workerUrl = await resolveMarkdownWorkerLaunchUrl();
-          if (generationRef.current !== id) return;
-          worker = new Worker(workerUrl);
+          worker = await acquireMarkdownWorker(rich);
+          if (generationRef.current !== id) {
+            worker.terminate();
+            return;
+          }
           workerRef.current = worker;
         }
         if (generationRef.current !== id) return;
@@ -3960,11 +4048,18 @@ function useMarkdownPreviewSnapshot(
             void applySynchronousFallback(response.error);
             return;
           }
-          document.body.dataset.mveMarkdownWorkerStatus = "ready";
+          const preliminary = response.preliminary === true;
+          document.body.dataset.mveMarkdownWorkerStatus = preliminary
+            ? "preliminary"
+            : "ready";
           recordLatestPerformanceMeasure(
             "mve-preview-markdown-worker",
             startedAt,
           );
+          if (preliminary && workerRef.current === worker) {
+            worker.terminate();
+            workerRef.current = undefined;
+          }
           cancelSanitizationRef.current = sanitizeMarkdownBlocks(
             response.unsafeBlocks,
             () => generationRef.current === id,
@@ -3976,6 +4071,7 @@ function useMarkdownPreviewSnapshot(
                 maximumChunkDuration,
               );
               if (generationRef.current !== id) return;
+              if (refinement) onBeforeRefinementRef.current();
               setSnapshot({
                 markdown: response.markdown as string,
                 html,
@@ -3987,6 +4083,7 @@ function useMarkdownPreviewSnapshot(
                   lines: number;
                 },
               });
+              if (preliminary) void startWorker(true, true);
             },
           );
         };
@@ -4023,24 +4120,33 @@ function useMarkdownPreviewSnapshot(
   return [snapshot, cancelActiveRender];
 }
 
-let markdownWorkerBlobUrlPromise: Promise<string> | undefined;
+const markdownWorkerBlobUrlPromises = new Map<string, Promise<string>>();
+interface PreloadedMarkdownWorker {
+  worker: Worker;
+  error?: unknown;
+  errorListener: (event: ErrorEvent) => void;
+}
+let preloadedMarkdownWorkerPromise: Promise<PreloadedMarkdownWorker> | undefined;
 
-function resolveMarkdownWorkerResourceUrl(): string {
-  const configured = document.body.dataset.mveMarkdownWorkerUri;
+function resolveMarkdownWorkerResourceUrl(rich = false): string {
+  const configured = rich
+    ? document.body.dataset.mveMarkdownRichWorkerUri
+    : document.body.dataset.mveMarkdownWorkerUri;
   if (configured) return configured;
   const script = Array.from(document.scripts).find((candidate) =>
     /(?:^|\/)webview\.js(?:[?#]|$)/.test(candidate.src),
   );
   return new URL(
-    "markdown-worker.js",
+    rich ? "markdown-rich-worker.js" : "markdown-worker.js",
     script?.src || document.baseURI,
   ).toString();
 }
 
-async function resolveMarkdownWorkerLaunchUrl(): Promise<string> {
-  const resourceUrl = resolveMarkdownWorkerResourceUrl();
+async function resolveMarkdownWorkerLaunchUrl(rich = false): Promise<string> {
+  const resourceUrl = resolveMarkdownWorkerResourceUrl(rich);
   if (/^(?:blob:|data:)/i.test(resourceUrl)) return resourceUrl;
-  markdownWorkerBlobUrlPromise ??= fetch(resourceUrl)
+  let pending = markdownWorkerBlobUrlPromises.get(resourceUrl);
+  pending ??= fetch(resourceUrl)
     .then((response) => {
       if (!response.ok)
         throw new Error(
@@ -4050,10 +4156,41 @@ async function resolveMarkdownWorkerLaunchUrl(): Promise<string> {
     })
     .then((blob) => URL.createObjectURL(blob))
     .catch((error) => {
-      markdownWorkerBlobUrlPromise = undefined;
+      markdownWorkerBlobUrlPromises.delete(resourceUrl);
       throw error;
     });
-  return markdownWorkerBlobUrlPromise;
+  markdownWorkerBlobUrlPromises.set(resourceUrl, pending);
+  return pending;
+}
+
+/** 初回文書到着を待たずWorker取得・評価を開始し、CodeMirror初期化と並列化する。 */
+export function preloadMarkdownWorker(): void {
+  preloadedMarkdownWorkerPromise ??= resolveMarkdownWorkerLaunchUrl().then((url) => {
+    const state = {} as PreloadedMarkdownWorker;
+    const worker = new Worker(url);
+    state.worker = worker;
+    state.errorListener = (event: ErrorEvent) => {
+      state.error = event.message || event.error || "Markdown Worker preload failed";
+    };
+    worker.addEventListener("error", state.errorListener);
+    return state;
+  });
+  void preloadedMarkdownWorkerPromise.catch(() => undefined);
+}
+
+async function acquireMarkdownWorker(rich = false): Promise<Worker> {
+  if (rich) return new Worker(await resolveMarkdownWorkerLaunchUrl(true));
+  preloadMarkdownWorker();
+  const pending = preloadedMarkdownWorkerPromise as Promise<PreloadedMarkdownWorker>;
+  preloadedMarkdownWorkerPromise = undefined;
+  const state = await pending;
+  state.worker.removeEventListener("error", state.errorListener);
+  if (state.error !== undefined) {
+    state.worker.terminate();
+    throw state.error;
+  }
+
+  return state.worker;
 }
 
 function sanitizeMarkdownBlocks(
@@ -4135,6 +4272,40 @@ function recordLatestPerformanceMark(name: string): void {
 function recordPerformanceDuration(name: string, duration: number): void {
   performance.clearMeasures(name);
   performance.measure(name, { start: 0, duration });
+}
+
+/** 実VS Code起動ベンチマークへ、Webview内の段階別時刻を返す。 */
+function collectStartupMetrics(
+  initReceivedAt: number | undefined,
+): Record<string, number> {
+  const metrics: Record<string, number> = { previewReportedAt: performance.now() };
+  const bundleExecutedAt = (
+    globalThis as typeof globalThis & { __mveBundleExecutedAt?: number }
+  ).__mveBundleExecutedAt;
+  if (bundleExecutedAt !== undefined) metrics.bundleExecutedAt = bundleExecutedAt;
+  if (initReceivedAt !== undefined) metrics.initReceivedAt = initReceivedAt;
+  const workerResponse = performance
+    .getEntriesByName("mve-preview-worker-response", "mark")
+    .at(-1);
+  if (workerResponse) metrics.workerResponseAt = workerResponse.startTime;
+  for (const [name, key] of [
+    ["mve-preview-markdown-worker", "markdownWorkerDuration"],
+    ["mve-preview-markdown", "sanitizeChunkDuration"],
+    ["mve-preview-dom-reconcile", "domReconcileDuration"],
+  ] as const) {
+    const entry = performance.getEntriesByName(name, "measure").at(-1);
+    if (entry) metrics[key] = entry.duration;
+  }
+  for (const entry of performance.getEntriesByType("resource")) {
+    if (entry.name.includes("markdown-worker.js")) {
+      metrics.markdownWorkerFetchStartedAt = entry.startTime;
+      metrics.markdownWorkerFetchDuration = entry.duration;
+    } else if (entry.name.includes("webview.js")) {
+      metrics.webviewFetchStartedAt = entry.startTime;
+      metrics.webviewFetchDuration = entry.duration;
+    }
+  }
+  return metrics;
 }
 
 function useInterruptibleDebouncedValue<T>(
