@@ -15,6 +15,7 @@ import { getMessages } from "../shared/messages";
 import { installEditorThemeController } from "./editorThemeController";
 import { installPreviewImageResizeControls } from "./previewImageResizeControls";
 import { installPreviewImageContextMenu } from "./previewImageContextMenu";
+import { installPreviewImageClipboardPaste } from "./previewImageClipboardPaste";
 import { installSelectedTextSearchTransfer } from "./searchSelectedText";
 import { installTableEditorOverlay } from "./tableEditorOverlay";
 
@@ -121,6 +122,7 @@ root.addEventListener("click", handleLineNumberClick);
 installEditorThemeController();
 installPreviewImageResizeControls();
 installPreviewImageContextMenu();
+installPreviewImageClipboardPaste();
 installSelectedTextSearchTransfer();
 installTableEditorToolbarActivationGuard();
 installTableEditorOverlay();
