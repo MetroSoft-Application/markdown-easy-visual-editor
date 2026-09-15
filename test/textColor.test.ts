@@ -4,6 +4,7 @@ import {
   detectTextColorFormatting,
   textColorOpenTag,
 } from '../src/shared/textColor';
+import { clearInlineFormatting } from '../src/shared/markdown';
 import { prepareExportHtml } from '../src/shared/exportHtml';
 import { renderMarkdownUnsafe } from '../src/webview/markdownRendererCore';
 
@@ -50,6 +51,23 @@ describe('text color formatting', () => {
     expect(cleared.text).toBe(
       `${textColorOpenTag('red')}b</span>et${textColorOpenTag('red')}a</span>`,
     );
+  });
+
+  it('clears text color together with other inline formatting for the text-format clear command', () => {
+    const original = `${textColorOpenTag('red')}**bold** and ++underlined++</span>`;
+    const inlineCleared = clearInlineFormatting(original, {
+      from: 0,
+      to: original.length,
+    });
+    const fullyCleared = applyTextColorFormatting(
+      inlineCleared.text,
+      inlineCleared.selection,
+      undefined,
+    );
+
+    expect(fullyCleared.text).toBe('bold and underlined');
+    expect(fullyCleared.text).not.toContain('data-mve-text-color');
+    expect(fullyCleared.text).not.toMatch(/\*\*|\+\+/);
   });
 
   it('splits a multi-line selection so no color span crosses a newline', () => {
