@@ -81,6 +81,37 @@ describe('text color formatting', () => {
     expect(result.text).not.toMatch(/<span[^>]*>[^<]*\n/);
   });
 
+  it('colors third-level and deeper nested list items without treating them as indented code', () => {
+    const source = [
+      '- 箇条書き',
+      '  - ネストした箇条書き',
+      '    - さらにネスト',
+      '      1. 番号付きの深いネスト',
+    ].join('\n');
+    const result = applyTextColorFormatting(
+      source,
+      { from: 0, to: source.length },
+      'red',
+    ).text;
+    const tag = textColorOpenTag('red');
+
+    expect(result).toBe([
+      `- ${tag}箇条書き</span>`,
+      `  - ${tag}ネストした箇条書き</span>`,
+      `    - ${tag}さらにネスト</span>`,
+      `      1. ${tag}番号付きの深いネスト</span>`,
+    ].join('\n'));
+
+    const rendered = renderMarkdownUnsafe(result, {
+      remoteImagesEnabled: true,
+      language: 'ja',
+    });
+    expect((rendered.match(/<ul>/g) ?? []).length).toBeGreaterThanOrEqual(3);
+    expect(rendered).toContain('data-mve-text-color="red"');
+    expect(rendered).toContain('さらにネスト');
+    expect(rendered).toContain('番号付きの深いネスト');
+  });
+
   it('preserves Markdown block structure across headings, lists, tables and fences', () => {
     const source = [
       '# Heading',
