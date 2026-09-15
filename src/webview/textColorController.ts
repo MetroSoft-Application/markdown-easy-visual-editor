@@ -21,7 +21,7 @@ export function applyTextColorToActiveSource(
     view.focus();
     return false;
   }
-  const source = view.state.sliceDoc();
+  const source = internalDocumentValue(view);
   const edit = applyTextColorFormatting(
     source,
     { from: selection.from, to: selection.to },
@@ -37,7 +37,7 @@ export function readActiveSourceTextColor(): TextColorSelectionState {
   if (!view) return undefined;
   const selection = view.state.selection.main;
   if (selection.from === selection.to) return undefined;
-  return detectTextColorFormatting(view.state.sliceDoc(), {
+  return detectTextColorFormatting(internalDocumentValue(view), {
     from: selection.from,
     to: selection.to,
   });
@@ -50,7 +50,7 @@ export function readActiveSourceTextColor(): TextColorSelectionState {
 export function clearInlineFormattingWithTextColor(): boolean {
   const view = findActiveSourceView();
   if (!view) return false;
-  const source = view.state.sliceDoc();
+  const source = internalDocumentValue(view);
   const selection = view.state.selection.main;
   const caretOnly = selection.from === selection.to;
   const actionSelection = caretOnly
@@ -91,8 +91,13 @@ function findActiveSourceView(): EditorView | undefined {
   }
 }
 
+/** CodeMirror位置と1:1で対応するLF区切り文字列を返す。CRLF設定でも内部座標を崩さない。 */
+function internalDocumentValue(view: EditorView): string {
+  return view.state.doc.sliceString(0, view.state.doc.length, "\n");
+}
+
 function applyEditorEdit(view: EditorView, edit: TextColorEdit): void {
-  const source = view.state.sliceDoc();
+  const source = internalDocumentValue(view);
   const changes = computeTextChanges(source, edit.text);
   const selectionChanged =
     view.state.selection.main.from !== edit.selection.from ||
