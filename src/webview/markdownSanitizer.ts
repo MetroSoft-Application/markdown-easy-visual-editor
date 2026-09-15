@@ -5,6 +5,7 @@ export function sanitizeRenderedMarkdown(html: string): string {
   return DOMPurify.sanitize(html, {
     ADD_ATTR: [
       "target",
+      "style",
       "data-original-src",
       "data-mve-link",
       "data-mve-image-index",
@@ -12,6 +13,7 @@ export function sanitizeRenderedMarkdown(html: string): string {
       "data-mve-image-align",
       "data-mve-resizable",
       "data-mve-can-reset",
+      "data-mve-text-color",
       "data-mermaid-source",
       "data-math-source",
       "data-copy-code",
