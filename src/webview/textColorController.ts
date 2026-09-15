@@ -27,7 +27,8 @@ export function applyTextColorToActiveSource(
     { from: selection.from, to: selection.to },
     color,
   );
-  return applyEditorEdit(view, edit);
+  applyEditorEdit(view, edit);
+  return true;
 }
 
 /** 現在の選択範囲の文字色状態を返す。未着色はundefined、複数色はmixed。 */
@@ -71,7 +72,8 @@ export function clearInlineFormattingWithTextColor(): boolean {
     const caret = mapTextOffset(selection.from, changes, source.length, 1);
     colorCleared.selection = { from: caret, to: caret };
   }
-  return applyEditorEdit(view, colorCleared);
+  applyEditorEdit(view, colorCleared);
+  return true;
 }
 
 function findActiveSourceView(): EditorView | undefined {
@@ -89,7 +91,7 @@ function findActiveSourceView(): EditorView | undefined {
   }
 }
 
-function applyEditorEdit(view: EditorView, edit: TextColorEdit): boolean {
+function applyEditorEdit(view: EditorView, edit: TextColorEdit): void {
   const source = view.state.sliceDoc();
   const changes = computeTextChanges(source, edit.text);
   const selectionChanged =
@@ -98,7 +100,7 @@ function applyEditorEdit(view: EditorView, edit: TextColorEdit): boolean {
 
   if (!changes.length && !selectionChanged) {
     view.focus();
-    return false;
+    return;
   }
 
   view.dispatch({
@@ -110,5 +112,4 @@ function applyEditorEdit(view: EditorView, edit: TextColorEdit): boolean {
     selection: EditorSelection.range(edit.selection.from, edit.selection.to),
   });
   view.focus();
-  return changes.length > 0;
 }
