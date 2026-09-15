@@ -408,7 +408,7 @@ function findFrontMatterEnd(source: string): number {
 
 function isUncolorableWholeLine(line: string): boolean {
   if (!line.trim()) return true;
-  if (/^(?: {4}|\t)\S/.test(line)) return true;
+  if (isIndentedCodeLine(line)) return true;
   if (
     /^\s{0,3}(?:(?:\*\s*){3,}|(?:-\s*){3,}|(?:_\s*){3,})\s*$/.test(
       line,
@@ -424,6 +424,18 @@ function isUncolorableWholeLine(line: string): boolean {
     return true;
   }
   return false;
+}
+
+/**
+ * 4スペース以上のインデントコードだけを除外する。
+ * 深くネストした箇条書き・番号付きリストは同じインデント量を使うため、
+ * リストマーカーが続く行をコードとして扱わない。
+ */
+function isIndentedCodeLine(line: string): boolean {
+  if (!/^(?: {4}|\t)\S/.test(line)) return false;
+  const nestedListItem =
+    /^[ \t]+(?:[-+*]|\d+[.)])[ \t]+(?:\[[ xX]\][ \t]+)?/.test(line);
+  return !nestedListItem;
 }
 
 function collectProtectedLineRanges(line: string): TextColorSelection[] {
