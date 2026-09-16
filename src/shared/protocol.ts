@@ -53,6 +53,8 @@ export interface WebviewSettings {
     mermaidHostRendering?: boolean;
     editorTheme?: EditorTheme;
     viewMode?: ViewMode;
+    /** アウトラインペインを表示するか。未設定時は表示する。 */
+    outlineVisible?: boolean;
     /** 分割表示でテキストとプレビューのスクロール位置を相互に同期するか。 */
     scrollSyncEnabled?: boolean;
     /** プレビュー画像のリサイズ・配置操作UIを表示するか。未設定時は表示する。 */
@@ -146,6 +148,7 @@ export type WebviewToHostMessage =
     | { type: 'setEditorTheme'; theme: EditorTheme }
     | { type: 'setImageDirectory'; directory: string }
     | { type: 'setViewMode'; viewMode: ViewMode }
+    | { type: 'setOutlineVisible'; visible: boolean }
     | { type: 'setScrollSyncEnabled'; enabled: boolean }
     | { type: 'setPreviewImageResizeControlsVisible'; visible: boolean }
     | {
