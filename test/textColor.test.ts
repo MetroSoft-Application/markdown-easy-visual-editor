@@ -4,7 +4,13 @@ import {
   detectTextColorFormatting,
   textColorOpenTag,
 } from '../src/shared/textColor';
-import { clearInlineFormatting } from '../src/shared/markdown';
+import {
+  applyMarkdownTableAction,
+  clearInlineFormatting,
+  collectDiagnostics,
+  getOutline,
+  wordStats,
+} from '../src/shared/markdown';
 import { prepareExportHtml } from '../src/shared/exportHtml';
 import { renderMarkdownUnsafe } from '../src/webview/markdownRendererCore';
 
@@ -145,6 +151,224 @@ describe('text color formatting', () => {
 
     const mixed = `${textColorOpenTag('red')}red</span> ${textColorOpenTag('blue')}blue</span>`;
     expect(detectTextColorFormatting(mixed, { from: 0, to: mixed.length })).toBe('mixed');
+  });
+
+  it('does not rewrite literal MVE markup in unselected code', () => {
+    const literal = textColorOpenTag('red') + 'literal</span>';
+    const source = 'outside\n    ' + literal + '\ntarget';
+    const from = source.lastIndexOf('target');
+    const result = applyTextColorFormatting(
+      source,
+      { from, to: from + 'target'.length },
+      'blue',
+    ).text;
+
+    expect(result).toBe(
+      'outside\n    ' + literal + '\n' + textColorOpenTag('blue') + 'target</span>',
+    );
+  });
+
+  it('keeps code fenced inside block quotes unchanged', () => {
+    const fence = String.fromCharCode(96).repeat(3);
+    const source = '> ' + fence + 'js\n> const value = 1;\n> ' + fence;
+    const result = applyTextColorFormatting(
+      source,
+      { from: 0, to: source.length },
+      'red',
+    ).text;
+
+    expect(result).toBe(source);
+    expect(renderMarkdownUnsafe(result, {
+      remoteImagesEnabled: true,
+      language: 'en',
+    })).toContain('<pre><code class="hljs language-js">const value = 1;');
+  });
+
+  it('colors link labels without breaking their Markdown syntax', () => {
+    const source = '[label](https://example.com)';
+    const result = applyTextColorFormatting(
+      source,
+      { from: 0, to: source.length },
+      'red',
+    ).text;
+
+    expect(result).toBe(
+      '[' + textColorOpenTag('red') + 'label</span>](https://example.com)',
+    );
+    expect(renderMarkdownUnsafe(result, {
+      remoteImagesEnabled: true,
+      language: 'en',
+    })).toContain('<a href="https://example.com"><span');
+  });
+
+  it('preserves nested and escaped Markdown link syntax', () => {
+    const source = [
+      '[label](https://example.com/foo_(bar))',
+      '![alt](https://example.com/a_(b).png)',
+      '[a [nested] label](https://x.test)',
+      '[foo\\]bar](https://example.com)',
+    ].join('\n');
+    const result = applyTextColorFormatting(source, { from: 0, to: source.length }, 'red').text;
+    const rendered = renderMarkdownUnsafe(result, {
+      remoteImagesEnabled: true,
+      language: 'en',
+    });
+
+    expect(result).toContain('https://example.com/foo_(bar))');
+    expect(result).toContain('https://example.com/a_(b).png)');
+    expect(rendered).toContain('href="https://example.com/foo_(bar)"');
+    expect(rendered).toContain('src="https://example.com/a_(b).png"');
+    expect(rendered).toContain('href="https://x.test"');
+    expect(rendered).toContain('href="https://example.com"');
+  });
+
+  it('preserves reference definitions inside block quotes', () => {
+    const source = '> [foo][ref]\n>\n> [ref]: https://example.com/x';
+    const result = applyTextColorFormatting(source, { from: 0, to: source.length }, 'green').text;
+
+    expect(result).toContain('> [ref]: https://example.com/x');
+    expect(renderMarkdownUnsafe(result, {
+      remoteImagesEnabled: true,
+      language: 'en',
+    })).toContain('href="https://example.com/x"');
+  });
+
+  it('preserves multiline Markdown links, images, and inline code', () => {
+    const literal = '`' + textColorOpenTag('red') + '\nA</span>`';
+    const codeSource = literal + '\ntarget';
+    const target = codeSource.indexOf('target');
+    const codeResult = applyTextColorFormatting(codeSource, { from: target, to: target + 6 }, 'blue').text;
+    const source = [
+      '[label](',
+      'https://example.com/foo_(bar)',
+      ')',
+      '![alt](',
+      'https://example.com/a_(b).png',
+      ')',
+      '[a',
+      'b](https://x.test)',
+    ].join('\n');
+    const result = applyTextColorFormatting(source, { from: 0, to: source.length }, 'red').text;
+    const rendered = renderMarkdownUnsafe(result, {
+      remoteImagesEnabled: true,
+      language: 'en',
+    });
+
+    expect(codeResult).toBe(literal + '\n' + textColorOpenTag('blue') + 'target</span>');
+    expect(rendered).toContain('href="https://example.com/foo_(bar)"');
+    expect(rendered).toContain('src="https://example.com/a_(b).png"');
+    expect(rendered).toContain('href="https://x.test"');
+  });
+
+  it('keeps heading IDs, outline labels, and word statistics semantic', () => {
+    const source = '# Heading {#custom}\n\n[Jump](#custom)\n\nhello';
+    const result = applyTextColorFormatting(
+      source,
+      { from: 0, to: source.length },
+      'purple',
+    ).text;
+    const rendered = renderMarkdownUnsafe(result, {
+      remoteImagesEnabled: true,
+      language: 'en',
+    });
+
+    expect(getOutline(result)).toMatchObject([{ text: 'Heading', id: 'custom' }]);
+    expect(rendered).toContain('<h1 id="custom">');
+    expect(rendered).toContain('href="#custom"');
+    expect(wordStats(applyTextColorFormatting('hello', { from: 0, to: 5 }, 'red').text).text).toBe(5);
+  });
+
+  it('preserves explicit heading IDs before and after applying text color', () => {
+    const source = '# Heading {#custom}';
+    const colored = applyTextColorFormatting(source, { from: 0, to: source.length }, 'purple').text;
+    const duplicate = '# First {#same}\n# Second {#same}';
+
+    expect(getOutline(source)).toMatchObject([{ id: 'custom' }]);
+    expect(getOutline(colored)).toMatchObject([{ id: 'custom' }]);
+    expect(renderMarkdownUnsafe(colored, {
+      remoteImagesEnabled: true,
+      language: 'en',
+    })).toContain('<h1 id="custom">');
+    expect(collectDiagnostics(duplicate, 'en')).toContainEqual(expect.objectContaining({
+      code: 'duplicate-heading',
+      line: 2,
+    }));
+  });
+
+  it('does not interpret literal MVE spans in inline code as text color markup', () => {
+    const literal = '`' + textColorOpenTag('red') + 'A</span>`';
+    const source = '# ' + literal;
+    const outline = getOutline(source)[0];
+    const rendered = renderMarkdownUnsafe(source, {
+      remoteImagesEnabled: true,
+      language: 'en',
+    });
+    const table = '| ' + literal + ' | B |\n| --- | --- |\n| x | y |';
+    const aligned = applyMarkdownTableAction(
+      table,
+      { from: table.indexOf('B'), to: table.indexOf('B') },
+      'alignColumns',
+    )?.text;
+
+    expect(outline.text).not.toBe('A');
+    expect(outline.id).not.toBe('a');
+    expect(rendered).toContain('<h1 id="' + outline.id + '">');
+    expect(wordStats(literal).text).toBeGreaterThan(1);
+    expect(aligned).toMatch(/\| --- {20,}\|/);
+  });
+
+  it('handles deeply nested text-color spans without a quadratic slowdown', () => {
+    const depth = 20_000;
+    const source = Array.from({ length: depth }, () => textColorOpenTag('red') + 'x').join('') + '</span>'.repeat(depth);
+    const startedAt = Date.now();
+    const applied = applyTextColorFormatting(source, { from: 0, to: source.length }, 'blue');
+    const detected = detectTextColorFormatting(applied.text, { from: 0, to: applied.text.length });
+
+    expect(applied.text).toBe(textColorOpenTag('blue') + 'x'.repeat(depth) + '</span>');
+    expect(detected).toBe('blue');
+    expect(Date.now() - startedAt).toBeLessThan(1_500);
+  });
+
+  it('handles incomplete HTML and link-like text without a quadratic slowdown', () => {
+    const source = '<span'.repeat(16_000) + '['.repeat(40_000) + '[^'.repeat(20_000);
+    const startedAt = Date.now();
+    const applied = applyTextColorFormatting(source, { from: 0, to: source.length }, 'green');
+    const detected = detectTextColorFormatting(source, { from: 0, to: source.length });
+
+    expect(applied.text).toContain(textColorOpenTag('green'));
+    expect(detected).toBeUndefined();
+    expect(Date.now() - startedAt).toBeLessThan(1_000);
+  });
+
+  it('handles many protected multiline ranges without a quadratic slowdown', () => {
+    const source = Array.from(
+      { length: 24_000 },
+      (_, index) => '[label ' + index + '](https://example.com/' + index + ')',
+    ).join('\n');
+    const startedAt = Date.now();
+    const applied = applyTextColorFormatting(source, { from: 0, to: source.length }, 'red');
+    const detected = detectTextColorFormatting(applied.text, { from: 0, to: applied.text.length });
+
+    expect(detected).toBe('red');
+    expect(Date.now() - startedAt).toBeLessThan(1_500);
+  });
+
+  it('uses visible text width when aligning a colored table cell', () => {
+    const source = '| A | B |\n| --- | --- |\n| 1 | 2 |';
+    const cell = source.indexOf('A');
+    const colored = applyTextColorFormatting(
+      source,
+      { from: cell, to: cell + 1 },
+      'red',
+    ).text;
+    const aligned = applyMarkdownTableAction(
+      colored,
+      { from: colored.indexOf('A'), to: colored.indexOf('A') },
+      'alignColumns',
+    )?.text;
+
+    expect(aligned).toContain(textColorOpenTag('red') + 'A</span>   |');
+    expect(aligned?.length).toBeLessThan(colored.length + 30);
   });
 
   it('keeps fixed text-color markup through Markdown rendering and HTML export preparation', () => {

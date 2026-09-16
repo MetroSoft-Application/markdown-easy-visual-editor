@@ -10,7 +10,6 @@ export const TEXT_COLOR_HEX = {
 
 export type TextColorId = keyof typeof TEXT_COLOR_HEX;
 export type TextColorSelectionState = TextColorId | "mixed" | undefined;
-
 export const TEXT_COLOR_IDS = Object.keys(TEXT_COLOR_HEX) as TextColorId[];
 
 export interface TextColorSelection {
@@ -29,135 +28,152 @@ interface ColorSpan {
   color: TextColorId;
 }
 
-interface ParsedColorSpan extends ColorSpan {
+interface ParsedSpan extends ColorSpan {
   order: number;
 }
 
-interface RemovedRange {
+interface Layer {
   from: number;
   to: number;
+  color?: TextColorId;
+  order: number;
 }
 
-interface ParsedColorMarkup {
+interface ActiveLayer {
+  id: number;
+  layer: Layer;
+}
+
+interface ParsedMarkup {
   text: string;
-  spans: ParsedColorSpan[];
-  removed: RemovedRange[];
+  spans: ParsedSpan[];
+  removed: TextColorSelection[];
 }
 
-interface SpanStackEntry {
+interface StackEntry {
   color?: TextColorId;
   from?: number;
   order?: number;
   removed: boolean;
 }
 
-const SPAN_TAG_PATTERN = /<\/?span\b[^>]*>/gi;
 const COLOR_ATTRIBUTE_PATTERN =
   /\bdata-mve-text-color\s*=\s*(?:"([^"]+)"|'([^']+)'|([^\s>]+))/i;
+const TICK = String.fromCharCode(96);
 
-/**
- * 選択範囲へ固定パレットの文字色を適用する。undefined は文字色だけを解除する。
- * 既存のMVE文字色spanは一度論理色区間へ正規化してから再出力するため、色spanをネストしない。
- * 複数行はMarkdownのブロック構造を壊さないよう行ごとのインライン範囲へ分割する。
- */
 export function applyTextColorFormatting(
   source: string,
   selection: TextColorSelection,
   color: TextColorId | undefined,
 ): TextColorEdit {
   const parsed = parseColorMarkup(source);
-  const cleanSelection = normalizeSelection(
-    {
-      from: rawOffsetToClean(selection.from, parsed.removed, source.length),
-      to: rawOffsetToClean(selection.to, parsed.removed, source.length),
-    },
-    parsed.text.length,
-  );
-
-  let spans = normalizeParsedSpans(parsed.spans, parsed.text.length);
-  if (cleanSelection.from !== cleanSelection.to) {
-    for (const range of collectColorableRanges(parsed.text, cleanSelection)) {
-      spans = paintColor(spans, range.from, range.to, color);
-    }
-  }
-
-  spans = normalizeSpansToColorableRanges(parsed.text, spans);
+  const cleanSelection = mapSelection(selection, parsed.removed, source.length, parsed.text.length);
+  const colorable = collectColorableRanges(parsed.text);
+  let spans = restrictToRanges(normalizeSpans(parsed.spans, parsed.text.length), colorable);
+  const paintRanges = intersectRanges(colorable, cleanSelection);
+  if (paintRanges.length) spans = paintRangesOnSpans(spans, paintRanges, color);
   return serializeColorMarkup(parsed.text, spans, cleanSelection);
 }
 
-/** 選択範囲が単一色・混在・既定色のどれかを返す。 */
 export function detectTextColorFormatting(
   source: string,
   selection: TextColorSelection,
 ): TextColorSelectionState {
   const parsed = parseColorMarkup(source);
-  const cleanSelection = normalizeSelection(
-    {
-      from: rawOffsetToClean(selection.from, parsed.removed, source.length),
-      to: rawOffsetToClean(selection.to, parsed.removed, source.length),
-    },
-    parsed.text.length,
-  );
+  const cleanSelection = mapSelection(selection, parsed.removed, source.length, parsed.text.length);
   if (cleanSelection.from === cleanSelection.to) return undefined;
-
-  const spans = normalizeSpansToColorableRanges(
-    parsed.text,
-    normalizeParsedSpans(parsed.spans, parsed.text.length),
-  );
+  const colorable = collectColorableRanges(parsed.text);
+  const ranges = intersectRanges(colorable, cleanSelection);
+  if (!ranges.length) return undefined;
+  const spans = restrictToRanges(normalizeSpans(parsed.spans, parsed.text.length), colorable);
   const states = new Set<TextColorId | "default">();
-  for (const range of collectColorableRanges(parsed.text, cleanSelection)) {
-    collectRangeColorStates(range, spans, states);
+  let start = 0;
+  for (const range of ranges) {
+    while (start < spans.length && spans[start].to <= range.from) start += 1;
+    let cursor = range.from;
+    for (let index = start; index < spans.length; index += 1) {
+      const span = spans[index];
+      if (span.from >= range.to) break;
+      const from = Math.max(range.from, span.from);
+      const to = Math.min(range.to, span.to);
+      if (from > cursor) states.add("default");
+      if (to > from) states.add(span.color);
+      cursor = Math.max(cursor, to);
+      if (states.size > 1) return "mixed";
+    }
+    if (cursor < range.to) states.add("default");
     if (states.size > 1) return "mixed";
   }
-  const only = states.values().next().value as
-    | TextColorId
-    | "default"
-    | undefined;
-  return only === "default" ? undefined : only;
+  const state = states.values().next().value as TextColorId | "default" | undefined;
+  return state === "default" ? undefined : state;
 }
 
-/** MVE文字色spanの開始タグを返す。HTML/PDF出力でも同じ固定色が使われる。 */
 export function textColorOpenTag(color: TextColorId): string {
-  return `<span data-mve-text-color="${color}" style="color:${TEXT_COLOR_HEX[color]}">`;
+  return '<span data-mve-text-color="' + color + '" style="color:' + TEXT_COLOR_HEX[color] + '">';
 }
 
-function parseColorMarkup(source: string): ParsedColorMarkup {
+export function stripMveTextColorMarkup(value: string): string {
   const parts: string[] = [];
-  const spans: ParsedColorSpan[] = [];
-  const removed: RemovedRange[] = [];
-  const stack: SpanStackEntry[] = [];
+  const stack: Array<{ removed: boolean }> = [];
+  const preserved = collectPreservedMarkupRanges(value);
+  let preservedIndex = 0;
+  let cursor = 0;
+  const isPreserved = (from: number, to: number) => {
+    while (preservedIndex < preserved.length && preserved[preservedIndex].to <= from) preservedIndex += 1;
+    const range = preserved[preservedIndex];
+    return Boolean(range && range.from < to && range.to > from);
+  };
+  for (const { tag, from, to } of scanSpanTags(value)) {
+    parts.push(value.slice(cursor, from));
+    const selfClosing = /\/\s*>$/.test(tag);
+    if (isPreserved(from, to) || isEscaped(value, from)) {
+      parts.push(tag);
+    } else if (/^<\/span\b/i.test(tag)) {
+      const entry = stack.pop();
+      if (!entry?.removed) parts.push(tag);
+    } else if (readTextColorId(tag) && !selfClosing) {
+      stack.push({ removed: true });
+    } else {
+      parts.push(tag);
+      if (!selfClosing) stack.push({ removed: false });
+    }
+    cursor = to;
+  }
+  parts.push(value.slice(cursor));
+  return parts.join("");
+}
+
+function parseColorMarkup(source: string): ParsedMarkup {
+  const parts: string[] = [];
+  const spans: ParsedSpan[] = [];
+  const removed: TextColorSelection[] = [];
+  const stack: StackEntry[] = [];
+  const preserved = collectPreservedMarkupRanges(source);
+  let preservedIndex = 0;
   let rawCursor = 0;
   let cleanLength = 0;
   let order = 0;
-
   const append = (value: string) => {
     if (!value) return;
     parts.push(value);
     cleanLength += value.length;
   };
+  const isPreserved = (from: number, to: number) => {
+    while (preservedIndex < preserved.length && preserved[preservedIndex].to <= from) preservedIndex += 1;
+    const range = preserved[preservedIndex];
+    return Boolean(range && range.from < to && range.to > from);
+  };
 
-  SPAN_TAG_PATTERN.lastIndex = 0;
-  for (
-    let match = SPAN_TAG_PATTERN.exec(source);
-    match;
-    match = SPAN_TAG_PATTERN.exec(source)
-  ) {
-    const tag = match[0];
-    const tagFrom = match.index;
-    const tagTo = tagFrom + tag.length;
-    append(source.slice(rawCursor, tagFrom));
-
-    if (/^<\/span\b/i.test(tag)) {
+  for (const { tag, from, to } of scanSpanTags(source)) {
+    append(source.slice(rawCursor, from));
+    if (isPreserved(from, to) || isEscaped(source, from)) {
+      append(tag);
+    } else if (/^<\/span\b/i.test(tag)) {
       const entry = stack.pop();
       if (entry?.removed) {
-        removed.push({ from: tagFrom, to: tagTo });
+        removed.push({ from, to });
         if (entry.color && entry.from !== undefined) {
-          spans.push({
-            from: entry.from,
-            to: cleanLength,
-            color: entry.color,
-            order: entry.order ?? order++,
-          });
+          spans.push({ from: entry.from, to: cleanLength, color: entry.color, order: entry.order ?? order++ });
         }
       } else {
         append(tag);
@@ -165,458 +181,581 @@ function parseColorMarkup(source: string): ParsedColorMarkup {
     } else {
       const color = readTextColorId(tag);
       const selfClosing = /\/\s*>$/.test(tag);
-      if (color) {
-        removed.push({ from: tagFrom, to: tagTo });
-        if (!selfClosing) {
-          stack.push({
-            color,
-            from: cleanLength,
-            order: order++,
-            removed: true,
-          });
-        }
+      if (color && !selfClosing) {
+        removed.push({ from, to });
+        stack.push({ color, from: cleanLength, order: order++, removed: true });
       } else {
         append(tag);
         if (!selfClosing) stack.push({ removed: false });
       }
     }
-    rawCursor = tagTo;
+    rawCursor = to;
   }
   append(source.slice(rawCursor));
-
   for (const entry of stack) {
     if (entry.removed && entry.color && entry.from !== undefined) {
-      spans.push({
-        from: entry.from,
-        to: cleanLength,
-        color: entry.color,
-        order: entry.order ?? order++,
-      });
+      spans.push({ from: entry.from, to: cleanLength, color: entry.color, order: entry.order ?? order++ });
     }
   }
-
-  return {
-    text: parts.join(""),
-    spans,
-    removed: removed.sort((left, right) => left.from - right.from),
-  };
+  return { text: parts.join(""), spans, removed: mergeRanges(removed) };
 }
 
 function readTextColorId(tag: string): TextColorId | undefined {
   const match = COLOR_ATTRIBUTE_PATTERN.exec(tag);
-  const value = (
-    match?.[1] ??
-    match?.[2] ??
-    match?.[3] ??
-    ""
-  ).toLowerCase();
-  return isTextColorId(value) ? value : undefined;
+  const value = (match?.[1] ?? match?.[2] ?? match?.[3] ?? "").toLowerCase();
+  return Object.prototype.hasOwnProperty.call(TEXT_COLOR_HEX, value)
+    ? value as TextColorId
+    : undefined;
 }
 
-function isTextColorId(value: string): value is TextColorId {
-  return Object.prototype.hasOwnProperty.call(TEXT_COLOR_HEX, value);
-}
-
-function rawOffsetToClean(
-  rawOffset: number,
-  removed: readonly RemovedRange[],
-  sourceLength: number,
-): number {
-  const safeOffset = Math.max(0, Math.min(sourceLength, rawOffset));
-  let removedLength = 0;
-  for (const range of removed) {
-    if (safeOffset >= range.to) {
-      removedLength += range.to - range.from;
+function* scanSpanTags(value: string): Generator<{ tag: string; from: number; to: number }> {
+  let cursor = 0;
+  while (cursor < value.length) {
+    const from = value.indexOf("<", cursor);
+    if (from < 0) return;
+    const nameStart = value[from + 1] === "/" ? from + 2 : from + 1;
+    const nameEnd = nameStart + 4;
+    if (value.slice(nameStart, nameEnd).toLowerCase() !== "span" || isWordCharacter(value[nameEnd])) {
+      cursor = from + 1;
       continue;
     }
-    if (safeOffset > range.from) return range.from - removedLength;
-    break;
+    const end = value.indexOf(">", nameEnd);
+    if (end < 0) return;
+    const to = end + 1;
+    yield { tag: value.slice(from, to), from, to };
+    cursor = to;
   }
-  return safeOffset - removedLength;
 }
 
-function normalizeSelection(
+function isWordCharacter(value: string | undefined): boolean {
+  return Boolean(value && /[A-Za-z0-9_]/.test(value));
+}
+
+function mapSelection(
   selection: TextColorSelection,
-  length: number,
+  removed: readonly TextColorSelection[],
+  sourceLength: number,
+  cleanLength: number,
 ): TextColorSelection {
-  const from = Math.max(
-    0,
-    Math.min(length, Math.min(selection.from, selection.to)),
-  );
-  const to = Math.max(
-    0,
-    Math.min(length, Math.max(selection.from, selection.to)),
-  );
+  const map = (offset: number) => {
+    const safe = Math.max(0, Math.min(sourceLength, offset));
+    let removedLength = 0;
+    for (const range of removed) {
+      if (safe >= range.to) {
+        removedLength += range.to - range.from;
+      } else {
+        if (safe > range.from) return range.from - removedLength;
+        break;
+      }
+    }
+    return safe - removedLength;
+  };
+  const from = Math.max(0, Math.min(cleanLength, Math.min(map(selection.from), map(selection.to))));
+  const to = Math.max(0, Math.min(cleanLength, Math.max(map(selection.from), map(selection.to))));
   return { from, to };
 }
 
-function normalizeParsedSpans(
-  parsed: readonly ParsedColorSpan[],
-  length: number,
-): ColorSpan[] {
-  let spans: ColorSpan[] = [];
-  for (const item of [...parsed].sort((left, right) => left.order - right.order)) {
-    const from = Math.max(0, Math.min(length, item.from));
-    const to = Math.max(from, Math.min(length, item.to));
-    spans = paintColor(spans, from, to, item.color);
-  }
-  return spans;
+function normalizeSpans(parsed: readonly ParsedSpan[], length: number): ColorSpan[] {
+  return resolveLayers(parsed
+    .map((span) => ({
+      from: Math.max(0, Math.min(length, span.from)),
+      to: Math.max(0, Math.min(length, span.to)),
+      color: span.color,
+      order: span.order,
+    }))
+    .filter((span) => span.to > span.from));
 }
 
-function paintColor(
+function paintRangesOnSpans(
   spans: readonly ColorSpan[],
-  from: number,
-  to: number,
+  ranges: readonly TextColorSelection[],
   color: TextColorId | undefined,
 ): ColorSpan[] {
-  if (to <= from) return spans.slice();
-  const next: ColorSpan[] = [];
-  for (const span of spans) {
-    if (span.to <= from || span.from >= to) {
-      next.push(span);
-      continue;
-    }
-    if (span.from < from) next.push({ ...span, to: from });
-    if (span.to > to) next.push({ ...span, from: to });
+  return resolveLayers([
+    ...spans.map((span, index) => ({ ...span, order: index })),
+    ...ranges.map((range, index) => ({ ...range, color, order: spans.length + index })),
+  ]);
+}
+
+function resolveLayers(layers: readonly Layer[]): ColorSpan[] {
+  const events: Array<{ position: number; open: boolean; active: ActiveLayer }> = [];
+  for (const [id, layer] of layers.entries()) {
+    if (layer.to <= layer.from) continue;
+    const active = { id, layer };
+    events.push({ position: layer.from, open: true, active });
+    events.push({ position: layer.to, open: false, active });
   }
-  if (color) next.push({ from, to, color });
-  return mergeColorSpans(next);
+  events.sort((left, right) => left.position - right.position || Number(left.open) - Number(right.open));
+  const active = new Set<number>();
+  const heap: ActiveLayer[] = [];
+  const result: ColorSpan[] = [];
+  let cursor = events[0]?.position ?? 0;
+  let index = 0;
+  while (index < events.length) {
+    const position = events[index].position;
+    const top = peekActiveLayer(heap, active);
+    if (top?.layer.color && position > cursor) result.push({ from: cursor, to: position, color: top.layer.color });
+    while (index < events.length && events[index].position === position && !events[index].open) {
+      active.delete(events[index].active.id);
+      index += 1;
+    }
+    while (index < events.length && events[index].position === position) {
+      active.add(events[index].active.id);
+      pushActiveLayer(heap, events[index].active);
+      index += 1;
+    }
+    cursor = position;
+  }
+  return mergeColorSpans(result);
+}
+
+function peekActiveLayer(heap: ActiveLayer[], active: ReadonlySet<number>): ActiveLayer | undefined {
+  while (heap.length && !active.has(heap[0].id)) popActiveLayer(heap);
+  return heap[0];
+}
+
+function pushActiveLayer(heap: ActiveLayer[], value: ActiveLayer): void {
+  heap.push(value);
+  let child = heap.length - 1;
+  while (child > 0) {
+    const parent = Math.floor((child - 1) / 2);
+    if (compareActiveLayers(heap[parent], value) >= 0) break;
+    heap[child] = heap[parent];
+    child = parent;
+  }
+  heap[child] = value;
+}
+
+function popActiveLayer(heap: ActiveLayer[]): ActiveLayer | undefined {
+  const top = heap[0];
+  const last = heap.pop();
+  if (heap.length && last) {
+    let parent = 0;
+    while (true) {
+      const left = parent * 2 + 1;
+      const right = left + 1;
+      let child = parent;
+      if (left < heap.length && compareActiveLayers(heap[left], last) > 0) child = left;
+      if (right < heap.length && compareActiveLayers(heap[right], child === parent ? last : heap[left]) > 0) child = right;
+      if (child === parent) break;
+      heap[parent] = heap[child];
+      parent = child;
+    }
+    heap[parent] = last;
+  }
+  return top;
+}
+
+function compareActiveLayers(left: ActiveLayer, right: ActiveLayer): number {
+  return left.layer.order - right.layer.order || left.id - right.id;
 }
 
 function mergeColorSpans(spans: readonly ColorSpan[]): ColorSpan[] {
-  const sorted = spans
-    .filter((span) => span.to > span.from)
-    .slice()
+  const sorted = spans.slice().filter((span) => span.to > span.from)
     .sort((left, right) => left.from - right.from || left.to - right.to);
-  const merged: ColorSpan[] = [];
+  const result: ColorSpan[] = [];
   for (const span of sorted) {
-    const previous = merged.at(-1);
-    if (
-      previous &&
-      previous.color === span.color &&
-      previous.to >= span.from
-    ) {
+    const previous = result.at(-1);
+    if (previous && previous.color === span.color && previous.to >= span.from) {
       previous.to = Math.max(previous.to, span.to);
-      continue;
+    } else {
+      result.push({ ...span });
     }
-    merged.push({ ...span });
   }
-  return merged;
+  return result;
 }
 
-function normalizeSpansToColorableRanges(
-  source: string,
+function restrictToRanges(
   spans: readonly ColorSpan[],
+  ranges: readonly TextColorSelection[],
 ): ColorSpan[] {
-  const safe: ColorSpan[] = [];
+  const result: ColorSpan[] = [];
+  let start = 0;
   for (const span of spans) {
-    for (const range of collectColorableRanges(source, span)) {
-      safe.push({ ...range, color: span.color });
+    while (start < ranges.length && ranges[start].to <= span.from) start += 1;
+    for (let index = start; index < ranges.length && ranges[index].from < span.to; index += 1) {
+      const from = Math.max(span.from, ranges[index].from);
+      const to = Math.min(span.to, ranges[index].to);
+      if (to > from) result.push({ from, to, color: span.color });
     }
   }
-  return mergeColorSpans(safe);
+  return mergeColorSpans(result);
 }
 
-function collectColorableRanges(
-  source: string,
+function intersectRanges(
+  ranges: readonly TextColorSelection[],
   selection: TextColorSelection,
 ): TextColorSelection[] {
-  const normalized = normalizeSelection(selection, source.length);
-  if (normalized.from === normalized.to) return [];
+  const result: TextColorSelection[] = [];
+  for (const range of ranges) {
+    if (range.to <= selection.from) continue;
+    if (range.from >= selection.to) break;
+    const from = Math.max(range.from, selection.from);
+    const to = Math.min(range.to, selection.to);
+    if (to > from) result.push({ from, to });
+  }
+  return result;
+}
+
+function collectColorableRanges(source: string): TextColorSelection[] {
   const frontMatterEnd = findFrontMatterEnd(source);
+  const inlineProtected = collectInlineProtectedRanges(source);
+  let inlineProtectedIndex = 0;
   const ranges: TextColorSelection[] = [];
   let lineStart = 0;
-  let inFence = false;
-  let fenceCharacter = "";
-  let fenceLength = 0;
-
+  let fence: { character: string; length: number } | undefined;
   while (lineStart <= source.length) {
     const newline = source.indexOf("\n", lineStart);
     const lineEnd = newline < 0 ? source.length : newline;
     const line = source.slice(lineStart, lineEnd);
-    const fence = /^ {0,3}(`{3,}|~{3,})/.exec(line);
-    if (fence) {
-      const marker = fence[1];
-      const character = marker[0];
-      if (!inFence) {
-        inFence = true;
-        fenceCharacter = character;
-        fenceLength = marker.length;
-      } else if (
-        character === fenceCharacter &&
-        marker.length >= fenceLength &&
-        new RegExp(
-          `^ {0,3}${escapeRegExp(character)}{${fenceLength},}\\s*$`,
-        ).test(line)
-      ) {
-        inFence = false;
-        fenceCharacter = "";
-        fenceLength = 0;
-      }
-      if (newline < 0) break;
-      lineStart = lineEnd + 1;
-      continue;
-    }
-
-    const selectionFrom = Math.max(normalized.from, lineStart);
-    const selectionTo = Math.min(normalized.to, lineEnd);
-    const insideFrontMatter = frontMatterEnd > 0 && lineStart < frontMatterEnd;
-    if (
-      selectionTo > selectionFrom &&
-      !inFence &&
-      !insideFrontMatter &&
-      !isUncolorableWholeLine(line)
-    ) {
-      const localFrom = selectionFrom - lineStart;
-      const localTo = selectionTo - lineStart;
-      const protectedRanges = collectProtectedLineRanges(line);
-      for (const localRange of subtractRanges(
-        { from: localFrom, to: localTo },
-        protectedRanges,
-      )) {
-        const trimmed = trimWhitespaceRange(line, localRange);
-        if (trimmed.to > trimmed.from) {
-          ranges.push({
-            from: lineStart + trimmed.from,
-            to: lineStart + trimmed.to,
-          });
-        }
+    const logical = line.slice(blockQuoteContentStart(line));
+    const marker = readFence(logical);
+    if (marker) {
+      if (!fence) fence = marker;
+      else if (marker.character === fence.character && marker.length >= fence.length && !marker.rest.trim()) fence = undefined;
+    } else if (!fence && !(frontMatterEnd > 0 && lineStart < frontMatterEnd) && !isUncolorableWholeLine(logical)) {
+      const projected = projectRangesToLine(inlineProtected, lineStart, lineEnd, inlineProtectedIndex);
+      inlineProtectedIndex = projected.nextIndex;
+      const protectedRanges = [
+        ...collectProtectedLineRanges(line),
+        ...projected.ranges,
+      ];
+      for (const range of subtractRanges({ from: 0, to: line.length }, mergeRanges(protectedRanges))) {
+        const trimmed = trimWhitespace(line, range);
+        if (trimmed.to > trimmed.from) ranges.push({ from: lineStart + trimmed.from, to: lineStart + trimmed.to });
       }
     }
-
     if (newline < 0) break;
     lineStart = lineEnd + 1;
   }
   return ranges;
 }
 
-function findFrontMatterEnd(source: string): number {
-  if (!source.startsWith("---\n")) return 0;
-  let lineStart = 4;
+function collectPreservedMarkupRanges(source: string): TextColorSelection[] {
+  const ranges: TextColorSelection[] = [...inlineCodeRanges(source)];
+  const frontMatterEnd = findFrontMatterEnd(source);
+  if (frontMatterEnd) ranges.push({ from: 0, to: frontMatterEnd });
+  let lineStart = 0;
+  let fence: { character: string; length: number } | undefined;
   while (lineStart <= source.length) {
     const newline = source.indexOf("\n", lineStart);
     const lineEnd = newline < 0 ? source.length : newline;
-    const line = source.slice(lineStart, lineEnd).trim();
-    if (line === "---" || line === "...") {
-      return newline < 0 ? source.length : lineEnd + 1;
+    const line = source.slice(lineStart, lineEnd);
+    if (!(frontMatterEnd > 0 && lineStart < frontMatterEnd)) {
+      const logical = line.slice(blockQuoteContentStart(line));
+      const marker = readFence(logical);
+      if (fence || marker) {
+        ranges.push({ from: lineStart, to: lineEnd });
+        if (!fence && marker) fence = marker;
+        else if (fence && marker && marker.character === fence.character && marker.length >= fence.length && !marker.rest.trim()) fence = undefined;
+      } else if (isIndentedCodeLine(logical)) {
+        ranges.push({ from: lineStart, to: lineEnd });
+      }
     }
-    if (newline < 0) return source.length;
+    if (newline < 0) break;
     lineStart = lineEnd + 1;
+  }
+  return mergeRanges(ranges);
+}
+
+function findFrontMatterEnd(source: string): number {
+  if (!source.startsWith("---\n")) return 0;
+  let start = 4;
+  while (start <= source.length) {
+    const newline = source.indexOf("\n", start);
+    const end = newline < 0 ? source.length : newline;
+    if (source.slice(start, end).trim() === "---" || source.slice(start, end).trim() === "...") return newline < 0 ? source.length : end + 1;
+    if (newline < 0) return source.length;
+    start = end + 1;
   }
   return source.length;
 }
 
-function isUncolorableWholeLine(line: string): boolean {
-  if (!line.trim()) return true;
-  if (isIndentedCodeLine(line)) return true;
-  if (
-    /^\s{0,3}(?:(?:\*\s*){3,}|(?:-\s*){3,}|(?:_\s*){3,})\s*$/.test(
-      line,
-    )
-  ) {
-    return true;
-  }
-  if (
-    /^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(
-      line,
-    )
-  ) {
-    return true;
-  }
-  return false;
+function readFence(line: string): { character: string; length: number; rest: string } | undefined {
+  let start = 0;
+  while (start < line.length && start < 4 && line[start] === " ") start += 1;
+  const character = line[start];
+  if (character !== TICK && character !== "~") return undefined;
+  let end = start;
+  while (line[end] === character) end += 1;
+  return end - start >= 3 ? { character, length: end - start, rest: line.slice(end) } : undefined;
 }
 
-/**
- * 4スペース以上のインデントコードだけを除外する。
- * 深くネストした箇条書き・番号付きリストは同じインデント量を使うため、
- * リストマーカーが続く行をコードとして扱わない。
- */
+function isUncolorableWholeLine(line: string): boolean {
+  if (!line.trim() || isIndentedCodeLine(line)) return true;
+  if (/^\s{0,3}(?:(?:\*\s*){3,}|(?:-\s*){3,}|(?:_\s*){3,})\s*$/.test(line)) return true;
+  return /^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$/.test(line);
+}
+
 function isIndentedCodeLine(line: string): boolean {
   if (!/^(?: {4}|\t)\S/.test(line)) return false;
-  const nestedListItem =
-    /^[ \t]+(?:[-+*]|\d+[.)])[ \t]+(?:\[[ xX]\][ \t]+)?/.test(line);
-  return !nestedListItem;
+  return !/^[ \t]+(?:[-+*]|\d+[.)])[ \t]+(?:\[[ xX]\][ \t]+)?/.test(line);
 }
 
 function collectProtectedLineRanges(line: string): TextColorSelection[] {
+  if (/^\s*\[[^\]\n]+\]:/.test(line.slice(blockQuoteContentStart(line)))) {
+    return [{ from: 0, to: line.length }];
+  }
   const ranges: TextColorSelection[] = [];
-  const prefixEnd = blockPrefixEnd(line);
-  if (prefixEnd > 0) ranges.push({ from: 0, to: prefixEnd });
+  const prefix = blockPrefixEnd(line);
+  if (prefix) ranges.push({ from: 0, to: prefix });
+  for (let index = 0; index < line.length; index += 1) if (line[index] === "|" && !isEscaped(line, index)) ranges.push({ from: index, to: index + 1 });
+  ranges.push(...htmlTagRanges(line));
+  ranges.push(...footnoteRanges(line));
+  ranges.push(...matchRanges(line, /\[TOC\]/gi));
+  ranges.push(...matchRanges(line, /\[![A-Z][A-Z0-9-]*\]/g));
+  if (/ {2,}$/.test(line)) ranges.push({ from: Math.max(0, line.length - 2), to: line.length });
+  if (/\\$/.test(line) && !isEscaped(line, line.length - 1)) ranges.push({ from: line.length - 1, to: line.length });
+  return mergeRanges(ranges);
+}
 
+function collectInlineProtectedRanges(source: string): TextColorSelection[] {
+  const ranges = inlineCodeRanges(source);
+  addLinkSyntaxRanges(source, ranges);
+  return mergeRanges(ranges);
+}
+
+function projectRangesToLine(
+  ranges: readonly TextColorSelection[],
+  lineStart: number,
+  lineEnd: number,
+  startIndex: number,
+): { ranges: TextColorSelection[]; nextIndex: number } {
+  let index = startIndex;
+  while (index < ranges.length && ranges[index].to <= lineStart) index += 1;
+  const nextIndex = index;
+  const result: TextColorSelection[] = [];
+  for (; index < ranges.length; index += 1) {
+    const range = ranges[index];
+    if (range.from >= lineEnd) break;
+    result.push({ from: Math.max(0, range.from - lineStart), to: Math.min(lineEnd - lineStart, range.to - lineStart) });
+  }
+  return { ranges: result, nextIndex };
+}
+
+function htmlTagRanges(line: string): TextColorSelection[] {
+  const ranges: TextColorSelection[] = [];
+  let from = -1;
+  let escaped = false;
   for (let index = 0; index < line.length; index += 1) {
-    if (line[index] === "|" && !isEscaped(line, index)) {
-      ranges.push({ from: index, to: index + 1 });
+    const character = line[index];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (character === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (character === "<" && from < 0) from = index;
+    else if (character === ">" && from >= 0) {
+      ranges.push({ from, to: index + 1 });
+      from = -1;
     }
   }
+  return ranges;
+}
 
-  for (const range of matchRanges(line, /<[^>\n]+>/g)) ranges.push(range);
-  for (const range of matchRanges(line, /\]\([^\n)]*\)/g)) {
-    ranges.push({ from: range.from + 1, to: range.to });
+function footnoteRanges(line: string): TextColorSelection[] {
+  const ranges: TextColorSelection[] = [];
+  let cursor = 0;
+  while (cursor < line.length) {
+    const from = line.indexOf("[^", cursor);
+    if (from < 0) break;
+    const close = line.indexOf("]", from + 2);
+    if (close < 0) break;
+    const to = close + (line[close + 1] === ":" ? 2 : 1);
+    ranges.push({ from, to });
+    cursor = to;
   }
-  for (const range of matchRanges(line, /!\[[^\]\n]*\]\([^\n)]*\)/g)) {
-    ranges.push(range);
-  }
-  ranges.push(...inlineCodeRanges(line));
+  return ranges;
+}
 
-  if (/ {2,}$/.test(line)) {
-    ranges.push({ from: Math.max(0, line.length - 2), to: line.length });
+function addLinkSyntaxRanges(line: string, ranges: TextColorSelection[]): void {
+  const bracketMatches = findBracketMatches(line);
+  const parenthesisMatches = findParenthesisMatches(line);
+  for (let from = 0; from < line.length; from += 1) {
+    const image = line[from] === "!" && line[from + 1] === "[";
+    const labelOpen = image ? from + 1 : from;
+    if (line[labelOpen] !== "[" || isEscaped(line, labelOpen)) continue;
+    const labelClose = bracketMatches.get(labelOpen);
+    if (labelClose === undefined) continue;
+    const afterLabel = labelClose + 1;
+    let to = -1;
+    if (line[afterLabel] === "(") to = parenthesisMatches.get(afterLabel) ?? -1;
+    else if (line[afterLabel] === "[") to = bracketMatches.get(afterLabel) ?? -1;
+    else {
+      const whitespace = /^\s*/.exec(line.slice(afterLabel))?.[0].length ?? 0;
+      const next = line[afterLabel + whitespace];
+      if (next !== "(" && next !== "[" && next !== ":") to = labelClose;
+    }
+    if (to < 0) continue;
+    if (image) ranges.push({ from, to: to + 1 });
+    else {
+      ranges.push({ from, to: labelOpen + 1 });
+      ranges.push({ from: labelClose, to: to + 1 });
+    }
+    from = to;
   }
-  if (/\\$/.test(line) && !isEscaped(line, line.length - 1)) {
-    ranges.push({ from: line.length - 1, to: line.length });
+}
+
+function findBracketMatches(value: string): ReadonlyMap<number, number> {
+  const matches = new Map<number, number>();
+  const opens: number[] = [];
+  let escaped = false;
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (character === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (character === "[") opens.push(index);
+    else if (character === "]") {
+      const open = opens.pop();
+      if (open !== undefined) matches.set(open, index);
+    }
   }
-  return mergePlainRanges(ranges);
+  return matches;
+}
+
+function findParenthesisMatches(value: string): ReadonlyMap<number, number> {
+  const matches = new Map<number, number>();
+  const opens: number[] = [];
+  let quote: string | undefined;
+  let angleDestination = false;
+  let escaped = false;
+  for (let index = 0; index < value.length; index += 1) {
+    const character = value[index];
+    if (escaped) {
+      escaped = false;
+      continue;
+    }
+    if (character === "\\") {
+      escaped = true;
+      continue;
+    }
+    if (quote) {
+      if (character === quote) quote = undefined;
+      continue;
+    }
+    if (angleDestination) {
+      if (character === ">") angleDestination = false;
+      continue;
+    }
+    if (opens.length === 1 && character === "<") {
+      angleDestination = true;
+      continue;
+    }
+    if (opens.length > 0 && (character === '"' || character === "'")) {
+      quote = character;
+      continue;
+    }
+    if (character === "(") opens.push(index);
+    else if (character === ")") {
+      const open = opens.pop();
+      if (open !== undefined) matches.set(open, index);
+    }
+  }
+  return matches;
 }
 
 function blockPrefixEnd(line: string): number {
   let position = line.match(/^[ \t]*/)?.[0].length ?? 0;
-  let guard = 0;
-  while (guard++ < 16) {
-    const rest = line.slice(position);
-    const quote = /^>\s?/.exec(rest);
+  while (true) {
+    const quote = /^>\s?/.exec(line.slice(position));
     if (!quote) break;
     position += quote[0].length;
     position += line.slice(position).match(/^[ \t]*/)?.[0].length ?? 0;
   }
-
   const heading = /^#{1,6}(?:[ \t]+|$)/.exec(line.slice(position));
   if (heading) position += heading[0].length;
-
-  const list = /^(?:[-+*]|\d+[.)])[ \t]+(?:\[[ xX]\][ \t]+)?/.exec(
-    line.slice(position),
-  );
+  const list = /^(?:[-+*]|\d+[.)])[ \t]+(?:\[[ xX]\][ \t]+)?/.exec(line.slice(position));
   if (list) position += list[0].length;
   return position;
 }
 
+function blockQuoteContentStart(line: string): number {
+  let position = 0;
+  while (true) {
+    const indent = /^ {0,3}/.exec(line.slice(position))?.[0].length ?? 0;
+    const quote = /^>[ \t]?/.exec(line.slice(position + indent));
+    if (!quote) return position;
+    position += indent + quote[0].length;
+  }
+}
+
 function inlineCodeRanges(line: string): TextColorSelection[] {
   const ranges: TextColorSelection[] = [];
-  let index = 0;
-  while (index < line.length) {
-    if (line[index] !== "`") {
+  const opens = new Map<number, number>();
+  for (let index = 0; index < line.length;) {
+    if (line[index] !== TICK) {
       index += 1;
       continue;
     }
-    let runLength = 1;
-    while (line[index + runLength] === "`") runLength += 1;
-    const marker = "`".repeat(runLength);
-    const close = line.indexOf(marker, index + runLength);
-    if (close < 0) {
-      index += runLength;
-      continue;
+    let length = 1;
+    while (line[index + length] === TICK) length += 1;
+    const open = opens.get(length);
+    if (open === undefined) opens.set(length, index);
+    else {
+      ranges.push({ from: open, to: index + length });
+      opens.delete(length);
     }
-    ranges.push({ from: index, to: close + runLength });
-    index = close + runLength;
+    index += length;
   }
-  return ranges;
+  return mergeRanges(ranges);
 }
 
-function matchRanges(
-  line: string,
-  pattern: RegExp,
-): TextColorSelection[] {
+function matchRanges(line: string, pattern: RegExp): TextColorSelection[] {
   pattern.lastIndex = 0;
   const ranges: TextColorSelection[] = [];
-  for (let match = pattern.exec(line); match; match = pattern.exec(line)) {
-    ranges.push({ from: match.index, to: match.index + match[0].length });
-    if (!match[0].length) pattern.lastIndex += 1;
-  }
+  for (let match = pattern.exec(line); match; match = pattern.exec(line)) ranges.push({ from: match.index, to: match.index + match[0].length });
   return ranges;
 }
 
 function isEscaped(value: string, index: number): boolean {
-  let slashes = 0;
-  for (
-    let cursor = index - 1;
-    cursor >= 0 && value[cursor] === "\\";
-    cursor -= 1
-  ) {
-    slashes += 1;
-  }
-  return slashes % 2 === 1;
+  let count = 0;
+  for (let cursor = index - 1; cursor >= 0 && value[cursor] === "\\"; cursor -= 1) count += 1;
+  return count % 2 === 1;
 }
 
-function subtractRanges(
-  range: TextColorSelection,
-  protectedRanges: readonly TextColorSelection[],
-): TextColorSelection[] {
-  let remaining = [range];
+function subtractRanges(range: TextColorSelection, protectedRanges: readonly TextColorSelection[]): TextColorSelection[] {
+  const result: TextColorSelection[] = [];
+  let cursor = range.from;
   for (const protectedRange of protectedRanges) {
-    const next: TextColorSelection[] = [];
-    for (const candidate of remaining) {
-      if (
-        protectedRange.to <= candidate.from ||
-        protectedRange.from >= candidate.to
-      ) {
-        next.push(candidate);
-        continue;
-      }
-      if (candidate.from < protectedRange.from) {
-        next.push({ from: candidate.from, to: protectedRange.from });
-      }
-      if (candidate.to > protectedRange.to) {
-        next.push({ from: protectedRange.to, to: candidate.to });
-      }
-    }
-    remaining = next;
-    if (!remaining.length) break;
+    if (protectedRange.to <= cursor) continue;
+    if (protectedRange.from >= range.to) break;
+    if (protectedRange.from > cursor) result.push({ from: cursor, to: protectedRange.from });
+    cursor = Math.max(cursor, protectedRange.to);
+    if (cursor >= range.to) break;
   }
-  return remaining;
+  if (cursor < range.to) result.push({ from: cursor, to: range.to });
+  return result;
 }
 
-function mergePlainRanges(
-  ranges: readonly TextColorSelection[],
-): TextColorSelection[] {
-  const sorted = ranges
-    .filter((range) => range.to > range.from)
-    .slice()
+function mergeRanges(ranges: readonly TextColorSelection[]): TextColorSelection[] {
+  const sorted = ranges.slice().filter((range) => range.to > range.from)
     .sort((left, right) => left.from - right.from || left.to - right.to);
-  const merged: TextColorSelection[] = [];
+  const result: TextColorSelection[] = [];
   for (const range of sorted) {
-    const previous = merged.at(-1);
-    if (previous && previous.to >= range.from) {
-      previous.to = Math.max(previous.to, range.to);
-    } else {
-      merged.push({ ...range });
-    }
+    const previous = result.at(-1);
+    if (previous && previous.to >= range.from) previous.to = Math.max(previous.to, range.to);
+    else result.push({ ...range });
   }
-  return merged;
+  return result;
 }
 
-function trimWhitespaceRange(
-  line: string,
-  range: TextColorSelection,
-): TextColorSelection {
-  let from = range.from;
-  let to = range.to;
+function trimWhitespace(line: string, range: TextColorSelection): TextColorSelection {
+  let { from, to } = range;
   while (from < to && /\s/.test(line[from])) from += 1;
   while (to > from && /\s/.test(line[to - 1])) to -= 1;
   return { from, to };
 }
 
-function collectRangeColorStates(
-  range: TextColorSelection,
-  spans: readonly ColorSpan[],
-  states: Set<TextColorId | "default">,
-): void {
-  let cursor = range.from;
-  for (const span of spans) {
-    if (span.to <= range.from) continue;
-    if (span.from >= range.to) break;
-    const from = Math.max(range.from, span.from);
-    const to = Math.min(range.to, span.to);
-    if (from > cursor) states.add("default");
-    if (to > from) states.add(span.color);
-    cursor = Math.max(cursor, to);
-    if (states.size > 1) return;
-  }
-  if (cursor < range.to) states.add("default");
-}
-
-function serializeColorMarkup(
-  source: string,
-  spans: readonly ColorSpan[],
-  selection: TextColorSelection,
-): TextColorEdit {
+function serializeColorMarkup(source: string, spans: readonly ColorSpan[], selection: TextColorSelection): TextColorEdit {
   const opens = new Map<number, string[]>();
   const closes = new Map<number, string[]>();
   for (const span of spans) {
@@ -627,32 +766,21 @@ function serializeColorMarkup(
     close.push("</span>");
     closes.set(span.to, close);
   }
-
-  const positions = new Set<number>([
-    0,
-    source.length,
-    selection.from,
-    selection.to,
-    ...opens.keys(),
-    ...closes.keys(),
-  ]);
-  const sorted = [...positions]
+  const positions = [...new Set([0, source.length, selection.from, selection.to, ...opens.keys(), ...closes.keys()])]
     .filter((position) => position >= 0 && position <= source.length)
     .sort((left, right) => left - right);
-
   const parts: string[] = [];
   let outputLength = 0;
   let cursor = 0;
   let mappedFrom = 0;
   let mappedTo = 0;
   const append = (value: string) => {
-    if (!value) return;
-    parts.push(value);
-    outputLength += value.length;
+    if (value) {
+      parts.push(value);
+      outputLength += value.length;
+    }
   };
-
-  for (const position of sorted) {
-    if (position < cursor) continue;
+  for (const position of positions) {
     append(source.slice(cursor, position));
     if (position === selection.to) mappedTo = outputLength;
     for (const close of closes.get(position) ?? []) append(close);
@@ -661,13 +789,5 @@ function serializeColorMarkup(
     cursor = position;
   }
   append(source.slice(cursor));
-
-  return {
-    text: parts.join(""),
-    selection: { from: mappedFrom, to: mappedTo },
-  };
-}
-
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return { text: parts.join(""), selection: { from: mappedFrom, to: mappedTo } };
 }

@@ -85,7 +85,7 @@ function findActiveSourceView(): EditorView | undefined {
   const visible = editors.find((editor) => editor.getClientRects().length > 0);
   const editor = focused ?? visible ?? editors[0];
   try {
-    return EditorView.findFromDOM(editor);
+    return EditorView.findFromDOM(editor) ?? undefined;
   } catch {
     return undefined;
   }
