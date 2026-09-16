@@ -2,6 +2,7 @@ import katex from 'katex';
 import { Marked, Renderer, type Token } from 'marked';
 import { getOutline, slugify } from '../shared/markdown';
 import { getMessages, type Messages, type SupportedLanguage } from '../shared/messages';
+import { stripMveTextColorMarkup } from '../shared/textColor';
 
 export interface RenderOptions {
     remoteImagesEnabled: boolean;
@@ -55,13 +56,15 @@ export function renderMarkdownUnsafeBlocks(
      */
     renderer.heading = function ({ tokens, depth }) {
         const content = this.parser.parseInline(tokens);
-        const plain = tokens.map((token) => ('text' in token ? String(token.text) : '')).join('');
+        const plain = stripMveTextColorMarkup(
+            tokens.map((token) => token.raw).join('')
+        );
         const explicit = /\s+\{#([^}]+)\}\s*$/.exec(plain);
         const base = explicit?.[1] ?? slugify(plain.replace(/\s+\{#[^}]+\}\s*$/, ''));
         const count = headingIds.get(base) ?? 0;
         headingIds.set(base, count + 1);
         const id = count ? `${base}-${count}` : base;
-        return `<h${depth} id="${escapeAttribute(id)}">${content.replace(/\s+\{#[^}]+\}\s*$/, '')}</h${depth}>`;
+        return `<h${depth} id="${escapeAttribute(id)}">${content.replace(/\s+\{#[^}]+\}(?=(?:<\/span>)*\s*$)/, '')}</h${depth}>`;
     };
 
     /**

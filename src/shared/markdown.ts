@@ -1,5 +1,6 @@
 import { marked, type Token, type Tokens } from 'marked';
 import { getMessages, type SupportedLanguage } from './messages';
+import { stripMveTextColorMarkup } from './textColor';
 
 export interface TextSelection {
     from: number;
@@ -461,8 +462,8 @@ export function applyMarkdownTableAction(
             const widths = Array.from({ length: separator.length }, (_, index) =>
                 Math.max(
                     3,
-                    displayWidth(separator[index] ?? ''),
-                    ...rows.map((row) => displayWidth(row[index] ?? ''))
+                    displayWidth(stripMveTextColorMarkup(separator[index] ?? '')),
+                    ...rows.map((row) => displayWidth(stripMveTextColorMarkup(row[index] ?? '')))
                 )
             );
             for (const row of rows) {
@@ -949,7 +950,7 @@ function displayWidth(value: string): number {
  */
 function padDisplayWidth(value: string, width: number): string {
     // 現在の表示幅が指定幅に届くまで末尾へ空白を追加する。
-    return value + ' '.repeat(Math.max(0, width - displayWidth(value)));
+    return value + ' '.repeat(Math.max(0, width - displayWidth(stripMveTextColorMarkup(value))));
 }
 
 /**
@@ -1018,8 +1019,13 @@ export function getOutline(markdown: string): OutlineItem[] {
         const match = /^(#{1,6})\s+(.+?)(?:\s+\{#([^}]+)\})?\s*#*\s*$/.exec(line);
         if (match) {
             // 装飾記号を除いた見出し文字列から、明示IDまたは自動生成IDを決める。
-            const text = match[2].replace(/[*_`~+=]/g, '').trim();
-            const baseId = match[3] || slugify(text);
+            const visible = stripMveTextColorMarkup(match[2]);
+            const explicit = /\s+\{#([^}]+)\}\s*$/.exec(visible);
+            const text = visible
+                .replace(/\s+\{#[^}]+\}\s*$/, '')
+                .replace(/[*_`~+=]/g, '')
+                .trim();
+            const baseId = explicit?.[1] || match[3] || slugify(text);
             const count = duplicateCount.get(baseId) ?? 0;
             duplicateCount.set(baseId, count + 1);
             items.push({
@@ -1227,7 +1233,14 @@ export function collectDiagnostics(markdown: string, language: SupportedLanguage
         if (fencedLines.has(index + 1)) return;
         const match = /^(#{1,6})\s+(.+?)(?:\s+\{#([^}]+)\})?\s*#*\s*$/.exec(line);
         if (!match) return;
-        const id = match[3] || slugify(match[2].replace(/[*_`~+=]/g, '').trim());
+        const visible = stripMveTextColorMarkup(match[2]);
+        const explicit = /\s+\{#([^}]+)\}\s*$/.exec(visible);
+        const id = explicit?.[1] || match[3] || slugify(
+            visible
+                .replace(/\s+\{#[^}]+\}\s*$/, '')
+                .replace(/[*_`~+=]/g, '')
+                .trim()
+        );
         const count = seen.get(id) ?? 0;
         if (count) {
             diagnostics.push({
@@ -1782,7 +1795,7 @@ export function formatMarkdown(markdown: string): string {
  */
 export function wordStats(markdown: string): { markdown: number; text: number; lines: number } {
     // コードやMarkdown記号を除いた本文を作り、文字数と行数を数える。
-    const text = markdown
+    const text = stripMveTextColorMarkup(markdown)
         .replace(/```[\s\S]*?```/g, '')
         .replace(/!?(?:\[([^\]]*)\])\([^)]*\)/g, '$1')
         .replace(/[*_`~+=#>|-]/g, '')

@@ -296,7 +296,6 @@ body[data-editor-theme] .pdf-margin-fields {
 
 /* フォーム部品。印刷設定パネル・インスペクター・検索・ダイアログを一括で統一する。 */
 body[data-editor-theme] .app input,
-body[data-editor-theme] .app select,
 body[data-editor-theme] .app textarea {
     color: var(--mve-theme-text) !important;
     background: var(--mve-theme-surface) !important;
@@ -436,4 +435,10 @@ body[data-editor-theme] .toast {
 
 body[data-editor-theme] {
     scrollbar-color: var(--vscode-scrollbarSlider-background) transparent;
+}
+
+body[data-editor-theme] .app select:not(.mve-text-color-select) {
+    color: var(--mve-theme-text) !important;
+    background: var(--mve-theme-surface) !important;
+    border-color: var(--mve-theme-border) !important;
 }

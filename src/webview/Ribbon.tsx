@@ -6,6 +6,11 @@ import type {
 } from "../shared/protocol";
 import type { MarkdownTableAction } from "../shared/markdown";
 import type { Messages } from "../shared/messages";
+import {
+  TEXT_COLOR_HEX,
+  TEXT_COLOR_IDS,
+  type TextColorId,
+} from "../shared/textColor";
 import { mveDebug } from "./debug";
 import {
   getPreviewImageResizeControlsVisible,
@@ -13,9 +18,23 @@ import {
   subscribePreviewImageResizeControlsVisible,
 } from "./previewImageResizeControls";
 import type { SourceAction } from "./SourceEditor";
+import {
+  applyTextColorToActiveSource,
+  clearInlineFormattingWithTextColor,
+  readActiveSourceTextColor,
+} from "./textColorController";
 import { sharedVsCodeApi } from "./vscodeApi";
 
 export type TableAction = "insert" | MarkdownTableAction;
+
+type TextColorChoice = TextColorId | "default" | "mixed";
+
+interface TextColorUiText {
+  label: string;
+  defaultColor: string;
+  mixed: string;
+  colors: Record<TextColorId, string>;
+}
 
 export type RibbonTab =
   | "home"
@@ -91,11 +110,14 @@ export function Ribbon({
   const [codeLanguage, setCodeLanguage] = useState("");
   const [emoji, setEmoji] = useState(DOCUMENT_EMOJIS[0]);
   const [headerName, setHeaderName] = useState("");
+  const [textColorChoice, setTextColorChoice] =
+    useState<TextColorChoice>("default");
   const [imageDirectoryDraft, setImageDirectoryDraft] =
     useState(imageDirectory);
   const [imageResizeControlsVisible, setImageResizeControlsVisibleState] =
     useState(getPreviewImageResizeControlsVisible);
   const japanese = document.documentElement.lang.toLowerCase().startsWith("ja");
+  const textColorText = textColorUiText(document.documentElement.lang);
 
   useEffect(
     () =>
@@ -307,12 +329,59 @@ export function Ribbon({
                   disabled={readOnly}
                   onClick={() => source("sub")}
                 />
+                <label className="ribbon-select-label">
+                  {textColorText.label}
+                  <select
+                    className="mve-text-color-select"
+                    value={textColorChoice}
+                    disabled={readOnly}
+                    onFocus={() =>
+                      setTextColorChoice(
+                        readActiveSourceTextColor() ?? "default",
+                      )
+                    }
+                    onChange={(event) => {
+                      const value = event.target.value as TextColorChoice;
+                      if (value === "mixed") return;
+                      applyTextColorToActiveSource(
+                        value === "default" ? undefined : value,
+                      );
+                      setTextColorChoice(value);
+                    }}
+                    style={
+                      textColorChoice !== "default" &&
+                      textColorChoice !== "mixed"
+                        ? { color: TEXT_COLOR_HEX[textColorChoice] }
+                        : undefined
+                    }
+                  >
+                    <option value="mixed" disabled>
+                      {textColorText.mixed}
+                    </option>
+                    <option value="default">
+                      {textColorText.defaultColor}
+                    </option>
+                    {TEXT_COLOR_IDS.map((color) => (
+                      <option
+                        key={color}
+                        value={color}
+                        style={{ color: TEXT_COLOR_HEX[color] }}
+                      >
+                        {`● ${textColorText.colors[color]}`}
+                      </option>
+                    ))}
+                  </select>
+                </label>
               </Group>
               <Group label={messages.ribbon.groups.clear}>
                 <Tool
                   label={messages.ribbon.labels.clearInline}
                   disabled={readOnly}
-                  onClick={() => source("clearInline")}
+                  onClick={() => {
+                    if (!clearInlineFormattingWithTextColor()) {
+                      source("clearInline");
+                    }
+                  }}
                 />
                 <Tool
                   label={messages.ribbon.labels.clearBlock}
@@ -887,6 +956,115 @@ const TABS: RibbonTab[] = [
   "settings",
   "help",
 ];
+
+const TEXT_COLOR_UI_TEXT: Record<string, TextColorUiText> = {
+  ja: {
+    label: "文字色",
+    defaultColor: "既定（解除）",
+    mixed: "混在",
+    colors: {
+      red: "赤",
+      orange: "オレンジ",
+      yellow: "黄",
+      green: "緑",
+      blue: "青",
+      purple: "紫",
+      gray: "グレー",
+    },
+  },
+  en: {
+    label: "Text color",
+    defaultColor: "Default (clear)",
+    mixed: "Mixed",
+    colors: {
+      red: "Red",
+      orange: "Orange",
+      yellow: "Yellow",
+      green: "Green",
+      blue: "Blue",
+      purple: "Purple",
+      gray: "Gray",
+    },
+  },
+  "zh-cn": {
+    label: "文字颜色",
+    defaultColor: "默认（清除）",
+    mixed: "混合",
+    colors: {
+      red: "红色",
+      orange: "橙色",
+      yellow: "黄色",
+      green: "绿色",
+      blue: "蓝色",
+      purple: "紫色",
+      gray: "灰色",
+    },
+  },
+  ko: {
+    label: "글자 색",
+    defaultColor: "기본값(해제)",
+    mixed: "혼합",
+    colors: {
+      red: "빨강",
+      orange: "주황",
+      yellow: "노랑",
+      green: "초록",
+      blue: "파랑",
+      purple: "보라",
+      gray: "회색",
+    },
+  },
+  fr: {
+    label: "Couleur du texte",
+    defaultColor: "Par défaut (effacer)",
+    mixed: "Mixte",
+    colors: {
+      red: "Rouge",
+      orange: "Orange",
+      yellow: "Jaune",
+      green: "Vert",
+      blue: "Bleu",
+      purple: "Violet",
+      gray: "Gris",
+    },
+  },
+  de: {
+    label: "Textfarbe",
+    defaultColor: "Standard (entfernen)",
+    mixed: "Gemischt",
+    colors: {
+      red: "Rot",
+      orange: "Orange",
+      yellow: "Gelb",
+      green: "Grün",
+      blue: "Blau",
+      purple: "Violett",
+      gray: "Grau",
+    },
+  },
+  es: {
+    label: "Color del texto",
+    defaultColor: "Predeterminado (quitar)",
+    mixed: "Mixto",
+    colors: {
+      red: "Rojo",
+      orange: "Naranja",
+      yellow: "Amarillo",
+      green: "Verde",
+      blue: "Azul",
+      purple: "Morado",
+      gray: "Gris",
+    },
+  },
+};
+
+function textColorUiText(language: string): TextColorUiText {
+  const normalized = language.trim().toLowerCase().replace(/_/g, "-");
+  if (normalized === "zh" || normalized.startsWith("zh-cn")) {
+    return TEXT_COLOR_UI_TEXT["zh-cn"];
+  }
+  return TEXT_COLOR_UI_TEXT[normalized.split("-")[0]] ?? TEXT_COLOR_UI_TEXT.en;
+}
 
 // 文書の構造・参照・状態を示す用途に絞った絵文字一覧。
 const DOCUMENT_EMOJIS = [
