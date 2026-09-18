@@ -121,3 +121,7 @@
 ## 1.1.9
 
 - Added a text coloring feature.
+
+## 1.1.10
+
+- Outline display settings are now saved permanently.

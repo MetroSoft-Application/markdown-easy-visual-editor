@@ -34,6 +34,7 @@ import { classifyResourceLink } from './resourceLink';
 
 const VIEW_TYPE = 'markdownEasyVisualEditor.editor';
 const VIEW_MODE_STATE_KEY = 'markdownEasyVisualEditor.viewMode';
+const OUTLINE_VISIBLE_STATE_KEY = 'markdownEasyVisualEditor.outlineVisible';
 const SCROLL_SYNC_STATE_KEY = 'markdownEasyVisualEditor.scrollSyncEnabled';
 const PREVIEW_IMAGE_RESIZE_CONTROLS_STATE_KEY = 'markdownEasyVisualEditor.previewImageResizeControlsVisible';
 
@@ -533,6 +534,10 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
                 }
                 case 'setViewMode':
                     await this.context.globalState.update(VIEW_MODE_STATE_KEY, message.viewMode);
+                    this.broadcastSettings();
+                    return;
+                case 'setOutlineVisible':
+                    await this.context.globalState.update(OUTLINE_VISIBLE_STATE_KEY, message.visible);
                     this.broadcastSettings();
                     return;
                 case 'setScrollSyncEnabled':
@@ -1231,6 +1236,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
             mermaidHostRendering: true,
             editorTheme: config.get<WebviewSettings['editorTheme']>('editor.theme', 'dark'),
             viewMode: normalizeViewMode(this.context.globalState.get<unknown>(VIEW_MODE_STATE_KEY)),
+            outlineVisible: this.context.globalState.get<boolean>(OUTLINE_VISIBLE_STATE_KEY, true),
             scrollSyncEnabled: this.context.globalState.get<boolean>(SCROLL_SYNC_STATE_KEY, true),
             previewImageResizeControlsVisible: this.context.globalState.get<boolean>(PREVIEW_IMAGE_RESIZE_CONTROLS_STATE_KEY, true),
             workspaceTrusted: vscode.workspace.isTrusted,

@@ -112,6 +112,15 @@ try {
             data: { type: 'settingsChanged', settings: window.__mveGlobalSettings }
           })), 0);
         }
+        if (message.type === 'setOutlineVisible') {
+          window.__mveGlobalSettings = {
+            ...window.__mveGlobalSettings,
+            outlineVisible: message.visible
+          };
+          setTimeout(() => window.dispatchEvent(new MessageEvent('message', {
+            data: { type: 'settingsChanged', settings: window.__mveGlobalSettings }
+          })), 0);
+        }
         if (message.type === 'setImageDirectory') {
           window.__mveGlobalSettings = {
             ...window.__mveGlobalSettings,
@@ -141,7 +150,7 @@ try {
   await page.addStyleTag({ path: path.resolve('dist/webview.css') });
   await page.addScriptTag({ path: path.resolve('dist/webview.js') });
   await page.waitForFunction(() => window.__mveMessages.some((message) => message.type === 'ready'));
-  const settings = { language: 'ja', imageDirectory: 'assets/${documentBasename}', maxPasteSizeMb: 20, remoteImagesEnabled: false, mermaidTheme: 'default', workspaceTrusted: true };
+  const settings = { language: 'ja', imageDirectory: 'assets/${documentBasename}', maxPasteSizeMb: 20, remoteImagesEnabled: false, mermaidTheme: 'default', outlineVisible: true, workspaceTrusted: true };
   await page.evaluate((initSettings) => {
     window.__mveGlobalSettings = { ...initSettings, scrollSyncEnabled: true };
     window.dispatchEvent(new MessageEvent('message', {
@@ -612,8 +621,10 @@ try {
   if (activeAfterBlurSync !== activeBeforeBlurSync) {
     throw new Error(`blurred host synchronization stole focus: before=${JSON.stringify(activeBeforeBlurSync)}, after=${JSON.stringify(activeAfterBlurSync)}`);
   }
-  await page.locator('.ribbon-tabs [role="tab"]').nth(3).click();
-
+  await page.getByRole('tab', { name: '表示', exact: true }).click();
+  const openSourceMessageStart = await page.evaluate(() => window.__mveMessages.length);
+  await page.getByRole('tab', { name: 'テキスト', exact: true }).click();
+  await page.waitForFunction((start) => window.__mveMessages.slice(start).some((message) => message.type === 'openSource'), openSourceMessageStart);
   const outline = page.locator('[title="アウトラインの表示/非表示"]');
   await outline.click();
   await page.locator('.outline-panel').waitFor({ state: 'hidden' });
@@ -622,9 +633,11 @@ try {
   await page.locator('.outline-panel').waitFor();
   await page.getByRole('button', { name: 'アウトラインを非表示', exact: true }).click();
   await page.locator('.outline-panel').waitFor({ state: 'hidden' });
+  await page.waitForFunction(() => window.__mveGlobalSettings.outlineVisible === false);
   await page.waitForTimeout(300);
   await outline.click();
   await page.locator('.outline-panel').waitFor();
+  await page.waitForFunction(() => window.__mveGlobalSettings.outlineVisible === true);
   await page.getByRole('button', { name: '検索', exact: true }).click();
   await page.getByRole('textbox', { name: '検索文字列' }).fill('Long section 150');
   await page.getByRole('button', { name: '次へ', exact: true }).click();
@@ -678,6 +691,15 @@ try {
   await page.evaluate(({ text, version }) => window.dispatchEvent(new MessageEvent('message', {
     data: { type: 'init', text, version, uri: 'file:///C:/another-document.md', settings: window.__mveGlobalSettings }
   })), { text: await page.evaluate(() => window.__mveHostText), version: await page.evaluate(() => window.__mveHostVersion) });
+  await outline.click();
+  await page.locator('.outline-panel').waitFor({ state: 'hidden' });
+  await page.waitForFunction(() => window.__mveGlobalSettings.outlineVisible === false);
+  await page.evaluate(({ text, version }) => window.dispatchEvent(new MessageEvent('message', {
+    data: { type: 'init', text, version, uri: 'file:///C:/third-document.md', settings: window.__mveGlobalSettings }
+  })), { text: await page.evaluate(() => window.__mveHostText), version: await page.evaluate(() => window.__mveHostVersion) });
+  await page.locator('.outline-panel').waitFor({ state: 'hidden' });
+  await outline.click();
+  await page.locator('.outline-panel').waitFor();
   if (await scrollSync.getAttribute('aria-pressed') !== 'false') throw new Error('scroll sync setting did not persist across documents');
   await scrollSync.click();
   await page.waitForFunction(() => document.querySelector('button[title="テキストとプレビューのスクロール位置を同期します"]')?.getAttribute('aria-pressed') === 'true');

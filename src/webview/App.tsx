@@ -85,7 +85,6 @@ declare const acquireVsCodeApi: <State = unknown>() => VsCodeApi<State>;
 
 interface PersistedState {
   mode: EditorMode;
-  outlineVisible: boolean;
   splitRatio?: number;
   outlineWidth?: number;
   zoom?: number;
@@ -142,6 +141,7 @@ const DEFAULT_SETTINGS: WebviewSettings = {
   remoteImagesEnabled: true,
   mermaidTheme: "auto",
   viewMode: "both",
+  outlineVisible: true,
   scrollSyncEnabled: true,
   workspaceTrusted: false,
 };
@@ -225,7 +225,7 @@ export function App(): React.JSX.Element {
   // modeのpreviewは印刷プレビュー用の一時状態だったため、通常表示としては復元しない。
   const [mode, setMode] = useState<EditorMode>("split");
   const [outlineVisible, setOutlineVisible] = useState(
-    restored?.outlineVisible ?? true,
+    bootstrap?.settings.outlineVisible ?? true,
   );
   const [outlineWidth, setOutlineWidth] = useState(() =>
     clampOutlineWidth(restored?.outlineWidth ?? 220),
@@ -523,7 +523,7 @@ export function App(): React.JSX.Element {
   useEffect(() => {
     // 表示モードやレイアウト設定をVS CodeのWebview状態へ保存する。
     persistViewState();
-  }, [outlineVisible, outlineWidth, splitRatio, zoom, splitView]);
+  }, [outlineWidth, splitRatio, zoom, splitView]);
 
   useEffect(() => {
     // 本文が変わったら、前の本文に対するローカル参照診断を破棄する。
@@ -1464,7 +1464,6 @@ export function App(): React.JSX.Element {
     vscode.setState({
       // 印刷プレビュー中にWebviewが再生成されても、通常の表示設定を復元する。
       mode: "split",
-      outlineVisible,
       outlineWidth,
       splitRatio,
       zoom,
@@ -1490,6 +1489,13 @@ export function App(): React.JSX.Element {
   }
 
   persistViewStateRef.current = persistViewState;
+
+  /** アウトラインの表示状態を更新し、全ドキュメント共通の設定としてHostへ保存する。 */
+  function setOutlineVisibility(visible: boolean): void {
+    if (outlineVisible === visible) return;
+    setOutlineVisible(visible);
+    vscode.postMessage({ type: "setOutlineVisible", visible });
+  }
 
   /**
    * 表示モードを切り替え、切り替え前の選択範囲と表示位置を復元対象として保存する。
@@ -1623,7 +1629,7 @@ export function App(): React.JSX.Element {
         return;
       case "toggleOutline":
         prepareLayoutRestore();
-        setOutlineVisible((value) => !value);
+        setOutlineVisibility(!outlineVisible);
         return;
       case "toggleScrollSync": {
         const enabled = !scrollSyncEnabledRef.current;
@@ -2866,6 +2872,9 @@ export function App(): React.JSX.Element {
     const enabled = nextSettings.scrollSyncEnabled !== false;
     scrollSyncEnabledRef.current = enabled;
     if (!enabled) cancelPendingCrossPaneScrollSync();
+    if (nextSettings.outlineVisible !== undefined) {
+      setOutlineVisible(nextSettings.outlineVisible);
+    }
     setSettings(nextSettings);
   }
 
@@ -3383,7 +3392,7 @@ export function App(): React.JSX.Element {
                   aria-label={messages.app.hideOutline}
                   onClick={() => {
                     prepareLayoutRestore();
-                    setOutlineVisible(false);
+                    setOutlineVisibility(false);
                   }}
                 >
                   ×
@@ -3451,7 +3460,7 @@ export function App(): React.JSX.Element {
             aria-label={messages.app.showOutline}
             onClick={() => {
               prepareLayoutRestore();
-              setOutlineVisible(true);
+              setOutlineVisibility(true);
             }}
           >
             ›
