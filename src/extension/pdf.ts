@@ -2,16 +2,28 @@ import * as vscode from 'vscode';
 import type { Browser, BrowserContext } from 'playwright-core';
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
-import type { PdfOptions } from '../shared/protocol';
+import {
+    normalizePdfOptions,
+    type NormalizedPdfOptions,
+    type PdfOptions,
+    type PdfPaperFormat
+} from '../shared/protocol';
 import { getMessages, type SupportedLanguage } from '../shared/messages';
 
 export interface PdfExportRequest {
+    /** PDF本文として出力する、サニタイズ前のWebview生成HTML。 */
     html: string;
+    /** PDF本文へ適用する、Webviewから収集したCSS。 */
     css: string;
+    /** 用紙・余白・タイポグラフィを含むPDF印刷設定。旧形式も受け付ける。 */
     options: PdfOptions;
+    /** 相対画像の解決基準になるMarkdown文書URI。 */
     documentUri: vscode.Uri;
+    /** standalone HTMLのlang属性とエラーメッセージに使う言語。 */
     language: SupportedLanguage;
+    /** 実PDF保存か、短い期限で返す印刷プレビューかを区別する目的。 */
     purpose?: 'preview' | 'export';
+    /** プレビューの古い要求を中断し、ブラウザ資源を早期解放するためのシグナル。 */
     signal?: AbortSignal;
 }
 
@@ -155,11 +167,10 @@ export async function renderPdf(request: PdfExportRequest): Promise<Buffer> {
             abortContext
         );
         previewLog?.('assets ready');
-        const options = request.options;
+        const options = normalizePdfOptions(request.options);
         const pdf = await withRenderControl(
             () => page.pdf({
-                format: options.format,
-                landscape: options.orientation === 'landscape',
+                ...pdfPaperOptions(options.format, options.orientation),
                 printBackground: true,
                 preferCSSPageSize: false,
                 margin: {
@@ -267,15 +278,17 @@ export async function acquirePdfBrowser(language: SupportedLanguage): Promise<Br
 
 /**
  * HTML・CSS・ローカル画像をPDF印刷用の単独HTMLへ組み立てる。
+ * CSSの末尾へ正規化済みの印刷設定を追加するため、画面プレビューと同じ設定を実PDFへ渡せる。
  * @param request PDF出力対象のHTML・CSS・文書URI。
- * @returns PDF印刷へ渡す完全なHTML。
+ * @returns PDF印刷へ渡せる、危険なマークアップと相対画像を処理済みの完全なHTML。
  */
 export async function buildStandaloneHtml(request: PdfExportRequest): Promise<string> {
     // 危険なHTMLを除去し、ローカル画像を埋め込んだ本文と印刷用CSSからHTMLを作る。
+    const options = normalizePdfOptions(request.options);
     let body = stripUnsafeMarkup(request.html);
     body = await embedLocalImages(body, request.documentUri);
     const css = request.css.replace(/<\/style/gi, '<\\/style');
-    return `<!doctype html><html lang="${request.language}"><head><meta charset="utf-8"><style>${css}\n${PRINT_CSS}</style></head><body><main class="mve-print">${body}</main></body></html>`;
+    return `<!doctype html><html lang="${request.language}"><head><meta charset="utf-8"><style>${css}\n${PRINT_CSS}\n${printOptionsCss(options)}</style></head><body><main class="mve-print">${body}</main></body></html>`;
 }
 
 /**
@@ -487,3 +500,60 @@ const PRINT_CSS = `
   img { max-width: 100%; height: auto; }
   a { color: inherit; text-decoration: underline; }
 `;
+
+/**
+ * PDF出力だけに適用する本文・見出し・コードの印刷スタイルを作る。
+ * Webview画面のテーマや表示倍率には影響させず、PDFの紙面へだけ数値設定を反映する。
+ * @param options すべての値が正規化済みのPDF設定。
+ * @returns standalone HTMLの末尾へ追加するCSS文字列。
+ */
+function printOptionsCss(options: NormalizedPdfOptions): string {
+    const fontFamily = sanitizeCssFontFamily(options.fontFamily);
+    const headings = options.headingFontSizes;
+    return `
+  body, .mve-print { font-family: ${fontFamily}; font-size: ${options.bodyFontSize}pt; line-height: ${options.lineHeight}; }
+  .mve-print .rendered-markdown { font-size: inherit; line-height: inherit; }
+  .mve-print h1 { font-size: ${headings.h1}pt; }
+  .mve-print h2 { font-size: ${headings.h2}pt; }
+  .mve-print h3 { font-size: ${headings.h3}pt; }
+  .mve-print h4 { font-size: ${headings.h4}pt; }
+  .mve-print h5 { font-size: ${headings.h5}pt; }
+  .mve-print h6 { font-size: ${headings.h6}pt; }
+  .mve-print pre, .mve-print code { font-size: ${options.codeFontSize}pt; }
+  .mve-print p { margin-bottom: ${options.paragraphSpacing}pt; }
+`;
+}
+
+/**
+ * フォント指定へCSSの構造を持ち込ませず、フォント名とフォールバックだけを許可する。
+ * @param value ユーザーが入力したフォントファミリー文字列。
+ * @returns CSS宣言を壊さないよう制御文字と構造文字を除去したフォント指定。
+ */
+function sanitizeCssFontFamily(value: string): string {
+    const sanitized = value
+        .replace(/[{};<>`]/g, '')
+        .replace(/[\r\n]/g, ' ')
+        .trim();
+    return sanitized || '"Noto Sans JP", "Yu Gothic UI", sans-serif';
+}
+
+/**
+ * Playwright標準のA判、またはJIS寸法を明示するB4/B5のPDF用紙指定を作る。
+ * @param format 選択された用紙種別。
+ * @param orientation 用紙の向き。
+ * @returns page.pdfへ渡す用紙指定。B判はmm指定、A判は標準format指定。
+ */
+function pdfPaperOptions(
+    format: PdfPaperFormat,
+    orientation: PdfOptions['orientation']
+): { format?: string; width?: string; height?: string; landscape?: boolean } {
+    if (format === 'B4' || format === 'B5') {
+        const dimensions = format === 'B4'
+            ? { width: 257, height: 364 }
+            : { width: 182, height: 257 };
+        const width = orientation === 'landscape' ? dimensions.height : dimensions.width;
+        const height = orientation === 'landscape' ? dimensions.width : dimensions.height;
+        return { width: `${width}mm`, height: `${height}mm`, landscape: false };
+    }
+    return { format, landscape: orientation === 'landscape' };
+}

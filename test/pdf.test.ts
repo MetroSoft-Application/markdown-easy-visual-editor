@@ -46,6 +46,7 @@ vi.mock('vscode', () => ({
 vi.mock('dompurify', () => ({ default: { sanitize: (value: string) => value } }));
 
 import { buildStandaloneHtml, exportPdf, renderPdf, type PdfExportRequest } from '../src/extension/pdf';
+import { normalizePdfOptions } from '../src/shared/protocol';
 import { renderMarkdown } from '../src/webview/markdownRenderer';
 
 const temporaryDirectories: string[] = [];
@@ -60,6 +61,46 @@ afterEach(async () => {
 });
 
 describe('PDF local images', () => {
+  it('normalizes typography settings and includes them in the standalone print HTML', async () => {
+    expect(normalizePdfOptions({ format: 'Letter' }).format).toBe('A4');
+    expect(normalizePdfOptions({ format: 'B5' }).format).toBe('B5');
+    const bounded = normalizePdfOptions({ bodyFontSize: 100, lineHeight: 0, paragraphSpacing: -1 });
+    expect(bounded.bodyFontSize).toBe(48);
+    expect(bounded.lineHeight).toBe(0.8);
+    expect(bounded.paragraphSpacing).toBe(0);
+
+    const options = normalizePdfOptions({
+      format: 'A4',
+      orientation: 'portrait',
+      margins: { top: 10, right: 10, bottom: 10, left: 10 },
+      header: '',
+      footer: '',
+      fontFamily: '"Test Font", sans-serif',
+      bodyFontSize: 18,
+      headingFontSizes: { h1: 30, h2: 25, h3: 20, h4: 16, h5: 13, h6: 11 },
+      codeFontSize: 8,
+      lineHeight: 1.4,
+      paragraphSpacing: 10,
+      saveWithoutDialog: true,
+    });
+    const request = {
+      html: '<h1>見出し</h1><p>本文</p><pre><code>code</code></pre>',
+      css: '',
+      options,
+      documentUri: new TestUri('file', '/document.md', '/document.md'),
+      language: 'ja',
+    } as unknown as PdfExportRequest;
+
+    const html = await buildStandaloneHtml(request);
+
+    expect(html).toContain('font-size: 18pt');
+    expect(html).toContain('.mve-print h1 { font-size: 30pt; }');
+    expect(html).toContain('.mve-print h6 { font-size: 11pt; }');
+    expect(html).toContain('.mve-print pre, .mve-print code { font-size: 8pt; }');
+    expect(html).toContain('line-height: 1.4');
+    expect(html).toContain('.mve-print p { margin-bottom: 10pt; }');
+  });
+
   it('embeds a relative local image and produces a PDF with it', async () => {
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markdown-easy-visual-editor-pdf-'));
     temporaryDirectories.push(directory);
@@ -141,7 +182,7 @@ describe('PDF local images', () => {
       html,
       css: 'body { font-family: sans-serif; } img { max-width: 100%; }',
       options: {
-        format: 'A4',
+        format: 'B5',
         orientation: 'portrait',
         margins: { top: 15, right: 15, bottom: 15, left: 15 },
         header: '',

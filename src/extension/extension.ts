@@ -1,12 +1,15 @@
 import * as vscode from 'vscode';
 import path from 'node:path';
 import { randomBytes, randomUUID } from 'node:crypto';
-import type {
-    HostToWebviewMessage,
-    ImagePayload,
-    ViewMode,
-    WebviewSettings,
-    WebviewToHostMessage
+import {
+    DEFAULT_PDF_OPTIONS,
+    normalizePdfOptions,
+    type HostToWebviewMessage,
+    type ImagePayload,
+    type NormalizedPdfOptions,
+    type ViewMode,
+    type WebviewSettings,
+    type WebviewToHostMessage
 } from '../shared/protocol';
 import { resolveImageDirectoryRule } from '../shared/imageDirectory';
 import { collectLocalResourceReferences, sortDiagnostics, type Diagnostic } from '../shared/markdown';
@@ -37,6 +40,8 @@ const VIEW_MODE_STATE_KEY = 'markdownEasyVisualEditor.viewMode';
 const OUTLINE_VISIBLE_STATE_KEY = 'markdownEasyVisualEditor.outlineVisible';
 const SCROLL_SYNC_STATE_KEY = 'markdownEasyVisualEditor.scrollSyncEnabled';
 const PREVIEW_IMAGE_RESIZE_CONTROLS_STATE_KEY = 'markdownEasyVisualEditor.previewImageResizeControlsVisible';
+/** 文書やWebviewに依存せず、PDF印刷設定を全Markdown文書で共有するglobalStateのキー。 */
+const PDF_OPTIONS_STATE_KEY = 'markdownEasyVisualEditor.pdfOptions';
 
 /** JSONをnonce付きインラインscriptへ安全に埋め込める文字列へ変換する。 */
 function serializeInlineJson(value: unknown): string {
@@ -546,6 +551,14 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
                     return;
                 case 'setPreviewImageResizeControlsVisible':
                     await this.context.globalState.update(PREVIEW_IMAGE_RESIZE_CONTROLS_STATE_KEY, message.visible);
+                    this.broadcastSettings();
+                    return;
+                case 'setPdfOptions':
+                    // Webviewからの入力値を正規化して保存し、開いている全Webviewへ同じ設定を通知する。
+                    await this.context.globalState.update(
+                        PDF_OPTIONS_STATE_KEY,
+                        normalizePdfOptions(message.options)
+                    );
                     this.broadcastSettings();
                     return;
                 case 'openSource':
@@ -1239,9 +1252,21 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
             outlineVisible: this.context.globalState.get<boolean>(OUTLINE_VISIBLE_STATE_KEY, true),
             scrollSyncEnabled: this.context.globalState.get<boolean>(SCROLL_SYNC_STATE_KEY, true),
             previewImageResizeControlsVisible: this.context.globalState.get<boolean>(PREVIEW_IMAGE_RESIZE_CONTROLS_STATE_KEY, true),
+            pdfOptions: this.getPdfOptions(),
             workspaceTrusted: vscode.workspace.isTrusted,
             startupProbe: this.startupBenchmarkEnabled || undefined
         };
+    }
+
+    /**
+     * PDF印刷設定を文書に依存しない拡張機能グローバル状態から取得する。
+     * 旧バージョンの保存値や手動編集された不正値も、Webviewへ渡す前に正規化する。
+     * @returns 全Markdown文書に適用する検証済みPDF印刷設定。
+     */
+    private getPdfOptions(): NormalizedPdfOptions {
+        return normalizePdfOptions(
+            this.context.globalState.get<unknown>(PDF_OPTIONS_STATE_KEY, DEFAULT_PDF_OPTIONS)
+        );
     }
 
     private markStartup(

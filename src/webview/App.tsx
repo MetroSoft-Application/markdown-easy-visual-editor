@@ -12,12 +12,15 @@ import { gfm as turndownGfm } from "turndown-plugin-gfm";
 import {
   DEFAULT_HTML_EXPORT_OPTIONS,
   DEFAULT_PDF_OPTIONS,
+  PDF_PAPER_FORMATS,
+  normalizePdfOptions,
 } from "../shared/protocol";
 import type {
   EditorMode,
   HostToWebviewMessage,
   HtmlExportOptions,
   ImagePayload,
+  NormalizedPdfOptions,
   PdfOptions,
   VsCodeApi,
   ViewMode,
@@ -143,9 +146,12 @@ const DEFAULT_SETTINGS: WebviewSettings = {
   viewMode: "both",
   outlineVisible: true,
   scrollSyncEnabled: true,
+  pdfOptions: DEFAULT_PDF_OPTIONS,
   workspaceTrusted: false,
 };
 const PREVIEW_UPDATE_DELAY_MS = 120;
+/** PDF印刷設定の連続入力をまとめてglobalStateへ保存する遅延。 */
+const PDF_OPTIONS_PERSIST_DELAY_MS = 250;
 const OUTLINE_DRAG_THRESHOLD_PX = 6;
 
 type HelpTopic = "shortcuts" | "features";
@@ -300,7 +306,13 @@ export function App(): React.JSX.Element {
   const [linkDialogVisible, setLinkDialogVisible] = useState(false);
   const [linkHref, setLinkHref] = useState("https://example.com");
   const [linkLabel, setLinkLabel] = useState("");
-  const [pdfOptions, setPdfOptions] = useState(DEFAULT_PDF_OPTIONS);
+  const [pdfOptions, setPdfOptions] = useState<NormalizedPdfOptions>(() =>
+    normalizePdfOptions(bootstrap?.settings.pdfOptions ?? DEFAULT_PDF_OPTIONS),
+  );
+  /** 入力イベント間で最新のPDF設定を失わず参照するためのミラー。 */
+  const pdfOptionsRef = useRef(pdfOptions);
+  /** PDF設定の保存通知を連続入力中に集約するタイマー。 */
+  const pdfOptionsPersistTimerRef = useRef<number | undefined>(undefined);
   const [htmlOptions, setHtmlOptions] = useState(DEFAULT_HTML_EXPORT_OPTIONS);
   const [pdfPreview, setPdfPreview] = useState<PdfPreviewState>({
     requestId: "",
@@ -435,6 +447,7 @@ export function App(): React.JSX.Element {
   );
   versionRef.current = version;
   markdownForSelectionRef.current = markdown;
+  pdfOptionsRef.current = pdfOptions;
   hostMessageHandlerRef.current = handleHostMessage;
 
   /**
@@ -480,6 +493,9 @@ export function App(): React.JSX.Element {
       if (persistViewStateTimerRef.current !== undefined) {
         window.clearTimeout(persistViewStateTimerRef.current);
         persistViewStateTimerRef.current = undefined;
+      }
+      if (pdfOptionsPersistTimerRef.current !== undefined) {
+        flushPdfOptionsPersistence();
       }
       if (previewScrollFrameRef.current !== undefined) {
         window.cancelAnimationFrame(previewScrollFrameRef.current);
@@ -1649,20 +1665,26 @@ export function App(): React.JSX.Element {
         runPreflightCheck();
         return;
       case "togglePrintPreview":
+        flushPdfOptionsPersistence();
         if (printPreview) {
-          if (!printSettingsVisible) {
-            setPrintSettingsVisible(true);
-          } else {
-            setPrintPreview(false);
-            setPrintSettingsVisible(false);
-            changeMode(previousModeBeforePrintRef.current);
-          }
+          setPrintPreview(false);
+          setPrintSettingsVisible(false);
+          changeMode(previousModeBeforePrintRef.current);
         } else {
           previousModeBeforePrintRef.current = mode;
           setPrintPreview(true);
-          setPrintSettingsVisible(true);
+          setPrintSettingsVisible(false);
           changeMode("preview");
         }
+        return;
+      // 印刷設定はPDFプレビューとは独立した操作として開く。
+      case "openPrintSettings":
+        flushPdfOptionsPersistence();
+        if (printPreview) {
+          setPrintPreview(false);
+          changeMode(previousModeBeforePrintRef.current);
+        }
+        setPrintSettingsVisible(true);
         return;
       case "openSource":
         vscode.postMessage({ type: "openSource" });
@@ -2008,11 +2030,43 @@ export function App(): React.JSX.Element {
     });
   }
 
+  /**
+   * PDF印刷設定を画面へ即時反映し、永続化通知は連続入力をまとめて送る。
+   * @param update 現在の検証済み設定から次の設定を作る更新関数。
+   */
+  function updatePdfOptions(
+    update: (current: NormalizedPdfOptions) => PdfOptions,
+  ): void {
+    const next = normalizePdfOptions(update(pdfOptionsRef.current));
+    pdfOptionsRef.current = next;
+    setPdfOptions(next);
+    if (pdfOptionsPersistTimerRef.current !== undefined) {
+      window.clearTimeout(pdfOptionsPersistTimerRef.current);
+    }
+    pdfOptionsPersistTimerRef.current = window.setTimeout(() => {
+      pdfOptionsPersistTimerRef.current = undefined;
+      vscode.postMessage({ type: "setPdfOptions", options: pdfOptionsRef.current });
+    }, PDF_OPTIONS_PERSIST_DELAY_MS);
+  }
+
+  /**
+   * 保留中のPDF設定通知を即時送信する。
+   * PDF出力や設定パネル終了前に呼び、最後の入力値を失わないようにする。
+   */
+  function flushPdfOptionsPersistence(): void {
+    if (pdfOptionsPersistTimerRef.current === undefined) return;
+    window.clearTimeout(pdfOptionsPersistTimerRef.current);
+    pdfOptionsPersistTimerRef.current = undefined;
+    vscode.postMessage({ type: "setPdfOptions", options: pdfOptionsRef.current });
+  }
+
+  /** 現在のプレビュー結果と印刷設定をホストへ渡し、PDFを保存する。 */
   async function requestPdfExport(): Promise<void> {
     if (!settings.workspaceTrusted) {
       setToast(messages.app.toast.workspaceTrustRequired);
       return;
     }
+    flushPdfOptionsPersistence();
     if (!(await waitForCurrentPreviewSnapshot())) {
       setToast(
         messages.app.toast.operationFailed(
@@ -2061,7 +2115,7 @@ export function App(): React.JSX.Element {
       requestId,
       html,
       css: await collectEmbeddedPrintableCss(),
-      options: pdfOptions,
+      options: pdfOptionsRef.current,
     };
     pdfRequestsRef.current.add(requestId);
     vscode.postMessage(message);
@@ -2875,7 +2929,19 @@ export function App(): React.JSX.Element {
     if (nextSettings.outlineVisible !== undefined) {
       setOutlineVisible(nextSettings.outlineVisible);
     }
-    setSettings(nextSettings);
+    const nextPdfOptions = normalizePdfOptions(
+      nextSettings.pdfOptions ?? DEFAULT_PDF_OPTIONS,
+    );
+    // 自分の入力を保存するまでの間に届いた古いsettingsChangedで、画面の最新値を戻さない。
+    const hasPendingPdfOptions = pdfOptionsPersistTimerRef.current !== undefined;
+    const effectivePdfOptions = hasPendingPdfOptions
+      ? pdfOptionsRef.current
+      : nextPdfOptions;
+    if (!hasPendingPdfOptions) {
+      pdfOptionsRef.current = nextPdfOptions;
+      setPdfOptions(nextPdfOptions);
+    }
+    setSettings({ ...nextSettings, pdfOptions: effectivePdfOptions });
   }
 
   /** ソース表示を復元し、本文アンカーで表現できない先頭・末尾では境界比率を優先する。 */
@@ -3718,11 +3784,17 @@ export function App(): React.JSX.Element {
             )}
           </aside>
         )}
-        {printPreview && printSettingsVisible && (
+        {printSettingsVisible && (
           <aside className="pdf-settings-panel">
             <div className="panel-title">
               <h2>{messages.app.printSettings}</h2>
-              <button onClick={() => setPrintSettingsVisible(false)}>
+              <button
+                type="button"
+                onClick={() => {
+                  flushPdfOptionsPersistence();
+                  setPrintSettingsVisible(false);
+                }}
+              >
                 {messages.app.close}
               </button>
             </div>
@@ -3732,15 +3804,15 @@ export function App(): React.JSX.Element {
               <select
                 value={pdfOptions.format}
                 onChange={(event) =>
-                  setPdfOptions({
-                    ...pdfOptions,
+                  updatePdfOptions((current) => ({
+                    ...current,
                     format: event.target.value as PdfOptions["format"],
-                  })
+                  }))
                 }
               >
-                <option>A4</option>
-                <option>A3</option>
-                <option>Letter</option>
+                {PDF_PAPER_FORMATS.map((format) => (
+                  <option key={format}>{format}</option>
+                ))}
               </select>
             </label>
             <label>
@@ -3748,11 +3820,11 @@ export function App(): React.JSX.Element {
               <select
                 value={pdfOptions.orientation}
                 onChange={(event) =>
-                  setPdfOptions({
-                    ...pdfOptions,
+                  updatePdfOptions((current) => ({
+                    ...current,
                     orientation: event.target
                       .value as PdfOptions["orientation"],
-                  })
+                  }))
                 }
               >
                 <option value="portrait">{messages.app.portrait}</option>
@@ -3764,7 +3836,10 @@ export function App(): React.JSX.Element {
               <input
                 value={pdfOptions.header}
                 onChange={(event) =>
-                  setPdfOptions({ ...pdfOptions, header: event.target.value })
+                  updatePdfOptions((current) => ({
+                    ...current,
+                    header: event.target.value,
+                  }))
                 }
               />
             </label>
@@ -3773,7 +3848,10 @@ export function App(): React.JSX.Element {
               <input
                 value={pdfOptions.footer}
                 onChange={(event) =>
-                  setPdfOptions({ ...pdfOptions, footer: event.target.value })
+                  updatePdfOptions((current) => ({
+                    ...current,
+                    footer: event.target.value,
+                  }))
                 }
               />
             </label>
@@ -3792,37 +3870,154 @@ export function App(): React.JSX.Element {
                     )[side]
                   }
                   <input
+                    key={`${side}-${pdfOptions.margins[side]}`}
                     type="number"
                     min={0}
                     max={50}
-                    value={pdfOptions.margins[side]}
-                    onChange={(event) =>
-                      setPdfOptions({
-                        ...pdfOptions,
+                    defaultValue={pdfOptions.margins[side]}
+                    onBlur={(event) =>
+                      updatePdfOptions((current) => ({
+                        ...current,
                         margins: {
-                          ...pdfOptions.margins,
-                          [side]: clampPdfMargin(event.target.value),
+                          ...current.margins,
+                          [side]: clampPdfMargin(event.currentTarget.value),
                         },
-                      })
+                      }))
                     }
                   />
                 </label>
               ))}
+            </fieldset>
+            <fieldset className="pdf-typography-fields">
+              <legend>{messages.app.typography}</legend>
+              {/* 数値欄は入力途中の値を保持し、フォーカス離脱時にだけ範囲正規化して確定する。 */}
+              <label>
+                {messages.app.fontFamily}
+                <input
+                  value={pdfOptions.fontFamily}
+                  placeholder={'"Noto Sans JP", "Yu Gothic UI", sans-serif'}
+                  onChange={(event) =>
+                    updatePdfOptions((current) => ({
+                      ...current,
+                      fontFamily: event.target.value,
+                    }))
+                  }
+                />
+              </label>
+              <label>
+                {messages.app.bodyFontSize} (pt)
+                <input
+                  key={`body-${pdfOptions.bodyFontSize}`}
+                  type="number"
+                  min={6}
+                  max={48}
+                  step={0.5}
+                  defaultValue={pdfOptions.bodyFontSize}
+                  onBlur={(event) =>
+                    updatePdfOptions((current) => ({
+                      ...current,
+                      bodyFontSize: Number(event.currentTarget.value),
+                    }))
+                  }
+                />
+              </label>
+              <fieldset className="pdf-heading-fields">
+                <legend>{messages.app.headingFontSizes} (pt)</legend>
+                {(["h1", "h2", "h3", "h4", "h5", "h6"] as const).map(
+                  (heading) => (
+                    <label key={heading}>
+                      {heading.toUpperCase()}
+                      <input
+                        key={`${heading}-${pdfOptions.headingFontSizes[heading]}`}
+                        type="number"
+                        min={6}
+                        max={72}
+                        step={0.5}
+                        defaultValue={pdfOptions.headingFontSizes[heading]}
+                        onBlur={(event) =>
+                          updatePdfOptions((current) => ({
+                            ...current,
+                            headingFontSizes: {
+                              ...current.headingFontSizes,
+                              [heading]: Number(event.currentTarget.value),
+                            },
+                          }))
+                        }
+                      />
+                    </label>
+                  ),
+                )}
+              </fieldset>
+              <label>
+                {messages.app.codeFontSize} (pt)
+                <input
+                  key={`code-${pdfOptions.codeFontSize}`}
+                  type="number"
+                  min={6}
+                  max={36}
+                  step={0.5}
+                  defaultValue={pdfOptions.codeFontSize}
+                  onBlur={(event) =>
+                    updatePdfOptions((current) => ({
+                      ...current,
+                      codeFontSize: Number(event.currentTarget.value),
+                    }))
+                  }
+                />
+              </label>
+              <label>
+                {messages.app.lineHeight}
+                <input
+                  key={`line-height-${pdfOptions.lineHeight}`}
+                  type="number"
+                  min={0.8}
+                  max={3}
+                  step={0.05}
+                  defaultValue={pdfOptions.lineHeight}
+                  onBlur={(event) =>
+                    updatePdfOptions((current) => ({
+                      ...current,
+                      lineHeight: Number(event.currentTarget.value),
+                    }))
+                  }
+                />
+              </label>
+              <label>
+                {messages.app.paragraphSpacing} (pt)
+                <input
+                  key={`paragraph-spacing-${pdfOptions.paragraphSpacing}`}
+                  type="number"
+                  min={0}
+                  max={48}
+                  step={0.5}
+                  defaultValue={pdfOptions.paragraphSpacing}
+                  onBlur={(event) =>
+                    updatePdfOptions((current) => ({
+                      ...current,
+                      paragraphSpacing: Number(event.currentTarget.value),
+                    }))
+                  }
+                />
+              </label>
             </fieldset>
             <label className="pdf-checkbox">
               <input
                 type="checkbox"
                 checked={pdfOptions.saveWithoutDialog}
                 onChange={(event) =>
-                  setPdfOptions({
-                    ...pdfOptions,
+                  updatePdfOptions((current) => ({
+                    ...current,
                     saveWithoutDialog: event.target.checked,
-                  })
+                  }))
                 }
               />{" "}
               {messages.app.withoutDialog}
             </label>
-            <button className="primary" onClick={() => void requestPdfExport()}>
+            <button
+              type="button"
+              className="primary"
+              onClick={() => void requestPdfExport()}
+            >
               {messages.ribbon.labels.exportPdf}
             </button>
           </aside>
@@ -4464,6 +4659,13 @@ function HtmlDocumentRenderStage({
   );
 }
 
+/**
+ * PDF生成中はライブHTMLを表示し、PDF画像の準備後に同じ紙面をCanvasへ切り替える。
+ * @param markdown 現在のMarkdown本文。
+ * @param html サニタイズ済みのプレビューHTML。
+ * @param settings Markdown描画とリンク解決に使うWebview設定。
+ * @param options 紙面へ適用する検証済みPDF設定。
+ */
 function PdfPreview({
   markdown,
   html,
@@ -4482,7 +4684,7 @@ function PdfPreview({
   markdown: string;
   html: string;
   settings: WebviewSettings;
-  options: PdfOptions;
+  options: NormalizedPdfOptions;
   zoom: number;
   messages: Messages;
   pdfBase64?: string;
@@ -4552,7 +4754,23 @@ function PdfPreview({
       )}
       {!showPdfLayer && (
         <div className="pdf-preview-live-layer">
-          <div className="pdf-preview-live-content" style={{ zoom }}>
+          <div
+            className="pdf-preview-live-content"
+            style={{
+              zoom,
+              fontFamily: options.fontFamily,
+              fontSize: `${options.bodyFontSize}pt`,
+              lineHeight: options.lineHeight,
+              "--mve-pdf-h1-size": `${options.headingFontSizes.h1}pt`,
+              "--mve-pdf-h2-size": `${options.headingFontSizes.h2}pt`,
+              "--mve-pdf-h3-size": `${options.headingFontSizes.h3}pt`,
+              "--mve-pdf-h4-size": `${options.headingFontSizes.h4}pt`,
+              "--mve-pdf-h5-size": `${options.headingFontSizes.h5}pt`,
+              "--mve-pdf-h6-size": `${options.headingFontSizes.h6}pt`,
+              "--mve-pdf-code-size": `${options.codeFontSize}pt`,
+              "--mve-pdf-paragraph-spacing": `${options.paragraphSpacing}pt`,
+            } as React.CSSProperties}
+          >
             {options.header && (
               <div className="pdf-preview-header">
                 {formatPdfTemplate(options.header)}
@@ -4999,16 +5217,21 @@ function clampSplitRatio(value: number): number {
  * @param options PDF出力設定。
  * @returns ページの幅と高さ。
  */
-function pdfPageDimensions(options: PdfOptions): {
+function pdfPageDimensions(options: NormalizedPdfOptions): {
   width: number;
   height: number;
 } {
-  const dimensions =
-    options.format === "A3"
-      ? { width: 297, height: 420 }
-      : options.format === "Letter"
-        ? { width: 216, height: 279 }
-        : { width: 210, height: 297 };
+  const dimensions: { width: number; height: number } = {
+    A0: { width: 841, height: 1189 },
+    A1: { width: 594, height: 841 },
+    A2: { width: 420, height: 594 },
+    A3: { width: 297, height: 420 },
+    A4: { width: 210, height: 297 },
+    A5: { width: 148, height: 210 },
+    A6: { width: 105, height: 148 },
+    B4: { width: 257, height: 364 },
+    B5: { width: 182, height: 257 },
+  }[options.format];
   return options.orientation === "landscape"
     ? { width: dimensions.height, height: dimensions.width }
     : dimensions;

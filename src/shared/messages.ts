@@ -192,6 +192,14 @@ export interface Messages {
         bottom: string;
         left: string;
         withoutDialog: string;
+        /** PDF印刷設定パネルのタイポグラフィ欄に表示する見出し。 */
+        typography: string;
+        fontFamily: string;
+        bodyFontSize: string;
+        headingFontSizes: string;
+        codeFontSize: string;
+        lineHeight: string;
+        paragraphSpacing: string;
         status: {
             modeSplit: string;
             modePreview: string;
@@ -425,6 +433,13 @@ function createMessages(language: SupportedLanguage): Messages {
             bottom: raw.app.bottom,
             left: raw.app.left,
             withoutDialog: raw.app.withoutDialog,
+            typography: raw.app.typography,
+            fontFamily: raw.app.fontFamily,
+            bodyFontSize: raw.app.bodyFontSize,
+            headingFontSizes: raw.app.headingFontSizes,
+            codeFontSize: raw.app.codeFontSize,
+            lineHeight: raw.app.lineHeight,
+            paragraphSpacing: raw.app.paragraphSpacing,
             status: {
                 modeSplit: raw.app.status.modeSplit,
                 modePreview: raw.app.status.modePreview,

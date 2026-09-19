@@ -91,18 +91,40 @@ try {
   }, { text: largeSample, initSettings: settings });
   await page.locator('.split-editor').waitFor();
   await page.locator('[role="tab"]').nth(4).click();
-  await page.locator('.ribbon-content button').first().click();
+  const exportButtons = page.locator('.ribbon-content button');
+  // 印刷設定はプレビューとは独立したボタンから開く。
+  await exportButtons.nth(0).click();
+  await page.locator('.pdf-settings-panel').waitFor();
+  const typographyInputs = page.locator('.pdf-typography-fields input');
+  const typographyInputCount = await typographyInputs.count();
+  if (typographyInputCount !== 11) {
+    throw new Error(`Typography settings did not render all 11 controls: ${typographyInputCount}`);
+  }
+  const paperOptions = await page.locator('.pdf-settings-panel select').first().locator('option').allTextContents();
+  if (paperOptions.join(',') !== 'A0,A1,A2,A3,A4,A5,A6,B4,B5') {
+    throw new Error(`Unexpected paper size options: ${paperOptions.join(',')}`);
+  }
+  await typographyInputs.nth(1).click();
+  await typographyInputs.nth(1).press('Control+A');
+  await typographyInputs.nth(1).pressSequentially('13');
+  await page.locator('.pdf-settings-panel select').first().selectOption('B5');
+  await page.locator('.pdf-settings-panel .panel-title button').click();
+  if (await page.locator('.pdf-settings-panel').count() !== 0) {
+    throw new Error('Print settings panel did not close.');
+  }
+  const savedPdfOptionMessages = await page.evaluate(() => window.__mveMessages
+    .filter((message) => message.type === 'setPdfOptions')
+  );
+  const savedPdfOptions = savedPdfOptionMessages.at(-1)?.options;
+  if (savedPdfOptionMessages.length !== 1
+    || savedPdfOptions?.bodyFontSize !== 13
+    || savedPdfOptions?.format !== 'B5') {
+    throw new Error(`PDF typography setting was not debounced/persisted: ${JSON.stringify(savedPdfOptionMessages)}`);
+  }
+  await exportButtons.nth(1).click();
   await page.waitForSelector('.pdf-preview-pdf-layer.is-preparing');
   const liveDuringPdfRender = await page.locator('.pdf-preview-live-layer').count();
   if (liveDuringPdfRender !== 1) throw new Error('Live preview was not shown while the actual PDF was rendering.');
-
-  await page.locator('.pdf-settings-panel .panel-title button').click();
-  if (await page.locator('.pdf-settings-panel').count() !== 0
-    || await page.locator('.app.print-preview-mode').count() !== 1) {
-    throw new Error('Closing print settings unexpectedly closed print preview.');
-  }
-  await page.locator('.ribbon-content button').first().click();
-  await page.locator('.pdf-settings-panel').waitFor();
   await page.waitForSelector('.pdf-page-ready');
   await page.waitForTimeout(500);
 

@@ -1201,6 +1201,34 @@ body.mve-dragging-outline .outline-panel nav button {
     border: 1px solid var(--mve-border);
 }
 
+/* PDFの本文・見出し・コードを個別に調整する設定欄を整える。 */
+.pdf-typography-fields,
+.pdf-heading-fields {
+    margin: 12px 0;
+    padding: 0 8px 8px;
+    border: 1px solid var(--mve-border);
+}
+
+/* 見出しサイズは6段階をコンパクトな2列で表示する。 */
+.pdf-heading-fields {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0 8px;
+    margin: 8px 0;
+}
+
+.pdf-typography-fields legend,
+.pdf-heading-fields legend {
+    padding: 0 4px;
+    color: var(--vscode-descriptionForeground);
+    font-size: 11px;
+}
+
+.pdf-typography-fields label,
+.pdf-heading-fields label {
+    margin: 6px 0;
+}
+
 /* インスペクター・診断・PDF設定パネルを整える。 */
 .pdf-margin-fields legend {
     padding: 0 4px;
@@ -1521,6 +1549,17 @@ body.mve-dragging-outline .outline-panel nav button {
     padding: 0;
     color: #202124;
 }
+
+/* 実PDFの生成待ちに表示するライブ本文へ印刷設定を反映する。 */
+.pdf-preview-content h1 { font-size: var(--mve-pdf-h1-size); }
+.pdf-preview-content h2 { font-size: var(--mve-pdf-h2-size); }
+.pdf-preview-content h3 { font-size: var(--mve-pdf-h3-size); }
+.pdf-preview-content h4 { font-size: var(--mve-pdf-h4-size); }
+.pdf-preview-content h5 { font-size: var(--mve-pdf-h5-size); }
+.pdf-preview-content h6 { font-size: var(--mve-pdf-h6-size); }
+.pdf-preview-content pre,
+.pdf-preview-content code { font-size: var(--mve-pdf-code-size); }
+.pdf-preview-content p { margin-bottom: var(--mve-pdf-paragraph-spacing, 6pt); }
 
 /* ライブプレビューのヘッダー・フッターを整える。 */
 .pdf-preview-header,

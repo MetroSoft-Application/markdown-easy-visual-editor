@@ -177,12 +177,13 @@ flowchart TD
 ![demo3](./resources/demo3.gif)
 
 1. Open the **Export** tab.
-2. Choose **Print preview**.
-3. Select the paper size: A4, A3, or Letter.
-4. Select portrait or landscape orientation.
-5. Optionally enter a header and footer and adjust the margins.
-6. Choose **Export PDF**.
-7. Select the destination, or enable **Export to the same folder without a dialog** in the print settings.
+2. Choose **Print settings** and configure the paper (A0–A6, B4, or B5), orientation, margins, header/footer, and typography.
+   - Body, H1–H6, and code font sizes can be set independently.
+   - Font family, line height, and paragraph spacing can also be adjusted.
+   - These settings are saved globally and reused for every Markdown document.
+3. Choose **Print preview** to review the result.
+4. Choose **Export PDF**.
+5. Select the destination, or enable **Export to the same folder without a dialog** in the print settings.
 
 - Use **Preflight check** before exporting to review missing local images, missing local links, invalid tables, and other document issues that may affect the result.\
 ![demo4](./resources/demo4.gif)

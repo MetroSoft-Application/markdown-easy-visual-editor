@@ -990,6 +990,9 @@ try {
   await page.getByRole('tab', { name: '出力', exact: true }).click();
   await page.getByRole('button', { name: '印刷プレビュー', exact: true }).click();
   await page.locator('.pdf-preview-shell').waitFor();
+  if (await page.locator('.pdf-settings-panel').count() !== 0) {
+    throw new Error('Print preview opened the print settings panel unexpectedly.');
+  }
   await page.waitForTimeout(50);
   const printPreviewAnchor = await page.evaluate(() => {
     const container = document.querySelector('.editor-area');
@@ -1009,10 +1012,10 @@ try {
     return prefix.length;
   });
   await page.waitForTimeout(50);
-  await page.locator('.pdf-settings-panel').getByRole('button', { name: '閉じる', exact: true }).click();
   await page.getByRole('button', { name: '印刷プレビュー', exact: true }).click();
+  await page.getByRole('button', { name: '印刷設定', exact: true }).click();
   await page.locator('.pdf-settings-panel').waitFor();
-  await page.getByRole('button', { name: '印刷プレビュー', exact: true }).click();
+  await page.locator('.pdf-settings-panel').getByRole('button', { name: '閉じる', exact: true }).click();
   await page.locator('.split-source-pane').waitFor();
   await page.locator('.cm-content').press('!');
   await page.waitForTimeout(100);

@@ -62,7 +62,9 @@ export type RibbonCommand =
         | "toggleOutline"
         | "toggleScrollSync"
         | "toggleInspector"
-        | "togglePrintPreview";
+        | "togglePrintPreview"
+        /** PDF印刷設定パネルを開く。プレビュー表示とは別の操作として扱う。 */
+        | "openPrintSettings";
     }
   | { type: "runPreflightCheck" }
   | { type: "showShortcuts" | "showFeatures" }
@@ -701,6 +703,10 @@ export function Ribbon({
           {tab === "export" && (
             <>
               <Group label={messages.ribbon.groups.pdf}>
+                <Tool
+                  label={messages.app.printSettings}
+                  onClick={() => onCommand({ type: "openPrintSettings" })}
+                />
                 <Tool
                   label={messages.ribbon.labels.printPreview}
                   onClick={() => onCommand({ type: "togglePrintPreview" })}
