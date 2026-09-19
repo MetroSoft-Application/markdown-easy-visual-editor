@@ -125,3 +125,7 @@
 ## 1.1.10
 
 - Outline display settings are now saved permanently.
+
+## 1.1.11
+
+- Enhance print settings.
