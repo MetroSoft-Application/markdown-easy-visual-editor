@@ -236,4 +236,17 @@ npm run build   # 拡張機能のビルド
 | 同時編集・差分同期 | [`shared/textChanges.ts`](./shared/textChanges.ts)、`App.tsx`、`extension.ts` |
 | Markdownの編集操作 | [`shared/markdown.ts`](./shared/markdown.ts)、[`webview/SourceEditor.tsx`](./webview/SourceEditor.tsx) |
 | Markdownの表示 | [`webview/markdownRenderer.ts`](./webview/markdownRenderer.ts)、[`webview/RenderedMarkdown.tsx`](./webview/RenderedMarkdown.tsx) |
+| リボンの配置・順番一覧 | [`webview/ribbonLayout.ts`](./webview/ribbonLayout.ts) |
+| リボンIDの共通契約 | [`webview/ribbonIds.ts`](./webview/ribbonIds.ts) |
+| リボン配置一覧の型定義 | [`webview/ribbonLayoutTypes.ts`](./webview/ribbonLayoutTypes.ts) |
+| リボンの表示・見た目・入力定義 | [`webview/ribbonDefinitions.ts`](./webview/ribbonDefinitions.ts) |
+| リボン表示定義の型 | [`webview/ribbonDefinitionTypes.ts`](./webview/ribbonDefinitionTypes.ts) |
+| リボン項目の動作・カスタム描画 | [`webview/ribbonImplementations.tsx`](./webview/ribbonImplementations.tsx) |
+| リボンの汎用走査・描画 | [`webview/Ribbon.tsx`](./webview/Ribbon.tsx) |
+| リボン表示名の解決 | [`webview/ribbonLabels.ts`](./webview/ribbonLabels.ts) |
+| リボン配置の整合性検証 | [`webview/ribbonValidation.ts`](./webview/ribbonValidation.ts) |
 | PDF出力 | [`extension/pdf.ts`](./extension/pdf.ts)、`App.tsx` |
+
+`ribbonLayout.ts` はIDと親子関係と順番だけの一覧であり、表示名・描画種別・ショートカット・入力項目・イベント処理を含みません。位置や順番は同ファイルの `RIBBON_LAYOUT`、表示定義は `ribbonDefinitions.ts`、動作と描画は `ribbonImplementations.tsx`、共通走査は `Ribbon.tsx` を編集します。
+
+リボン項目を追加する場合は、`ribbonIds.ts` にIDを追加し、`ribbonLayout.ts` に配置し、`ribbonDefinitions.ts` に表示定義を追加し、最後に `ribbonImplementations.tsx` に動作またはカスタム描画を登録します。既存項目の位置や順番だけを変える場合は `ribbonLayout.ts` だけを編集します。

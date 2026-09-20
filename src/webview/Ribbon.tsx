@@ -1,76 +1,47 @@
 import React, { useEffect, useState } from "react";
-import type {
-  EditorMode,
-  EditorTheme,
-  HtmlExportOptions,
-} from "../shared/protocol";
-import type { MarkdownTableAction } from "../shared/markdown";
+import type { EditorMode, HtmlExportOptions } from "../shared/protocol";
 import type { Messages } from "../shared/messages";
-import {
-  TEXT_COLOR_HEX,
-  TEXT_COLOR_IDS,
-  type TextColorId,
-} from "../shared/textColor";
 import { mveDebug } from "./debug";
 import {
   getPreviewImageResizeControlsVisible,
-  setPreviewImageResizeControlsVisible,
   subscribePreviewImageResizeControlsVisible,
 } from "./previewImageResizeControls";
-import type { SourceAction } from "./SourceEditor";
+import { RIBBON_LAYOUT } from "./ribbonLayout";
+import type {
+  RibbonHeaderItemId,
+  RibbonItemId,
+  RibbonTabId,
+} from "./ribbonIds";
+import { RIBBON_DEFINITIONS } from "./ribbonDefinitions";
+import type {
+  RibbonButtonOptions,
+  RibbonItemDefinition,
+  RibbonLabelSpec,
+} from "./ribbonDefinitionTypes";
 import {
-  applyTextColorToActiveSource,
-  clearInlineFormattingWithTextColor,
-  readActiveSourceTextColor,
-} from "./textColorController";
-import { sharedVsCodeApi } from "./vscodeApi";
+  RIBBON_HEADER_IMPLEMENTATIONS,
+  RIBBON_IMPLEMENTATIONS,
+} from "./ribbonImplementations";
+import { getTextColorUiText, resolveRibbonLabel } from "./ribbonLabels";
+import { validateRibbonConfiguration } from "./ribbonValidation";
+import type {
+  RibbonButtonImplementation,
+  RibbonHeaderImplementationId,
+  RibbonImplementationContext,
+  RibbonItemImplementation,
+  TextColorChoice,
+} from "./ribbonTypes";
+import type { RibbonCommand } from "./ribbonTypes";
 
-export type TableAction = "insert" | MarkdownTableAction;
+export type { RibbonCommand, TableAction } from "./ribbonTypes";
+export type { RibbonTabId as RibbonTab } from "./ribbonIds";
 
-type TextColorChoice = TextColorId | "default" | "mixed";
-
-interface TextColorUiText {
-  label: string;
-  defaultColor: string;
-  mixed: string;
-  colors: Record<TextColorId, string>;
-}
-
-export type RibbonTab =
-  | "home"
-  | "insert"
-  | "table"
-  | "view"
-  | "export"
-  | "settings"
-  | "help";
-
-export type RibbonCommand =
-  | { type: "sourceAction"; action: SourceAction }
-  | { type: "historyCommand"; command: "undo" | "redo" }
-  | { type: "heading"; level: number }
-  | { type: "insert"; value: string }
-  | { type: "link" }
-  | { type: "image" }
-  | { type: "copyTableTsv" }
-  | { type: "table"; action: TableAction; headerName?: string }
-  | { type: "tableInsert"; rows: number; columns: number }
-  | { type: "codeBlock"; language: string }
-  | { type: "splitView"; view: "both" | "text" | "preview" }
-  | {
-      type:
-        | "toggleOutline"
-        | "toggleScrollSync"
-        | "toggleInspector"
-        | "togglePrintPreview"
-        /** PDF印刷設定パネルを開く。プレビュー表示とは別の操作として扱う。 */
-        | "openPrintSettings";
-    }
-  | { type: "runPreflightCheck" }
-  | { type: "showShortcuts" | "showFeatures" }
-  | { type: "openSource" | "exportPdf" | "find" }
-  | { type: "setImageDirectory"; directory: string }
-  | { type: "exportHtml"; options: HtmlExportOptions };
+validateRibbonConfiguration(
+  RIBBON_LAYOUT,
+  RIBBON_DEFINITIONS,
+  RIBBON_IMPLEMENTATIONS,
+  RIBBON_HEADER_IMPLEMENTATIONS,
+);
 
 interface Props {
   messages: Messages;
@@ -86,11 +57,6 @@ interface Props {
   onCommand: (command: RibbonCommand) => void;
 }
 
-/**
- * Markdown操作をタブとツールボタンで表示し、選択された操作を親へ通知する。
- * @param props リボンの表示状態と親へ操作を通知するコールバック。
- * @returns Markdown操作用のリボンUI。
- */
 export function Ribbon({
   messages,
   mode,
@@ -104,32 +70,229 @@ export function Ribbon({
   onHtmlOptionsChange,
   onCommand,
 }: Props): React.JSX.Element {
-  // リボンの表示状態を管理し、選択中タブの各操作を親へコマンドとして通知する。
-  const [tab, setTab] = useState<RibbonTab>("home");
+  const [tab, setTab] = useState<RibbonTabId>(RIBBON_LAYOUT.tabs[0].id);
   const [collapsed, setCollapsed] = useState(false);
   const [tableRows, setTableRows] = useState(3);
   const [tableColumns, setTableColumns] = useState(3);
   const [codeLanguage, setCodeLanguage] = useState("");
-  const [emoji, setEmoji] = useState(DOCUMENT_EMOJIS[0]);
+  const [emoji, setEmoji] = useState("\u{1F4D8}");
   const [headerName, setHeaderName] = useState("");
   const [textColorChoice, setTextColorChoice] =
     useState<TextColorChoice>("default");
   const [imageDirectoryDraft, setImageDirectoryDraft] =
     useState(imageDirectory);
-  const [imageResizeControlsVisible, setImageResizeControlsVisibleState] =
-    useState(getPreviewImageResizeControlsVisible);
+  const [imageResizeControlsVisible, setImageResizeControlsVisible] = useState(
+    getPreviewImageResizeControlsVisible,
+  );
   const japanese = document.documentElement.lang.toLowerCase().startsWith("ja");
-  const textColorText = textColorUiText(document.documentElement.lang);
+  const activeTab =
+    RIBBON_LAYOUT.tabs.find((definition) => definition.id === tab) ??
+    RIBBON_LAYOUT.tabs[0];
+  const context: RibbonImplementationContext = {
+    messages,
+    japanese,
+    collapsed,
+    setCollapsed,
+    textColorText: getTextColorUiText(document.documentElement.lang),
+    mode,
+    readOnly,
+    activeMarks,
+    outlineVisible,
+    scrollSyncEnabled,
+    splitView,
+    imageResizeControlsVisible,
+    htmlOptions,
+    imageDirectory,
+    onHtmlOptionsChange,
+    onCommand,
+    tableRows,
+    setTableRows,
+    tableColumns,
+    setTableColumns,
+    codeLanguage,
+    setCodeLanguage,
+    emoji,
+    setEmoji,
+    headerName,
+    setHeaderName,
+    textColorChoice,
+    setTextColorChoice,
+    imageDirectoryDraft,
+    setImageDirectoryDraft,
+  };
 
   useEffect(
     () =>
-      subscribePreviewImageResizeControlsVisible(
-        setImageResizeControlsVisibleState,
-      ),
+      subscribePreviewImageResizeControlsVisible(setImageResizeControlsVisible),
     [],
   );
 
   useEffect(() => setImageDirectoryDraft(imageDirectory), [imageDirectory]);
+
+  function renderButton(
+    id: string,
+    labelSpec: RibbonLabelSpec,
+    options: RibbonButtonOptions,
+    implementation: RibbonButtonImplementation,
+  ): React.JSX.Element {
+    const label = resolveRibbonLabel(labelSpec, messages, japanese);
+    const active = implementation.active?.(context) ?? false;
+    const disabled = implementation.disabled?.(context) ?? false;
+    const title = options.title
+      ? resolveRibbonLabel(options.title, messages, japanese)
+      : undefined;
+    if (options.variant === "header") {
+      return (
+        <button
+          key={id}
+          type="button"
+          disabled={disabled}
+          title={title ?? label}
+          onClick={() => implementation.onClick(context)}
+        >
+          {label}
+        </button>
+      );
+    }
+    if (options.variant === "source") {
+      return (
+        <button
+          key={id}
+          type="button"
+          className={`ribbon-source-button ${active ? "active" : ""}`}
+          aria-pressed={active}
+          disabled={disabled}
+          title={title}
+          onClick={() => implementation.onClick(context)}
+        >
+          {label}
+        </button>
+      );
+    }
+    return (
+      <Tool
+        key={id}
+        label={label}
+        shortcut={options.shortcut}
+        active={active}
+        disabled={disabled}
+        title={title}
+        onClick={() => implementation.onClick(context)}
+      />
+    );
+  }
+
+  function renderItem(id: RibbonItemId): React.JSX.Element {
+    const definition = getItemDefinition(id);
+    const implementation = getItemImplementation(id);
+    if (implementation.kind === "button") {
+      return renderButton(
+        id,
+        definition.label,
+        definition.options ?? {},
+        implementation,
+      );
+    }
+    return (
+      <React.Fragment key={id}>
+        {implementation.render(
+          context,
+          definition,
+          (spec) => resolveRibbonLabel(spec, messages, japanese),
+        )}
+      </React.Fragment>
+    );
+  }
+
+  function renderGroupItems(
+    itemIds: readonly RibbonItemId[],
+  ): React.ReactNode[] {
+    const rendered: React.ReactNode[] = [];
+    for (let index = 0; index < itemIds.length; index += 1) {
+      const itemId = itemIds[index];
+      const itemDefinition = getItemDefinition(itemId);
+      if (itemDefinition.container) {
+        const containerId = itemDefinition.container;
+        const containerDefinition = RIBBON_DEFINITIONS.containers[containerId];
+        const containerItemIds: RibbonItemId[] = [itemId];
+        while (
+          index + 1 < itemIds.length &&
+          getItemDefinition(itemIds[index + 1]).container === containerId
+        ) {
+          index += 1;
+          containerItemIds.push(itemIds[index]);
+        }
+        rendered.push(
+          <div
+            key={`${containerId}-${index}`}
+            className={containerDefinition.className}
+            aria-label={resolveRibbonLabel(
+              containerDefinition.ariaLabel,
+              messages,
+              japanese,
+            )}
+          >
+            {containerItemIds.map(renderItem)}
+          </div>,
+        );
+        continue;
+      }
+      rendered.push(renderItem(itemId));
+    }
+    return rendered;
+  }
+
+  function renderHeaderItems(
+    itemIds: readonly RibbonHeaderItemId[],
+  ): React.ReactNode[] {
+    const rendered: React.ReactNode[] = [];
+    for (let index = 0; index < itemIds.length; index += 1) {
+      const itemId = itemIds[index];
+      const definition = RIBBON_DEFINITIONS.headerItems[itemId];
+      if (definition.group) {
+        const groupId = definition.group;
+        const groupDefinition = RIBBON_DEFINITIONS.headerGroups[groupId];
+        const groupItemIds: RibbonHeaderItemId[] = [itemId];
+        while (
+          index + 1 < itemIds.length &&
+          RIBBON_DEFINITIONS.headerItems[itemIds[index + 1]].group === groupId
+        ) {
+          index += 1;
+          groupItemIds.push(itemIds[index]);
+        }
+        rendered.push(
+          <div
+            key={`${groupId}-${index}`}
+            className={groupDefinition.className}
+            role="group"
+            aria-label={resolveRibbonLabel(
+              groupDefinition.ariaLabel,
+              messages,
+              japanese,
+            )}
+          >
+            {groupItemIds.map(renderHeaderButton)}
+          </div>,
+        );
+        continue;
+      }
+      rendered.push(renderHeaderButton(itemId));
+    }
+    return rendered;
+  }
+
+  function renderHeaderButton(id: RibbonHeaderItemId): React.JSX.Element {
+    const definition = RIBBON_DEFINITIONS.headerItems[id];
+    const labelSpec = context.collapsed
+      ? definition.collapsedLabel ?? definition.label
+      : definition.expandedLabel ?? definition.label;
+    return renderButton(
+      id,
+      labelSpec,
+      definition.options ?? {},
+      getHeaderImplementation(id),
+    );
+  }
 
   return (
     <header
@@ -151,754 +314,81 @@ export function Ribbon({
       <div
         className="ribbon-tabs"
         role="tablist"
-        aria-label={messages.ribbon.label}
+        aria-label={resolveRibbonLabel(
+          RIBBON_DEFINITIONS.tabListLabel,
+          messages,
+          japanese,
+        )}
       >
-        {TABS.map((id) => (
+        {RIBBON_LAYOUT.tabs.map((definition) => (
           <button
-            key={id}
+            key={definition.id}
             type="button"
             role="tab"
-            aria-selected={tab === id}
-            className={tab === id ? "active" : ""}
+            aria-selected={tab === definition.id}
+            className={tab === definition.id ? "active" : ""}
             onClick={() => {
-              setTab(id);
+              setTab(definition.id);
               setCollapsed(false);
             }}
           >
-            {messages.ribbon.tabs[id]}
+            {resolveRibbonLabel(
+              RIBBON_DEFINITIONS.tabs[definition.id],
+              messages,
+              japanese,
+            )}
           </button>
         ))}
         <span className="ribbon-spacer" />
-        <button
-          type="button"
-          className="ribbon-source-button"
-          title={messages.ribbon.search}
-          onClick={() => onCommand({ type: "find" })}
-        >
-          {messages.ribbon.search}
-        </button>
-        <div
-          className="ribbon-view-controls"
-          role="group"
-          aria-label={messages.ribbon.groups.pane}
-        >
-          <ViewModeButton
-            label={messages.ribbon.split}
-            view="both"
-            mode={mode}
-            splitView={splitView}
-            onCommand={onCommand}
-          />
-          <ViewModeButton
-            label={messages.ribbon.textOnly}
-            view="text"
-            mode={mode}
-            splitView={splitView}
-            onCommand={onCommand}
-          />
-          <ViewModeButton
-            label={messages.ribbon.previewOnly}
-            view="preview"
-            mode={mode}
-            splitView={splitView}
-            onCommand={onCommand}
-          />
-        </div>
-        <button
-          type="button"
-          title={collapsed ? messages.ribbon.expand : messages.ribbon.collapse}
-          onClick={() => setCollapsed(!collapsed)}
-        >
-          {collapsed ? messages.ribbon.expand : messages.ribbon.collapse}
-        </button>
+        {renderHeaderItems(RIBBON_LAYOUT.header.itemIds)}
       </div>
       {!collapsed && (
         <div className="ribbon-content" role="tabpanel">
-          {tab === "home" && (
-            <>
-              <Group label={messages.ribbon.groups.history}>
-                <Tool
-                  label={messages.ribbon.labels.undo}
-                  shortcut="Ctrl+Z"
-                  onClick={() =>
-                    onCommand({ type: "historyCommand", command: "undo" })
-                  }
-                />
-                <Tool
-                  label={messages.ribbon.labels.redo}
-                  shortcut="Ctrl+Y"
-                  onClick={() =>
-                    onCommand({ type: "historyCommand", command: "redo" })
-                  }
-                />
-              </Group>
-              <Group label={messages.ribbon.groups.paragraph}>
-                <label className="ribbon-select-label">
-                  {messages.ribbon.labels.style}
-                  <select
-                    disabled={readOnly}
-                    defaultValue="0"
-                    onChange={(event) =>
-                      onCommand({
-                        type: "heading",
-                        level: Number(event.target.value),
-                      })
-                    }
-                  >
-                    <option value="0">{messages.ribbon.labels.body}</option>
-                    {[1, 2, 3, 4, 5, 6].map((level) => (
-                      <option key={level} value={level}>
-                        {messages.ribbon.labels.heading(level)}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <Tool
-                  label={messages.ribbon.labels.quote}
-                  disabled={readOnly}
-                  onClick={() => source("quote")}
-                />
-                <Tool
-                  label={messages.ribbon.labels.bulletList}
-                  disabled={readOnly}
-                  onClick={() => source("bulletList")}
-                />
-                <Tool
-                  label={messages.ribbon.labels.orderedList}
-                  disabled={readOnly}
-                  onClick={() => source("orderedList")}
-                />
-                <Tool
-                  label={messages.ribbon.labels.taskList}
-                  disabled={readOnly}
-                  onClick={() => source("taskList")}
-                />
-                <Tool
-                  label={messages.ribbon.labels.indent}
-                  disabled={readOnly}
-                  onClick={() => source("indent")}
-                />
-                <Tool
-                  label={messages.ribbon.labels.outdent}
-                  disabled={readOnly}
-                  onClick={() => source("outdent")}
-                />
-              </Group>
-              <Group label={messages.ribbon.groups.textFormat}>
-                <Tool
-                  label={messages.ribbon.labels.bold}
-                  active={activeMarks.bold}
-                  disabled={readOnly}
-                  onClick={() => source("bold")}
-                />
-                <Tool
-                  label={messages.ribbon.labels.italic}
-                  active={activeMarks.italic}
-                  disabled={readOnly}
-                  onClick={() => source("italic")}
-                />
-                <Tool
-                  label={messages.ribbon.labels.strike}
-                  active={activeMarks.strike}
-                  disabled={readOnly}
-                  onClick={() => source("strike")}
-                />
-                <Tool
-                  label={messages.ribbon.labels.underline}
-                  active={activeMarks.underline}
-                  disabled={readOnly}
-                  onClick={() => source("underline")}
-                />
-                <Tool
-                  label={messages.ribbon.labels.highlight}
-                  active={activeMarks.highlight}
-                  disabled={readOnly}
-                  onClick={() => source("highlight")}
-                />
-                <Tool
-                  label={messages.ribbon.labels.code}
-                  active={activeMarks.inlineCode}
-                  disabled={readOnly}
-                  onClick={() => source("inlineCode")}
-                />
-                <Tool
-                  label={messages.ribbon.labels.superscript}
-                  disabled={readOnly}
-                  onClick={() => source("sup")}
-                />
-                <Tool
-                  label={messages.ribbon.labels.subscript}
-                  disabled={readOnly}
-                  onClick={() => source("sub")}
-                />
-                <label className="ribbon-select-label">
-                  {textColorText.label}
-                  <select
-                    className="mve-text-color-select"
-                    value={textColorChoice}
-                    disabled={readOnly}
-                    onFocus={() =>
-                      setTextColorChoice(
-                        readActiveSourceTextColor() ?? "default",
-                      )
-                    }
-                    onChange={(event) => {
-                      const value = event.target.value as TextColorChoice;
-                      if (value === "mixed") return;
-                      applyTextColorToActiveSource(
-                        value === "default" ? undefined : value,
-                      );
-                      setTextColorChoice(value);
-                    }}
-                    style={
-                      textColorChoice !== "default" &&
-                      textColorChoice !== "mixed"
-                        ? { color: TEXT_COLOR_HEX[textColorChoice] }
-                        : undefined
-                    }
-                  >
-                    <option value="mixed" disabled>
-                      {textColorText.mixed}
-                    </option>
-                    <option value="default">
-                      {textColorText.defaultColor}
-                    </option>
-                    {TEXT_COLOR_IDS.map((color) => (
-                      <option
-                        key={color}
-                        value={color}
-                        style={{ color: TEXT_COLOR_HEX[color] }}
-                      >
-                        {`● ${textColorText.colors[color]}`}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-              </Group>
-              <Group label={messages.ribbon.groups.clear}>
-                <Tool
-                  label={messages.ribbon.labels.clearInline}
-                  disabled={readOnly}
-                  onClick={() => {
-                    if (!clearInlineFormattingWithTextColor()) {
-                      source("clearInline");
-                    }
-                  }}
-                />
-                <Tool
-                  label={messages.ribbon.labels.clearBlock}
-                  disabled={readOnly}
-                  onClick={() => source("clearBlock")}
-                />
-              </Group>
-            </>
-          )}
-          {tab === "insert" && (
-            <>
-              <Group label={messages.ribbon.groups.basic}>
-                <Tool
-                  label={messages.ribbon.labels.link}
-                  disabled={readOnly}
-                  onClick={() => onCommand({ type: "link" })}
-                />
-                <Tool
-                  label={messages.ribbon.labels.image}
-                  shortcut="Ctrl+V"
-                  disabled={readOnly}
-                  onClick={() => onCommand({ type: "image" })}
-                />
-                <div
-                  className="ribbon-form"
-                  aria-label={messages.ribbon.labels.tableSize}
-                >
-                  <label>
-                    {messages.ribbon.labels.rows}
-                    <input
-                      type="number"
-                      min={2}
-                      max={50}
-                      disabled={readOnly}
-                      value={tableRows}
-                      onChange={(event) =>
-                        setTableRows(clampNumber(event.target.value, 2, 50))
-                      }
-                    />
-                  </label>
-                  <label>
-                    {messages.ribbon.labels.columns}
-                    <input
-                      type="number"
-                      min={1}
-                      max={20}
-                      disabled={readOnly}
-                      value={tableColumns}
-                      onChange={(event) =>
-                        setTableColumns(clampNumber(event.target.value, 1, 20))
-                      }
-                    />
-                  </label>
-                  <Tool
-                    label={messages.ribbon.labels.insertTable}
-                    disabled={readOnly}
-                    onClick={() =>
-                      onCommand({
-                        type: "tableInsert",
-                        rows: tableRows,
-                        columns: tableColumns,
-                      })
-                    }
-                  />
-                </div>
-                <Tool
-                  label={messages.ribbon.labels.horizontalRule}
-                  disabled={readOnly}
-                  onClick={() => source("horizontalRule")}
-                />
-                <Tool
-                  label={messages.ribbon.labels.hardBreak}
-                  disabled={readOnly}
-                  onClick={() => source("hardBreak")}
-                />
-              </Group>
-              <Group label={messages.ribbon.groups.block}>
-                <label className="ribbon-select-label">
-                  {messages.ribbon.labels.language}
-                  <select
-                    value={codeLanguage}
-                    disabled={readOnly}
-                    onChange={(event) => setCodeLanguage(event.target.value)}
-                  >
-                    {messages.ribbon.codeLanguages.map((language) => (
-                      <option key={language.value} value={language.value}>
-                        {language.label}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <Tool
-                  label={messages.ribbon.labels.codeBlock}
-                  disabled={readOnly}
-                  onClick={() =>
-                    onCommand({ type: "codeBlock", language: codeLanguage })
-                  }
-                />
-                <Tool
-                  label={messages.app.inspector.mermaid}
-                  disabled={readOnly}
-                  onClick={() => insert(messages.ribbon.snippets.mermaid)}
-                />
-                <Tool
-                  label={messages.ribbon.labels.math}
-                  disabled={readOnly}
-                  onClick={() => insert("\n$$\nE = mc^2\n$$\n")}
-                />
-                <Tool
-                  label={messages.ribbon.labels.footnote}
-                  disabled={readOnly}
-                  onClick={() => insert(messages.ribbon.snippets.footnote)}
-                />
-                <Tool
-                  label={messages.ribbon.labels.toc}
-                  disabled={readOnly}
-                  onClick={() => insert("\n[toc]\n")}
-                />
-                <Tool
-                  label={messages.ribbon.labels.pageBreak}
-                  disabled={readOnly}
-                  onClick={() => insert("\n<!-- pagebreak -->\n")}
-                />
-              </Group>
-              <Group label={messages.ribbon.groups.assist}>
-                <Tool
-                  label={messages.renderer.alerts.note}
-                  disabled={readOnly}
-                  onClick={() => insert(messages.ribbon.snippets.note)}
-                />
-                <Tool
-                  label={messages.renderer.alerts.warning}
-                  disabled={readOnly}
-                  onClick={() => insert(messages.ribbon.snippets.warning)}
-                />
-                <label className="ribbon-select-label">
-                  {messages.ribbon.labels.emoji}
-                  <select
-                    value={emoji}
-                    disabled={readOnly}
-                    onChange={(event) => setEmoji(event.target.value)}
-                  >
-                    {DOCUMENT_EMOJIS.map((value) => (
-                      <option key={value} value={value}>
-                        {value}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <Tool
-                  label={messages.ribbon.labels.insertEmoji}
-                  disabled={readOnly}
-                  onClick={() => insert(emoji)}
-                />
-              </Group>
-            </>
-          )}
-          {tab === "table" && (
-            <>
-              <Group label={messages.ribbon.groups.rows}>
-                <Tool
-                  label={messages.ribbon.labels.addBefore}
-                  disabled={readOnly}
-                  onClick={() => tableCommand("rowBefore")}
-                />
-                <Tool
-                  label={messages.ribbon.labels.addAfter}
-                  disabled={readOnly}
-                  onClick={() => tableCommand("rowAfter")}
-                />
-                <Tool
-                  label={messages.ribbon.labels.deleteRow}
-                  disabled={readOnly}
-                  onClick={() => tableCommand("deleteRow")}
-                />
-              </Group>
-              <Group label={messages.ribbon.groups.columns}>
-                <Tool
-                  label={messages.ribbon.labels.addLeft}
-                  disabled={readOnly}
-                  onClick={() => tableCommand("colBefore")}
-                />
-                <Tool
-                  label={messages.ribbon.labels.addRight}
-                  disabled={readOnly}
-                  onClick={() => tableCommand("colAfter")}
-                />
-                <Tool
-                  label={messages.ribbon.labels.deleteColumn}
-                  disabled={readOnly}
-                  onClick={() => tableCommand("deleteColumn")}
-                />
-                <label className="ribbon-select-label">
-                  {messages.ribbon.labels.header}
-                  <input
-                    disabled={readOnly}
-                    value={headerName}
-                    placeholder={messages.ribbon.labels.headerPlaceholder}
-                    onChange={(event) => setHeaderName(event.target.value)}
-                  />
-                </label>
-              </Group>
-              <Group label={messages.ribbon.groups.alignment}>
-                <Tool
-                  label={messages.ribbon.labels.alignLeft}
-                  disabled={readOnly}
-                  onClick={() => tableCommand("alignLeft")}
-                />
-                <Tool
-                  label={messages.ribbon.labels.alignCenter}
-                  disabled={readOnly}
-                  onClick={() => tableCommand("alignCenter")}
-                />
-                <Tool
-                  label={messages.ribbon.labels.alignRight}
-                  disabled={readOnly}
-                  onClick={() => tableCommand("alignRight")}
-                />
-                <Tool
-                  label={messages.ribbon.labels.alignColumns}
-                  disabled={readOnly}
-                  onClick={() => tableCommand("alignColumns")}
-                />
-                <Tool
-                  label={messages.ribbon.labels.cellBreak}
-                  shortcut="Alt+Enter"
-                  disabled={readOnly}
-                  onClick={() => source("cellBreak")}
-                />
-              </Group>
-              <Group label={messages.ribbon.groups.excel}>
-                <Tool
-                  label={messages.app.tableEditor.title}
-                  disabled={readOnly}
-                  onClick={() =>
-                    window.dispatchEvent(new Event("mve-open-table-editor"))
-                  }
-                />
-                <Tool
-                  label={messages.ribbon.labels.copyTsv}
-                  disabled={
-                    mode === "preview" ||
-                    (mode === "split" && splitView === "preview")
-                  }
-                  onClick={() => onCommand({ type: "copyTableTsv" })}
-                />
-              </Group>
-            </>
-          )}
-          {tab === "view" && (
-            <>
-              <Group label={messages.ribbon.groups.pane}>
-                <Tool
-                  label={messages.ribbon.source}
-                  title={messages.ribbon.sourceTitle}
-                  onClick={() => onCommand({ type: "openSource" })}
-                />
-                <Tool
-                  label={messages.ribbon.outline}
-                  active={outlineVisible}
-                  title={messages.ribbon.outlineTitle}
-                  onClick={() => onCommand({ type: "toggleOutline" })}
-                />
-                <Tool
-                  label={messages.ribbon.scrollSync}
-                  active={scrollSyncEnabled}
-                  title={messages.ribbon.scrollSyncTitle}
-                  onClick={() => onCommand({ type: "toggleScrollSync" })}
-                />
-                <span className="ribbon-hint">{messages.ribbon.hintZoom}</span>
-              </Group>
-              <Group label={japanese ? "プレビュー" : "Preview"}>
-                <Tool
-                  label={japanese ? "画像リサイズ" : "Image resize"}
-                  active={imageResizeControlsVisible}
-                  title={
-                    japanese
-                      ? "プレビュー画像のリサイズ操作を表示または非表示にします"
-                      : "Show or hide image resize controls in the preview"
-                  }
-                  onClick={() =>
-                    setPreviewImageResizeControlsVisible(
-                      !imageResizeControlsVisible,
-                    )
-                  }
-                />
-              </Group>
-              <Group label={japanese ? "テーマ" : "Theme"}>
-                <label className="ribbon-select-label">
-                  {japanese ? "エディター" : "Editor"}
-                  <select
-                    className="mve-editor-theme-select"
-                    defaultValue={
-                      (document.documentElement.dataset.editorTheme as
-                        | EditorTheme
-                        | undefined) ?? "dark"
-                    }
-                    onChange={(event) => {
-                      const theme = event.target.value as EditorTheme;
-                      document.documentElement.dataset.editorTheme = theme;
-                      document.documentElement.style.colorScheme = theme;
-                      sharedVsCodeApi.postMessage({
-                        type: "setEditorTheme",
-                        theme,
-                      });
-                    }}
-                  >
-                    <option value="light">
-                      {japanese ? "ライト" : "Light"}
-                    </option>
-                    <option value="dark">{japanese ? "ダーク" : "Dark"}</option>
-                  </select>
-                </label>
-              </Group>
-            </>
-          )}
-          {tab === "export" && (
-            <>
-              <Group label={messages.ribbon.groups.pdf}>
-                <Tool
-                  label={messages.app.printSettings}
-                  onClick={() => onCommand({ type: "openPrintSettings" })}
-                />
-                <Tool
-                  label={messages.ribbon.labels.printPreview}
-                  onClick={() => onCommand({ type: "togglePrintPreview" })}
-                />
-                <Tool
-                  label={messages.ribbon.labels.exportPdf}
-                  onClick={() => onCommand({ type: "exportPdf" })}
-                />
-              </Group>
-              <Group label={messages.ribbon.groups.html}>
-                <label className="ribbon-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={htmlOptions.embedImages}
-                    onChange={(event) =>
-                      onHtmlOptionsChange({
-                        ...htmlOptions,
-                        embedImages: event.target.checked,
-                      })
-                    }
-                  />
-                  <span>{messages.ribbon.labels.embedImages}</span>
-                </label>
-                <label className="ribbon-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={htmlOptions.convertLinkedMarkdown}
-                    onChange={(event) =>
-                      onHtmlOptionsChange({
-                        ...htmlOptions,
-                        convertLinkedMarkdown: event.target.checked,
-                      })
-                    }
-                  />
-                  <span>{messages.ribbon.labels.convertLinkedMarkdown}</span>
-                </label>
-                <label className="ribbon-checkbox">
-                  <input
-                    type="checkbox"
-                    checked={htmlOptions.saveWithoutDialog}
-                    onChange={(event) =>
-                      onHtmlOptionsChange({
-                        ...htmlOptions,
-                        saveWithoutDialog: event.target.checked,
-                      })
-                    }
-                  />
-                  <span>{messages.ribbon.labels.saveWithoutDialog}</span>
-                </label>
-                <Tool
-                  label={messages.ribbon.labels.exportHtml}
-                  onClick={() =>
-                    onCommand({ type: "exportHtml", options: htmlOptions })
-                  }
-                />
-              </Group>
-              <Group label={messages.ribbon.groups.inspection}>
-                <Tool
-                  label={messages.ribbon.labels.preflight}
-                  onClick={() => onCommand({ type: "runPreflightCheck" })}
-                />
-              </Group>
-            </>
-          )}
-          {tab === "settings" && (
-            <>
-              <Group
-                label={messages.ribbon.settings.images}
-                className="ribbon-settings-group"
-              >
-                <form
-                  className="ribbon-setting-form"
-                  onSubmit={(event) => {
-                    event.preventDefault();
-                    saveImageDirectory();
-                  }}
-                >
-                  <label>
-                    <span>{messages.ribbon.settings.imageDirectory}</span>
-                    <input
-                      value={imageDirectoryDraft}
-                      placeholder={
-                        messages.ribbon.settings.imageDirectoryPlaceholder
-                      }
-                      spellCheck={false}
-                      onChange={(event) =>
-                        setImageDirectoryDraft(event.target.value)
-                      }
-                      onBlur={saveImageDirectory}
-                    />
-                  </label>
-                </form>
-                <span className="ribbon-setting-hint">
-                  {messages.ribbon.settings.imageDirectoryHint}
-                </span>
-              </Group>
-            </>
-          )}
-          {tab === "help" && (
-            <>
-              <Group label={messages.ribbon.groups.help}>
-                <Tool
-                  label={messages.ribbon.labels.shortcuts}
-                  onClick={() => onCommand({ type: "showShortcuts" })}
-                />
-                <Tool
-                  label={messages.ribbon.labels.features}
-                  onClick={() => onCommand({ type: "showFeatures" })}
-                />
-              </Group>
-            </>
-          )}
+          {activeTab.groups.map((group) => (
+            <Group
+              key={group.id}
+              label={resolveRibbonLabel(
+                RIBBON_DEFINITIONS.groups[group.id].label,
+                messages,
+                japanese,
+              )}
+              className={RIBBON_DEFINITIONS.groups[group.id].className}
+            >
+              {renderGroupItems(group.itemIds)}
+            </Group>
+          ))}
         </div>
       )}
     </header>
   );
-
-  /**
-   * SourceEditorへ渡す編集操作をRibbonCommandへ変換する。
-   * @param action 実行するソース編集操作。
-   * @returns 何も返さない。
-   */
-  function source(action: SourceAction): void {
-    // ソース編集操作を親コンポーネントへ渡す。
-    onCommand({ type: "sourceAction", action });
-  }
-  /**
-   * 指定文字列の挿入操作をRibbonCommandへ変換する。
-   * @param value 挿入するMarkdown文字列。
-   * @returns 何も返さない。
-   */
-  function insert(value: string): void {
-    // 指定文字列の挿入操作を親コンポーネントへ渡す。
-    onCommand({ type: "insert", value });
-  }
-  /**
-   * 表操作と列追加時の見出し名をRibbonCommandへ変換する。
-   * @param action 実行する表操作。
-   * @returns 何も返さない。
-   */
-  function tableCommand(action: TableAction): void {
-    // 表操作と列追加時の見出し名を親コンポーネントへ渡す。
-    onCommand({
-      type: "table",
-      action,
-      headerName:
-        action === "colBefore" || action === "colAfter"
-          ? headerName
-          : undefined,
-    });
-  }
-
-  /** 入力中の画像保存先ルールを親コンポーネントへ渡す。 */
-  function saveImageDirectory(): void {
-    const directory = imageDirectoryDraft.trim();
-    if (!directory || directory === imageDirectory) return;
-    onCommand({ type: "setImageDirectory", directory });
-  }
 }
 
-/** 選択中の通常表示モードを示し、どのリボンタブからでも切り替えられるボタンを描画する。 */
-function ViewModeButton({
-  label,
-  view,
-  mode,
-  splitView,
-  onCommand,
-}: {
-  label: string;
-  view: "both" | "text" | "preview";
-  mode: EditorMode;
-  splitView: "both" | "text" | "preview";
-  onCommand: (command: RibbonCommand) => void;
-}): React.JSX.Element {
-  const active = mode === "split" && splitView === view;
-  return (
-    <button
-      type="button"
-      className={`ribbon-source-button ${active ? "active" : ""}`}
-      aria-pressed={active}
-      onClick={() => onCommand({ type: "splitView", view })}
-    >
-      {label}
-    </button>
-  );
+function getItemDefinition(id: RibbonItemId): RibbonItemDefinition {
+  const definition = RIBBON_DEFINITIONS.items[id];
+  if (!definition) {
+    throw new Error(`Ribbon definition is missing: ${id}`);
+  }
+  return definition;
 }
 
-/**
- * 複数のリボン操作を1つのラベル付きグループとして描画する。
- * @param props グループラベルと子操作。
- * @returns リボン操作グループ。
- */
+function getItemImplementation(id: RibbonItemId): RibbonItemImplementation {
+  const implementation = RIBBON_IMPLEMENTATIONS[id];
+  if (!implementation) {
+    throw new Error(`Ribbon implementation is missing: ${id}`);
+  }
+  return implementation;
+}
+
+function getHeaderImplementation(
+  id: RibbonHeaderImplementationId,
+): RibbonButtonImplementation {
+  const implementation = RIBBON_HEADER_IMPLEMENTATIONS[id];
+  if (!implementation) {
+    throw new Error(`Ribbon header implementation is missing: ${id}`);
+  }
+  return implementation;
+}
+
 function Group({
   label,
   children,
@@ -908,7 +398,6 @@ function Group({
   children: React.ReactNode;
   className?: string;
 }): React.JSX.Element {
-  // リボン内の操作群をラベル付きのセクションとしてまとめる。
   return (
     <section className={`ribbon-group${className ? ` ${className}` : ""}`}>
       <div className="ribbon-controls">{children}</div>
@@ -917,11 +406,6 @@ function Group({
   );
 }
 
-/**
- * 状態・無効状態・ショートカットを表示できる共通ツールボタンを描画する。
- * @param props ボタン表示文字列、状態、クリック処理。
- * @returns リボンツールボタン。
- */
 function Tool({
   label,
   shortcut,
@@ -937,7 +421,6 @@ function Tool({
   title?: string;
   onClick: () => void;
 }): React.JSX.Element {
-  // ラベル・ショートカット・状態を持つ共通のリボンボタンとして描画する。
   return (
     <button
       type="button"
@@ -951,166 +434,4 @@ function Tool({
       {shortcut && <small>{shortcut}</small>}
     </button>
   );
-}
-
-const TABS: RibbonTab[] = [
-  "home",
-  "insert",
-  "table",
-  "view",
-  "export",
-  "settings",
-  "help",
-];
-
-const TEXT_COLOR_UI_TEXT: Record<string, TextColorUiText> = {
-  ja: {
-    label: "文字色",
-    defaultColor: "既定（解除）",
-    mixed: "混在",
-    colors: {
-      red: "赤",
-      orange: "オレンジ",
-      yellow: "黄",
-      green: "緑",
-      blue: "青",
-      purple: "紫",
-      gray: "グレー",
-    },
-  },
-  en: {
-    label: "Text color",
-    defaultColor: "Default (clear)",
-    mixed: "Mixed",
-    colors: {
-      red: "Red",
-      orange: "Orange",
-      yellow: "Yellow",
-      green: "Green",
-      blue: "Blue",
-      purple: "Purple",
-      gray: "Gray",
-    },
-  },
-  "zh-cn": {
-    label: "文字颜色",
-    defaultColor: "默认（清除）",
-    mixed: "混合",
-    colors: {
-      red: "红色",
-      orange: "橙色",
-      yellow: "黄色",
-      green: "绿色",
-      blue: "蓝色",
-      purple: "紫色",
-      gray: "灰色",
-    },
-  },
-  ko: {
-    label: "글자 색",
-    defaultColor: "기본값(해제)",
-    mixed: "혼합",
-    colors: {
-      red: "빨강",
-      orange: "주황",
-      yellow: "노랑",
-      green: "초록",
-      blue: "파랑",
-      purple: "보라",
-      gray: "회색",
-    },
-  },
-  fr: {
-    label: "Couleur du texte",
-    defaultColor: "Par défaut (effacer)",
-    mixed: "Mixte",
-    colors: {
-      red: "Rouge",
-      orange: "Orange",
-      yellow: "Jaune",
-      green: "Vert",
-      blue: "Bleu",
-      purple: "Violet",
-      gray: "Gris",
-    },
-  },
-  de: {
-    label: "Textfarbe",
-    defaultColor: "Standard (entfernen)",
-    mixed: "Gemischt",
-    colors: {
-      red: "Rot",
-      orange: "Orange",
-      yellow: "Gelb",
-      green: "Grün",
-      blue: "Blau",
-      purple: "Violett",
-      gray: "Grau",
-    },
-  },
-  es: {
-    label: "Color del texto",
-    defaultColor: "Predeterminado (quitar)",
-    mixed: "Mixto",
-    colors: {
-      red: "Rojo",
-      orange: "Naranja",
-      yellow: "Amarillo",
-      green: "Verde",
-      blue: "Azul",
-      purple: "Morado",
-      gray: "Gris",
-    },
-  },
-};
-
-function textColorUiText(language: string): TextColorUiText {
-  const normalized = language.trim().toLowerCase().replace(/_/g, "-");
-  if (normalized === "zh" || normalized.startsWith("zh-cn")) {
-    return TEXT_COLOR_UI_TEXT["zh-cn"];
-  }
-  return TEXT_COLOR_UI_TEXT[normalized.split("-")[0]] ?? TEXT_COLOR_UI_TEXT.en;
-}
-
-// 文書の構造・参照・状態を示す用途に絞った絵文字一覧。
-const DOCUMENT_EMOJIS = [
-  "📘",
-  "📚",
-  "📖",
-  "📝",
-  "✏️",
-  "📌",
-  "🔖",
-  "🔍",
-  "🧭",
-  "💡",
-  "ℹ️",
-  "✅",
-  "⚠️",
-  "❌",
-  "⛔",
-  "🔧",
-  "⚙️",
-  "📋",
-  "🔗",
-  "🖼️",
-  "📊",
-  "📈",
-  "📐",
-  "🧪",
-];
-
-/**
- * 文字列入力を整数へ変換し、指定された範囲に収める。
- * @param value 数値化する入力文字列。
- * @param minimum 許可する最小値。
- * @param maximum 許可する最大値。
- * @returns 範囲内に収めた整数。数値化できない場合はminimum。
- */
-function clampNumber(value: string, minimum: number, maximum: number): number {
-  // 入力値を整数へ変換し、指定された最小値と最大値の範囲へ収める。
-  const parsed = Number(value);
-  return Number.isFinite(parsed)
-    ? Math.max(minimum, Math.min(maximum, Math.trunc(parsed)))
-    : minimum;
 }
