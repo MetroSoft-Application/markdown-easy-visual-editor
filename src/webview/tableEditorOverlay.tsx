@@ -35,29 +35,43 @@ import {
   type TableEditorAlignment,
   type TableEditorDraft,
 } from "./tableEditorModel";
+import {
+  calculateAutoFitColumnWidth,
+  calculateAutoFitRowHeight,
+  TABLE_EDITOR_MAX_AUTO_COLUMN_WIDTH,
+  TABLE_EDITOR_MIN_COLUMN_WIDTH,
+  TABLE_EDITOR_MIN_ROW_HEIGHT,
+} from "../shared/tableEditorSizing";
 
 const OPEN_EVENT = "mve-open-table-editor";
 const MAX_ROWS = 50;
 const MAX_COLUMNS = 20;
-const MIN_COLUMN_WIDTH = 96;
+const MIN_COLUMN_WIDTH = TABLE_EDITOR_MIN_COLUMN_WIDTH;
+const MAX_AUTO_COLUMN_WIDTH = TABLE_EDITOR_MAX_AUTO_COLUMN_WIDTH;
 const DEFAULT_COLUMN_WIDTH = 160;
 const ROW_HEADER_WIDTH = 42;
 const MIN_EDITOR_WIDTH = 560;
 const MIN_EDITOR_HEIGHT = 320;
-const DEFAULT_EDITOR_WIDTH = 860;
-const DEFAULT_EDITOR_HEIGHT = 600;
-const MIN_ROW_HEIGHT = 36;
+const DEFAULT_EDITOR_WIDTH = 960;
+const DEFAULT_EDITOR_HEIGHT = 680;
+const MIN_ROW_HEIGHT = TABLE_EDITOR_MIN_ROW_HEIGHT;
 const MIN_TEXTAREA_HEIGHT = 34;
 let overlayRoot: Root | undefined;
 let overlayHost: HTMLDivElement | undefined;
 
 type CellSelection = { from: number; to: number };
-type ColumnResizeState = { column: number; startX: number; startWidth: number };
+type ColumnResizeState = {
+  column: number;
+  startX: number;
+  startWidth: number;
+  moved: boolean;
+};
 type RowResizeState = {
   row: number;
   pointerId: number;
   startY: number;
   startHeight: number;
+  moved: boolean;
 };
 type EditorSize = { width: number; height: number };
 type EditorDragState = {
@@ -159,6 +173,14 @@ const TABLE_EDITOR_POLISH_TEXT: Record<string, TableEditorPolishText> = {
 
 function cellKey(row: number, column: number): string {
   return `${row}:${column}`;
+}
+
+function parseTableCellAddress(
+  value: string | undefined,
+): { row: number; column: number } | undefined {
+  const match = /^(\d+):(\d+)$/.exec(value ?? "");
+  if (!match) return undefined;
+  return { row: Number(match[1]), column: Number(match[2]) };
 }
 
 function rowTextareaStyle(
@@ -412,6 +434,7 @@ function TableEditorOverlay({
     const onMouseMove = (event: MouseEvent) => {
       const resize = columnResizeRef.current;
       if (!resize) return;
+      if (event.clientX !== resize.startX) resize.moved = true;
       const width = Math.max(
         MIN_COLUMN_WIDTH,
         Math.round(resize.startWidth + event.clientX - resize.startX),
@@ -498,6 +521,7 @@ function TableEditorOverlay({
       }
       const rowResize = rowResizeRef.current;
       if (!rowResize || event.pointerId !== rowResize.pointerId) return;
+      if (event.clientY !== rowResize.startY) rowResize.moved = true;
       const height = Math.max(
         MIN_ROW_HEIGHT,
         Math.round(rowResize.startHeight + event.clientY - rowResize.startY),
@@ -890,9 +914,72 @@ function TableEditorOverlay({
       column,
       startX: event.clientX,
       startWidth: columnWidths[column] ?? DEFAULT_COLUMN_WIDTH,
+      moved: false,
     };
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
+  }
+
+  function autoFitColumn(column: number): void {
+    const editor = overlayRef.current;
+    if (!editor) return;
+    const cells = Array.from(
+      editor.querySelectorAll<HTMLTextAreaElement>(
+        "textarea[data-table-cell]",
+      ),
+    ).filter(
+      (cell) => parseTableCellAddress(cell.dataset.tableCell)?.column === column,
+    );
+    const sample = cells[0];
+    if (!sample) return;
+
+    const style = getComputedStyle(sample);
+    const canvas = document.createElement("canvas");
+    const context = canvas.getContext("2d");
+    const letterSpacing = Number.parseFloat(style.letterSpacing) || 0;
+    const measure = (value: string): number => {
+      if (!context) return Array.from(value).length * 8;
+      context.font = [
+        style.fontStyle,
+        style.fontVariant,
+        style.fontWeight,
+        style.fontSize,
+        style.fontFamily,
+      ].join(" ");
+      return (
+        context.measureText(value).width +
+        Math.max(0, Array.from(value).length - 1) * letterSpacing
+      );
+    };
+    const horizontalChrome =
+      (Number.parseFloat(style.paddingLeft) || 0) +
+      (Number.parseFloat(style.paddingRight) || 0) +
+      8;
+    const width = calculateAutoFitColumnWidth(
+      cells.map((cell) => cell.value),
+      measure,
+      horizontalChrome,
+      MIN_COLUMN_WIDTH,
+      MAX_AUTO_COLUMN_WIDTH,
+    );
+    setColumnWidths((previous) => {
+      const next = previous.slice();
+      while (next.length <= column) next.push(DEFAULT_COLUMN_WIDTH);
+      if (next[column] === width) return previous;
+      next[column] = width;
+      return next;
+    });
+  }
+
+  function autoFitColumnOnMouseUp(
+    event: React.MouseEvent<HTMLDivElement>,
+    column: number,
+  ): void {
+    const resize = columnResizeRef.current;
+    if (!resize || resize.column !== column || resize.moved) return;
+    event.preventDefault();
+    event.stopPropagation();
+    autoFitColumn(column);
   }
 
   function resizeColumnByKeyboard(
@@ -927,10 +1014,71 @@ function TableEditorOverlay({
       startHeight:
         rowHeights[row] ??
         Math.round(rowElement.getBoundingClientRect().height),
+      moved: false,
     };
     document.body.style.cursor = "row-resize";
     document.body.style.userSelect = "none";
     event.currentTarget.setPointerCapture(event.pointerId);
+  }
+
+  function autoFitRow(row: number): void {
+    const editor = overlayRef.current;
+    if (!editor) return;
+    const cells = Array.from(
+      editor.querySelectorAll<HTMLTextAreaElement>(
+        "textarea[data-table-cell]",
+      ),
+    ).filter(
+      (cell) => parseTableCellAddress(cell.dataset.tableCell)?.row === row,
+    );
+    if (!cells.length) return;
+
+    const heights = cells.map((cell) => {
+      const clone = cell.cloneNode(false) as HTMLTextAreaElement;
+      const width = Math.max(1, cell.getBoundingClientRect().width);
+      clone.value = cell.value.replace(/<br\s*\/?>/gi, "\n");
+      clone.style.position = "fixed";
+      clone.style.left = "-10000px";
+      clone.style.top = "0";
+      clone.style.width = `${width}px`;
+      clone.style.height = "auto";
+      clone.style.minHeight = "0";
+      clone.style.maxHeight = "none";
+      clone.style.overflow = "hidden";
+      clone.style.visibility = "hidden";
+      clone.style.pointerEvents = "none";
+      document.body.appendChild(clone);
+      const height = clone.scrollHeight;
+      clone.remove();
+      return height;
+    });
+    const height = calculateAutoFitRowHeight(heights);
+    setRowHeights((previous) => {
+      const next = previous.slice();
+      while (next.length <= row) next.push(undefined);
+      if (next[row] === height) return previous;
+      next[row] = height;
+      return next;
+    });
+  }
+
+  function autoFitRowOnPointerUp(
+    event: React.PointerEvent<HTMLDivElement>,
+    row: number,
+  ): void {
+    const resize = rowResizeRef.current;
+    if (
+      !resize ||
+      resize.row !== row ||
+      resize.pointerId !== event.pointerId ||
+      resize.moved ||
+      event.type === "pointercancel"
+    ) {
+      return;
+    }
+    event.preventDefault();
+    event.stopPropagation();
+    autoFitRow(row);
   }
 
   function resizeRowByKeyboard(
@@ -1651,8 +1799,8 @@ function TableEditorOverlay({
                     aria-valuenow={rowHeights[rowIndex] ?? MIN_ROW_HEIGHT}
                     title={messages.app.tableEditor.resizeRow}
                     onPointerDown={(event) => startRowResize(event, rowIndex)}
+                    onPointerUp={(event) => autoFitRowOnPointerUp(event, rowIndex)}
                     onKeyDown={(event) => resizeRowByKeyboard(event, rowIndex)}
-                    onClick={(event) => event.stopPropagation()}
                   />
                 </th>
                 {Array.from({ length: columnCount }, (_, columnIndex) => {
@@ -1738,6 +1886,9 @@ function TableEditorOverlay({
                           title={messages.app.tableEditor.resizeColumn}
                           onMouseDown={(event) =>
                             startColumnResize(event, columnIndex)
+                          }
+                          onMouseUp={(event) =>
+                            autoFitColumnOnMouseUp(event, columnIndex)
                           }
                           onKeyDown={(event) =>
                             resizeColumnByKeyboard(event, columnIndex)

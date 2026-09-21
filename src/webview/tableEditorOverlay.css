@@ -12,8 +12,8 @@
 .mve-table-editor {
     --mve-table-column-selector-height: 28px;
     position: relative;
-    width: min(860px, 90vw);
-    height: min(600px, 84vh);
+    width: min(960px, 94vw);
+    height: min(680px, 88vh);
     max-width: calc(100vw - 32px);
     max-height: calc(100vh - 32px);
     display: grid;

@@ -100,7 +100,7 @@ Place the cursor inside a Markdown table to:
 - Add or delete rows and columns.
 - Toggle the header row.
 - Align cells left, center, or right.
-- Drag column boundaries to adjust column widths and row-header boundaries to adjust an entire row's height.
+- Click column boundaries to auto-fit column widths to their contents, or drag them for manual adjustment. Click row boundaries to auto-fit row heights, or drag them for manual adjustment.
 - Drag the title bar to move the table editor or the bottom-right corner to resize it.
 - Set a header name when adding a column.
 - Copy the table as tab-separated values with **Copy as TSV**.

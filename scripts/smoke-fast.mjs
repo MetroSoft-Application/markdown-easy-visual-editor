@@ -273,6 +273,13 @@ try {
   await page.getByRole('button', { name: '表を編集', exact: true }).click();
   await page.locator('.mve-table-editor').waitFor();
   if (await page.locator('.mve-table-editor-grid tbody tr').count() !== 2) throw new Error('table editor did not read the table');
+  const tableEditorSize = await page.locator('.mve-table-editor').evaluate((element) => {
+    const bounds = element.getBoundingClientRect();
+    return { width: bounds.width, height: bounds.height };
+  });
+  if (tableEditorSize.width < 900 || tableEditorSize.height < 620) {
+    throw new Error(`table editor default size was not expanded: ${JSON.stringify(tableEditorSize)}`);
+  }
   await page.getByRole('button', { name: '＋行', exact: true }).click();
   if (await page.locator('.mve-table-editor-grid tbody tr').count() !== 3) throw new Error('table editor row draft action did not apply once');
   for (let index = 0; index < 4; index += 1) {
@@ -289,6 +296,24 @@ try {
   const tableColumnStateAfter = Number(await columnResizer.getAttribute('aria-valuenow'));
   if (tableColumnStateAfter !== tableColumnStateBefore + 48 || tableColumnAfter <= tableColumnBefore) {
     throw new Error(`table editor column did not resize: state=${tableColumnStateBefore}->${tableColumnStateAfter}, rendered=${tableColumnBefore}->${tableColumnAfter}`);
+  }
+  const autoFitCell = page.locator('[data-table-cell="1:0"]');
+  await autoFitCell.fill('auto fit content '.repeat(10));
+  const autoFitColumnBefore = Number(await columnResizer.getAttribute('aria-valuenow'));
+  await columnResizer.click();
+  await page.waitForFunction((before) => Number(document.querySelector('.mve-table-editor-column-resizer')?.getAttribute('aria-valuenow')) > before, autoFitColumnBefore);
+  const autoFitColumnAfter = Number(await columnResizer.getAttribute('aria-valuenow'));
+  if (autoFitColumnAfter <= autoFitColumnBefore) {
+    throw new Error(`table editor column auto-fit did not apply: state=${autoFitColumnBefore}->${autoFitColumnAfter}`);
+  }
+  const rowResizer = page.locator('.mve-table-editor-row-resizer').nth(1);
+  const rowHeightBefore = Number(await rowResizer.getAttribute('aria-valuenow'));
+  await autoFitCell.fill('line one<br>line two');
+  await rowResizer.click();
+  await page.waitForFunction((before) => Number(document.querySelectorAll('.mve-table-editor-row-resizer')[1]?.getAttribute('aria-valuenow')) > before, rowHeightBefore);
+  const rowHeightAfter = Number(await rowResizer.getAttribute('aria-valuenow'));
+  if (rowHeightAfter <= rowHeightBefore) {
+    throw new Error(`table editor row auto-fit did not apply: state=${rowHeightBefore}->${rowHeightAfter}`);
   }
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: 'キャンセル', exact: true }).click();
