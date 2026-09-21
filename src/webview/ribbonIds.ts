@@ -27,6 +27,7 @@ export type RibbonGroupId =
   | "html"
   | "inspection"
   | "images"
+  | "fonts"
   | "help";
 
 export type RibbonItemId =
@@ -96,6 +97,7 @@ export type RibbonItemId =
   | "exportHtml"
   | "preflight"
   | "imageDirectory"
+  | "fontSettings"
   | "shortcuts"
   | "features";
 

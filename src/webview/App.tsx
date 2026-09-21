@@ -60,6 +60,12 @@ import {
   type ImageAlignment,
 } from "../shared/imageResize";
 import { getMessages, type Messages } from "../shared/messages";
+import {
+  DEFAULT_FONT_FAMILY_STACK,
+  DEFAULT_FONT_FAMILY_SETTINGS,
+  fontFamilyForCss,
+  normalizeFontFamily,
+} from "../shared/fontFamily";
 import { prepareExportHtml } from "../shared/exportHtml";
 import { createClientId } from "./id";
 import { webviewAssetUrl } from "./assets";
@@ -138,6 +144,7 @@ interface PdfPreviewState {
 const vscode = acquireVsCodeApi<PersistedState>();
 const CROSS_PANE_SCROLL_SYNC_MS = 32;
 const DEFAULT_SETTINGS: WebviewSettings = {
+  ...DEFAULT_FONT_FAMILY_SETTINGS,
   language: "ja",
   imageDirectory: "assets/${documentBasename}",
   maxPasteSizeMb: 20,
@@ -257,6 +264,9 @@ export function App(): React.JSX.Element {
   const [settings, setSettings] = useState(
     bootstrap?.settings ?? DEFAULT_SETTINGS,
   );
+  const [installedFonts, setInstalledFonts] = useState<readonly string[]>([]);
+  const [fontListAvailable, setFontListAvailable] = useState(false);
+  const [fontListLoading, setFontListLoading] = useState(false);
   const scrollSyncEnabled = settings.scrollSyncEnabled !== false;
   const scrollSyncEnabledRef = useRef(scrollSyncEnabled);
   scrollSyncEnabledRef.current = scrollSyncEnabled;
@@ -284,6 +294,27 @@ export function App(): React.JSX.Element {
   useEffect(() => {
     if (settings.language) document.documentElement.lang = settings.language;
   }, [settings.language]);
+  useEffect(() => {
+    const root = document.documentElement;
+    const editorFontFamily = normalizeFontFamily(settings.editorFontFamily);
+    const previewFontFamily = normalizeFontFamily(settings.previewFontFamily);
+    if (editorFontFamily) {
+      root.style.setProperty(
+        "--mve-editor-font-family",
+        fontFamilyForCss(editorFontFamily, DEFAULT_FONT_FAMILY_STACK),
+      );
+    } else {
+      root.style.removeProperty("--mve-editor-font-family");
+    }
+    if (previewFontFamily) {
+      root.style.setProperty(
+        "--mve-preview-font-family",
+        fontFamilyForCss(previewFontFamily, DEFAULT_FONT_FAMILY_STACK),
+      );
+    } else {
+      root.style.removeProperty("--mve-preview-font-family");
+    }
+  }, [settings.editorFontFamily, settings.previewFontFamily]);
   // HTML/PDFの出力先は白背景のため、VS CodeのダークテーマをSVGへ持ち込まない。
   const exportSettings = useMemo(
     () => ({ ...settings, mermaidTheme: "default" as const }),
@@ -1064,6 +1095,11 @@ export function App(): React.JSX.Element {
         if (message.settings.viewMode)
           setSplitView(restoreViewMode(message.settings.viewMode));
         return;
+      case "installedFonts":
+        setInstalledFonts(message.fonts);
+        setFontListAvailable(message.available);
+        setFontListLoading(false);
+        return;
       case "mermaidRendered":
         acceptMermaidRenderResult(message);
         return;
@@ -1560,6 +1596,11 @@ export function App(): React.JSX.Element {
     vscode.postMessage({ type: "setViewMode", viewMode: nextView });
   }
 
+  const requestInstalledFonts = useCallback(() => {
+    setFontListLoading(true);
+    vscode.postMessage({ type: "requestInstalledFonts" });
+  }, []);
+
   /**
    * リボンから受け取ったコマンドをエディター操作・表示切替・ダイアログへ振り分ける。
    * @param command リボンが生成したコマンド。
@@ -1705,6 +1746,28 @@ export function App(): React.JSX.Element {
           directory: command.directory,
         });
         return;
+      case "setFontFamilies": {
+        const editorFontFamily = normalizeFontFamily(command.editorFontFamily);
+        const previewFontFamily = normalizeFontFamily(command.previewFontFamily);
+        const nextPdfOptions = normalizePdfOptions({
+          ...pdfOptionsRef.current,
+          fontFamily: previewFontFamily || DEFAULT_PDF_OPTIONS.fontFamily,
+        });
+        pdfOptionsRef.current = nextPdfOptions;
+        setPdfOptions(nextPdfOptions);
+        setSettings((current) => ({
+          ...current,
+          editorFontFamily,
+          previewFontFamily,
+          pdfOptions: nextPdfOptions,
+        }));
+        vscode.postMessage({
+          type: "setFontFamilies",
+          editorFontFamily,
+          previewFontFamily,
+        });
+        return;
+      }
       case "find": {
         openSearch();
         return;
@@ -2114,7 +2177,7 @@ export function App(): React.JSX.Element {
       type: "exportPdf",
       requestId,
       html,
-      css: await collectEmbeddedPrintableCss(),
+      css: await collectEmbeddedPrintableCss(settings.previewFontFamily),
       options: pdfOptionsRef.current,
     };
     pdfRequestsRef.current.add(requestId);
@@ -2155,7 +2218,7 @@ export function App(): React.JSX.Element {
       html: root
         ? serializeExportHtml(root)
         : `<pre>${escapeHtml(currentMarkdown)}</pre>`,
-      css: await collectEmbeddedPrintableCss(),
+      css: await collectEmbeddedPrintableCss(settings.previewFontFamily),
       options,
     });
     if (!printPreview) {
@@ -2213,7 +2276,7 @@ export function App(): React.JSX.Element {
       loading: true,
       error: undefined,
     }));
-    const css = collectPrintableCss(false);
+    const css = collectPrintableCss(settings.previewFontFamily, false);
     mveDebug("pdf.preview-request", {
       requestId,
       htmlChars: html.length,
@@ -3439,6 +3502,12 @@ export function App(): React.JSX.Element {
         splitView={splitView}
         htmlOptions={htmlOptions}
         imageDirectory={settings.imageDirectory}
+        editorFontFamily={settings.editorFontFamily}
+        previewFontFamily={settings.previewFontFamily}
+        installedFonts={installedFonts}
+        fontListAvailable={fontListAvailable}
+        fontListLoading={fontListLoading}
+        onRequestInstalledFonts={requestInstalledFonts}
         onHtmlOptionsChange={setHtmlOptions}
         onCommand={handleRibbon}
       />
@@ -3891,19 +3960,6 @@ export function App(): React.JSX.Element {
             <fieldset className="pdf-typography-fields">
               <legend>{messages.app.typography}</legend>
               {/* 数値欄は入力途中の値を保持し、フォーカス離脱時にだけ範囲正規化して確定する。 */}
-              <label>
-                {messages.app.fontFamily}
-                <input
-                  value={pdfOptions.fontFamily}
-                  placeholder={'"Noto Sans JP", "Yu Gothic UI", sans-serif'}
-                  onChange={(event) =>
-                    updatePdfOptions((current) => ({
-                      ...current,
-                      fontFamily: event.target.value,
-                    }))
-                  }
-                />
-              </label>
               <label>
                 {messages.app.bodyFontSize} (pt)
                 <input
@@ -5393,8 +5449,13 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-const PRINT_CONTENT_CSS = `
-body{font-family:"Noto Sans JP","Yu Gothic UI",sans-serif;color:#202124;line-height:1.75;font-size:11pt}
+function printContentCss(fontFamily: string): string {
+  const safeFontFamily = fontFamilyForCss(
+    fontFamily,
+    DEFAULT_PDF_OPTIONS.fontFamily,
+  );
+  return `
+body{font-family:${safeFontFamily};color:#202124;line-height:1.75;font-size:11pt}
 h1{font-size:24pt;border-bottom:2px solid #3a70b8;padding-bottom:6px}h2{font-size:18pt;border-bottom:1px solid #bbb;padding-bottom:4px}h3{font-size:14pt}
 table{border-collapse:collapse;width:100%;margin:1em 0}th,td{border:1px solid #888;padding:6px 8px;vertical-align:top;word-break:normal;overflow-wrap:anywhere}th{background:#eaf1fb}
 table th[data-mve-nowrap="true"],table td[data-mve-nowrap="true"]{white-space:nowrap;overflow-wrap:normal}
@@ -5402,13 +5463,17 @@ pre{background:#f5f5f5;border:1px solid #ddd;border-radius:4px;padding:12px;over
 blockquote,.markdown-alert{border-left:4px solid #3a70b8;margin:1em 0;padding:8px 14px;background:#f4f7fb}
 img,svg{max-width:100%;height:auto}.page-break{break-after:page}.code-figure figcaption button{display:none}.table-of-contents ul{list-style:none;padding-left:0}.toc-level-2{padding-left:1em}.toc-level-3{padding-left:2em}
 `;
+}
 
 /**
  * 印刷用HTMLへ渡すCSSを組み立て、同一オリジンで読めるスタイルシートの規則を追加する。
  * @returns 印刷用の結合済みCSS文字列。
  */
-function collectPrintableCss(includeEmbeddedFonts = true): string {
-  const rules: string[] = [PRINT_CONTENT_CSS];
+function collectPrintableCss(
+  fontFamily: string,
+  includeEmbeddedFonts = true,
+): string {
+  const rules: string[] = [printContentCss(fontFamily)];
   for (const sheet of Array.from(document.styleSheets)) {
     try {
       for (const rule of Array.from(sheet.cssRules)) {
@@ -5433,7 +5498,7 @@ function collectPrintableCss(includeEmbeddedFonts = true): string {
 let exportFontCssPromise: Promise<string> | undefined;
 
 /** 出力時だけ自己完結したフォント CSS を取得し、従来と同じ埋め込み出力を保つ。 */
-async function collectEmbeddedPrintableCss(): Promise<string> {
+async function collectEmbeddedPrintableCss(fontFamily: string): Promise<string> {
   exportFontCssPromise ??= fetch(
     webviewAssetUrl(
       "export-fonts.css",
@@ -5450,5 +5515,5 @@ async function collectEmbeddedPrintableCss(): Promise<string> {
       exportFontCssPromise = undefined;
       throw error;
     });
-  return `${collectPrintableCss(false)}\n${await exportFontCssPromise}`;
+  return `${collectPrintableCss(fontFamily, false)}\n${await exportFontCssPromise}`;
 }

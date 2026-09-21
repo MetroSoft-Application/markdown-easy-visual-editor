@@ -38,6 +38,11 @@ export type RibbonCommand =
   | { type: "showShortcuts" | "showFeatures" }
   | { type: "openSource" | "exportPdf" | "find" }
   | { type: "setImageDirectory"; directory: string }
+  | {
+      type: "setFontFamilies";
+      editorFontFamily: string;
+      previewFontFamily: string;
+    }
   | { type: "exportHtml"; options: HtmlExportOptions };
 
 export interface TextColorUiText {
@@ -67,6 +72,11 @@ export interface RibbonImplementationContext extends RibbonButtonState {
   textColorText: TextColorUiText;
   htmlOptions: HtmlExportOptions;
   imageDirectory: string;
+  editorFontFamily: string;
+  previewFontFamily: string;
+  installedFonts: readonly string[];
+  fontListAvailable: boolean;
+  fontListLoading: boolean;
   onHtmlOptionsChange: (options: HtmlExportOptions) => void;
   onCommand: (command: RibbonCommand) => void;
   tableRows: number;
@@ -83,6 +93,10 @@ export interface RibbonImplementationContext extends RibbonButtonState {
   setTextColorChoice: (value: TextColorChoice) => void;
   imageDirectoryDraft: string;
   setImageDirectoryDraft: (value: string) => void;
+  editorFontFamilyDraft: string;
+  setEditorFontFamilyDraft: (value: string) => void;
+  previewFontFamilyDraft: string;
+  setPreviewFontFamilyDraft: (value: string) => void;
 }
 
 export interface RibbonButtonImplementation {

@@ -153,6 +153,15 @@ export interface Messages {
             imageDirectory: string;
             imageDirectoryPlaceholder: string;
             imageDirectoryHint: string;
+            fonts: string;
+            fontSettings: string;
+            editorFontFamily: string;
+            previewFontFamily: string;
+            fontFamilyPlaceholder: string;
+            fontFamilyHint: string;
+            fontFamilyLoading: string;
+            fontFamilyUnavailable: string;
+            fontFamilyCount: (count: number) => string;
             apply: string;
         };
     };
@@ -395,7 +404,10 @@ function createMessages(language: SupportedLanguage): Messages {
             hintZoom: raw.ribbon.hintZoom,
             codeLanguages: raw.ribbon.codeLanguages,
             snippets: raw.ribbon.snippets,
-            settings: raw.ribbon.settings
+            settings: {
+                ...raw.ribbon.settings,
+                fontFamilyCount: (count: number) => text('ribbon.settings.fontFamilyCount', { count })
+            }
         },
         app: {
             startup: raw.app.startup,

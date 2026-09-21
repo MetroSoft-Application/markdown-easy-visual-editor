@@ -9,6 +9,7 @@ import {
     type PdfPaperFormat
 } from '../shared/protocol';
 import { getMessages, type SupportedLanguage } from '../shared/messages';
+import { DEFAULT_FONT_FAMILY_STACK, fontFamilyForCss } from '../shared/fontFamily';
 
 export interface PdfExportRequest {
     /** PDF本文として出力する、サニタイズ前のWebview生成HTML。 */
@@ -489,7 +490,7 @@ function mimeFromPath(filePath: string): string {
 const PRINT_CSS = `
   @page { size: auto; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  body { margin: 0; font-family: "Noto Sans JP", "Yu Gothic UI", sans-serif; color: #202124; }
+  body { margin: 0; font-family: ${DEFAULT_FONT_FAMILY_STACK}; color: #202124; }
   .mve-print { max-width: none; }
   .page-break { break-after: page; }
   table { width: 100%; border-collapse: collapse; }
@@ -530,11 +531,7 @@ function printOptionsCss(options: NormalizedPdfOptions): string {
  * @returns CSS宣言を壊さないよう制御文字と構造文字を除去したフォント指定。
  */
 function sanitizeCssFontFamily(value: string): string {
-    const sanitized = value
-        .replace(/[{};<>`]/g, '')
-        .replace(/[\r\n]/g, ' ')
-        .trim();
-    return sanitized || '"Noto Sans JP", "Yu Gothic UI", sans-serif';
+    return fontFamilyForCss(value, DEFAULT_FONT_FAMILY_STACK);
 }
 
 /**

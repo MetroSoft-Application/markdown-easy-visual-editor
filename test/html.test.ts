@@ -49,7 +49,8 @@ describe('HTML export', () => {
       css: 'h1 { color: red; }',
       options: { embedImages: true, convertLinkedMarkdown: true, saveWithoutDialog: false },
       documentUri: new TestUri(path.join(directory, 'main.md')) as any,
-      language: 'ja'
+      language: 'ja',
+      fontFamily: '"Test Font", sans-serif'
     });
 
     expect(result?.paths.map((uri) => uri.fsPath)).toEqual([
@@ -61,6 +62,7 @@ describe('HTML export', () => {
     const child = await fs.readFile(path.join(directory, 'out', 'child.html'), 'utf8');
     expect(main).toContain('href="child.html"');
     expect(main).toContain('src="data:image/svg+xml;base64,');
+    expect(main).toContain('font-family: "Test Font", sans-serif, "Noto Sans JP", "Yu Gothic UI", sans-serif;');
     expect(main).not.toContain('data-original-src');
     expect(child).toContain('href="nested/grand.html"');
   });

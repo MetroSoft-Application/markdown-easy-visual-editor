@@ -82,7 +82,10 @@ try {
     remoteImagesEnabled: false,
     mermaidTheme: 'default',
     workspaceTrusted: true,
-    language: 'ja'
+    language: 'ja',
+    editorFontFamily: '',
+    previewFontFamily: 'Test Preview Font',
+    pdfOptions: { fontFamily: 'Test Preview Font' }
   };
   await page.evaluate(({ text, initSettings }) => {
     window.dispatchEvent(new MessageEvent('message', {
@@ -97,16 +100,16 @@ try {
   await page.locator('.pdf-settings-panel').waitFor();
   const typographyInputs = page.locator('.pdf-typography-fields input');
   const typographyInputCount = await typographyInputs.count();
-  if (typographyInputCount !== 11) {
-    throw new Error(`Typography settings did not render all 11 controls: ${typographyInputCount}`);
+  if (typographyInputCount !== 10) {
+    throw new Error(`Typography settings did not render all 10 controls after moving the font setting: ${typographyInputCount}`);
   }
   const paperOptions = await page.locator('.pdf-settings-panel select').first().locator('option').allTextContents();
   if (paperOptions.join(',') !== 'A0,A1,A2,A3,A4,A5,A6,B4,B5') {
     throw new Error(`Unexpected paper size options: ${paperOptions.join(',')}`);
   }
-  await typographyInputs.nth(1).click();
-  await typographyInputs.nth(1).press('Control+A');
-  await typographyInputs.nth(1).pressSequentially('13');
+  await typographyInputs.nth(0).click();
+  await typographyInputs.nth(0).press('Control+A');
+  await typographyInputs.nth(0).pressSequentially('13');
   await page.locator('.pdf-settings-panel select').first().selectOption('B5');
   await page.locator('.pdf-settings-panel .panel-title button').click();
   if (await page.locator('.pdf-settings-panel').count() !== 0) {
@@ -176,6 +179,9 @@ try {
   }), { widthBeforeZoom, widthAfterZoom, widthAfterShrink, widthAfterButtonZoom });
   result.requests = result.previewMessages.length;
   result.previewCssChars = Math.max(...result.previewMessages.map((message) => message.css?.length ?? 0), 0);
+  if (!result.previewMessages[0]?.css?.includes('body{font-family:Test Preview Font, "Noto Sans JP", "Yu Gothic UI", sans-serif;')) {
+    throw new Error('Preview font was not applied to the PDF preview CSS.');
+  }
   if (pageErrors.length) throw new Error(`PDF preview page error: ${pageErrors.join(' / ')}`);
   if (result.requests !== 1 || result.previewCssChars >= 200_000
     || result.pages < 2 || result.readyPages < 1 || result.visiblePdfLayers !== 1 || result.visibleLiveLayers !== 0) {

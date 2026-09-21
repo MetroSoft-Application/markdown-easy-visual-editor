@@ -127,6 +127,10 @@ export const RIBBON_DEFINITIONS: RibbonDefinitions = {
       label: { kind: "message", path: "ribbon.settings.images" },
       className: "ribbon-settings-group",
     },
+    fonts: {
+      label: { kind: "message", path: "ribbon.settings.fonts" },
+      className: "ribbon-settings-group",
+    },
     help: { label: { kind: "message", path: "ribbon.groups.help" } },
   },
 
@@ -420,6 +424,33 @@ export const RIBBON_DEFINITIONS: RibbonDefinitions = {
         hint: {
           kind: "message",
           path: "ribbon.settings.imageDirectoryHint",
+        },
+      },
+    },
+    fontSettings: {
+      label: { kind: "message", path: "ribbon.settings.fontSettings" },
+      options: {
+        fields: [
+          {
+            id: "editor",
+            label: { kind: "message", path: "ribbon.settings.editorFontFamily" },
+            placeholder: {
+              kind: "message",
+              path: "ribbon.settings.fontFamilyPlaceholder",
+            },
+          },
+          {
+            id: "preview",
+            label: { kind: "message", path: "ribbon.settings.previewFontFamily" },
+            placeholder: {
+              kind: "message",
+              path: "ribbon.settings.fontFamilyPlaceholder",
+            },
+          },
+        ],
+        hint: {
+          kind: "message",
+          path: "ribbon.settings.fontFamilyHint",
         },
       },
     },

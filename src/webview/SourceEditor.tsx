@@ -214,7 +214,8 @@ const vscodeSyntaxHighlightStyle = HighlightStyle.define([
     color: "#ce9178",
     backgroundColor:
       "var(--vscode-textCodeBlock-background, var(--vscode-editor-inactiveSelectionBackground))",
-    fontFamily: "var(--vscode-editor-font-family, monospace)",
+    fontFamily:
+      "var(--mve-editor-font-family, var(--vscode-editor-font-family, monospace))",
   },
   { tag: tags.escape, color: "#ce9178" },
   { tag: tags.character, color: "#b5cea8" },
@@ -667,10 +668,14 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
               height: "100%",
               color: "var(--vscode-editor-foreground)",
               backgroundColor: "transparent",
+              fontFamily:
+                "var(--mve-editor-font-family, var(--vscode-editor-font-family, monospace))",
             },
             ".cm-content": {
               caretColor: "var(--vscode-editorCursor-foreground)",
               padding: "18px 24px 42px",
+              fontFamily:
+                "var(--mve-editor-font-family, var(--vscode-editor-font-family, monospace))",
             },
             ".cm-gutters": {
               backgroundColor: "var(--vscode-editor-background)",

@@ -130,6 +130,26 @@ try {
             data: { type: 'settingsChanged', settings: window.__mveGlobalSettings }
           })), 300);
         }
+        if (message.type === 'requestInstalledFonts') {
+          setTimeout(() => window.dispatchEvent(new MessageEvent('message', {
+            data: {
+              type: 'installedFonts',
+              fonts: Array.from({ length: 309 }, (_, index) =>
+                index === 0 ? 'Arial' : index === 1 ? '日本語 UI' : `Test Installed Font ${index}`),
+              available: true
+            }
+          })), 0);
+        }
+        if (message.type === 'setFontFamilies') {
+          window.__mveGlobalSettings = {
+            ...window.__mveGlobalSettings,
+            editorFontFamily: message.editorFontFamily,
+            previewFontFamily: message.previewFontFamily
+          };
+          setTimeout(() => window.dispatchEvent(new MessageEvent('message', {
+            data: { type: 'settingsChanged', settings: window.__mveGlobalSettings }
+          })), 0);
+        }
       },
       getState: () => undefined,
       setState: () => undefined
@@ -150,7 +170,7 @@ try {
   await page.addStyleTag({ path: path.resolve('dist/webview.css') });
   await page.addScriptTag({ path: path.resolve('dist/webview.js') });
   await page.waitForFunction(() => window.__mveMessages.some((message) => message.type === 'ready'));
-  const settings = { language: 'ja', imageDirectory: 'assets/${documentBasename}', maxPasteSizeMb: 20, remoteImagesEnabled: false, mermaidTheme: 'default', outlineVisible: true, workspaceTrusted: true };
+  const settings = { language: 'ja', imageDirectory: 'assets/${documentBasename}', maxPasteSizeMb: 20, remoteImagesEnabled: false, mermaidTheme: 'default', outlineVisible: true, workspaceTrusted: true, editorFontFamily: '', previewFontFamily: '' };
   await page.evaluate((initSettings) => {
     window.__mveGlobalSettings = { ...initSettings, scrollSyncEnabled: true };
     window.dispatchEvent(new MessageEvent('message', {
@@ -159,7 +179,73 @@ try {
   }, settings);
   await page.locator('.split-editor .cm-content').waitFor();
   await page.setViewportSize({ width: 475, height: 720 });
+  const fontRequestBeforeSettings = await page.evaluate(() => window.__mveMessages.filter((message) => message.type === 'requestInstalledFonts').length);
+  if (fontRequestBeforeSettings !== 0) throw new Error('installed font enumeration started before opening settings');
   await page.getByRole('tab', { name: '設定', exact: true }).click();
+  await page.waitForFunction(() => window.__mveMessages.some((message) => message.type === 'requestInstalledFonts'));
+  const editorFontInput = page.locator('input[aria-label="エディタ フォント"]');
+  const previewFontInput = page.locator('input[aria-label="プレビュー フォント"]');
+  await editorFontInput.scrollIntoViewIfNeeded();
+  await editorFontInput.waitFor();
+  await editorFontInput.click();
+  const editorFontOptions = page.locator('#mve-editor-font-family-listbox [role="option"]');
+  await page.waitForFunction(() => document.querySelectorAll('#mve-editor-font-family-listbox [role="option"]').length === 310);
+  if (await editorFontOptions.count() !== 310) {
+    throw new Error('all installed font families were not exposed by the combobox');
+  }
+  if (await editorFontOptions.first().textContent() !== '"Noto Sans JP", "Yu Gothic UI", sans-serif') {
+    throw new Error('the existing default font was not placed first');
+  }
+  await editorFontOptions.filter({ hasText: 'Arial' }).click();
+  await page.waitForFunction(() => window.__mveGlobalSettings.editorFontFamily === 'Arial');
+  await editorFontInput.click();
+  await page.waitForFunction(() => document.querySelectorAll('#mve-editor-font-family-listbox [role="option"]').length === 310);
+  if (await editorFontOptions.count() !== 310) {
+    throw new Error('the selected font filtered the full installed font list');
+  }
+  await editorFontInput.press('Escape');
+  await editorFontInput.click();
+  await editorFontInput.press('Control+A');
+  await editorFontInput.pressSequentially('Arial');
+  await page.waitForFunction(() => document.querySelectorAll('#mve-editor-font-family-listbox [role="option"]').length === 1);
+  if (await editorFontOptions.count() !== 1) {
+    throw new Error('font family search did not filter the installed font list');
+  }
+  await editorFontInput.fill('Unsaved Font');
+  await editorFontInput.press('Escape');
+  if (await editorFontInput.inputValue() !== 'Arial') {
+    throw new Error('Escape did not restore the confirmed font family');
+  }
+  const editorFontMessageStart = await page.evaluate(() => window.__mveMessages.length);
+  await editorFontInput.fill('Editor Test Font');
+  const editorMessagesWhileTyping = await page.evaluate((start) => window.__mveMessages.slice(start).filter((message) => message.type === 'setFontFamilies').length, editorFontMessageStart);
+  if (editorMessagesWhileTyping !== 0) throw new Error('editor font input sent host messages while typing');
+  await editorFontInput.blur();
+  await page.waitForFunction(() => window.__mveGlobalSettings.editorFontFamily === 'Editor Test Font');
+  const previewFontMessageStart = await page.evaluate(() => window.__mveMessages.length);
+  await previewFontInput.fill('Preview Test Font');
+  const previewMessagesWhileTyping = await page.evaluate((start) => window.__mveMessages.slice(start).filter((message) => message.type === 'setFontFamilies').length, previewFontMessageStart);
+  if (previewMessagesWhileTyping !== 0) throw new Error('preview font input sent host messages while typing');
+  await previewFontInput.blur();
+  await page.waitForFunction(() => window.__mveGlobalSettings.editorFontFamily === 'Editor Test Font'
+    && window.__mveGlobalSettings.previewFontFamily === 'Preview Test Font');
+  const appliedFontStyles = await page.evaluate(() => ({
+    editor: getComputedStyle(document.documentElement).getPropertyValue('--mve-editor-font-family').trim(),
+    preview: getComputedStyle(document.documentElement).getPropertyValue('--mve-preview-font-family').trim(),
+    editorContent: getComputedStyle(document.querySelector('.cm-content')).fontFamily,
+    previewContent: getComputedStyle(document.querySelector('.rendered-markdown')).fontFamily
+  }));
+  if (!appliedFontStyles.editor.includes('Editor Test Font')
+    || !appliedFontStyles.preview.includes('Preview Test Font')
+    || !appliedFontStyles.editorContent.includes('Editor Test Font')
+    || !appliedFontStyles.previewContent.includes('Preview Test Font')) {
+    throw new Error(`editor and preview font CSS variables were not applied independently: ${JSON.stringify(appliedFontStyles)}`);
+  }
+  await editorFontInput.fill('');
+  await previewFontInput.fill('');
+  await previewFontInput.blur();
+  await page.waitForFunction(() => window.__mveGlobalSettings.editorFontFamily === ''
+    && window.__mveGlobalSettings.previewFontFamily === '');
   const imageDirectoryInput = page.getByRole('textbox', { name: '画像保存先のパスルール', exact: true });
   await imageDirectoryInput.fill('images/${documentBasename}');
   const settingBounds = await page.evaluate(() => {
@@ -171,8 +257,8 @@ try {
   });
   if (!settingBounds
     || settingBounds.groupWidth > 350
-    || settingBounds.inputWidth < 329
-    || settingBounds.inputWidth > 331
+    || settingBounds.inputWidth < 279
+    || settingBounds.inputWidth > 281
     || settingBounds.inputRight > settingBounds.groupRight + 1) {
     throw new Error(`image setting controls overflowed their group: ${JSON.stringify(settingBounds)}`);
   }
@@ -648,7 +734,7 @@ try {
   }
   await page.getByRole('tab', { name: '表示', exact: true }).click();
   const openSourceMessageStart = await page.evaluate(() => window.__mveMessages.length);
-  await page.getByRole('tab', { name: 'テキスト', exact: true }).click();
+  await page.getByRole('button', { name: 'テキストを右側に開く', exact: true }).click();
   await page.waitForFunction((start) => window.__mveMessages.slice(start).some((message) => message.type === 'openSource'), openSourceMessageStart);
   const outline = page.locator('[title="アウトラインの表示/非表示"]');
   await outline.click();
@@ -723,6 +809,7 @@ try {
     data: { type: 'init', text, version, uri: 'file:///C:/third-document.md', settings: window.__mveGlobalSettings }
   })), { text: await page.evaluate(() => window.__mveHostText), version: await page.evaluate(() => window.__mveHostVersion) });
   await page.locator('.outline-panel').waitFor({ state: 'hidden' });
+  await page.waitForTimeout(300);
   await outline.click();
   await page.locator('.outline-panel').waitFor();
   if (await scrollSync.getAttribute('aria-pressed') !== 'false') throw new Error('scroll sync setting did not persist across documents');

@@ -99,6 +99,7 @@ describe('PDF local images', () => {
     expect(html).toContain('.mve-print pre, .mve-print code { font-size: 8pt; }');
     expect(html).toContain('line-height: 1.4');
     expect(html).toContain('.mve-print p { margin-bottom: 10pt; }');
+    expect(html).toContain('font-family: "Test Font", sans-serif, "Noto Sans JP", "Yu Gothic UI", sans-serif;');
   });
 
   it('embeds a relative local image and produces a PDF with it', async () => {

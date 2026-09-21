@@ -3,7 +3,8 @@ import { createHash } from 'node:crypto';
 import path from 'node:path';
 import * as vscode from 'vscode';
 import { marked } from 'marked';
-import type { HtmlExportOptions } from '../shared/protocol';
+import { DEFAULT_PDF_OPTIONS, type HtmlExportOptions } from '../shared/protocol';
+import { fontFamilyForCss } from '../shared/fontFamily';
 import { collectLocalResourceReferences } from '../shared/markdown';
 import { decodeLocalResourceSource } from './resourceCheck';
 
@@ -14,6 +15,7 @@ export interface HtmlExportRequest {
     options: HtmlExportOptions;
     documentUri: vscode.Uri;
     language: string;
+    fontFamily?: string;
 }
 
 export interface HtmlExportResult {
@@ -89,7 +91,7 @@ export async function writePreparedHtml(
             documents,
             request.options
         );
-        const standalone = buildStandaloneHtml(body, request.css, request.language);
+        const standalone = buildStandaloneHtml(body, request.css, request.language, request.fontFamily);
         await fs.mkdir(path.dirname(document.outputPath), { recursive: true });
         await fs.writeFile(document.outputPath, standalone, 'utf8');
         return vscode.Uri.file(document.outputPath);
@@ -157,9 +159,10 @@ function renderLinkedMarkdown(markdown: string): string {
     return String(marked.parse(markdown, { gfm: true, renderer }));
 }
 
-function buildStandaloneHtml(body: string, css: string, language: string): string {
+function buildStandaloneHtml(body: string, css: string, language: string, fontFamily?: string): string {
     const safeCss = css.replace(/<\/style/gi, '<\\/style');
-    return `<!doctype html><html lang="${escapeAttribute(language)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${safeCss}\n${HTML_CSS}</style></head><body><main class="mve-html">${body}</main></body></html>`;
+    const safeFontFamily = fontFamilyForCss(fontFamily, DEFAULT_PDF_OPTIONS.fontFamily);
+    return `<!doctype html><html lang="${escapeAttribute(language)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${safeCss}\n${HTML_CSS(safeFontFamily)}</style></head><body><main class="mve-html">${body}</main></body></html>`;
 }
 
 async function rewriteBody(
@@ -346,9 +349,9 @@ function mimeFromPath(filePath: string): string {
     } as Record<string, string>)[extension] ?? 'image/png';
 }
 
-const HTML_CSS = `
+const HTML_CSS = (fontFamily: string): string => `
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-  body { margin: 0; font-family: "Noto Sans JP", "Yu Gothic UI", sans-serif; color: #202124; background: #fff; }
+  body { margin: 0; font-family: ${fontFamily}; color: #202124; background: #fff; }
   .mve-html { max-width: 100%; margin: 0 auto; padding: 24px; box-sizing: border-box; }
   img { max-width: 100%; height: auto; }
   table { width: 100%; border-collapse: collapse; }

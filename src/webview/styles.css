@@ -288,6 +288,49 @@ button:disabled {
     outline-offset: -1px;
 }
 
+.ribbon-setting-form .mve-font-combobox {
+    width: 280px;
+}
+
+.ribbon-setting-form .mve-font-combobox input {
+    box-sizing: border-box;
+    width: 100%;
+}
+
+.mve-font-combobox-list {
+    position: fixed;
+    z-index: 1000;
+    max-height: 280px;
+    overflow-y: auto;
+    box-sizing: border-box;
+    border: 1px solid var(--vscode-focusBorder, var(--mve-border));
+    color: var(--vscode-list-activeSelectionForeground, var(--vscode-input-foreground));
+    background: var(--vscode-dropdown-background, var(--vscode-input-background));
+    box-shadow: 0 3px 8px rgba(0, 0, 0, .35);
+}
+
+.mve-font-combobox-option {
+    display: block;
+    width: 100%;
+    min-height: 26px;
+    box-sizing: border-box;
+    padding: 4px 8px;
+    border: 0;
+    color: var(--vscode-dropdown-foreground, var(--vscode-input-foreground));
+    background: transparent;
+    font: inherit;
+    line-height: 1.35;
+    text-align: left;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.mve-font-combobox-option:hover,
+.mve-font-combobox-option[data-active="true"] {
+    color: var(--vscode-list-activeSelectionForeground, var(--vscode-input-foreground));
+    background: var(--vscode-list-activeSelectionBackground, var(--vscode-selection-background));
+}
+
 .ribbon-setting-hint {
     max-width: 300px;
     padding: 2px;
@@ -584,6 +627,7 @@ body.mve-dragging-outline .outline-panel nav button {
 /* テキストとプレビューの分割表示を整える。 */
 .split-source-pane .source-editor {
     height: 100%;
+    font-family: var(--mve-editor-font-family, var(--vscode-editor-font-family, monospace));
 }
 
 /* テキストとプレビューの分割表示を整える。 */
@@ -669,6 +713,7 @@ body.mve-dragging-outline .outline-panel nav button {
 .rendered-markdown {
     line-height: 1.72;
     overflow-wrap: anywhere;
+    font-family: var(--mve-preview-font-family, var(--vscode-font-family, "Segoe UI", sans-serif));
 }
 
 /* Markdownプレビューの本文・見出し・要素を整える。 */
@@ -776,7 +821,7 @@ body.mve-dragging-outline .outline-panel nav button {
     padding: 1px 4px;
     border-radius: 3px;
     background: var(--vscode-textCodeBlock-background);
-    font-family: var(--vscode-editor-font-family, monospace);
+    font-family: var(--mve-preview-font-family, var(--vscode-editor-font-family, monospace));
 }
 
 /* Markdownプレビューの本文・見出し・要素を整える。 */

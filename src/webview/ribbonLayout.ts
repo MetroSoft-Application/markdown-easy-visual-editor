@@ -152,6 +152,10 @@ export const RIBBON_LAYOUT: RibbonLayoutDefinition = {
           id: "images",
           itemIds: ["imageDirectory"],
         },
+        {
+          id: "fonts",
+          itemIds: ["fontSettings"],
+        },
       ],
     },
     {

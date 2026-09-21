@@ -1,4 +1,5 @@
 import type { Diagnostic } from './markdown';
+import { DEFAULT_FONT_FAMILY_STACK, type FontFamilySettings } from './fontFamily';
 import type { SupportedLanguage } from './messages';
 
 export type EditorMode = 'split' | 'preview';
@@ -63,7 +64,7 @@ export const DEFAULT_PDF_OPTIONS: NormalizedPdfOptions = {
     margins: { top: 15, right: 15, bottom: 15, left: 15 },
     header: '',
     footer: '{page}/{pages}',
-    fontFamily: '"Noto Sans JP", "Yu Gothic UI", sans-serif',
+    fontFamily: DEFAULT_FONT_FAMILY_STACK,
     bodyFontSize: 11,
     headingFontSizes: { h1: 24, h2: 20, h3: 16, h4: 14, h5: 12, h6: 11 },
     codeFontSize: 9,
@@ -136,7 +137,7 @@ export const DEFAULT_HTML_EXPORT_OPTIONS: HtmlExportOptions = {
     saveWithoutDialog: true
 };
 
-export interface WebviewSettings {
+export interface WebviewSettings extends FontFamilySettings {
     language: SupportedLanguage;
     imageDirectory: string;
     maxPasteSizeMb: number;
@@ -202,6 +203,7 @@ export type HostToWebviewMessage =
         reason: string;
     }
     | { type: 'settingsChanged'; settings: WebviewSettings }
+    | { type: 'installedFonts'; fonts: string[]; available: boolean }
     | { type: 'imagesSaved'; requestId: string; paths: string[] }
     | { type: 'localResourcesChecked'; requestId: string; diagnostics: Diagnostic[] }
     | { type: 'operationFailed'; requestId?: string; message: string }
@@ -240,8 +242,10 @@ export type WebviewToHostMessage =
     | { type: 'saveImages'; requestId: string; images: ImagePayload[]; imageDirectory: string }
     | { type: 'pickImage'; requestId: string; imageDirectory: string }
     | { type: 'checkLocalResources'; requestId: string; markdown: string }
+    | { type: 'requestInstalledFonts' }
     | { type: 'setEditorTheme'; theme: EditorTheme }
     | { type: 'setImageDirectory'; directory: string }
+    | { type: 'setFontFamilies'; editorFontFamily: string; previewFontFamily: string }
     | { type: 'setViewMode'; viewMode: ViewMode }
     | { type: 'setOutlineVisible'; visible: boolean }
     | { type: 'setScrollSyncEnabled'; enabled: boolean }

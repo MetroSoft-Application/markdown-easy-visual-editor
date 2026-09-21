@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type { EditorMode, HtmlExportOptions } from "../shared/protocol";
 import type { Messages } from "../shared/messages";
 import { mveDebug } from "./debug";
@@ -53,6 +53,12 @@ interface Props {
   splitView: "both" | "text" | "preview";
   htmlOptions: HtmlExportOptions;
   imageDirectory: string;
+  editorFontFamily: string;
+  previewFontFamily: string;
+  installedFonts: readonly string[];
+  fontListAvailable: boolean;
+  fontListLoading: boolean;
+  onRequestInstalledFonts: () => void;
   onHtmlOptionsChange: (options: HtmlExportOptions) => void;
   onCommand: (command: RibbonCommand) => void;
 }
@@ -67,6 +73,12 @@ export function Ribbon({
   splitView,
   htmlOptions,
   imageDirectory,
+  editorFontFamily,
+  previewFontFamily,
+  installedFonts,
+  fontListAvailable,
+  fontListLoading,
+  onRequestInstalledFonts,
   onHtmlOptionsChange,
   onCommand,
 }: Props): React.JSX.Element {
@@ -81,6 +93,11 @@ export function Ribbon({
     useState<TextColorChoice>("default");
   const [imageDirectoryDraft, setImageDirectoryDraft] =
     useState(imageDirectory);
+  const [editorFontFamilyDraft, setEditorFontFamilyDraft] =
+    useState(editorFontFamily);
+  const [previewFontFamilyDraft, setPreviewFontFamilyDraft] =
+    useState(previewFontFamily);
+  const fontListRequestedRef = useRef(false);
   const [imageResizeControlsVisible, setImageResizeControlsVisible] = useState(
     getPreviewImageResizeControlsVisible,
   );
@@ -103,6 +120,11 @@ export function Ribbon({
     imageResizeControlsVisible,
     htmlOptions,
     imageDirectory,
+    editorFontFamily,
+    previewFontFamily,
+    installedFonts,
+    fontListAvailable,
+    fontListLoading,
     onHtmlOptionsChange,
     onCommand,
     tableRows,
@@ -119,6 +141,10 @@ export function Ribbon({
     setTextColorChoice,
     imageDirectoryDraft,
     setImageDirectoryDraft,
+    editorFontFamilyDraft,
+    setEditorFontFamilyDraft,
+    previewFontFamilyDraft,
+    setPreviewFontFamilyDraft,
   };
 
   useEffect(
@@ -128,6 +154,13 @@ export function Ribbon({
   );
 
   useEffect(() => setImageDirectoryDraft(imageDirectory), [imageDirectory]);
+  useEffect(() => setEditorFontFamilyDraft(editorFontFamily), [editorFontFamily]);
+  useEffect(() => setPreviewFontFamilyDraft(previewFontFamily), [previewFontFamily]);
+  useEffect(() => {
+    if (tab !== "settings" || fontListRequestedRef.current) return;
+    fontListRequestedRef.current = true;
+    onRequestInstalledFonts();
+  }, [onRequestInstalledFonts, tab]);
 
   function renderButton(
     id: string,

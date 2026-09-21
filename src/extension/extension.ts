@@ -11,6 +11,12 @@ import {
     type WebviewSettings,
     type WebviewToHostMessage
 } from '../shared/protocol';
+import {
+    DEFAULT_FONT_FAMILY_SETTINGS,
+    normalizeFontFamily,
+    normalizeFontFamilySettings,
+    type FontFamilySettings
+} from '../shared/fontFamily';
 import { resolveImageDirectoryRule } from '../shared/imageDirectory';
 import { collectLocalResourceReferences, sortDiagnostics, type Diagnostic } from '../shared/markdown';
 import { applyTextChanges, computeTextChanges, mapTextChanges, validateTextChanges, type TextChange } from '../shared/textChanges';
@@ -34,6 +40,7 @@ import {
 } from './html';
 import { decodeLocalResourceSource, isMissingResourceError } from './resourceCheck';
 import { classifyResourceLink } from './resourceLink';
+import { InstalledFontCatalog } from './installedFonts';
 
 const VIEW_TYPE = 'markdownEasyVisualEditor.editor';
 const VIEW_MODE_STATE_KEY = 'markdownEasyVisualEditor.viewMode';
@@ -42,6 +49,7 @@ const SCROLL_SYNC_STATE_KEY = 'markdownEasyVisualEditor.scrollSyncEnabled';
 const PREVIEW_IMAGE_RESIZE_CONTROLS_STATE_KEY = 'markdownEasyVisualEditor.previewImageResizeControlsVisible';
 /** 文書やWebviewに依存せず、PDF印刷設定を全Markdown文書で共有するglobalStateのキー。 */
 const PDF_OPTIONS_STATE_KEY = 'markdownEasyVisualEditor.pdfOptions';
+const FONT_FAMILY_STATE_KEY = 'markdownEasyVisualEditor.fontFamilies';
 
 /** JSONをnonce付きインラインscriptへ安全に埋め込める文字列へ変換する。 */
 function serializeInlineJson(value: unknown): string {
@@ -162,6 +170,8 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
     private readonly panelInitialized = new WeakSet<vscode.WebviewPanel>();
     private readonly panelStartupTimings = new WeakMap<vscode.WebviewPanel, StartupTiming>();
     private readonly startupTimings = new Map<string, StartupTiming>();
+    private readonly installedFontCatalog = new InstalledFontCatalog();
+    private readonly legacyFontMigration: Promise<void>;
     private activePanel?: vscode.WebviewPanel;
     private activeDocument?: vscode.TextDocument;
 
@@ -181,6 +191,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
             }),
             vscode.workspace.onDidGrantWorkspaceTrust(() => this.broadcastSettings())
         );
+        this.legacyFontMigration = this.migrateLegacyFontFamily().catch(() => undefined);
     }
 
     /**
@@ -193,6 +204,8 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
         document: vscode.TextDocument,
         webviewPanel: vscode.WebviewPanel
     ): Promise<void> {
+        // 旧PDFフォント設定の移行完了後に初期設定を送信し、新設定との競合を防ぐ。
+        await this.legacyFontMigration;
         // 文書とWebviewパネルを登録し、HTML・メッセージ受信・破棄時の後処理を設定する。
         const key = document.uri.toString();
         if (this.startupBenchmarkEnabled) {
@@ -471,6 +484,15 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
                     this.post(panel, { type: 'localResourcesChecked', requestId: message.requestId, diagnostics });
                     return;
                 }
+                case 'requestInstalledFonts': {
+                    const fonts = await this.installedFontCatalog.getFonts();
+                    this.post(panel, {
+                        type: 'installedFonts',
+                        fonts: [...fonts],
+                        available: fonts.length > 0
+                    });
+                    return;
+                }
                 case 'renderMermaid': {
                     this.markStartup(panel, 'firstMermaidRequestedMs');
                     const previous = this.mermaidRenderControllers.get(message.requestId);
@@ -537,6 +559,22 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
                     this.broadcastSettings();
                     return;
                 }
+                case 'setFontFamilies': {
+                    const fontSettings: FontFamilySettings = {
+                        editorFontFamily: normalizeFontFamily(message.editorFontFamily),
+                        previewFontFamily: normalizeFontFamily(message.previewFontFamily)
+                    };
+                    await this.context.globalState.update(FONT_FAMILY_STATE_KEY, fontSettings);
+                    const pdfOptions = normalizePdfOptions(
+                        this.context.globalState.get<unknown>(PDF_OPTIONS_STATE_KEY, DEFAULT_PDF_OPTIONS)
+                    );
+                    await this.context.globalState.update(PDF_OPTIONS_STATE_KEY, {
+                        ...pdfOptions,
+                        fontFamily: fontSettings.previewFontFamily || DEFAULT_PDF_OPTIONS.fontFamily
+                    });
+                    this.broadcastSettings();
+                    return;
+                }
                 case 'setViewMode':
                     await this.context.globalState.update(VIEW_MODE_STATE_KEY, message.viewMode);
                     this.broadcastSettings();
@@ -555,10 +593,14 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
                     return;
                 case 'setPdfOptions':
                     // Webviewからの入力値を正規化して保存し、開いている全Webviewへ同じ設定を通知する。
-                    await this.context.globalState.update(
-                        PDF_OPTIONS_STATE_KEY,
-                        normalizePdfOptions(message.options)
-                    );
+                    {
+                        const fontSettings = this.getFontSettings();
+                        const options = normalizePdfOptions(message.options);
+                        await this.context.globalState.update(PDF_OPTIONS_STATE_KEY, {
+                            ...options,
+                            fontFamily: fontSettings.previewFontFamily || DEFAULT_PDF_OPTIONS.fontFamily
+                        });
+                    }
                     this.broadcastSettings();
                     return;
                 case 'openSource':
@@ -637,7 +679,8 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
                                 css: message.css,
                                 options: message.options,
                                 documentUri: document.uri,
-                                language: this.getLanguage()
+                                language: this.getLanguage(),
+                                fontFamily: this.getFontSettings().previewFontFamily || DEFAULT_PDF_OPTIONS.fontFamily
                             };
                             const preparation = await prepareHtmlExport(request);
                             if (!preparation) return undefined;
@@ -1241,6 +1284,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
         // VS Code設定とワークスペース信頼状態をWebview用の設定オブジェクトへまとめる。
         const config = vscode.workspace.getConfiguration('markdownEasyVisualEditor', document?.uri);
         return {
+            ...this.getFontSettings(),
             language: this.getLanguage(),
             imageDirectory: config.get('images.directory', 'assets/${documentBasename}'),
             maxPasteSizeMb: config.get('images.maxPasteSizeMb', 20),
@@ -1264,9 +1308,50 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
      * @returns 全Markdown文書に適用する検証済みPDF印刷設定。
      */
     private getPdfOptions(): NormalizedPdfOptions {
-        return normalizePdfOptions(
+        const options = normalizePdfOptions(
             this.context.globalState.get<unknown>(PDF_OPTIONS_STATE_KEY, DEFAULT_PDF_OPTIONS)
         );
+        const fontSettings = this.getFontSettings();
+        return {
+            ...options,
+            fontFamily: fontSettings.previewFontFamily || DEFAULT_PDF_OPTIONS.fontFamily
+        };
+    }
+
+    /** 新しいフォント設定を優先し、旧PDF設定だけが残る環境では一度だけ移行する。 */
+    private async migrateLegacyFontFamily(): Promise<void> {
+        if (normalizeFontFamilySettings(this.context.globalState.get<unknown>(FONT_FAMILY_STATE_KEY))) return;
+        const legacy = normalizePdfOptions(
+            this.context.globalState.get<unknown>(PDF_OPTIONS_STATE_KEY, DEFAULT_PDF_OPTIONS)
+        );
+        const legacyFontFamily = normalizeFontFamily(legacy.fontFamily);
+        const defaultFontFamily = normalizeFontFamily(DEFAULT_PDF_OPTIONS.fontFamily);
+        if (!legacyFontFamily || legacyFontFamily === defaultFontFamily) return;
+        await this.context.globalState.update(FONT_FAMILY_STATE_KEY, {
+            ...DEFAULT_FONT_FAMILY_SETTINGS,
+            previewFontFamily: legacyFontFamily
+        });
+    }
+
+    /** 永続化されたフォント設定を読み取り、旧PDF設定を移行元として扱う。 */
+    private getFontSettings(): FontFamilySettings {
+        const stored = normalizeFontFamilySettings(
+            this.context.globalState.get<unknown>(FONT_FAMILY_STATE_KEY)
+        );
+        if (stored) return stored;
+
+        const legacy = normalizePdfOptions(
+            this.context.globalState.get<unknown>(PDF_OPTIONS_STATE_KEY, DEFAULT_PDF_OPTIONS)
+        );
+        const legacyFontFamily = normalizeFontFamily(legacy.fontFamily);
+        const defaultFontFamily = normalizeFontFamily(DEFAULT_PDF_OPTIONS.fontFamily);
+        if (legacyFontFamily && legacyFontFamily !== defaultFontFamily) {
+            return {
+                ...DEFAULT_FONT_FAMILY_SETTINGS,
+                previewFontFamily: legacyFontFamily
+            };
+        }
+        return { ...DEFAULT_FONT_FAMILY_SETTINGS };
     }
 
     private markStartup(
