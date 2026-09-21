@@ -8,6 +8,11 @@ import {
   prepareTableEditorApply,
   readTableEditorDraft,
   renderTableEditorDraft,
+  tableEditorCellDisplayOffsetFromStored,
+  tableEditorCellDisplayValue,
+  tableEditorCellStoredOffsetFromDisplay,
+  tableEditorCellStoredValue,
+  deleteTableEditorLineBreakBeforeDisplayOffset,
   insertTableEditorLineBreak
 } from '../src/webview/tableEditorModel';
 
@@ -106,6 +111,51 @@ describe('table editor model', () => {
     expect(insertTableEditorLineBreak('beforeafter', 6, 6)).toEqual({ value: 'before<br>after', caretOffset: 10 });
     expect(insertTableEditorLineBreak('beforeafter', 0, 6)).toEqual({ value: '<br>after', caretOffset: 4 });
     expect(insertTableEditorLineBreak('beforeafter', 6, 6).value).not.toContain('\n');
+  });
+
+  it('maps stored Markdown breaks to visual cell offsets', () => {
+    const stored = 'before<br>after';
+    const display = tableEditorCellDisplayValue(stored);
+    expect(display).toBe('before<br>\nafter');
+    expect(tableEditorCellStoredValue(display)).toBe(stored);
+    expect(tableEditorCellStoredValue('before<br>\n\nafter')).toBe('before<br><br>after');
+    // Deleting only the visible token leaves its display-only newline in the
+    // textarea; that newline must not recreate another stored <br>.
+    expect(tableEditorCellStoredValue('before\nafter', stored)).toBe('beforeafter');
+    expect(tableEditorCellStoredValue('before<br>\nafter', stored)).toBe(stored);
+    expect(tableEditorCellStoredValue('before<br>\n\nafter', stored)).toBe('before<br><br>after');
+    expect(tableEditorCellStoredValue('alpha<br\nbeta', 'alpha<br>beta')).toBe('alphabeta');
+    expect(tableEditorCellStoredValue('alphabr>\nbeta', 'alpha<br>beta')).toBe('alphabeta');
+    expect(tableEditorCellStoredOffsetFromDisplay(stored, 11)).toBe(10);
+    expect(tableEditorCellDisplayOffsetFromStored(stored, 10)).toBe(11);
+
+    expect(deleteTableEditorLineBreakBeforeDisplayOffset(stored, 11)).toEqual({
+      value: 'beforeafter',
+      caretOffset: 6,
+    });
+  });
+
+  it('round-trips multiple visual breaks and preserves the caret boundary', () => {
+    const stored = 'before<br>after<br>end';
+    const display = tableEditorCellDisplayValue(stored);
+    expect(display).toBe('before<br>\nafter<br>\nend');
+    expect(tableEditorCellStoredValue(display)).toBe(stored);
+    expect(tableEditorCellDisplayValue(stored)).toBe(display);
+
+    const generatedBreaks = [...display.matchAll(/<br>\n/g)].map((match) => match.index! + 4);
+    for (let offset = 0; offset <= display.length; offset += 1) {
+      const storedOffset = tableEditorCellStoredOffsetFromDisplay(stored, offset);
+      const roundTrip = tableEditorCellDisplayOffsetFromStored(stored, storedOffset);
+      if (!generatedBreaks.includes(offset)) expect(roundTrip).toBe(offset);
+    }
+
+    const breakBoundary = tableEditorCellStoredOffsetFromDisplay(stored, 6);
+    const edit = insertTableEditorLineBreak(stored, breakBoundary, breakBoundary);
+    expect(edit.value).toBe('before<br><br>after<br>end');
+    expect(tableEditorCellDisplayOffsetFromStored(edit.value, edit.caretOffset)).toBe(11);
+
+    const singleBreakDisplayAfterDelete = display.replace('<br>', '');
+    expect(tableEditorCellStoredValue(singleBreakDisplayAfterDelete, stored)).toBe('beforeafter<br>end');
   });
 
   it('rejects applying a draft after any external document change', () => {

@@ -1344,7 +1344,7 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
           replaceSelection("\\\n");
           return;
         case "cellBreak":
-          replaceSelection("<br>\n");
+          replaceSelection("<br>");
           return;
         case "clearInline":
           edit = clearInlineFormatting(

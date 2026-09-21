@@ -29,6 +29,139 @@ export interface TableEditorLineBreakEdit {
     caretOffset: number;
 }
 
+export interface TableEditorLineBreakDelete {
+    value: string;
+    caretOffset: number;
+}
+
+/** 表編集UIに表示するセル値へ、保存済みMarkdown改行を変換する。 */
+export function tableEditorCellDisplayValue(value: string): string {
+    return value.replace(/<br\s*\/?>/gi, (lineBreak) => `${lineBreak}\n`);
+}
+
+/** 表編集UIの実改行を、Markdown表へ保存する改行タグへ変換する。 */
+export function tableEditorCellStoredValue(value: string, previousStoredValue?: string): string {
+    const valueWithoutDeletedBreakNewline = previousStoredValue === undefined
+        ? value
+        : removeDeletedBreakNewline(value, tableEditorCellDisplayValue(previousStoredValue));
+
+    // Remove only the one display newline generated after each visible <br>.
+    // Any additional newline remains and is stored as another <br>.
+    return valueWithoutDeletedBreakNewline
+        .replace(/<br\s*\/?>\r\n/gi, '<br>')
+        .replace(/<br\s*\/?>\r/gi, '<br>')
+        .replace(/<br\s*\/?>\n/gi, '<br>')
+        .replace(/<br\s*\/?>/gi, '<br>')
+        .replace(/\r\n|\r|\n/g, '<br>');
+}
+
+interface TableEditorDisplayEdit {
+    prefixLength: number;
+    previousEnd: number;
+    nextEnd: number;
+}
+
+function removeDeletedBreakNewline(nextDisplayValue: string, previousDisplayValue: string): string {
+    const edit = findTableEditorDisplayEdit(previousDisplayValue, nextDisplayValue);
+    if (!edit) return nextDisplayValue;
+
+    if (nextDisplayValue.length >= previousDisplayValue.length) return nextDisplayValue;
+
+    const deletedBreak = [...previousDisplayValue.matchAll(/<br\s*\/?>/gi)].find((match) => {
+        const start = match.index ?? -1;
+        const end = start + match[0].length;
+        return start < edit.previousEnd && end > edit.prefixLength;
+    });
+    if (!deletedBreak) return nextDisplayValue;
+
+    // Treat a visible <br> as one deletion unit even when Backspace/Delete
+    // removes only one character of the token. The remaining token fragment
+    // and its generated newline must not be normalized into another <br>.
+    const nextTokenStart = Math.min(edit.prefixLength, deletedBreak.index ?? edit.prefixLength);
+    if (previousDisplayValue[deletedBreak.index! + deletedBreak[0].length] !== '\n') {
+        return nextDisplayValue;
+    }
+    const generatedNewline = nextDisplayValue.indexOf('\n', nextTokenStart);
+    if (generatedNewline < 0) return nextDisplayValue;
+
+    return `${nextDisplayValue.slice(0, nextTokenStart)}${nextDisplayValue.slice(generatedNewline + 1)}`;
+}
+
+function findTableEditorDisplayEdit(previousValue: string, nextValue: string): TableEditorDisplayEdit | undefined {
+    let prefixLength = 0;
+    while (
+        prefixLength < previousValue.length
+        && prefixLength < nextValue.length
+        && previousValue[prefixLength] === nextValue[prefixLength]
+    ) {
+        prefixLength += 1;
+    }
+
+    let previousEnd = previousValue.length;
+    let nextEnd = nextValue.length;
+    while (
+        previousEnd > prefixLength
+        && nextEnd > prefixLength
+        && previousValue[previousEnd - 1] === nextValue[nextEnd - 1]
+    ) {
+        previousEnd -= 1;
+        nextEnd -= 1;
+    }
+
+    if (prefixLength === previousEnd && prefixLength === nextEnd) return undefined;
+    return { prefixLength, previousEnd, nextEnd };
+}
+
+/** 表示上の選択位置を保存値のオフセットへ変換する。 */
+export function tableEditorCellStoredOffsetFromDisplay(value: string, displayOffset: number): number {
+    const displayValue = tableEditorCellDisplayValue(value);
+    const target = clampOffset(displayOffset, displayValue.length);
+    let storedOffset = 0;
+    let displayCursor = 0;
+    while (storedOffset < value.length) {
+        const lineBreak = /^<br\s*\/?>/i.exec(value.slice(storedOffset));
+        if (lineBreak) {
+            const tokenLength = lineBreak[0].length;
+            if (target <= displayCursor) return storedOffset;
+            const tokenEnd = displayCursor + tokenLength;
+            if (target <= tokenEnd) {
+                return storedOffset + target - displayCursor;
+            }
+            storedOffset += tokenLength;
+            displayCursor = tokenEnd;
+            if (target <= displayCursor + 1) return storedOffset;
+            displayCursor += 1;
+            continue;
+        }
+        if (target <= displayCursor) return storedOffset;
+        storedOffset += 1;
+        displayCursor += 1;
+    }
+    return value.length;
+}
+
+/** 保存値のオフセットを表示上の選択位置へ変換する。 */
+export function tableEditorCellDisplayOffsetFromStored(value: string, storedOffset: number): number {
+    const target = clampOffset(storedOffset, value.length);
+    let currentStoredOffset = 0;
+    let displayOffset = 0;
+    while (currentStoredOffset < target) {
+        const lineBreak = /^<br\s*\/?>/i.exec(value.slice(currentStoredOffset));
+        if (lineBreak) {
+            const tokenLength = lineBreak[0].length;
+            if (target < currentStoredOffset + tokenLength) {
+                return displayOffset + target - currentStoredOffset;
+            }
+            currentStoredOffset += tokenLength;
+            displayOffset += tokenLength + 1;
+        } else {
+            currentStoredOffset += 1;
+            displayOffset += 1;
+        }
+    }
+    return displayOffset;
+}
+
 /** セル内の選択範囲へMarkdown表で使う改行タグを挿入する。 */
 export function insertTableEditorLineBreak(value: string, selectionStart = value.length, selectionEnd = selectionStart): TableEditorLineBreakEdit {
     const from = Math.max(0, Math.min(selectionStart, value.length));
@@ -38,6 +171,40 @@ export function insertTableEditorLineBreak(value: string, selectionStart = value
         value: `${value.slice(0, from)}${inserted}${value.slice(to)}`,
         caretOffset: from + inserted.length
     };
+}
+
+/** 次の表示行の先頭からBackspaceしたときに直前のMarkdown改行を削除する。 */
+export function deleteTableEditorLineBreakBeforeDisplayOffset(
+    value: string,
+    displayOffset: number,
+): TableEditorLineBreakDelete | undefined {
+    const target = clampOffset(displayOffset, tableEditorCellDisplayValue(value).length);
+    let storedOffset = 0;
+    let displayCursor = 0;
+    while (storedOffset < value.length) {
+        const lineBreak = /^<br\s*\/?>/i.exec(value.slice(storedOffset));
+        if (lineBreak) {
+            const tokenLength = lineBreak[0].length;
+            const generatedNewlineOffset = displayCursor + tokenLength;
+            if (target === generatedNewlineOffset + 1) {
+                return {
+                    value: `${value.slice(0, storedOffset)}${value.slice(storedOffset + tokenLength)}`,
+                    caretOffset: displayCursor,
+                };
+            }
+            storedOffset += tokenLength;
+            displayCursor += tokenLength + 1;
+            continue;
+        }
+        storedOffset += 1;
+        displayCursor += 1;
+    }
+    return undefined;
+}
+
+function clampOffset(value: number, maximum: number): number {
+    if (!Number.isFinite(value)) return maximum;
+    return Math.max(0, Math.min(maximum, Math.trunc(value)));
 }
 
 /** カーソル位置を含むGFM表を、専用エディター用のセルモデルへ変換する。 */

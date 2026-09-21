@@ -33,8 +33,13 @@ import {
 import {
   readTableEditorDraft,
   insertTableEditorLineBreak,
+  deleteTableEditorLineBreakBeforeDisplayOffset,
   prepareTableEditorApply,
   renderTableEditorDraft,
+  tableEditorCellDisplayOffsetFromStored,
+  tableEditorCellDisplayValue,
+  tableEditorCellStoredOffsetFromDisplay,
+  tableEditorCellStoredValue,
   type TableEditorAlignment,
   type TableEditorDraft,
 } from "./tableEditorModel";
@@ -59,6 +64,7 @@ const DEFAULT_EDITOR_WIDTH = 960;
 const DEFAULT_EDITOR_HEIGHT = 680;
 const MIN_ROW_HEIGHT = TABLE_EDITOR_MIN_ROW_HEIGHT;
 const MIN_TEXTAREA_HEIGHT = 34;
+const AUTO_FIT_ROW_VERTICAL_BUFFER = 4;
 let overlayRoot: Root | undefined;
 let overlayHost: HTMLDivElement | undefined;
 
@@ -776,7 +782,7 @@ function TableEditorOverlay({
   }
 
   function updateCell(row: number, column: number, value: string): void {
-    const normalized = value.replace(/\r\n|\r|\n/g, "<br>");
+    const normalized = tableEditorCellStoredValue(value, rows[row]?.[column] ?? '');
     if ((rows[row]?.[column] ?? "") === normalized) return;
     recordHistory();
     setRows((previous) =>
@@ -914,30 +920,85 @@ function TableEditorOverlay({
     setStatus("");
   }
 
-  function insertLineBreak(): void {
-    const value = rows[activeRow]?.[activeColumn] ?? "";
+  function insertLineBreak(
+    row = activeRow,
+    column = activeColumn,
+  ): void {
+    const value = rows[row]?.[column] ?? "";
+    const displayValue = tableEditorCellDisplayValue(value);
     const selection = cellSelectionRef.current.get(
-      cellKey(activeRow, activeColumn),
+      cellKey(row, column),
     );
     const edit = insertTableEditorLineBreak(
       value,
-      selection?.from ?? value.length,
-      selection?.to ?? value.length,
+      tableEditorCellStoredOffsetFromDisplay(
+        value,
+        selection?.from ?? displayValue.length,
+      ),
+      tableEditorCellStoredOffsetFromDisplay(
+        value,
+        selection?.to ?? displayValue.length,
+      ),
     );
     recordHistory();
-    const key = cellKey(activeRow, activeColumn);
+    const key = cellKey(row, column);
     setRows((previous) =>
       previous.map((current, rowIndex) => {
-        if (rowIndex !== activeRow) return current;
+        if (rowIndex !== row) return current;
         const next = Array.from(
           { length: columnCount },
           (_, index) => current[index] ?? "",
         );
-        next[activeColumn] = edit.value;
+        next[column] = edit.value;
         return next;
       }),
     );
-    singleCellSelection(activeRow, activeColumn);
+    setActiveRow(row);
+    setActiveColumn(column);
+    singleCellSelection(row, column);
+    const displayCaretOffset = tableEditorCellDisplayOffsetFromStored(
+      edit.value,
+      edit.caretOffset,
+    );
+    cellSelectionRef.current.set(key, {
+      from: displayCaretOffset,
+      to: displayCaretOffset,
+    });
+    requestAnimationFrame(() => {
+      const element = overlayRef.current?.querySelector<HTMLTextAreaElement>(
+        `[data-table-cell="${key}"]`,
+      );
+      element?.focus();
+      element?.setSelectionRange(displayCaretOffset, displayCaretOffset);
+      autoFitRow(row);
+    });
+  }
+
+  function deleteLineBreakBeforeDisplayOffset(
+    row: number,
+    column: number,
+    displayOffset: number,
+  ): boolean {
+    const value = rows[row]?.[column] ?? "";
+    const edit = deleteTableEditorLineBreakBeforeDisplayOffset(value, displayOffset);
+    if (!edit) return false;
+
+    recordHistory();
+    setRows((previous) =>
+      previous.map((current, rowIndex) => {
+        if (rowIndex !== row) return current;
+        const next = Array.from(
+          { length: columnCount },
+          (_, index) => current[index] ?? "",
+        );
+        next[column] = edit.value;
+        return next;
+      }),
+    );
+    const key = cellKey(row, column);
+    setActiveRow(row);
+    setActiveColumn(column);
+    singleCellSelection(row, column);
     cellSelectionRef.current.set(key, {
       from: edit.caretOffset,
       to: edit.caretOffset,
@@ -948,7 +1009,9 @@ function TableEditorOverlay({
       );
       element?.focus();
       element?.setSelectionRange(edit.caretOffset, edit.caretOffset);
+      autoFitRow(row);
     });
+    return true;
   }
 
   function startColumnResize(
@@ -1084,7 +1147,7 @@ function TableEditorOverlay({
     const heights = cells.map((cell) => {
       const clone = cell.cloneNode(false) as HTMLTextAreaElement;
       const width = Math.max(1, cell.getBoundingClientRect().width);
-      clone.value = cell.value.replace(/<br\s*\/?>/gi, "\n");
+      clone.value = cell.value;
       clone.style.position = "fixed";
       clone.style.left = "-10000px";
       clone.style.top = "0";
@@ -1096,9 +1159,9 @@ function TableEditorOverlay({
       clone.style.visibility = "hidden";
       clone.style.pointerEvents = "none";
       document.body.appendChild(clone);
-      const height = clone.scrollHeight;
+      const height = Math.max(clone.scrollHeight, cell.scrollHeight);
       clone.remove();
-      return height;
+      return height + AUTO_FIT_ROW_VERTICAL_BUFFER;
     });
     const height = calculateAutoFitRowHeight(heights);
     setRowHeights((previous) => {
@@ -1801,8 +1864,9 @@ function TableEditorOverlay({
           </button>
           <button
             type="button"
-            title={messages.ribbon.labels.cellBreak}
-            onClick={insertLineBreak}
+            title={`${messages.ribbon.labels.cellBreak} (Alt+Enter)`}
+            aria-keyshortcuts="Alt+Enter"
+            onClick={() => insertLineBreak()}
             disabled={hasGridRange}
           >
             {messages.ribbon.labels.cellBreak}
@@ -1977,7 +2041,7 @@ function TableEditorOverlay({
                       <textarea
                         rows={1}
                         spellCheck={false}
-                        value={row[columnIndex] ?? ""}
+                        value={tableEditorCellDisplayValue(row[columnIndex] ?? "")}
                         style={rowTextareaStyle(rowHeights[rowIndex])}
                         data-table-cell={`${rowIndex}:${columnIndex}`}
                         onFocus={(event) =>
@@ -2008,7 +2072,28 @@ function TableEditorOverlay({
                         }}
                         onPaste={pasteTsv}
                         onKeyDown={(event) => {
-                          if (event.key === "Tab") {
+                          if (
+                            event.key === "Backspace" &&
+                            !event.altKey &&
+                            !event.ctrlKey &&
+                            !event.metaKey &&
+                            event.currentTarget.selectionStart === event.currentTarget.selectionEnd &&
+                            deleteLineBreakBeforeDisplayOffset(
+                              rowIndex,
+                              columnIndex,
+                              event.currentTarget.selectionStart,
+                            )
+                          ) {
+                            event.preventDefault();
+                          } else if (
+                            event.key === "Enter" &&
+                            event.altKey &&
+                            !event.ctrlKey &&
+                            !event.metaKey
+                          ) {
+                            event.preventDefault();
+                            insertLineBreak(rowIndex, columnIndex);
+                          } else if (event.key === "Tab") {
                             event.preventDefault();
                             moveCell(event.shiftKey ? -1 : 1);
                           } else if (

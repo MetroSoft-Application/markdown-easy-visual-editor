@@ -904,6 +904,7 @@ export function App(): React.JSX.Element {
         Boolean(target?.closest(".app")) || target === document.body;
       const inSourceEditor = Boolean(target?.closest(".cm-content"));
       const inFormControl = Boolean(target?.closest("input, textarea, select"));
+      const inTableEditor = Boolean(target?.closest(".mve-table-editor"));
       if (
         inApp &&
         (inSourceEditor || !inFormControl) &&
@@ -935,7 +936,8 @@ export function App(): React.JSX.Element {
       if (
         event.altKey &&
         event.key === "Enter" &&
-        isEditingEnabled(mode, splitView)
+        isEditingEnabled(mode, splitView) &&
+        !inTableEditor
       ) {
         event.preventDefault();
         getActiveEditor()?.action("cellBreak");

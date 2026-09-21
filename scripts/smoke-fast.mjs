@@ -349,6 +349,15 @@ try {
   await page.getByRole('button', { name: '表を編集', exact: true }).click();
   await page.locator('.mve-table-editor').waitFor();
   if (await page.locator('.mve-table-editor-grid tbody tr').count() !== 2) throw new Error('table editor did not read the table');
+  const tableEditorGuide = await page.locator('.mve-table-editor-status').textContent();
+  if (!tableEditorGuide?.includes('Alt+Enter') || !tableEditorGuide.includes('<br>')) {
+    throw new Error(`table editor Alt+Enter guide is missing: ${JSON.stringify(tableEditorGuide)}`);
+  }
+  const cellBreakButton = page.getByRole('group', { name: 'Excel連携', exact: true })
+    .getByRole('button', { name: 'セル内改行', exact: true });
+  if (!(await cellBreakButton.getAttribute('title'))?.includes('Alt+Enter')) {
+    throw new Error('table editor cell break button does not describe the Alt+Enter shortcut');
+  }
   const tableEditorSize = await page.locator('.mve-table-editor').evaluate((element) => {
     const bounds = element.getBoundingClientRect();
     return { width: bounds.width, height: bounds.height };
@@ -371,6 +380,36 @@ try {
     || await page.getByRole('group', { name: 'Excel連携', exact: true }).getByRole('button', { name: '列コピー', exact: true }).count() !== 0) {
     throw new Error('table editor row/column copy remains in the Excel integration group');
   }
+  const altEnterCell = page.locator('[data-table-cell="1:0"]');
+  await altEnterCell.click();
+  await altEnterCell.press('End');
+  const hostBeforeAltEnter = await page.evaluate(() => window.__mveHostText);
+  const rowHeightBeforeAltEnter = Number(await page.locator('.mve-table-editor-row-resizer').nth(1).getAttribute('aria-valuenow'));
+  await altEnterCell.press('Alt+Enter');
+  await page.waitForFunction(() => {
+    const value = document.querySelector('[data-table-cell="1:0"]')?.value ?? '';
+    return value.includes('<br>') && value.includes('\n');
+  });
+  await page.waitForFunction((before) => Number(document.querySelectorAll('.mve-table-editor-row-resizer')[1]?.getAttribute('aria-valuenow')) > before, rowHeightBeforeAltEnter);
+  const altEnterCellMetrics = await altEnterCell.evaluate((element) => ({
+    value: element.value,
+    scrollHeight: element.scrollHeight,
+    clientHeight: element.clientHeight,
+    rowHeight: element.closest('tr')?.querySelector('.mve-table-editor-row-resizer')?.getAttribute('aria-valuenow'),
+  }));
+  if (altEnterCellMetrics.scrollHeight > altEnterCellMetrics.clientHeight) {
+    throw new Error(`table editor Alt+Enter cell is clipped: ${JSON.stringify(altEnterCellMetrics)}`);
+  }
+  if (await page.evaluate((text) => window.__mveHostText !== text, hostBeforeAltEnter)) throw new Error('table editor Alt+Enter changed the source document before Apply');
+  const rowHeightAfterAltEnter = Number(await page.locator('.mve-table-editor-row-resizer').nth(1).getAttribute('aria-valuenow'));
+  if (rowHeightAfterAltEnter <= rowHeightBeforeAltEnter) throw new Error(`Alt+Enter did not expand the table row: ${rowHeightBeforeAltEnter}->${rowHeightAfterAltEnter}`);
+  await page.getByRole('button', { name: '適用', exact: true }).click();
+  await page.locator('.mve-table-editor').waitFor({ state: 'detached' });
+  await page.waitForFunction(() => window.__mveHostText.includes('| old<br> | old2 |'));
+  await sourceEditor.press('Control+Z');
+  await page.waitForFunction((text) => window.__mveHostText === text, hostBeforeAltEnter);
+  await page.getByRole('button', { name: '表を編集', exact: true }).click();
+  await page.locator('.mve-table-editor').waitFor();
   await page.getByRole('button', { name: '行コピー', exact: true }).click();
   if (await page.locator('.mve-table-editor-grid tbody tr').count() !== 3) throw new Error('table editor row copy did not duplicate the selected row');
   const copiedRowState = await page.locator('.mve-table-editor-grid tbody tr').evaluateAll((tableRows) =>
@@ -430,6 +469,14 @@ try {
   if (rowHeightAfter <= rowHeightBefore) {
     throw new Error(`table editor row auto-fit did not apply: state=${rowHeightBefore}->${rowHeightAfter}`);
   }
+  const autoFitRowMetrics = await autoFitCell.evaluate((element) => ({
+    value: element.value,
+    scrollHeight: element.scrollHeight,
+    clientHeight: element.clientHeight,
+  }));
+  if (autoFitRowMetrics.scrollHeight > autoFitRowMetrics.clientHeight) {
+    throw new Error(`table editor auto-fit row is clipped: ${JSON.stringify(autoFitRowMetrics)}`);
+  }
   page.once('dialog', (dialog) => dialog.accept());
   await page.getByRole('button', { name: 'キャンセル', exact: true }).click();
   await page.locator('.mve-table-editor').waitFor({ state: 'detached' });
@@ -443,8 +490,45 @@ try {
   const editMessageStart = await page.evaluate(() => window.__mveMessages.length);
   await page.getByRole('button', { name: '表を編集', exact: true }).click();
   await page.locator('[data-table-cell="1:0"]').click();
-  await page.locator('[data-table-cell="1:0"]').fill('beforeafter');
-  await page.getByRole('button', { name: 'セル内改行', exact: true }).click();
+  const editableCell = page.locator('[data-table-cell="1:0"]');
+  await editableCell.fill('alpha<br>beta');
+  await editableCell.evaluate((element) => {
+    const start = element.value.indexOf('<br>');
+    element.focus();
+    element.setSelectionRange(start + '<br>'.length, start + '<br>'.length);
+  });
+  await editableCell.press('Backspace');
+  const naturalDeleteValue = await editableCell.inputValue();
+  if (naturalDeleteValue !== 'alphabeta') {
+    throw new Error(`backspace at the visible <br> boundary produced: ${JSON.stringify(naturalDeleteValue)}`);
+  }
+  await editableCell.fill('alpha<br>beta');
+  await editableCell.evaluate((element) => {
+    const start = element.value.indexOf('<br>');
+    element.focus();
+    element.setSelectionRange(start + '<br>'.length + 1, start + '<br>'.length + 1);
+  });
+  await editableCell.press('Backspace');
+  await page.waitForFunction(() => document.querySelector('[data-table-cell="1:0"]')?.value === 'alphabeta');
+  await editableCell.fill('alpha<br>beta');
+  await editableCell.evaluate((element) => {
+    const start = element.value.indexOf('<br>');
+    element.focus();
+    element.setSelectionRange(start, start + '<br>'.length);
+  });
+  await editableCell.press('Backspace');
+  await page.waitForFunction(() => document.querySelector('[data-table-cell="1:0"]')?.value === 'alphabeta');
+  if ((await editableCell.inputValue()).includes('<br><br>')) {
+    throw new Error(`deleting a visible <br> duplicated it: ${await editableCell.inputValue()}`);
+  }
+  await editableCell.fill('beforeafter');
+  await page.getByRole('group', { name: 'Excel連携', exact: true })
+    .getByRole('button', { name: 'セル内改行', exact: true })
+    .click();
+  const toolbarCellBreakValue = await page.locator('[data-table-cell="1:0"]').inputValue();
+  if (!toolbarCellBreakValue.includes('<br>') || !toolbarCellBreakValue.includes('\n')) {
+    throw new Error(`table editor cell break did not render a newline: ${JSON.stringify(toolbarCellBreakValue)}`);
+  }
   await page.getByRole('button', { name: '適用', exact: true }).click();
   try {
     await page.waitForFunction(() => window.__mveHostText.includes('| beforeafter<br> | old2 |'));
