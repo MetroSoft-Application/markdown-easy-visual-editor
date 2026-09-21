@@ -11,6 +11,8 @@ import {
 import { getMessages, type Messages } from "../shared/messages";
 import {
   clearTableGridRange,
+  duplicateTableGridColumns,
+  duplicateTableGridRows,
   moveTableGridColumn,
   moveTableGridItem,
   moveTableGridRow,
@@ -18,6 +20,7 @@ import {
   tableGridColumnLabel,
   tableGridRangeCellCount,
   tableGridRangeContains,
+  type NormalizedTableGridRange,
   type TableGridRange,
 } from "../shared/tableGrid";
 import {
@@ -600,6 +603,13 @@ function TableEditorOverlay({
       ),
       activeRow,
       activeColumn,
+      rowHeights: rowHeights.slice(),
+      columnWidths: Array.from(
+        { length: columnCount },
+        (_, index) => columnWidths[index] ?? DEFAULT_COLUMN_WIDTH,
+      ),
+      gridSelection: { ...gridSelection },
+      selectionKind,
     };
   }
 
@@ -629,16 +639,54 @@ function TableEditorOverlay({
   }
 
   function restoreHistorySnapshot(snapshot: TableEditorHistorySnapshot): void {
-    replaceDraft(
-      {
-        ...initial,
-        rows: snapshot.rows,
-        alignments: snapshot.alignments,
-        activeRow: snapshot.activeRow,
-        activeColumn: snapshot.activeColumn,
-      },
-      false,
+    const nextRows = snapshot.rows.map((row) => row.slice());
+    const nextColumns = Math.max(
+      1,
+      snapshot.alignments.length,
+      ...nextRows.map((row) => row.length),
     );
+    const safeActiveRow = Math.max(
+      0,
+      Math.min(nextRows.length - 1, snapshot.activeRow),
+    );
+    const safeActiveColumn = Math.max(
+      0,
+      Math.min(nextColumns - 1, snapshot.activeColumn),
+    );
+    const clampRow = (row: number): number =>
+      Math.max(0, Math.min(nextRows.length - 1, row));
+    const clampColumn = (column: number): number =>
+      Math.max(0, Math.min(nextColumns - 1, column));
+    setRows(nextRows);
+    setAlignments(
+      Array.from(
+        { length: nextColumns },
+        (_, index) => snapshot.alignments[index] ?? "none",
+      ),
+    );
+    setColumnWidths(
+      Array.from(
+        { length: nextColumns },
+        (_, index) => snapshot.columnWidths[index] ?? DEFAULT_COLUMN_WIDTH,
+      ),
+    );
+    setRowHeights(
+      Array.from(
+        { length: nextRows.length },
+        (_, index) => snapshot.rowHeights[index],
+      ),
+    );
+    setActiveRow(safeActiveRow);
+    setActiveColumn(safeActiveColumn);
+    setGridSelection({
+      anchorRow: clampRow(snapshot.gridSelection.anchorRow),
+      anchorColumn: clampColumn(snapshot.gridSelection.anchorColumn),
+      focusRow: clampRow(snapshot.gridSelection.focusRow),
+      focusColumn: clampColumn(snapshot.gridSelection.focusColumn),
+    });
+    setSelectionKind(snapshot.selectionKind);
+    cellSelectionRef.current.clear();
+    setStatus("");
   }
 
   function singleCellSelection(row: number, column: number): void {
@@ -1294,6 +1342,81 @@ function TableEditorOverlay({
     setStatus("");
   }
 
+  function duplicateSelectedRows(): void {
+    const fromRow = normalizedSelection.fromRow;
+    const toRow = normalizedSelection.toRow;
+    if (fromRow === 0) return;
+    const copyCount = toRow - fromRow + 1;
+    if (rows.length + copyCount > MAX_ROWS) {
+      setStatus(messages.app.tableEditor.rowColumnLimit(MAX_ROWS, MAX_COLUMNS));
+      return;
+    }
+    recordHistory();
+    const nextRows = duplicateTableGridRows(rows, fromRow, toRow);
+    const sourceHeights = rowHeights.slice(fromRow, toRow + 1);
+    const insertAt = Math.max(1, toRow + 1);
+    const nextHeights = rowHeights.slice();
+    nextHeights.splice(insertAt, 0, ...sourceHeights);
+    const selectedColumn = Math.min(activeColumn, columnCount - 1);
+    setRows(nextRows);
+    setRowHeights(
+      Array.from({ length: nextRows.length }, (_, index) => nextHeights[index]),
+    );
+    setActiveRow(insertAt);
+    setActiveColumn(selectedColumn);
+    setGridSelection({
+      anchorRow: insertAt,
+      focusRow: insertAt + copyCount - 1,
+      anchorColumn: 0,
+      focusColumn: columnCount - 1,
+    });
+    setSelectionKind("row");
+    cellSelectionRef.current.clear();
+    setStatus("");
+  }
+
+  function duplicateSelectedColumns(): void {
+    const fromColumn = normalizedSelection.fromColumn;
+    const toColumn = normalizedSelection.toColumn;
+    const copyCount = toColumn - fromColumn + 1;
+    if (columnCount + copyCount > MAX_COLUMNS) {
+      setStatus(messages.app.tableEditor.rowColumnLimit(MAX_ROWS, MAX_COLUMNS));
+      return;
+    }
+    recordHistory();
+    const duplicated = duplicateTableGridColumns(
+      rows,
+      alignments,
+      fromColumn,
+      toColumn,
+    );
+    const insertAt = toColumn + 1;
+    const nextWidths = Array.from(
+      { length: columnCount },
+      (_, index) => columnWidths[index] ?? DEFAULT_COLUMN_WIDTH,
+    );
+    nextWidths.splice(
+      insertAt,
+      0,
+      ...nextWidths.slice(fromColumn, toColumn + 1),
+    );
+    const selectedRow = Math.min(activeRow, rows.length - 1);
+    setRows(duplicated.rows);
+    setAlignments(duplicated.alignments as TableEditorAlignment[]);
+    setColumnWidths(nextWidths);
+    setActiveRow(selectedRow);
+    setActiveColumn(insertAt);
+    setGridSelection({
+      anchorRow: 0,
+      focusRow: rows.length - 1,
+      anchorColumn: insertAt,
+      focusColumn: insertAt + copyCount - 1,
+    });
+    setSelectionKind("column");
+    cellSelectionRef.current.clear();
+    setStatus("");
+  }
+
   function startRowDrag(event: React.DragEvent<HTMLElement>, row: number): void {
     if (row <= 0) return;
     selectRow(row);
@@ -1414,18 +1537,13 @@ function TableEditorOverlay({
     replaceDraft(next);
   }
 
-  function selectedTsv(): string {
+  function tsvForRange(range: NormalizedTableGridRange): string {
     const selectedRows = rows
-      .slice(normalizedSelection.fromRow, normalizedSelection.toRow + 1)
-      .map((row) =>
-        row.slice(
-          normalizedSelection.fromColumn,
-          normalizedSelection.toColumn + 1,
-        ),
-      );
+      .slice(range.fromRow, range.toRow + 1)
+      .map((row) => row.slice(range.fromColumn, range.toColumn + 1));
     const selectedAlignments = alignments.slice(
-      normalizedSelection.fromColumn,
-      normalizedSelection.toColumn + 1,
+      range.fromColumn,
+      range.toColumn + 1,
     );
     const rendered = renderTableEditorDraft({
       ...initial,
@@ -1440,6 +1558,10 @@ function TableEditorOverlay({
         to: rendered.caretOffset,
       }) ?? ""
     );
+  }
+
+  function selectedTsv(): string {
+    return tsvForRange(normalizedSelection);
   }
 
   /** TSVコピーは単一セル選択時の従来動作を保ち、範囲選択時だけ選択範囲をコピーする。 */
@@ -1607,6 +1729,20 @@ function TableEditorOverlay({
           >
             {messages.app.tableEditor.deleteRow}
           </button>
+          <button
+            type="button"
+            onClick={duplicateSelectedRows}
+            disabled={
+              normalizedSelection.fromRow === 0 ||
+              rows.length +
+                normalizedSelection.toRow -
+                normalizedSelection.fromRow +
+                1 >
+              MAX_ROWS
+            }
+          >
+            {messages.app.tableEditor.copyRow}
+          </button>
         </ToolbarGroup>
         <ToolbarGroup label={messages.ribbon.groups.columns}>
           <button
@@ -1622,6 +1758,19 @@ function TableEditorOverlay({
             disabled={columnCount <= 1}
           >
             {messages.app.tableEditor.deleteColumn}
+          </button>
+          <button
+            type="button"
+            onClick={duplicateSelectedColumns}
+            disabled={
+              columnCount +
+                normalizedSelection.toColumn -
+                normalizedSelection.fromColumn +
+                1 >
+              MAX_COLUMNS
+            }
+          >
+            {messages.app.tableEditor.copyColumn}
           </button>
         </ToolbarGroup>
         <ToolbarGroup label={messages.ribbon.groups.alignment}>

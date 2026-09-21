@@ -10,14 +10,18 @@ import DOMPurify from "dompurify";
 import TurndownService from "turndown";
 import { gfm as turndownGfm } from "turndown-plugin-gfm";
 import {
+  DEFAULT_HTML_EXPORT_SETTINGS,
   DEFAULT_HTML_EXPORT_OPTIONS,
   DEFAULT_PDF_OPTIONS,
   PDF_PAPER_FORMATS,
+  mergeHtmlExportOptions,
+  normalizeHtmlExportSettings,
   normalizePdfOptions,
 } from "../shared/protocol";
 import type {
   EditorMode,
   HostToWebviewMessage,
+  HtmlExportSettings,
   HtmlExportOptions,
   ImagePayload,
   NormalizedPdfOptions,
@@ -154,6 +158,7 @@ const DEFAULT_SETTINGS: WebviewSettings = {
   outlineVisible: true,
   scrollSyncEnabled: true,
   pdfOptions: DEFAULT_PDF_OPTIONS,
+  htmlOptions: DEFAULT_HTML_EXPORT_SETTINGS,
   workspaceTrusted: false,
 };
 const PREVIEW_UPDATE_DELAY_MS = 120;
@@ -333,7 +338,18 @@ export function App(): React.JSX.Element {
   const pdfOptionsRef = useRef(pdfOptions);
   /** PDF設定の保存通知を連続入力中に集約するタイマー。 */
   const pdfOptionsPersistTimerRef = useRef<number | undefined>(undefined);
-  const [htmlOptions, setHtmlOptions] = useState(DEFAULT_HTML_EXPORT_OPTIONS);
+  const [htmlOptions, setHtmlOptions] = useState<HtmlExportOptions>(() => ({
+    ...mergeHtmlExportOptions(
+      DEFAULT_HTML_EXPORT_OPTIONS,
+      bootstrap?.settings.htmlOptions ?? DEFAULT_HTML_EXPORT_SETTINGS,
+    ),
+  }));
+  /** HTML出力のグローバル設定を保存するまで、他の設定通知で古い値へ戻さないためのミラー。 */
+  const htmlOptionsRef = useRef(htmlOptions);
+  const pendingHtmlOptionsRef = useRef<HtmlExportSettings | undefined>(
+    undefined,
+  );
+  htmlOptionsRef.current = htmlOptions;
   const [pdfPreview, setPdfPreview] = useState<PdfPreviewState>({
     requestId: "",
     loading: false,
@@ -2974,6 +2990,24 @@ export function App(): React.JSX.Element {
     const nextPdfOptions = normalizePdfOptions(
       nextSettings.pdfOptions ?? DEFAULT_PDF_OPTIONS,
     );
+    const nextHtmlSettings = normalizeHtmlExportSettings(nextSettings.htmlOptions);
+    const pendingHtmlSettings = pendingHtmlOptionsRef.current;
+    const effectiveHtmlSettings = pendingHtmlSettings ?? nextHtmlSettings;
+    if (
+      pendingHtmlSettings &&
+      pendingHtmlSettings.embedImages === nextHtmlSettings.embedImages &&
+      pendingHtmlSettings.convertLinkedMarkdown ===
+        nextHtmlSettings.convertLinkedMarkdown &&
+      pendingHtmlSettings.saveWithoutDialog === nextHtmlSettings.saveWithoutDialog
+    ) {
+      pendingHtmlOptionsRef.current = undefined;
+    }
+    const effectiveHtmlOptions = mergeHtmlExportOptions(
+      htmlOptionsRef.current,
+      effectiveHtmlSettings,
+    );
+    htmlOptionsRef.current = effectiveHtmlOptions;
+    setHtmlOptions(effectiveHtmlOptions);
     // 自分の入力を保存するまでの間に届いた古いsettingsChangedで、画面の最新値を戻さない。
     const hasPendingPdfOptions = pdfOptionsPersistTimerRef.current !== undefined;
     const effectivePdfOptions = hasPendingPdfOptions
@@ -2983,7 +3017,31 @@ export function App(): React.JSX.Element {
       pdfOptionsRef.current = nextPdfOptions;
       setPdfOptions(nextPdfOptions);
     }
-    setSettings({ ...nextSettings, pdfOptions: effectivePdfOptions });
+    setSettings({
+      ...nextSettings,
+      htmlOptions: effectiveHtmlSettings,
+      pdfOptions: effectivePdfOptions,
+    });
+  }
+
+  /** HTML出力のグローバル設定を即時反映し、Extension Hostへ保存を依頼する。 */
+  function handleHtmlOptionsChange(nextOptions: HtmlExportOptions): void {
+    const nextSettings = normalizeHtmlExportSettings(nextOptions);
+    const currentSettings = normalizeHtmlExportSettings(htmlOptionsRef.current);
+    const nextHtmlOptions = mergeHtmlExportOptions(
+      htmlOptionsRef.current,
+      nextOptions,
+    );
+    htmlOptionsRef.current = nextHtmlOptions;
+    setHtmlOptions(nextHtmlOptions);
+    if (
+      currentSettings.embedImages !== nextSettings.embedImages ||
+      currentSettings.convertLinkedMarkdown !== nextSettings.convertLinkedMarkdown ||
+      currentSettings.saveWithoutDialog !== nextSettings.saveWithoutDialog
+    ) {
+      pendingHtmlOptionsRef.current = nextSettings;
+      vscode.postMessage({ type: "setHtmlOptions", options: nextSettings });
+    }
   }
 
   /** ソース表示を復元し、本文アンカーで表現できない先頭・末尾では境界比率を優先する。 */
@@ -3483,7 +3541,7 @@ export function App(): React.JSX.Element {
         imageDirectory={settings.imageDirectory}
         editorFontFamily={settings.editorFontFamily}
         previewFontFamily={settings.previewFontFamily}
-        onHtmlOptionsChange={setHtmlOptions}
+        onHtmlOptionsChange={handleHtmlOptionsChange}
         onCommand={handleRibbon}
       />
       <div className="workspace">

@@ -230,6 +230,8 @@ export interface Messages {
             alignRight: string;
             clearAlignment: string;
             copyTsv: string;
+            copyColumn: string;
+            copyRow: string;
             cancel: string;
             apply: string;
             navigationHint: string;
@@ -472,6 +474,8 @@ function createMessages(language: SupportedLanguage): Messages {
                 alignRight: raw.app.tableEditor.alignRight,
                 clearAlignment: raw.app.tableEditor.clearAlignment,
                 copyTsv: raw.app.tableEditor.copyTsv,
+                copyColumn: raw.app.tableEditor.copyColumn,
+                copyRow: raw.app.tableEditor.copyRow,
                 cancel: raw.app.tableEditor.cancel,
                 apply: raw.app.tableEditor.apply,
                 navigationHint: raw.app.tableEditor.navigationHint,

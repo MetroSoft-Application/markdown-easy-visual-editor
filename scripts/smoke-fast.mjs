@@ -356,6 +356,45 @@ try {
   if (tableEditorSize.width < 900 || tableEditorSize.height < 620) {
     throw new Error(`table editor default size was not expanded: ${JSON.stringify(tableEditorSize)}`);
   }
+  for (const label of ['列コピー', '行コピー']) {
+    if (await page.getByRole('button', { name: label, exact: true }).count() !== 1) {
+      throw new Error(`table editor copy button is missing: ${label}`);
+    }
+  }
+  if (await page.getByRole('group', { name: '行', exact: true }).getByRole('button', { name: '行コピー', exact: true }).count() !== 1) {
+    throw new Error('table editor row copy is not in the row operations group');
+  }
+  if (await page.getByRole('group', { name: '列', exact: true }).getByRole('button', { name: '列コピー', exact: true }).count() !== 1) {
+    throw new Error('table editor column copy is not in the column operations group');
+  }
+  if (await page.getByRole('group', { name: 'Excel連携', exact: true }).getByRole('button', { name: '行コピー', exact: true }).count() !== 0
+    || await page.getByRole('group', { name: 'Excel連携', exact: true }).getByRole('button', { name: '列コピー', exact: true }).count() !== 0) {
+    throw new Error('table editor row/column copy remains in the Excel integration group');
+  }
+  await page.getByRole('button', { name: '行コピー', exact: true }).click();
+  if (await page.locator('.mve-table-editor-grid tbody tr').count() !== 3) throw new Error('table editor row copy did not duplicate the selected row');
+  const copiedRowState = await page.locator('.mve-table-editor-grid tbody tr').evaluateAll((tableRows) =>
+    tableRows.map((row) => [...row.querySelectorAll('textarea')].map((cell) => cell.value))
+  );
+  if (!copiedRowState.some((row, index) => index > 0 && JSON.stringify(row) === JSON.stringify(copiedRowState[index - 1]))) {
+    throw new Error(`table editor row copy did not preserve row values: ${JSON.stringify(copiedRowState)}`);
+  }
+  await page.getByRole('button', { name: '列コピー', exact: true }).click();
+  const copiedColumnCount = await page.locator('.mve-table-editor-grid col').count();
+  if (copiedColumnCount !== 5) throw new Error(`table editor column copy did not duplicate the selected column range: ${copiedColumnCount}`);
+  const copiedColumnState = await page.locator('.mve-table-editor-grid tbody tr').first().locator('textarea').evaluateAll((cells) => cells.map((cell) => cell.value));
+  if (copiedColumnState.length !== 4 || JSON.stringify(copiedColumnState.slice(0, 2)) !== JSON.stringify(copiedColumnState.slice(2))) {
+    throw new Error(`table editor column copy did not preserve column values: ${JSON.stringify(copiedColumnState)}`);
+  }
+  page.once('dialog', (dialog) => dialog.accept());
+  await page.getByRole('button', { name: 'キャンセル', exact: true }).click();
+  await page.locator('.mve-table-editor').waitFor({ state: 'detached' });
+  await page.getByRole('button', { name: '表を編集', exact: true }).click();
+  await page.locator('.mve-table-editor').waitFor();
+  if (await page.locator('.mve-table-editor-grid tbody tr').count() !== 2) throw new Error('table editor copy smoke setup was not reset');
+  await page.locator('th.mve-table-editor-row-selector').first().click();
+  if (!(await page.getByRole('button', { name: '行コピー', exact: true }).isDisabled())) throw new Error('table editor header row copy should be disabled');
+  await page.locator('[data-table-cell="1:0"]').click();
   await page.getByRole('button', { name: '＋行', exact: true }).click();
   if (await page.locator('.mve-table-editor-grid tbody tr').count() !== 3) throw new Error('table editor row draft action did not apply once');
   for (let index = 0; index < 4; index += 1) {

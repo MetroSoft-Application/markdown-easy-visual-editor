@@ -55,6 +55,8 @@ describe('message language resolution', () => {
       const tableEditor = getMessages(language).app.tableEditor;
       expect(tableEditor.title, language).toBeTruthy();
       expect(tableEditor.navigationHint, language).toBeTruthy();
+      expect(tableEditor.copyColumn, language).toBeTruthy();
+      expect(tableEditor.copyRow, language).toBeTruthy();
       expect(tableEditor.rowColumnLimit(2, 3), language).toContain('2');
       expect(tableEditor.rowColumnLimit(2, 3), language).toContain('3');
       expect(tableEditor.rowColumnLimit(2, 3), language).not.toContain('{rows}');

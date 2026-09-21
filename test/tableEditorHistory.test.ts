@@ -13,6 +13,15 @@ function snapshot(value: string, row = 0, column = 0): TableEditorHistorySnapsho
     alignments: ['none'],
     activeRow: row,
     activeColumn: column,
+    rowHeights: [undefined, 34],
+    columnWidths: [160],
+    gridSelection: {
+      anchorRow: row,
+      anchorColumn: column,
+      focusRow: row,
+      focusColumn: column,
+    },
+    selectionKind: 'cells',
   };
 }
 
@@ -27,8 +36,34 @@ describe('table editor draft history', () => {
 
     if (!undone) throw new Error('missing undo snapshot');
     undone.rows[1][0] = 'mutated outside history';
+    undone.gridSelection.anchorRow = 1;
     const redone = redoTableEditorHistory(history, undone);
     expect(redone?.rows[1][0]).toBe('after');
+    expect(redone?.gridSelection.anchorRow).toBe(0);
+    expect(history.undo.at(-1)?.gridSelection.anchorRow).toBe(1);
+  });
+
+  it('restores layout and selection state with the table data', () => {
+    const history = createTableEditorHistory();
+    const before = snapshot('before', 1, 0);
+    before.rowHeights[1] = 88;
+    before.columnWidths[0] = 240;
+    before.gridSelection = {
+      anchorRow: 1,
+      anchorColumn: 0,
+      focusRow: 1,
+      focusColumn: 0,
+    };
+    before.selectionKind = 'row';
+    recordTableEditorHistory(history, before);
+
+    const undone = undoTableEditorHistory(history, snapshot('after'));
+    expect(undone).toMatchObject({
+      rowHeights: [undefined, 88],
+      columnWidths: [240],
+      selectionKind: 'row',
+      gridSelection: before.gridSelection,
+    });
   });
 
   it('clears redo when a new edit starts after undo', () => {

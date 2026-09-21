@@ -57,6 +57,9 @@ export interface HtmlExportOptions {
     saveWithoutDialog: boolean;
 }
 
+/** HTML出力で文書をまたいで共有するグローバル設定。 */
+export type HtmlExportSettings = Pick<HtmlExportOptions, 'embedImages' | 'convertLinkedMarkdown' | 'saveWithoutDialog'>;
+
 /** PDF出力UIとExplorer起点の出力で共有する初期値。全Markdown文書共通の標準印刷設定でもある。 */
 export const DEFAULT_PDF_OPTIONS: NormalizedPdfOptions = {
     format: 'A4',
@@ -130,12 +133,46 @@ export function normalizePdfOptions(value: unknown): NormalizedPdfOptions {
     };
 }
 
-/** HTML出力UIとExplorer起点の出力で共有する初期値。 */
-export const DEFAULT_HTML_EXPORT_OPTIONS: HtmlExportOptions = {
+/** HTML出力UIとExplorer起点の出力で共有するグローバル設定の初期値。 */
+export const DEFAULT_HTML_EXPORT_SETTINGS: HtmlExportSettings = {
     embedImages: false,
     convertLinkedMarkdown: false,
     saveWithoutDialog: true
 };
+
+/** HTML出力要求へ渡す初期値。 */
+export const DEFAULT_HTML_EXPORT_OPTIONS: HtmlExportOptions = {
+    ...DEFAULT_HTML_EXPORT_SETTINGS
+};
+
+/** 永続化値やWebviewメッセージをHTML出力のグローバル設定へ正規化する。 */
+export function normalizeHtmlExportSettings(value: unknown): HtmlExportSettings {
+    const candidate = value && typeof value === 'object'
+        ? value as Partial<HtmlExportSettings>
+        : {};
+    return {
+        embedImages: typeof candidate.embedImages === 'boolean'
+            ? candidate.embedImages
+            : DEFAULT_HTML_EXPORT_SETTINGS.embedImages,
+        convertLinkedMarkdown: typeof candidate.convertLinkedMarkdown === 'boolean'
+            ? candidate.convertLinkedMarkdown
+            : DEFAULT_HTML_EXPORT_SETTINGS.convertLinkedMarkdown,
+        saveWithoutDialog: typeof candidate.saveWithoutDialog === 'boolean'
+            ? candidate.saveWithoutDialog
+            : DEFAULT_HTML_EXPORT_SETTINGS.saveWithoutDialog
+    };
+}
+
+/** グローバルHTML設定を出力要求へ反映する。 */
+export function mergeHtmlExportOptions(
+    current: HtmlExportOptions,
+    next: HtmlExportSettings | HtmlExportOptions
+): HtmlExportOptions {
+    return {
+        ...current,
+        ...normalizeHtmlExportSettings(next)
+    };
+}
 
 export interface WebviewSettings extends FontFamilySettings {
     language: SupportedLanguage;
@@ -155,6 +192,8 @@ export interface WebviewSettings extends FontFamilySettings {
     previewImageResizeControlsVisible?: boolean;
     /** PDF印刷設定。文書をまたいで共有するグローバル設定。 */
     pdfOptions?: PdfOptions;
+    /** HTML出力設定。文書をまたいで共有するグローバル設定。 */
+    htmlOptions: HtmlExportSettings;
     workspaceTrusted: boolean;
     /** 開発用の実 VS Code 起動計測を有効にする。 */
     startupProbe?: boolean;
@@ -249,6 +288,7 @@ export type WebviewToHostMessage =
     | { type: 'setScrollSyncEnabled'; enabled: boolean }
     | { type: 'setPreviewImageResizeControlsVisible'; visible: boolean }
     | { type: 'setPdfOptions'; options: PdfOptions }
+    | { type: 'setHtmlOptions'; options: HtmlExportSettings }
     | {
         type: 'exportPdf';
         requestId: string;

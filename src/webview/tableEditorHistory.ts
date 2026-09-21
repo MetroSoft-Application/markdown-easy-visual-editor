@@ -1,10 +1,15 @@
 import type { TableEditorAlignment } from './tableEditorModel';
+import type { TableGridRange } from '../shared/tableGrid';
 
 export interface TableEditorHistorySnapshot {
   rows: string[][];
   alignments: TableEditorAlignment[];
   activeRow: number;
   activeColumn: number;
+  rowHeights: Array<number | undefined>;
+  columnWidths: number[];
+  gridSelection: TableGridRange;
+  selectionKind: 'cells' | 'row' | 'column' | 'all';
 }
 
 export interface TableEditorHistoryState {
@@ -26,6 +31,10 @@ export function cloneTableEditorHistorySnapshot(
     alignments: snapshot.alignments.slice(),
     activeRow: snapshot.activeRow,
     activeColumn: snapshot.activeColumn,
+    rowHeights: snapshot.rowHeights.slice(),
+    columnWidths: snapshot.columnWidths.slice(),
+    gridSelection: { ...snapshot.gridSelection },
+    selectionKind: snapshot.selectionKind,
   };
 }
 

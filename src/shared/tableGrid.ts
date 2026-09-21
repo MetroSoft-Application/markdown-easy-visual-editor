@@ -135,6 +135,71 @@ export function moveTableGridColumn(
   };
 }
 
+/** Duplicate a contiguous row range immediately after the source range. */
+export function duplicateTableGridRows(
+  rows: readonly (readonly string[])[],
+  fromRow: number,
+  toRow: number,
+): string[][] {
+  if (
+    fromRow < 0 ||
+    toRow < fromRow ||
+    fromRow >= rows.length ||
+    toRow >= rows.length
+  ) {
+    return rows.map((row) => row.slice());
+  }
+  const next = rows.map((row) => row.slice());
+  const copies = next.slice(fromRow, toRow + 1).map((row) => row.slice());
+  next.splice(Math.max(1, toRow + 1), 0, ...copies);
+  return next;
+}
+
+/** Duplicate a contiguous column range, including its alignment metadata. */
+export function duplicateTableGridColumns(
+  rows: readonly (readonly string[])[],
+  alignments: readonly string[],
+  fromColumn: number,
+  toColumn: number,
+): MovedTableGridColumn {
+  const columnCount = Math.max(
+    alignments.length,
+    ...rows.map((row) => row.length),
+    0,
+  );
+  if (
+    fromColumn < 0 ||
+    toColumn < fromColumn ||
+    fromColumn >= columnCount ||
+    toColumn >= columnCount
+  ) {
+    return {
+      rows: rows.map((row) => row.slice()),
+      alignments: alignments.slice(),
+    };
+  }
+  const normalizedRows = rows.map((row) =>
+    Array.from({ length: columnCount }, (_, index) => row[index] ?? ""),
+  );
+  const normalizedAlignments = Array.from(
+    { length: columnCount },
+    (_, index) => alignments[index] ?? "none",
+  );
+  const insertAt = toColumn + 1;
+  return {
+    rows: normalizedRows.map((row) => [
+      ...row.slice(0, insertAt),
+      ...row.slice(fromColumn, toColumn + 1),
+      ...row.slice(insertAt),
+    ]),
+    alignments: [
+      ...normalizedAlignments.slice(0, insertAt),
+      ...normalizedAlignments.slice(fromColumn, toColumn + 1),
+      ...normalizedAlignments.slice(insertAt),
+    ],
+  };
+}
+
 /** Clear every cell in a rectangular range without changing table dimensions. */
 export function clearTableGridRange(
   rows: readonly (readonly string[])[],

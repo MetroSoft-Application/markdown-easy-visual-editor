@@ -2,10 +2,13 @@ import * as vscode from 'vscode';
 import path from 'node:path';
 import { randomBytes, randomUUID } from 'node:crypto';
 import {
+    DEFAULT_HTML_EXPORT_SETTINGS,
     DEFAULT_PDF_OPTIONS,
+    normalizeHtmlExportSettings,
     normalizePdfOptions,
     type HostToWebviewMessage,
     type ImagePayload,
+    type HtmlExportSettings,
     type NormalizedPdfOptions,
     type ViewMode,
     type WebviewSettings,
@@ -49,6 +52,7 @@ const PREVIEW_IMAGE_RESIZE_CONTROLS_STATE_KEY = 'markdownEasyVisualEditor.previe
 /** 文書やWebviewに依存せず、PDF印刷設定を全Markdown文書で共有するglobalStateのキー。 */
 const PDF_OPTIONS_STATE_KEY = 'markdownEasyVisualEditor.pdfOptions';
 const FONT_FAMILY_STATE_KEY = 'markdownEasyVisualEditor.fontFamilies';
+const HTML_OPTIONS_STATE_KEY = 'markdownEasyVisualEditor.htmlOptions';
 
 /** JSONをnonce付きインラインscriptへ安全に埋め込める文字列へ変換する。 */
 function serializeInlineJson(value: unknown): string {
@@ -142,7 +146,7 @@ export async function deactivate(): Promise<void> {
     await closePdfBrowser();
 }
 
-class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvider {
+export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvider {
     private readonly panels = new Map<string, Set<vscode.WebviewPanel>>();
     private readonly documents = new Map<string, vscode.TextDocument>();
     /** 文書versionごとの同期基準。物理EOLではなく常にLFで保持する。 */
@@ -169,6 +173,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
     private readonly panelInitialized = new WeakSet<vscode.WebviewPanel>();
     private readonly panelStartupTimings = new WeakMap<vscode.WebviewPanel, StartupTiming>();
     private readonly startupTimings = new Map<string, StartupTiming>();
+    private htmlOptionsUpdateChain: Promise<void> = Promise.resolve();
     private readonly legacyFontMigration: Promise<void>;
     private activePanel?: vscode.WebviewPanel;
     private activeDocument?: vscode.TextDocument;
@@ -591,6 +596,17 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
                         });
                     }
                     this.broadcastSettings();
+                    return;
+                case 'setHtmlOptions':
+                    {
+                        const options = normalizeHtmlExportSettings(message.options);
+                        const update = this.htmlOptionsUpdateChain.then(async () => {
+                            await this.context.globalState.update(HTML_OPTIONS_STATE_KEY, options);
+                            this.broadcastSettings();
+                        });
+                        this.htmlOptionsUpdateChain = update.catch(() => undefined);
+                        await update;
+                    }
                     return;
                 case 'openSource':
                     this.activeDocument = document;
@@ -1286,6 +1302,7 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
             scrollSyncEnabled: this.context.globalState.get<boolean>(SCROLL_SYNC_STATE_KEY, true),
             previewImageResizeControlsVisible: this.context.globalState.get<boolean>(PREVIEW_IMAGE_RESIZE_CONTROLS_STATE_KEY, true),
             pdfOptions: this.getPdfOptions(),
+            htmlOptions: this.getHtmlOptions(),
             workspaceTrusted: vscode.workspace.isTrusted,
             startupProbe: this.startupBenchmarkEnabled || undefined
         };
@@ -1305,6 +1322,13 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
             ...options,
             fontFamily: fontSettings.previewFontFamily || DEFAULT_PDF_OPTIONS.fontFamily
         };
+    }
+
+    /** HTML出力のグローバル設定を読み取り、旧形式や不正値を標準値へ正規化する。 */
+    private getHtmlOptions(): HtmlExportSettings {
+        return normalizeHtmlExportSettings(
+            this.context.globalState.get<unknown>(HTML_OPTIONS_STATE_KEY, DEFAULT_HTML_EXPORT_SETTINGS)
+        );
     }
 
     /** 新しいフォント設定を優先し、旧PDF設定だけが残る環境では一度だけ移行する。 */

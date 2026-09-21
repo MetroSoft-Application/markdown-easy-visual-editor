@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   clearTableGridRange,
+  duplicateTableGridColumns,
+  duplicateTableGridRows,
   moveTableGridColumn,
   moveTableGridRow,
   normalizeTableGridRange,
@@ -49,6 +51,35 @@ describe("table grid helpers", () => {
       ["2", "3", "1"],
     ]);
     expect(moved.alignments).toEqual(["center", "right", "left"]);
+  });
+
+  it("duplicates a row range after the source range", () => {
+    const rows = [["H"], ["1"], ["2"]];
+    const duplicated = duplicateTableGridRows(rows, 1, 1);
+    expect(duplicated).toEqual([["H"], ["1"], ["1"], ["2"]]);
+    expect(rows).toEqual([["H"], ["1"], ["2"]]);
+  });
+
+  it("duplicates columns and their alignment metadata after the source range", () => {
+    const duplicated = duplicateTableGridColumns(
+      [
+        ["A", "B", "C"],
+        ["1", "2", "3"],
+      ],
+      ["left", "center", "right"],
+      1,
+      1,
+    );
+    expect(duplicated.rows).toEqual([
+      ["A", "B", "B", "C"],
+      ["1", "2", "2", "3"],
+    ]);
+    expect(duplicated.alignments).toEqual([
+      "left",
+      "center",
+      "center",
+      "right",
+    ]);
   });
 
   it("clears only the requested rectangular range", () => {
