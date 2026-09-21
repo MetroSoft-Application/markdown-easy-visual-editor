@@ -159,9 +159,6 @@ export interface Messages {
             previewFontFamily: string;
             fontFamilyPlaceholder: string;
             fontFamilyHint: string;
-            fontFamilyLoading: string;
-            fontFamilyUnavailable: string;
-            fontFamilyCount: (count: number) => string;
             apply: string;
         };
     };
@@ -406,7 +403,6 @@ function createMessages(language: SupportedLanguage): Messages {
             snippets: raw.ribbon.snippets,
             settings: {
                 ...raw.ribbon.settings,
-                fontFamilyCount: (count: number) => text('ribbon.settings.fontFamilyCount', { count })
             }
         },
         app: {

@@ -40,7 +40,6 @@ import {
 } from './html';
 import { decodeLocalResourceSource, isMissingResourceError } from './resourceCheck';
 import { classifyResourceLink } from './resourceLink';
-import { InstalledFontCatalog } from './installedFonts';
 
 const VIEW_TYPE = 'markdownEasyVisualEditor.editor';
 const VIEW_MODE_STATE_KEY = 'markdownEasyVisualEditor.viewMode';
@@ -170,7 +169,6 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
     private readonly panelInitialized = new WeakSet<vscode.WebviewPanel>();
     private readonly panelStartupTimings = new WeakMap<vscode.WebviewPanel, StartupTiming>();
     private readonly startupTimings = new Map<string, StartupTiming>();
-    private readonly installedFontCatalog = new InstalledFontCatalog();
     private readonly legacyFontMigration: Promise<void>;
     private activePanel?: vscode.WebviewPanel;
     private activeDocument?: vscode.TextDocument;
@@ -482,15 +480,6 @@ class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvide
                 case 'checkLocalResources': {
                     const diagnostics = await this.checkLocalResources(document, message.markdown);
                     this.post(panel, { type: 'localResourcesChecked', requestId: message.requestId, diagnostics });
-                    return;
-                }
-                case 'requestInstalledFonts': {
-                    const fonts = await this.installedFontCatalog.getFonts();
-                    this.post(panel, {
-                        type: 'installedFonts',
-                        fonts: [...fonts],
-                        available: fonts.length > 0
-                    });
                     return;
                 }
                 case 'renderMermaid': {

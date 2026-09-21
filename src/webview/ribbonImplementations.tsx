@@ -1,11 +1,7 @@
 
-import React, { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
+import React, { useRef } from "react";
 import type { EditorTheme } from "../shared/protocol";
-import {
-  normalizeFontFamily,
-  prependDefaultFontFamily,
-} from "../shared/fontFamily";
+import { normalizeFontFamily } from "../shared/fontFamily";
 import {
   TEXT_COLOR_HEX,
   TEXT_COLOR_IDS,
@@ -478,13 +474,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   fontSettings: control((context, definition, resolveLabel) => {
     const editorField = getControlField(definition, "editor");
     const previewField = getControlField(definition, "preview");
-    const fontOptions = prependDefaultFontFamily(context.installedFonts);
     const save = () => saveFontFamilies(context);
-    const status = context.fontListLoading
-      ? context.messages.ribbon.settings.fontFamilyLoading
-      : context.fontListAvailable
-        ? context.messages.ribbon.settings.fontFamilyCount(context.installedFonts.length)
-        : context.messages.ribbon.settings.fontFamilyUnavailable;
     return (
       <>
         <form
@@ -496,32 +486,32 @@ export const RIBBON_IMPLEMENTATIONS: Record<
         >
           <label>
             <span>{resolveLabel(editorField.label)}</span>
-            <FontFamilyCombobox
+            <FontFamilyInput
               id="mve-editor-font-family"
               label={resolveLabel(editorField.label)}
               value={context.editorFontFamilyDraft}
-              options={fontOptions}
               placeholder={editorField.placeholder ? resolveLabel(editorField.placeholder) : undefined}
-              onChange={context.setEditorFontFamilyDraft}
+              onChange={(value) => context.setEditorFontFamilyDraft(normalizeFontFamily(value))}
               onCommit={(value) => saveFontFamily(context, "editor", value)}
             />
           </label>
           <label>
             <span>{resolveLabel(previewField.label)}</span>
-            <FontFamilyCombobox
+            <FontFamilyInput
               id="mve-preview-font-family"
               label={resolveLabel(previewField.label)}
               value={context.previewFontFamilyDraft}
-              options={fontOptions}
               placeholder={previewField.placeholder ? resolveLabel(previewField.placeholder) : undefined}
-              onChange={context.setPreviewFontFamilyDraft}
+              onChange={(value) => context.setPreviewFontFamilyDraft(normalizeFontFamily(value))}
               onCommit={(value) => saveFontFamily(context, "preview", value)}
             />
           </label>
         </form>
-        <span className="ribbon-setting-hint">
-          {definition.options?.hint ? resolveLabel(definition.options.hint) : ""} {status}
-        </span>
+        {definition.options?.hint && (
+          <span className="ribbon-setting-hint">
+            {resolveLabel(definition.options.hint)}
+          </span>
+        )}
       </>
     );
   }),
@@ -533,215 +523,49 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   ),
 };
 
-interface FontFamilyComboboxProps {
+interface FontFamilyInputProps {
   id: string;
   label: string;
   placeholder?: string;
   value: string;
-  options: readonly string[];
   onChange: (value: string) => void;
   onCommit: (value: string) => void;
 }
 
-interface FontFamilyMenuPosition {
-  left: number;
-  top: number;
-  width: number;
-}
-
-function FontFamilyCombobox({
+function FontFamilyInput({
   id,
   label,
   placeholder,
   value,
-  options,
   onChange,
   onCommit,
-}: FontFamilyComboboxProps): React.JSX.Element {
-  const inputRef = useRef<HTMLInputElement>(null);
-  const [open, setOpen] = useState(false);
-  const [query, setQuery] = useState("");
-  const [activeIndex, setActiveIndex] = useState(-1);
-  const [menuPosition, setMenuPosition] = useState<FontFamilyMenuPosition | null>(null);
-  const valueBeforeOpenRef = useRef(value);
-  const listId = `${id}-listbox`;
-  const normalizedQuery = query.trim().toLocaleLowerCase();
-  const filteredOptions = normalizedQuery
-    ? options.filter((font) => font.toLocaleLowerCase().includes(normalizedQuery))
-    : options;
-
-  useEffect(() => {
-    if (!open) {
-      setMenuPosition(null);
-      return;
-    }
-
-    const updateMenuPosition = () => {
-      const input = inputRef.current;
-      if (!input) return;
-      const bounds = input.getBoundingClientRect();
-      setMenuPosition({
-        left: bounds.left,
-        top: bounds.bottom,
-        width: bounds.width,
-      });
-    };
-
-    updateMenuPosition();
-    window.addEventListener("resize", updateMenuPosition);
-    window.addEventListener("scroll", updateMenuPosition, true);
-    return () => {
-      window.removeEventListener("resize", updateMenuPosition);
-      window.removeEventListener("scroll", updateMenuPosition, true);
-    };
-  }, [open]);
-
-  const openMenu = () => {
-    valueBeforeOpenRef.current = value;
-    setQuery("");
-    setActiveIndex(-1);
-    setOpen(true);
-  };
-
-  const selectOption = (font: string) => {
-    onChange(font);
-    onCommit(font);
-    valueBeforeOpenRef.current = font;
-    setQuery("");
-    setActiveIndex(-1);
-    setOpen(false);
-  };
-
-  const handleBlur = () => {
-    window.setTimeout(() => {
-      setOpen(false);
-      setQuery("");
-      setActiveIndex(-1);
-      valueBeforeOpenRef.current = value;
-      onCommit(value);
-    }, 0);
-  };
-
-  const handleKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
-    if (event.key === "ArrowDown") {
-      event.preventDefault();
-      if (!open) {
-        openMenu();
-        return;
-      }
-      setActiveIndex((current) =>
-        filteredOptions.length === 0
-          ? -1
-          : Math.min(current < 0 ? 0 : current + 1, filteredOptions.length - 1),
-      );
-      return;
-    }
-    if (event.key === "ArrowUp") {
-      event.preventDefault();
-      if (!open) {
-        openMenu();
-        return;
-      }
-      setActiveIndex((current) =>
-        filteredOptions.length === 0
-          ? -1
-          : Math.max(current < 0 ? filteredOptions.length - 1 : current - 1, 0),
-      );
-      return;
-    }
-    if (event.key === "Enter") {
-      if (open && activeIndex >= 0 && filteredOptions[activeIndex]) {
-        event.preventDefault();
-        selectOption(filteredOptions[activeIndex]);
-      } else {
-        event.preventDefault();
-        setOpen(false);
-        valueBeforeOpenRef.current = value;
-        onCommit(value);
-      }
-      return;
-    }
-    if (event.key === "Escape") {
-      event.preventDefault();
-      onChange(valueBeforeOpenRef.current);
-      setOpen(false);
-      setQuery("");
-      setActiveIndex(-1);
-    }
-  };
-
-  const menu = open && menuPosition
-    ? (
-      <div
-        id={listId}
-        className="mve-font-combobox-list"
-        role="listbox"
-        aria-label={label}
-        style={{
-          left: menuPosition.left,
-          top: menuPosition.top,
-          width: menuPosition.width,
-        }}
-      >
-        {filteredOptions.map((font, index) => (
-          <div
-            key={font}
-            id={`${listId}-${index}`}
-            className="mve-font-combobox-option"
-            role="option"
-            aria-selected={font === value}
-            data-active={index === activeIndex ? "true" : undefined}
-            onMouseDown={(event) => {
-              event.preventDefault();
-              selectOption(font);
-            }}
-          >
-            {font}
-          </div>
-        ))}
-      </div>
-    )
-    : null;
-
+}: FontFamilyInputProps): React.JSX.Element {
+  const valueBeforeEditRef = useRef(value);
   return (
-    <>
-      <div className="mve-font-combobox">
-        <input
-          ref={inputRef}
-          id={id}
-          type="text"
-          role="combobox"
-          aria-label={label}
-          aria-haspopup="listbox"
-          aria-autocomplete="list"
-          aria-controls={open ? listId : undefined}
-          aria-expanded={open}
-          aria-activedescendant={
-            open && activeIndex >= 0 && filteredOptions[activeIndex]
-              ? `${listId}-${activeIndex}`
-              : undefined
-          }
-          value={value}
-          placeholder={placeholder}
-          spellCheck={false}
-          autoComplete="off"
-          onFocus={openMenu}
-          onClick={() => {
-            if (!open) openMenu();
-          }}
-          onChange={(event) => {
-            const nextValue = event.target.value;
-            setQuery(nextValue);
-            setActiveIndex(-1);
-            setOpen(true);
-            onChange(nextValue);
-          }}
-          onKeyDown={handleKeyDown}
-          onBlur={handleBlur}
-        />
-      </div>
-      {menu ? createPortal(menu, document.body) : null}
-    </>
+    <input
+      id={id}
+      type="text"
+      aria-label={label}
+      value={value}
+      placeholder={placeholder}
+      spellCheck={false}
+      autoComplete="off"
+      onFocus={() => {
+        valueBeforeEditRef.current = value;
+      }}
+      onChange={(event) => onChange(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") {
+          event.preventDefault();
+          onCommit(value);
+          valueBeforeEditRef.current = value;
+        } else if (event.key === "Escape") {
+          event.preventDefault();
+          onChange(valueBeforeEditRef.current);
+        }
+      }}
+      onBlur={() => onCommit(value)}
+    />
   );
 }
 

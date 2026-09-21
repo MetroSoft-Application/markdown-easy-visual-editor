@@ -130,16 +130,6 @@ try {
             data: { type: 'settingsChanged', settings: window.__mveGlobalSettings }
           })), 300);
         }
-        if (message.type === 'requestInstalledFonts') {
-          setTimeout(() => window.dispatchEvent(new MessageEvent('message', {
-            data: {
-              type: 'installedFonts',
-              fonts: Array.from({ length: 309 }, (_, index) =>
-                index === 0 ? 'Arial' : index === 1 ? '日本語 UI' : `Test Installed Font ${index}`),
-              available: true
-            }
-          })), 0);
-        }
         if (message.type === 'setFontFamilies') {
           window.__mveGlobalSettings = {
             ...window.__mveGlobalSettings,
@@ -179,41 +169,25 @@ try {
   }, settings);
   await page.locator('.split-editor .cm-content').waitFor();
   await page.setViewportSize({ width: 475, height: 720 });
-  const fontRequestBeforeSettings = await page.evaluate(() => window.__mveMessages.filter((message) => message.type === 'requestInstalledFonts').length);
-  if (fontRequestBeforeSettings !== 0) throw new Error('installed font enumeration started before opening settings');
+  const messageCountBeforeSettings = await page.evaluate(() => window.__mveMessages.length);
   await page.getByRole('tab', { name: '設定', exact: true }).click();
-  await page.waitForFunction(() => window.__mveMessages.some((message) => message.type === 'requestInstalledFonts'));
+  await page.waitForTimeout(200);
+  const messageCountAfterSettings = await page.evaluate(() => window.__mveMessages.length);
+  if (messageCountAfterSettings !== messageCountBeforeSettings) throw new Error('opening settings sent an unexpected host message');
   const editorFontInput = page.locator('input[aria-label="エディタ フォント"]');
   const previewFontInput = page.locator('input[aria-label="プレビュー フォント"]');
   await editorFontInput.scrollIntoViewIfNeeded();
   await editorFontInput.waitFor();
-  await editorFontInput.click();
-  const editorFontOptions = page.locator('#mve-editor-font-family-listbox [role="option"]');
-  await page.waitForFunction(() => document.querySelectorAll('#mve-editor-font-family-listbox [role="option"]').length === 310);
-  if (await editorFontOptions.count() !== 310) {
-    throw new Error('all installed font families were not exposed by the combobox');
-  }
-  if (await editorFontOptions.first().textContent() !== '"Noto Sans JP", "Yu Gothic UI", sans-serif') {
-    throw new Error('the existing default font was not placed first');
-  }
-  await editorFontOptions.filter({ hasText: 'Arial' }).click();
+  await editorFontInput.fill('Arial');
+  await editorFontInput.blur();
   await page.waitForFunction(() => window.__mveGlobalSettings.editorFontFamily === 'Arial');
   await editorFontInput.click();
-  await page.waitForFunction(() => document.querySelectorAll('#mve-editor-font-family-listbox [role="option"]').length === 310);
-  if (await editorFontOptions.count() !== 310) {
-    throw new Error('the selected font filtered the full installed font list');
-  }
-  await editorFontInput.press('Escape');
-  await editorFontInput.click();
-  await editorFontInput.press('Control+A');
-  await editorFontInput.pressSequentially('Arial');
-  await page.waitForFunction(() => document.querySelectorAll('#mve-editor-font-family-listbox [role="option"]').length === 1);
-  if (await editorFontOptions.count() !== 1) {
-    throw new Error('font family search did not filter the installed font list');
-  }
+  await editorFontInput.fill('Enter Font');
+  await editorFontInput.press('Enter');
+  await page.waitForFunction(() => window.__mveGlobalSettings.editorFontFamily === 'Enter Font');
   await editorFontInput.fill('Unsaved Font');
   await editorFontInput.press('Escape');
-  if (await editorFontInput.inputValue() !== 'Arial') {
+  if (await editorFontInput.inputValue() !== 'Enter Font') {
     throw new Error('Escape did not restore the confirmed font family');
   }
   const editorFontMessageStart = await page.evaluate(() => window.__mveMessages.length);
@@ -241,11 +215,27 @@ try {
     || !appliedFontStyles.previewContent.includes('Preview Test Font')) {
     throw new Error(`editor and preview font CSS variables were not applied independently: ${JSON.stringify(appliedFontStyles)}`);
   }
+  await editorFontInput.fill('Test; color: red');
+  if (await editorFontInput.inputValue() !== '') {
+    throw new Error('invalid font input was not normalized during editing');
+  }
+  await editorFontInput.blur();
+  await page.waitForFunction(() => window.__mveGlobalSettings.editorFontFamily === '');
+  const invalidFontFallback = await page.evaluate(() => getComputedStyle(document.documentElement).getPropertyValue('--mve-editor-font-family').trim());
   await editorFontInput.fill('');
   await previewFontInput.fill('');
   await previewFontInput.blur();
   await page.waitForFunction(() => window.__mveGlobalSettings.editorFontFamily === ''
     && window.__mveGlobalSettings.previewFontFamily === '');
+  const emptyFontFallback = await page.evaluate(() => ({
+    editor: getComputedStyle(document.documentElement).getPropertyValue('--mve-editor-font-family').trim(),
+    preview: getComputedStyle(document.documentElement).getPropertyValue('--mve-preview-font-family').trim()
+  }));
+  if (invalidFontFallback !== emptyFontFallback.editor
+    || emptyFontFallback.editor !== '"Noto Sans JP", "Yu Gothic UI", sans-serif'
+    || emptyFontFallback.preview !== emptyFontFallback.editor) {
+    throw new Error(`empty and invalid font values did not use the same fallback: ${JSON.stringify({ invalidFontFallback, emptyFontFallback })}`);
+  }
   const imageDirectoryInput = page.getByRole('textbox', { name: '画像保存先のパスルール', exact: true });
   await imageDirectoryInput.fill('images/${documentBasename}');
   const settingBounds = await page.evaluate(() => {

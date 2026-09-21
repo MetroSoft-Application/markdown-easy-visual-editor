@@ -264,9 +264,6 @@ export function App(): React.JSX.Element {
   const [settings, setSettings] = useState(
     bootstrap?.settings ?? DEFAULT_SETTINGS,
   );
-  const [installedFonts, setInstalledFonts] = useState<readonly string[]>([]);
-  const [fontListAvailable, setFontListAvailable] = useState(false);
-  const [fontListLoading, setFontListLoading] = useState(false);
   const scrollSyncEnabled = settings.scrollSyncEnabled !== false;
   const scrollSyncEnabledRef = useRef(scrollSyncEnabled);
   scrollSyncEnabledRef.current = scrollSyncEnabled;
@@ -298,22 +295,14 @@ export function App(): React.JSX.Element {
     const root = document.documentElement;
     const editorFontFamily = normalizeFontFamily(settings.editorFontFamily);
     const previewFontFamily = normalizeFontFamily(settings.previewFontFamily);
-    if (editorFontFamily) {
-      root.style.setProperty(
-        "--mve-editor-font-family",
-        fontFamilyForCss(editorFontFamily, DEFAULT_FONT_FAMILY_STACK),
-      );
-    } else {
-      root.style.removeProperty("--mve-editor-font-family");
-    }
-    if (previewFontFamily) {
-      root.style.setProperty(
-        "--mve-preview-font-family",
-        fontFamilyForCss(previewFontFamily, DEFAULT_FONT_FAMILY_STACK),
-      );
-    } else {
-      root.style.removeProperty("--mve-preview-font-family");
-    }
+    root.style.setProperty(
+      "--mve-editor-font-family",
+      fontFamilyForCss(editorFontFamily, DEFAULT_FONT_FAMILY_STACK),
+    );
+    root.style.setProperty(
+      "--mve-preview-font-family",
+      fontFamilyForCss(previewFontFamily, DEFAULT_FONT_FAMILY_STACK),
+    );
   }, [settings.editorFontFamily, settings.previewFontFamily]);
   // HTML/PDFの出力先は白背景のため、VS CodeのダークテーマをSVGへ持ち込まない。
   const exportSettings = useMemo(
@@ -1095,11 +1084,6 @@ export function App(): React.JSX.Element {
         if (message.settings.viewMode)
           setSplitView(restoreViewMode(message.settings.viewMode));
         return;
-      case "installedFonts":
-        setInstalledFonts(message.fonts);
-        setFontListAvailable(message.available);
-        setFontListLoading(false);
-        return;
       case "mermaidRendered":
         acceptMermaidRenderResult(message);
         return;
@@ -1595,11 +1579,6 @@ export function App(): React.JSX.Element {
     persistViewState(nextView);
     vscode.postMessage({ type: "setViewMode", viewMode: nextView });
   }
-
-  const requestInstalledFonts = useCallback(() => {
-    setFontListLoading(true);
-    vscode.postMessage({ type: "requestInstalledFonts" });
-  }, []);
 
   /**
    * リボンから受け取ったコマンドをエディター操作・表示切替・ダイアログへ振り分ける。
@@ -3504,10 +3483,6 @@ export function App(): React.JSX.Element {
         imageDirectory={settings.imageDirectory}
         editorFontFamily={settings.editorFontFamily}
         previewFontFamily={settings.previewFontFamily}
-        installedFonts={installedFonts}
-        fontListAvailable={fontListAvailable}
-        fontListLoading={fontListLoading}
-        onRequestInstalledFonts={requestInstalledFonts}
         onHtmlOptionsChange={setHtmlOptions}
         onCommand={handleRibbon}
       />

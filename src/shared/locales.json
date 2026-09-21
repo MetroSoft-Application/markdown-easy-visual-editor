@@ -154,11 +154,8 @@
         "fontSettings": "フォントファミリー",
         "editorFontFamily": "エディタ フォント",
         "previewFontFamily": "プレビュー フォント",
-        "fontFamilyPlaceholder": "フォント名を入力または選択",
+        "fontFamilyPlaceholder": "フォント名を入力",
         "fontFamilyHint": "空欄で標準設定を使用します。",
-        "fontFamilyLoading": "取得中",
-        "fontFamilyUnavailable": "取得不可",
-        "fontFamilyCount": "{count}件",
         "apply": "適用"
       },
       "codeLanguages": [
@@ -606,11 +603,8 @@
         "fontSettings": "Font families",
         "editorFontFamily": "Editor font",
         "previewFontFamily": "Preview font",
-        "fontFamilyPlaceholder": "Enter or select a font family",
+        "fontFamilyPlaceholder": "Enter a font family",
         "fontFamilyHint": "Leave blank to use the default.",
-        "fontFamilyLoading": "Loading",
-        "fontFamilyUnavailable": "Unavailable",
-        "fontFamilyCount": "{count}",
         "apply": "Apply"
       },
       "snippets": {
@@ -1058,11 +1052,8 @@
         "fontSettings": "字体系列",
         "editorFontFamily": "编辑器字体",
         "previewFontFamily": "预览字体",
-        "fontFamilyPlaceholder": "输入或选择字体系列",
+        "fontFamilyPlaceholder": "输入字体系列",
         "fontFamilyHint": "留空则使用默认设置。",
-        "fontFamilyLoading": "加载中",
-        "fontFamilyUnavailable": "不可用",
-        "fontFamilyCount": "{count}个",
         "apply": "应用"
       },
       "codeLanguages": [
@@ -1510,11 +1501,8 @@
         "fontSettings": "글꼴 패밀리",
         "editorFontFamily": "편집기 글꼴",
         "previewFontFamily": "미리보기 글꼴",
-        "fontFamilyPlaceholder": "글꼴 패밀리를 입력하거나 선택하세요",
+        "fontFamilyPlaceholder": "글꼴 패밀리를 입력하세요",
         "fontFamilyHint": "비워 두면 기본 설정을 사용합니다.",
-        "fontFamilyLoading": "불러오는 중",
-        "fontFamilyUnavailable": "사용 불가",
-        "fontFamilyCount": "{count}개",
         "apply": "적용"
       },
       "codeLanguages": [
@@ -1962,11 +1950,8 @@
         "fontSettings": "Familles de polices",
         "editorFontFamily": "Police de l’éditeur",
         "previewFontFamily": "Police de l’aperçu",
-        "fontFamilyPlaceholder": "Saisissez ou sélectionnez une famille de polices",
+        "fontFamilyPlaceholder": "Saisissez une famille de polices",
         "fontFamilyHint": "Laissez vide pour utiliser la valeur par défaut.",
-        "fontFamilyLoading": "Chargement",
-        "fontFamilyUnavailable": "Indisponible",
-        "fontFamilyCount": "{count}",
         "apply": "Appliquer"
       },
       "codeLanguages": [
@@ -2414,11 +2399,8 @@
         "fontSettings": "Schriftfamilien",
         "editorFontFamily": "Editor-Schrift",
         "previewFontFamily": "Vorschau-Schrift",
-        "fontFamilyPlaceholder": "Schriftfamilie eingeben oder auswählen",
+        "fontFamilyPlaceholder": "Schriftfamilie eingeben",
         "fontFamilyHint": "Leer lassen für die Standardeinstellung.",
-        "fontFamilyLoading": "Wird geladen",
-        "fontFamilyUnavailable": "Nicht verfügbar",
-        "fontFamilyCount": "{count}",
         "apply": "Anwenden"
       },
       "codeLanguages": [
@@ -2866,11 +2848,8 @@
         "fontSettings": "Familias tipográficas",
         "editorFontFamily": "Fuente del editor",
         "previewFontFamily": "Fuente de la vista previa",
-        "fontFamilyPlaceholder": "Introduce o selecciona una familia tipográfica",
+        "fontFamilyPlaceholder": "Introduce una familia tipográfica",
         "fontFamilyHint": "Déjalo vacío para usar el valor predeterminado.",
-        "fontFamilyLoading": "Cargando",
-        "fontFamilyUnavailable": "No disponible",
-        "fontFamilyCount": "{count}",
         "apply": "Aplicar"
       },
       "codeLanguages": [

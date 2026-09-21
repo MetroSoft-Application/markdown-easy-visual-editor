@@ -52,12 +52,3 @@ export function normalizeFontFamilySettings(value: unknown): FontFamilySettings 
         previewFontFamily: normalizeFontFamily(candidate.previewFontFamily)
     };
 }
-
-/** 標準フォントを先頭へ置き、列挙結果に同じ値があれば重複を除去する。 */
-export function prependDefaultFontFamily(fonts: readonly string[]): string[] {
-    const defaultKey = DEFAULT_FONT_FAMILY_STACK.toLocaleLowerCase();
-    return [
-        DEFAULT_FONT_FAMILY_STACK,
-        ...fonts.filter((font) => font.toLocaleLowerCase() !== defaultKey)
-    ];
-}

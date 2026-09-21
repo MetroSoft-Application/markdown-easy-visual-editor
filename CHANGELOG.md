@@ -129,3 +129,8 @@
 ## 1.1.11
 
 - Enhance print settings.
+
+## 1.2.0
+
+- Added a feature that allows you to set fonts separately for the editor and preview.
+- Added an automatic row and column width adjustment feature to the table editing UI.

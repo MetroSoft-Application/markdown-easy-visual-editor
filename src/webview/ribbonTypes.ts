@@ -74,9 +74,6 @@ export interface RibbonImplementationContext extends RibbonButtonState {
   imageDirectory: string;
   editorFontFamily: string;
   previewFontFamily: string;
-  installedFonts: readonly string[];
-  fontListAvailable: boolean;
-  fontListLoading: boolean;
   onHtmlOptionsChange: (options: HtmlExportOptions) => void;
   onCommand: (command: RibbonCommand) => void;
   tableRows: number;

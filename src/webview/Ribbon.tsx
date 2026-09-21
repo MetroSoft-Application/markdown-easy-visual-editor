@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useState } from "react";
 import type { EditorMode, HtmlExportOptions } from "../shared/protocol";
 import type { Messages } from "../shared/messages";
 import { mveDebug } from "./debug";
@@ -55,10 +55,6 @@ interface Props {
   imageDirectory: string;
   editorFontFamily: string;
   previewFontFamily: string;
-  installedFonts: readonly string[];
-  fontListAvailable: boolean;
-  fontListLoading: boolean;
-  onRequestInstalledFonts: () => void;
   onHtmlOptionsChange: (options: HtmlExportOptions) => void;
   onCommand: (command: RibbonCommand) => void;
 }
@@ -75,10 +71,6 @@ export function Ribbon({
   imageDirectory,
   editorFontFamily,
   previewFontFamily,
-  installedFonts,
-  fontListAvailable,
-  fontListLoading,
-  onRequestInstalledFonts,
   onHtmlOptionsChange,
   onCommand,
 }: Props): React.JSX.Element {
@@ -97,7 +89,6 @@ export function Ribbon({
     useState(editorFontFamily);
   const [previewFontFamilyDraft, setPreviewFontFamilyDraft] =
     useState(previewFontFamily);
-  const fontListRequestedRef = useRef(false);
   const [imageResizeControlsVisible, setImageResizeControlsVisible] = useState(
     getPreviewImageResizeControlsVisible,
   );
@@ -122,9 +113,6 @@ export function Ribbon({
     imageDirectory,
     editorFontFamily,
     previewFontFamily,
-    installedFonts,
-    fontListAvailable,
-    fontListLoading,
     onHtmlOptionsChange,
     onCommand,
     tableRows,
@@ -156,12 +144,6 @@ export function Ribbon({
   useEffect(() => setImageDirectoryDraft(imageDirectory), [imageDirectory]);
   useEffect(() => setEditorFontFamilyDraft(editorFontFamily), [editorFontFamily]);
   useEffect(() => setPreviewFontFamilyDraft(previewFontFamily), [previewFontFamily]);
-  useEffect(() => {
-    if (tab !== "settings" || fontListRequestedRef.current) return;
-    fontListRequestedRef.current = true;
-    onRequestInstalledFonts();
-  }, [onRequestInstalledFonts, tab]);
-
   function renderButton(
     id: string,
     labelSpec: RibbonLabelSpec,

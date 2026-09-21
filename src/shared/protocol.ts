@@ -203,7 +203,6 @@ export type HostToWebviewMessage =
         reason: string;
     }
     | { type: 'settingsChanged'; settings: WebviewSettings }
-    | { type: 'installedFonts'; fonts: string[]; available: boolean }
     | { type: 'imagesSaved'; requestId: string; paths: string[] }
     | { type: 'localResourcesChecked'; requestId: string; diagnostics: Diagnostic[] }
     | { type: 'operationFailed'; requestId?: string; message: string }
@@ -242,7 +241,6 @@ export type WebviewToHostMessage =
     | { type: 'saveImages'; requestId: string; images: ImagePayload[]; imageDirectory: string }
     | { type: 'pickImage'; requestId: string; imageDirectory: string }
     | { type: 'checkLocalResources'; requestId: string; markdown: string }
-    | { type: 'requestInstalledFonts' }
     | { type: 'setEditorTheme'; theme: EditorTheme }
     | { type: 'setImageDirectory'; directory: string }
     | { type: 'setFontFamilies'; editorFontFamily: string; previewFontFamily: string }
