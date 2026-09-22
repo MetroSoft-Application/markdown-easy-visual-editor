@@ -41,9 +41,9 @@ The view buttons at the top of the editor provide three layouts:
 - **Text only**: focus on the Markdown source.
 - **Preview only**: read the rendered document without the editing pane.
 
-Use **View > Outline** to show or hide the heading outline. Select a heading in the outline to jump to that section. Use **Ctrl+wheel** or **Cmd+wheel** to zoom the editor and preview.
+Use the **View** tab's **Outline** button to show or hide the heading outline. Select a heading in the outline to jump to that section. Use **Ctrl+wheel** or **Cmd+wheel** to zoom the editor and preview.
 
-The ribbon can be pinned or collapsed when you need more space for your document.
+The ribbon can be collapsed when you need more space for your document.
 
 ### Reorder sections from the outline
 
@@ -98,6 +98,7 @@ Place the cursor inside a Markdown table to:
 
 - Open the table editor and edit cells directly.
 - Add or delete rows and columns.
+- Copy rows and columns, and drag row and column headers to reorder them.
 - Toggle the header row.
 - Align cells left, center, or right.
 - Click column boundaries to auto-fit column widths to their contents, or drag them for manual adjustment. Click row boundaries to auto-fit row heights, or drag them for manual adjustment.
@@ -139,7 +140,7 @@ To change this rule from the editor, open the **Settings** tab and edit **Image 
 
 When a preview is visible, select an image to inspect its alt text and reference. You can also drag its resize handle or use the alignment controls. Changes are written back to the Markdown source.
 
-PNG, JPEG, GIF, WebP, BMP, and SVG images are supported. BMP images are converted to PNG when they are saved.
+PNG, APNG, JPEG, GIF, WebP, BMP, SVG, AVIF, ICO, HEIC, HEIF, JXL, and TIFF images are supported.
 
 Remote images can be displayed when **Markdown Easy Visual Editor: Remote Images Enabled** is enabled in VS Code settings.
 
@@ -183,7 +184,7 @@ flowchart TD
    - These settings are saved globally and reused for every Markdown document.
 3. Choose **Print preview** to review the result.
 4. Choose **Export PDF**.
-5. Select the destination, or enable **Export to the same folder without a dialog** in the print settings.
+5. Leave **Export to the same folder without a dialog** enabled to save beside the Markdown file, or disable it to select the destination.
 
 - Use **Preflight check** before exporting to review missing local images, missing local links, invalid tables, and other document issues that may affect the result.\
 ![demo4](./resources/demo4.gif)
@@ -215,11 +216,12 @@ By default, the exported file is saved beside the source Markdown file as `<name
 
 ## Settings
 
-Open the editor's **Settings** tab for image save paths. For all settings, open VS Code Settings and search for **Markdown Easy Visual Editor**.
+Open the editor's **Settings** tab for image save paths and separate editor/preview fonts. For all settings, open VS Code Settings and search for **Markdown Easy Visual Editor**.
 
 | Setting | Purpose | Default |
 | --- | --- | --- |
 | **Language** | Choose the editor language or follow the VS Code display language. | Auto |
+| **Editor: Theme** | Choose the light or dark editor theme. | Dark |
 | **Images: Directory** | Choose where locally saved images are stored. `${documentBasename}` uses the current Markdown file name. | `assets/${documentBasename}` |
 | **Images: Maximum Paste Size (MB)** | Set the maximum size of each pasted image. | `100` |
 | **Remote Images: Enabled** | Allow images referenced by remote URLs to appear in the preview. | Enabled |
