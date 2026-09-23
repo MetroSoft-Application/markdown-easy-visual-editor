@@ -1,3 +1,11 @@
+/**
+ * @file exportFonts.css
+ * 実行境界: Webview。
+ * 責務: 画面のスタイル、状態表示、テーマ適用を定義する。
+ * 入出力: DOM要素、状態クラス、テーマ変数を入力として受け取り、視覚表現へ反映する。
+ * 副作用: DOMの視覚表現だけを変更し、Markdown本文や編集状態を直接変更しない。
+ * 不変条件: フォーカス表示、可読性、既存のレイアウト契約を維持する。
+ */
 /* PDF/HTML 出力時だけ取得し、保存物へ従来どおりフォントを埋め込む。 */
 @import "@fontsource/noto-sans-jp/400.css";
 @import "@fontsource/noto-sans-jp/700.css";

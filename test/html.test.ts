@@ -1,38 +1,125 @@
+/**
+ * @file html.test.ts
+ * 実行境界: テスト実行環境。
+ * 責務: 現行実装の仕様と回帰条件を検証する。
+ * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
+ * 副作用: テスト用のモック、ブラウザー、ファイルを必要に応じて操作する。
+ * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ */
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+/**
+ * 「TestUri」クラスの状態とライフサイクルを定義します。
+ */
 class TestUri {
+
+  /**
+   * 「scheme」は、URLリソースの対応する構成要素を保持します。
+   */
   readonly scheme = 'file';
+
+  /**
+   * 「path」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
+   */
   readonly path: string;
 
+  /**
+   * 処理に必要な状態を初期化します。
+   * @param fsPath 処理対象を特定するfsPathの入力値です。
+   * @returns 「constructor」がHTML出力の入力を処理して得た固有の結果を返します。
+   */
   constructor(readonly fsPath: string) {
     this.path = fsPath.replace(/\\/g, '/');
   }
 }
 
-const vscodeMock = vi.hoisted(() => ({ showSaveDialog: vi.fn() }));
-vi.mock('vscode', () => ({
+/** 「vscodeMock」は、関連する処理間で共有する設定値または状態です。 */
+const vscodeMock = vi.hoisted(
+/**
+ * テスト対象が利用するAPIまたは依存モジュールのモックを生成するコールバックです。
+ * @returns 置換後の文字列を返します。
+ */
+() => ({ showSaveDialog: vi.fn() }));
+vi.mock('vscode',
+/**
+ * テスト対象が利用するAPIまたは依存モジュールのモックを生成するコールバックです。
+ * @returns 置換後の文字列を返します。
+ */
+() => ({
   Uri: {
-    file: (filePath: string) => new TestUri(filePath),
-    parse: (value: string) => new TestUri(value.replace(/^file:\/\//i, ''))
+
+    /**
+     * 「file」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+     * @param filePath 「filePath」は、「file」がHTMLで処理する対象を特定する入力です。
+     * @returns 「file」がHTML出力の入力を処理して得た固有の結果を返します。
+     */
+    file: /**
+ * 「file」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @param filePath 「filePath」は、「file」がHTMLで処理する対象を特定する入力です。
+ * @returns 「file」がHTML出力の入力を処理して得た固有の結果を返します。
+ */ (filePath: string) => new TestUri(filePath),
+
+    /**
+     * parseを解析または復元します。
+     * @param value 処理で検証・変換する入力値です。
+     * @returns 「parse」が読み取りまたは正規化した結果を返します。
+     */
+    parse: /**
+ * 「parse」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @param value 「parse」で検証・変換する入力値です。
+ * @returns 「parse」が読み取りまたは正規化した結果を返します。
+ */ (value: string) => new TestUri(value.replace(/^file:\/\//i, ''))
   },
   window: { showSaveDialog: vscodeMock.showSaveDialog },
-  workspace: { fs: { readFile: (uri: TestUri) => fs.readFile(uri.fsPath) } }
+  workspace: { fs: {
+  /**
+   * ファイルを取得または解決します。
+   * @param uri 「uri」は、「readFile」がHTML出力の処理対象を特定する入力です。
+   * @returns 「readFile」が読み取りまたは正規化した結果を返します。
+   */
+  readFile: /**
+ * 「readFile」は、要求された状態、値、または対象を読み取ります。
+ * @param uri 「uri」は、「readFile」がHTMLで処理する対象を特定する入力です。
+ * @returns 「readFile」が読み取りまたは正規化した結果を返します。
+ */ (uri: TestUri) => fs.readFile(uri.fsPath) } }
 }));
 
 import { exportHtml, prepareHtmlExport, writePreparedHtml } from '../src/extension/html';
 
+/** 「temporaryDirectories」は、対象ファイルまたは実行環境の場所を表す値です。 */
 const temporaryDirectories: string[] = [];
 
-afterEach(async () => {
+afterEach(
+/**
+ * 「async」として関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+ * @returns 「vscodeMock.showSaveDialog.mockReset」を実行し、値を返しません。
+ */
+async () => {
   vscodeMock.showSaveDialog.mockReset();
-  await Promise.all(temporaryDirectories.splice(0).map((directory) => fs.rm(directory, { recursive: true, force: true })));
+  await Promise.all(temporaryDirectories.splice(0).map(
+  /**
+ * 「directory」を変換し、変換後の要素を返すコールバックです。
+   * @param directory 読み込みまたは出力するリソースの場所を示します。
+   * @returns 入力要素から生成した変換後の値を返します。
+   */
+  (directory) => fs.rm(directory, { recursive: true, force: true })));
 });
 
-describe('HTML export', () => {
-  it('recursively converts linked Markdown and embeds local images', async () => {
+describe('HTML export',
+/**
+ * テスト「HTML export」の前提条件を設定し、期待結果を検証するコールバックです。
+ * @returns テストの前提条件と期待結果を検証し、値を返しません。
+ */
+() => {
+  it('recursively converts linked Markdown and embeds local images',
+  /**
+   * 「async」として関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  async () => {
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markdown-easy-visual-editor-html-'));
     temporaryDirectories.push(directory);
     await fs.mkdir(path.join(directory, 'assets'), { recursive: true });
@@ -53,7 +140,13 @@ describe('HTML export', () => {
       fontFamily: '"Test Font", sans-serif'
     });
 
-    expect(result?.paths.map((uri) => uri.fsPath)).toEqual([
+    expect(result?.paths.map(
+    /**
+ * 「uri」を変換し、変換後の要素を返すコールバックです。
+     * @param uri 処理対象文書またはリソースを示すURIです。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (uri) => uri.fsPath)).toEqual([
       target,
       path.join(directory, 'out', 'child.html'),
       path.join(directory, 'out', 'nested', 'grand.html')
@@ -67,7 +160,12 @@ describe('HTML export', () => {
     expect(child).toContain('href="nested/grand.html"');
   });
 
-  it('rewrites local image paths when embedding is disabled', async () => {
+  it('rewrites local image paths when embedding is disabled',
+  /**
+   * 「async」として関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  async () => {
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markdown-easy-visual-editor-html-'));
     temporaryDirectories.push(directory);
     await fs.mkdir(path.join(directory, 'assets'), { recursive: true });
@@ -89,7 +187,12 @@ describe('HTML export', () => {
     expect(output).not.toContain('data:image/svg+xml;base64,');
   });
 
-  it('uses Webview-rendered HTML for recursive documents', async () => {
+  it('uses Webview-rendered HTML for recursive documents',
+  /**
+   * 「async」として関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  async () => {
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markdown-easy-visual-editor-html-'));
     temporaryDirectories.push(directory);
     const markdownPath = path.join(directory, 'main.md');
@@ -117,7 +220,12 @@ describe('HTML export', () => {
     expect(child).not.toContain('language-mermaid');
   });
 
-  it('exports beside the Markdown file without opening a save dialog by default', async () => {
+  it('exports beside the Markdown file without opening a save dialog by default',
+  /**
+   * 「async」として関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  async () => {
     const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markdown-easy-visual-editor-html-'));
     temporaryDirectories.push(directory);
     const markdownPath = path.join(directory, 'overview.md');

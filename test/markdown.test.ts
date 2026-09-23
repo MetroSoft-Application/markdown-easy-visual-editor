@@ -1,3 +1,11 @@
+/**
+ * @file markdown.test.ts
+ * 実行境界: テスト実行環境。
+ * 責務: 現行実装の仕様と回帰条件を検証する。
+ * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
+ * 副作用: テスト用のモック、ブラウザー、ファイルを必要に応じて操作する。
+ * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ */
 import { describe, expect, it } from 'vitest';
 import {
   clearBlockFormatting,
@@ -23,20 +31,40 @@ import {
   wrapSelection
 } from '../src/shared/markdown';
 
-describe('Markdown source editing', () => {
-  it('wraps only the selected text', () => {
+describe('Markdown source editing',
+/**
+ * テスト「Markdown source editing」の前提条件を設定し、期待結果を検証するコールバックです。
+ * @returns テストの前提条件と期待結果を検証し、値を返しません。
+ */
+() => {
+  it('wraps only the selected text',
+  /**
+ * テスト「wraps only the selected text」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const result = wrapSelection('alpha beta', { from: 6, to: 10 }, '**');
     expect(result.text).toBe('alpha **beta**');
     expect(result.selection).toEqual({ from: 8, to: 12 });
   });
 
-  it('separates inline formatting from adjacent text with half-width spaces', () => {
+  it('separates inline formatting from adjacent text with half-width spaces',
+  /**
+ * テスト「separates inline formatting from adjacent text with half-width spaces」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const result = wrapSelection('前後の文字列', { from: 2, to: 4 }, '**');
     expect(result.text).toBe('前後 **の文** 字列');
     expect(result.selection).toEqual({ from: 5, to: 7 });
   });
 
-  it('toggles line prefixes as one edit', () => {
+  it('toggles line prefixes as one edit',
+  /**
+ * テスト「toggles line prefixes as one edit」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const quoted = prefixSelectedLines('a\nb', { from: 0, to: 3 }, '> ');
     expect(quoted.text).toBe('> a\n> b');
     expect(prefixSelectedLines(quoted.text, quoted.selection, '> ').text).toBe('a\nb');
@@ -46,7 +74,12 @@ describe('Markdown source editing', () => {
     expect(prefixSelectedLines('item\n', { from: 5, to: 5 }, '- ').text).toBe('item\n- ');
   });
 
-  it('keeps caret-only bullet, task, and quote actions on the current line', () => {
+  it('keeps caret-only bullet, task, and quote actions on the current line',
+  /**
+ * テスト「keeps caret-only bullet, task, and quote actions on the current line」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     for (const prefix of ['- ', '- [ ] ', '> ']) {
       let source = 'line 14\n\nline 16';
       let selection = { from: 3, to: 3 };
@@ -61,13 +94,23 @@ describe('Markdown source editing', () => {
     }
   });
 
-  it('adds indentation without toggling existing indentation', () => {
+  it('adds indentation without toggling existing indentation',
+  /**
+ * テスト「adds indentation without toggling existing indentation」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     expect(indentSelectedLines('item', { from: 0, to: 4 }).text).toBe('  item');
     expect(indentSelectedLines('  item', { from: 0, to: 6 }).text).toBe('    item');
     expect(indentSelectedLines('a\n  b', { from: 0, to: 5 }).text).toBe('  a\n    b');
   });
 
-  it('keeps a caret-only indent on one line across repeated actions', () => {
+  it('keeps a caret-only indent on one line across repeated actions',
+  /**
+ * テスト「keeps a caret-only indent on one line across repeated actions」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     let source = 'line 14\n\nline 16';
     let selection = { from: 3, to: 3 };
     for (let index = 0; index < 3; index += 1) {
@@ -79,7 +122,12 @@ describe('Markdown source editing', () => {
     expect(selection.from).toBe(selection.to);
   });
 
-  it('keeps multi-line selection endpoints stable across repeated indentation', () => {
+  it('keeps multi-line selection endpoints stable across repeated indentation',
+  /**
+ * テスト「keeps multi-line selection endpoints stable across repeated indentation」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     let source = 'alpha\nbeta\ngamma';
     let selection = { from: 2, to: 8 };
     for (let index = 0; index < 3; index += 1) {
@@ -92,7 +140,12 @@ describe('Markdown source editing', () => {
     expect(selection).toEqual({ from: 8, to: 20 });
   });
 
-  it('keeps multi-line selection endpoints stable for list actions', () => {
+  it('keeps multi-line selection endpoints stable for list actions',
+  /**
+ * テスト「keeps multi-line selection endpoints stable for list actions」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     let source = 'alpha\nbeta\ngamma';
     let selection = { from: 2, to: 8 };
     for (let index = 0; index < 3; index += 1) {
@@ -105,7 +158,12 @@ describe('Markdown source editing', () => {
     expect(selection).toEqual({ from: 4, to: 12 });
   });
 
-  it('keeps multi-line selection endpoints for quote, task, and numbered lists', () => {
+  it('keeps multi-line selection endpoints for quote, task, and numbered lists',
+  /**
+ * テスト「keeps multi-line selection endpoints for quote, task, and numbered lists」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const cases = [
       { prefix: '> ', expected: { from: 4, to: 12 }, expectedText: '> alpha\n> beta\ngamma' },
       { prefix: '- [ ] ', expected: { from: 8, to: 20 }, expectedText: '- [ ] alpha\n- [ ] beta\ngamma' }
@@ -133,7 +191,12 @@ describe('Markdown source editing', () => {
     expect(selection).toEqual({ from: 5, to: 14 });
   });
 
-  it('applies numbered lists at the caret and numbers selected lines', () => {
+  it('applies numbered lists at the caret and numbers selected lines',
+  /**
+ * テスト「applies numbered lists at the caret and numbers selected lines」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     expect(prefixOrderedList('alpha', { from: 2, to: 2 }).text).toBe('1. alpha');
     expect(prefixOrderedList('alpha\nbeta', { from: 0, to: 10 }).text).toBe('1. alpha\n2. beta');
     expect(prefixOrderedList('1. alpha\n2. beta', { from: 4, to: 4 }).text).toBe('alpha\n2. beta');
@@ -141,7 +204,12 @@ describe('Markdown source editing', () => {
     expect(prefixOrderedList('item\n', { from: 5, to: 5 }).text).toBe('item\n1. ');
   });
 
-  it('keeps caret-only numbered-list actions on the current line', () => {
+  it('keeps caret-only numbered-list actions on the current line',
+  /**
+ * テスト「keeps caret-only numbered-list actions on the current line」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     let source = 'line 14\n\nline 16';
     let selection = { from: 3, to: 3 };
     for (let index = 0; index < 3; index += 1) {
@@ -153,34 +221,69 @@ describe('Markdown source editing', () => {
     expect(source).toBe('1. line 14\n\nline 16');
   });
 
-  it('clears inline formatting without removing link targets', () => {
+  it('clears inline formatting without removing link targets',
+  /**
+ * テスト「clears inline formatting without removing link targets」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const source = '**太字**と[~~リンク~~](https://example.com/a_b)';
     const result = clearInlineFormatting(source, { from: 0, to: source.length });
     expect(result.text).toBe('太字と[リンク](https://example.com/a_b)');
   });
 
-  it('clears heading, quote and list prefixes', () => {
+  it('clears heading, quote and list prefixes',
+  /**
+ * テスト「clears heading, quote and list prefixes」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const source = '# 見出し\n> 引用\n- [ ] タスク';
     expect(clearBlockFormatting(source, { from: 0, to: source.length }).text).toBe('見出し\n引用\nタスク');
   });
 
-  it('does not alter block formatting without a selection', () => {
+  it('does not alter block formatting without a selection',
+  /**
+ * テスト「does not alter block formatting without a selection」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const source = '# 見出し';
     expect(clearBlockFormatting(source, { from: 3, to: 3 }).text).toBe(source);
   });
 
-  it('turns a fenced code block into a paragraph', () => {
+  it('turns a fenced code block into a paragraph',
+  /**
+ * テスト「turns a fenced code block into a paragraph」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const source = '```ts\nconst value = 1;\n```';
     expect(clearBlockFormatting(source, { from: 0, to: source.length }).text).toBe('const value = 1;');
   });
 });
 
-describe('Markdown structures', () => {
-  it('creates a valid GFM table', () => {
+describe('Markdown structures',
+/**
+ * テスト「Markdown structures」の前提条件を設定し、期待結果を検証するコールバックです。
+ * @returns テストの前提条件と期待結果を検証し、値を返しません。
+ */
+() => {
+  it('creates a valid GFM table',
+  /**
+ * テスト「creates a valid GFM table」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     expect(createTableMarkdown(3, 2)).toBe('| 列1 | 列2 |\n| --- | --- |\n|  |  |\n|  |  |');
   });
 
-  it('edits the selected Markdown table row and column', () => {
+  it('edits the selected Markdown table row and column',
+  /**
+ * テスト「edits the selected Markdown table row and column」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const source = '| A | B |\n| --- | --- |\n| 1 | 2 |';
     const cell = source.indexOf('1');
     expect(applyMarkdownTableAction(source, { from: cell, to: cell }, 'rowAfter')?.text).toBe(
@@ -191,7 +294,12 @@ describe('Markdown structures', () => {
     );
   });
 
-  it('adds a named header when inserting a table column', () => {
+  it('adds a named header when inserting a table column',
+  /**
+ * テスト「adds a named header when inserting a table column」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const source = '| A | B |\n| --- | --- |\n| 1 | 2 |';
     const cell = source.indexOf('2');
     expect(applyMarkdownTableAction(source, { from: cell, to: cell }, 'colAfter', { headerName: '合計' })?.text).toBe(
@@ -199,7 +307,12 @@ describe('Markdown structures', () => {
     );
   });
 
-  it('pads table columns with half-width spaces', () => {
+  it('pads table columns with half-width spaces',
+  /**
+ * テスト「pads table columns with half-width spaces」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const source = '| Name | Value |\n| --- | --- |\n| A | 100 |\n| Longer | 2 |';
     const cell = source.indexOf('100');
     expect(applyMarkdownTableAction(source, { from: cell, to: cell }, 'alignColumns')?.text).toBe(
@@ -207,12 +320,27 @@ describe('Markdown structures', () => {
     );
   });
 
-  it('aligns full-width table cells and separator pipes by display width', () => {
+  it('aligns full-width table cells and separator pipes by display width',
+  /**
+ * テスト「aligns full-width table cells and separator pipes by display width」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const source = '| \u9805\u76ee | \u5024 |\n| --- | --- |\n| \u9577\u3044\u540d\u524d | 1 |';
     const cell = source.indexOf('1');
     const aligned = applyMarkdownTableAction(source, { from: cell, to: cell }, 'alignColumns')?.text;
     const lines = aligned?.split('\n') ?? [];
-    const pipeColumns = (line: string): number[] => {
+
+    /**
+     * 「pipeColumns」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+     * @param line 「line」は、「pipeColumns」がMarkdown解析・変換の処理対象を特定する入力です。
+     * @returns 計算結果の数値です。
+     */
+    const pipeColumns = /**
+ * 「pipeColumns」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @param line 「line」は、「pipeColumns」がMarkdownで処理する対象を特定する入力です。
+ * @returns テストデータまたは検証処理が生成した値を返します。
+ */ (line: string): number[] => {
       let column = 0;
       const positions: number[] = [];
       for (const character of line) {
@@ -221,11 +349,28 @@ describe('Markdown structures', () => {
       }
       return positions;
     };
-    expect(new Set(lines.map((line) => pipeColumns(line)[1])).size).toBe(1);
-    expect(new Set(lines.map((line) => pipeColumns(line)[2])).size).toBe(1);
+    expect(new Set(lines.map(
+    /**
+ * 「line」を変換し、変換後の要素を返すコールバックです。
+     * @param line lineとして渡される、このコールバックの入力値です。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (line) => pipeColumns(line)[1])).size).toBe(1);
+    expect(new Set(lines.map(
+    /**
+ * 「line」を変換し、変換後の要素を返すコールバックです。
+     * @param line lineとして渡される、このコールバックの入力値です。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (line) => pipeColumns(line)[2])).size).toBe(1);
   });
 
-  it('promotes a selected data row to the Markdown table header', () => {
+  it('promotes a selected data row to the Markdown table header',
+  /**
+ * テスト「promotes a selected data row to the Markdown table header」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const source = '| A | B |\n| --- | --- |\n| 1 | 2 |';
     const cell = source.indexOf('1');
     expect(applyMarkdownTableAction(source, { from: cell, to: cell }, 'header')?.text).toBe(
@@ -233,14 +378,24 @@ describe('Markdown structures', () => {
     );
   });
 
-  it('pastes quoted TSV into the selected cell and preserves the surrounding Markdown', () => {
+  it('pastes quoted TSV into the selected cell and preserves the surrounding Markdown',
+  /**
+ * テスト「pastes quoted TSV into the selected cell and preserves the surrounding Markdown」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const source = '前\r\n| H1 | H2 |\r\n| --- | --- |\r\n| old | old2 |\r\n後';
     const cell = source.indexOf('old');
     const edit = applyMarkdownTableTsv(source, { from: cell, to: cell }, 'A|B\t日本語\r\n"複数\n行"\t絵文字✅');
     expect(edit?.text).toBe('前\r\n| H1 | H2 |\r\n| --- | --- |\r\n| A\\|B | 日本語 |\r\n| 複数<br>行 | 絵文字✅ |\r\n後');
   });
 
-  it('expands Markdown tables when TSV has more rows or columns', () => {
+  it('expands Markdown tables when TSV has more rows or columns',
+  /**
+ * テスト「expands Markdown tables when TSV has more rows or columns」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const source = '| H1 |\n| --- |\n| old |';
     const cell = source.indexOf('old');
     expect(applyMarkdownTableTsv(source, { from: cell, to: cell }, 'A\tB\nC\tD')?.text).toBe(
@@ -248,13 +403,23 @@ describe('Markdown structures', () => {
     );
   });
 
-  it('copies table headers and data as plain TSV without the separator row', () => {
+  it('copies table headers and data as plain TSV without the separator row',
+  /**
+ * テスト「copies table headers and data as plain TSV without the separator row」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const source = '| 項目 | 内容 |\n| --- | --- |\n| ID | **重要** |\n| Link | [仕様](https://example.com) / A \\| B<br>次 |';
     const cell = source.indexOf('Link');
     expect(markdownTableToTsv(source, { from: cell, to: cell })).toBe('項目\t内容\r\nID\t重要\r\nLink\t"仕様 / A | B\n次"');
   });
 
-  it('converts TSV pasted outside a table into a GFM table', () => {
+  it('converts TSV pasted outside a table into a GFM table',
+  /**
+ * テスト「converts TSV pasted outside a table into a GFM table」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const source = '前の説明\n\n後の説明';
     const offset = source.indexOf('後');
     expect(applyMarkdownTableTsv(source, { from: offset, to: offset }, 'A\tB\r\n1\t2')).toEqual({
@@ -263,7 +428,12 @@ describe('Markdown structures', () => {
     });
   });
 
-  it('replaces an outside selection while retaining Markdown on both sides', () => {
+  it('replaces an outside selection while retaining Markdown on both sides',
+  /**
+ * テスト「replaces an outside selection while retaining Markdown on both sides」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const source = '前置\n置換対象\n後置';
     const from = source.indexOf('置換対象');
     const to = from + '置換対象'.length;
@@ -272,13 +442,23 @@ describe('Markdown structures', () => {
     );
   });
 
-  it('converts one-column TSV and empty cells outside a table', () => {
+  it('converts one-column TSV and empty cells outside a table',
+  /**
+ * テスト「converts one-column TSV and empty cells outside a table」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     expect(applyMarkdownTableTsv('', { from: 0, to: 0 }, '項目\r\n\r\n値')?.text).toBe(
       '| 項目 |\n| --- |\n|  |\n| 値 |'
     );
   });
 
-  it('keeps the selected table range addressable with mixed line endings', () => {
+  it('keeps the selected table range addressable with mixed line endings',
+  /**
+ * テスト「keeps the selected table range addressable with mixed line endings」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const source = '前\r| H1 | H2 |\n| --- | --- |\r| old | old2 |';
     const cell = source.indexOf('old');
     expect(applyMarkdownTableTsv(source, { from: cell, to: cell }, 'A\tB')?.text).toBe(
@@ -286,36 +466,72 @@ describe('Markdown structures', () => {
     );
   });
 
-  it('does not treat fenced table-like text as a Markdown table', () => {
+  it('does not treat fenced table-like text as a Markdown table',
+  /**
+ * テスト「does not treat fenced table-like text as a Markdown table」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const source = '```text\n| A | B |\n| --- | --- |\n| 1 | 2 |\n```';
     const cell = source.indexOf('1');
     expect(isMarkdownCodeFencePosition(source, { from: cell, to: cell })).toBe(true);
     expect(applyMarkdownTableTsv(source, { from: cell, to: cell }, 'X\tY')).toBeUndefined();
   });
 
-  it('escapes Markdown syntax in TSV values while preserving the value', () => {
+  it('escapes Markdown syntax in TSV values while preserving the value',
+  /**
+ * テスト「escapes Markdown syntax in TSV values while preserving the value」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     expect(applyMarkdownTableTsv('', { from: 0, to: 0 }, '**重要**\t[参照](url)\n`code`\t<tag>')?.text).toBe(
       '| \\*\\*重要\\*\\* | \\[参照\\](url) |\n| --- | --- |\n| \\`code\\` | \\<tag\\> |'
     );
   });
 
-  it('does not apply TSV to the separator row', () => {
+  it('does not apply TSV to the separator row',
+  /**
+ * テスト「does not apply TSV to the separator row」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const source = '本文\n\n| H1 |\n| --- |\n| old |';
     const separator = source.indexOf('---');
     expect(applyMarkdownTableTsv(source, { from: separator, to: separator }, 'A\tB')).toBeUndefined();
     expect(markdownTableToTsv(source, { from: separator, to: separator })).toBeUndefined();
   });
 
-  it('creates portable relative image markdown', () => {
+  it('creates portable relative image markdown',
+  /**
+ * テスト「creates portable relative image markdown」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     expect(imageMarkdown('assets\\spec\\pasted.png', '図[1]')).toBe('![図\\[1\\]](assets/spec/pasted.png)');
   });
 
-  it('extracts a Japanese outline with stable ids', () => {
+  it('extracts a Japanese outline with stable ids',
+  /**
+ * テスト「extracts a Japanese outline with stable ids」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const outline = getOutline('# 概要\n\n## 詳細\n## 詳細');
-    expect(outline.map((item) => item.id)).toEqual(['概要', '詳細', '詳細-1']);
+    expect(outline.map(
+    /**
+ * 「item」を変換し、変換後の要素を返すコールバックです。
+     * @param item 変換または処理の対象となる値です。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (item) => item.id)).toEqual(['概要', '詳細', '詳細-1']);
   });
 
-  it('ignores headings inside fenced code blocks', () => {
+  it('ignores headings inside fenced code blocks',
+  /**
+ * テスト「ignores headings inside fenced code blocks」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const source = [
       '# Visible',
       '```markdown',
@@ -328,15 +544,32 @@ describe('Markdown structures', () => {
       '~~~',
       '# Last visible'
     ].join('\n');
-    expect(getOutline(source).map(({ text, level }) => ({ text, level }))).toEqual([
+    expect(getOutline(source).map(
+    /**
+ * 「text」「level」を変換し、変換後の要素を返すコールバックです。
+     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはtext、levelです。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    ({ text, level }) => ({ text, level }))).toEqual([
       { text: 'Visible', level: 1 },
       { text: 'Visible child', level: 2 },
       { text: 'Last visible', level: 1 }
     ]);
-    expect(getOutline('# Visible\n```markdown\n# Hidden\n').map((item) => item.text)).toEqual(['Visible']);
+    expect(getOutline('# Visible\n```markdown\n# Hidden\n').map(
+    /**
+ * 「item」を変換し、変換後の要素を返すコールバックです。
+     * @param item 変換または処理の対象となる値です。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (item) => item.text)).toEqual(['Visible']);
   });
 
-  it('moves a parent section with all descendants', () => {
+  it('moves a parent section with all descendants',
+  /**
+ * テスト「moves a parent section with all descendants」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const source = '# A\n## A-1\n### A-1-a\n\n# B\n## B-1\n\n# C\nC';
     const outline = getOutline(source);
     expect(moveOutlineSection(source, outline, 0, 3, 'after')).toBe(
@@ -344,7 +577,12 @@ describe('Markdown structures', () => {
     );
   });
 
-  it('moves a child to another parent without changing its level', () => {
+  it('moves a child to another parent without changing its level',
+  /**
+ * テスト「moves a child to another parent without changing its level」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const source = '# A\n## A-1\n### A-1-a\n## A-2\n\n# B\n## B-1';
     const outline = getOutline(source);
     expect(moveOutlineSection(source, outline, 1, 3, 'after')).toBe(
@@ -355,7 +593,12 @@ describe('Markdown structures', () => {
     );
   });
 
-  it('rejects moves that change a heading level', () => {
+  it('rejects moves that change a heading level',
+  /**
+ * テスト「rejects moves that change a heading level」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const source = '# A\n## A-1\n### A-1-a\n## A-2\n\n# B\n## B-1';
     const outline = getOutline(source);
     expect(canMoveOutlineSection(outline, 1, 5)).toBe(true);
@@ -365,7 +608,12 @@ describe('Markdown structures', () => {
     expect(moveOutlineSection(source, outline, 0, 5, 'after')).toBeUndefined();
   });
 
-  it('moves a child into a parent with no children', () => {
+  it('moves a child into a parent with no children',
+  /**
+ * テスト「moves a child into a parent with no children」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const source = '# A\n## A-1\n### A-1-a\n\n# Empty\nEmpty body\n';
     const outline = getOutline(source);
     expect(moveOutlineSection(source, outline, 1, 3, 'before')).toBe(
@@ -373,40 +621,124 @@ describe('Markdown structures', () => {
     );
   });
 
-  it('reports outline offsets in the original CRLF coordinate space', () => {
+  it('reports outline offsets in the original CRLF coordinate space',
+  /**
+ * テスト「reports outline offsets in the original CRLF coordinate space」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const source = '# A\r\n本文\r\n## B\r\n';
-    expect(getOutline(source).map(({ line, offset }) => ({ line, offset }))).toEqual([
+    expect(getOutline(source).map(
+    /**
+ * 「line」「offset」を変換し、変換後の要素を返すコールバックです。
+     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはline、offsetです。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    ({ line, offset }) => ({ line, offset }))).toEqual([
       { line: 1, offset: 0 },
       { line: 3, offset: source.indexOf('## B') }
     ]);
   });
 
-  it('splits source into non-lossy top-level blocks', () => {
+  it('splits source into non-lossy top-level blocks',
+  /**
+ * テスト「splits source into non-lossy top-level blocks」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const source = '# A\n\nText\n\n| A | B |\n|---|---|\n|1|2|\n';
-    expect(splitMarkdownBlocks(source).map((block) => block.raw).join('')).toBe(source);
+    expect(splitMarkdownBlocks(source).map(
+    /**
+ * 「block」を変換し、変換後の要素を返すコールバックです。
+     * @param block blockとして渡される、このコールバックの入力値です。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (block) => block.raw).join('')).toBe(source);
   });
 
-  it('reports duplicate headings and unclosed fences', () => {
+  it('reports duplicate headings and unclosed fences',
+  /**
+ * テスト「reports duplicate headings and unclosed fences」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const diagnostics = collectDiagnostics('# Same\n# Same\n\n```ts\ncode');
-    expect(diagnostics.some((item) => item.code === 'duplicate-heading')).toBe(true);
-    expect(diagnostics.some((item) => item.code === 'unclosed-fence')).toBe(true);
+    expect(diagnostics.some(
+    /**
+ * 「item」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
+     * @param item 変換または処理の対象となる値です。
+     * @returns 条件判定の結果を示す真偽値を返します。
+     */
+    (item) => item.code === 'duplicate-heading')).toBe(true);
+    expect(diagnostics.some(
+    /**
+ * 「item」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
+     * @param item 変換または処理の対象となる値です。
+     * @returns 条件判定の結果を示す真偽値を返します。
+     */
+    (item) => item.code === 'unclosed-fence')).toBe(true);
   });
 
-  it('orders diagnostics by source line while preserving same-line order', () => {
+  it('orders diagnostics by source line while preserving same-line order',
+  /**
+ * テスト「orders diagnostics by source line while preserving same-line order」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const diagnostics = collectDiagnostics('![ ](assets/a.png)\n# Same\n# Same\n|  | 内容 |\n| -- | --- |');
-    expect(diagnostics.map((item) => item.line)).toEqual([1, 1, 3, 5]);
-    expect(diagnostics.slice(0, 2).map((item) => item.code)).toEqual(['empty-image-alt', 'local-image']);
+    expect(diagnostics.map(
+    /**
+ * 「item」を変換し、変換後の要素を返すコールバックです。
+     * @param item 変換または処理の対象となる値です。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (item) => item.line)).toEqual([1, 1, 3, 5]);
+    expect(diagnostics.slice(0, 2).map(
+    /**
+ * 「item」を変換し、変換後の要素を返すコールバックです。
+     * @param item 変換または処理の対象となる値です。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (item) => item.code)).toEqual(['empty-image-alt', 'local-image']);
   });
 
-  it('reports diagnostic lines for fenced blocks and image accessibility', () => {
+  it('reports diagnostic lines for fenced blocks and image accessibility',
+  /**
+ * テスト「reports diagnostic lines for fenced blocks and image accessibility」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const diagnostics = collectDiagnostics('```ts\ncode');
-    expect(diagnostics.find((item) => item.code === 'unclosed-fence')?.line).toBe(1);
+    expect(diagnostics.find(
+    /**
+ * 「item」が検索条件に一致するか判定するコールバックです。
+     * @param item 変換または処理の対象となる値です。
+     * @returns 条件に一致した要素、または該当しない場合はundefinedを返します。
+     */
+    (item) => item.code === 'unclosed-fence')?.line).toBe(1);
     const imageDiagnostics = collectDiagnostics('text\n\n![](assets/a.png)');
-    expect(imageDiagnostics.find((item) => item.code === 'empty-image-alt')?.line).toBe(3);
-    expect(imageDiagnostics.find((item) => item.code === 'local-image')?.line).toBe(3);
+    expect(imageDiagnostics.find(
+    /**
+ * 「item」が検索条件に一致するか判定するコールバックです。
+     * @param item 条件判定の対象となる要素です。
+     * @returns 条件に一致した要素、または該当しない場合はundefinedを返します。
+     */
+    (item) => item.code === 'empty-image-alt')?.line).toBe(3);
+    expect(imageDiagnostics.find(
+    /**
+ * 「item」が検索条件に一致するか判定するコールバックです。
+     * @param item 条件判定の対象となる要素です。
+     * @returns 条件に一致した要素、または該当しない場合はundefinedを返します。
+     */
+    (item) => item.code === 'local-image')?.line).toBe(3);
   });
 
-  it('extracts local image and link references while excluding external and fenced content', () => {
+  it('extracts local image and link references while excluding external and fenced content',
+  /**
+ * テスト「extracts local image and link references while excluding external and fenced content」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const references = collectLocalResourceReferences([
       '![画像](assets/ok.svg)',
       '[仕様](docs/spec.md#section)',
@@ -427,7 +759,12 @@ describe('Markdown structures', () => {
     ]);
   });
 
-  it('does not treat footnote definitions as local link resources', () => {
+  it('does not treat footnote definitions as local link resources',
+  /**
+ * テスト「does not treat footnote definitions as local link resources」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const references = collectLocalResourceReferences([
       '本文[^source]。',
       '',
@@ -436,7 +773,12 @@ describe('Markdown structures', () => {
     expect(references).toEqual([]);
   });
 
-  it('handles nested and multiline destinations, reference usages, containers, and comments', () => {
+  it('handles nested and multiline destinations, reference usages, containers, and comments',
+  /**
+ * テスト「handles nested and multiline destinations, reference usages, containers, and comments」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const references = collectLocalResourceReferences([
       '[括弧](docs/spec(1).md)',
       '[改行](',
@@ -469,7 +811,12 @@ describe('Markdown structures', () => {
     ]);
   });
 
-  it('extracts HTML resources and local absolute/URI destinations', () => {
+  it('extracts HTML resources and local absolute/URI destinations',
+  /**
+ * テスト「extracts HTML resources and local absolute/URI destinations」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const references = collectLocalResourceReferences([
       '<img src="assets/inline.png">',
       '<a href="docs/spec.md?view=1#details">仕様</a>',
@@ -486,14 +833,24 @@ describe('Markdown structures', () => {
     ]);
   });
 
-  it('ignores escaped link and image syntax', () => {
+  it('ignores escaped link and image syntax',
+  /**
+ * テスト「ignores escaped link and image syntax」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     expect(collectLocalResourceReferences([
       '\\[リンクではない](docs/missing.md)',
       '\\![画像ではない](assets/missing.png)'
     ].join('\n'))).toEqual([]);
   });
 
-  it('reports specification-document diagnostics for tables and reference links', () => {
+  it('reports specification-document diagnostics for tables and reference links',
+  /**
+ * テスト「reports specification-document diagnostics for tables and reference links」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const source = [
       '|  | 内容 |',
       '| --- | --- |',
@@ -508,26 +865,84 @@ describe('Markdown structures', () => {
     const diagnostics = collectDiagnostics(source);
     const invalidSeparator = collectDiagnostics('| A | B |\n| -- | --- |');
     const normalTextRow = collectDiagnostics('| A | B |\n| foo | bar |');
-    expect(diagnostics.map((item) => item.code)).toEqual(expect.arrayContaining([
+    expect(diagnostics.map(
+    /**
+ * 「item」を変換し、変換後の要素を返すコールバックです。
+     * @param item 変換または処理の対象となる値です。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (item) => item.code)).toEqual(expect.arrayContaining([
       'empty-table-header',
       'broken-reference-link'
     ]));
-    expect(diagnostics.filter((item) => item.code === 'broken-reference-link')).toHaveLength(2);
-    expect(invalidSeparator.some((item) => item.code === 'invalid-table-separator')).toBe(true);
-    expect(normalTextRow.some((item) => item.code === 'invalid-table-separator')).toBe(false);
-    expect(diagnostics.some((item) => item.code === 'table-column-mismatch')).toBe(false);
+    expect(diagnostics.filter(
+    /**
+ * 「item」が条件に一致するか判定し、残す要素を決めるコールバックです。
+     * @param item 変換または処理の対象となる値です。
+     * @returns 要素を採用するかどうかの真偽値を返します。
+     */
+    (item) => item.code === 'broken-reference-link')).toHaveLength(2);
+    expect(invalidSeparator.some(
+    /**
+ * 「item」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
+     * @param item 変換または処理の対象となる値です。
+     * @returns 要素を採用するかどうかの真偽値を返します。
+     */
+    (item) => item.code === 'invalid-table-separator')).toBe(true);
+    expect(normalTextRow.some(
+    /**
+ * 「item」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
+     * @param item 条件判定の対象となる要素です。
+     * @returns 条件判定の結果を示す真偽値を返します。
+     */
+    (item) => item.code === 'invalid-table-separator')).toBe(false);
+    expect(diagnostics.some(
+    /**
+ * 「item」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
+     * @param item 条件判定の対象となる要素です。
+     * @returns 条件判定の結果を示す真偽値を返します。
+     */
+    (item) => item.code === 'table-column-mismatch')).toBe(false);
     const escapedLabel = collectDiagnostics('[表示\\]名][escaped]\n[escaped]: https://example.com');
-    expect(escapedLabel.some((item) => item.code === 'broken-reference-link')).toBe(false);
+    expect(escapedLabel.some(
+    /**
+ * 「item」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
+     * @param item 条件判定の対象となる要素です。
+     * @returns 条件判定の結果を示す真偽値を返します。
+     */
+    (item) => item.code === 'broken-reference-link')).toBe(false);
     const nestedLabel = collectDiagnostics('[表示 [内] 容][nested]\n[nested]: https://example.com');
-    expect(nestedLabel.some((item) => item.code === 'broken-reference-link')).toBe(false);
+    expect(nestedLabel.some(
+    /**
+ * 「item」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
+     * @param item 条件判定の対象となる要素です。
+     * @returns 条件判定の結果を示す真偽値を返します。
+     */
+    (item) => item.code === 'broken-reference-link')).toBe(false);
   });
 
-  it('does not treat ordinary bracket text or task syntax as broken references', () => {
+  it('does not treat ordinary bracket text or task syntax as broken references',
+  /**
+ * 登録された処理が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const diagnostics = collectDiagnostics('- [ ] TODO\n[1]\n説明 [注記]');
-    expect(diagnostics.some((item) => item.code === 'broken-reference-link')).toBe(false);
+    expect(diagnostics.some(
+    /**
+ * 「item」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
+     * @param item 条件判定の対象となる要素です。
+     * @returns 条件判定の結果を示す真偽値を返します。
+     */
+    (item) => item.code === 'broken-reference-link')).toBe(false);
   });
 
-  it('ignores fenced and inline-code content while checking diagnostics', () => {
+  it('ignores fenced and inline-code content while checking diagnostics',
+  /**
+ * テスト「ignores fenced and inline-code content while checking diagnostics」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const source = [
       '```markdown',
       '|  | 内容 |',
@@ -540,23 +955,87 @@ describe('Markdown structures', () => {
       '`[インライン][missing]` [未定義][missing]'
     ].join('\r');
     const diagnostics = collectDiagnostics(source);
-    expect(diagnostics.filter((item) => item.code === 'empty-table-header')).toHaveLength(0);
-    expect(diagnostics.filter((item) => item.code === 'empty-image-alt')).toHaveLength(0);
-    expect(diagnostics.filter((item) => item.code === 'broken-reference-link')).toHaveLength(1);
-    expect(diagnostics.some((item) => item.code === 'invalid-table-separator' && item.line === 8)).toBe(true);
-    expect(diagnostics.filter((item) => item.code === 'invalid-table-separator')).toHaveLength(1);
+    expect(diagnostics.filter(
+    /**
+ * 「item」が条件に一致するか判定し、残す要素を決めるコールバックです。
+     * @param item 条件判定の対象となる要素です。
+     * @returns 要素を採用するかどうかの真偽値を返します。
+     */
+    (item) => item.code === 'empty-table-header')).toHaveLength(0);
+    expect(diagnostics.filter(
+    /**
+ * 「item」が条件に一致するか判定し、残す要素を決めるコールバックです。
+     * @param item 条件判定の対象となる要素です。
+     * @returns 要素を採用するかどうかの真偽値を返します。
+     */
+    (item) => item.code === 'empty-image-alt')).toHaveLength(0);
+    expect(diagnostics.filter(
+    /**
+ * 「item」が条件に一致するか判定し、残す要素を決めるコールバックです。
+     * @param item 条件判定の対象となる要素です。
+     * @returns 要素を採用するかどうかの真偽値を返します。
+     */
+    (item) => item.code === 'broken-reference-link')).toHaveLength(1);
+    expect(diagnostics.some(
+    /**
+ * 「item」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
+     * @param item 条件判定の対象となる要素です。
+     * @returns 要素を採用するかどうかの真偽値を返します。
+     */
+    (item) => item.code === 'invalid-table-separator' && item.line === 8)).toBe(true);
+    expect(diagnostics.filter(
+    /**
+ * 「item」が条件に一致するか判定し、残す要素を決めるコールバックです。
+     * @param item 条件判定の対象となる要素です。
+     * @returns 要素を採用するかどうかの真偽値を返します。
+     */
+    (item) => item.code === 'invalid-table-separator')).toHaveLength(1);
   });
 
-  it('checks reference images and ignores inline-code images', () => {
+  it('checks reference images and ignores inline-code images',
+  /**
+   * 配列要素を採用するか判定するコールバックです。
+   * @returns 要素を採用するかどうかの真偽値を返します。
+   */
+  () => {
     const referenceImageDiagnostics = collectDiagnostics('![][missing-image]');
-    expect(referenceImageDiagnostics.some((item) => item.code === 'empty-image-alt')).toBe(true);
-    expect(referenceImageDiagnostics.some((item) => item.code === 'broken-reference-link')).toBe(true);
+    expect(referenceImageDiagnostics.some(
+    /**
+ * 「item」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
+     * @param item 条件判定の対象となる要素です。
+     * @returns 条件判定の結果を示す真偽値を返します。
+     */
+    (item) => item.code === 'empty-image-alt')).toBe(true);
+    expect(referenceImageDiagnostics.some(
+    /**
+ * 「item」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
+     * @param item 条件判定の対象となる要素です。
+     * @returns 条件判定の結果を示す真偽値を返します。
+     */
+    (item) => item.code === 'broken-reference-link')).toBe(true);
     const inlineImageDiagnostics = collectDiagnostics('`![](assets/a.png)`');
-    expect(inlineImageDiagnostics.some((item) => item.code === 'empty-image-alt')).toBe(false);
-    expect(inlineImageDiagnostics.some((item) => item.code === 'local-image')).toBe(false);
+    expect(inlineImageDiagnostics.some(
+    /**
+ * 「item」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
+     * @param item 条件判定の対象となる要素です。
+     * @returns 条件判定の結果を示す真偽値を返します。
+     */
+    (item) => item.code === 'empty-image-alt')).toBe(false);
+    expect(inlineImageDiagnostics.some(
+    /**
+ * 「item」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
+     * @param item 条件判定の対象となる要素です。
+     * @returns 条件判定の結果を示す真偽値を返します。
+     */
+    (item) => item.code === 'local-image')).toBe(false);
   });
 
-  it('does not close a fence when a closing marker has an info string', () => {
+  it('does not close a fence when a closing marker has an info string',
+  /**
+ * テスト「does not close a fence when a closing marker has an info string」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const source = [
       '```',
       '```js',
@@ -565,30 +1044,98 @@ describe('Markdown structures', () => {
       '```'
     ].join('\n');
     const diagnostics = collectDiagnostics(source);
-    expect(diagnostics.filter((item) => item.code === 'unclosed-fence')).toHaveLength(0);
-    expect(diagnostics.some((item) => item.code === 'table-column-mismatch')).toBe(false);
-    expect(diagnostics.some((item) => item.code === 'empty-table-header')).toBe(false);
+    expect(diagnostics.filter(
+    /**
+ * 「item」が条件に一致するか判定し、残す要素を決めるコールバックです。
+     * @param item 条件判定の対象となる要素です。
+     * @returns 要素を採用するかどうかの真偽値を返します。
+     */
+    (item) => item.code === 'unclosed-fence')).toHaveLength(0);
+    expect(diagnostics.some(
+    /**
+ * 「item」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
+     * @param item 条件判定の対象となる要素です。
+     * @returns 要素を採用するかどうかの真偽値を返します。
+     */
+    (item) => item.code === 'table-column-mismatch')).toBe(false);
+    expect(diagnostics.some(
+    /**
+ * 「item」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
+     * @param item 条件判定の対象となる要素です。
+     * @returns 条件判定の結果を示す真偽値を返します。
+     */
+    (item) => item.code === 'empty-table-header')).toBe(false);
   });
 
-  it('reports a header and separator column mismatch', () => {
+  it('reports a header and separator column mismatch',
+  /**
+ * テスト「reports a header and separator column mismatch」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const diagnostics = collectDiagnostics('| A | B |\n| --- |\n| 1 | 2 |');
-    expect(diagnostics.find((item) => item.code === 'table-column-mismatch')?.line).toBe(2);
+    expect(diagnostics.find(
+    /**
+ * 「item」が検索条件に一致するか判定するコールバックです。
+     * @param item 条件判定の対象となる要素です。
+     * @returns 条件に一致した要素、または該当しない場合はundefinedを返します。
+     */
+    (item) => item.code === 'table-column-mismatch')?.line).toBe(2);
   });
 
-  it('reports table column mismatch and groups the same diagnostics for preflight', () => {
+  it('reports table column mismatch and groups the same diagnostics for preflight',
+  /**
+ * テスト「reports table column mismatch and groups the same diagnostics for preflight」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const diagnostics = collectDiagnostics('| A | B |\n| --- | --- |\n| 1 |');
-    expect(diagnostics.some((item) => item.code === 'table-column-mismatch')).toBe(true);
+    expect(diagnostics.some(
+    /**
+ * 「item」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
+     * @param item 条件判定の対象となる要素です。
+     * @returns 条件判定の結果を示す真偽値を返します。
+     */
+    (item) => item.code === 'table-column-mismatch')).toBe(true);
     const summary = summarizeDiagnostics(diagnostics);
-    expect(summary.errors).toEqual(diagnostics.filter((item) => item.severity === 'error'));
-    expect(summary.warnings).toEqual(diagnostics.filter((item) => item.severity === 'warning'));
-    expect(summary.infos).toEqual(diagnostics.filter((item) => item.severity === 'info'));
+    expect(summary.errors).toEqual(diagnostics.filter(
+    /**
+ * 「item」が条件に一致するか判定し、残す要素を決めるコールバックです。
+     * @param item 条件判定の対象となる要素です。
+     * @returns 要素を採用するかどうかの真偽値を返します。
+     */
+    (item) => item.severity === 'error'));
+    expect(summary.warnings).toEqual(diagnostics.filter(
+    /**
+ * 「item」が条件に一致するか判定し、残す要素を決めるコールバックです。
+     * @param item 条件判定の対象となる要素です。
+     * @returns 要素を採用するかどうかの真偽値を返します。
+     */
+    (item) => item.severity === 'warning'));
+    expect(summary.infos).toEqual(diagnostics.filter(
+    /**
+ * 「item」が条件に一致するか判定し、残す要素を決めるコールバックです。
+     * @param item 条件判定の対象となる要素です。
+     * @returns 要素を採用するかどうかの真偽値を返します。
+     */
+    (item) => item.severity === 'info'));
   });
 
-  it('formats trailing whitespace without destroying two-space hard breaks', () => {
+  it('formats trailing whitespace without destroying two-space hard breaks',
+  /**
+   * 配列要素を採用するか判定するコールバックです。
+   * @returns 要素を採用するかどうかの真偽値を返します。
+   */
+  () => {
     expect(formatMarkdown('a  \nb   \n\n\n\n\nc ')).toBe('a  \nb   \n\n\nc\n');
   });
 
-  it('counts text separately from markdown punctuation', () => {
+  it('counts text separately from markdown punctuation',
+  /**
+ * テスト「counts text separately from markdown punctuation」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const stats = wordStats('# 見出し\n\n**本文**');
     expect(stats.lines).toBe(3);
     expect(stats.text).toBeGreaterThan(4);

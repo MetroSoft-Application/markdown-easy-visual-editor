@@ -1,3 +1,11 @@
+/**
+ * @file SourceEditor.tsx
+ * 実行境界: Webview。
+ * 責務: 編集UI、プレビュー、ユーザー操作を処理する。
+ * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
+ * 副作用: DOM、Webviewメッセージ、ブラウザーAPI、編集状態を操作する。
+ * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ */
 import React, {
   forwardRef,
   useEffect,
@@ -65,6 +73,9 @@ import type { Messages } from "../shared/messages";
 import { isMveDebugEnabled, mveDebug } from "./debug";
 import { exactSelectionMatchExtension } from "./cmSelectionMatchHighlight";
 
+/**
+ * 「SourceAction」として扱う値の型を定義します。
+ */
 export type SourceAction =
   | "bold"
   | "italic"
@@ -89,6 +100,8 @@ export type SourceAction =
   | "clearAll"
   | "unlink";
 
+/** 「CARET_PRESERVING_LINE_ACTIONS」は、関連する処理間で共有する設定値または状態です。 */
+/** 行単位の書式操作でカーソル位置を維持するアクション集合。選択範囲の再計算を共通化する。 */
 const CARET_PRESERVING_LINE_ACTIONS = new Set<SourceAction>([
   "quote",
   "bulletList",
@@ -101,33 +114,115 @@ const CARET_PRESERVING_LINE_ACTIONS = new Set<SourceAction>([
   "clearAll",
 ]);
 
+/**
+ * 「TextEditorHandle」が満たすデータ契約を定義します。
+ */
 export interface TextEditorHandle {
+  /**
+   * 「insert」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
+   * @param markdown 解析・編集・変換の対象となる本文または生成済み内容です。
+   * @param inline 「inline」は、「insert」がWebview UI状態の処理対象を特定する入力です。
+   * @returns 「insert」の副作用または状態更新を実行し、値は返しません。
+   */
   insert(markdown: string, inline?: boolean): void;
+  /**
+   * 「applyEdit」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
+   * @param edit 「edit」は、「applyEdit」がWebview UI状態の処理対象を特定する入力です。
+   * @returns 「applyEdit」の副作用または状態更新を実行し、値は返しません。
+   */
   applyEdit(edit: SourceEdit): void;
+  /**
+   * 「action」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
+   * @param action 「action」は、「action」がWebview UI状態の処理対象を特定する入力です。
+   * @returns 「action」の副作用または状態更新を実行し、値は返しません。
+   */
   action(action: SourceAction): void;
+  /**
+   * 「codeBlock」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
+   * @param language 表示文言の解決に使用する言語コードまたはロケールです。
+   * @returns 「codeBlock」の副作用または状態更新を実行し、値は返しません。
+   */
   codeBlock(language?: string): void;
+  /**
+   * 「heading」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
+   * @param level 「level」は、「heading」がWebview UI状態の処理対象を特定する入力です。
+   * @returns 「heading」の副作用または状態更新を実行し、値は返しません。
+   */
   heading(level: number): void;
+  /**
+   * 「link」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
+   * @param href 「href」は、「link」がWebview UI状態の処理対象を特定する入力です。
+   * @param label 「label」は、「link」がWebview UI状態の処理対象を特定する入力です。
+   * @returns 「link」の副作用または状態更新を実行し、値は返しません。
+   */
   link(href: string, label?: string): void;
+  /**
+   * 「getSelection」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
+   * @returns 「getSelection」が読み取りまたは正規化した結果を返します。
+   */
   getSelection(): TextSelection;
+  /**
+   * 「setSelection」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
+   * @param selection 「selection」は、「setSelection」がWebview UI状態の処理対象を特定する入力です。
+   * @returns 「setSelection」の副作用または状態更新を実行し、値は返しません。
+   */
   setSelection(selection: TextSelection): void;
+  /**
+   * 「revealRange」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
+   * @param selection 「selection」は、「revealRange」がWebview UI状態の処理対象を特定する入力です。
+   * @returns 「revealRange」の副作用または状態更新を実行し、値は返しません。
+   */
   revealRange(selection: TextSelection): void;
+  /**
+   * 「getViewport」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
+   * @returns 「getViewport」が対象を取得できない場合はundefinedを返します。
+   */
   getViewport(): EditorViewportAnchor | undefined;
+  /**
+   * 「restoreViewport」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
+   * @param anchor 「anchor」は、「restoreViewport」がWebview UI状態の処理対象を特定する入力です。
+   * @returns 「restoreViewport」の副作用または状態更新を実行し、値は返しません。
+   */
   restoreViewport(anchor: EditorViewportAnchor): void;
+  /**
+   * 「restoreScrollRatio」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
+   * @param ratio 表示領域のサイズまたは倍率で、画面レイアウト計算に使用します。
+   * @returns 「restoreScrollRatio」の副作用または状態更新を実行し、値は返しません。
+   */
   restoreScrollRatio(ratio: number): void;
 }
 
+/**
+ * 「EditorViewportAnchor」が満たすデータ契約を定義します。
+ */
 export interface EditorViewportAnchor {
+
+  /**
+   * 「offset」は、本文または選択範囲の位置・長さを保持します。
+   */
   offset: number;
+
+  /**
+   * 「topOffset」は、本文または選択範囲の位置・長さを保持します。
+   */
   topOffset: number;
+
+  /**
+   * 「endOffset」は、本文または選択範囲の位置・長さを保持します。
+   */
   endOffset?: number;
-  /** エディター全体の最大スクロール量に対する現在位置。 */
+  /**
+   * エディター全体の最大スクロール量に対する現在位置。
+   */
   scrollRatio?: number;
 }
 
 /** 外部同期トランザクションをユーザー編集と区別するためのCodeMirrorアノテーション。 */
+/** Hostからの同期編集をユーザー入力と区別するCodeMirror注釈。カーソル復元の分岐に使う。 */
 const externalSyncTransaction = Annotation.define<boolean>();
 
 /** フェンス付きコードブロック内で利用するCodeMirror言語を定義する。 */
+/** フェンス付きコードブロックで遅延ロードするCodeMirror言語サポートの一覧。 */
 const sourceCodeLanguages = [
   LanguageDescription.of({
     name: "JavaScript",
@@ -192,6 +287,7 @@ const sourceCodeLanguages = [
 ] as const;
 
 /** Markdownとフェンス内コードをVS Codeテーマに合わせて読みやすく表示する。 */
+/** MarkdownとコードフェンスをVS Codeテーマの色へ対応付けるハイライト定義。 */
 const vscodeSyntaxHighlightStyle = HighlightStyle.define([
   { tag: tags.meta, color: "var(--vscode-descriptionForeground)" },
   { tag: tags.heading, color: "#4ec9b0", fontWeight: "600" },
@@ -278,18 +374,54 @@ const vscodeSyntaxHighlightStyle = HighlightStyle.define([
   },
 ]);
 
+/**
+ * 「SearchHighlightData」が満たすデータ契約を定義します。
+ */
 interface SearchHighlightData {
+
+  /**
+   * 「hits」は、関連する複数の対象または識別子を保持します。
+   */
   hits: readonly TextSelection[];
+
+  /**
+   * 「active」は、画面の表示モードまたは現在のUI状態を示します。
+   */
   active?: TextSelection;
 }
 
+/**
+ * 「SearchHighlightState」が満たすデータ契約を定義します。
+ */
 interface SearchHighlightState extends SearchHighlightData {
+
+  /**
+   * 「decorations」は、表示領域のサイズまたは倍率を保持します。
+   */
   decorations: DecorationSet;
 }
 
+/** 「setSearchHighlights」は、関連する処理間で共有する設定値または状態です。 */
+/** 検索ヒットの範囲をCodeMirror状態へ適用するエフェクト。 */
 const setSearchHighlights = StateEffect.define<SearchHighlightData>();
+/** 「searchHighlightField」は、関連する処理間で共有する設定値または状態です。 */
+/** 検索ヒットと装飾を編集トランザクションに追従させる状態フィールド。 */
 const searchHighlightField = StateField.define<SearchHighlightState>({
-  create: () => ({ hits: [], decorations: Decoration.none }),
+
+  /**
+   * createを作成または組み立てます。
+   * @returns 「create」が生成したデータまたはオブジェクトを返します。
+   */
+  create: /**
+ * 「create」は、必要な初期状態または出力データを生成します。
+ * @returns 「create」が生成したデータまたはオブジェクトを返します。
+ */ () => ({ hits: [], decorations: Decoration.none }),
+  /**
+   * updateを更新または保存します。
+   * @param value 処理で検証・変換する入力値です。
+   * @param transaction 「transaction」は、「update」がWebview UI状態の処理対象を特定する入力です。
+   * @returns 「value」「transaction」から生成した処理結果を返します。
+   */
   update(value, transaction) {
     let next = value;
     for (const effect of transaction.effects) {
@@ -304,8 +436,24 @@ const searchHighlightField = StateField.define<SearchHighlightState>({
       return { hits: [], decorations: Decoration.none };
     return next;
   },
-  provide: (field) =>
-    EditorView.decorations.from(field, (value) => value.decorations),
+
+  /**
+   * 「provide」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @param field 「field」は、「provide」がWebview UI状態の処理対象を特定する入力です。
+   * @returns 「provide」がWebview UI状態の入力を処理して得た固有の結果を返します。
+   */
+  provide: /**
+ * 「provide」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @param field 「field」は、「provide」がWebview UIで処理する対象を特定する入力です。
+ * @returns 「provide」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ */ (field) =>
+    EditorView.decorations.from(field,
+    /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+     * @param value 「value」で検証・変換する入力値です。
+     * @returns 「value」から生成した処理結果を返します。
+     */
+    (value) => value.decorations),
 });
 
 /**
@@ -321,7 +469,13 @@ function createSearchDecorations(
   const activeKey = data.active ? `${data.active.from}:${data.active.to}` : "";
   const source = state.sliceDoc();
   const ranges = data.hits
-    .map((hit) => {
+    .map(
+    /**
+ * 「hit」を変換し、変換後の要素を返すコールバックです。
+     * @param hit hitとして渡される、このコールバックの入力値です。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (hit) => {
       const from = externalOffsetToEditorValue(source, hit.from);
       const to = externalOffsetToEditorValue(source, hit.to);
       if (to <= from) return undefined;
@@ -332,7 +486,13 @@ function createSearchDecorations(
           : "cm-search-match",
       }).range(from, to);
     })
-    .filter((range): range is Range<Decoration> => Boolean(range));
+    .filter(
+    /**
+ * 「range」が条件に一致するか判定し、残す要素を決めるコールバックです。
+     * @param range 処理対象の範囲です。
+     * @returns 要素を採用するかどうかの真偽値を返します。
+     */
+    (range): range is Range<Decoration> => Boolean(range));
   return Decoration.set(ranges);
 }
 
@@ -342,7 +502,15 @@ function createSearchDecorations(
  * @returns 半角スペースへ適用する装飾集合。
  */
 function visibleSpaceDecorations(view: EditorView): DecorationSet {
-  const ranges = [] as Array<{ from: number; to: number }>;
+  const ranges = [] as Array<{
+  /**
+   * 「from」は、本文または選択範囲の位置・長さを保持します。
+   */
+  from: number;
+  /**
+   * 「to」は、本文または選択範囲の位置・長さを保持します。
+   */
+  to: number }>;
   for (const { from, to } of view.visibleRanges) {
     const text = view.state.doc.sliceString(from, to, "\n");
     for (let index = 0; index < text.length; index += 1) {
@@ -352,7 +520,13 @@ function visibleSpaceDecorations(view: EditorView): DecorationSet {
     }
   }
   return Decoration.set(
-    ranges.map(({ from, to }) =>
+    ranges.map(
+    /**
+ * 「from」「to」を変換し、変換後の要素を返すコールバックです。
+     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはfrom、toです。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    ({ from, to }) =>
       Decoration.mark({ class: "cm-visible-space" }).range(from, to),
     ),
   );
@@ -370,7 +544,16 @@ function updateVisibleSpaceDecorations(
 ): DecorationSet {
   if (update.viewportChanged) return visibleSpaceDecorations(update.view);
   let next = decorations.map(update.changes);
-  update.changes.iterChangedRanges((_fromA, _toA, fromB, toB) => {
+  update.changes.iterChangedRanges(
+  /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+   * @param _fromA _fromAとして渡される、このコールバックの入力値です。
+   * @param _toA _toAとして渡される、このコールバックの入力値です。
+   * @param fromB fromBとして渡される、このコールバックの入力値です。
+   * @param toB toBとして渡される、このコールバックの入力値です。
+   * @returns 「if」を実行し、値を返しません。
+   */
+  (_fromA, _toA, fromB, toB) => {
     const additions: Range<Decoration>[] = [];
     if (toB > fromB) {
       for (const visible of update.view.visibleRanges) {
@@ -393,7 +576,15 @@ function updateVisibleSpaceDecorations(
       next = next.update({
         filterFrom: fromB,
         filterTo: toB,
-        filter: () => false,
+
+        /**
+         * 「filter」は、後続処理へ渡す対象を判定します。
+         * @returns 条件を満たすかどうかを示す真偽値を返します。
+         */
+        filter: /**
+ * 「filter」は、後続処理へ渡す対象を判定します。
+ * @returns 対象を保持または採用するかどうかを示す真偽値を返します。
+ */ () => false,
         add: additions,
         sort: true,
       });
@@ -402,16 +593,30 @@ function updateVisibleSpaceDecorations(
   return next;
 }
 
+/** 「visibleSpaces」は、関連する処理間で共有する設定値または状態です。 */
+/** 空白文字の可視化装飾をエディターへ接続するCodeMirror拡張。 */
 const visibleSpaces: Extension = ViewPlugin.fromClass(
   class {
+
+    /**
+     * 「decorations」は、表示領域のサイズまたは倍率を保持します。
+     */
     decorations: DecorationSet;
 
-    /** 表示中のスペース装飾を初期化する。 */
+    /**
+     * 表示中のスペース装飾を初期化する。
+     * @param view 処理対象のviewです。
+     * @returns 「constructor」がWebview UI状態の入力を処理して得た固有の結果を返します。
+     */
     constructor(view: EditorView) {
       this.decorations = visibleSpaceDecorations(view);
     }
 
-    /** 文書または表示範囲の変更時にスペース装飾を再計算する。 */
+    /**
+     * 文書または表示範囲の変更時にスペース装飾を再計算する。
+     * @param update 「update」は、「update」がWebview UI状態の処理対象を特定する入力です。
+     * @returns 状態更新または副作用を実行し、値は返しません。
+     */
     update(update: ViewUpdate): void {
       if (update.docChanged) {
         this.decorations = updateVisibleSpaceDecorations(
@@ -423,31 +628,102 @@ const visibleSpaces: Extension = ViewPlugin.fromClass(
       }
     }
   },
-  { decorations: (value) => value.decorations },
+  {
+  /**
+   * 「decorations」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @param value 「decorations」で検証・変換する入力値です。
+   * @returns 「decorations」がWebview UI状態の入力を処理して得た固有の結果を返します。
+   */
+  decorations: /**
+ * 「decorations」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @param value 「decorations」で検証・変換する入力値です。
+ * @returns 「decorations」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ */ (value) => value.decorations },
 );
 
+/**
+ * 「Props」が満たすデータ契約を定義します。
+ */
 interface Props {
+
+  /**
+   * 「messages」は、画面または通知へ表示する文言を保持します。
+   */
   messages: Messages;
+
+  /**
+   * 「value」は、対象の内容または識別子を表す文字列です。
+   */
   value: string;
+
+  /**
+   * 「initialSelection」は、関連処理が共有する構造化データの一項目です。
+   */
   initialSelection?: TextSelection;
+
+  /**
+   * 「searchHits」は、関連する複数の対象または識別子を保持します。
+   */
   searchHits?: readonly TextSelection[];
+
+  /**
+   * 「activeSearchHit」は、画面の表示モードまたは現在のUI状態を示します。
+   */
   activeSearchHit?: TextSelection;
-  /** `isCompositionCommit` はIME確定時にまとめて通知した操作であることを示す。 */
+  /**
+   * `isCompositionCommit` はIME確定時にまとめて通知した操作であることを示す。
+   * @param beforeValue 処理対象を特定するbeforeValueの入力値です。
+   * @param value 処理で検証・変換する入力値です。
+   * @param changes 「changes」は、「onChange」がWebview UI状態の処理対象を特定する入力です。
+   * @param isCompositionCommit 「isCompositionCommit」は、「onChange」がWebview UI状態の処理対象を特定する入力です。
+   * @returns 状態更新または副作用を実行し、値は返しません。
+   */
   onChange: (
     beforeValue: string,
     value: string,
     changes: TextChange[],
     isCompositionCommit?: boolean,
   ) => void;
+  /**
+   * 呼び出し側が入力を渡し、宣言された戻り値型で結果を受け取る契約です。
+   * @returns 状態更新または副作用を実行し、値は返しません。
+   */
   onInputActivity?: () => void;
+  /**
+   * 呼び出し側が入力を渡し、宣言された戻り値型で結果を受け取る契約です。
+   * @returns 状態更新または副作用を実行し、値は返しません。
+   */
   onSettled?: () => void;
+  /**
+   * 呼び出し側が入力を渡し、宣言された戻り値型で結果を受け取る契約です。
+   * @param selection 処理対象を特定するselectionの入力値です。
+   * @returns 状態更新または副作用を実行し、値は返しません。
+   */
   onSelectionChange?: (selection: TextSelection) => void;
+
+  /**
+   * 「className」は、対象の識別や処理分岐に使用する値を保持します。
+   */
   className?: string;
+
+  /**
+   * 「placeholder」は、対象の内容または識別子を表す文字列です。
+   */
   placeholder?: string;
+  /**
+   * 呼び出し側が入力を渡し、宣言された戻り値型で結果を受け取る契約です。
+   * @param anchor 処理対象を特定するanchorの入力値です。
+   * @param userInitiated 処理対象を特定するuserInitiatedの入力値です。
+   * @returns 状態更新または副作用を実行し、値は返しません。
+   */
   onViewportChange?: (
     anchor: EditorViewportAnchor,
     userInitiated: boolean,
   ) => void;
+  /**
+   * 呼び出し側が入力を渡し、宣言された戻り値型で結果を受け取る契約です。
+   * @returns 状態更新または副作用を実行し、値は返しません。
+   */
   onUserScrollIntent?: () => void;
 }
 
@@ -457,7 +733,15 @@ interface Props {
  * @param ref 親から命令型操作を呼び出すための参照。
  * @returns CodeMirrorを格納するエディター要素。
  */
+/** CodeMirror本体を生成し、親refへ編集・選択・スクロール操作を公開するReactコンポーネント。 */
 const SourceEditorView = forwardRef<TextEditorHandle, Props>(
+
+  /**
+   * 「SourceEditor」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @param props 「props」は、「SourceEditor」がWebview UI状態の処理対象を特定する入力です。
+   * @param ref 「ref」は、「SourceEditor」がWebview UI状態の処理対象を特定する入力です。
+   * @returns 「SourceEditor」がWebview UI状態の入力を処理して得た固有の結果を返します。
+   */
   function SourceEditor(
     {
       messages,
@@ -497,18 +781,38 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
     const compositionActiveRef = useRef(false);
     const compositionSessionRef = useRef<
       | {
-          /** 変換開始時点の外部文書。preedit差分は必ずこの本文を基準に確定する。 */
+          /**
+           * 変換開始時点の外部文書。preedit差分は必ずこの本文を基準に確定する。
+           */
           beforeValue: string;
+
+          /**
+           * 「from」は、本文または選択範囲の位置・長さを保持します。
+           */
           from: number;
+
+          /**
+           * 「to」は、本文または選択範囲の位置・長さを保持します。
+           */
           to: number;
+
+          /**
+           * 「changed」は、処理条件または状態を表す真偽値です。
+           */
           changed: boolean;
         }
       | undefined
     >(undefined);
     const compositionHandoffRef = useRef<
       | {
-          /** 確定直後にReactから届き得る、確定前の古い本文は再適用しない。 */
+          /**
+           * 確定直後にReactから届き得る、確定前の古い本文は再適用しない。
+           */
           beforeValue: string;
+
+          /**
+           * 「deferredValue」は、対象の内容または識別子を表す文字列です。
+           */
           deferredValue?: string;
         }
       | undefined
@@ -526,14 +830,34 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
     viewportRef.current = onViewportChange;
     viewportIntentRef.current = onUserScrollIntent;
 
-    useEffect(() => {
+    useEffect(
+    /**
+ * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
+     * @returns Reactが保持する初期状態またはメモ化値を返します。
+     */
+    () => {
       if (!hostRef.current) return;
       let selectionFrame = 0;
       let pendingSelection: TextSelection | undefined;
-      const publishSelection = (nextSelection: TextSelection) => {
+
+      /**
+       * 「publishSelection」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+       * @param nextSelection 「nextSelection」は、「publishSelection」がWebview UI状態の処理対象を特定する入力です。
+       * @returns 「publishSelection」がWebview UI状態の入力を処理して得た固有の結果を返します。
+       */
+      const publishSelection = /**
+ * 「publishSelection」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @param nextSelection 「nextSelection」は、「publishSelection」がWebview UIで処理する対象を特定する入力です。
+ * @returns 「publishSelection」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ */ (nextSelection: TextSelection) => {
         pendingSelection = nextSelection;
         if (selectionFrame) return;
-        selectionFrame = window.requestAnimationFrame(() => {
+        selectionFrame = window.requestAnimationFrame(
+        /**
+ * 次の描画フレームでUI更新処理を実行するコールバックです。
+         * @returns 「if」を実行し、値を返しません。
+         */
+        () => {
           selectionFrame = 0;
           const selection = pendingSelection;
           pendingSelection = undefined;
@@ -562,8 +886,20 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
           placeholderExtension(placeholder),
           keymap.of([...defaultKeymap, indentWithTab]),
           EditorView.lineWrapping,
-          EditorView.updateListener.of((update) => {
+          EditorView.updateListener.of(
+          /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+           * @param update updateとして渡される、このコールバックの入力値です。
+           * @returns 「update.transactions.some」を実行し、値を返しません。
+           */
+          (update) => {
             const isExternalSync = update.transactions.some(
+
+              /**
+ * 「transaction」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
+               * @param transaction transactionとして渡される、このコールバックの入力値です。
+               * @returns 条件判定の結果を示す真偽値を返します。
+               */
               (transaction) =>
                 transaction.annotation(externalSyncTransaction) === true,
             );
@@ -612,7 +948,12 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
               inputActivityRef.current?.();
               if (inputSettledTimerRef.current !== undefined)
                 window.clearTimeout(inputSettledTimerRef.current);
-              inputSettledTimerRef.current = window.setTimeout(() => {
+              inputSettledTimerRef.current = window.setTimeout(
+              /**
+ * 指定時間の経過後に遅延処理を実行するコールバックです。
+               * @returns 「update.changes.iterChanges」を実行し、値を返しません。
+               */
+              () => {
                 inputSettledTimerRef.current = undefined;
                 onSettledRef.current?.();
               }, 220);
@@ -620,6 +961,16 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
               viewportRestoreGenerationRef.current += 1;
               let changes: TextChange[] = [];
               update.changes.iterChanges(
+
+                /**
+ * 指定時間の経過後に遅延処理を実行するコールバックです。
+                 * @param fromA fromAとして渡される、このコールバックの入力値です。
+                 * @param toA toAとして渡される、このコールバックの入力値です。
+                 * @param _fromB _fromBとして渡される、このコールバックの入力値です。
+                 * @param _toB _toBとして渡される、このコールバックの入力値です。
+                 * @param inserted insertedとして渡される、このコールバックの入力値です。
+                 * @returns 「changes.push」を実行し、値を返しません。
+                 */
                 (fromA, toA, _fromB, _toB, inserted) => {
                   changes.push({
                     rangeOffset: editorOffsetToExternal(
@@ -701,8 +1052,14 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
         view.state.sliceDoc().length,
       );
       // スクロール・履歴・IMEの各DOMイベントを購読し、レイアウト変化を検知する。
-      /** ユーザーがスクロールを開始したことを記録し、保存位置を無効化する。 */
-      const markUserScrollIntent = () => {
+      /**
+       * ユーザーがスクロールを開始したことを記録し、保存位置を無効化する。
+       * @returns 「markUserScrollIntent」がWebview UI状態の入力を処理して得た固有の結果を返します。
+       */
+      const markUserScrollIntent = /**
+ * 「markUserScrollIntent」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @returns 「markUserScrollIntent」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ */ () => {
         viewportRestoreGenerationRef.current += 1;
         viewportRestoreAnchorRef.current = undefined;
         viewportRestoreActiveRef.current = false;
@@ -710,30 +1067,65 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
         userScrollPendingRef.current = true;
         viewportIntentRef.current?.();
       };
-      /** ポインタースクロールを開始し、ユーザー操作として記録する。 */
-      const beginPointerScroll = () => {
+      /**
+       * ポインタースクロールを開始し、ユーザー操作として記録する。
+       * @returns 「beginPointerScroll」が開始した処理の結果または非同期Promiseを返します。
+       */
+      const beginPointerScroll = /**
+ * 「beginPointerScroll」は、処理を開始し、必要な実行状態を準備します。
+ * @returns 「beginPointerScroll」が開始した処理の結果または非同期Promiseを返します。
+ */ () => {
         markUserScrollIntent();
         pointerScrollActiveRef.current = true;
       };
-      /** ポインタースクロールの開始状態を解除する。 */
-      const endPointerScroll = () => {
+      /**
+       * ポインタースクロールの開始状態を解除する。
+       * @returns 購読解除、タイマー解除、リソース破棄などの後片付けを実行し、値は返しません。
+       */
+      const endPointerScroll = /**
+ * 「endPointerScroll」は、処理を終了し、保持していたリソースまたは状態を整理します。
+ * @returns 購読解除、タイマー解除、リソース破棄などの後片付けを実行し、値は返しません。
+ */ () => {
         pointerScrollActiveRef.current = false;
       };
-      /** タッチスクロールを開始し、ユーザー操作として記録する。 */
-      const beginTouchScroll = () => {
+      /**
+       * タッチスクロールを開始し、ユーザー操作として記録する。
+       * @returns 「beginTouchScroll」が開始した処理の結果または非同期Promiseを返します。
+       */
+      const beginTouchScroll = /**
+ * 「beginTouchScroll」は、処理を開始し、必要な実行状態を準備します。
+ * @returns 「beginTouchScroll」が開始した処理の結果または非同期Promiseを返します。
+ */ () => {
         markUserScrollIntent();
         touchScrollActiveRef.current = true;
       };
-      /** タッチスクロールの開始状態を解除する。 */
-      const endTouchScroll = () => {
+      /**
+       * タッチスクロールの開始状態を解除する。
+       * @returns 購読解除、タイマー解除、リソース破棄などの後片付けを実行し、値は返しません。
+       */
+      const endTouchScroll = /**
+ * 「endTouchScroll」は、処理を終了し、保持していたリソースまたは状態を整理します。
+ * @returns 購読解除、タイマー解除、リソース破棄などの後片付けを実行し、値は返しません。
+ */ () => {
         touchScrollActiveRef.current = false;
       };
-      /** 確定したユーザー入力だけにsettled通知を予約する。 */
-      const scheduleInputSettled = () => {
+      /**
+       * 確定したユーザー入力だけにsettled通知を予約する。
+       * @returns 「scheduleInputSettled」がWebview UI状態の入力を処理して得た固有の結果を返します。
+       */
+      const scheduleInputSettled = /**
+ * 「scheduleInputSettled」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @returns 「scheduleInputSettled」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ */ () => {
         inputActivityRef.current?.();
         if (inputSettledTimerRef.current !== undefined)
           window.clearTimeout(inputSettledTimerRef.current);
-        inputSettledTimerRef.current = window.setTimeout(() => {
+        inputSettledTimerRef.current = window.setTimeout(
+        /**
+ * 指定時間の経過後に遅延処理を実行するコールバックです。
+         * @returns 「if」を実行し、値を返しません。
+         */
+        () => {
           inputSettledTimerRef.current = undefined;
           onSettledRef.current?.();
         }, 220);
@@ -741,8 +1133,12 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
       /**
        * CodeMirrorがcompositionend直後のMutationRecordを反映してから、変換セッション全体を
        * 開始本文からの一つの操作として親へ渡す。preeditは同期しない。
+       * @returns 「if」を実行し、値を返しません。
        */
-      const settleComposition = () => {
+      const settleComposition = /**
+ * 「settleComposition」は、入力を検証して対象の状態または内容へ適用します。
+ * @returns 「if」を実行し、値を返しません。
+ */ () => {
         if (!compositionActiveRef.current) return;
         if (compositionEndTimerRef.current !== undefined)
           window.clearTimeout(compositionEndTimerRef.current);
@@ -810,10 +1206,22 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
           from: editorOffsetToExternal(view.state, settled.from),
           to: editorOffsetToExternal(view.state, settled.to),
         });
-        setCompositionNonce((value) => value + 1);
+        setCompositionNonce(
+        /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+         * @param value 「value」で検証・変換する入力値です。
+         * @returns 「value」から生成した処理結果を返します。
+         */
+        (value) => value + 1);
       };
-      /** IME変換を1つの原子トランザクションとして開始する。 */
-      const beginComposition = () => {
+      /**
+       * IME変換を1つの原子トランザクションとして開始する。
+       * @returns 「beginComposition」が開始した処理の結果または非同期Promiseを返します。
+       */
+      const beginComposition = /**
+ * 「beginComposition」は、処理を開始し、必要な実行状態を準備します。
+ * @returns 「beginComposition」が開始した処理の結果または非同期Promiseを返します。
+ */ () => {
         // 直前のcompositionendと次の入力開始が連続した場合も、前回分を失わず先に確定する。
         if (compositionEndTimerRef.current !== undefined) settleComposition();
         if (compositionActiveRef.current) return;
@@ -826,16 +1234,35 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
           changed: false,
         };
       };
-      /** IMEの変換終了後、ブラウザーの保留DOM変更と同じタスクでは外部同期を再開しない。 */
-      const endComposition = () => {
+      /**
+       * IMEの変換終了後、ブラウザーの保留DOM変更と同じタスクでは外部同期を再開しない。
+       * @returns 購読解除、タイマー解除、リソース破棄などの後片付けを実行し、値は返しません。
+       */
+      const endComposition = /**
+ * 「endComposition」は、処理を終了し、保持していたリソースまたは状態を整理します。
+ * @returns 購読解除、タイマー解除、リソース破棄などの後片付けを実行し、値は返しません。
+ */ () => {
         if (compositionEndTimerRef.current !== undefined)
           window.clearTimeout(compositionEndTimerRef.current);
-        compositionEndTimerRef.current = window.setTimeout(() => {
+        compositionEndTimerRef.current = window.setTimeout(
+        /**
+ * 指定時間の経過後に遅延処理を実行するコールバックです。
+         * @returns 「settleComposition」を実行し、値を返しません。
+         */
+        () => {
           settleComposition();
         }, 0);
       };
-      /** 次の物理入力がタイマーより先に来た場合、CodeMirrorのキーハンドラーより先に確定位置を直す。 */
-      const settleBeforeNextKey = (event: KeyboardEvent) => {
+      /**
+       * 次の物理入力がタイマーより先に来た場合、CodeMirrorのキーハンドラーより先に確定位置を直す。
+       * @param event 処理対象のイベントです。
+       * @returns 「if」を実行し、値を返しません。
+       */
+      const settleBeforeNextKey = /**
+ * 「settleBeforeNextKey」は、入力を検証して対象の状態または内容へ適用します。
+ * @param event DOMイベントまたは入力イベントの情報です。
+ * @returns 「if」を実行し、値を返しません。
+ */ (event: KeyboardEvent) => {
         if (compositionEndTimerRef.current === undefined || event.isComposing)
           return;
         settleComposition();
@@ -843,13 +1270,24 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
       /**
        * 現在の表示アンカーをDOMデータ属性へ出力する。
        * @param anchor 出力する表示アンカー。
+       * @returns 「publishViewport」がWebview UI状態の入力を処理して得た固有の結果を返します。
        */
-      const publishViewport = (anchor: EditorViewportAnchor) =>
+      const publishViewport = /**
+ * 「publishViewport」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @param anchor 「anchor」は、「publishViewport」がWebview UIで処理する対象を特定する入力です。
+ * @returns 「publishViewport」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ */ (anchor: EditorViewportAnchor) =>
         publishViewportData(hostRef.current, anchor);
       let scrollFrame = 0;
       let pendingUserScroll = false;
-      /** スクロール位置を読み取り、ユーザー操作かプログラム操作かを親へ通知する。 */
-      const handleScroll = () => {
+      /**
+       * スクロール位置を読み取り、ユーザー操作かプログラム操作かを親へ通知する。
+       * @returns 「if」を実行し、値を返しません。
+       */
+      const handleScroll = /**
+ * 「handleScroll」は、イベント入力を検証し、関連する状態またはUIを更新します。
+ * @returns 「if」を実行し、値を返しません。
+ */ () => {
         const programmatic = programmaticScrollPendingRef.current;
         // CodeMirrorの差分写像・復元は複数の遅延scrollイベントを発生させる。
         // 1件目では解除せず、wheel/pointer/touch/keyboardの明示入力時だけ
@@ -859,7 +1297,12 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
         pendingUserScroll ||= userInitiated;
         userScrollPendingRef.current = false;
         if (scrollFrame) return;
-        scrollFrame = window.requestAnimationFrame(() => {
+        scrollFrame = window.requestAnimationFrame(
+        /**
+ * 次の描画フレームでUI更新処理を実行するコールバックです。
+         * @returns 「performance.now」を実行し、値を返しません。
+         */
+        () => {
           const startedAt = performance.now();
           scrollFrame = 0;
           const notifyAsUserScroll = pendingUserScroll;
@@ -897,7 +1340,12 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
       window.addEventListener("pointercancel", endPointerScroll);
       window.addEventListener("touchend", endTouchScroll);
       window.addEventListener("touchcancel", endTouchScroll);
-      const resizeObserver = new ResizeObserver(() => {
+      const resizeObserver = new ResizeObserver(
+      /**
+       * イベント情報を受け取り、DOMまたは画面状態を更新するコールバックです。
+       * @returns 「if」を実行し、値を返しません。
+       */
+      () => {
         // レイアウトサイズ変更後に保存済み表示位置を復元し、復元対象がなければ現在位置を再通知する。
         const restoreAnchor = viewportRestoreAnchorRef.current;
         if (restoreAnchor) {
@@ -907,8 +1355,24 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
             restoreAnchor,
             hostRef.current,
             programmaticScrollPendingRef,
+
+            /**
+ * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
+             * @returns 「view.requestMeasure」の呼び出し結果を返します。
+             */
             () => viewportRestoreGenerationRef.current === generation,
+
+            /**
+ * 「restored」を受け取り、処理結果を生成する処理です。
+             * @param restored restoredとして渡される、このコールバックの入力値です。
+             * @returns 「restored」から生成した処理結果を返します。
+             */
             (restored) => viewportRef.current?.(restored, false),
+
+            /**
+ * 処理結果を生成する処理を実行するコールバックです。
+             * @returns 「view.requestMeasure」を実行し、値を返しません。
+             */
             () => {
               viewportRestoreActiveRef.current = false;
             },
@@ -916,8 +1380,26 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
           return;
         }
         view.requestMeasure({
-          read: () => readViewport(view),
-          write: (anchor) => {
+
+          /**
+           * readを取得または解決します。
+           * @returns 「read」が読み取りまたは正規化した結果を返します。
+           */
+          read: /**
+ * 「read」は、要求された状態、値、または対象を読み取ります。
+ * @returns 「read」が読み取りまたは正規化した結果を返します。
+ */ () => readViewport(view),
+
+          /**
+           * writeを更新または保存します。
+           * @param anchor 「anchor」は、「write」がWebview UI状態の処理対象を特定する入力です。
+           * @returns 「if」を実行し、値を返しません。
+           */
+          write: /**
+ * 「write」は、入力を検証して対象の状態または内容へ適用します。
+ * @param anchor 「anchor」は、「write」がWebview UIで処理する対象を特定する入力です。
+ * @returns 「if」を実行し、値を返しません。
+ */ (anchor) => {
             if (anchor) publishViewport(anchor);
           },
         });
@@ -926,12 +1408,30 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
       viewRef.current = view;
       publishSelectionData(hostRef.current, view.state);
       view.requestMeasure({
-        read: () => readViewport(view),
-        write: (anchor) => {
+
+        /**
+         * readを取得または解決します。
+         * @returns 「read」が読み取りまたは正規化した結果を返します。
+         */
+        read: /**
+ * 「read」は、要求された状態、値、または対象を読み取ります。
+ * @returns 「read」が読み取りまたは正規化した結果を返します。
+ */ () => readViewport(view),
+
+        /**
+         * writeを更新または保存します。
+         * @param anchor 「anchor」は、「write」がWebview UI状態の処理対象を特定する入力です。
+         * @returns 「anchor」から生成した処理結果を返します。
+         */
+        write: /**
+ * 「write」は、入力を検証して対象の状態または内容へ適用します。
+ * @param anchor 「anchor」は、「write」がWebview UIで処理する対象を特定する入力です。
+ * @returns 「anchor」から生成した処理結果を返します。
+ */ (anchor) => {
           if (anchor) publishViewport(anchor);
         },
       });
-      return () => {
+      return /** IME入力確定後に予約したsettled通知を解除し、親状態への残留通知を防ぎます。 @returns タイマーと完了通知を整理し、値は返しません。 */ () => {
         // 入力settledタイマーを破棄する前に親へ完了通知し、ビュー切替直前の入力で
         // bodyの入力中フラグやプレビュー待機処理が残留しないようにする。
         onSettledRef.current?.();
@@ -970,7 +1470,12 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
       };
     }, []);
 
-    useEffect(() => {
+    useEffect(
+    /**
+ * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
+     * @returns Reactが保持する初期状態またはメモ化値を返します。
+     */
+    () => {
       // 親から本文が変わったとき、IME入力中でなければ外部同期トランザクションとして反映する。
       const view = viewRef.current;
       if (!view) return;
@@ -1009,7 +1514,13 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
       );
       const nextEditorValue = normalizeLineEndings(value);
       const changes = computeTextChanges(currentEditorValue, nextEditorValue);
-      const editorChanges = changes.map((change) => ({
+      const editorChanges = changes.map(
+      /**
+ * 「change」を変換し、変換後の要素を返すコールバックです。
+       * @param change changeとして渡される、このコールバックの入力値です。
+       * @returns 入力要素から生成した変換後の値を返します。
+       */
+      (change) => ({
         from: change.rangeOffset,
         to: change.rangeOffset + change.rangeLength,
         insert: toEditorInsertion(view.state, change.text),
@@ -1053,8 +1564,26 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
         }
       }
       view.requestMeasure({
-        read: () => readViewport(view),
-        write: (anchor) => {
+
+        /**
+         * readを取得または解決します。
+         * @returns 「read」が読み取りまたは正規化した結果を返します。
+         */
+        read: /**
+ * 「read」は、要求された状態、値、または対象を読み取ります。
+ * @returns 「read」が読み取りまたは正規化した結果を返します。
+ */ () => readViewport(view),
+
+        /**
+         * writeを更新または保存します。
+         * @param anchor 「anchor」は、「write」がWebview UI状態の処理対象を特定する入力です。
+         * @returns 「if」を実行し、値を返しません。
+         */
+        write: /**
+ * 「write」は、入力を検証して対象の状態または内容へ適用します。
+ * @param anchor 「anchor」は、「write」がWebview UIで処理する対象を特定する入力です。
+ * @returns 「if」を実行し、値を返しません。
+ */ (anchor) => {
           if (anchor) publishViewportData(hostRef.current, anchor);
         },
       });
@@ -1066,7 +1595,12 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
       publishSelectionData(hostRef.current, view.state);
     }, [value, compositionNonce]);
 
-    useEffect(() => {
+    useEffect(
+    /**
+ * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
+     * @returns Reactが保持する初期状態またはメモ化値を返します。
+     */
+    () => {
       // composition中は編集DOMへ装飾トランザクションを割り込ませず、確定後に最新結果だけを反映する。
       const view = viewRef.current;
       if (!view || compositionActiveRef.current) return;
@@ -1078,19 +1612,74 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
       });
     }, [searchHits, activeSearchHit, compositionNonce]);
 
-    useImperativeHandle(ref, () => ({
-      /** 選択範囲をMarkdown文字列で置換する。 */
-      insert: (markdown) => replaceSelection(markdown),
-      /** 共通編集結果をCodeMirrorへ適用する。 */
-      applyEdit: (edit) => applyEdit(edit),
-      /** 指定されたソース編集操作を実行する。 */
-      action: (action) => applyAction(action),
-      /** 選択範囲をコードブロックで囲む。 */
-      codeBlock: (language = "") => applyCodeBlock(language),
-      /** 現在行の見出しレベルを変更する。 */
-      heading: (level) => applyHeading(level),
-      /** 現在の選択範囲を指定URLのMarkdownリンクへ変換する。 */
-      link: (href, label = messages.editor.defaultLinkLabel) => {
+    useImperativeHandle(ref,
+    /**
+ * （insert、applyEdit、action）を持つオブジェクトを初期化して返すコールバックです。
+     * @returns 初期化したオブジェクト（insert、applyEdit、action）を返します。
+     */
+    () => ({
+      /**
+       * 選択範囲をMarkdown文字列で置換する。
+       * @param markdown 解析・編集・変換の対象となる本文または生成済み内容です。
+       * @returns 「insert」がWebview UI状態の入力を処理して得た固有の結果を返します。
+       */
+      insert: /**
+ * 「insert」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @param markdown 「markdown」は、「insert」がWebview UIで処理する対象を特定する入力です。
+ * @returns 「insert」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ */ (markdown) => replaceSelection(markdown),
+      /**
+       * 共通編集結果をCodeMirrorへ適用する。
+       * @param edit 「edit」は、「applyEdit」がWebview UI状態の処理対象を特定する入力です。
+       * @returns 「edit」から生成した処理結果を返します。
+       */
+      applyEdit: /**
+ * 「applyEdit」は、入力を検証して対象の状態または内容へ適用します。
+ * @param edit 「edit」は、「applyEdit」がWebview UIで処理する対象を特定する入力です。
+ * @returns 「edit」から生成した処理結果を返します。
+ */ (edit) => applyEdit(edit),
+      /**
+       * 指定されたソース編集操作を実行する。
+       * @param action 「action」は、「action」がWebview UI状態の処理対象を特定する入力です。
+       * @returns 「action」がWebview UI状態の入力を処理して得た固有の結果を返します。
+       */
+      action: /**
+ * 「action」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @param action 必要なタイミングで実行するコールバックまたは処理関数です。
+ * @returns 「action」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ */ (action) => applyAction(action),
+      /**
+       * 選択範囲をコードブロックで囲む。
+       * @param language 表示文言の解決に使用する言語コードまたはロケールです。
+       * @returns 「codeBlock」がWebview UI状態の入力を処理して得た固有の結果を返します。
+       */
+      codeBlock: /**
+ * 「codeBlock」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @param language 表示文言の解決に使用する言語コードまたはロケールです。
+ * @returns 「codeBlock」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ */ (language = "") => applyCodeBlock(language),
+      /**
+       * 現在行の見出しレベルを変更する。
+       * @param level 「level」は、「heading」がWebview UI状態の処理対象を特定する入力です。
+       * @returns 「heading」がWebview UI状態の入力を処理して得た固有の結果を返します。
+       */
+      heading: /**
+ * 「heading」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @param level 処理対象を特定する位置、範囲、または数量です。
+ * @returns 「heading」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ */ (level) => applyHeading(level),
+      /**
+       * 現在の選択範囲を指定URLのMarkdownリンクへ変換する。
+       * @param href 「href」は、「link」がWebview UI状態の処理対象を特定する入力です。
+       * @param label 「label」は、「link」がWebview UI状態の処理対象を特定する入力です。
+       * @returns 「link」がWebview UI状態の入力を処理して得た固有の結果を返します。
+       */
+      link: /**
+ * 「link」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @param href 「href」は、「link」がWebview UIで処理する対象を特定する入力です。
+ * @param label 「label」は、「link」がWebview UIで処理する対象を特定する入力です。
+ * @returns 「link」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ */ (href, label = messages.editor.defaultLinkLabel) => {
         const view = viewRef.current;
         if (!view) return;
         const main = view.state.selection.main;
@@ -1104,8 +1693,14 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
           wrapSelection(source, selection, "[", `](${href})`, selected),
         );
       },
-      /** 外部本文オフセットで現在の選択範囲を返す。 */
-      getSelection: () => {
+      /**
+       * 外部本文オフセットで現在の選択範囲を返す。
+       * @returns 「getSelection」が読み取りまたは正規化した結果を返します。
+       */
+      getSelection: /**
+ * 「getSelection」は、要求された状態、値、または対象を読み取ります。
+ * @returns 「getSelection」が読み取りまたは正規化した結果を返します。
+ */ () => {
         const view = viewRef.current;
         const main = view?.state.selection.main;
         return view && main
@@ -1115,8 +1710,16 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
             }
           : { from: 0, to: 0 };
       },
-      /** 外部本文オフセットでCodeMirrorの選択範囲を設定する。 */
-      setSelection: (selection) => {
+      /**
+       * 外部本文オフセットでCodeMirrorの選択範囲を設定する。
+       * @param selection 「selection」は、「setSelection」がWebview UI状態の処理対象を特定する入力です。
+       * @returns 「if」を実行し、値を返しません。
+       */
+      setSelection: /**
+ * 「setSelection」は、入力を検証して対象の状態または内容へ適用します。
+ * @param selection 「selection」は、「setSelection」がWebview UIで処理する対象を特定する入力です。
+ * @returns 「if」を実行し、値を返しません。
+ */ (selection) => {
         const view = viewRef.current;
         if (!view) return;
         view.dispatch({
@@ -1126,8 +1729,16 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
           ),
         });
       },
-      /** 指定選択範囲を表示領域中央へスクロールする。 */
-      revealRange: (selection) => {
+      /**
+       * 指定選択範囲を表示領域中央へスクロールする。
+       * @param selection 「selection」は、「revealRange」がWebview UI状態の処理対象を特定する入力です。
+       * @returns 「revealRange」がWebview UI状態の入力を処理して得た固有の結果を返します。
+       */
+      revealRange: /**
+ * 「revealRange」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @param selection 「selection」は、「revealRange」がWebview UIで処理する対象を特定する入力です。
+ * @returns 「revealRange」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ */ (selection) => {
         const view = viewRef.current;
         if (!view) return;
         viewportRestoreAnchorRef.current = undefined;
@@ -1142,13 +1753,27 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
           }),
         });
       },
-      /** 現在の表示アンカーを取得する。 */
-      getViewport: () => {
+      /**
+       * 現在の表示アンカーを取得する。
+       * @returns 「getViewport」が読み取りまたは正規化した結果を返します。
+       */
+      getViewport: /**
+ * 「getViewport」は、要求された状態、値、または対象を読み取ります。
+ * @returns 「getViewport」が読み取りまたは正規化した結果を返します。
+ */ () => {
         const view = viewRef.current;
         return view ? readViewport(view) : undefined;
       },
-      /** 指定された表示アンカーへスクロール位置を復元する。 */
-      restoreViewport: (anchor) => {
+      /**
+       * 指定された表示アンカーへスクロール位置を復元する。
+       * @param anchor 「anchor」は、「restoreViewport」がWebview UI状態の処理対象を特定する入力です。
+       * @returns 「restoreViewport」がWebview UI状態の入力を処理して得た固有の結果を返します。
+       */
+      restoreViewport: /**
+ * 「restoreViewport」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @param anchor 「anchor」は、「restoreViewport」がWebview UIで処理する対象を特定する入力です。
+ * @returns 「restoreViewport」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ */ (anchor) => {
         const view = viewRef.current;
         if (!view || view.scrollDOM.clientHeight === 0) return;
         viewportRestoreAnchorRef.current = { ...anchor };
@@ -1159,15 +1784,39 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
           anchor,
           hostRef.current,
           programmaticScrollPendingRef,
+
+          /**
+ * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
+           * @returns 条件判定または変換の結果を返します。
+           */
           () => viewportRestoreGenerationRef.current === generation,
+
+          /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+           * @param restored restoredとして渡される、このコールバックの入力値です。
+           * @returns 「restored」から生成した処理結果を返します。
+           */
           (restored) => viewportRef.current?.(restored, false),
+
+          /**
+ * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
+           * @returns 「if」を実行し、値を返しません。
+           */
           () => {
             viewportRestoreActiveRef.current = false;
           },
         );
       },
-      /** 指定された全体スクロール比率へ移動する。 */
-      restoreScrollRatio: (ratio) => {
+      /**
+       * 指定された全体スクロール比率へ移動する。
+       * @param ratio 表示領域のサイズまたは倍率で、画面レイアウト計算に使用します。
+       * @returns 「restoreScrollRatio」がWebview UI状態の入力を処理して得た固有の結果を返します。
+       */
+      restoreScrollRatio: /**
+ * 「restoreScrollRatio」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @param ratio 「ratio」は、「restoreScrollRatio」がWebview UIで処理する対象を特定する入力です。
+ * @returns 「restoreScrollRatio」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ */ (ratio) => {
         const view = viewRef.current;
         if (
           !view ||
@@ -1197,8 +1846,24 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
           anchor,
           hostRef.current,
           programmaticScrollPendingRef,
+
+          /**
+ * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
+           * @returns 「replaceSelection」の呼び出し結果を返します。
+           */
           () => viewportRestoreGenerationRef.current === generation,
+
+          /**
+ * 「restored」を受け取り、処理結果を生成する処理です。
+           * @param restored restoredとして渡される、このコールバックの入力値です。
+           * @returns 「restored」から生成した処理結果を返します。
+           */
           (restored) => viewportRef.current?.(restored, false),
+
+          /**
+ * 処理結果を生成する処理を実行するコールバックです。
+           * @returns 「replaceSelection」を実行し、値を返しません。
+           */
           () => {
             viewportRestoreActiveRef.current = false;
           },
@@ -1459,7 +2124,13 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
         changes: changes.slice(0, 8),
         selection: edit.selection,
       });
-      const editorChanges = changes.map((change) => ({
+      const editorChanges = changes.map(
+      /**
+ * 「change」を変換し、変換後の要素を返すコールバックです。
+       * @param change changeとして渡される、このコールバックの入力値です。
+       * @returns 入力要素から生成した変換後の値を返します。
+       */
+      (change) => ({
         from: externalOffsetToEditor(view.state, change.rangeOffset),
         to: externalOffsetToEditor(
           view.state,
@@ -1490,8 +2161,17 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
 // 選択・スクロール中は親コンポーネントが頻繁に更新される。CodeMirror本体は
 // value/searchの変更がない限り再描画不要なので、イベントコールバックの同一性に
 // 依存せずエディターのサブツリーを再利用する。
+/** 「SourceEditor」は、関連する処理間で共有する設定値または状態です。 */
+/** CodeMirrorの編集ビューを公開するコンポーネント。入力・選択・スクロール操作を親へ橋渡しする。 */
 export const SourceEditor = React.memo(
   SourceEditorView,
+
+  /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+   * @param previous previousとして渡される、このコールバックの入力値です。
+   * @param next nextとして渡される、このコールバックの入力値です。
+   * @returns 「previous」「next」から生成した処理結果を返します。
+   */
   (previous, next) =>
     previous.value === next.value &&
     previous.messages === next.messages &&
@@ -1606,6 +2286,11 @@ function toEditorInsertion(state: EditorState, value: string): string {
   return normalizeLineEndings(value).replace(/\n/g, separator);
 }
 
+/**
+ * 「externalDocumentLength」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+ * @param state 処理対象の状態です。
+ * @returns 計算結果の数値です。
+ */
 function externalDocumentLength(state: EditorState): number {
   const separatorLength = (state.facet(EditorState.lineSeparator) ?? "\n")
     .length;
@@ -1614,7 +2299,11 @@ function externalDocumentLength(state: EditorState): number {
   );
 }
 
-/** CodeMirrorの現在値を、ホスト文書と同じ改行形式の全文スナップショットへ変換する。 */
+/**
+ * CodeMirrorの現在値を、ホスト文書と同じ改行形式の全文スナップショットへ変換する。
+ * @param state 処理対象の状態です。
+ * @returns 「externalDocumentValue」が生成または変換したWebview UIの文字列を返します。
+ */
 function externalDocumentValue(state: EditorState): string {
   return state.doc.sliceString(
     0,
@@ -1731,7 +2420,12 @@ function restoreViewportUntilSettled(
   attempt = 0,
 ): void {
   if (!isCurrent()) return;
-  window.requestAnimationFrame(() => {
+  window.requestAnimationFrame(
+  /**
+ * 次の描画フレームでUI更新処理を実行するコールバックです。
+   * @returns 「if」を実行し、値を返しません。
+   */
+  () => {
     if (!isCurrent()) return;
     const offset = externalOffsetToEditor(view.state, anchor.offset);
     const block = view.lineBlockAt(offset);

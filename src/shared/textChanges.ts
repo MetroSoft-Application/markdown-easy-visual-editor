@@ -1,3 +1,11 @@
+/**
+ * @file textChanges.ts
+ * 実行境界: Extension HostとWebviewの共有層。
+ * 責務: 両実行境界で共有する値、プロトコル、変換を扱う。
+ * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
+ * 副作用: 呼び出し元から渡された値を変換し、外部状態を直接変更しない。
+ * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ */
 import type { TextChange } from './protocol';
 import { getMessages } from './messages';
 
@@ -35,13 +43,39 @@ export function computeTextChanges(before: string, after: string): TextChange[] 
     }];
 }
 
+/**
+ * 「ComposedSegment」として扱う値の型を定義します。
+ */
 type ComposedSegment =
-    | { kind: 'original'; from: number; to: number }
-    | { kind: 'inserted'; text: string };
+    | {
+    /**
+     * 「kind」は、対象の識別や処理分岐に使用する値を保持します。
+     */
+    kind: 'original';
+    /**
+     * 「from」は、本文または選択範囲の位置・長さを保持します。
+     */
+    from: number;
+    /**
+     * 「to」は、本文または選択範囲の位置・長さを保持します。
+     */
+    to: number }
+    | {
+    /**
+     * 「kind」は、対象の識別や処理分岐に使用する値を保持します。
+     */
+    kind: 'inserted';
+    /**
+     * 「text」は、画面または通知へ表示する文言を保持します。
+     */
+    text: string };
 
 /**
- * Compose two consecutive change batches without rescanning either complete document.
- * `first` transforms the base document and `second` transforms that result.
+ * 変更を作成または組み立てます。
+ * @param first 「first」は、「composeTextChanges」が関連処理の処理対象を特定する入力です。
+ * @param second 「second」は、「composeTextChanges」が関連処理の処理対象を特定する入力です。
+ * @param baseLength 「baseLength」は、「composeTextChanges」が関連処理の処理対象を特定する入力です。
+ * @returns 「composeTextChanges」が生成または整形した関連処理の文字列を返します。
  */
 export function composeTextChanges(
     first: readonly TextChange[],
@@ -50,16 +84,42 @@ export function composeTextChanges(
 ): TextChange[] {
     validateTextChanges(first, baseLength);
     const intermediateLength = baseLength + first.reduce(
+
+        /**
+         * 累積値と入力を「length」「change」を受け取り、集約結果を更新するコールバックです。
+         * @param length lengthとして渡される、このコールバックの入力値です。
+         * @param change changeとして渡される、このコールバックの入力値です。
+         * @returns 更新後の累積値を返します。
+         */
         (length, change) => length + change.text.length - change.rangeLength,
         0
     );
     validateTextChanges(second, intermediateLength);
-    if (!first.length) return second.map((change) => ({ ...change }));
-    if (!second.length) return first.map((change) => ({ ...change }));
+    if (!first.length) return second.map(
+    /**
+ * 「change」を変換し、変換後の要素を返すコールバックです。
+     * @param change changeとして渡される、このコールバックの入力値です。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (change) => ({ ...change }));
+    if (!second.length) return first.map(
+    /**
+ * 「change」を変換し、変換後の要素を返すコールバックです。
+     * @param change changeとして渡される、このコールバックの入力値です。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (change) => ({ ...change }));
 
     const segments: ComposedSegment[] = [];
     let cursor = 0;
-    for (const change of [...first].sort((left, right) => left.rangeOffset - right.rangeOffset)) {
+    for (const change of [...first].sort(
+    /**
+ * 「left」「right」を比較し、並び順を示す数値を返すコールバックです。
+     * @param left 比較対象の左側の値です。
+     * @param right 比較対象の右側の値です。
+     * @returns 比較対象の順序を示す負数、0、または正数を返します。
+     */
+    (left, right) => left.rangeOffset - right.rangeOffset)) {
         if (cursor < change.rangeOffset) {
             segments.push({ kind: 'original', from: cursor, to: change.rangeOffset });
         }
@@ -68,7 +128,14 @@ export function composeTextChanges(
     }
     if (cursor < baseLength) segments.push({ kind: 'original', from: cursor, to: baseLength });
 
-    for (const change of [...second].sort((left, right) => right.rangeOffset - left.rangeOffset)) {
+    for (const change of [...second].sort(
+    /**
+ * 「left」「right」を比較し、並び順を示す数値を返すコールバックです。
+     * @param left 比較対象の左側の値です。
+     * @param right 比較対象の右側の値です。
+     * @returns 比較対象の順序を示す負数、0、または正数を返します。
+     */
+    (left, right) => right.rangeOffset - left.rangeOffset)) {
         const startIndex = splitComposedSegmentsAt(segments, change.rangeOffset);
         const endIndex = splitComposedSegmentsAt(segments, change.rangeOffset + change.rangeLength);
         segments.splice(
@@ -107,6 +174,12 @@ export function composeTextChanges(
     return result;
 }
 
+/**
+ * 「splitComposedSegmentsAt」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+ * @param segments 解析済み入力を分割した要素の集合です。
+ * @param offset 本文または選択範囲を示すゼロ基準の位置です。範囲の開始・終了や写像の基準になります。
+ * @returns 計算結果の数値です。
+ */
 function splitComposedSegmentsAt(segments: ComposedSegment[], offset: number): number {
     let position = 0;
     for (let index = 0; index < segments.length; index += 1) {
@@ -132,6 +205,11 @@ function splitComposedSegmentsAt(segments: ComposedSegment[], offset: number): n
     throw new RangeError(`Invalid composed text offset: ${offset}`);
 }
 
+/**
+ * normalize・composed・segmentsを正規化します。
+ * @param segments 解析済み入力を分割した要素の集合です。
+ * @returns 「normalizeComposedSegments」の副作用または状態更新を実行し、値は返しません。
+ */
 function normalizeComposedSegments(segments: ComposedSegment[]): void {
     for (let index = segments.length - 1; index >= 0; index -= 1) {
         const segment = segments[index];
@@ -162,7 +240,14 @@ export function applyTextChanges(value: string, changes: readonly TextChange[]):
     // 変更範囲を検証して後方位置から適用し、前方のオフセットをずらさない。
     validateTextChanges(changes, value.length);
     let result = value;
-    for (const change of [...changes].sort((left, right) => right.rangeOffset - left.rangeOffset)) {
+    for (const change of [...changes].sort(
+    /**
+ * 「left」「right」を比較し、並び順を示す数値を返すコールバックです。
+     * @param left 比較対象の左側の値です。
+     * @param right 比較対象の右側の値です。
+     * @returns 比較対象の順序を示す負数、0、または正数を返します。
+     */
+    (left, right) => right.rangeOffset - left.rangeOffset)) {
         result = result.slice(0, change.rangeOffset)
             + change.text
             + result.slice(change.rangeOffset + change.rangeLength);
@@ -188,13 +273,39 @@ export function mapTextChanges(
 ): TextChange[] {
     // 同じ基準本文に対する変更を検証し、重なりを検出しながら別の変更後の位置へ写像する。
     if (!changes.length) return [];
-    if (!over.length) return changes.map((change) => ({ ...change }));
+    if (!over.length) return changes.map(
+    /**
+ * 「change」を変換し、変換後の要素を返すコールバックです。
+     * @param change changeとして渡される、このコールバックの入力値です。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (change) => ({ ...change }));
     validateTextChanges(changes, baseLength);
     validateTextChanges(over, baseLength);
-    const remote = [...over].sort((left, right) => left.rangeOffset - right.rangeOffset);
+    const remote = [...over].sort(
+    /**
+ * 「left」「right」を比較し、並び順を示す数値を返すコールバックです。
+     * @param left 比較対象の左側の値です。
+     * @param right 比較対象の右側の値です。
+     * @returns 比較対象の順序を示す負数、0、または正数を返します。
+     */
+    (left, right) => left.rangeOffset - right.rangeOffset);
     return [...changes]
-        .sort((left, right) => left.rangeOffset - right.rangeOffset)
-        .map((change) => {
+        .sort(
+        /**
+ * 「left」「right」を比較し、並び順を示す数値を返すコールバックです。
+         * @param left 比較対象の左側の値です。
+         * @param right 比較対象の右側の値です。
+         * @returns 比較対象の順序を示す負数、0、または正数を返します。
+         */
+        (left, right) => left.rangeOffset - right.rangeOffset)
+        .map(
+        /**
+ * 「change」を変換し、変換後の要素を返すコールバックです。
+         * @param change changeとして渡される、このコールバックの入力値です。
+         * @returns 入力要素から生成した変換後の値を返します。
+         */
+        (change) => {
             // 現在の変更とリモート変更の範囲が重なる場合は、安全に統合できないため失敗させる。
             const start = change.rangeOffset;
             const end = start + change.rangeLength;
@@ -267,7 +378,14 @@ export function mapTextOffset(
     if (!changes.length) return offset;
     validateTextChanges(changes, baseLength);
     let mapped = offset;
-    for (const change of [...changes].sort((left, right) => left.rangeOffset - right.rangeOffset)) {
+    for (const change of [...changes].sort(
+    /**
+ * 「left」「right」を比較し、並び順を示す数値を返すコールバックです。
+     * @param left 比較対象の左側の値です。
+     * @param right 比較対象の右側の値です。
+     * @returns 比較対象の順序を示す負数、0、または正数を返します。
+     */
+    (left, right) => left.rangeOffset - right.rangeOffset)) {
         // オフセットより前の変更量を反映し、変更範囲内なら対応する境界へ移す。
         const end = change.rangeOffset + change.rangeLength;
         if (offset < change.rangeOffset) break;
@@ -293,7 +411,14 @@ export function mapTextOffset(
 export function validateTextChanges(changes: readonly TextChange[], baseLength: number): void {
     // 変更の位置・長さ・基準本文からのはみ出し・相互の重なりを検証する。
     let previousEnd = 0;
-    for (const [index, change] of [...changes].sort((left, right) => left.rangeOffset - right.rangeOffset).entries()) {
+    for (const [index, change] of [...changes].sort(
+    /**
+ * 「left」「right」を比較し、並び順を示す数値を返すコールバックです。
+     * @param left 比較対象の左側の値です。
+     * @param right 比較対象の右側の値です。
+     * @returns 比較対象の順序を示す負数、0、または正数を返します。
+     */
+    (left, right) => left.rangeOffset - right.rangeOffset).entries()) {
         if (
             !Number.isInteger(change.rangeOffset)
             || !Number.isInteger(change.rangeLength)

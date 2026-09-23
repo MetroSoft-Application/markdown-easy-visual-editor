@@ -1,7 +1,21 @@
+/**
+ * @file editorTheme.css
+ * 実行境界: Webview。
+ * 責務: 画面のスタイル、状態表示、テーマ適用を定義する。
+ * 入出力: DOM要素、状態クラス、テーマ変数を入力として受け取り、視覚表現へ反映する。
+ * 副作用: DOMの視覚表現だけを変更し、Markdown本文や編集状態を直接変更しない。
+ * 不変条件: フォーカス表示、可読性、既存のレイアウト契約を維持する。
+ */
 /* Markdown Easy Visual Editor独自のライト／ダークテーマ。
  * VS Code Webview本体のテーマ変数だけに依存せず、この拡張で使う主要な
  * VS Code変数・MVE派生変数・独自パネルをまとめて上書きする。
+ *//**
+ * @style html[data-editor-theme="light"] body, body[data-editor-theme="light"]
+ * 対象UI: Webview本文とテーマ適用領域を整える。
+ * 状態・テーマ: ライトテーマ選択時の色、境界線、背景を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
  */
+
 html[data-editor-theme="light"] body,
 body[data-editor-theme="light"] {
     color-scheme: light;
@@ -94,7 +108,13 @@ body[data-editor-theme="light"] {
     --vscode-errorForeground: #cf222e !important;
     --vscode-inputValidation-errorBorder: #cf222e !important;
     --vscode-inputValidation-errorBackground: #ffebe9 !important;
-}
+}/**
+ * @style html[data-editor-theme="dark"] body, body[data-editor-theme="dark"]
+ * 対象UI: Webview本文とテーマ適用領域を整える。
+ * 状態・テーマ: ダークテーマ選択時の色、境界線、背景を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 html[data-editor-theme="dark"] body,
 body[data-editor-theme="dark"] {
@@ -190,7 +210,13 @@ body[data-editor-theme="dark"] {
     --vscode-inputValidation-errorBackground: #3d1f1f !important;
 }
 
-/* アプリ全体の主要サーフェスをテーマ側で明示する。 */
+/* アプリ全体の主要サーフェスをテーマ側で明示する。 *//**
+ * @style body[data-editor-theme], body[data-editor-theme] #root, body[data-editor-theme] .app, body[data-editor-theme] .workspace, body[data-editor-theme] .editor-area, body[data-editor-the
+ * 対象UI: Webview本文とテーマ適用領域を整える。
+ * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 body[data-editor-theme],
 body[data-editor-theme] #root,
 body[data-editor-theme] .app,
@@ -204,7 +230,13 @@ body[data-editor-theme] .startup {
     background: var(--mve-theme-bg) !important;
 }
 
-/* リボン・アウトライン・各種サイドパネル。 */
+/* リボン・アウトライン・各種サイドパネル。 *//**
+ * @style body[data-editor-theme] .ribbon, body[data-editor-theme] .ribbon-tabs, body[data-editor-theme] .ribbon-content, body[data-editor-theme] .outline-panel, body[data-editor-theme] .out
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 body[data-editor-theme] .ribbon,
 body[data-editor-theme] .ribbon-tabs,
 body[data-editor-theme] .ribbon-content,
@@ -218,13 +250,25 @@ body[data-editor-theme] .status-bar {
     color: var(--mve-theme-text) !important;
     background: var(--mve-theme-surface-alt) !important;
     border-color: var(--mve-theme-border) !important;
-}
+}/**
+ * @style body[data-editor-theme] .outline-resizer, body[data-editor-theme] .split-divider
+ * 対象UI: Webview本文とテーマ適用領域を整える。
+ * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 body[data-editor-theme] .outline-resizer,
 body[data-editor-theme] .split-divider {
     background: var(--mve-theme-surface-alt) !important;
     border-color: var(--mve-theme-border) !important;
-}
+}/**
+ * @style body[data-editor-theme] .outline-panel nav button, body[data-editor-theme] .outline-header button, body[data-editor-theme] .outline-reopen, body[data-editor-theme] .panel-title but
+ * 対象UI: Webviewの操作ボタンと設定入力コントロールを整える。
+ * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 body[data-editor-theme] .outline-panel nav button,
 body[data-editor-theme] .outline-header button,
@@ -233,7 +277,13 @@ body[data-editor-theme] .panel-title button,
 body[data-editor-theme] .ribbon-tool,
 body[data-editor-theme] .ribbon-tabs button {
     color: var(--mve-theme-text) !important;
-}
+}/**
+ * @style body[data-editor-theme] .outline-panel nav button:hover, body[data-editor-theme] .outline-header button:hover, body[data-editor-theme] .outline-reopen:hover, body[data-editor-theme
+ * 対象UI: Webviewの操作ボタンと設定入力コントロールを整える。
+ * 状態・テーマ: ポインターが重なった状態の反応を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 body[data-editor-theme] .outline-panel nav button:hover,
 body[data-editor-theme] .outline-header button:hover,
@@ -242,20 +292,38 @@ body[data-editor-theme] .panel-title button:hover,
 body[data-editor-theme] .ribbon-tool:hover:not(:disabled),
 body[data-editor-theme] .ribbon-tabs button:hover {
     background: var(--mve-theme-hover) !important;
-}
+}/**
+ * @style body[data-editor-theme] .ribbon-tool.active, body[data-editor-theme] .ribbon-tabs button.active, body[data-editor-theme] .ribbon-source-button.active
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 body[data-editor-theme] .ribbon-tool.active,
 body[data-editor-theme] .ribbon-tabs button.active,
 body[data-editor-theme] .ribbon-source-button.active {
     background: var(--mve-theme-active) !important;
     border-color: var(--mve-theme-accent) !important;
-}
+}/**
+ * @style body[data-editor-theme] .ribbon-tabs button.active, body[data-editor-theme] .ribbon-tabs .ribbon-source-button, body[data-editor-theme] .rendered-markdown a
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 body[data-editor-theme] .ribbon-tabs button.active,
 body[data-editor-theme] .ribbon-tabs .ribbon-source-button,
 body[data-editor-theme] .rendered-markdown a {
     color: var(--mve-theme-accent) !important;
-}
+}/**
+ * @style body[data-editor-theme] .ribbon-group-label, body[data-editor-theme] .ribbon-hint, body[data-editor-theme] .ribbon-select-label, body[data-editor-theme] .ribbon-form label, body[da
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 body[data-editor-theme] .ribbon-group-label,
 body[data-editor-theme] .ribbon-hint,
@@ -269,7 +337,13 @@ body[data-editor-theme] .pdf-preview-note {
     color: var(--mve-theme-muted) !important;
 }
 
-/* 検索・モーダル・診断などの浮遊UI。 */
+/* 検索・モーダル・診断などの浮遊UI。 *//**
+ * @style body[data-editor-theme] .search-panel, body[data-editor-theme] .help-dialog, body[data-editor-theme] .link-dialog, body[data-editor-theme] .inspector-preview, body[data-editor-them
+ * 対象UI: リンク設定ダイアログの入力欄と説明を整える。
+ * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 body[data-editor-theme] .search-panel,
 body[data-editor-theme] .help-dialog,
 body[data-editor-theme] .link-dialog,
@@ -280,11 +354,23 @@ body[data-editor-theme] .cm-panels {
     background: var(--mve-theme-surface-raised) !important;
     border-color: var(--mve-theme-border) !important;
     box-shadow: 0 8px 24px var(--mve-theme-shadow) !important;
-}
+}/**
+ * @style body[data-editor-theme] .modal-backdrop
+ * 対象UI: Webview本文とテーマ適用領域を整える。
+ * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 body[data-editor-theme] .modal-backdrop {
     background: rgba(0, 0, 0, 0.38) !important;
-}
+}/**
+ * @style body[data-editor-theme] .diagnostic, body[data-editor-theme] .panel-title, body[data-editor-theme] .pdf-margin-fields
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 body[data-editor-theme] .diagnostic,
 body[data-editor-theme] .panel-title,
@@ -294,19 +380,37 @@ body[data-editor-theme] .pdf-margin-fields {
     border-color: var(--mve-theme-border) !important;
 }
 
-/* フォーム部品。印刷設定パネル・インスペクター・検索・ダイアログを一括で統一する。 */
+/* フォーム部品。印刷設定パネル・インスペクター・検索・ダイアログを一括で統一する。 *//**
+ * @style body[data-editor-theme] .app input, body[data-editor-theme] .app textarea
+ * 対象UI: Webviewの操作ボタンと設定入力コントロールを整える。
+ * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 body[data-editor-theme] .app input,
 body[data-editor-theme] .app textarea {
     color: var(--mve-theme-text) !important;
     background: var(--mve-theme-surface) !important;
     border-color: var(--mve-theme-border) !important;
     caret-color: var(--mve-theme-text) !important;
-}
+}/**
+ * @style body[data-editor-theme] .app input::placeholder, body[data-editor-theme] .app textarea::placeholder
+ * 対象UI: Webviewの操作ボタンと設定入力コントロールを整える。
+ * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 body[data-editor-theme] .app input::placeholder,
 body[data-editor-theme] .app textarea::placeholder {
     color: var(--mve-theme-muted) !important;
-}
+}/**
+ * @style body[data-editor-theme] .search-panel button, body[data-editor-theme] .diagnostics-panel button, body[data-editor-theme] .inspector-panel button, body[data-editor-theme] .pdf-setti
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 body[data-editor-theme] .search-panel button,
 body[data-editor-theme] .diagnostics-panel button,
@@ -317,7 +421,13 @@ body[data-editor-theme] .link-dialog button {
     color: var(--mve-theme-text) !important;
     background: var(--mve-theme-hover) !important;
     border-color: var(--mve-theme-border) !important;
-}
+}/**
+ * @style body[data-editor-theme] .search-panel button:hover:not(:disabled), body[data-editor-theme] .diagnostics-panel button:hover:not(:disabled), body[data-editor-theme] .inspector-panel
+ * 対象UI: Markdown編集画面の診断表示と位置情報を整える。
+ * 状態・テーマ: 操作を無効化した状態の視認性と入力不可を示す。
+ * アクセシビリティ: 無効状態を色だけに依存せず、操作不可の視認性を保つ。
+ */
+
 
 body[data-editor-theme] .search-panel button:hover:not(:disabled),
 body[data-editor-theme] .diagnostics-panel button:hover:not(:disabled),
@@ -326,7 +436,13 @@ body[data-editor-theme] .pdf-settings-panel button:hover:not(:disabled),
 body[data-editor-theme] .help-dialog button:hover:not(:disabled),
 body[data-editor-theme] .link-dialog button:hover:not(:disabled) {
     background: var(--mve-theme-active) !important;
-}
+}/**
+ * @style body[data-editor-theme] .primary
+ * 対象UI: Webview本文とテーマ適用領域を整える。
+ * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 body[data-editor-theme] .primary {
     color: #ffffff !important;
@@ -334,13 +450,25 @@ body[data-editor-theme] .primary {
     border-color: var(--mve-theme-accent) !important;
 }
 
-/* CodeMirror本体・ガター・選択・ツールチップ。 */
+/* CodeMirror本体・ガター・選択・ツールチップ。 *//**
+ * @style body[data-editor-theme] .cm-editor, body[data-editor-theme] .cm-scroller, body[data-editor-theme] .cm-content
+ * 対象UI: CodeMirrorソースエディターの入力、選択、補助表示を整える。
+ * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 body[data-editor-theme] .cm-editor,
 body[data-editor-theme] .cm-scroller,
 body[data-editor-theme] .cm-content {
     color: var(--mve-theme-text) !important;
     background: var(--mve-theme-bg) !important;
-}
+}/**
+ * @style body[data-editor-theme] .cm-gutters, body[data-editor-theme] .cm-gutter, body[data-editor-theme] .cm-lineNumbers
+ * 対象UI: CodeMirrorソースエディターの入力、選択、補助表示を整える。
+ * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 body[data-editor-theme] .cm-gutters,
 body[data-editor-theme] .cm-gutter,
@@ -348,31 +476,61 @@ body[data-editor-theme] .cm-lineNumbers {
     color: var(--mve-theme-muted) !important;
     background: var(--mve-theme-surface-alt) !important;
     border-color: var(--mve-theme-border) !important;
-}
+}/**
+ * @style body[data-editor-theme] .cm-activeLine, body[data-editor-theme] .cm-activeLineGutter
+ * 対象UI: CodeMirrorソースエディターの入力、選択、補助表示を整える。
+ * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 body[data-editor-theme] .cm-activeLine,
 body[data-editor-theme] .cm-activeLineGutter {
     color: var(--mve-theme-text) !important;
     background: var(--mve-theme-surface-alt) !important;
-}
+}/**
+ * @style body[data-editor-theme] .cm-selectionBackground, body[data-editor-theme] .cm-content ::selection
+ * 対象UI: CodeMirrorソースエディターの入力、選択、補助表示を整える。
+ * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 body[data-editor-theme] .cm-selectionBackground,
 body[data-editor-theme] .cm-content ::selection {
     background: var(--vscode-editor-selectionBackground) !important;
-}
+}/**
+ * @style body[data-editor-theme] .cm-cursor, body[data-editor-theme] .cm-dropCursor
+ * 対象UI: CodeMirrorソースエディターの入力、選択、補助表示を整える。
+ * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 body[data-editor-theme] .cm-cursor,
 body[data-editor-theme] .cm-dropCursor {
     border-left-color: var(--mve-theme-text) !important;
 }
 
-/* Markdownプレビュー。通常プレビューだけをテーマ化し、印刷用紙面は下で白固定する。 */
+/* Markdownプレビュー。通常プレビューだけをテーマ化し、印刷用紙面は下で白固定する。 *//**
+ * @style body[data-editor-theme] .split-preview .rendered-markdown, body[data-editor-theme] .editor-area>.rendered-markdown, body[data-editor-theme] .inspector-preview .rendered-markdown
+ * 対象UI: Markdownプレビューの本文、見出し、リンク、ブロック要素を整える。
+ * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 body[data-editor-theme] .split-preview .rendered-markdown,
 body[data-editor-theme] .editor-area>.rendered-markdown,
 body[data-editor-theme] .inspector-preview .rendered-markdown {
     color: var(--mve-theme-text) !important;
     background: var(--mve-theme-bg) !important;
-}
+}/**
+ * @style body[data-editor-theme] .rendered-markdown pre, body[data-editor-theme] .rendered-markdown code, body[data-editor-theme] .rendered-markdown .code-figure, body[data-editor-theme] .r
+ * 対象UI: Markdownプレビューの本文、見出し、リンク、ブロック要素を整える。
+ * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 body[data-editor-theme] .rendered-markdown pre,
 body[data-editor-theme] .rendered-markdown code,
@@ -383,33 +541,63 @@ body[data-editor-theme] .rendered-markdown .markdown-alert {
     color: var(--mve-theme-text) !important;
     background: var(--mve-theme-code) !important;
     border-color: var(--mve-theme-border) !important;
-}
+}/**
+ * @style body[data-editor-theme] .rendered-markdown table, body[data-editor-theme] .rendered-markdown th, body[data-editor-theme] .rendered-markdown td
+ * 対象UI: Markdownプレビューで表示する表の罫線、幅、セル配置を整える。
+ * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 body[data-editor-theme] .rendered-markdown table,
 body[data-editor-theme] .rendered-markdown th,
 body[data-editor-theme] .rendered-markdown td {
     color: var(--mve-theme-text) !important;
     border-color: var(--mve-theme-border) !important;
-}
+}/**
+ * @style body[data-editor-theme] .rendered-markdown th
+ * 対象UI: Markdownプレビューの本文、見出し、リンク、ブロック要素を整える。
+ * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 body[data-editor-theme] .rendered-markdown th {
     background: var(--mve-theme-surface-alt) !important;
 }
 
-/* PDFプレビューの外周・設定UIはアプリテーマに従う。紙面そのものは印刷結果に合わせて常に白。 */
+/* PDFプレビューの外周・設定UIはアプリテーマに従う。紙面そのものは印刷結果に合わせて常に白。 *//**
+ * @style body[data-editor-theme] .pdf-preview-shell, body[data-editor-theme] .pdf-preview-toolbar, body[data-editor-theme] .pdf-preview-pdf-layer
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 body[data-editor-theme] .pdf-preview-shell,
 body[data-editor-theme] .pdf-preview-toolbar,
 body[data-editor-theme] .pdf-preview-pdf-layer {
     color: var(--mve-theme-text) !important;
     background: var(--mve-theme-surface-alt) !important;
     border-color: var(--mve-theme-border) !important;
-}
+}/**
+ * @style body[data-editor-theme] .pdf-preview-toolbar button
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 body[data-editor-theme] .pdf-preview-toolbar button {
     color: var(--mve-theme-text) !important;
     background: var(--mve-theme-hover) !important;
     border-color: var(--mve-theme-border) !important;
-}
+}/**
+ * @style body[data-editor-theme] .pdf-preview-live-content, body[data-editor-theme] .pdf-preview-live-content .rendered-markdown, body[data-editor-theme] .pdf-preview-content
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 body[data-editor-theme] .pdf-preview-live-content,
 body[data-editor-theme] .pdf-preview-live-content .rendered-markdown,
@@ -419,23 +607,47 @@ body[data-editor-theme] .pdf-preview-content {
     color-scheme: light !important;
 }
 
-/* ステータスバーと通知。 */
+/* ステータスバーと通知。 *//**
+ * @style body[data-editor-theme] .status-bar
+ * 対象UI: Webview本文とテーマ適用領域を整える。
+ * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 body[data-editor-theme] .status-bar {
     color: var(--mve-theme-muted) !important;
     background: var(--mve-theme-surface-alt) !important;
     border-top-color: var(--mve-theme-border) !important;
-}
+}/**
+ * @style body[data-editor-theme] .toast
+ * 対象UI: Webview本文とテーマ適用領域を整える。
+ * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 body[data-editor-theme] .toast {
     color: var(--mve-theme-text) !important;
     background: var(--mve-theme-surface-raised) !important;
     border: 1px solid var(--mve-theme-border) !important;
     box-shadow: 0 8px 24px var(--mve-theme-shadow) !important;
-}
+}/**
+ * @style body[data-editor-theme]
+ * 対象UI: Webview本文とテーマ適用領域を整える。
+ * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 body[data-editor-theme] {
     scrollbar-color: var(--vscode-scrollbarSlider-background) transparent;
-}
+}/**
+ * @style body[data-editor-theme] .app select:not(.mve-text-color-select)
+ * 対象UI: Webviewの操作ボタンと設定入力コントロールを整える。
+ * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 body[data-editor-theme] .app select:not(.mve-text-color-select) {
     color: var(--mve-theme-text) !important;

@@ -1,67 +1,234 @@
+/**
+ * @file markdown.ts
+ * 実行境界: Extension HostとWebviewの共有層。
+ * 責務: 両実行境界で共有する値、プロトコル、変換を扱う。
+ * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
+ * 副作用: 呼び出し元から渡された値を変換し、外部状態を直接変更しない。
+ * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ */
 import { marked, type Token, type Tokens } from 'marked';
 import { getMessages, type SupportedLanguage } from './messages';
 import { stripMveTextColorMarkup } from './textColor';
 
+/**
+ * 「TextSelection」が満たすデータ契約を定義します。
+ */
 export interface TextSelection {
+
+    /**
+     * 「from」は、本文または選択範囲の位置・長さを保持します。
+     */
     from: number;
+
+    /**
+     * 「to」は、本文または選択範囲の位置・長さを保持します。
+     */
     to: number;
 }
 
+/**
+ * 「SourceEdit」が満たすデータ契約を定義します。
+ */
 export interface SourceEdit {
+
+    /**
+     * 「text」は、画面または通知へ表示する文言を保持します。
+     */
     text: string;
+
+    /**
+     * 「selection」は、関連処理が共有する構造化データの一項目です。
+     */
     selection: TextSelection;
 }
 
+/**
+ * 「OutlineItem」が満たすデータ契約を定義します。
+ */
 export interface OutlineItem {
+
+    /**
+     * 「level」は、位置・サイズ・件数などを表す数値です。
+     */
     level: number;
+
+    /**
+     * 「text」は、画面または通知へ表示する文言を保持します。
+     */
     text: string;
+
+    /**
+     * 「line」は、位置・サイズ・件数などを表す数値です。
+     */
     line: number;
+
+    /**
+     * 「offset」は、本文または選択範囲の位置・長さを保持します。
+     */
     offset: number;
+
+    /**
+     * 「id」は、対象の識別や処理分岐に使用する値を保持します。
+     */
     id: string;
 }
 
+/**
+ * 「OutlineMovePosition」として扱う値の型を定義します。
+ */
 export type OutlineMovePosition = 'before' | 'after';
 
+/**
+ * 「MarkdownBlock」が満たすデータ契約を定義します。
+ */
 export interface MarkdownBlock {
+
+    /**
+     * 「from」は、本文または選択範囲の位置・長さを保持します。
+     */
     from: number;
+
+    /**
+     * 「to」は、本文または選択範囲の位置・長さを保持します。
+     */
     to: number;
+
+    /**
+     * 「raw」は、対象の内容または識別子を表す文字列です。
+     */
     raw: string;
+
+    /**
+     * 「type」は、対象の識別や処理分岐に使用する値を保持します。
+     */
     type: string;
 }
 
+/**
+ * 「Diagnostic」が満たすデータ契約を定義します。
+ */
 export interface Diagnostic {
+
+    /**
+     * 「severity」は、関連処理が共有する構造化データの一項目です。
+     */
     severity: 'error' | 'warning' | 'info';
+
+    /**
+     * 「code」は、対象の内容または識別子を表す文字列です。
+     */
     code: string;
+
+    /**
+     * 「message」は、画面または通知へ表示する文言を保持します。
+     */
     message: string;
+
+    /**
+     * 「line」は、位置・サイズ・件数などを表す数値です。
+     */
     line?: number;
+
+    /**
+     * 「source」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
+     */
     source?: string;
 }
 
+/**
+ * 「DiagnosticSummary」が満たすデータ契約を定義します。
+ */
 export interface DiagnosticSummary {
+
+    /**
+     * 「errors」は、関連する複数の対象または識別子を保持します。
+     */
     errors: Diagnostic[];
+
+    /**
+     * 「warnings」は、関連する複数の対象または識別子を保持します。
+     */
     warnings: Diagnostic[];
+
+    /**
+     * 「infos」は、関連する複数の対象または識別子を保持します。
+     */
     infos: Diagnostic[];
 }
 
+/**
+ * 「LocalResourceReference」が満たすデータ契約を定義します。
+ */
 export interface LocalResourceReference {
+
+    /**
+     * 「kind」は、対象の識別や処理分岐に使用する値を保持します。
+     */
     kind: 'image' | 'link';
+
+    /**
+     * 「source」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
+     */
     source: string;
+
+    /**
+     * 「line」は、位置・サイズ・件数などを表す数値です。
+     */
     line: number;
 }
 
+/**
+ * 「LocalResourceDefinition」が満たすデータ契約を定義します。
+ */
 interface LocalResourceDefinition {
+
+    /**
+     * 「kind」は、対象の識別や処理分岐に使用する値を保持します。
+     */
     kind: 'image' | 'link';
+
+    /**
+     * 「source」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
+     */
     source: string;
+
+    /**
+     * 「line」は、位置・サイズ・件数などを表す数値です。
+     */
     line: number;
 }
 
+/**
+ * 「ScannedResourceLink」が満たすデータ契約を定義します。
+ */
 interface ScannedResourceLink {
+
+    /**
+     * 「kind」は、対象の識別や処理分岐に使用する値を保持します。
+     */
     kind: 'image' | 'link';
+
+    /**
+     * 「source」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
+     */
     source?: string;
+
+    /**
+     * 「referenceLabel」は、画面または通知へ表示する文言を保持します。
+     */
     referenceLabel?: string;
+
+    /**
+     * 「offset」は、本文または選択範囲の位置・長さを保持します。
+     */
     offset: number;
 }
 
+/** 「INLINE_MARKERS」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * Markdownのインライン要素を保護するための正規表現と置換マーカーの組。
+ * 一時マーカーでコード・リンクなどを装飾対象から除外し、後段で元の文字列へ復元する。
+ */
 const INLINE_MARKERS: Array<[RegExp, string]> = [
     [/\*\*([^\n]+?)\*\*/g, '$1'],
     [/__([^\n]+?)__/g, '$1'],
@@ -127,9 +294,21 @@ export function prefixSelectedLines(
     const original = source.slice(from, to);
     const lines = original.split('\n');
     const caretOnly = selection.from === selection.to;
-    const allPrefixed = lines.every((line) => !line.trim() || line.startsWith(prefix));
+    const allPrefixed = lines.every(
+    /**
+ * 「line」が条件を満たすか判定し、全要素の適合結果を返すコールバックです。
+     * @param line lineとして渡される、このコールバックの入力値です。
+     * @returns 条件判定の結果を示す真偽値を返します。
+     */
+    (line) => !line.trim() || line.startsWith(prefix));
     const changed = lines
-        .map((line) => {
+        .map(
+        /**
+ * 「line」を変換し、変換後の要素を返すコールバックです。
+         * @param line lineとして渡される、このコールバックの入力値です。
+         * @returns 入力要素から生成した変換後の値を返します。
+         */
+        (line) => {
             if (!line.trim()) return caretOnly && lines.length === 1 ? prefix + line : line;
             if (line.startsWith(prefix)) return allPrefixed ? line.slice(prefix.length) : line;
             return prefix + line;
@@ -143,7 +322,12 @@ export function prefixSelectedLines(
     };
 }
 
-/** 選択範囲に含まれる各行へ2スペースの字下げを追加する。 */
+/**
+ * 選択範囲に含まれる各行へ2スペースの字下げを追加する。
+ * @param source 処理対象のソースです。
+ * @param selection 「selection」は、「indentSelectedLines」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @returns 「source」「selection」から生成した処理結果を返します。
+ */
 export function indentSelectedLines(source: string, selection: TextSelection): SourceEdit {
     const from = lineStart(source, Math.min(selection.from, selection.to));
     const to = lineEnd(source, Math.max(selection.from, selection.to));
@@ -151,7 +335,13 @@ export function indentSelectedLines(source: string, selection: TextSelection): S
     const lines = original.split('\n');
     const caretOnly = selection.from === selection.to;
     const changed = lines
-        .map((line) => {
+        .map(
+        /**
+ * 「line」を変換し、変換後の要素を返すコールバックです。
+         * @param line lineとして渡される、このコールバックの入力値です。
+         * @returns 入力要素から生成した変換後の値を返します。
+         */
+        (line) => {
             if (!line.trim()) return caretOnly && lines.length === 1 ? `  ${line}` : line;
             return `  ${line}`;
         })
@@ -178,11 +368,23 @@ export function prefixOrderedList(source: string, selection: TextSelection): Sou
     const lines = original.split('\n');
     const caretOnly = selection.from === selection.to;
     const ordered = /^\s*\d+[.)]\s+/;
-    const allOrdered = lines.every((line) => !line.trim() || ordered.test(line));
+    const allOrdered = lines.every(
+    /**
+ * 「line」が条件を満たすか判定し、全要素の適合結果を返すコールバックです。
+     * @param line lineとして渡される、このコールバックの入力値です。
+     * @returns 置換後の文字列を返します。
+     */
+    (line) => !line.trim() || ordered.test(line));
     const changed = caretOnly && lines.length === 1 && !lines[0].trim()
         ? [`${orderedListNumberBefore(source, from)}. `]
         : allOrdered
-            ? lines.map((line) => line.replace(/^(\s*)\d+[.)]\s+/, '$1'))
+            ? lines.map(
+            /**
+ * 「line」を変換し、変換後の要素を返すコールバックです。
+             * @param line lineとして渡される、このコールバックの入力値です。
+             * @returns 置換後の文字列を返します。
+             */
+            (line) => line.replace(/^(\s*)\d+[.)]\s+/, '$1'))
             : orderedListLines(lines, orderedListNumberBefore(source, from));
     const text = changed.join('\n');
     return {
@@ -198,6 +400,11 @@ export function prefixOrderedList(source: string, selection: TextSelection): Sou
  * 行全体の範囲へ置き換えると、同じボタンを続けて押したときに選択範囲が
  * 徐々に広がり、隣接行まで次の操作へ巻き込むため、各行の共通本文を基準に
  * 始点・終点を個別に移動する。
+ * @param original 「original」は、「mapLineSelection」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @param changed 「changed」は、「mapLineSelection」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @param regionFrom 「regionFrom」は、「mapLineSelection」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @param selection 「selection」は、「mapLineSelection」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @returns 「Math.max」を実行し、値を返しません。
  */
 export function mapLineSelection(
     original: string,
@@ -207,7 +414,17 @@ export function mapLineSelection(
 ): TextSelection {
     const oldLines = original.split('\n');
     const newLines = changed.split('\n');
-    const mapOffset = (absolute: number): number => {
+
+    /**
+     * 「mapOffset」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+     * @param absolute 「absolute」は、「mapOffset」がMarkdown解析・変換の処理対象を特定する入力です。
+     * @returns 計算結果の数値です。
+     */
+    const mapOffset = /**
+ * 「mapOffset」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @param absolute 「absolute」は、「mapOffset」がMarkdownで処理する対象を特定する入力です。
+ * @returns 「mapOffset」が計算した位置・サイズ・件数などの数値を返します。
+ */ (absolute: number): number => {
         const relative = Math.max(0, Math.min(original.length, absolute - regionFrom));
         let oldCursor = 0;
         let newCursor = 0;
@@ -230,7 +447,13 @@ export function mapLineSelection(
     };
 }
 
-/** 1行分の行頭変更に対して、本文側の論理位置を新しい行へ移動する。 */
+/**
+ * 1行分の行頭変更に対して、本文側の論理位置を新しい行へ移動する。
+ * @param original 「original」は、「mapLineOffset」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @param changed 「changed」は、「mapLineOffset」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @param offset 本文または選択範囲を示すゼロ基準の位置です。範囲の開始・終了や写像の基準になります。
+ * @returns 計算結果の数値です。
+ */
 function mapLineOffset(original: string, changed: string, offset: number): number {
     if (original === changed) return offset;
     let suffixLength = 0;
@@ -256,7 +479,13 @@ function mapLineOffset(original: string, changed: string, offset: number): numbe
 function orderedListLines(lines: string[], firstNumber: number): string[] {
     // 空行とインデントを維持しながら、各行へ開始番号からの連番を付ける。
     let number = firstNumber;
-    return lines.map((line) => {
+    return lines.map(
+    /**
+ * 「line」を変換し、変換後の要素を返すコールバックです。
+     * @param line lineとして渡される、このコールバックの入力値です。
+     * @returns 置換後の文字列を返します。
+     */
+    (line) => {
         if (!line.trim()) return line;
         const indentation = line.match(/^\s*/)?.[0] ?? '';
         const content = line.slice(indentation.length).replace(/^(?:[-+*]|\d+[.)])\s+/, '');
@@ -294,7 +523,16 @@ export function clearInlineFormatting(source: string, selection: TextSelection):
     if (!selected) return { text: source, selection: { from, to } };
     const protectedTargets: string[] = [];
     // リンク先をプレースホルダーへ置き換え、装飾除去の対象から外す。
-    selected = selected.replace(/(\]\()([^)]+)(\))/g, (_match, open: string, target: string, close: string) => {
+    selected = selected.replace(/(\]\()([^)]+)(\))/g,
+    /**
+ * 「_match」「open」「target」「close」を受け取り、入力文字列を置換して変換する処理です。
+     * @param _match _matchとして渡される、このコールバックの入力値です。
+     * @param open openとして渡される、このコールバックの入力値です。
+     * @param target 処理対象の対象です。
+     * @param close closeとして渡される、このコールバックの入力値です。
+     * @returns 置換後の文字列を返します。
+     */
+    (_match, open: string, target: string, close: string) => {
         const index = protectedTargets.push(target) - 1;
         return `${open}\uE000${index}\uE001${close}`;
     });
@@ -303,7 +541,14 @@ export function clearInlineFormatting(source: string, selection: TextSelection):
         selected = selected.replace(pattern, replacement);
     }
     // 退避していたリンク先を元の位置へ戻す。
-    selected = selected.replace(/\uE000(\d+)\uE001/g, (_match, index: string) => protectedTargets[Number(index)] ?? '');
+    selected = selected.replace(/\uE000(\d+)\uE001/g,
+    /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+     * @param _match _matchとして渡される、このコールバックの入力値です。
+     * @param index 本文、表、配列内の対象位置を示すインデックスです。
+     * @returns 「_match」「index」から生成した処理結果を返します。
+     */
+    (_match, index: string) => protectedTargets[Number(index)] ?? '');
     return {
         text: source.slice(0, from) + selected + source.slice(to),
         selection: { from, to: from + selected.length }
@@ -329,7 +574,13 @@ export function clearBlockFormatting(source: string, selection: TextSelection): 
         lines = lines.slice(1, -1);
     }
     const changed = lines
-        .map((line) =>
+        .map(
+        /**
+ * 「line」を変換し、変換後の要素を返すコールバックです。
+         * @param line lineとして渡される、このコールバックの入力値です。
+         * @returns 置換後の文字列を返します。
+         */
+        (line) =>
             line
                 .replace(/^\s{0,3}#{1,6}\s+/, '')
                 .replace(/^\s*>\s?/, '')
@@ -353,15 +604,40 @@ export function createTableMarkdown(rows = 3, columns = 3): string {
     // 行数と列数を許容範囲へ収め、見出し・区切り・空の本文行から表を生成する。
     const safeRows = Math.max(2, Math.min(rows, 50));
     const safeColumns = Math.max(1, Math.min(columns, 20));
-    const header = `| ${Array.from({ length: safeColumns }, (_, i) => `列${i + 1}`).join(' | ')} |`;
-    const divider = `| ${Array.from({ length: safeColumns }, () => '---').join(' | ')} |`;
+    const header = `| ${Array.from({ length: safeColumns },
+    /**
+ * 「_」「i」を受け取り、処理結果を生成する処理です。
+     * @param _ 呼び出し側が渡すが、このコールバックでは使用しない値です。
+     * @param i iとして渡される、このコールバックの入力値です。
+     * @returns 「_」「i」から生成した処理結果を返します。
+     */
+    (_, i) => `列${i + 1}`).join(' | ')} |`;
+    const divider = `| ${Array.from({ length: safeColumns },
+    /**
+ * 処理結果を生成する処理を実行するコールバックです。
+     * @returns 配列要素または初期値を返します。
+     */
+    () => '---').join(' | ')} |`;
     const body = Array.from(
         { length: safeRows - 1 },
-        () => `| ${Array.from({ length: safeColumns }, () => '').join(' | ')} |`
+
+        /**
+ * 処理結果を生成する処理を実行するコールバックです。
+         * @returns 配列要素または初期値を返します。
+         */
+        () => `| ${Array.from({ length: safeColumns },
+        /**
+ * 処理結果を生成する処理を実行するコールバックです。
+         * @returns 配列要素または初期値を返します。
+         */
+        () => '').join(' | ')} |`
     );
     return [header, divider, ...body].join('\n');
 }
 
+/**
+ * 「MarkdownTableAction」として扱う値の型を定義します。
+ */
 export type MarkdownTableAction =
     | 'rowBefore'
     | 'rowAfter'
@@ -375,21 +651,75 @@ export type MarkdownTableAction =
     | 'alignRight'
     | 'alignColumns';
 
+/**
+ * 「MarkdownTableActionOptions」が満たすデータ契約を定義します。
+ */
 export interface MarkdownTableActionOptions {
+
+    /**
+     * 「headerName」は、対象の識別や処理分岐に使用する値を保持します。
+     */
     headerName?: string;
 }
 
+/**
+ * 「ParsedMarkdownTable」が満たすデータ契約を定義します。
+ */
 interface ParsedMarkdownTable {
+
+    /**
+     * 「lines」は、関連する複数の対象または識別子を保持します。
+     */
     lines: string[];
+
+    /**
+     * 「lineStarts」は、関連する複数の対象または識別子を保持します。
+     */
     lineStarts: number[];
+
+    /**
+     * 「eol」は、対象の内容または識別子を表す文字列です。
+     */
     eol: string;
+
+    /**
+     * 「startLine」は、位置・サイズ・件数などを表す数値です。
+     */
     startLine: number;
+
+    /**
+     * 「endLine」は、位置・サイズ・件数などを表す数値です。
+     */
     endLine: number;
+
+    /**
+     * 「separatorLine」は、位置・サイズ・件数などを表す数値です。
+     */
     separatorLine: number;
+
+    /**
+     * 「rows」は、対象の位置、サイズ、件数、または範囲を保持します。
+     */
     rows: string[][];
+
+    /**
+     * 「separator」は、関連する複数の対象または識別子を保持します。
+     */
     separator: string[];
+
+    /**
+     * 「indent」は、対象の内容または識別子を表す文字列です。
+     */
     indent: string;
+
+    /**
+     * 「rowIndex」は、対象の位置、サイズ、件数、または範囲を保持します。
+     */
     rowIndex: number;
+
+    /**
+     * 「columnIndex」は、対象の位置、サイズ、件数、または範囲を保持します。
+     */
     columnIndex: number;
 }
 
@@ -411,7 +741,13 @@ export function applyMarkdownTableAction(
     const table = parseMarkdownTable(markdown, selection);
     if (!table) return undefined;
 
-    const rows = table.rows.map((row) => row.slice());
+    const rows = table.rows.map(
+    /**
+ * 「row」を変換し、変換後の要素を返すコールバックです。
+     * @param row 本文、表、配列内の対象位置を示すインデックスです。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (row) => row.slice());
     const separator = table.separator.slice();
     let rowIndex = table.rowIndex;
     const columnIndex = table.columnIndex;
@@ -419,10 +755,20 @@ export function applyMarkdownTableAction(
     // 指定された操作に応じて行・列・見出し・配置を変更する。
     switch (action) {
         case 'rowBefore':
-            rows.splice(rowIndex, 0, Array.from({ length: separator.length }, () => ''));
+            rows.splice(rowIndex, 0, Array.from({ length: separator.length },
+            /**
+ * 登録された処理から配列要素を生成するコールバックです。
+             * @returns 配列要素または初期値を返します。
+             */
+            () => ''));
             break;
         case 'rowAfter':
-            rows.splice(rowIndex + 1, 0, Array.from({ length: separator.length }, () => ''));
+            rows.splice(rowIndex + 1, 0, Array.from({ length: separator.length },
+            /**
+ * 登録された処理ごとに必要な状態更新または副作用を実行するコールバックです。
+             * @returns 配列要素または初期値を返します。
+             */
+            () => ''));
             rowIndex += 1;
             break;
         case 'deleteRow':
@@ -431,11 +777,25 @@ export function applyMarkdownTableAction(
             rowIndex = Math.min(rowIndex, rows.length - 1);
             break;
         case 'colBefore':
-            rows.forEach((row, index) => row.splice(columnIndex, 0, index === 0 ? newColumnHeader(options.headerName, columnIndex + 1) : ''));
+            rows.forEach(
+            /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+             * @param row 本文、表、配列内の対象位置を示すインデックスです。
+             * @param index 本文、表、配列内の対象位置を示すインデックスです。
+             * @returns 「row」「index」から生成した処理結果を返します。
+             */
+            (row, index) => row.splice(columnIndex, 0, index === 0 ? newColumnHeader(options.headerName, columnIndex + 1) : ''));
             separator.splice(columnIndex, 0, '---');
             break;
         case 'colAfter':
-            rows.forEach((row, index) => row.splice(columnIndex + 1, 0, index === 0 ? newColumnHeader(options.headerName, columnIndex + 2) : ''));
+            rows.forEach(
+            /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+             * @param row 本文、表、配列内の対象位置を示すインデックスです。
+             * @param index 本文、表、配列内の対象位置を示すインデックスです。
+             * @returns 「row」「index」から生成した処理結果を返します。
+             */
+            (row, index) => row.splice(columnIndex + 1, 0, index === 0 ? newColumnHeader(options.headerName, columnIndex + 2) : ''));
             separator.splice(columnIndex + 1, 0, '---');
             break;
         case 'deleteColumn':
@@ -459,11 +819,24 @@ export function applyMarkdownTableAction(
             break;
         case 'alignColumns': {
             // 各列の表示幅を求め、本文セルと区切りセルを同じ幅に揃える。
-            const widths = Array.from({ length: separator.length }, (_, index) =>
+            const widths = Array.from({ length: separator.length },
+            /**
+ * 「_」「index」を受け取り、処理結果を生成する処理です。
+             * @param _ 呼び出し側が渡すが、このコールバックでは使用しない値です。
+             * @param index 本文、表、配列内の対象位置を示すインデックスです。
+             * @returns 「_」「index」から生成した処理結果を返します。
+             */
+            (_, index) =>
                 Math.max(
                     3,
                     displayWidth(stripMveTextColorMarkup(separator[index] ?? '')),
-                    ...rows.map((row) => displayWidth(stripMveTextColorMarkup(row[index] ?? '')))
+                    ...rows.map(
+                    /**
+ * 「row」を変換し、変換後の要素を返すコールバックです。
+                     * @param row 本文、表、配列内の対象位置を示すインデックスです。
+                     * @returns 入力要素から生成した変換後の値を返します。
+                     */
+                    (row) => displayWidth(stripMveTextColorMarkup(row[index] ?? '')))
                 )
             );
             for (const row of rows) {
@@ -489,7 +862,13 @@ export function applyMarkdownTableAction(
  */
 function parseMarkdownTable(markdown: string, selection: TextSelection): ParsedMarkdownTable | undefined {
     // 改行位置を記録しながら、選択行を含む連続した表の範囲を特定する。
-    const lineBreaks = [...markdown.matchAll(/\r\n|\r|\n/g)].map((match) => match[0]);
+    const lineBreaks = [...markdown.matchAll(/\r\n|\r|\n/g)].map(
+    /**
+ * 「match」を変換し、変換後の要素を返すコールバックです。
+     * @param match matchとして渡される、このコールバックの入力値です。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (match) => match[0]);
     const eol = lineBreaks[0] ?? '\n';
     const lines = markdown.split(/\r\n|\r|\n/);
     const lineStarts: number[] = [];
@@ -507,24 +886,62 @@ function parseMarkdownTable(markdown: string, selection: TextSelection): ParsedM
     while (startLine > 0 && isTableRowLine(lines[startLine - 1])) startLine -= 1;
     while (endLine + 1 < lines.length && isTableRowLine(lines[endLine + 1])) endLine += 1;
 
-    const separatorLine = lines.findIndex((line, index) => index >= startLine && index <= endLine && isTableSeparatorLine(line));
+    const separatorLine = lines.findIndex(
+    /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+     * @param line lineとして渡される、このコールバックの入力値です。
+     * @param index 本文、表、配列内の対象位置を示すインデックスです。
+     * @returns 「line」「index」から生成した処理結果を返します。
+     */
+    (line, index) => index >= startLine && index <= endLine && isTableSeparatorLine(line));
     if (separatorLine < 0) return undefined;
     if (separatorLine !== startLine + 1 || !isTableRowLine(lines[startLine])) return undefined;
 
     // 区切り行を除いた本文行をセルへ分割し、すべての行を同じ列数へ補正する。
     const rowLines = lines
         .slice(startLine, endLine + 1)
-        .map((line, index) => ({ line, index: startLine + index }))
-        .filter(({ index }) => index !== separatorLine);
+        .map(
+        /**
+ * 「line」「index」を変換し、変換後の要素を返すコールバックです。
+         * @param line lineとして渡される、このコールバックの入力値です。
+         * @param index 本文、表、配列内の対象位置を示すインデックスです。
+         * @returns 入力要素から生成した変換後の値を返します。
+         */
+        (line, index) => ({ line, index: startLine + index }))
+        .filter(
+        /**
+ * 「index」が条件に一致するか判定し、残す要素を決めるコールバックです。
+         * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはindexです。
+         * @returns 条件判定の結果を示す真偽値を返します。
+         */
+        ({ index }) => index !== separatorLine);
     if (!rowLines.length) return undefined;
 
-    const rows = rowLines.map(({ line }) => splitTableCells(line));
+    const rows = rowLines.map(
+    /**
+ * 「line」を変換し、変換後の要素を返すコールバックです。
+     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはlineです。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    ({ line }) => splitTableCells(line));
     const separator = splitTableCells(lines[separatorLine]);
-    const columnCount = Math.max(1, separator.length, ...rows.map((row) => row.length));
+    const columnCount = Math.max(1, separator.length, ...rows.map(
+    /**
+ * 「row」を変換し、変換後の要素を返すコールバックです。
+     * @param row 本文、表、配列内の対象位置を示すインデックスです。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (row) => row.length));
     for (const row of rows) while (row.length < columnCount) row.push('');
     while (separator.length < columnCount) separator.push('---');
 
-    const rowLineIndex = rowLines.findIndex(({ index }) => index === currentLine);
+    const rowLineIndex = rowLines.findIndex(
+    /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはindexです。
+     * @returns 「index」から生成した処理結果を返します。
+     */
+    ({ index }) => index === currentLine);
     const rowIndex = rowLineIndex < 0 ? 0 : rowLineIndex;
     const lineOffset = selection.from - lineStarts[currentLine];
     const columnIndex = tableColumnAt(lines[currentLine], lineOffset, columnCount);
@@ -564,7 +981,13 @@ function renderMarkdownTableEdit(
     columnIndex: number
 ): SourceEdit {
     // 編集済みの行と区切り行をMarkdownへ再出力し、選択セルの先頭へカーソルを移す。
-    const renderedRows = rows.map((row) => renderTableRow(table.indent, row));
+    const renderedRows = rows.map(
+    /**
+ * 「row」を変換し、変換後の要素を返すコールバックです。
+     * @param row 本文、表、配列内の対象位置を示すインデックスです。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (row) => renderTableRow(table.indent, row));
     const renderedSeparator = renderTableRow(table.indent, separator);
     const renderedTable = [renderedRows[0], renderedSeparator, ...renderedRows.slice(1)];
     const startOffset = table.lineStarts[table.startLine];
@@ -576,7 +999,14 @@ function renderMarkdownTableEdit(
     const rowStart = startOffset + rowPrefix.length + (renderedRowIndex ? table.eol.length : 0);
     const safeColumn = Math.min(columnIndex, rows[rowIndex].length - 1);
     const cellOffset = table.indent.length + 2
-        + rows[rowIndex].slice(0, safeColumn).reduce((total, cell) => total + cell.length + 3, 0);
+        + rows[rowIndex].slice(0, safeColumn).reduce(
+        /**
+         * 累積値と入力を「total」「cell」を受け取り、集約結果を更新するコールバックです。
+         * @param total totalとして渡される、このコールバックの入力値です。
+         * @param cell 処理対象のセルです。
+         * @returns 更新後の累積値を返します。
+         */
+        (total, cell) => total + cell.length + 3, 0);
     const caret = rowStart + cellOffset;
     return { text, selection: { from: caret, to: caret } };
 }
@@ -598,18 +1028,41 @@ export function applyMarkdownTableTsv(
     if (isMarkdownCodeFencePosition(markdown, selection)) return undefined;
     const table = parseMarkdownTable(markdown, { from, to: from });
     const pastedRows = parseTsv(tsv);
-    if (!pastedRows.length || !pastedRows.some((row) => row.length)) return undefined;
+    if (!pastedRows.length || !pastedRows.some(
+    /**
+ * 「row」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
+     * @param row 本文、表、配列内の対象位置を示すインデックスです。
+     * @returns 条件判定の結果を示す真偽値を返します。
+     */
+    (row) => row.length)) return undefined;
 
     if (!table) return insertMarkdownTableFromTsv(markdown, selection, pastedRows);
     const tableEnd = table.lineStarts[table.endLine] + table.lines[table.endLine].length;
     if (to > tableEnd) return insertMarkdownTableFromTsv(markdown, selection, pastedRows);
     if (table.separatorLine === findLineIndex(table.lineStarts, from)) return undefined;
 
-    const rows = table.rows.map((row) => row.slice());
+    const rows = table.rows.map(
+    /**
+ * 「row」を変換し、変換後の要素を返すコールバックです。
+     * @param row 本文、表、配列内の対象位置を示すインデックスです。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (row) => row.slice());
     const separator = table.separator.slice();
     const requiredRows = table.rowIndex + pastedRows.length;
-    const requiredColumns = table.columnIndex + Math.max(...pastedRows.map((row) => row.length));
-    while (rows.length < requiredRows) rows.push(Array.from({ length: separator.length }, () => ''));
+    const requiredColumns = table.columnIndex + Math.max(...pastedRows.map(
+    /**
+ * 「row」を変換し、変換後の要素を返すコールバックです。
+     * @param row 本文、表、配列内の対象位置を示すインデックスです。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (row) => row.length));
+    while (rows.length < requiredRows) rows.push(Array.from({ length: separator.length },
+    /**
+ * 処理結果を生成する処理を実行するコールバックです。
+     * @returns 配列要素または初期値を返します。
+     */
+    () => ''));
     while (separator.length < requiredColumns) separator.push('---');
     for (const row of rows) while (row.length < separator.length) row.push('');
 
@@ -651,13 +1104,43 @@ function insertMarkdownTableFromTsv(markdown: string, selection: TextSelection, 
     const eol = markdown.match(/\r\n|\r|\n/)?.[0] ?? '\n';
     const from = Math.max(0, Math.min(selection.from, selection.to));
     const to = Math.min(markdown.length, Math.max(selection.from, selection.to));
-    const columnCount = Math.max(1, ...rows.map((row) => row.length));
-    const normalizedRows = rows.map((row) => Array.from({ length: columnCount }, (_, index) => escapeMarkdownTableCell(row[index] ?? '')));
-    const separator = Array.from({ length: columnCount }, () => '---');
+    const columnCount = Math.max(1, ...rows.map(
+    /**
+ * 「row」を変換し、変換後の要素を返すコールバックです。
+     * @param row 本文、表、配列内の対象位置を示すインデックスです。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (row) => row.length));
+    const normalizedRows = rows.map(
+    /**
+ * 「row」を変換し、変換後の要素を返すコールバックです。
+     * @param row 本文、表、配列内の対象位置を示すインデックスです。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (row) => Array.from({ length: columnCount },
+    /**
+ * 「_」「index」を受け取り、処理結果を生成する処理です。
+     * @param _ 呼び出し側が渡すが、このコールバックでは使用しない値です。
+     * @param index 本文、表、配列内の対象位置を示すインデックスです。
+     * @returns 「_」「index」から生成した処理結果を返します。
+     */
+    (_, index) => escapeMarkdownTableCell(row[index] ?? '')));
+    const separator = Array.from({ length: columnCount },
+    /**
+ * 登録された処理から配列要素を生成するコールバックです。
+     * @returns 配列要素または初期値を返します。
+     */
+    () => '---');
     const rendered = [
         renderTableRow('', normalizedRows[0]),
         renderTableRow('', separator),
-        ...normalizedRows.slice(1).map((row) => renderTableRow('', row))
+        ...normalizedRows.slice(1).map(
+        /**
+ * 「row」を変換し、変換後の要素を返すコールバックです。
+         * @param row 本文、表、配列内の対象位置を示すインデックスです。
+         * @returns 入力要素から生成した変換後の値を返します。
+         */
+        (row) => renderTableRow('', row))
     ].join(eol);
     const before = markdown.slice(0, from);
     const after = markdown.slice(to);
@@ -679,7 +1162,19 @@ export function markdownTableToTsv(markdown: string, selection: TextSelection): 
     const table = parseMarkdownTable(markdown, selection);
     if (!table || table.separatorLine === findLineIndex(table.lineStarts, selection.from)) return undefined;
     return table.rows
-        .map((row) => row.map((cell) => encodeTsvCell(stripMarkdownTableCell(cell))).join('\t'))
+        .map(
+        /**
+ * 「row」を変換し、変換後の要素を返すコールバックです。
+         * @param row 本文、表、配列内の対象位置を示すインデックスです。
+         * @returns 入力要素から生成した変換後の値を返します。
+         */
+        (row) => row.map(
+        /**
+ * 「cell」を変換し、変換後の要素を返すコールバックです。
+         * @param cell 処理対象のセルです。
+         * @returns 入力要素から生成した変換後の値を返します。
+         */
+        (cell) => encodeTsvCell(stripMarkdownTableCell(cell))).join('\t'))
         .join('\r\n');
 }
 
@@ -768,7 +1263,11 @@ function isInsideMarkdownFence(lines: string[], lineIndex: number): boolean {
     return Boolean(fenceCharacter);
 }
 
-/** Markdownのフェンスコードブロックに含まれる行番号（0始まり）を取得する。 */
+/**
+ * Markdownのフェンスコードブロックに含まれる行番号（0始まり）を取得する。
+ * @param lines 「lines」は、「getFencedMarkdownLineIndexes」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @returns 計算結果の数値です。
+ */
 function getFencedMarkdownLineIndexes(lines: string[]): Set<number> {
     const fencedLineIndexes = new Set<number>();
     let fenceCharacter = '';
@@ -856,7 +1355,13 @@ function isTableRowLine(line: string | undefined): boolean {
 function isTableSeparatorLine(line: string): boolean {
     // 全セルがMarkdown表の区切り形式になっているかを判定する。
     const cells = splitTableCells(line);
-    return cells.length > 0 && cells.every((cell) => /^:?-{3,}:?$/.test(cell.trim()));
+    return cells.length > 0 && cells.every(
+    /**
+ * 「cell」が条件を満たすか判定し、全要素の適合結果を返すコールバックです。
+     * @param cell 処理対象のセルです。
+     * @returns 条件判定の結果を示す真偽値を返します。
+     */
+    (cell) => /^:?-{3,}:?$/.test(cell.trim()));
 }
 
 /**
@@ -1045,6 +1550,10 @@ export function getOutline(markdown: string): OutlineItem[] {
  * 2つのアウトライン項目を、見出しレベルを変えずに移動できるか判定する。
  * 親が変わる移動は許可するが、見出しレベルが変わる移動は許可しない。
  * ただし、子を持たない1階層上の見出しは、子を追加するターゲットとして許可する。
+ * @param outline 「outline」は、「canMoveOutlineSection」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @param sourceIndex 「sourceIndex」は、「canMoveOutlineSection」がMarkdownで処理する対象を特定する入力です。
+ * @param targetIndex 「targetIndex」は、「canMoveOutlineSection」がMarkdownで処理する対象を特定する入力です。
+ * @returns 判定結果です。
  */
 export function canMoveOutlineSection(
     outline: readonly OutlineItem[],
@@ -1058,7 +1567,13 @@ export function canMoveOutlineSection(
     return source.level === target.level || isOutlineEmptyParentTarget(outline, sourceIndex, targetIndex);
 }
 
-/** 移動元の1階層上にあり、配下に見出しを持たないターゲットか判定する。 */
+/**
+ * 移動元の1階層上にあり、配下に見出しを持たないターゲットか判定する。
+ * @param outline 「outline」は、「isOutlineEmptyParentTarget」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @param sourceIndex 「sourceIndex」は、「isOutlineEmptyParentTarget」がMarkdownで処理する対象を特定する入力です。
+ * @param targetIndex 「targetIndex」は、「isOutlineEmptyParentTarget」がMarkdownで処理する対象を特定する入力です。
+ * @returns 判定結果です。
+ */
 export function isOutlineEmptyParentTarget(
     outline: readonly OutlineItem[],
     sourceIndex: number,
@@ -1074,6 +1589,12 @@ export function isOutlineEmptyParentTarget(
 /**
  * アウトライン項目を、配下の子孫見出しごと同じ見出しレベルの位置へ移動する。
  * 不正な階層移動や実質的な移動にならない場合はundefinedを返す。
+ * @param markdown 解析・編集・変換の対象となる本文または生成済み内容です。
+ * @param outline 「outline」は、「moveOutlineSection」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @param sourceIndex 「sourceIndex」は、「moveOutlineSection」がMarkdownで処理する対象を特定する入力です。
+ * @param targetIndex 「targetIndex」は、「moveOutlineSection」がMarkdownで処理する対象を特定する入力です。
+ * @param position 「position」は、「moveOutlineSection」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @returns 「moveOutlineSection」が生成または変換したMarkdownの文字列を返します。
  */
 export function moveOutlineSection(
     markdown: string,
@@ -1108,7 +1629,13 @@ export function moveOutlineSection(
     return before + separatorBefore + block + separatorAfter + after;
 }
 
-/** 対象見出しから、次の同レベル以上の見出し直前までをセクション範囲とする。 */
+/**
+ * 対象見出しから、次の同レベル以上の見出し直前までをセクション範囲とする。
+ * @param markdown 解析・編集・変換の対象となる本文または生成済み内容です。
+ * @param outline 「outline」は、「findOutlineSectionEnd」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @param index 本文、表、配列内の対象位置を示すインデックスです。
+ * @returns 計算結果の数値です。
+ */
 function findOutlineSectionEnd(markdown: string, outline: readonly OutlineItem[], index: number): number {
     const source = outline[index];
     if (!source) return -1;
@@ -1118,11 +1645,21 @@ function findOutlineSectionEnd(markdown: string, outline: readonly OutlineItem[]
     return markdown.length;
 }
 
+/**
+ * get・markdown・line・separatorを取得または解決します。
+ * @param markdown 解析・編集・変換の対象となる本文または生成済み内容です。
+ * @returns 「getMarkdownLineSeparator」が生成または変換したMarkdownの文字列を返します。
+ */
 function getMarkdownLineSeparator(markdown: string): string {
     const match = /\r\n|\r|\n/.exec(markdown);
     return match?.[0] ?? '\n';
 }
 
+/**
+ * 「endsWithLineBreak」は、処理を終了し、保持していたリソースまたは状態を整理します。
+ * @param value 「endsWithLineBreak」で検証・変換する入力値です。
+ * @returns 判定結果です。
+ */
 function endsWithLineBreak(value: string): boolean {
     return /(?:\r\n|\r|\n)$/.test(value);
 }
@@ -1173,7 +1710,15 @@ export function splitMarkdownBlocks(markdown: string): MarkdownBlock[] {
  * @param markdown 正規化対象のMarkdown本文。
  * @returns 正規化後の文字列と元本文オフセットの対応表。
  */
-function normalizeWithOriginalOffsets(markdown: string): { normalized: string; originalOffsets: number[] } {
+function normalizeWithOriginalOffsets(markdown: string): {
+/**
+ * 「normalized」は、対象の内容または識別子を表す文字列です。
+ */
+normalized: string;
+/**
+ * 「originalOffsets」は、本文または選択範囲の位置・長さを保持します。
+ */
+originalOffsets: number[] } {
     // CRLF・CRをLFへ統一し、正規化後の各文字位置から元文書位置への対応表を作る。
     let normalized = '';
     const originalOffsets = [0];
@@ -1194,6 +1739,7 @@ function normalizeWithOriginalOffsets(markdown: string): { normalized: string; o
 /**
  * コードフェンス・表・見出し・リンク・画像を検査し、Markdown診断情報を収集する。
  * @param markdown 検査対象のMarkdown本文。
+ * @param language 表示文言の解決に使用する言語コードまたはロケールです。
  * @returns エラー・警告・情報の診断一覧。
  */
 export function collectDiagnostics(markdown: string, language: SupportedLanguage | string = 'ja'): Diagnostic[] {
@@ -1202,9 +1748,24 @@ export function collectDiagnostics(markdown: string, language: SupportedLanguage
     const diagnostics: Diagnostic[] = [];
     const lines = markdown.split(/\r\n|\r|\n/);
     const fencedLines = new Set<number>();
-    let openFence: { marker: string; line: number } | undefined;
+    let openFence: {
+    /**
+     * 「marker」は、対象の内容または識別子を表す文字列です。
+     */
+    marker: string;
+    /**
+     * 「line」は、位置・サイズ・件数などを表す数値です。
+     */
+    line: number } | undefined;
 
-    lines.forEach((line, index) => {
+    lines.forEach(
+    /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+     * @param line lineとして渡される、このコールバックの入力値です。
+     * @param index 本文、表、配列内の対象位置を示すインデックスです。
+     * @returns 「exec」を実行し、値を返しません。
+     */
+    (line, index) => {
         const match = /^\s{0,3}(`{3,}|~{3,})(.*)$/.exec(stripResourceContainerPrefix(line));
         if (!openFence && !match) return;
         fencedLines.add(index + 1);
@@ -1229,7 +1790,14 @@ export function collectDiagnostics(markdown: string, language: SupportedLanguage
     }
 
     const seen = new Map<string, number>();
-    lines.forEach((line, index) => {
+    lines.forEach(
+    /**
+ * 「line」「index」を受け取り、入力文字列を置換して変換する処理です。
+     * @param line lineとして渡される、このコールバックの入力値です。
+     * @param index 本文、表、配列内の対象位置を示すインデックスです。
+     * @returns 置換後の文字列を返します。
+     */
+    (line, index) => {
         if (fencedLines.has(index + 1)) return;
         const match = /^(#{1,6})\s+(.+?)(?:\s+\{#([^}]+)\})?\s*#*\s*$/.exec(line);
         if (!match) return;
@@ -1280,12 +1848,26 @@ export function collectDiagnostics(markdown: string, language: SupportedLanguage
     }
 
     const referenceDefinitions = new Set<string>();
-    lines.forEach((line, index) => {
+    lines.forEach(
+    /**
+ * 「line」「index」を受け取り、処理結果を生成する処理です。
+     * @param line lineとして渡される、このコールバックの入力値です。
+     * @param index 本文、表、配列内の対象位置を示すインデックスです。
+     * @returns 「if」を実行し、値を返しません。
+     */
+    (line, index) => {
         if (fencedLines.has(index + 1)) return;
         const definition = parseReferenceDefinition(line);
         if (definition) referenceDefinitions.add(normalizeReferenceLabel(definition));
     });
-    lines.forEach((line, index) => {
+    lines.forEach(
+    /**
+ * 「line」「index」を受け取り、入力文字列を置換して変換する処理です。
+     * @param line lineとして渡される、このコールバックの入力値です。
+     * @param index 本文、表、配列内の対象位置を示すインデックスです。
+     * @returns 置換後の文字列を返します。
+     */
+    (line, index) => {
         if (fencedLines.has(index + 1)) return;
         if (parseReferenceDefinition(line)) return;
         const sourceLine = maskInlineCode(line);
@@ -1302,7 +1884,13 @@ export function collectDiagnostics(markdown: string, language: SupportedLanguage
         }
     });
 
-    const imageSource = markdown.replace(/`+[^`\r\n]*`+/g, (code) => code.replace(/[^\r\n]/g, ' '));
+    const imageSource = markdown.replace(/`+[^`\r\n]*`+/g,
+    /**
+ * 「code」を受け取り、入力文字列を置換して変換する処理です。
+     * @param code 変換対象のコード文字列です。
+     * @returns 置換後の文字列を返します。
+     */
+    (code) => code.replace(/[^\r\n]/g, ' '));
     const imagePattern = /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
     let imageMatch: RegExpExecArray | null;
     while ((imageMatch = imagePattern.exec(imageSource))) {
@@ -1328,12 +1916,31 @@ export function collectDiagnostics(markdown: string, language: SupportedLanguage
     return sortDiagnostics(diagnostics);
 }
 
-/** Markdown本文からローカル画像・リンクの参照を抽出する。 */
+/**
+ * Markdown本文からローカル画像・リンクの参照を抽出する。
+ * @param markdown 解析・編集・変換の対象となる本文または生成済み内容です。
+ * @returns 「exec」を実行し、値を返しません。
+ */
 export function collectLocalResourceReferences(markdown: string): LocalResourceReference[] {
     const lines = markdown.split(/\r\n|\r|\n/);
     const fencedLines = new Set<number>();
-    let openFence: { marker: string; line: number } | undefined;
-    lines.forEach((line, index) => {
+    let openFence: {
+    /**
+     * 「marker」は、対象の内容または識別子を表す文字列です。
+     */
+    marker: string;
+    /**
+     * 「line」は、位置・サイズ・件数などを表す数値です。
+     */
+    line: number } | undefined;
+    lines.forEach(
+    /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+     * @param line lineとして渡される、このコールバックの入力値です。
+     * @param index 本文、表、配列内の対象位置を示すインデックスです。
+     * @returns 「exec」を実行し、値を返しません。
+     */
+    (line, index) => {
         const match = /^\s{0,3}(`{3,}|~{3,})(.*)$/.exec(stripResourceContainerPrefix(line));
         if (!openFence && !match) return;
         fencedLines.add(index + 1);
@@ -1350,14 +1957,28 @@ export function collectLocalResourceReferences(markdown: string): LocalResourceR
     });
 
     const commentState = { open: false };
-    const scanLines = lines.map((line, index) => {
+    const scanLines = lines.map(
+    /**
+ * 「line」「index」を変換し、変換後の要素を返すコールバックです。
+     * @param line lineとして渡される、このコールバックの入力値です。
+     * @param index 本文、表、配列内の対象位置を示すインデックスです。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (line, index) => {
         if (fencedLines.has(index + 1) || isIndentedResourceCodeLine(line)) return ' '.repeat(line.length);
         return maskHtmlComments(maskInlineCode(line), commentState);
     });
     const scanSource = scanLines.join('\n');
     const definitions = new Map<string, LocalResourceDefinition>();
     const definitionLines = new Set<number>();
-    scanLines.forEach((line, index) => {
+    scanLines.forEach(
+    /**
+ * 「line」「index」を受け取り、処理結果を生成する処理です。
+     * @param line lineとして渡される、このコールバックの入力値です。
+     * @param index 本文、表、配列内の対象位置を示すインデックスです。
+     * @returns 「parseLocalResourceDefinition」を実行し、値を返しません。
+     */
+    (line, index) => {
         const definition = parseLocalResourceDefinition(line);
         if (!definition || !isLocalResourceSource(definition.source)) return;
         definitionLines.add(index + 1);
@@ -1391,7 +2012,14 @@ export function collectLocalResourceReferences(markdown: string): LocalResourceR
     }
 
     // 参照定義が単独で書かれている場合も、定義行自体を検査対象にする。
-    definitions.forEach((definition, label) => {
+    definitions.forEach(
+    /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+     * @param definition definitionとして渡される、このコールバックの入力値です。
+     * @param label labelとして渡される、このコールバックの入力値です。
+     * @returns 「definition」「label」から生成した処理結果を返します。
+     */
+    (definition, label) => {
         if (!usedDefinitions.has(label)) {
             references.push({ kind: definition.kind, source: definition.source, line: definition.line });
         }
@@ -1399,7 +2027,11 @@ export function collectLocalResourceReferences(markdown: string): LocalResourceR
     return references;
 }
 
-/** Markdownのリンク・画像を括弧のネストと改行を考慮して走査する。 */
+/**
+ * Markdownのリンク・画像を括弧のネストと改行を考慮して走査する。
+ * @param source 処理対象のソースです。
+ * @returns 「scanMarkdownResourceLinks」が生成または整形したMarkdown解析・変換の文字列を返します。
+ */
 function scanMarkdownResourceLinks(source: string): ScannedResourceLink[] {
     const links: ScannedResourceLink[] = [];
     for (let index = 0; index < source.length; index += 1) {
@@ -1447,11 +2079,31 @@ function scanMarkdownResourceLinks(source: string): ScannedResourceLink[] {
             offset: htmlMatch.index
         });
     }
-    return links.sort((left, right) => left.offset - right.offset);
+    return links.sort(
+    /**
+ * 「left」「right」を比較し、並び順を示す数値を返すコールバックです。
+     * @param left 比較対象の左側の値です。
+     * @param right 比較対象の右側の値です。
+     * @returns 比較対象の順序を示す負数、0、または正数を返します。
+     */
+    (left, right) => left.offset - right.offset);
 }
 
-/** インラインリンクのリンク先を、ネストした括弧と改行を含めて読む。 */
-function readInlineResourceDestination(source: string, open: number): { source: string; end: number } | undefined {
+/**
+ * インラインリンクのリンク先を、ネストした括弧と改行を含めて読む。
+ * @param source 処理対象のソースです。
+ * @param open 「open」は、「readInlineResourceDestination」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @returns 「readInlineResourceDestination」が生成または変換したMarkdownの文字列を返します。
+ */
+function readInlineResourceDestination(source: string, open: number): {
+/**
+ * 「source」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
+ */
+source: string;
+/**
+ * 「end」は、本文または選択範囲の開始・終了位置を保持します。
+ */
+end: number } | undefined {
     let index = open + 1;
     while (/\s/u.test(source[index] ?? '')) index += 1;
     if (index >= source.length) return undefined;
@@ -1500,7 +2152,12 @@ function readInlineResourceDestination(source: string, open: number): { source: 
     return close < 0 ? undefined : { source: destination.replace(/\\([\\()])/g, '$1'), end: close };
 }
 
-/** インラインリンクの終端括弧を探す。 */
+/**
+ * インラインリンクの終端括弧を探す。
+ * @param source 処理対象のソースです。
+ * @param start 「start」は、「findInlineResourceClose」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @returns 計算結果の数値です。
+ */
 function findInlineResourceClose(source: string, start: number): number {
     let nestedParentheses = 0;
     for (let index = start; index < source.length; index += 1) {
@@ -1516,8 +2173,24 @@ function findInlineResourceClose(source: string, start: number): number {
     return -1;
 }
 
-/** 参照リンク定義を、引用・リストのブロック接頭辞を除いて読む。 */
-function parseLocalResourceDefinition(line: string): { kind: 'image' | 'link'; label: string; source: string } | undefined {
+/**
+ * 参照リンク定義を、引用・リストのブロック接頭辞を除いて読む。
+ * @param line 「line」は、「parseLocalResourceDefinition」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @returns 「parseLocalResourceDefinition」が生成または変換したMarkdownの文字列を返します。
+ */
+function parseLocalResourceDefinition(line: string): {
+/**
+ * 「kind」は、対象の識別や処理分岐に使用する値を保持します。
+ */
+kind: 'image' | 'link';
+/**
+ * 「label」は、画面または通知へ表示する文言を保持します。
+ */
+label: string;
+/**
+ * 「source」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
+ */
+source: string } | undefined {
     const candidate = stripResourceContainerPrefix(line);
     const match = /^(!?)\[([^\]]*)\]:\s*(<[^>\r\n]+>|[^\s]+)(?:\s+.*)?$/u.exec(candidate);
     if (!match || match[2].startsWith('^')) return undefined;
@@ -1528,7 +2201,11 @@ function parseLocalResourceDefinition(line: string): { kind: 'image' | 'link'; l
     };
 }
 
-/** 4スペースインデントのコードブロックを含む行か判定する。 */
+/**
+ * 4スペースインデントのコードブロックを含む行か判定する。
+ * @param line 「line」は、「isIndentedResourceCodeLine」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @returns 判定結果です。
+ */
 function isIndentedResourceCodeLine(line: string): boolean {
     if (/^(?: {4}|\t)/u.test(line)) return true;
     if (/^\s{0,3}(?:>|(?:[-+*]|\d+[.)]))\s+ {4}/u.test(line)) return true;
@@ -1536,7 +2213,11 @@ function isIndentedResourceCodeLine(line: string): boolean {
     return stripped !== line && /^(?: {4}|\t)/u.test(stripped);
 }
 
-/** 引用・リスト接頭辞を取り除く。 */
+/**
+ * 引用・リスト接頭辞を取り除く。
+ * @param line 「line」は、「stripResourceContainerPrefix」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @returns 「stripResourceContainerPrefix」が生成または変換したMarkdownの文字列を返します。
+ */
 function stripResourceContainerPrefix(line: string): string {
     if (/^(?: {4}|\t)/u.test(line)) return line;
     let result = line;
@@ -1550,8 +2231,17 @@ function stripResourceContainerPrefix(line: string): string {
     return result.replace(/^\s+/u, '');
 }
 
-/** HTMLコメント内を空白化し、コメント中のリンクを検出対象から除外する。 */
-function maskHtmlComments(line: string, state: { open: boolean }): string {
+/**
+ * HTMLコメント内を空白化し、コメント中のリンクを検出対象から除外する。
+ * @param line 「line」は、「maskHtmlComments」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @param state 処理対象の状態です。
+ * @returns 「maskHtmlComments」が生成または変換したMarkdownの文字列を返します。
+ */
+function maskHtmlComments(line: string, state: {
+/**
+ * 「open」は、関連処理が共有する構造化データの一項目です。
+ */
+open: boolean }): string {
     let result = '';
     let offset = 0;
     while (offset < line.length) {
@@ -1573,7 +2263,12 @@ function maskHtmlComments(line: string, state: { open: boolean }): string {
     return result;
 }
 
-/** 文字オフセットを1始まりのMarkdown行番号へ変換する。 */
+/**
+ * 文字オフセットを1始まりのMarkdown行番号へ変換する。
+ * @param source 処理対象のソースです。
+ * @param offset 本文または選択範囲を示すゼロ基準の位置です。範囲の開始・終了や写像の基準になります。
+ * @returns 計算結果の数値です。
+ */
 function lineNumberAt(source: string, offset: number): number {
     let line = 1;
     for (let index = 0; index < offset; index += 1) {
@@ -1582,16 +2277,40 @@ function lineNumberAt(source: string, offset: number): number {
     return line;
 }
 
-/** 診断を本文行順・生成順で安定ソートする。 */
+/**
+ * 診断を本文行順・生成順で安定ソートする。
+ * @param diagnostics 「diagnostics」は、「sortDiagnostics」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @returns 初期化したオブジェクトを返します。
+ */
 export function sortDiagnostics(diagnostics: Diagnostic[]): Diagnostic[] {
     return diagnostics
-        .map((item, index) => ({ item, index }))
-        .sort((left, right) => {
+        .map(
+        /**
+ * 「item」「index」を変換し、変換後の要素を返すコールバックです。
+         * @param item 変換または処理の対象となる値です。
+         * @param index 本文、表、配列内の対象位置を示すインデックスです。
+         * @returns 入力要素から生成した変換後の値を返します。
+         */
+        (item, index) => ({ item, index }))
+        .sort(
+        /**
+ * 「left」「right」を比較し、並び順を示す数値を返すコールバックです。
+         * @param left 比較対象の左側の値です。
+         * @param right 比較対象の右側の値です。
+         * @returns 比較対象の順序を示す負数、0、または正数を返します。
+         */
+        (left, right) => {
             const leftLine = left.item.line ?? Number.MAX_SAFE_INTEGER;
             const rightLine = right.item.line ?? Number.MAX_SAFE_INTEGER;
             return leftLine - rightLine || left.index - right.index;
         })
-        .map(({ item }) => item);
+        .map(
+        /**
+ * 「item」を変換し、変換後の要素を返すコールバックです。
+         * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはitemです。
+         * @returns 入力要素から生成した変換後の値を返します。
+         */
+        ({ item }) => item);
 }
 
 /**
@@ -1601,17 +2320,49 @@ export function sortDiagnostics(diagnostics: Diagnostic[]): Diagnostic[] {
  */
 export function summarizeDiagnostics(diagnostics: Diagnostic[]): DiagnosticSummary {
     return {
-        errors: diagnostics.filter((item) => item.severity === 'error'),
-        warnings: diagnostics.filter((item) => item.severity === 'warning'),
-        infos: diagnostics.filter((item) => item.severity === 'info')
+        errors: diagnostics.filter(
+        /**
+ * 「item」が条件に一致するか判定し、残す要素を決めるコールバックです。
+         * @param item 変換または処理の対象となる値です。
+         * @returns 要素を採用するかどうかの真偽値を返します。
+         */
+        (item) => item.severity === 'error'),
+        warnings: diagnostics.filter(
+        /**
+ * 「item」が条件に一致するか判定し、残す要素を決めるコールバックです。
+         * @param item 条件判定の対象となる要素です。
+         * @returns 要素を採用するかどうかの真偽値を返します。
+         */
+        (item) => item.severity === 'warning'),
+        infos: diagnostics.filter(
+        /**
+ * 「item」が条件に一致するか判定し、残す要素を決めるコールバックです。
+         * @param item 条件判定の対象となる要素です。
+         * @returns 要素を採用するかどうかの真偽値を返します。
+         */
+        (item) => item.severity === 'info')
     };
 }
 
-/** 表の列数・ヘッダー・区切り行を診断する。 */
+/**
+ * 表の列数・ヘッダー・区切り行を診断する。
+ * @param lines 「lines」は、「diagnoseMarkdownTable」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @param headerLine 「headerLine」は、「diagnoseMarkdownTable」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @param fencedLines 「fencedLines」は、「diagnoseMarkdownTable」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @param diagnostics 「diagnostics」は、「diagnoseMarkdownTable」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @param messages 「messages」は、「diagnoseMarkdownTable」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @returns 「diagnoseMarkdownTable」の副作用または状態更新を実行し、値は返しません。
+ */
 function diagnoseMarkdownTable(lines: string[], headerLine: number, fencedLines: Set<number>, diagnostics: Diagnostic[], messages: ReturnType<typeof getMessages>): void {
     const header = splitTableCells(lines[headerLine]);
     const separator = splitTableCells(lines[headerLine + 1]);
-    if (header.some((cell) => !cell.trim())) {
+    if (header.some(
+    /**
+ * 「cell」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
+     * @param cell 処理対象のセルです。
+     * @returns 条件判定の結果を示す真偽値を返します。
+     */
+    (cell) => !cell.trim())) {
         diagnostics.push({
             severity: 'warning',
             code: 'empty-table-header',
@@ -1641,31 +2392,86 @@ function diagnoseMarkdownTable(lines: string[], headerLine: number, fencedLines:
     }
 }
 
-/** 不正な表区切り行らしい文字列かを判定する。 */
+/**
+ * 不正な表区切り行らしい文字列かを判定する。
+ * @param line 「line」は、「isLikelyTableSeparatorLine」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @returns 判定結果です。
+ */
 function isLikelyTableSeparatorLine(line: string): boolean {
     const cells = splitTableCells(line);
-    return cells.length > 0 && cells.some((cell) => /^:?-{1,}:?$/.test(cell.trim())) && line.includes('|');
+    return cells.length > 0 && cells.some(
+    /**
+ * 「cell」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
+     * @param cell 処理対象のセルです。
+     * @returns 条件判定の結果を示す真偽値を返します。
+     */
+    (cell) => /^:?-{1,}:?$/.test(cell.trim())) && line.includes('|');
 }
 
-/** 表ヘッダー直後の行が不正な区切り行候補かを判定する。 */
+/**
+ * 表ヘッダー直後の行が不正な区切り行候補かを判定する。
+ * @param separator 「separator」は、「isInvalidTableSeparatorCandidate」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @returns 判定結果です。
+ */
 function isInvalidTableSeparatorCandidate(separator: string): boolean {
     const cells = splitTableCells(separator);
-    const separatorLike = (cell: string): boolean => !cell.trim() || /^:?-{1,}:?$/.test(cell.trim());
+
+    /**
+     * 「separatorLike」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+     * @param cell 処理対象のセルです。
+     * @returns 判定結果です。
+     */
+    const separatorLike = /**
+ * 「separatorLike」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @param cell 「cell」は、「separatorLike」がMarkdownで処理する対象を特定する入力です。
+ * @returns 「cell」から生成した処理結果を返します。
+ */ (cell: string): boolean => !cell.trim() || /^:?-{1,}:?$/.test(cell.trim());
     return isLikelyTableSeparatorLine(separator) && cells.every(separatorLike);
 }
 
+/**
+ * 「BracketContent」が満たすデータ契約を定義します。
+ */
 interface BracketContent {
+
+    /**
+     * 「content」は、解析・編集・変換の対象となる本文またはデータを保持します。
+     */
     content: string;
+
+    /**
+     * 「end」は、位置・サイズ・件数などを表す数値です。
+     */
     end: number;
 }
 
+/**
+ * 「ReferenceUsage」が満たすデータ契約を定義します。
+ */
 interface ReferenceUsage {
+
+    /**
+     * 「isImage」は、処理条件または状態を表す真偽値です。
+     */
     isImage: boolean;
+
+    /**
+     * 「text」は、画面または通知へ表示する文言を保持します。
+     */
     text: string;
+
+    /**
+     * 「label」は、画面または通知へ表示する文言を保持します。
+     */
     label: string;
 }
 
-/** エスケープとネストを考慮して角括弧の内容を読み取る。 */
+/**
+ * エスケープとネストを考慮して角括弧の内容を読み取る。
+ * @param source 処理対象のソースです。
+ * @param open 「open」は、「readBracketContent」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @returns 「readBracketContent」が対象を取得できない場合はundefinedを返します。
+ */
 function readBracketContent(source: string, open: number): BracketContent | undefined {
     let depth = 0;
     let content = '';
@@ -1692,7 +2498,11 @@ function readBracketContent(source: string, open: number): BracketContent | unde
     return undefined;
 }
 
-/** 明示的なfull/collapsed参照リンクと参照画像を抽出する。 */
+/**
+ * 明示的なfull/collapsed参照リンクと参照画像を抽出する。
+ * @param line 「line」は、「collectReferenceUsages」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @returns 「line」から生成した処理結果を返します。
+ */
 function collectReferenceUsages(line: string): ReferenceUsage[] {
     const usages: ReferenceUsage[] = [];
     for (let index = 0; index < line.length; index += 1) {
@@ -1717,7 +2527,11 @@ function collectReferenceUsages(line: string): ReferenceUsage[] {
     return usages;
 }
 
-/** 参照定義行からラベルを抽出する。 */
+/**
+ * 参照定義行からラベルを抽出する。
+ * @param line 「line」は、「parseReferenceDefinition」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @returns 「parseReferenceDefinition」が生成または変換したMarkdownの文字列を返します。
+ */
 function parseReferenceDefinition(line: string): string | undefined {
     const open = line.search(/\S/);
     if (open < 0 || line[open] !== '[') return undefined;
@@ -1728,12 +2542,30 @@ function parseReferenceDefinition(line: string): string | undefined {
     return label.content;
 }
 
-/** インラインコード内の文字を空白に置き換え、Markdown記法の誤診断を防ぐ。 */
+/**
+ * インラインコード内の文字を空白に置き換え、Markdown記法の誤診断を防ぐ。
+ * @param line 「line」は、「maskInlineCode」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @returns 「maskInlineCode」が生成または変換したMarkdownの文字列を返します。
+ */
 function maskInlineCode(line: string): string {
-    return line.replace(/`+[^`\r\n]*`+/g, (code) => code.replace(/[^\r\n]/g, ' '));
+    return line.replace(/`+[^`\r\n]*`+/g,
+    /**
+ * 「code」を受け取り、入力文字列を置換して変換する処理です。
+     * @param code 変換対象のコード文字列です。
+     * @returns 置換後の文字列を返します。
+     */
+    (code) => code.replace(/[^\r\n]/g, ' '));
 }
 
-/** 参照リンクの定義有無を診断する。 */
+/**
+ * 参照リンクの定義有無を診断する。
+ * @param label 「label」は、「reportBrokenReference」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @param line 「line」は、「reportBrokenReference」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @param definitions 「definitions」は、「reportBrokenReference」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @param diagnostics 「diagnostics」は、「reportBrokenReference」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @param messages 「messages」は、「reportBrokenReference」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @returns 「reportBrokenReference」の副作用または状態更新を実行し、値は返しません。
+ */
 function reportBrokenReference(
     label: string,
     line: number,
@@ -1752,12 +2584,20 @@ function reportBrokenReference(
     });
 }
 
-/** 参照ラベルをMarkdownの比較用に正規化する。 */
+/**
+ * 参照ラベルをMarkdownの比較用に正規化する。
+ * @param label 「label」は、「normalizeReferenceLabel」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @returns 「normalizeReferenceLabel」が生成したMarkdownの表示文字列を返します。
+ */
 function normalizeReferenceLabel(label: string): string {
     return label.trim().replace(/\\([\\\[\]])/g, '$1').replace(/\s+/g, ' ').toLowerCase();
 }
 
-/** 外部URL・アンカー等を除き、実在確認対象のローカル参照か判定する。 */
+/**
+ * 外部URL・アンカー等を除き、実在確認対象のローカル参照か判定する。
+ * @param source 処理対象のソースです。
+ * @returns 判定結果です。
+ */
 function isLocalResourceSource(source: string): boolean {
     if (!source || /^#/u.test(source)) return false;
     if (/^[A-Za-z]:[\\/]/u.test(source)) return true;
@@ -1778,7 +2618,13 @@ export function formatMarkdown(markdown: string): string {
     const normalized = markdown
         .replace(/\r\n/g, '\n')
         .split('\n')
-        .map((line) => {
+        .map(
+        /**
+ * 「line」を変換し、変換後の要素を返すコールバックです。
+         * @param line lineとして渡される、このコールバックの入力値です。
+         * @returns 置換後の文字列を返します。
+         */
+        (line) => {
             const trailing = /[\t ]+$/.exec(line)?.[0] ?? '';
             return /^ {2,}$/.test(trailing) ? line : line.slice(0, line.length - trailing.length);
         })
@@ -1793,7 +2639,19 @@ export function formatMarkdown(markdown: string): string {
  * @param markdown 集計対象のMarkdown本文。
  * @returns Markdown文字数・本文文字数・行数を持つ統計情報。
  */
-export function wordStats(markdown: string): { markdown: number; text: number; lines: number } {
+export function wordStats(markdown: string): {
+/**
+ * 「markdown」は、解析・編集・変換の対象となる本文またはデータを保持します。
+ */
+markdown: number;
+/**
+ * 「text」は、画面または通知へ表示する文言を保持します。
+ */
+text: number;
+/**
+ * 「lines」は、関連処理が共有する構造化データの一項目です。
+ */
+lines: number } {
     // コードやMarkdown記号を除いた本文を作り、文字数と行数を数える。
     const text = stripMveTextColorMarkup(markdown)
         .replace(/```[\s\S]*?```/g, '')

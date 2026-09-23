@@ -1,3 +1,11 @@
+/**
+ * @file RenderedMarkdown.tsx
+ * 実行境界: Webview。
+ * 責務: 編集UI、プレビュー、ユーザー操作を処理する。
+ * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
+ * 副作用: DOM、Webviewメッセージ、ブラウザーAPI、編集状態を操作する。
+ * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ */
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ImageAlignment } from "../shared/imageResize";
 import type { MermaidInteraction, WebviewSettings } from "../shared/protocol";
@@ -10,25 +18,121 @@ import {
 } from "./mermaidRenderer";
 import { mveDebug } from "./debug";
 
+/**
+ * 「InspectorTarget」として扱う値の型を定義します。
+ */
 export type InspectorTarget =
-  | { type: "mermaid"; source: string }
-  | { type: "math"; source: string }
-  | { type: "image"; source: string; alt: string; imageIndex?: number };
+  | {
+  /**
+   * 「type」は、対象の識別や処理分岐に使用する値を保持します。
+   */
+  type: "mermaid";
+  /**
+   * 「source」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
+   */
+  source: string }
+  | {
+  /**
+   * 「type」は、対象の識別や処理分岐に使用する値を保持します。
+   */
+  type: "math";
+  /**
+   * 「source」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
+   */
+  source: string }
+  | {
+  /**
+   * 「type」は、対象の識別や処理分岐に使用する値を保持します。
+   */
+  type: "image";
+  /**
+   * 「source」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
+   */
+  source: string;
+  /**
+   * 「alt」は、対象の内容または識別子を表す文字列です。
+   */
+  alt: string;
+  /**
+   * 「imageIndex」は、対象の位置、サイズ、件数、または範囲を保持します。
+   */
+  imageIndex?: number };
 
+/**
+ * 「Props」が満たすデータ契約を定義します。
+ */
 interface Props {
+
+  /**
+   * 「markdown」は、解析・編集・変換の対象となる本文またはデータを保持します。
+   */
   markdown: string;
-  /** 複数の表示先で共有する、計算済みのHTML。 */
+  /**
+   * 複数の表示先で共有する、計算済みのHTML。
+   */
   html?: string;
+
+  /**
+   * 「settings」は、利用側が共有する設定または現在状態を保持します。
+   */
   settings: WebviewSettings;
+
+  /**
+   * 「className」は、対象の識別や処理分岐に使用する値を保持します。
+   */
   className?: string;
+
+  /**
+   * 「imageZoom」は、位置・サイズ・件数などを表す数値です。
+   */
   imageZoom?: number;
+  /**
+   * 呼び出し側が入力を渡し、宣言された戻り値型で結果を受け取る契約です。
+   * @param target 処理対象の対象です。
+   * @returns 状態更新または副作用を実行し、値は返しません。
+   */
   onInspect?: (target: InspectorTarget) => void;
+  /**
+   * 呼び出し側が入力を渡し、宣言された戻り値型で結果を受け取る契約です。
+   * @param imageIndex 処理対象を特定するimageIndexの入力値です。
+   * @param width 処理対象の幅です。
+   * @returns 状態更新または副作用を実行し、値は返しません。
+   */
   onImageResize?: (imageIndex: number, width: number) => void;
+  /**
+   * 呼び出し側が入力を渡し、宣言された戻り値型で結果を受け取る契約です。
+   * @param imageIndex 処理対象を特定するimageIndexの入力値です。
+   * @returns 状態更新または副作用を実行し、値は返しません。
+   */
   onImageReset?: (imageIndex: number) => void;
+  /**
+   * 呼び出し側が入力を渡し、宣言された戻り値型で結果を受け取る契約です。
+   * @param imageIndex 処理対象を特定するimageIndexの入力値です。
+   * @param alignment 処理対象を特定するalignmentの入力値です。
+   * @returns 状態更新または副作用を実行し、値は返しません。
+   */
   onImageAlign?: (imageIndex: number, alignment: ImageAlignment) => void;
+  /**
+   * 呼び出し側が入力を渡し、宣言された戻り値型で結果を受け取る契約です。
+   * @param href 処理対象を特定するhrefの入力値です。
+   * @returns 状態更新または副作用を実行し、値は返しません。
+   */
   onNavigate?: (href: string) => void;
+  /**
+   * 呼び出し側が入力を渡し、宣言された戻り値型で結果を受け取る契約です。
+   * @param element 処理対象の要素です。
+   * @returns 状態更新または副作用を実行し、値は返しません。
+   */
   onRendered?: (element: HTMLElement) => void;
+  /**
+   * 呼び出し側が入力を渡し、宣言された戻り値型で結果を受け取る契約です。
+   * @returns 状態更新または副作用を実行し、値は返しません。
+   */
   onMermaidRendered?: () => void;
+
+  /**
+   * 「deferMermaid」は、対象の識別や処理分岐に使用する値を保持します。
+   */
   deferMermaid?: boolean;
 }
 
@@ -51,13 +155,25 @@ function RenderedMarkdownView({
   onRendered,
   onMermaidRendered,
   deferMermaid = false,
-}: Props & { html: string }): React.JSX.Element {
+}: Props & {
+/**
+ * 「html」は、解析・編集・変換の対象となる本文またはデータを保持します。
+ */
+html: string }): React.JSX.Element {
   // MarkdownをHTMLへ変換し、Mermaid・画像・リンクの表示後処理を行うプレビューを描画する。
   const rootRef = useRef<HTMLDivElement>(null);
   const renderedBlocksRef = useRef<RenderedDomBlock[]>([]);
   const mermaidObjectUrlsRef = useRef(new Set<string>());
   const mermaidRenderControllersRef = useRef(
-    new Map<HTMLElement, { key: string; controller: AbortController }>(),
+    new Map<HTMLElement, {
+    /**
+     * 「key」は、対象の内容または識別子を表す文字列です。
+     */
+    key: string;
+    /**
+     * 「controller」は、非同期処理またはリソースのライフサイクルを管理します。
+     */
+    controller: AbortController }>(),
   );
   const mermaidInteractionManagersRef = useRef(
     new Map<HTMLElement, () => void>(),
@@ -73,7 +189,12 @@ function RenderedMarkdownView({
   onImageResizeRef.current = onImageResize;
   onImageResetRef.current = onImageReset;
   onImageAlignRef.current = onImageAlign;
-  useLayoutEffect(() => {
+  useLayoutEffect(
+  /**
+ * 処理結果を生成する処理を実行するコールバックです。
+   * @returns 「if」を実行し、値を返しません。
+   */
+  () => {
     const root = rootRef.current;
     if (!root) return;
     const startedAt = performance.now();
@@ -93,26 +214,71 @@ function RenderedMarkdownView({
   }, [html]);
 
   useEffect(
-    () => () => {
-      mermaidRenderControllersRef.current.forEach(({ controller }) =>
+
+    /**
+ * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
+     * @returns Reactが保持する初期状態またはメモ化値を返します。
+     */
+    () =>
+    /**
+ * 登録された副作用または結果を生成する処理を実行するコールバックです。
+     * @returns 「mermaidRenderControllersRef.current.forEach」を実行し、値を返しません。
+     */
+    () => {
+      mermaidRenderControllersRef.current.forEach(
+      /**
+ * 「controller」を受け取り、処理結果を生成する処理です。
+       * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはcontrollerです。
+       * @returns 「controller.abort」を実行し、値を返しません。
+       */
+      ({ controller }) =>
         controller.abort(),
       );
       mermaidRenderControllersRef.current.clear();
-      mermaidObjectUrlsRef.current.forEach((url) => URL.revokeObjectURL(url));
+      mermaidObjectUrlsRef.current.forEach(
+      /**
+ * 「url」を受け取り、処理結果を生成する処理です。
+       * @param url 読み込みまたは出力するリソースの場所を示します。
+       * @returns 「url」から生成した処理結果を返します。
+       */
+      (url) => URL.revokeObjectURL(url));
       mermaidObjectUrlsRef.current.clear();
-      mermaidInteractionManagersRef.current.forEach((cleanup) => cleanup());
+      mermaidInteractionManagersRef.current.forEach(
+      /**
+ * 「cleanup」を受け取り、処理結果を生成する処理です。
+       * @param cleanup cleanupとして渡される、このコールバックの入力値です。
+       * @returns 購読解除、タイマー解除、リソース破棄などの後片付けを実行し、値は返しません。
+       */
+      (cleanup) => cleanup());
       mermaidInteractionManagersRef.current.clear();
     },
     [],
   );
 
-  useEffect(() => {
+  useEffect(
+  /**
+ * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
+   * @returns Reactが保持する初期状態またはメモ化値を返します。
+   */
+  () => {
     // HTMLの更新を監視し、未処理のMermaidや画像の読み込み後にレイアウトを通知する。
     const root = rootRef.current;
     if (!root) return;
     // 表の短い項目名だけを改行禁止にし、長い先頭列の横溢れを防ぐ。
-    root.querySelectorAll<HTMLTableElement>("table").forEach((table) => {
-      Array.from(table.rows).forEach((row) => {
+    root.querySelectorAll<HTMLTableElement>("table").forEach(
+    /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+     * @param table 処理対象の表です。
+     * @returns 「Array.from」を実行し、値を返しません。
+     */
+    (table) => {
+      Array.from(table.rows).forEach(
+      /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+       * @param row 本文、表、配列内の対象位置を示すインデックスです。
+       * @returns 「if」を実行し、値を返しません。
+       */
+      (row) => {
         const cell = row.cells[0];
         if (!cell) return;
         const text = cell.textContent?.trim() ?? "";
@@ -145,20 +311,42 @@ function RenderedMarkdownView({
     const renderControllers = mermaidRenderControllersRef.current;
     const scrollContainer = findScrollContainer(root);
     let lastViewportActivityAt = 0;
-    interactionManagers.forEach((cleanup, node) => {
+    interactionManagers.forEach(
+    /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+     * @param cleanup cleanupとして渡される、このコールバックの入力値です。
+     * @param node nodeとして渡される、このコールバックの入力値です。
+     * @returns 購読解除、タイマー解除、リソース破棄などの後片付けを実行し、値は返しません。
+     */
+    (cleanup, node) => {
       if (node.isConnected) return;
       cleanup();
       interactionManagers.delete(node);
     });
     // 差分DOMで保持された同一図の描画は継続する。図ソース・テーマが変わった要求だけを破棄する。
-    renderControllers.forEach((entry, node) => {
+    renderControllers.forEach(
+    /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+     * @param entry entryとして渡される、このコールバックの入力値です。
+     * @param node nodeとして渡される、このコールバックの入力値です。
+     * @returns 「decodeURIComponent」を実行し、値を返しません。
+     */
+    (entry, node) => {
       const source = decodeURIComponent(node.dataset.mermaidSource ?? "");
       if (node.isConnected && entry.key === `${theme}\0${source}`) return;
       entry.controller.abort();
       renderControllers.delete(node);
       delete node.dataset.mermaidStatus;
     });
-    const notifyRendered = () => {
+
+    /**
+     * 「notifyRendered」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+     * @returns 「notifyRendered」がWebview UI状態の入力を処理して得た固有の結果を返します。
+     */
+    const notifyRendered = /**
+ * 「notifyRendered」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @returns 「notifyRendered」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ */ () => {
       if (cancelled) return;
       // 出力ステージはMermaidが全件確定する前のResizeObserver通知を完了扱いしない。
       if (
@@ -170,14 +358,40 @@ function RenderedMarkdownView({
         return;
       onRenderedRef.current?.(root);
     };
-    const applyMermaid = async (
+
+    /**
+     * Mermaidを処理します。
+     * @param node 処理対象のDOMまたは構文木のノードです。
+     * @param source 処理対象のソースです。
+     * @param rendered 「rendered」は、「applyMermaid」がWebview UI状態の処理対象を特定する入力です。
+     * @param isCurrent 「isCurrent」は、「applyMermaid」がWebview UI状態の処理対象を特定する入力です。
+     * @returns 非同期処理の完了を表すPromiseです。
+     */
+    const applyMermaid = /**
+ * 「applyMermaid」は、入力を検証して対象の状態または内容へ適用します。
+ * @param node 処理対象のDOM要素、エディター、または実行コンテキストです。
+ * @param source Webview UIで解析・編集・変換する本文またはデータです。
+ * @param rendered 「rendered」は、「applyMermaid」がWebview UIで処理する対象を特定する入力です。
+ * @param isCurrent 「isCurrent」は、「applyMermaid」がWebview UIで処理する対象を特定する入力です。
+ * @returns 「performance.now」を実行し、値を返しません。
+ */ async (
       node: HTMLElement,
       source: string,
       rendered: MermaidRenderResult,
       isCurrent: () => boolean,
     ): Promise<void> => {
       const applyStartedAt = performance.now();
-      const recordApplyDuration = (startedAt = applyStartedAt) => {
+
+      /**
+       * record・apply・durationを更新または保存します。
+       * @param startedAt 「startedAt」は、「recordApplyDuration」がWebview UI状態の処理対象を特定する入力です。
+       * @returns 「recordApplyDuration」がWebview UI状態の入力を処理して得た固有の結果を返します。
+       */
+      const recordApplyDuration = /**
+ * 「recordApplyDuration」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @param startedAt 「startedAt」は、「recordApplyDuration」がWebview UIで処理する対象を特定する入力です。
+ * @returns 「recordApplyDuration」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ */ (startedAt = applyStartedAt) => {
         performance.clearMeasures("mve-preview-mermaid-apply");
         performance.measure("mve-preview-mermaid-apply", {
           start: startedAt,
@@ -244,6 +458,11 @@ function RenderedMarkdownView({
       image.src = objectUrl;
       image.addEventListener(
         "load",
+
+        /**
+         * イベント情報を受け取り、DOMまたは画面状態を更新するコールバックです。
+         * @returns 「notifyRendered」を実行し、値を返しません。
+         */
         () => {
           notifyRendered();
         },
@@ -276,29 +495,56 @@ function RenderedMarkdownView({
      * 未描画のMermaidノードを抽出してSVGへ置き換え、描画後のレイアウトを通知する。
      * @returns Mermaidノードの描画が完了するPromise。
      */
-    const renderNodes = async (): Promise<boolean> => {
+    const renderNodes = /**
+ * 「renderNodes」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @returns 「renderNodes」が生成または抽出した表示対象を返します。
+ */ async (): Promise<boolean> => {
       // 未描画のMermaidノードを抽出し、SVG描画結果またはエラー表示を反映する。
       const allNodes = Array.from(
         root.querySelectorAll<HTMLElement>(".mermaid"),
       );
       const pending = allNodes.filter(
+
+        /**
+ * 「node」が条件に一致するか判定し、残す要素を決めるコールバックです。
+         * @param node nodeとして渡される、このコールバックの入力値です。
+         * @returns 要素を採用するかどうかの真偽値を返します。
+         */
         (node) =>
           !node.dataset.mermaidStatus &&
           (!deferMermaid || isNearViewport(node, scrollContainer)),
       );
       if (!pending.length) {
         if (
-          !allNodes.some((node) => node.dataset.mermaidStatus === "rendering")
+          !allNodes.some(
+          /**
+ * 「node」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
+           * @param node nodeとして渡される、このコールバックの入力値です。
+           * @returns 条件判定の結果を示す真偽値を返します。
+           */
+          (node) => node.dataset.mermaidStatus === "rendering")
         ) {
           notifyRendered();
         }
-        return allNodes.some((node) => !node.dataset.mermaidStatus);
+        return allNodes.some(
+        /**
+ * 「node」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
+         * @param node nodeとして渡される、このコールバックの入力値です。
+         * @returns 条件判定の結果を示す真偽値を返します。
+         */
+        (node) => !node.dataset.mermaidStatus);
       }
       // ホスト側は直列描画なので、可視・画面外・出力のいずれも要求を先行投入しない。
       // 世代ごとに1件だけ開始すれば、更新時の取消対象と35秒タイマーも常に1件に収まる。
       const batch = pending.slice(0, 1);
       await Promise.all(
-        batch.map(async (node) => {
+        batch.map(
+        /**
+ * 「node」を変換し、変換後の要素を返すコールバックです。
+         * @param node nodeとして渡される、このコールバックの入力値です。
+         * @returns 入力要素から生成した変換後の値を返します。
+         */
+        async (node) => {
           // ノードごとにソースを復元して描画し、以前の描画結果をエラー時の代替として保持する。
           const index = allNodes.indexOf(node);
           const blockKey = `index:${index}`;
@@ -308,7 +554,15 @@ function RenderedMarkdownView({
           node.dataset.mermaidStatus = "rendering";
           const controller = new AbortController();
           renderControllers.set(node, { key: renderKey, controller });
-          const isCurrent = () =>
+
+          /**
+           * is・currentかどうかを判定します。
+           * @returns 条件を満たすかどうかを示す真偽値を返します。
+           */
+          const isCurrent = /**
+ * 「isCurrent」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @returns 条件を満たすかどうかを示す真偽値を返します。
+ */ () =>
             !controller.signal.aborted &&
             renderControllers.get(node)?.controller === controller;
           const cached = deferMermaid
@@ -384,9 +638,27 @@ function RenderedMarkdownView({
         }),
       );
       notifyRendered();
-      return allNodes.some((node) => !node.dataset.mermaidStatus);
+      return allNodes.some(
+      /**
+ * 「node」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
+       * @param node nodeとして渡される、このコールバックの入力値です。
+       * @returns 条件判定の結果を示す真偽値を返します。
+       */
+      (node) => !node.dataset.mermaidStatus);
     };
-    const scheduleRenderNodes = (
+
+    /**
+     * 「scheduleRenderNodes」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+     * @param delay 「delay」は、「scheduleRenderNodes」がWebview UI状態の処理対象を特定する入力です。
+     * @param restart 「restart」は、「scheduleRenderNodes」がWebview UI状態の処理対象を特定する入力です。
+     * @returns 「scheduleRenderNodes」が生成または抽出した表示対象を返します。
+     */
+    const scheduleRenderNodes = /**
+ * 「scheduleRenderNodes」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @param delay 「delay」は、「scheduleRenderNodes」がWebview UIで処理する対象を特定する入力です。
+ * @param restart 「restart」は、「scheduleRenderNodes」がWebview UIで処理する対象を特定する入力です。
+ * @returns 「scheduleRenderNodes」が生成または抽出した表示対象を返します。
+ */ (
       delay = deferMermaid ? 80 : 0,
       restart = false,
     ) => {
@@ -400,12 +672,28 @@ function RenderedMarkdownView({
         renderTimer === undefined &&
         (!deferMermaid || !isPreviewInputActive())
       ) {
-        renderTimer = window.setTimeout(() => {
+        renderTimer = window.setTimeout(
+        /**
+ * 指定時間の経過後に遅延処理を実行するコールバックです。
+         * @returns 「renderNodes」を実行し、値を返しません。
+         */
+        () => {
           renderTimer = undefined;
-          void renderNodes().then(() => {
+          void renderNodes().then(
+          /**
+           * Promiseの解決値を受け取り、後続の表示または状態更新へ渡すコールバックです。
+           * @returns 解決値を処理した結果を返します。
+           */
+          () => {
             const hasNextForegroundNode = Array.from(
               root.querySelectorAll<HTMLElement>(".mermaid"),
             ).some(
+
+              /**
+ * 「node」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
+               * @param node nodeとして渡される、このコールバックの入力値です。
+               * @returns 解決値を処理した結果を返します。
+               */
               (node) =>
                 !node.dataset.mermaidStatus &&
                 (!deferMermaid || isNearViewport(node, scrollContainer)),
@@ -423,7 +711,17 @@ function RenderedMarkdownView({
     const imageResizeCleanups: Array<() => void> = [];
     const pendingImageEnhancements = new Set<HTMLImageElement>();
     let imageEnhanceTimer: number | undefined;
-    const enhanceImages = (candidates?: HTMLImageElement[]) => {
+
+    /**
+     * 「enhanceImages」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+     * @param candidates 「candidates」は、「enhanceImages」がWebview UI状態の処理対象を特定する入力です。
+     * @returns 「enhanceImages」が生成または抽出した表示対象を返します。
+     */
+    const enhanceImages = /**
+ * 「enhanceImages」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @param candidates 「candidates」は、「enhanceImages」がWebview UIで処理する対象を特定する入力です。
+ * @returns 「enhanceImages」が生成または抽出した表示対象を返します。
+ */ (candidates?: HTMLImageElement[]) => {
       if (onImageResizeRef.current || onImageAlignRef.current) {
         const cleanup = enhanceResizableImages(
           root,
@@ -436,7 +734,15 @@ function RenderedMarkdownView({
         if (cleanup) imageResizeCleanups.push(cleanup);
       }
     };
-    const processImageEnhancementChunk = () => {
+
+    /**
+     * process・image・enhancement・chunkを処理します。
+     * @returns 「processImageEnhancementChunk」が生成または抽出した表示対象を返します。
+     */
+    const processImageEnhancementChunk = /**
+ * 「processImageEnhancementChunk」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @returns 「processImageEnhancementChunk」が生成または抽出した表示対象を返します。
+ */ () => {
       imageEnhanceTimer = undefined;
       if (cancelled) return;
       if (deferMermaid && isPreviewInputActive()) {
@@ -472,13 +778,34 @@ function RenderedMarkdownView({
         imageEnhanceTimer = window.setTimeout(processImageEnhancementChunk, 0);
       }
     };
-    const scheduleImageEnhancements = (imagesToEnhance: HTMLImageElement[]) => {
-      imagesToEnhance.forEach((image) => pendingImageEnhancements.add(image));
+
+    /**
+     * 「scheduleImageEnhancements」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+     * @param imagesToEnhance 「imagesToEnhance」は、「scheduleImageEnhancements」がWebview UI状態の処理対象を特定する入力です。
+     * @returns 「scheduleImageEnhancements」が生成または抽出した表示対象を返します。
+     */
+    const scheduleImageEnhancements = /**
+ * 「scheduleImageEnhancements」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @param imagesToEnhance 「imagesToEnhance」は、「scheduleImageEnhancements」がWebview UIで処理する対象を特定する入力です。
+ * @returns 「scheduleImageEnhancements」が生成または抽出した表示対象を返します。
+ */ (imagesToEnhance: HTMLImageElement[]) => {
+      imagesToEnhance.forEach(
+      /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+       * @param image imageとして渡される、このコールバックの入力値です。
+       * @returns 「pendingImageEnhancements.add」を実行し、値を返しません。
+       */
+      (image) => pendingImageEnhancements.add(image));
       if (imageEnhanceTimer === undefined && pendingImageEnhancements.size) {
         imageEnhanceTimer = window.setTimeout(processImageEnhancementChunk, 0);
       }
     };
-    const resizeObserver = new ResizeObserver(() => {
+    const resizeObserver = new ResizeObserver(
+    /**
+ * 指定時間の経過後に後続処理を実行するコールバックです。
+     * @returns 「notifyRendered」を実行し、値を返しません。
+     */
+    () => {
       notifyRendered();
     });
     resizeObserver.observe(root);
@@ -492,16 +819,40 @@ function RenderedMarkdownView({
       );
       if (deferMermaid && typeof IntersectionObserver !== "undefined") {
         imageEnhanceObserver = new IntersectionObserver(
+
+          /**
+ * 「entries」を受け取り、処理結果を生成する処理です。
+           * @param entries 処理対象となる複数要素の集合です。
+           * @returns 「if」を実行し、値を返しません。
+           */
           (entries) => {
             if (cancelled) return;
             const visibleImages = entries
               .filter(
+
+                /**
+ * 「entry」が条件に一致するか判定し、残す要素を決めるコールバックです。
+                 * @param entry entryとして渡される、このコールバックの入力値です。
+                 * @returns 要素を採用するかどうかの真偽値を返します。
+                 */
                 (entry) =>
                   entry.isIntersecting &&
                   entry.target instanceof HTMLImageElement,
               )
-              .map((entry) => entry.target as HTMLImageElement);
-            visibleImages.forEach((image) =>
+              .map(
+              /**
+ * 「entry」を変換し、変換後の要素を返すコールバックです。
+               * @param entry entryとして渡される、このコールバックの入力値です。
+               * @returns 入力要素から生成した変換後の値を返します。
+               */
+              (entry) => entry.target as HTMLImageElement);
+            visibleImages.forEach(
+            /**
+ * 「image」を受け取り、登録された副作用または結果を生成する処理です。
+             * @param image imageとして渡される、このコールバックの入力値です。
+             * @returns 「image」から生成した処理結果を返します。
+             */
+            (image) =>
               imageEnhanceObserver?.unobserve(image),
             );
             if (visibleImages.length) scheduleImageEnhancements(visibleImages);
@@ -511,7 +862,13 @@ function RenderedMarkdownView({
             rootMargin: "600px 0px",
           },
         );
-        resizableImages.forEach((image) =>
+        resizableImages.forEach(
+        /**
+ * 「image」を受け取り、登録された副作用または結果を生成する処理です。
+         * @param image imageとして渡される、このコールバックの入力値です。
+         * @returns 「image」から生成した処理結果を返します。
+         */
+        (image) =>
           imageEnhanceObserver?.observe(image),
         );
       } else {
@@ -523,11 +880,28 @@ function RenderedMarkdownView({
      * 画像の読み込み完了を親へ通知し、プレビューサイズの再計算を促す。
      * @returns 何も返さない。
      */
-    const imageLoaded = () => {
+    const imageLoaded = /**
+ * 「imageLoaded」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @returns 「imageLoaded」が生成または抽出した表示対象を返します。
+ */ () => {
       notifyRendered();
     };
-    images.forEach((image) => image.addEventListener("load", imageLoaded));
-    const scheduleAfterViewportActivity = () => {
+    images.forEach(
+    /**
+ * 「image」を受け取り、登録された副作用または結果を生成する処理です。
+     * @param image imageとして渡される、このコールバックの入力値です。
+     * @returns 「image」から生成した処理結果を返します。
+     */
+    (image) => image.addEventListener("load", imageLoaded));
+
+    /**
+     * 「scheduleAfterViewportActivity」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+     * @returns 「scheduleAfterViewportActivity」がWebview UI状態の入力を処理して得た固有の結果を返します。
+     */
+    const scheduleAfterViewportActivity = /**
+ * 「scheduleAfterViewportActivity」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @returns 「scheduleAfterViewportActivity」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ */ () => {
       lastViewportActivityAt = performance.now();
       scheduleRenderNodes(120, true);
     };
@@ -537,7 +911,15 @@ function RenderedMarkdownView({
     window.addEventListener("resize", scheduleAfterViewportActivity, {
       passive: true,
     });
-    const pauseForInput = () => {
+
+    /**
+     * 「pauseForInput」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+     * @returns 「pauseForInput」がWebview UI状態の入力を処理して得た固有の結果を返します。
+     */
+    const pauseForInput = /**
+ * 「pauseForInput」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @returns 「pauseForInput」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ */ () => {
       if (renderTimer !== undefined) {
         window.clearTimeout(renderTimer);
         renderTimer = undefined;
@@ -547,7 +929,15 @@ function RenderedMarkdownView({
         imageEnhanceTimer = undefined;
       }
     };
-    const resumeAfterInput = () => {
+
+    /**
+     * 「resumeAfterInput」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+     * @returns 「resumeAfterInput」がWebview UI状態の入力を処理して得た固有の結果を返します。
+     */
+    const resumeAfterInput = /**
+ * 「resumeAfterInput」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @returns 「resumeAfterInput」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ */ () => {
       scheduleRenderNodes(120, true);
       if (pendingImageEnhancements.size) scheduleImageEnhancements([]);
     };
@@ -555,7 +945,7 @@ function RenderedMarkdownView({
     window.addEventListener("mve-preview-input-settled", resumeAfterInput);
     if (deferMermaid) onRenderedRef.current?.(root);
     scheduleRenderNodes();
-    return () => {
+    return /** イベント情報を受け取り、DOMまたは画面状態を更新するコールバックです。 @returns 後片付けまたは登録解除を完了した結果を返します。 */ () => {
       cancelled = true;
       if (renderTimer !== undefined) window.clearTimeout(renderTimer);
       if (imageEnhanceTimer !== undefined)
@@ -563,7 +953,13 @@ function RenderedMarkdownView({
       pendingImageEnhancements.clear();
       resizeObserver.disconnect();
       imageEnhanceObserver?.disconnect();
-      images.forEach((image) => image.removeEventListener("load", imageLoaded));
+      images.forEach(
+      /**
+ * 「image」を受け取り、登録された副作用または結果を生成する処理です。
+       * @param image imageとして渡される、このコールバックの入力値です。
+       * @returns 「image.removeEventListener」を実行し、値を返しません。
+       */
+      (image) => image.removeEventListener("load", imageLoaded));
       scrollContainer?.removeEventListener(
         "scroll",
         scheduleAfterViewportActivity,
@@ -571,13 +967,31 @@ function RenderedMarkdownView({
       window.removeEventListener("resize", scheduleAfterViewportActivity);
       window.removeEventListener("mve-preview-input-active", pauseForInput);
       window.removeEventListener("mve-preview-input-settled", resumeAfterInput);
-      imageResizeCleanups.forEach((cleanup) => cleanup());
+      imageResizeCleanups.forEach(
+      /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+       * @param cleanup cleanupとして渡される、このコールバックの入力値です。
+       * @returns 購読解除、タイマー解除、リソース破棄などの後片付けを実行し、値は返しません。
+       */
+      (cleanup) => cleanup());
       // 差分更新で再利用したMermaid画像のBlob URLは維持し、DOMから消えた分だけ解放する。
-      mermaidObjectUrls.forEach((url) => {
+      mermaidObjectUrls.forEach(
+      /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+       * @param url 読み込みまたは出力するリソースの場所を示します。
+       * @returns 「if」を実行し、値を返しません。
+       */
+      (url) => {
         if (
           Array.from(
             root.querySelectorAll<HTMLImageElement>("img.mermaid-svg-image"),
-          ).some((image) => image.src === url)
+          ).some(
+          /**
+ * 「image」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
+           * @param image imageとして渡される、このコールバックの入力値です。
+           * @returns 条件判定の結果を示す真偽値を返します。
+           */
+          (image) => image.src === url)
         )
           return;
         URL.revokeObjectURL(url);
@@ -648,6 +1062,11 @@ function RenderedMarkdownView({
       const messages = getMessages(settings.language);
       copy.textContent = messages.renderer.copied;
       window.setTimeout(
+
+        /**
+ * 指定時間の経過後に遅延処理を実行するコールバックです。
+         * @returns 「if」を実行し、値を返しません。
+         */
         () => (copy.textContent = messages.renderer.copy),
         1200,
       );
@@ -688,18 +1107,43 @@ function RenderedMarkdownView({
   );
 }
 
-/** HTML 未計算の補助プレビューだけ、分離済み Markdown ランタイムを遅延ロードする。 */
+/**
+ * HTML 未計算の補助プレビューだけ、分離済み Markdown ランタイムを遅延ロードする。
+ * @param props 「props」は、「RenderedMarkdownLoader」がWebview UI状態の処理対象を特定する入力です。
+ * @returns 「RenderedMarkdownLoader」が生成または整形したWebview UI状態の文字列を返します。
+ */
 function RenderedMarkdownLoader(props: Props): React.JSX.Element {
   const { markdown, html, settings } = props;
   const [rendered, setRendered] = useState<{
+
+    /**
+     * 「markdown」は、解析・編集・変換の対象となる本文またはデータを保持します。
+     */
     markdown: string;
+
+    /**
+     * 「language」は、対象の内容または識別子を表す文字列です。
+     */
     language: string;
+
+    /**
+     * 「remoteImagesEnabled」は、画面の表示モードまたは現在のUI状態を示します。
+     */
     remoteImagesEnabled: boolean;
+
+    /**
+     * 「html」は、解析・編集・変換の対象となる本文またはデータを保持します。
+     */
     html: string;
   }>();
   const [error, setError] = useState<unknown>();
 
-  useEffect(() => {
+  useEffect(
+  /**
+ * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
+   * @returns Reactが保持する初期状態またはメモ化値を返します。
+   */
+  () => {
     if (html !== undefined) return;
     let cancelled = false;
     setError(undefined);
@@ -707,7 +1151,13 @@ function RenderedMarkdownLoader(props: Props): React.JSX.Element {
       remoteImagesEnabled: settings.remoteImagesEnabled,
       language: settings.language,
     })
-      .then((value) => {
+      .then(
+      /**
+ * 非同期処理の完了値を受け取り、次の処理へ渡す結果を生成するコールバックです。
+       * @param value 「value」で検証・変換する入力値です。
+       * @returns 解決値を処理した結果を返します。
+       */
+      (value) => {
         if (cancelled) return;
         setRendered({
           markdown,
@@ -716,10 +1166,16 @@ function RenderedMarkdownLoader(props: Props): React.JSX.Element {
           html: value,
         });
       })
-      .catch((reason: unknown) => {
+      .catch(
+      /**
+ * 非同期処理の完了値を受け取り、次の処理へ渡す結果を生成するコールバックです。
+       * @param reason 失敗した処理の原因または例外情報です。
+       * @returns エラー処理またはフォールバックの結果を返します。
+       */
+      (reason: unknown) => {
         if (!cancelled) setError(reason);
       });
-    return () => {
+    return /** 「cancelled」として処理を終了し、保持していたリソースまたは状態を整理します。 @returns 後片付けまたは登録解除を完了した結果を返します。 */ () => {
       cancelled = true;
     };
   }, [html, markdown, settings.language, settings.remoteImagesEnabled]);
@@ -745,16 +1201,33 @@ function RenderedMarkdownLoader(props: Props): React.JSX.Element {
   return <RenderedMarkdownView {...props} html={rendered.html} />;
 }
 
+/** 「RenderedMarkdown」は、関連する処理間で共有する設定値または状態です。 */
+/** Markdownのレンダリング結果を表示し、表示更新が必要な場合だけ子ツリーを再利用するコンポーネント。 */
 export const RenderedMarkdown = React.memo(RenderedMarkdownLoader);
 
+/**
+ * 「RenderedDomBlock」が満たすデータ契約を定義します。
+ */
 interface RenderedDomBlock {
+
+  /**
+   * 「signature」は、対象の内容または識別子を表す文字列です。
+   */
   signature: string;
+
+  /**
+   * 「node」は、関連処理が共有する構造化データの一項目です。
+   */
   node: Element;
 }
 
 /**
  * Markdownのトップレベルブロックを比較し、共通の前後ブロックを同じDOMノードのまま保持する。
  * 通常の一文字編集では変更対象の1ブロックだけを交換し、全文DOM再構築を避ける。
+ * @param root 処理対象のルートです。
+ * @param previous 「previous」は、「reconcileRenderedBlocks」がWebview UI状態の処理対象を特定する入力です。
+ * @param html 解析・編集・変換の対象となる本文または生成済み内容です。
+ * @returns 「reconcileRenderedBlocks」がWebview UI状態の入力を処理して得た固有の結果を返します。
  */
 function reconcileRenderedBlocks(
   root: HTMLElement,
@@ -763,7 +1236,13 @@ function reconcileRenderedBlocks(
 ): RenderedDomBlock[] {
   const template = document.createElement("template");
   template.innerHTML = html;
-  const next = Array.from(template.content.children).map((node) => ({
+  const next = Array.from(template.content.children).map(
+  /**
+ * 「node」を変換し、変換後の要素を返すコールバックです。
+   * @param node nodeとして渡される、このコールバックの入力値です。
+   * @returns 入力要素から生成した変換後の値を返します。
+   */
+  (node) => ({
     signature: renderedBlockSignature(node),
     node,
   }));
@@ -771,13 +1250,32 @@ function reconcileRenderedBlocks(
   // 外部DOM操作や開発時の再マウントで参照がずれた場合だけ、安全に全件を再構築する。
   if (
     previous.length !== root.children.length ||
-    previous.some((entry, index) => root.children[index] !== entry.node)
+    previous.some(
+    /**
+ * 「entry」「index」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
+     * @param entry entryとして渡される、このコールバックの入力値です。
+     * @param index 本文、表、配列内の対象位置を示すインデックスです。
+     * @returns 条件判定の結果を示す真偽値を返します。
+     */
+    (entry, index) => root.children[index] !== entry.node)
   ) {
     reuseCompletedMermaidNodes(
       Array.from(root.children),
-      next.map((entry) => entry.node),
+      next.map(
+      /**
+ * 「entry」を変換し、変換後の要素を返すコールバックです。
+       * @param entry entryとして渡される、このコールバックの入力値です。
+       * @returns 入力要素から生成した変換後の値を返します。
+       */
+      (entry) => entry.node),
     );
-    root.replaceChildren(...next.map((entry) => entry.node));
+    root.replaceChildren(...next.map(
+    /**
+ * 「entry」を変換し、変換後の要素を返すコールバックです。
+     * @param entry entryとして渡される、このコールバックの入力値です。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (entry) => entry.node));
     return next;
   }
 
@@ -815,8 +1313,20 @@ function reconcileRenderedBlocks(
   }
 
   reuseCompletedMermaidNodes(
-    previous.slice(prefix, previousSuffix + 1).map((entry) => entry.node),
-    next.slice(prefix, nextSuffix + 1).map((entry) => entry.node),
+    previous.slice(prefix, previousSuffix + 1).map(
+    /**
+ * 「entry」を変換し、変換後の要素を返すコールバックです。
+     * @param entry entryとして渡される、このコールバックの入力値です。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (entry) => entry.node),
+    next.slice(prefix, nextSuffix + 1).map(
+    /**
+ * 「entry」を変換し、変換後の要素を返すコールバックです。
+     * @param entry entryとして渡される、このコールバックの入力値です。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (entry) => entry.node),
   );
   for (let index = prefix; index <= previousSuffix; index += 1)
     previous[index].node.remove();
@@ -831,6 +1341,12 @@ function reconcileRenderedBlocks(
   return next;
 }
 
+/**
+ * 「reuseCompletedMermaidNodes」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+ * @param previousBlocks 「previousBlocks」は、「reuseCompletedMermaidNodes」がWebview UI状態の処理対象を特定する入力です。
+ * @param nextBlocks 「nextBlocks」は、「reuseCompletedMermaidNodes」がWebview UI状態の処理対象を特定する入力です。
+ * @returns 「reuseCompletedMermaidNodes」の副作用または状態更新を実行し、値は返しません。
+ */
 function reuseCompletedMermaidNodes(
   previousBlocks: Element[],
   nextBlocks: Element[],
@@ -872,6 +1388,11 @@ function reuseCompletedMermaidNodes(
   }
 }
 
+/**
+ * 「renderedBlockSignature」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+ * @param node 処理対象のDOMまたは構文木のノードです。
+ * @returns 「renderedBlockSignature」が生成または変換したWebview UIの文字列を返します。
+ */
 function renderedBlockSignature(node: Element): string {
   if (node.classList.contains("markdown-source-block")) {
     return `source:${node.className}\0${node.innerHTML}`;
@@ -879,34 +1400,100 @@ function renderedBlockSignature(node: Element): string {
   return `other:${node.outerHTML}`;
 }
 
+/**
+ * 「syncRenderedBlockAttributes」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+ * @param current 「current」は、「syncRenderedBlockAttributes」がWebview UI状態の処理対象を特定する入力です。
+ * @param next 「next」は、「syncRenderedBlockAttributes」がWebview UI状態の処理対象を特定する入力です。
+ * @returns 「syncRenderedBlockAttributes」の副作用または状態更新を実行し、値は返しません。
+ */
 function syncRenderedBlockAttributes(current: Element, next: Element): void {
   const preservedRuntimeAttributes = current.classList.contains("mermaid")
     ? ["data-mermaid-status", "data-mve-export-svg"]
-        .map((name) => [name, current.getAttribute(name)] as const)
-        .filter((entry): entry is readonly [string, string] => entry[1] !== null)
+        .map(
+        /**
+ * 「name」を変換し、変換後の要素を返すコールバックです。
+         * @param name 対象を識別する名前で、表示または処理分岐に使用します。
+         * @returns 入力要素から生成した変換後の値を返します。
+         */
+        (name) => [name, current.getAttribute(name)] as const)
+        .filter(
+        /**
+ * 「entry」が条件に一致するか判定し、残す要素を決めるコールバックです。
+         * @param entry entryとして渡される、このコールバックの入力値です。
+         * @returns 「entry」が生成または変換したWebview UIの文字列を返します。
+         */
+        (entry): entry is readonly [string, string] => entry[1] !== null)
     : [];
-  Array.from(current.attributes).forEach((attribute) =>
+  Array.from(current.attributes).forEach(
+  /**
+ * 「attribute」を受け取り、登録された副作用または結果を生成する処理です。
+   * @param attribute attributeとして渡される、このコールバックの入力値です。
+   * @returns 要素を採用するかどうかの真偽値を返します。
+   */
+  (attribute) =>
     current.removeAttribute(attribute.name),
   );
-  Array.from(next.attributes).forEach((attribute) =>
+  Array.from(next.attributes).forEach(
+  /**
+ * 「attribute」を受け取り、登録された副作用または結果を生成する処理です。
+   * @param attribute attributeとして渡される、このコールバックの入力値です。
+   * @returns 「current.setAttribute」を実行し、値を返しません。
+   */
+  (attribute) =>
     current.setAttribute(attribute.name, attribute.value),
   );
-  preservedRuntimeAttributes.forEach(([name, value]) =>
+  preservedRuntimeAttributes.forEach(
+  /**
+ * 「name」「value」を受け取り、登録された副作用または結果を生成する処理です。
+   * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはname、valueです。
+   * @returns 「current.setAttribute」を実行し、値を返しません。
+   */
+  ([name, value]) =>
     current.setAttribute(name, value),
   );
 }
 
+/** 「MERMAID_CACHE_ENTRY_LIMIT」は、入力・表示・資源の上限または下限を表す値です。 */
 const MERMAID_CACHE_ENTRY_LIMIT = 16;
+/** 「MERMAID_CACHE_BYTE_LIMIT」は、入力・表示・資源の上限または下限を表す値です。 */
 const MERMAID_CACHE_BYTE_LIMIT = 16 * 1024 * 1024;
 
+/**
+ * 「MermaidResultCache」クラスの状態とライフサイクルを定義します。
+ */
 class MermaidResultCache {
+
+  /**
+   * 「entries」は、関連処理が共有する構造化データの一項目です。
+   */
   private readonly entries = new Map<string, MermaidRenderResult>();
+
+  /**
+   * 「retained」は、関連処理が共有する構造化データの一項目です。
+   */
   private readonly retained = new Map<
     MermaidRenderResult,
-    { bytes: number; references: number }
+    {
+    /**
+     * 「bytes」は、位置・サイズ・件数などを表す数値です。
+     */
+    bytes: number;
+    /**
+     * 「references」は、位置・サイズ・件数などを表す数値です。
+     */
+    references: number }
   >();
+
+  /**
+   * 「totalBytes」は、関連処理が共有する構造化データの一項目です。
+   */
   private totalBytes = 0;
 
+  /**
+   * getを取得または解決します。
+   * @param key メッセージまたは設定表から値を取得する識別キーです。
+   * @returns 処理が対象を取得できない場合はundefinedを返します。
+   */
   get(key: string): MermaidRenderResult | undefined {
     const result = this.entries.get(key);
     if (!result) return undefined;
@@ -915,6 +1502,12 @@ class MermaidResultCache {
     return result;
   }
 
+  /**
+   * setを更新または保存します。
+   * @param key メッセージまたは設定表から値を取得する識別キーです。
+   * @param result 処理対象の結果です。
+   * @returns 状態更新または副作用を実行し、値は返しません。
+   */
   set(key: string, result: MermaidRenderResult): void {
     const previous = this.entries.get(key);
     if (previous) {
@@ -935,6 +1528,11 @@ class MermaidResultCache {
     }
   }
 
+  /**
+   * 「retain」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @param result 処理対象の結果です。
+   * @returns 「retain」の副作用または状態更新を実行し、値は返しません。
+   */
   private retain(result: MermaidRenderResult): void {
     const retained = this.retained.get(result);
     if (retained) {
@@ -946,6 +1544,11 @@ class MermaidResultCache {
     this.totalBytes += bytes;
   }
 
+  /**
+   * 「release」は、処理を終了し、保持していたリソースまたは状態を整理します。
+   * @param result 処理対象の結果です。
+   * @returns 購読解除、タイマー解除、またはリソース破棄を実行して値は返しません。
+   */
   private release(result: MermaidRenderResult): void {
     const retained = this.retained.get(result);
     if (!retained) return;
@@ -956,6 +1559,11 @@ class MermaidResultCache {
   }
 }
 
+/**
+ * estimate・mermaid・result・bytesを計算します。
+ * @param result 処理対象の結果です。
+ * @returns 計算結果の数値です。
+ */
 function estimateMermaidResultBytes(result: MermaidRenderResult): number {
   return (
     (result.svg.length +
@@ -963,6 +1571,13 @@ function estimateMermaidResultBytes(result: MermaidRenderResult): number {
       (result.pngBase64?.length ?? 0)) *
       2 +
     result.interactions.reduce(
+
+      /**
+       * 累積値と入力を「total」「interaction」を受け取り、集約結果を更新するコールバックです。
+       * @param total totalとして渡される、このコールバックの入力値です。
+       * @param interaction interactionとして渡される、このコールバックの入力値です。
+       * @returns 更新後の累積値を返します。
+       */
       (total, interaction) =>
         total +
         (interaction.text.length + (interaction.href?.length ?? 0)) * 2 +
@@ -972,6 +1587,11 @@ function estimateMermaidResultBytes(result: MermaidRenderResult): number {
   );
 }
 
+/**
+ * decode・base64・pngを解析または復元します。
+ * @param base64 「base64」は、「decodeBase64Png」がWebview UI状態の処理対象を特定する入力です。
+ * @returns 非同期処理の完了を表すPromiseです。
+ */
 async function decodeBase64Png(base64: string): Promise<Blob> {
   const chunks: ArrayBuffer[] = [];
   // Base64全体へのatobは巨大な一時文字列を同期生成してUIを停止させる。
@@ -985,20 +1605,49 @@ async function decodeBase64Png(base64: string): Promise<Blob> {
       bytes[index] = binary.charCodeAt(index);
     chunks.push(buffer);
     if (offset + base64ChunkSize < base64.length) {
-      await new Promise<void>((resolve) => window.setTimeout(resolve, 0));
+      await new Promise<void>(
+      /**
+       * 予約されたタイミングで「resolve」を受け取り、遅延処理を実行するコールバックです。
+       * @param resolve Promiseの完了または失敗を通知する関数です。
+       * @returns 「window.setTimeout」を実行し、値を返しません。
+       */
+      (resolve) => window.setTimeout(resolve, 0));
     }
   }
   return new Blob(chunks, { type: "image/png" });
 }
 
+/**
+ * is・preview・input・activeかどうかを判定します。
+ * @returns 判定結果です。
+ */
 function isPreviewInputActive(): boolean {
   return document.body.dataset.mveInputActive === "true";
 }
 
+/**
+ * wait・for・preview・input・idleを待機します。
+ * @param signal 処理対象のシグナルです。
+ * @returns 非同期処理の完了を表すPromiseです。
+ */
 function waitForPreviewInputIdle(signal?: AbortSignal): Promise<void> {
   if (!isPreviewInputActive() || signal?.aborted) return Promise.resolve();
-  return new Promise((resolve) => {
-    const finish = () => {
+  return new Promise(
+  /**
+ * Promiseの完了または失敗を通知し、非同期処理の状態を確定するコールバックです。
+   * @param resolve Promiseの完了または失敗を通知する関数です。
+   * @returns 「window.removeEventListener」を実行し、値を返しません。
+   */
+  (resolve) => {
+
+    /**
+     * 「finish」は、処理を終了し、保持していたリソースまたは状態を整理します。
+     * @returns 「finish」がWebview UI状態の入力を処理して得た固有の結果を返します。
+     */
+    const finish = /**
+ * 「finish」は、処理を終了し、保持していたリソースまたは状態を整理します。
+ * @returns 「finish」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ */ () => {
       window.removeEventListener("mve-preview-input-settled", finish);
       signal?.removeEventListener("abort", finish);
       resolve();
@@ -1010,6 +1659,11 @@ function waitForPreviewInputIdle(signal?: AbortSignal): Promise<void> {
   });
 }
 
+/**
+ * find・scroll・containerを取得または解決します。
+ * @param root 処理対象のルートです。
+ * @returns 「findScrollContainer」が対象を取得できない場合はundefinedを返します。
+ */
 function findScrollContainer(root: HTMLElement): HTMLElement | undefined {
   let parent = root.parentElement;
   while (parent && parent !== document.body) {
@@ -1020,6 +1674,12 @@ function findScrollContainer(root: HTMLElement): HTMLElement | undefined {
   return undefined;
 }
 
+/**
+ * is・near・viewportかどうかを判定します。
+ * @param node 処理対象のDOMまたは構文木のノードです。
+ * @param scrollContainer 「scrollContainer」は、「isNearViewport」がWebview UI状態の処理対象を特定する入力です。
+ * @returns 判定結果です。
+ */
 function isNearViewport(
   node: HTMLElement,
   scrollContainer: HTMLElement | undefined,
@@ -1034,7 +1694,13 @@ function isNearViewport(
   );
 }
 
-/** 巨大Mermaid SVGを表示幅に合わせたPNGへオフメインスレッド寄りの経路で変換する。 */
+/**
+ * 巨大Mermaid SVGを表示幅に合わせたPNGへオフメインスレッド寄りの経路で変換する。
+ * @param svgBlob 「svgBlob」は、「rasterizeMermaidPreview」がWebview UI状態の処理対象を特定する入力です。
+ * @param svg 「svg」は、「rasterizeMermaidPreview」がWebview UI状態の処理対象を特定する入力です。
+ * @param root 処理対象のルートです。
+ * @returns 非同期処理の完了を表すPromiseです。
+ */
 async function rasterizeMermaidPreview(
   svgBlob: Blob,
   svg: string,
@@ -1079,6 +1745,11 @@ async function rasterizeMermaidPreview(
   }
 }
 
+/**
+ * read・svg・aspect・ratioを取得または解決します。
+ * @param svg 「svg」は、「readSvgAspectRatio」がWebview UI状態の処理対象を特定する入力です。
+ * @returns 計算結果の数値です。
+ */
 function readSvgAspectRatio(svg: string): number {
   const tag = svg.match(/<svg\b[^>]*>/i)?.[0] ?? "";
   const viewBox = tag
@@ -1111,7 +1782,14 @@ function readSvgAspectRatio(svg: string): number {
   return 16 / 9;
 }
 
-/** 巨大図のテキスト・リンク操作層を可視範囲だけDOM化する。 */
+/**
+ * 巨大図のテキスト・リンク操作層を可視範囲だけDOM化する。
+ * @param frame 「frame」は、「attachVirtualMermaidInteractions」がWebview UI状態の処理対象を特定する入力です。
+ * @param layer 「layer」は、「attachVirtualMermaidInteractions」がWebview UI状態の処理対象を特定する入力です。
+ * @param interactions 「interactions」は、「attachVirtualMermaidInteractions」がWebview UI状態の処理対象を特定する入力です。
+ * @param scrollContainer 「scrollContainer」は、「attachVirtualMermaidInteractions」がWebview UI状態の処理対象を特定する入力です。
+ * @returns 「attachVirtualMermaidInteractions」の副作用または状態更新を実行し、値は返しません。
+ */
 function attachVirtualMermaidInteractions(
   frame: HTMLElement,
   layer: HTMLElement,
@@ -1124,7 +1802,19 @@ function attachVirtualMermaidInteractions(
   let appendTimer: number | undefined;
   let generation = 0;
 
-  const createElement = (
+
+  /**
+   * 要素を作成または組み立てます。
+   * @param interaction 「interaction」は、「createElement」がWebview UI状態の処理対象を特定する入力です。
+   * @param index 本文、表、配列内の対象位置を示すインデックスです。
+   * @returns 「createElement」が生成したデータまたはオブジェクトを返します。
+   */
+  const createElement = /**
+ * 「createElement」は、必要な初期状態または出力データを生成します。
+ * @param interaction 「interaction」は、「createElement」がWebview UIで処理する対象を特定する入力です。
+ * @param index 処理対象を特定する位置、範囲、または数量です。
+ * @returns 「createElement」が生成したデータまたはオブジェクトを返します。
+ */ (
     interaction: MermaidInteraction,
     index: number,
   ): HTMLElement => {
@@ -1148,7 +1838,19 @@ function attachVirtualMermaidInteractions(
     return element;
   };
 
-  const appendChunk = (expectedGeneration: number, pending: number[]) => {
+
+  /**
+   * 「appendChunk」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @param expectedGeneration 表示領域のサイズまたは倍率で、画面レイアウト計算に使用します。
+   * @param pending 「pending」は、「appendChunk」がWebview UI状態の処理対象を特定する入力です。
+   * @returns 「appendChunk」がWebview UI状態の入力を処理して得た固有の結果を返します。
+   */
+  const appendChunk = /**
+ * 「appendChunk」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @param expectedGeneration 「expectedGeneration」は、「appendChunk」がWebview UIで処理する対象を特定する入力です。
+ * @param pending 「pending」は、「appendChunk」がWebview UIで処理する対象を特定する入力です。
+ * @returns 「appendChunk」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ */ (expectedGeneration: number, pending: number[]) => {
     appendTimer = undefined;
     if (expectedGeneration !== generation || !frame.isConnected) return;
     const startedAt = performance.now();
@@ -1169,13 +1871,26 @@ function attachVirtualMermaidInteractions(
     layer.append(fragment);
     if (pending.length) {
       appendTimer = window.setTimeout(
+
+        /**
+ * 指定時間の経過後に遅延処理を実行するコールバックです。
+         * @returns 「appendChunk」を実行し、値を返しません。
+         */
         () => appendChunk(expectedGeneration, pending),
         0,
       );
     }
   };
 
-  const update = () => {
+
+  /**
+   * updateを更新または保存します。
+   * @returns 「if」を実行し、値を返しません。
+   */
+  const update = /**
+ * 「update」は、入力を検証して対象の状態または内容へ適用します。
+ * @returns 「if」を実行し、値を返しません。
+ */ () => {
     frameRequest = 0;
     if (!frame.isConnected || isPreviewInputActive()) return;
     generation += 1;
@@ -1188,7 +1903,14 @@ function attachVirtualMermaidInteractions(
     const viewportTop = (viewportBounds?.top ?? 0) - 300;
     const viewportBottom = (viewportBounds?.bottom ?? window.innerHeight) + 300;
     const nextDesired = new Set<number>();
-    interactions.forEach((interaction, index) => {
+    interactions.forEach(
+    /**
+ * 「interaction」「index」を受け取り、処理結果を生成する処理です。
+     * @param interaction interactionとして渡される、このコールバックの入力値です。
+     * @param index 本文、表、配列内の対象位置を示すインデックスです。
+     * @returns 「Math.max」を実行し、値を返しません。
+     */
+    (interaction, index) => {
       const top = frameBounds.top + interaction.top * frameBounds.height;
       const bottom = top + Math.max(1, interaction.height * frameBounds.height);
       if (bottom >= viewportTop && top <= viewportBottom)
@@ -1196,7 +1918,14 @@ function attachVirtualMermaidInteractions(
     });
     desired = nextDesired;
     const selection = window.getSelection();
-    elements.forEach((element, index) => {
+    elements.forEach(
+    /**
+ * 「element」「index」を受け取り、処理結果を生成する処理です。
+     * @param element 処理対象の要素です。
+     * @param index 本文、表、配列内の対象位置を示すインデックスです。
+     * @returns 「if」を実行し、値を返しません。
+     */
+    (element, index) => {
       if (desired.has(index)) return;
       const selectionUsesElement = Boolean(
         selection &&
@@ -1207,15 +1936,37 @@ function attachVirtualMermaidInteractions(
       element.remove();
       elements.delete(index);
     });
-    const pending = Array.from(desired).filter((index) => !elements.has(index));
+    const pending = Array.from(desired).filter(
+    /**
+ * 「index」が条件に一致するか判定し、残す要素を決めるコールバックです。
+     * @param index 本文、表、配列内の対象位置を示すインデックスです。
+     * @returns 要素を採用するかどうかの真偽値を返します。
+     */
+    (index) => !elements.has(index));
     if (pending.length) appendChunk(generation, pending);
   };
 
-  const schedule = () => {
+
+  /**
+   * 「schedule」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @returns 「schedule」がWebview UI状態の入力を処理して得た固有の結果を返します。
+   */
+  const schedule = /**
+ * 「schedule」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @returns 「schedule」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ */ () => {
     if (frameRequest || isPreviewInputActive()) return;
     frameRequest = window.requestAnimationFrame(update);
   };
-  const pauseForInput = () => {
+
+  /**
+   * 「pauseForInput」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @returns 「pauseForInput」がWebview UI状態の入力を処理して得た固有の結果を返します。
+   */
+  const pauseForInput = /**
+ * 「pauseForInput」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @returns 「pauseForInput」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ */ () => {
     if (frameRequest) {
       window.cancelAnimationFrame(frameRequest);
       frameRequest = 0;
@@ -1225,7 +1976,15 @@ function attachVirtualMermaidInteractions(
       appendTimer = undefined;
     }
   };
-  const cleanup = () => {
+
+  /**
+   * 「cleanup」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @returns 購読解除、タイマー解除、リソース破棄などの後片付けを実行し、値は返しません。
+   */
+  const cleanup = /**
+ * 「cleanup」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @returns 購読解除、タイマー解除、リソース破棄などの後片付けを実行し、値は返しません。
+ */ () => {
     if (frameRequest) window.cancelAnimationFrame(frameRequest);
     if (appendTimer !== undefined) window.clearTimeout(appendTimer);
     scrollContainer?.removeEventListener("scroll", schedule);
@@ -1242,12 +2001,21 @@ function attachVirtualMermaidInteractions(
   return cleanup;
 }
 
+/**
+ * 「ImageCallbackRef」として扱う値の型を定義します。
+ */
 type ImageCallbackRef = React.MutableRefObject<
   ((imageIndex: number, width: number) => void) | undefined
 >;
+/**
+ * 「ResetCallbackRef」として扱う値の型を定義します。
+ */
 type ResetCallbackRef = React.MutableRefObject<
   ((imageIndex: number) => void) | undefined
 >;
+/**
+ * 「AlignmentCallbackRef」として扱う値の型を定義します。
+ */
 type AlignmentCallbackRef = React.MutableRefObject<
   ((imageIndex: number, alignment: ImageAlignment) => void) | undefined
 >;
@@ -1257,6 +2025,9 @@ type AlignmentCallbackRef = React.MutableRefObject<
  * @param root Markdownプレビューのルートです。
  * @param onResizeRef 幅確定時のコールバックです。
  * @param onResetRef サイズリセット時のコールバックです。
+ * @param onAlignRef 処理完了時に呼び出すコールバックです。
+ * @param onlyNearViewport 処理完了時に呼び出すコールバックです。
+ * @param candidates 「candidates」は、「enhanceResizableImages」がWebview UI状態の処理対象を特定する入力です。
  * @returns 付与したDOMを解除する関数です。
  */
 function enhanceResizableImages(
@@ -1279,10 +2050,22 @@ function enhanceResizableImages(
       ),
     )
   ).filter(
+
+    /**
+ * 「image」が条件に一致するか判定し、残す要素を決めるコールバックです。
+     * @param image imageとして渡される、このコールバックの入力値です。
+     * @returns 要素を採用するかどうかの真偽値を返します。
+     */
     (image) => !onlyNearViewport || isNearViewport(image, scrollContainer),
   );
 
-  images.forEach((image) => {
+  images.forEach(
+  /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+   * @param image imageとして渡される、このコールバックの入力値です。
+   * @returns 「if」を実行し、値を返しません。
+   */
+  (image) => {
     if (image.dataset.mveEnhanced === "true" || !image.parentElement) return;
     const imageIndex = Number.parseInt(image.dataset.mveImageIndex ?? "", 10);
     if (!Number.isFinite(imageIndex)) return;
@@ -1325,7 +2108,15 @@ function enhanceResizableImages(
     image.style.maxWidth = "100%";
     image.style.height = "auto";
 
-    const updateBadge = () => {
+
+    /**
+     * update・badgeを更新または保存します。
+     * @returns 「getLogicalElementWidth」を実行し、値を返しません。
+     */
+    const updateBadge = /**
+ * 「updateBadge」は、入力を検証して対象の状態または内容へ適用します。
+ * @returns 「getLogicalElementWidth」を実行し、値を返しません。
+ */ () => {
       badge.textContent = `${getLogicalElementWidth(image, root) || preferredWidth}px`;
     };
     updateBadge();
@@ -1353,7 +2144,13 @@ function enhanceResizableImages(
       ["center", "中央揃え", "中"],
       ["right", "右揃え", "右"],
     ];
-    alignmentLabels.forEach(([alignment, label, text]) => {
+    alignmentLabels.forEach(
+    /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはalignment、label、textです。
+     * @returns 「document.createElement」を実行し、値を返しません。
+     */
+    ([alignment, label, text]) => {
       const button = document.createElement("button");
       button.type = "button";
       button.className = "mve-image-align-button";
@@ -1361,7 +2158,17 @@ function enhanceResizableImages(
       button.setAttribute("aria-label", label);
       button.title = label;
       button.dataset.active = alignment === imageAlignment ? "true" : "false";
-      const applyAlignment = (event: Event) => {
+
+      /**
+       * 配置を処理します。
+       * @param event 処理対象のイベントです。
+       * @returns 「mveDebug」を実行し、値を返しません。
+       */
+      const applyAlignment = /**
+ * 「applyAlignment」は、入力を検証して対象の状態または内容へ適用します。
+ * @param event DOMイベントまたは入力イベントの情報です。
+ * @returns 「mveDebug」を実行し、値を返しません。
+ */ (event: Event) => {
         mveDebug("image-alignment-event", {
           eventType: event.type,
           imageIndex,
@@ -1373,7 +2180,13 @@ function enhanceResizableImages(
         frame.dataset.mveImageAlign = alignment;
         alignmentActions
           .querySelectorAll<HTMLButtonElement>(".mve-image-align-button")
-          .forEach((candidate) => {
+          .forEach(
+          /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+           * @param candidate candidateとして渡される、このコールバックの入力値です。
+           * @returns 条件を満たすかどうかを示す真偽値を返します。
+           */
+          (candidate) => {
             candidate.dataset.active = candidate === button ? "true" : "false";
           });
         onAlignRef.current?.(imageIndex, alignment);
@@ -1391,7 +2204,13 @@ function enhanceResizableImages(
       resetButton.textContent = "↺";
       resetButton.setAttribute("aria-label", "画像サイズをリセット");
       resetButton.title = "画像サイズをリセット";
-      resetButton.addEventListener("click", (event) => {
+      resetButton.addEventListener("click",
+      /**
+       * イベント情報を「event」を受け取り、DOMまたは画面状態を更新するコールバックです。
+       * @param event 処理対象のイベントです。
+       * @returns 「event.preventDefault」を実行し、値を返しません。
+       */
+      (event) => {
         event.preventDefault();
         event.stopPropagation();
         onResetRef.current?.(imageIndex);
@@ -1399,7 +2218,15 @@ function enhanceResizableImages(
       frame.appendChild(resetButton);
     }
 
-    const handleImageLoad = () => {
+
+    /**
+     * handle・image・loadを処理します。
+     * @returns 「Math.max」を実行し、値を返しません。
+     */
+    const handleImageLoad = /**
+ * 「handleImageLoad」は、イベント入力を検証し、関連する状態またはUIを更新します。
+ * @returns 「Math.max」を実行し、値を返しません。
+ */ () => {
       // width属性を持つ画像は、loadイベント後も明示幅を維持する。
       const nextWidth = Math.max(
         1,
@@ -1416,7 +2243,12 @@ function enhanceResizableImages(
     };
     image.addEventListener("load", handleImageLoad);
 
-    cleanups.push(() => {
+    cleanups.push(
+    /**
+     * イベント情報を受け取り、DOMまたは画面状態を更新するコールバックです。
+     * @returns Webviewの状態から取得した値を返します。
+     */
+    () => {
       pointerCleanup();
       image.removeEventListener("load", handleImageLoad);
       if (frame.parentElement) frame.replaceWith(wrapperTarget);
@@ -1434,7 +2266,18 @@ function enhanceResizableImages(
   });
 
   return cleanups.length
-    ? () => cleanups.forEach((cleanup) => cleanup())
+    ?
+    /**
+ * 登録された副作用または結果を生成する処理を実行するコールバックです。
+     * @returns 「cleanups.forEach」の呼び出し結果を返します。
+     */
+    () => cleanups.forEach(
+    /**
+ * 「cleanup」を受け取り、登録された副作用または結果を生成する処理です。
+     * @param cleanup cleanupとして渡される、このコールバックの入力値です。
+     * @returns 購読解除、タイマー解除、リソース破棄などの後片付けを実行し、値は返しません。
+     */
+    (cleanup) => cleanup())
     : undefined;
 }
 
@@ -1460,7 +2303,17 @@ function attachResizePointer(
 ): () => void {
   let activeCleanup: (() => void) | undefined;
 
-  const onPointerDown = (event: PointerEvent) => {
+
+  /**
+   * 「onPointerDown」は、イベント入力を受け取り、関連する状態またはUIを更新する処理です。
+   * @param event 処理対象のイベントです。
+   * @returns 「event.preventDefault」を実行し、値を返しません。
+   */
+  const onPointerDown = /**
+ * 「onPointerDown」は、イベント入力を検証し、関連する状態またはUIを更新します。
+ * @param event DOMイベントまたは入力イベントの情報です。
+ * @returns 「event.preventDefault」を実行し、値を返しません。
+ */ (event: PointerEvent) => {
     event.preventDefault();
     event.stopPropagation();
     const pointerId = event.pointerId;
@@ -1475,7 +2328,17 @@ function attachResizePointer(
     frame.classList.add("is-resizing");
     handle.setPointerCapture(pointerId);
 
-    const onPointerMove = (moveEvent: PointerEvent) => {
+
+    /**
+     * 「onPointerMove」は、イベント入力を受け取り、関連する状態またはUIを更新する処理です。
+     * @param moveEvent DOMまたはHostから通知されたイベントで、入力内容と発生元を含みます。
+     * @returns 「if」を実行し、値を返しません。
+     */
+    const onPointerMove = /**
+ * 「onPointerMove」は、イベント入力を検証し、関連する状態またはUIを更新します。
+ * @param moveEvent DOMイベントまたは入力イベントの情報です。
+ * @returns 「if」を実行し、値を返しません。
+ */ (moveEvent: PointerEvent) => {
       if (moveEvent.pointerId !== pointerId) return;
       const nextWidth = Math.min(
         maxWidth,
@@ -1489,7 +2352,23 @@ function attachResizePointer(
       frame.style.width = `${nextWidth}px`;
       updateBadge();
     };
-    const finish = (commit: boolean) => (finishEvent: PointerEvent) => {
+
+    /**
+     * 「finish」は、処理を終了し、保持していたリソースまたは状態を整理します。
+     * @param commit 「commit」は、「finish」がWebview UI状態の処理対象を特定する入力です。
+     * @returns 「finish」がWebview UI状態の入力を処理して得た固有の結果を返します。
+     */
+    const finish = /**
+ * 「finish」は、処理を終了し、保持していたリソースまたは状態を整理します。
+ * @param commit 「commit」は、「finish」がWebview UIで処理する対象を特定する入力です。
+ * @returns 「if」を実行し、値を返しません。
+ */ (commit: boolean) =>
+    /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+     * @param finishEvent DOMまたはHostから通知されたイベントで、入力内容と発生元を含みます。
+     * @returns 「if」を実行し、値を返しません。
+     */
+    (finishEvent: PointerEvent) => {
       if (finishEvent.pointerId !== pointerId) return;
       handle.releasePointerCapture(pointerId);
       handle.removeEventListener("pointermove", onPointerMove);
@@ -1513,7 +2392,12 @@ function attachResizePointer(
     handle.addEventListener("pointermove", onPointerMove);
     handle.addEventListener("pointerup", onPointerUp);
     handle.addEventListener("pointercancel", onPointerCancel);
-    activeCleanup = () => {
+    activeCleanup =
+    /**
+     * イベント情報を受け取り、DOMまたは画面状態を更新するコールバックです。
+     * @returns 「handle.removeEventListener」の呼び出し結果を返します。
+     */
+    () => {
       handle.removeEventListener("pointermove", onPointerMove);
       handle.removeEventListener("pointerup", onPointerUp);
       handle.removeEventListener("pointercancel", onPointerCancel);
@@ -1523,7 +2407,7 @@ function attachResizePointer(
   };
 
   handle.addEventListener("pointerdown", onPointerDown);
-  return () => {
+  return /** イベント情報を受け取り、DOMまたは画面状態を更新するコールバックです。 @returns 後片付けまたは登録解除を完了した結果を返します。 */ () => {
     handle.removeEventListener("pointerdown", onPointerDown);
     activeCleanup?.();
   };
@@ -1532,6 +2416,7 @@ function attachResizePointer(
 /**
  * 表示中の画像幅を取得します。
  * @param image 対象画像です。
+ * @param root 処理対象のルートです。
  * @returns CSS zoomを除いた論理幅です。
  */
 function getRenderedImageWidth(image: HTMLImageElement, root: HTMLElement): number {
@@ -1584,6 +2469,11 @@ function getAvailableImageWidth(root: HTMLElement): number {
   return Math.max(120, Math.floor(root.clientWidth - padding - scrollbar));
 }
 
+/**
+ * 配置を正規化します。
+ * @param value 「normalizeImageAlignment」で検証・変換する入力値です。
+ * @returns 「normalizeImageAlignment」が読み取りまたは正規化した結果を返します。
+ */
 function normalizeImageAlignment(value: string | undefined): ImageAlignment {
   return value === "center" || value === "right" ? value : "left";
 }

@@ -1,3 +1,11 @@
+/**
+ * @file extension.ts
+ * 実行境界: Extension Host。
+ * 責務: VS Code文書、Webview、外部リソースを連携する。
+ * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
+ * 副作用: 文書、ファイル、Webview、ブラウザーなどの外部状態を必要に応じて操作する。
+ * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ */
 import * as vscode from 'vscode';
 import path from 'node:path';
 import { randomBytes, randomUUID } from 'node:crypto';
@@ -44,17 +52,36 @@ import {
 import { decodeLocalResourceSource, isMissingResourceError } from './resourceCheck';
 import { classifyResourceLink } from './resourceLink';
 
+/** 「VIEW_TYPE」は、DOM操作またはメッセージ連携で使用する識別子です。 */
+/** MarkdownエディターWebviewを識別するCustomEditorのビュー種別。 */
 const VIEW_TYPE = 'markdownEasyVisualEditor.editor';
+/** 「VIEW_MODE_STATE_KEY」は、関連する処理間で共有する設定値または状態です。 */
+/** 表示モードをglobalStateへ保存するためのキー。 */
 const VIEW_MODE_STATE_KEY = 'markdownEasyVisualEditor.viewMode';
+/** 「OUTLINE_VISIBLE_STATE_KEY」は、関連する処理間で共有する設定値または状態です。 */
+/** アウトライン表示状態をglobalStateへ保存するためのキー。 */
 const OUTLINE_VISIBLE_STATE_KEY = 'markdownEasyVisualEditor.outlineVisible';
+/** 「SCROLL_SYNC_STATE_KEY」は、関連する処理間で共有する設定値または状態です。 */
+/** エディターとプレビュー間のスクロール同期状態を保存するためのキー。 */
 const SCROLL_SYNC_STATE_KEY = 'markdownEasyVisualEditor.scrollSyncEnabled';
+/** 「PREVIEW_IMAGE_RESIZE_CONTROLS_STATE_KEY」は、関連する処理間で共有する設定値または状態です。 */
+/** プレビュー画像のリサイズ操作部品の表示状態を保存するためのキー。 */
 const PREVIEW_IMAGE_RESIZE_CONTROLS_STATE_KEY = 'markdownEasyVisualEditor.previewImageResizeControlsVisible';
 /** 文書やWebviewに依存せず、PDF印刷設定を全Markdown文書で共有するglobalStateのキー。 */
+/** PDF出力設定を全Markdown文書で共有するglobalStateのキー。 */
 const PDF_OPTIONS_STATE_KEY = 'markdownEasyVisualEditor.pdfOptions';
+/** 「FONT_FAMILY_STATE_KEY」は、関連する処理間で共有する設定値または状態です。 */
+/** フォントファミリー設定を全Markdown文書で共有するglobalStateのキー。 */
 const FONT_FAMILY_STATE_KEY = 'markdownEasyVisualEditor.fontFamilies';
+/** 「HTML_OPTIONS_STATE_KEY」は、呼び出し先へ渡す設定値の集合です。 */
+/** HTML出力設定を全Markdown文書で共有するglobalStateのキー。 */
 const HTML_OPTIONS_STATE_KEY = 'markdownEasyVisualEditor.htmlOptions';
 
-/** JSONをnonce付きインラインscriptへ安全に埋め込める文字列へ変換する。 */
+/**
+ * JSONをnonce付きインラインscriptへ安全に埋め込める文字列へ変換する。
+ * @param value 「serializeInlineJson」で検証・変換する入力値です。
+ * @returns 「serializeInlineJson」が生成または変換したExtension Hostの文字列を返します。
+ */
 function serializeInlineJson(value: unknown): string {
     return JSON.stringify(value)
         .replace(/</g, '\\u003c')
@@ -62,45 +89,150 @@ function serializeInlineJson(value: unknown): string {
         .replace(/\u2029/g, '\\u2029');
 }
 
+/**
+ * 「PendingHostOperation」が満たすデータ契約を定義します。
+ */
 interface PendingHostOperation {
+
+    /**
+     * 「panel」は、関連処理が共有する構造化データの一項目です。
+     */
     panel: vscode.WebviewPanel;
+
+    /**
+     * 「clientId」は、対象の識別や処理分岐に使用する値を保持します。
+     */
     clientId: string;
+
+    /**
+     * 「opId」は、対象の識別や処理分岐に使用する値を保持します。
+     */
     opId: string;
+
+    /**
+     * 「appliedBaseVersion」は、位置・サイズ・件数などを表す数値です。
+     */
     appliedBaseVersion: number;
-    /** Webview同期座標系のLF正規化済み本文。 */
+    /**
+     * Webview同期座標系のLF正規化済み本文。
+     */
     baseText: string;
-    /** Webview同期座標系のLF正規化済み期待本文。 */
+    /**
+     * Webview同期座標系のLF正規化済み期待本文。
+     */
     expectedText: string;
+
+    /**
+     * 「changes」は、関連する複数の対象または識別子を保持します。
+     */
     changes: TextChange[];
 }
 
+/**
+ * 「ChangeHistoryEntry」が満たすデータ契約を定義します。
+ */
 interface ChangeHistoryEntry {
+
+    /**
+     * 「baseVersion」は、位置・サイズ・件数などを表す数値です。
+     */
     baseVersion: number;
+
+    /**
+     * 「version」は、位置・サイズ・件数などを表す数値です。
+     */
     version: number;
-    /** LF正規化済み本文の長さ。 */
+    /**
+     * LF正規化済み本文の長さ。
+     */
     baseLength: number;
-    /** LF正規化済み本文を基準とする変更。 */
+    /**
+     * LF正規化済み本文を基準とする変更。
+     */
     changes: TextChange[];
+
+    /**
+     * 「clientId」は、対象の識別や処理分岐に使用する値を保持します。
+     */
     clientId?: string;
+
+    /**
+     * 「opId」は、対象の識別や処理分岐に使用する値を保持します。
+     */
     opId?: string;
 }
 
+/**
+ * 「ExportCommand」として扱う値の型を定義します。
+ */
 type ExportCommand = 'exportPdf' | 'exportHtml';
 
+/**
+ * 「PanelReadyWaiter」が満たすデータ契約を定義します。
+ */
 interface PanelReadyWaiter {
+    /**
+     * 「resolve」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
+     * @param panel 「panel」は、「resolve」がExtension Host処理の処理対象を特定する入力です。
+     * @returns 「resolve」の副作用または状態更新を実行し、値は返しません。
+     */
     resolve: (panel: vscode.WebviewPanel) => void;
+    /**
+     * 「reject」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
+     * @param error 発生したエラーです。
+     * @returns 「reject」の副作用または状態更新を実行し、値は返しません。
+     */
     reject: (error: Error) => void;
 }
 
+/**
+ * 「StartupTiming」が満たすデータ契約を定義します。
+ */
 interface StartupTiming {
+
+    /**
+     * 「uri」は、対象の内容または識別子を表す文字列です。
+     */
     uri: string;
+
+    /**
+     * 「documentLength」は、本文または選択範囲の位置・長さを保持します。
+     */
     documentLength: number;
+
+    /**
+     * 「resolveStartedAt」は、位置・サイズ・件数などを表す数値です。
+     */
     resolveStartedAt: number;
+
+    /**
+     * 「webviewReadyMs」は、位置・サイズ・件数などを表す数値です。
+     */
     webviewReadyMs?: number;
+
+    /**
+     * 「initializedMs」は、位置・サイズ・件数などを表す数値です。
+     */
     initializedMs?: number;
+
+    /**
+     * 「previewReadyMs」は、位置・サイズ・件数などを表す数値です。
+     */
     previewReadyMs?: number;
+
+    /**
+     * 「firstMermaidRequestedMs」は、位置・サイズ・件数などを表す数値です。
+     */
     firstMermaidRequestedMs?: number;
+
+    /**
+     * 「firstMermaidReadyMs」は、位置・サイズ・件数などを表す数値です。
+     */
     firstMermaidReadyMs?: number;
+
+    /**
+     * 「webviewMetrics」は、関連する複数の対象または識別子を保持します。
+     */
     webviewMetrics?: Record<string, number>;
 }
 
@@ -118,20 +250,64 @@ export function activate(context: vscode.ExtensionContext): void {
             supportsMultipleEditorsPerDocument: true,
             webviewOptions: { retainContextWhenHidden: true }
         }),
-        vscode.commands.registerCommand('markdownEasyVisualEditor.openVisual', async (uri?: vscode.Uri) => {
+        vscode.commands.registerCommand('markdownEasyVisualEditor.openVisual',
+        /**
+         * 「async」として「uri」を受け取り、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+         * @param uri 「uri」は、「async」がExtension Host処理の処理対象を特定する入力です。
+         * @returns 「if」を実行し、値を返しません。
+         */
+        async (uri?: vscode.Uri) => {
             const resource = uri ?? vscode.window.activeTextEditor?.document.uri;
             if (resource) await vscode.commands.executeCommand('vscode.openWith', resource, VIEW_TYPE);
         }),
-        vscode.commands.registerCommand('markdownEasyVisualEditor.openSource', () => provider.openSource()),
-        vscode.commands.registerCommand('markdownEasyVisualEditor.insertImage', () => provider.sendCommand('insertImage')),
-        vscode.commands.registerCommand('markdownEasyVisualEditor.exportPdf', (uri?: vscode.Uri) => provider.exportFromUri('exportPdf', uri)),
-        vscode.commands.registerCommand('markdownEasyVisualEditor.exportHtml', (uri?: vscode.Uri) => provider.exportFromUri('exportHtml', uri)),
-        vscode.commands.registerCommand('markdownEasyVisualEditor.undo', () => provider.executeHistoryCommand('undo')),
-        vscode.commands.registerCommand('markdownEasyVisualEditor.redo', () => provider.executeHistoryCommand('redo')),
+        vscode.commands.registerCommand('markdownEasyVisualEditor.openSource',
+        /**
+ * 登録された副作用または結果を生成する処理を実行するコールバックです。
+         * @returns 「provider.openSource」を実行し、値を返しません。
+         */
+        () => provider.openSource()),
+        vscode.commands.registerCommand('markdownEasyVisualEditor.insertImage',
+        /**
+ * 登録された副作用または結果を生成する処理を実行するコールバックです。
+         * @returns 「provider.sendCommand」を実行し、値を返しません。
+         */
+        () => provider.sendCommand('insertImage')),
+        vscode.commands.registerCommand('markdownEasyVisualEditor.exportPdf',
+        /**
+ * 「uri」を受け取り、登録された副作用または結果を生成する処理です。
+         * @param uri 処理対象文書またはリソースを示すURIです。
+         * @returns 「provider.exportFromUri」を実行し、値を返しません。
+         */
+        (uri?: vscode.Uri) => provider.exportFromUri('exportPdf', uri)),
+        vscode.commands.registerCommand('markdownEasyVisualEditor.exportHtml',
+        /**
+ * 「uri」を受け取り、登録された副作用または結果を生成する処理です。
+         * @param uri 処理対象文書またはリソースを示すURIです。
+         * @returns 「provider.exportFromUri」を実行し、値を返しません。
+         */
+        (uri?: vscode.Uri) => provider.exportFromUri('exportHtml', uri)),
+        vscode.commands.registerCommand('markdownEasyVisualEditor.undo',
+        /**
+ * 登録された副作用または結果を生成する処理を実行するコールバックです。
+         * @returns 「provider.executeHistoryCommand」を実行し、値を返しません。
+         */
+        () => provider.executeHistoryCommand('undo')),
+        vscode.commands.registerCommand('markdownEasyVisualEditor.redo',
+        /**
+ * 登録された副作用または結果を生成する処理を実行するコールバックです。
+         * @returns 「provider.executeHistoryCommand」を実行し、値を返しません。
+         */
+        () => provider.executeHistoryCommand('redo')),
     );
     if (startupBenchmarkEnabled) {
         context.subscriptions.push(vscode.commands.registerCommand(
             'markdownEasyVisualEditor._getStartupTiming',
+
+            /**
+ * 「uri」を受け取り、登録された副作用または結果を生成する処理です。
+             * @param uri 処理対象文書またはリソースを示すURIです。
+             * @returns 「uri」から生成した処理結果を返します。
+             */
             (uri?: vscode.Uri | string) => provider.getStartupTiming(uri)
         ));
     }
@@ -146,41 +322,154 @@ export async function deactivate(): Promise<void> {
     await closePdfBrowser();
 }
 
+/**
+ * 「MarkdownEasyVisualEditorProvider」クラスの状態とライフサイクルを定義します。
+ */
 export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvider {
+
+    /**
+     * 「panels」は、関連処理が共有する構造化データの一項目です。
+     */
     private readonly panels = new Map<string, Set<vscode.WebviewPanel>>();
+
+    /**
+     * 「documents」は、関連処理が共有する構造化データの一項目です。
+     */
     private readonly documents = new Map<string, vscode.TextDocument>();
-    /** 文書versionごとの同期基準。物理EOLではなく常にLFで保持する。 */
+    /**
+     * 文書versionごとの同期基準。物理EOLではなく常にLFで保持する。
+     */
     private readonly canonicalDocumentTexts = new Map<string, string>();
+
+    /**
+     * 「activeOperations」は、表示領域のサイズまたは倍率を保持します。
+     */
     private readonly activeOperations = new Map<string, PendingHostOperation>();
+
+    /**
+     * 「activeOperationKeysByDocument」は、表示領域のサイズまたは倍率を保持します。
+     */
     private readonly activeOperationKeysByDocument = new Map<string, string>();
+
+    /**
+     * 「changeHistory」は、関連処理が共有する構造化データの一項目です。
+     */
     private readonly changeHistory = new Map<string, ChangeHistoryEntry[]>();
+
+    /**
+     * 「editChains」は、関連処理が共有する構造化データの一項目です。
+     */
     private readonly editChains = new Map<string, Promise<void>>();
+
+    /**
+     * 「pdfPreviewGenerations」は、表示領域のサイズまたは倍率を保持します。
+     */
     private readonly pdfPreviewGenerations = new WeakMap<vscode.WebviewPanel, number>();
+
+    /**
+     * 「pdfPreviewAbortControllers」は、非同期処理またはリソースのライフサイクルを管理します。
+     */
     private readonly pdfPreviewAbortControllers = new WeakMap<vscode.WebviewPanel, AbortController>();
+
+    /**
+     * 「pdfPreviewChains」は、関連処理が共有する構造化データの一項目です。
+     */
     private readonly pdfPreviewChains = new WeakMap<vscode.WebviewPanel, Promise<void>>();
+
+    /**
+     * 「mermaidRenderControllers」は、非同期処理またはリソースのライフサイクルを管理します。
+     */
     private readonly mermaidRenderControllers = new Map<string, {
+
+        /**
+         * 「panel」は、関連処理が共有する構造化データの一項目です。
+         */
         panel: vscode.WebviewPanel;
+
+        /**
+         * 「controller」は、非同期処理またはリソースのライフサイクルを管理します。
+         */
         controller: AbortController;
     }>();
+
+    /**
+     * 「pendingHtmlRenderRequests」は、関連処理が共有する構造化データの一項目です。
+     */
     private readonly pendingHtmlRenderRequests = new Map<string, {
+        /**
+         * 「resolve」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
+         * @param documents 「documents」は、「resolve」がExtension Host処理の処理対象を特定する入力です。
+         * @returns 「resolve」の副作用または状態更新を実行し、値は返しません。
+         */
         resolve: (documents: HtmlRenderedDocument[]) => void;
+        /**
+         * 「reject」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
+         * @param error 発生したエラーです。
+         * @returns 「reject」の副作用または状態更新を実行し、値は返しません。
+         */
         reject: (error: Error) => void;
+
+        /**
+         * 「timer」は、関連処理が共有する構造化データの一項目です。
+         */
         timer: ReturnType<typeof setTimeout>;
     }>();
+
+    /**
+     * 「panelReadyWaiters」は、関連処理が共有する構造化データの一項目です。
+     */
     private readonly panelReadyWaiters = new Map<string, Set<PanelReadyWaiter>>();
+
+    /**
+     * 「openingDocuments」は、関連処理が共有する構造化データの一項目です。
+     */
     private readonly openingDocuments = new Map<string, Promise<void>>();
+
+    /**
+     * 「panelClientIds」は、関連処理が共有する構造化データの一項目です。
+     */
     private readonly panelClientIds = new WeakMap<vscode.WebviewPanel, string>();
+
+    /**
+     * 「panelInitialized」は、関連処理が共有する構造化データの一項目です。
+     */
     private readonly panelInitialized = new WeakSet<vscode.WebviewPanel>();
+
+    /**
+     * 「panelStartupTimings」は、処理時間や対象数などの計測結果を保持します。
+     */
     private readonly panelStartupTimings = new WeakMap<vscode.WebviewPanel, StartupTiming>();
+
+    /**
+     * 「startupTimings」は、処理時間や対象数などの計測結果を保持します。
+     */
     private readonly startupTimings = new Map<string, StartupTiming>();
+
+    /**
+     * 「htmlOptionsUpdateChain」は、利用側が共有する設定または現在状態を保持します。
+     */
     private htmlOptionsUpdateChain: Promise<void> = Promise.resolve();
+
+    /**
+     * 「legacyFontMigration」は、表示領域のサイズまたは倍率を保持します。
+     */
     private readonly legacyFontMigration: Promise<void>;
+
+    /**
+     * 「activePanel」は、画面の表示モードまたは現在のUI状態を示します。
+     */
     private activePanel?: vscode.WebviewPanel;
+
+    /**
+     * 「activeDocument」は、画面の表示モードまたは現在のUI状態を示します。
+     */
     private activeDocument?: vscode.TextDocument;
 
     /**
      * 文書変更・設定変更・信頼状態変更の監視を登録する。
      * @param context 拡張機能のサブスクリプションを登録するコンテキスト。
+     * @param startupBenchmarkEnabled 「startupBenchmarkEnabled」は、「constructor」がExtension Host処理の処理対象を特定する入力です。
+     * @returns 「constructor」がExtension Host処理の入力を処理して得た固有の結果を返します。
      */
     constructor(
         private readonly context: vscode.ExtensionContext,
@@ -188,13 +477,35 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
     ) {
         // 文書変更・設定変更・ワークスペース信頼変更を監視し、Webviewへ状態を反映する。
         context.subscriptions.push(
-            vscode.workspace.onDidChangeTextDocument((event) => this.onDocumentChanged(event)),
-            vscode.workspace.onDidChangeConfiguration((event) => {
+            vscode.workspace.onDidChangeTextDocument(
+            /**
+ * 「event」を受け取り、イベントに応じた状態更新または委譲処理を実行するコールバックです。
+             * @param event 処理対象のイベントです。
+             * @returns イベントに応じた状態更新または委譲処理を実行し、値を返しません。
+             */
+            (event) => this.onDocumentChanged(event)),
+            vscode.workspace.onDidChangeConfiguration(
+            /**
+ * 「event」を受け取り、イベントに応じた状態更新または委譲処理を実行するコールバックです。
+             * @param event 処理対象のイベントです。
+             * @returns イベントに応じた状態更新または委譲処理を実行し、値を返しません。
+             */
+            (event) => {
                 if (event.affectsConfiguration('markdownEasyVisualEditor')) this.broadcastSettings();
             }),
-            vscode.workspace.onDidGrantWorkspaceTrust(() => this.broadcastSettings())
+            vscode.workspace.onDidGrantWorkspaceTrust(
+            /**
+ * 非同期処理の失敗理由を受け取り、回復処理または代替値を生成するコールバックです。
+             * @returns イベントに応じた状態更新または委譲処理を実行し、値を返しません。
+             */
+            () => this.broadcastSettings())
         );
-        this.legacyFontMigration = this.migrateLegacyFontFamily().catch(() => undefined);
+        this.legacyFontMigration = this.migrateLegacyFontFamily().catch(
+        /**
+         * Promiseの失敗理由を受け取り、エラー表示またはフォールバックを実行するコールバックです。
+         * @returns エラー処理またはフォールバックの結果を返します。
+         */
+        () => undefined);
     }
 
     /**
@@ -231,7 +542,13 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
         this.activePanel = webviewPanel;
         this.activeDocument = document;
 
-        const workspaceRoots = (vscode.workspace.workspaceFolders ?? []).map((folder) => folder.uri);
+        const workspaceRoots = (vscode.workspace.workspaceFolders ?? []).map(
+        /**
+ * 「folder」を変換し、変換後の要素を返すコールバックです。
+         * @param folder folderとして渡される、このコールバックの入力値です。
+         * @returns 入力要素から生成した変換後の値を返します。
+         */
+        (folder) => folder.uri);
         webviewPanel.webview.options = {
             enableScripts: true,
             localResourceRoots: [this.context.extensionUri, vscode.Uri.joinPath(document.uri, '..'), ...workspaceRoots]
@@ -239,16 +556,33 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
         webviewPanel.webview.html = this.getWebviewHtml(webviewPanel.webview, document);
 
         // Webviewからのメッセージを対象文書とパネルに紐付けて処理する。
-        const messageDisposable = webviewPanel.webview.onDidReceiveMessage((message: WebviewToHostMessage) =>
+        const messageDisposable = webviewPanel.webview.onDidReceiveMessage(
+        /**
+ * 「message」を受け取り、イベントに応じた状態更新または委譲処理を実行するコールバックです。
+         * @param message 処理対象のメッセージです。
+         * @returns イベントに応じた状態更新または委譲処理を実行し、値を返しません。
+         */
+        (message: WebviewToHostMessage) =>
             this.handleMessage(document, webviewPanel, message)
         );
-        webviewPanel.onDidChangeViewState((event) => {
+        webviewPanel.onDidChangeViewState(
+        /**
+ * 「event」を受け取り、イベントに応じた状態更新または委譲処理を実行するコールバックです。
+         * @param event 処理対象のイベントです。
+         * @returns イベントに応じた状態更新または委譲処理を実行し、値を返しません。
+         */
+        (event) => {
             if (event.webviewPanel.active) {
                 this.activePanel = webviewPanel;
                 this.activeDocument = document;
             }
         });
-        webviewPanel.onDidDispose(() => {
+        webviewPanel.onDidDispose(
+        /**
+ * 登録された処理を受け取り、イベントに応じた状態更新または委譲処理を実行するコールバックです。
+         * @returns イベントに応じた状態更新または委譲処理を実行し、値を返しません。
+         */
+        () => {
             // パネル破棄時に登録情報・履歴・保留中の操作を文書単位で片付ける。
             this.pdfPreviewAbortControllers.get(webviewPanel)?.abort();
             for (const [requestId, pending] of this.mermaidRenderControllers) {
@@ -275,7 +609,11 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
         });
     }
 
-    /** 開発用の実 VS Code起動ベンチマークへ、記録済み時刻を返す。 */
+    /**
+     * 開発用の実 VS Code起動ベンチマークへ、記録済み時刻を返す。
+     * @param uri 「uri」は、「getStartupTiming」がExtension Host処理の処理対象を特定する入力です。
+     * @returns 処理が対象を取得できない場合はundefinedを返します。
+     */
     getStartupTiming(uri?: vscode.Uri | string): Omit<StartupTiming, 'resolveStartedAt'> | undefined {
         const key = typeof uri === 'string' ? uri : uri?.toString();
         const timing = key ? this.startupTimings.get(key) : [...this.startupTimings.values()].at(-1);
@@ -310,7 +648,12 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
         this.post(this.activePanel, { type: 'hostCommand', command });
     }
 
-    /** Explorerから受け取ったMarkdown URIを既存のWebview出力経路へ合流させる。 */
+    /**
+     * Explorerから受け取ったMarkdown URIを既存のWebview出力経路へ合流させる。
+     * @param command 処理対象を特定するcommandの入力値です。
+     * @param uri 読み込みまたは出力するリソースの場所です。
+     * @returns 非同期処理の完了を表すPromiseです。
+     */
     async exportFromUri(command: ExportCommand, uri?: vscode.Uri): Promise<void> {
         if (!uri) {
             this.sendCommand(command);
@@ -328,6 +671,11 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
         }
     }
 
+    /**
+     * 「ensureReadyPanel」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+     * @param documentUri 「documentUri」は、「ensureReadyPanel」がExtension Host処理の処理対象を特定する入力です。
+     * @returns 非同期処理の完了を表すPromiseです。
+     */
     private async ensureReadyPanel(documentUri: vscode.Uri): Promise<vscode.WebviewPanel> {
         const readyPanel = this.findReadyPanel(documentUri);
         if (readyPanel) return readyPanel;
@@ -338,7 +686,17 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
             if (!opening) {
                 opening = Promise.resolve(
                     vscode.commands.executeCommand('vscode.openWith', documentUri, VIEW_TYPE)
-                ).then(() => undefined).finally(() => {
+                ).then(
+                /**
+                 * Promiseの解決値を受け取り、後続の表示または状態更新へ渡すコールバックです。
+                 * @returns 解決値を処理した結果を返します。
+                 */
+                () => undefined).finally(
+                /**
+                 * Promiseの解決値を受け取り、後続の表示または状態更新へ渡すコールバックです。
+                 * @returns 解決値を処理した結果を返します。
+                 */
+                () => {
                     if (this.openingDocuments.get(key) === opening) this.openingDocuments.delete(key);
                 });
                 this.openingDocuments.set(key, opening);
@@ -348,31 +706,79 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
         return this.waitForReadyPanel(documentUri);
     }
 
+    /**
+     * パネルを取得または解決します。
+     * @param documentUri 処理対象を特定するdocumentUriの入力値です。
+     * @returns 処理が対象を取得できない場合はundefinedを返します。
+     */
     private findReadyPanel(documentUri: vscode.Uri): vscode.WebviewPanel | undefined {
         const panels = this.panels.get(documentUri.toString());
-        return panels ? [...panels].find((panel) => this.panelInitialized.has(panel)) : undefined;
+        return panels ? [...panels].find(
+        /**
+ * 「panel」が検索条件に一致するか判定するコールバックです。
+         * @param panel panelとして渡される、このコールバックの入力値です。
+         * @returns 条件に一致した要素、または該当しない場合はundefinedを返します。
+         */
+        (panel) => this.panelInitialized.has(panel)) : undefined;
     }
 
+    /**
+     * パネルを待機します。
+     * @param documentUri 処理対象を特定するdocumentUriの入力値です。
+     * @returns 非同期処理の完了を表すPromiseです。
+     */
     private waitForReadyPanel(documentUri: vscode.Uri): Promise<vscode.WebviewPanel> {
         const readyPanel = this.findReadyPanel(documentUri);
         if (readyPanel) return Promise.resolve(readyPanel);
 
         const key = documentUri.toString();
-        return new Promise((resolve, reject) => {
+        return new Promise(
+        /**
+ * Promiseの完了または失敗を通知し、非同期処理の状態を確定するコールバックです。
+         * @param resolve Promiseの完了または失敗を通知する関数です。
+         * @param reject Promiseの完了または失敗を通知する関数です。
+         * @returns 「this.panelReadyWaiters.get」を実行し、値を返しません。
+         */
+        (resolve, reject) => {
             const waiters = this.panelReadyWaiters.get(key) ?? new Set<PanelReadyWaiter>();
-            const timer = setTimeout(() => {
+            const timer = setTimeout(
+            /**
+ * 指定時間の経過後に遅延処理を実行するコールバックです。
+             * @returns 「waiters.delete」を実行し、値を返しません。
+             */
+            () => {
                 waiters.delete(waiter);
                 if (!waiters.size) this.panelReadyWaiters.delete(key);
                 reject(new Error('Markdown Easy Visual Editorの準備がタイムアウトしました。'));
             }, 30_000);
             const waiter: PanelReadyWaiter = {
-                resolve: (panel) => {
+
+                /**
+                 * resolveを取得または解決します。
+                 * @param panel 「panel」は、「resolve」がExtension Host処理の処理対象を特定する入力です。
+                 * @returns 「resolve」がExtension Host処理の入力を処理して得た固有の結果を返します。
+                 */
+                resolve: /**
+ * 「resolve」は、非同期処理の完了状態を通知します。
+ * @param panel 「panel」は、「resolve」がExtension Hostで処理する対象を特定する入力です。
+ * @returns 非同期処理の完了または失敗を通知します。
+ */ (panel) => {
                     clearTimeout(timer);
                     waiters.delete(waiter);
                     if (!waiters.size) this.panelReadyWaiters.delete(key);
                     resolve(panel);
                 },
-                reject: (error) => {
+
+                /**
+                 * 「reject」は、非同期処理の完了状態を通知します。
+                 * @param error 発生したエラーです。
+                 * @returns 「reject」の非同期処理が完了した結果をPromiseで返します。
+                 */
+                reject: /**
+ * 「reject」は、非同期処理の完了状態を通知します。
+ * @param error 発生したエラーの情報です。
+ * @returns 非同期処理の完了または失敗を通知します。
+ */ (error) => {
                     clearTimeout(timer);
                     waiters.delete(waiter);
                     if (!waiters.size) this.panelReadyWaiters.delete(key);
@@ -384,19 +790,42 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
         });
     }
 
+    /**
+     * resolve・panel・readyを取得または解決します。
+     * @param documentKey 処理対象を特定するdocumentKeyの入力値です。
+     * @param panel 処理対象を特定するpanelの入力値です。
+     * @returns 状態更新または副作用を実行し、値は返しません。
+     */
     private resolvePanelReady(documentKey: string, panel: vscode.WebviewPanel): void {
         const waiters = this.panelReadyWaiters.get(documentKey);
         if (!waiters) return;
         this.panelReadyWaiters.delete(documentKey);
-        waiters.forEach((waiter) => waiter.resolve(panel));
+        waiters.forEach(
+        /**
+ * 「waiter」を受け取り、処理結果を生成する処理です。
+         * @param waiter waiterとして渡される、このコールバックの入力値です。
+         * @returns 「waiter」から生成した処理結果を返します。
+         */
+        (waiter) => waiter.resolve(panel));
     }
 
+    /**
+     * 「rejectPanelReady」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+     * @param documentKey 「documentKey」は、「rejectPanelReady」がExtension Hostで処理する対象を特定する入力です。
+     * @returns 「rejectPanelReady」の副作用または状態更新を実行し、値は返しません。
+     */
     private rejectPanelReady(documentKey: string): void {
         const waiters = this.panelReadyWaiters.get(documentKey);
         if (!waiters) return;
         this.panelReadyWaiters.delete(documentKey);
         const error = new Error('Markdown Easy Visual EditorのWebviewが閉じられました。');
-        waiters.forEach((waiter) => waiter.reject(error));
+        waiters.forEach(
+        /**
+ * 「waiter」を受け取り、処理結果を生成する処理です。
+         * @param waiter waiterとして渡される、このコールバックの入力値です。
+         * @returns 「waiter」から生成した処理結果を返します。
+         */
+        (waiter) => waiter.reject(error));
     }
 
     /**
@@ -498,6 +927,11 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                             message.source,
                             message.theme,
                             vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'mermaid.min.js').fsPath,
+
+                            /**
+ * 処理結果を生成する処理を実行するコールバックです。
+                             * @returns 「acquirePdfBrowser」の呼び出し結果を返します。
+                             */
                             () => acquirePdfBrowser(this.getLanguage()),
                             controller.signal
                         );
@@ -600,11 +1034,21 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                 case 'setHtmlOptions':
                     {
                         const options = normalizeHtmlExportSettings(message.options);
-                        const update = this.htmlOptionsUpdateChain.then(async () => {
+                        const update = this.htmlOptionsUpdateChain.then(
+                        /**
+                         * 「async」として関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+                         * @returns 解決値を処理した結果を返します。
+                         */
+                        async () => {
                             await this.context.globalState.update(HTML_OPTIONS_STATE_KEY, options);
                             this.broadcastSettings();
                         });
-                        this.htmlOptionsUpdateChain = update.catch(() => undefined);
+                        this.htmlOptionsUpdateChain = update.catch(
+                        /**
+                         * Promiseの解決値を受け取り、後続の表示または状態更新へ渡すコールバックです。
+                         * @returns 解決値を処理した結果を返します。
+                         */
+                        () => undefined);
                         await update;
                     }
                     return;
@@ -626,7 +1070,12 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                 case 'requestResync': {
                     // 直前までの編集連鎖を待ってから、最新本文と操作適用状態を返す。
                     const documentKey = document.uri.toString();
-                    await (this.editChains.get(documentKey) ?? Promise.resolve()).catch(() => undefined);
+                    await (this.editChains.get(documentKey) ?? Promise.resolve()).catch(
+                    /**
+                     * Promiseの失敗理由を受け取り、エラー表示またはフォールバックを実行するコールバックです。
+                     * @returns エラー処理またはフォールバックの結果を返します。
+                     */
+                    () => undefined);
                     this.post(panel, {
                         type: 'resyncRequired',
                         clientId: message.clientId,
@@ -647,6 +1096,11 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                     }
                     const target = await vscode.window.withProgress(
                         { location: vscode.ProgressLocation.Notification, title: this.getMessages().host.pdfProgress, cancellable: false },
+
+                        /**
+ * 登録された副作用または結果を生成する処理を実行するコールバックです。
+                         * @returns 「exportPdf」の呼び出し結果を返します。
+                         */
                         () =>
                             exportPdf({
                                 html: message.html,
@@ -659,7 +1113,13 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                     if (target) {
                         this.post(panel, { type: 'pdfExported', requestId: message.requestId, path: target.fsPath });
                         const messages = this.getMessages();
-                        void vscode.window.showInformationMessage(messages.host.pdfExported(target.fsPath), messages.host.open).then((choice) => {
+                        void vscode.window.showInformationMessage(messages.host.pdfExported(target.fsPath), messages.host.open).then(
+                        /**
+ * 非同期処理の完了値を受け取り、次の処理へ渡す結果を生成するコールバックです。
+                         * @param choice choiceとして渡される、このコールバックの入力値です。
+                         * @returns 解決値を処理した結果を返します。
+                         */
+                        (choice) => {
                             if (choice === messages.host.open) void vscode.env.openExternal(target);
                         });
                     } else {
@@ -677,6 +1137,11 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                     }
                     const result = await vscode.window.withProgress(
                         { location: vscode.ProgressLocation.Notification, title: this.getMessages().host.htmlProgress, cancellable: false },
+
+                        /**
+                         * 「async」として関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+                         * @returns 「this.getLanguage」の呼び出し結果を返します。
+                         */
                         async () => {
                             const request = {
                                 markdown: message.markdown,
@@ -690,7 +1155,13 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                             const preparation = await prepareHtmlExport(request);
                             if (!preparation) return undefined;
                             const linkedDocuments = message.options.convertLinkedMarkdown
-                                ? preparation.documents.slice(1).map((item) => ({ id: item.sourcePath, markdown: item.markdown }))
+                                ? preparation.documents.slice(1).map(
+                                /**
+ * 「item」を変換し、変換後の要素を返すコールバックです。
+                                 * @param item 変換または処理の対象となる値です。
+                                 * @returns 入力要素から生成した変換後の値を返します。
+                                 */
+                                (item) => ({ id: item.sourcePath, markdown: item.markdown }))
                                 : [];
                             const renderedDocuments = linkedDocuments.length
                                 ? await this.requestHtmlDocumentRender(panel, message.requestId, linkedDocuments)
@@ -702,7 +1173,13 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                         this.post(panel, {
                             type: 'htmlExported',
                             requestId: message.requestId,
-                            paths: result.paths.map((item) => item.fsPath)
+                            paths: result.paths.map(
+                            /**
+ * 「item」を変換し、変換後の要素を返すコールバックです。
+                             * @param item 変換または処理の対象となる値です。
+                             * @returns 入力要素から生成した変換後の値を返します。
+                             */
+                            (item) => item.fsPath)
                         });
                         void vscode.window.showInformationMessage(this.getMessages().host.htmlExported(result.target.fsPath));
                     } else {
@@ -724,9 +1201,27 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                     const controller = new AbortController();
                     this.pdfPreviewAbortControllers.set(panel, controller);
                     const previous = this.pdfPreviewChains.get(panel);
-                    const isPanelActive = (): boolean => panel.active;
-                    const previewPromise = (async () => {
-                        if (previous) await previous.catch(() => undefined);
+
+                    /**
+                     * is・panel・activeかどうかを判定します。
+                     * @returns 判定結果です。
+                     */
+                    const isPanelActive = /**
+ * 「isPanelActive」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @returns 条件を満たすかどうかを示す真偽値を返します。
+ */ (): boolean => panel.active;
+                    const previewPromise = (
+                    /**
+                     * 「async」として関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+                     * @returns 「if」を実行し、値を返しません。
+                     */
+                    async () => {
+                        if (previous) await previous.catch(
+                        /**
+                         * Promiseの失敗理由を受け取り、エラー表示またはフォールバックを実行するコールバックです。
+                         * @returns エラー処理またはフォールバックの結果を返します。
+                         */
+                        () => undefined);
                         if (this.pdfPreviewGenerations.get(panel) !== generation || !isPanelActive()) return;
                         console.info(`[Markdown Easy Visual Editor] PDF preview queued request started: ${message.requestId}`);
                         try {
@@ -789,14 +1284,28 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
     private async queueWebviewEdit(
         document: vscode.TextDocument,
         panel: vscode.WebviewPanel,
-        message: Extract<WebviewToHostMessage, { type: 'localChanges' }>
+        message: Extract<WebviewToHostMessage, {
+        /**
+         * 「type」は、対象の識別や処理分岐に使用する値を保持します。
+         */
+        type: 'localChanges' }>
     ): Promise<void> {
         // 同一文書のWebview編集を前の編集完了後に直列実行する。
         const key = document.uri.toString();
         const previous = this.editChains.get(key) ?? Promise.resolve();
         const current = previous
-            .catch(() => undefined)
-            .then(() => this.applyWebviewEdit(document, panel, message));
+            .catch(
+            /**
+             * Promiseの失敗理由を受け取り、エラー表示またはフォールバックを実行するコールバックです。
+             * @returns エラー処理またはフォールバックの結果を返します。
+             */
+            () => undefined)
+            .then(
+            /**
+             * Promiseの解決値を受け取り、後続の表示または状態更新へ渡すコールバックです。
+             * @returns 解決値を処理した結果を返します。
+             */
+            () => this.applyWebviewEdit(document, panel, message));
         this.editChains.set(key, current);
         try {
             await current;
@@ -815,13 +1324,22 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
     private async queueHistoryCommand(
         document: vscode.TextDocument,
         panel: vscode.WebviewPanel,
-        message: Extract<WebviewToHostMessage, { type: 'historyCommand' }>
+        message: Extract<WebviewToHostMessage, {
+        /**
+         * 「type」は、対象の識別や処理分岐に使用する値を保持します。
+         */
+        type: 'historyCommand' }>
     ): Promise<void> {
         // Undo/Redo要求を同一文書の編集キューへ追加し、アクティブなパネルだけで実行する。
         const key = document.uri.toString();
         const previous = this.editChains.get(key) ?? Promise.resolve();
         const current = previous
-            .then(async () => {
+            .then(
+            /**
+             * 「async」として関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+             * @returns 解決値を処理した結果を返します。
+             */
+            async () => {
                 const registeredClientId = this.panelClientIds.get(panel);
                 if (registeredClientId && registeredClientId !== message.clientId) {
                     throw new Error(this.getMessages().host.clientIdMismatch);
@@ -850,7 +1368,11 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
     private async applyWebviewEdit(
         document: vscode.TextDocument,
         panel: vscode.WebviewPanel,
-        message: Extract<WebviewToHostMessage, { type: 'localChanges' }>
+        message: Extract<WebviewToHostMessage, {
+        /**
+         * 「type」は、対象の識別や処理分岐に使用する値を保持します。
+         */
+        type: 'localChanges' }>
     ): Promise<void> {
         hostDebug('[MVE host] localChanges received', {
             document: document.uri.toString(),
@@ -867,7 +1389,13 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
         if (registeredClientId && registeredClientId !== message.clientId) {
             throw new Error(this.getMessages().host.clientIdMismatch);
         }
-        const previousApplication = (this.changeHistory.get(key) ?? []).find((entry) => (
+        const previousApplication = (this.changeHistory.get(key) ?? []).find(
+        /**
+ * 「entry」が検索条件に一致するか判定するコールバックです。
+         * @param entry entryとして渡される、このコールバックの入力値です。
+         * @returns 条件に一致した要素、または該当しない場合はundefinedを返します。
+         */
+        (entry) => (
             entry.clientId === message.clientId && entry.opId === message.opId
         ));
         if (previousApplication) {
@@ -948,7 +1476,13 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
             return;
         }
         // 文書変更通知が届くまで1tick待ち、適用済み操作の判定情報を保持する。
-        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+        await new Promise<void>(
+        /**
+         * 予約されたタイミングで「resolve」を受け取り、遅延処理を実行するコールバックです。
+         * @param resolve Promiseの完了または失敗を通知する関数です。
+         * @returns 「setTimeout」を実行し、値を返しません。
+         */
+        (resolve) => setTimeout(resolve, 0));
         const active = this.activeOperations.get(operationKey);
         if (active?.opId === message.opId) {
             this.activeOperations.delete(operationKey);
@@ -1083,8 +1617,21 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
     private historySince(key: string, fromVersion: number, toVersion: number): ChangeHistoryEntry[] | undefined {
         // 指定されたバージョン範囲を連続して埋める履歴だけを抽出し、欠落時は再同期を要求できるようにする。
         const entries = (this.changeHistory.get(key) ?? [])
-            .filter((entry) => entry.baseVersion >= fromVersion && entry.version <= toVersion)
-            .sort((left, right) => left.baseVersion - right.baseVersion);
+            .filter(
+            /**
+ * 「entry」が条件に一致するか判定し、残す要素を決めるコールバックです。
+             * @param entry entryとして渡される、このコールバックの入力値です。
+             * @returns 要素を採用するかどうかの真偽値を返します。
+             */
+            (entry) => entry.baseVersion >= fromVersion && entry.version <= toVersion)
+            .sort(
+            /**
+ * 「left」「right」を比較し、並び順を示す数値を返すコールバックです。
+             * @param left 比較対象の左側の値です。
+             * @param right 比較対象の右側の値です。
+             * @returns 要素を採用するかどうかの真偽値を返します。
+             */
+            (left, right) => left.baseVersion - right.baseVersion);
         let version = fromVersion;
         for (const entry of entries) {
             if (entry.baseVersion !== version) return undefined;
@@ -1102,7 +1649,13 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
      */
     private wasOperationApplied(key: string, clientId: string, opId: string): boolean {
         // 履歴からクライアントIDと操作IDが一致する適用済み操作を検索する。
-        return (this.changeHistory.get(key) ?? []).some((entry) => (
+        return (this.changeHistory.get(key) ?? []).some(
+        /**
+ * 「entry」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
+         * @param entry entryとして渡される、このコールバックの入力値です。
+         * @returns 条件判定の結果を示す真偽値を返します。
+         */
+        (entry) => (
             entry.clientId === clientId && entry.opId === opId
         ));
     }
@@ -1135,7 +1688,11 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
         });
     }
 
-    /** 現在のVS Code文書を同期プロトコルのLF座標系へ変換する。スナップショット更新は変更イベントだけが行う。 */
+    /**
+     * 現在のVS Code文書を同期プロトコルのLF座標系へ変換する。スナップショット更新は変更イベントだけが行う。
+     * @param document 処理対象の文書です。
+     * @returns 処理が生成または変換したExtension Hostの文字列を返します。
+     */
     private canonicalText(document: vscode.TextDocument): string {
         return toCanonicalText(document.getText());
     }
@@ -1144,6 +1701,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
      * 受信した画像を設定されたアセットディレクトリへ保存し、相対パスを返す。
      * @param document 画像を参照するMarkdown文書。
      * @param images Base64形式で受信した画像一覧。
+     * @param imageDirectory 読み込みまたは出力するリソースの場所を示します。
      * @returns 保存した画像の相対パス一覧。
      * @throws 未保存文書、サイズ超過、未対応形式、または保存失敗の場合。
      */
@@ -1182,6 +1740,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
     /**
      * 画像ファイルを選択ダイアログで受け取り、文書用アセットとして保存する。
      * @param document 画像を参照するMarkdown文書。
+     * @param imageDirectory 読み込みまたは出力するリソースの場所を示します。
      * @returns 保存した画像の相対パス一覧を解決するPromise。
      */
     private async pickAndSaveImages(document: vscode.TextDocument, imageDirectory: string): Promise<string[]> {
@@ -1210,6 +1769,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
     /**
      * 設定された画像保存先を検証して作成し、そのURIを返す。
      * @param document 画像保存先の基準となるMarkdown文書。
+     * @param imageDirectory 読み込みまたは出力するリソースの場所を示します。
      * @returns 作成または確認したアセットディレクトリのURI。
      * @throws 絶対パスや親ディレクトリを含む安全でない設定の場合。
      */
@@ -1255,10 +1815,21 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
         if (uri) await vscode.commands.executeCommand('vscode.open', uri);
     }
 
-    /** Markdownから参照されたローカル画像・リンクの実在を確認する。 */
+    /**
+     * Markdownから参照されたローカル画像・リンクの実在を確認する。
+     * @param document 処理対象の文書です。
+     * @param markdown 解析・編集・変換の対象となる本文または生成済み内容です。
+     * @returns 非同期処理の完了を表すPromiseです。
+     */
     private async checkLocalResources(document: vscode.TextDocument, markdown: string): Promise<Diagnostic[]> {
         const references = collectLocalResourceReferences(markdown);
-        const diagnostics = await Promise.all(references.map(async (reference): Promise<Diagnostic | undefined> => {
+        const diagnostics = await Promise.all(references.map(
+        /**
+ * 「reference」を変換し、変換後の要素を返すコールバックです。
+         * @param reference referenceとして渡される、このコールバックの入力値です。
+         * @returns 非同期処理の完了を表すPromiseです。
+         */
+        async (reference): Promise<Diagnostic | undefined> => {
             const target = resolveLocalResourceUri(document.uri, reference.source);
             if (!target) return undefined;
             try {
@@ -1278,11 +1849,18 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                 };
             }
         }));
-        return sortDiagnostics(diagnostics.filter((item): item is Diagnostic => item !== undefined));
+        return sortDiagnostics(diagnostics.filter(
+        /**
+ * 「item」が条件に一致するか判定し、残す要素を決めるコールバックです。
+         * @param item 条件判定の対象となる要素です。
+         * @returns 要素を採用するかどうかの真偽値を返します。
+         */
+        (item): item is Diagnostic => item !== undefined));
     }
 
     /**
      * VS Codeの設定値とワークスペース信頼状態からWebview設定を作る。
+     * @param document 処理対象の文書です。
      * @returns Webviewへ送信する設定値。
      */
     private getSettings(document?: vscode.TextDocument): WebviewSettings {
@@ -1324,14 +1902,20 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
         };
     }
 
-    /** HTML出力のグローバル設定を読み取り、旧形式や不正値を標準値へ正規化する。 */
+    /**
+     * HTML出力のグローバル設定を読み取り、旧形式や不正値を標準値へ正規化する。
+     * @returns 処理がExtension Host処理の入力を処理して得た固有の結果を返します。
+     */
     private getHtmlOptions(): HtmlExportSettings {
         return normalizeHtmlExportSettings(
             this.context.globalState.get<unknown>(HTML_OPTIONS_STATE_KEY, DEFAULT_HTML_EXPORT_SETTINGS)
         );
     }
 
-    /** 新しいフォント設定を優先し、旧PDF設定だけが残る環境では一度だけ移行する。 */
+    /**
+     * 新しいフォント設定を優先し、旧PDF設定だけが残る環境では一度だけ移行する。
+     * @returns 非同期処理の完了を表すPromiseです。
+     */
     private async migrateLegacyFontFamily(): Promise<void> {
         if (normalizeFontFamilySettings(this.context.globalState.get<unknown>(FONT_FAMILY_STATE_KEY))) return;
         const legacy = normalizePdfOptions(
@@ -1346,7 +1930,10 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
         });
     }
 
-    /** 永続化されたフォント設定を読み取り、旧PDF設定を移行元として扱う。 */
+    /**
+     * 永続化されたフォント設定を読み取り、旧PDF設定を移行元として扱う。
+     * @returns 処理がExtension Host処理の入力を処理して得た固有の結果を返します。
+     */
     private getFontSettings(): FontFamilySettings {
         const stored = normalizeFontFamilySettings(
             this.context.globalState.get<unknown>(FONT_FAMILY_STATE_KEY)
@@ -1367,6 +1954,12 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
         return { ...DEFAULT_FONT_FAMILY_SETTINGS };
     }
 
+    /**
+     * mark・startupを更新または保存します。
+     * @param panel 処理対象を特定するpanelの入力値です。
+     * @param field 処理対象を特定するfieldの入力値です。
+     * @returns 状態更新または副作用を実行し、値は返しません。
+     */
     private markStartup(
         panel: vscode.WebviewPanel,
         field: 'webviewReadyMs' | 'initializedMs' | 'previewReadyMs' | 'firstMermaidRequestedMs' | 'firstMermaidReadyMs'
@@ -1379,23 +1972,57 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
         }
     }
 
+    /**
+     * 言語を取得または解決します。
+     * @returns 処理がExtension Host処理の入力を処理して得た固有の結果を返します。
+     */
     private getLanguage() {
         const config = vscode.workspace.getConfiguration('markdownEasyVisualEditor');
         return resolveLanguage(config.get<string>('language', 'auto'), vscode.env.language);
     }
 
+    /**
+     * get・messagesを取得または解決します。
+     * @returns 処理がExtension Host処理の入力を処理して得た固有の結果を返します。
+     */
     private getMessages(): Messages {
         return getMessages(this.getLanguage());
     }
 
-    /** 再帰HTML出力用の子MarkdownをWebviewで描画し、SVG化済みHTMLを受け取る。 */
+    /**
+     * 再帰HTML出力用の子MarkdownをWebviewで描画し、SVG化済みHTMLを受け取る。
+     * @param panel 処理対象を特定するpanelの入力値です。
+     * @param requestId 処理対象を特定するrequestIdの入力値です。
+     * @param documents 処理対象を特定するdocumentsの入力値です。
+     * @returns 非同期処理の完了を表すPromiseです。
+     */
     private requestHtmlDocumentRender(
         panel: vscode.WebviewPanel,
         requestId: string,
-        documents: Array<{ id: string; markdown: string }>
+        documents: Array<{
+        /**
+         * 「id」は、対象の識別や処理分岐に使用する値を保持します。
+         */
+        id: string;
+        /**
+         * 「markdown」は、解析・編集・変換の対象となる本文またはデータを保持します。
+         */
+        markdown: string }>
     ): Promise<HtmlRenderedDocument[]> {
-        return new Promise((resolve, reject) => {
-            const timer = setTimeout(() => {
+        return new Promise(
+        /**
+ * Promiseの完了または失敗を通知し、非同期処理の状態を確定するコールバックです。
+         * @param resolve Promiseの完了または失敗を通知する関数です。
+         * @param reject Promiseの完了または失敗を通知する関数です。
+         * @returns 「setTimeout」を実行し、値を返しません。
+         */
+        (resolve, reject) => {
+            const timer = setTimeout(
+            /**
+ * 指定時間の経過後に遅延処理を実行するコールバックです。
+             * @returns 「this.pendingHtmlRenderRequests.delete」を実行し、値を返しません。
+             */
+            () => {
                 this.pendingHtmlRenderRequests.delete(requestId);
                 reject(new Error(this.getMessages().host.htmlRenderTimeout));
             }, 120_000);
@@ -1484,16 +2111,23 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
 }
 
 /**
- * テキスト変更一覧をVS CodeのWorkspaceEditへ変換して適用する。
- * @param document 変更を適用する文書。
- * @param changes 適用するテキスト変更一覧。
- * @returns VS Codeが変更を受け付けた場合はtrue。
- * @throws 変更範囲が文書に対して不正な場合。
+ * デバッグ設定が有効な場合だけ、Extension Host側の診断情報をコンソールへ出力する。
+ * 通常実行時のログ量を増やさず、再現調査時にはメッセージと構造化された詳細を同じ記録として確認できるようにする。
+ * @param message 診断対象の事象を表すメッセージ。
+ * @param details 事象に付随する文書・操作・状態などの構造化情報。
+ * @returns ログ出力を完了したことを表すvoid。
  */
 function hostDebug(message: string, details: Record<string, unknown>): void {
     if (process.env.MVE_DEBUG === '1') console.info(message, details);
 }
 
+/**
+ * apply・change・batchを処理します。
+ * @param document 処理対象の文書です。
+ * @param canonicalBaseText 処理対象の本文です。
+ * @param changes 「changes」は、「applyChangeBatch」がExtension Host処理の処理対象を特定する入力です。
+ * @returns 非同期処理の完了を表すPromiseです。
+ */
 async function applyChangeBatch(
     document: vscode.TextDocument,
     canonicalBaseText: string,
@@ -1531,11 +2165,20 @@ function operationIdentity(clientId: string, opId: string): string {
     return `${clientId}\u0000${opId}`;
 }
 
+/**
+ * パスかどうかを判定します。
+ * @param filePath 「filePath」は、「isMarkdownDocumentPath」がExtension Hostで処理する対象を特定する入力です。
+ * @returns 判定結果です。
+ */
 function isMarkdownDocumentPath(filePath: string): boolean {
     return /\.(?:md|markdown)$/i.test(filePath);
 }
 
-/** 永続化された表示モードを安全な3状態へ正規化する。 */
+/**
+ * 永続化された表示モードを安全な3状態へ正規化する。
+ * @param value 「normalizeViewMode」で検証・変換する入力値です。
+ * @returns 「normalizeViewMode」が読み取りまたは正規化した結果を返します。
+ */
 function normalizeViewMode(value: unknown): ViewMode {
     return value === 'text' || value === 'preview' ? value : 'both';
 }
@@ -1569,12 +2212,22 @@ function extensionForMime(mime: string): string | undefined {
     )[mime.toLowerCase()];
 }
 
+/** 「SAFE_IMAGE_EXTENSIONS」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * MIMEタイプだけでは判定できない画像を保存するときに許可する拡張子。
+ * 入力名から拡張子を補う場合もこの固定集合だけを通し、任意のファイル名を画像として扱わない。
+ */
 const SAFE_IMAGE_EXTENSIONS = new Set([
     'png', 'apng', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'avif',
     'ico', 'heic', 'heif', 'jxl', 'tif', 'tiff'
 ]);
 
-/** MIME表にないimage/*でも、コピー元の安全な画像拡張子を保持する。 */
+/**
+ * MIME表にないimage/*でも、コピー元の安全な画像拡張子を保持する。
+ * @param name 対象を識別する名前で、表示または処理分岐に使用します。
+ * @param mime 「mime」は、「imageExtensionFromName」がExtension Host処理の処理対象を特定する入力です。
+ * @returns 「imageExtensionFromName」が生成または変換したExtension Hostの文字列を返します。
+ */
 function imageExtensionFromName(name: string | undefined, mime: string): string | undefined {
     if (!mime.toLowerCase().startsWith('image/') || !name) return undefined;
     const extension = path.extname(name).slice(1).toLowerCase();
@@ -1625,7 +2278,12 @@ function relativeUriPath(documentUri: vscode.Uri, target: vscode.Uri): string {
     return target.path.startsWith(base) ? target.path.slice(base.length) : target.path;
 }
 
-/** Markdown文書を基準にローカル参照先のURIを解決する。 */
+/**
+ * Markdown文書を基準にローカル参照先のURIを解決する。
+ * @param documentUri 「documentUri」は、「resolveLocalResourceUri」がExtension Host処理の処理対象を特定する入力です。
+ * @param source 処理対象のソースです。
+ * @returns 「resolveLocalResourceUri」が対象を取得できない場合はundefinedを返します。
+ */
 function resolveLocalResourceUri(documentUri: vscode.Uri, source: string): vscode.Uri | undefined {
     const clean = decodeLocalResourceSource(source);
     if (/^file:/i.test(clean)) return vscode.Uri.parse(clean);

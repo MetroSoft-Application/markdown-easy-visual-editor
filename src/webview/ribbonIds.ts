@@ -1,4 +1,15 @@
+/**
+ * @file ribbonIds.ts
+ * 実行境界: Webview。
+ * 責務: 編集UI、プレビュー、ユーザー操作を処理する。
+ * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
+ * 副作用: DOM、Webviewメッセージ、ブラウザーAPI、編集状態を操作する。
+ * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ */
 
+/**
+ * 「RibbonTabId」として扱う値の型を定義します。
+ */
 export type RibbonTabId =
   | "home"
   | "insert"
@@ -8,6 +19,9 @@ export type RibbonTabId =
   | "settings"
   | "help";
 
+/**
+ * 「RibbonGroupId」として扱う値の型を定義します。
+ */
 export type RibbonGroupId =
   | "history"
   | "paragraph"
@@ -30,6 +44,9 @@ export type RibbonGroupId =
   | "fonts"
   | "help";
 
+/**
+ * 「RibbonItemId」として扱う値の型を定義します。
+ */
 export type RibbonItemId =
   | "undo"
   | "redo"
@@ -101,14 +118,26 @@ export type RibbonItemId =
   | "shortcuts"
   | "features";
 
+/**
+ * 「RibbonHeaderButtonId」として扱う値の型を定義します。
+ */
 export type RibbonHeaderButtonId =
   | "search"
   | "splitView"
   | "textOnly"
   | "previewOnly";
 
+/**
+ * 「RibbonHeaderItemId」として扱う値の型を定義します。
+ */
 export type RibbonHeaderItemId = RibbonHeaderButtonId | "collapse";
 
+/**
+ * 「RibbonContainerId」として扱う値の型を定義します。
+ */
 export type RibbonContainerId = "tableInsertForm";
 
+/**
+ * 「RibbonHeaderGroupId」として扱う値の型を定義します。
+ */
 export type RibbonHeaderGroupId = "viewModes";

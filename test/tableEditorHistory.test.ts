@@ -1,3 +1,11 @@
+/**
+ * @file tableEditorHistory.test.ts
+ * 実行境界: テスト実行環境。
+ * 責務: 現行実装の仕様と回帰条件を検証する。
+ * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
+ * 副作用: テスト用のモック、ブラウザー、ファイルを必要に応じて操作する。
+ * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ */
 import { describe, expect, it } from 'vitest';
 import {
   createTableEditorHistory,
@@ -7,6 +15,13 @@ import {
   type TableEditorHistorySnapshot,
 } from '../src/webview/tableEditorHistory';
 
+/**
+ * 「snapshot」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+ * @param value 「snapshot」で検証・変換する入力値です。
+ * @param row 本文、表、配列内の対象位置を示すインデックスです。
+ * @param column 本文、表、配列内の対象位置を示すインデックスです。
+ * @returns 「snapshot」が表編集状態の入力を処理して得た固有の結果を返します。
+ */
 function snapshot(value: string, row = 0, column = 0): TableEditorHistorySnapshot {
   return {
     rows: [['Header'], [value]],
@@ -25,8 +40,18 @@ function snapshot(value: string, row = 0, column = 0): TableEditorHistorySnapsho
   };
 }
 
-describe('table editor draft history', () => {
-  it('undoes and redoes draft mutations without sharing mutable arrays', () => {
+describe('table editor draft history',
+/**
+ * テスト「table editor draft history」の前提条件を設定し、期待結果を検証するコールバックです。
+ * @returns テストの前提条件と期待結果を検証し、値を返しません。
+ */
+() => {
+  it('undoes and redoes draft mutations without sharing mutable arrays',
+  /**
+ * テスト「undoes and redoes draft mutations without sharing mutable arrays」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const history = createTableEditorHistory();
     const before = snapshot('before');
     recordTableEditorHistory(history, before);
@@ -43,7 +68,12 @@ describe('table editor draft history', () => {
     expect(history.undo.at(-1)?.gridSelection.anchorRow).toBe(1);
   });
 
-  it('restores layout and selection state with the table data', () => {
+  it('restores layout and selection state with the table data',
+  /**
+ * テスト「restores layout and selection state with the table data」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const history = createTableEditorHistory();
     const before = snapshot('before', 1, 0);
     before.rowHeights[1] = 88;
@@ -66,7 +96,12 @@ describe('table editor draft history', () => {
     });
   });
 
-  it('clears redo when a new edit starts after undo', () => {
+  it('clears redo when a new edit starts after undo',
+  /**
+ * テスト「clears redo when a new edit starts after undo」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const history = createTableEditorHistory();
     recordTableEditorHistory(history, snapshot('a'));
     const previous = undoTableEditorHistory(history, snapshot('b'));
@@ -77,12 +112,23 @@ describe('table editor draft history', () => {
     expect(history.redo).toHaveLength(0);
   });
 
-  it('caps retained undo entries', () => {
+  it('caps retained undo entries',
+  /**
+ * テスト「caps retained undo entries」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const history = createTableEditorHistory();
     recordTableEditorHistory(history, snapshot('a'), 2);
     recordTableEditorHistory(history, snapshot('b'), 2);
     recordTableEditorHistory(history, snapshot('c'), 2);
 
-    expect(history.undo.map((entry) => entry.rows[1][0])).toEqual(['b', 'c']);
+    expect(history.undo.map(
+    /**
+ * 「entry」を変換し、変換後の要素を返すコールバックです。
+     * @param entry entryとして渡される、このコールバックの入力値です。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (entry) => entry.rows[1][0])).toEqual(['b', 'c']);
   });
 });

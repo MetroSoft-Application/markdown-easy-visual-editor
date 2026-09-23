@@ -1,3 +1,11 @@
+/**
+ * @file tableEditorOverlay.tsx
+ * 実行境界: Webview。
+ * 責務: 編集UI、プレビュー、ユーザー操作を処理する。
+ * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
+ * 副作用: DOM、Webviewメッセージ、ブラウザーAPI、編集状態を操作する。
+ * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ */
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { EditorSelection, EditorState } from "@codemirror/state";
@@ -51,69 +59,283 @@ import {
   TABLE_EDITOR_MIN_ROW_HEIGHT,
 } from "../shared/tableEditorSizing";
 
+/** 「OPEN_EVENT」は、DOM操作またはメッセージ連携で使用する識別子です。 */
+/** Webviewからテーブルエディターを開く要求を受けるDOMイベント名。 */
 const OPEN_EVENT = "mve-open-table-editor";
+/** 「MAX_ROWS」は、入力・表示・資源の上限または下限を表す値です。 */
+/** 編集できるテーブル行数の上限。大きすぎるモーダルによる操作性低下を防ぐ。 */
 const MAX_ROWS = 50;
+/** 「MAX_COLUMNS」は、入力・表示・資源の上限または下限を表す値です。 */
+/** 編集できるテーブル列数の上限。 */
 const MAX_COLUMNS = 20;
+/** 「MIN_COLUMN_WIDTH」は、入力・表示・資源の上限または下限を表す値です。 */
+/** 列リサイズで許可する最小幅。共有設定の下限をオーバーレイにも適用する。 */
 const MIN_COLUMN_WIDTH = TABLE_EDITOR_MIN_COLUMN_WIDTH;
+/** 「MAX_AUTO_COLUMN_WIDTH」は、入力・表示・資源の上限または下限を表す値です。 */
+/** 自動幅計算で許可する最大列幅。長いセルだけで画面が過度に広がるのを防ぐ。 */
 const MAX_AUTO_COLUMN_WIDTH = TABLE_EDITOR_MAX_AUTO_COLUMN_WIDTH;
+/** 「DEFAULT_COLUMN_WIDTH」は、関連する処理間で共有する設定値または状態です。 */
+/** 明示的な列幅がない場合の初期幅。 */
 const DEFAULT_COLUMN_WIDTH = 160;
+/** 「ROW_HEADER_WIDTH」は、関連する処理間で共有する設定値または状態です。 */
+/** 行見出し列の固定幅。 */
 const ROW_HEADER_WIDTH = 42;
+/** 「MIN_EDITOR_WIDTH」は、入力・表示・資源の上限または下限を表す値です。 */
+/** モーダルを縮小したときの最小幅。 */
 const MIN_EDITOR_WIDTH = 560;
+/** 「MIN_EDITOR_HEIGHT」は、入力・表示・資源の上限または下限を表す値です。 */
+/** モーダルを縮小したときの最小高さ。 */
 const MIN_EDITOR_HEIGHT = 320;
+/** 「DEFAULT_EDITOR_WIDTH」は、関連する処理間で共有する設定値または状態です。 */
+/** テーブルエディターの初期幅。 */
 const DEFAULT_EDITOR_WIDTH = 960;
+/** 「DEFAULT_EDITOR_HEIGHT」は、関連する処理間で共有する設定値または状態です。 */
+/** テーブルエディターの初期高さ。 */
 const DEFAULT_EDITOR_HEIGHT = 680;
+/** 「MIN_ROW_HEIGHT」は、入力・表示・資源の上限または下限を表す値です。 */
+/** 行リサイズで許可する最小高さ。共有設定の下限をオーバーレイにも適用する。 */
 const MIN_ROW_HEIGHT = TABLE_EDITOR_MIN_ROW_HEIGHT;
+/** 「MIN_TEXTAREA_HEIGHT」は、入力・表示・資源の上限または下限を表す値です。 */
+/** セル入力欄の最小高さ。空セルでも編集位置を視認できるようにする。 */
 const MIN_TEXTAREA_HEIGHT = 34;
+/** 「AUTO_FIT_ROW_VERTICAL_BUFFER」は、関連する処理間で共有する設定値または状態です。 */
+/** 自動行高へ加える上下余白。入力文字列と境界が密着しないようにする。 */
 const AUTO_FIT_ROW_VERTICAL_BUFFER = 4;
+/** 「overlayRoot」は、対象ファイルまたは実行環境の場所を表す値です。 */
 let overlayRoot: Root | undefined;
+/** 「overlayHost」は、DOMまたは実行環境を保持する共有参照です。 */
 let overlayHost: HTMLDivElement | undefined;
 
-type CellSelection = { from: number; to: number };
+/**
+ * 「CellSelection」として扱う値の型を定義します。
+ */
+type CellSelection = {
+/**
+ * 「from」は、本文または選択範囲の位置・長さを保持します。
+ */
+from: number;
+/**
+ * 「to」は、本文または選択範囲の位置・長さを保持します。
+ */
+to: number };
+/**
+ * 「ColumnResizeState」として扱う値の型を定義します。
+ */
 type ColumnResizeState = {
+
+  /**
+   * 「column」は、対象の位置、サイズ、件数、または範囲を保持します。
+   */
   column: number;
+
+  /**
+   * 「startX」は、位置・サイズ・件数などを表す数値です。
+   */
   startX: number;
+
+  /**
+   * 「startWidth」は、対象の位置、サイズ、件数、または範囲を保持します。
+   */
   startWidth: number;
+
+  /**
+   * 「moved」は、処理条件または状態を表す真偽値です。
+   */
   moved: boolean;
 };
+/**
+ * 「RowResizeState」として扱う値の型を定義します。
+ */
 type RowResizeState = {
+
+  /**
+   * 「row」は、対象の位置、サイズ、件数、または範囲を保持します。
+   */
   row: number;
+
+  /**
+   * 「pointerId」は、対象の識別や処理分岐に使用する値を保持します。
+   */
   pointerId: number;
+
+  /**
+   * 「startY」は、位置・サイズ・件数などを表す数値です。
+   */
   startY: number;
+
+  /**
+   * 「startHeight」は、対象の位置、サイズ、件数、または範囲を保持します。
+   */
   startHeight: number;
+
+  /**
+   * 「moved」は、処理条件または状態を表す真偽値です。
+   */
   moved: boolean;
 };
-type EditorSize = { width: number; height: number };
+/**
+ * 「EditorSize」として扱う値の型を定義します。
+ */
+type EditorSize = {
+/**
+ * 「width」は、対象の位置、サイズ、件数、または範囲を保持します。
+ */
+width: number;
+/**
+ * 「height」は、対象の位置、サイズ、件数、または範囲を保持します。
+ */
+height: number };
+/**
+ * 「EditorDragState」として扱う値の型を定義します。
+ */
 type EditorDragState = {
+
+  /**
+   * 「pointerId」は、対象の識別や処理分岐に使用する値を保持します。
+   */
   pointerId: number;
+
+  /**
+   * 「startX」は、位置・サイズ・件数などを表す数値です。
+   */
   startX: number;
+
+  /**
+   * 「startY」は、位置・サイズ・件数などを表す数値です。
+   */
   startY: number;
+
+  /**
+   * 「left」は、位置・サイズ・件数などを表す数値です。
+   */
   left: number;
+
+  /**
+   * 「top」は、位置・サイズ・件数などを表す数値です。
+   */
   top: number;
+
+  /**
+   * 「width」は、対象の位置、サイズ、件数、または範囲を保持します。
+   */
   width: number;
+
+  /**
+   * 「height」は、対象の位置、サイズ、件数、または範囲を保持します。
+   */
   height: number;
 };
+/**
+ * 「EditorResizeState」として扱う値の型を定義します。
+ */
 type EditorResizeState = {
+
+  /**
+   * 「pointerId」は、対象の識別や処理分岐に使用する値を保持します。
+   */
   pointerId: number;
+
+  /**
+   * 「startX」は、位置・サイズ・件数などを表す数値です。
+   */
   startX: number;
+
+  /**
+   * 「startY」は、位置・サイズ・件数などを表す数値です。
+   */
   startY: number;
+
+  /**
+   * 「startWidth」は、対象の位置、サイズ、件数、または範囲を保持します。
+   */
   startWidth: number;
+
+  /**
+   * 「startHeight」は、対象の位置、サイズ、件数、または範囲を保持します。
+   */
   startHeight: number;
+
+  /**
+   * 「left」は、位置・サイズ・件数などを表す数値です。
+   */
   left: number;
+
+  /**
+   * 「top」は、位置・サイズ・件数などを表す数値です。
+   */
   top: number;
 };
+/**
+ * 「GridSelectionKind」として扱う値の型を定義します。
+ */
 type GridSelectionKind = "cells" | "row" | "column" | "all";
-type GridDragState = { kind: "row" | "column"; source: number };
-type GridDropTarget = { kind: "row" | "column"; index: number };
+/**
+ * 「GridDragState」として扱う値の型を定義します。
+ */
+type GridDragState = {
+/**
+ * 「kind」は、対象の識別や処理分岐に使用する値を保持します。
+ */
+kind: "row" | "column";
+/**
+ * 「source」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
+ */
+source: number };
+/**
+ * 「GridDropTarget」として扱う値の型を定義します。
+ */
+type GridDropTarget = {
+/**
+ * 「kind」は、対象の識別や処理分岐に使用する値を保持します。
+ */
+kind: "row" | "column";
+/**
+ * 「index」は、対象の位置、サイズ、件数、または範囲を保持します。
+ */
+index: number };
+/**
+ * 「TableEditorPolishText」として扱う値の型を定義します。
+ */
 type TableEditorPolishText = {
+
+  /**
+   * 「modified」は、対象の内容または識別子を表す文字列です。
+   */
   modified: string;
+
+  /**
+   * 「discard」は、対象の内容または識別子を表す文字列です。
+   */
   discard: string;
+
+  /**
+   * 「selection」は、対象の内容または識別子を表す文字列です。
+   */
   selection: string;
+
+  /**
+   * 「cells」は、対象の内容または識別子を表す文字列です。
+   */
   cells: string;
+
+  /**
+   * 「selectAll」は、対象の内容または識別子を表す文字列です。
+   */
   selectAll: string;
+
+  /**
+   * 「dragRow」は、対象の位置、サイズ、件数、または範囲を保持します。
+   */
   dragRow: string;
+
+  /**
+   * 「dragColumn」は、対象の位置、サイズ、件数、または範囲を保持します。
+   */
   dragColumn: string;
 };
 
+/** 「TABLE_EDITOR_POLISH_TEXT」は、関連する処理間で共有する設定値または状態です。 */
+/** テーブルエディターの補助説明文を言語別に保持し、セル操作の意味をUIへ表示するカタログ。 */
 const TABLE_EDITOR_POLISH_TEXT: Record<string, TableEditorPolishText> = {
   ja: {
     modified: "未適用の変更",
@@ -180,18 +402,42 @@ const TABLE_EDITOR_POLISH_TEXT: Record<string, TableEditorPolishText> = {
   },
 };
 
+/**
+ * 「cellKey」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+ * @param row 本文、表、配列内の対象位置を示すインデックスです。
+ * @param column 本文、表、配列内の対象位置を示すインデックスです。
+ * @returns 「cellKey」が生成または変換した表編集の文字列を返します。
+ */
 function cellKey(row: number, column: number): string {
   return `${row}:${column}`;
 }
 
+/**
+ * parse・table・cell・addressを解析または復元します。
+ * @param value 「parseTableCellAddress」で検証・変換する入力値です。
+ * @returns 計算結果の数値です。
+ */
 function parseTableCellAddress(
   value: string | undefined,
-): { row: number; column: number } | undefined {
+): {
+/**
+ * 「row」は、対象の位置、サイズ、件数、または範囲を保持します。
+ */
+row: number;
+/**
+ * 「column」は、対象の位置、サイズ、件数、または範囲を保持します。
+ */
+column: number } | undefined {
   const match = /^(\d+):(\d+)$/.exec(value ?? "");
   if (!match) return undefined;
   return { row: Number(match[1]), column: Number(match[2]) };
 }
 
+/**
+ * 「rowTextareaStyle」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+ * @param rowHeight 処理対象の高さです。
+ * @returns 「rowTextareaStyle」が対象を取得できない場合はundefinedを返します。
+ */
 function rowTextareaStyle(
   rowHeight: number | undefined,
 ): React.CSSProperties | undefined {
@@ -200,6 +446,11 @@ function rowTextareaStyle(
   return { height: `${cellHeight}px`, minHeight: `${cellHeight}px` };
 }
 
+/**
+ * 「tableEditorPolishText」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+ * @param language 表示文言の解決に使用する言語コードまたはロケールです。
+ * @returns 「tableEditorPolishText」が生成または整形した表編集状態の文字列を返します。
+ */
 function tableEditorPolishText(language: string): TableEditorPolishText {
   const normalized = language.trim().toLowerCase().replace(/_/g, "-");
   if (normalized === "zh" || normalized.startsWith("zh-cn")) {
@@ -209,16 +460,31 @@ function tableEditorPolishText(language: string): TableEditorPolishText {
   return TABLE_EDITOR_POLISH_TEXT[primary] ?? TABLE_EDITOR_POLISH_TEXT.en;
 }
 
-/** 専用テーブルエディターをWebviewへ登録する。起動UIはReactのRibbon本体が担当する。 */
+/**
+ * 専用テーブルエディターをWebviewへ登録する。起動UIはReactのRibbon本体が担当する。
+ * @returns 「installTableEditorOverlay」の副作用または状態更新を実行し、値は返しません。
+ */
 export function installTableEditorOverlay(): () => void {
-  const open = () => openTableEditor();
+
+  /**
+   * openを開始します。
+   * @returns 「open」が表編集状態の入力を処理して得た固有の結果を返します。
+   */
+  const open = /**
+ * 「open」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @returns 「open」が表編集状態の入力を処理して得た固有の結果を返します。
+ */ () => openTableEditor();
   window.addEventListener(OPEN_EVENT, open);
-  return () => {
+  return /** イベント情報を受け取り、DOMまたは画面状態を更新するコールバックです。 @returns 後片付けまたは登録解除を完了した結果を返します。 */ () => {
     window.removeEventListener(OPEN_EVENT, open);
     closeOverlay();
   };
 }
 
+/**
+ * find・editor・viewを取得または解決します。
+ * @returns 「findEditorView」が対象を取得できない場合はundefinedを返します。
+ */
 function findEditorView(): EditorView | undefined {
   const editor = document.querySelector<HTMLElement>(
     ".source-editor .cm-editor",
@@ -226,6 +492,10 @@ function findEditorView(): EditorView | undefined {
   return editor ? (EditorView.findFromDOM(editor) ?? undefined) : undefined;
 }
 
+/**
+ * エディターを開始します。
+ * @returns 「openTableEditor」の副作用または状態更新を実行し、値は返しません。
+ */
 function openTableEditor(): void {
   const messages = getMessages(document.documentElement.lang);
   const view = findEditorView();
@@ -254,6 +524,10 @@ function openTableEditor(): void {
   );
 }
 
+/**
+ * close・overlayを解除または削除します。
+ * @returns 購読解除、タイマー解除、またはリソース破棄を実行して値は返しません。
+ */
 function closeOverlay(): void {
   overlayRoot?.unmount();
   overlayRoot = undefined;
@@ -261,34 +535,86 @@ function closeOverlay(): void {
   overlayHost = undefined;
 }
 
+/**
+ * 「showOverlayToast」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+ * @param message 処理対象のメッセージです。
+ * @returns 「showOverlayToast」の副作用または状態更新を実行し、値は返しません。
+ */
 function showOverlayToast(message: string): void {
   const toast = document.createElement("div");
   toast.className = "mve-table-editor-toast";
   toast.textContent = message;
   document.body.appendChild(toast);
-  window.setTimeout(() => toast.remove(), 2400);
+  window.setTimeout(
+  /**
+ * 指定時間の経過後に遅延処理を実行するコールバックです。
+   * @returns 「toast.remove」を実行し、値を返しません。
+   */
+  () => toast.remove(), 2400);
 }
 
+/**
+ * 「TableEditorOverlay」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+ * @param props 「props」は、「TableEditorOverlay」が表編集状態の処理対象を特定する入力です。
+ * @returns 「TableEditorOverlay」が表編集状態の入力を処理して得た固有の結果を返します。
+ */
 function TableEditorOverlay({
   view,
   initial,
   messages,
   onClose,
 }: {
+
+  /**
+   * 「view」は、画面の表示モードまたは現在のUI状態を示します。
+   */
   view: EditorView;
+
+  /**
+   * 「initial」は、関連処理が共有する構造化データの一項目です。
+   */
   initial: TableEditorDraft;
+
+  /**
+   * 「messages」は、画面または通知へ表示する文言を保持します。
+   */
   messages: Messages;
+  /**
+   * 「onClose」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
+   * @returns イベントを処理し、状態更新または副作用だけを実行して値は返しません。
+   */
   onClose: () => void;
 }): React.JSX.Element {
-  const [rows, setRows] = useState(() =>
-    initial.rows.map((row) => row.slice()),
+  const [rows, setRows] = useState(
+  /**
+ * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
+   * @returns Reactが保持する初期状態またはメモ化値を返します。
+   */
+  () =>
+    initial.rows.map(
+    /**
+ * 「row」を変換し、変換後の要素を返すコールバックです。
+     * @param row 本文、表、配列内の対象位置を示すインデックスです。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (row) => row.slice()),
   );
-  const [alignments, setAlignments] = useState<TableEditorAlignment[]>(() =>
+  const [alignments, setAlignments] = useState<TableEditorAlignment[]>(
+  /**
+ * 登録された副作用または結果を生成する処理を実行するコールバックです。
+   * @returns 「initial.alignments.slice」の呼び出し結果を返します。
+   */
+  () =>
     initial.alignments.slice(),
   );
   const [activeRow, setActiveRow] = useState(initial.activeRow);
   const [activeColumn, setActiveColumn] = useState(initial.activeColumn);
-  const [gridSelection, setGridSelection] = useState<TableGridRange>(() => ({
+  const [gridSelection, setGridSelection] = useState<TableGridRange>(
+  /**
+ * （anchorRow、anchorColumn、focusRow、focusColumn、width）を持つオブジェクトを初期化して返すコールバックです。
+   * @returns 初期化したオブジェクト（anchorRow、anchorColumn、focusRow、focusColumn、width）を返します。
+   */
+  () => ({
     anchorRow: initial.activeRow,
     anchorColumn: initial.activeColumn,
     focusRow: initial.activeRow,
@@ -303,19 +629,53 @@ function TableEditorOverlay({
     height: DEFAULT_EDITOR_HEIGHT,
   });
   const [editorPosition, setEditorPosition] = useState<{
+
+    /**
+     * 「left」は、位置・サイズ・件数などを表す数値です。
+     */
     left: number;
+
+    /**
+     * 「top」は、位置・サイズ・件数などを表す数値です。
+     */
     top: number;
   }>();
-  const [rowHeights, setRowHeights] = useState<Array<number | undefined>>(() =>
-    Array.from({ length: initial.rows.length }, () => undefined),
+  const [rowHeights, setRowHeights] = useState<Array<number | undefined>>(
+  /**
+ * 登録された副作用または結果を生成する処理を実行するコールバックです。
+   * @returns 「Array.from」の呼び出し結果を返します。
+   */
+  () =>
+    Array.from({ length: initial.rows.length },
+    /**
+ * 登録された処理から配列要素を生成するコールバックです。
+     * @returns 配列要素または初期値を返します。
+     */
+    () => undefined),
   );
   const initialColumnCount = Math.max(
     1,
     initial.alignments.length,
-    ...initial.rows.map((row) => row.length),
+    ...initial.rows.map(
+    /**
+ * 「row」を変換し、変換後の要素を返すコールバックです。
+     * @param row 本文、表、配列内の対象位置を示すインデックスです。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (row) => row.length),
   );
-  const [columnWidths, setColumnWidths] = useState<number[]>(() =>
-    Array.from({ length: initialColumnCount }, () => DEFAULT_COLUMN_WIDTH),
+  const [columnWidths, setColumnWidths] = useState<number[]>(
+  /**
+ * 登録された副作用または結果を生成する処理を実行するコールバックです。
+   * @returns 「Array.from」の呼び出し結果を返します。
+   */
+  () =>
+    Array.from({ length: initialColumnCount },
+    /**
+ * 登録された処理から配列要素を生成するコールバックです。
+     * @returns 配列要素または初期値を返します。
+     */
+    () => DEFAULT_COLUMN_WIDTH),
   );
   const overlayRef = useRef<HTMLDivElement>(null);
   const cellSelectionRef = useRef(new Map<string, CellSelection>());
@@ -324,7 +684,15 @@ function TableEditorOverlay({
   const editorDragRef = useRef<EditorDragState | undefined>(undefined);
   const editorResizeRef = useRef<EditorResizeState | undefined>(undefined);
   const selectionDragRef = useRef<
-    { row: number; column: number } | undefined
+    {
+    /**
+     * 「row」は、対象の位置、サイズ、件数、または範囲を保持します。
+     */
+    row: number;
+    /**
+     * 「column」は、対象の位置、サイズ、件数、または範囲を保持します。
+     */
+    column: number } | undefined
   >(undefined);
   const gridDragRef = useRef<GridDragState | undefined>(undefined);
   const historyRef = useRef(createTableEditorHistory());
@@ -333,7 +701,13 @@ function TableEditorOverlay({
   const columnCount = Math.max(
     1,
     alignments.length,
-    ...rows.map((row) => row.length),
+    ...rows.map(
+    /**
+ * 「row」を変換し、変換後の要素を返すコールバックです。
+     * @param row 本文、表、配列内の対象位置を示すインデックスです。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (row) => row.length),
   );
   const normalizedSelection = normalizeTableGridRange(
     gridSelection,
@@ -347,12 +721,31 @@ function TableEditorOverlay({
       length:
         normalizedSelection.toColumn - normalizedSelection.fromColumn + 1,
     },
+
+    /**
+ * 「_」「index」から配列要素を生成するコールバックです。
+     * @param _ 呼び出し側が渡すが、このコールバックでは使用しない値です。
+     * @param index 本文、表、配列内の対象位置を示すインデックスです。
+     * @returns 「_」「index」から生成した処理結果を返します。
+     */
     (_, index) => normalizedSelection.fromColumn + index,
   );
   const selectedAlignmentValues = selectedColumns.map(
+
+    /**
+ * 「column」を変換し、変換後の要素を返すコールバックです。
+     * @param column 本文、表、配列内の対象位置を示すインデックスです。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
     (column) => alignments[column] ?? "none",
   );
   const currentAlignment = selectedAlignmentValues.every(
+
+    /**
+ * 「value」が条件を満たすか判定し、全要素の適合結果を返すコールバックです。
+     * @param value 「value」で検証・変換する入力値です。
+     * @returns 条件判定の結果を示す真偽値を返します。
+     */
     (value) => value === selectedAlignmentValues[0],
   )
     ? selectedAlignmentValues[0]
@@ -361,8 +754,22 @@ function TableEditorOverlay({
     ROW_HEADER_WIDTH +
     Array.from(
       { length: columnCount },
+
+      /**
+ * 「_」「index」から配列要素を生成するコールバックです。
+       * @param _ 呼び出し側が渡すが、このコールバックでは使用しない値です。
+       * @param index 本文、表、配列内の対象位置を示すインデックスです。
+       * @returns 「_」「index」から生成した処理結果を返します。
+       */
       (_, index) => columnWidths[index] ?? DEFAULT_COLUMN_WIDTH,
-    ).reduce((total, width) => total + width, 0);
+    ).reduce(
+    /**
+     * 累積値と入力を「total」「width」を受け取り、集約結果を更新するコールバックです。
+     * @param total totalとして渡される、このコールバックの入力値です。
+     * @param width 処理対象の幅です。
+     * @returns 更新後の累積値を返します。
+     */
+    (total, width) => total + width, 0);
   const cellCountLabel = `${rows.length} × ${columnCount}`;
   const currentRenderedText = renderTableEditorDraft(currentDraft()).text;
   const isDirty = currentRenderedText !== initialRenderedTextRef.current;
@@ -381,15 +788,40 @@ function TableEditorOverlay({
       }
     : undefined;
 
-  useEffect(() => {
-    const frame = requestAnimationFrame(() =>
+  useEffect(
+  /**
+ * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
+   * @returns Reactが保持する初期状態またはメモ化値を返します。
+   */
+  () => {
+    const frame = requestAnimationFrame(
+    /**
+ * 次の描画フレームでUI更新処理を実行するコールバックです。
+     * @returns 「focusCell」の呼び出し結果を返します。
+     */
+    () =>
       focusCell(activeRow, activeColumn, false),
     );
-    return () => cancelAnimationFrame(frame);
+    return /** 遅延処理の予約を受け、タイマーまたはアニメーションフレームを解除するコールバックです。 @returns 後片付けまたは登録解除を完了した結果を返します。 */ () => cancelAnimationFrame(frame);
   }, []);
 
-  useEffect(() => {
-    const onKeyDown = (event: KeyboardEvent) => {
+  useEffect(
+  /**
+ * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
+   * @returns Reactが保持する初期状態またはメモ化値を返します。
+   */
+  () => {
+
+    /**
+     * 「onKeyDown」は、イベント入力を受け取り、関連する状態またはUIを更新する処理です。
+     * @param event 処理対象のイベントです。
+     * @returns 「event.key.toLowerCase」を実行し、値を返しません。
+     */
+    const onKeyDown = /**
+ * 「onKeyDown」は、イベント入力を検証し、関連する状態またはUIを更新します。
+ * @param event DOMイベントまたは入力イベントの情報です。
+ * @returns 「event.key.toLowerCase」を実行し、値を返しません。
+ */ (event: KeyboardEvent) => {
       const accelerator = event.ctrlKey || event.metaKey;
       const key = event.key.toLowerCase();
       const insideGrid =
@@ -436,11 +868,26 @@ function TableEditorOverlay({
       }
     };
     window.addEventListener("keydown", onKeyDown, true);
-    return () => window.removeEventListener("keydown", onKeyDown, true);
+    return /** イベント情報を受け取り、DOMまたは画面状態を更新するコールバックです。 @returns 後片付けまたは登録解除を完了した結果を返します。 */ () => window.removeEventListener("keydown", onKeyDown, true);
   });
 
-  useEffect(() => {
-    const onMouseMove = (event: MouseEvent) => {
+  useEffect(
+  /**
+   * イベント情報を受け取り、DOMまたは画面状態を更新するコールバックです。
+   * @returns Reactが保持する初期状態またはメモ化値を返します。
+   */
+  () => {
+
+    /**
+     * 「onMouseMove」は、イベント入力を受け取り、関連する状態またはUIを更新する処理です。
+     * @param event 処理対象のイベントです。
+     * @returns 「event」から生成した処理結果を返します。
+     */
+    const onMouseMove = /**
+ * 「onMouseMove」は、イベント入力を検証し、関連する状態またはUIを更新します。
+ * @param event DOMイベントまたは入力イベントの情報です。
+ * @returns 「event」から生成した処理結果を返します。
+ */ (event: MouseEvent) => {
       const resize = columnResizeRef.current;
       if (!resize) return;
       if (event.clientX !== resize.startX) resize.moved = true;
@@ -448,7 +895,13 @@ function TableEditorOverlay({
         MIN_COLUMN_WIDTH,
         Math.round(resize.startWidth + event.clientX - resize.startX),
       );
-      setColumnWidths((previous) => {
+      setColumnWidths(
+      /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+       * @param previous previousとして渡される、このコールバックの入力値です。
+       * @returns 「previous」から生成した処理結果を返します。
+       */
+      (previous) => {
         if (previous[resize.column] === width) return previous;
         const next = previous.slice();
         while (next.length <= resize.column) next.push(DEFAULT_COLUMN_WIDTH);
@@ -456,14 +909,22 @@ function TableEditorOverlay({
         return next;
       });
     };
-    const onMouseUp = () => {
+
+    /**
+     * 「onMouseUp」は、イベント入力を受け取り、関連する状態またはUIを更新する処理です。
+     * @returns 「window.addEventListener」の呼び出し結果を返します。
+     */
+    const onMouseUp = /**
+ * 「onMouseUp」は、イベント入力を検証し、関連する状態またはUIを更新します。
+ * @returns 「window.addEventListener」の呼び出し結果を返します。
+ */ () => {
       columnResizeRef.current = undefined;
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
     };
     window.addEventListener("mousemove", onMouseMove);
     window.addEventListener("mouseup", onMouseUp);
-    return () => {
+    return /** イベント情報を受け取り、DOMまたは画面状態を更新するコールバックです。 @returns 後片付けまたは登録解除を完了した結果を返します。 */ () => {
       window.removeEventListener("mousemove", onMouseMove);
       window.removeEventListener("mouseup", onMouseUp);
       document.body.style.cursor = "";
@@ -471,8 +932,23 @@ function TableEditorOverlay({
     };
   }, []);
 
-  useEffect(() => {
-    const onPointerMove = (event: PointerEvent) => {
+  useEffect(
+  /**
+ * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
+   * @returns Reactが保持する初期状態またはメモ化値を返します。
+   */
+  () => {
+
+    /**
+     * 「onPointerMove」は、イベント入力を受け取り、関連する状態またはUIを更新する処理です。
+     * @param event 処理対象のイベントです。
+     * @returns 「if」を実行し、値を返しません。
+     */
+    const onPointerMove = /**
+ * 「onPointerMove」は、イベント入力を検証し、関連する状態またはUIを更新します。
+ * @param event DOMイベントまたは入力イベントの情報です。
+ * @returns 「if」を実行し、値を返しません。
+ */ (event: PointerEvent) => {
       const editorResize = editorResizeRef.current;
       if (editorResize && event.pointerId === editorResize.pointerId) {
         const maxWidth = Math.max(
@@ -499,7 +975,13 @@ function TableEditorOverlay({
             editorResize.startHeight + event.clientY - editorResize.startY,
           ),
         );
-        setEditorSize((previous) =>
+        setEditorSize(
+        /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+         * @param previous previousとして渡される、このコールバックの入力値です。
+         * @returns 「previous」から生成した処理結果を返します。
+         */
+        (previous) =>
           previous.width === width && previous.height === height
             ? previous
             : { width, height },
@@ -521,7 +1003,13 @@ function TableEditorOverlay({
           maxTop,
           Math.max(16, editorDrag.top + event.clientY - editorDrag.startY),
         );
-        setEditorPosition((previous) =>
+        setEditorPosition(
+        /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+         * @param previous previousとして渡される、このコールバックの入力値です。
+         * @returns 「previous」から生成した処理結果を返します。
+         */
+        (previous) =>
           previous?.left === left && previous.top === top
             ? previous
             : { left, top },
@@ -535,7 +1023,13 @@ function TableEditorOverlay({
         MIN_ROW_HEIGHT,
         Math.round(rowResize.startHeight + event.clientY - rowResize.startY),
       );
-      setRowHeights((previous) => {
+      setRowHeights(
+      /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+       * @param previous previousとして渡される、このコールバックの入力値です。
+       * @returns 「previous」から生成した処理結果を返します。
+       */
+      (previous) => {
         if (previous[rowResize.row] === height) return previous;
         const next = previous.slice();
         while (next.length <= rowResize.row) next.push(undefined);
@@ -543,7 +1037,17 @@ function TableEditorOverlay({
         return next;
       });
     };
-    const onPointerUp = (event: PointerEvent) => {
+
+    /**
+     * 「onPointerUp」は、イベント入力を受け取り、関連する状態またはUIを更新する処理です。
+     * @param event 処理対象のイベントです。
+     * @returns 「if」を実行し、値を返しません。
+     */
+    const onPointerUp = /**
+ * 「onPointerUp」は、イベント入力を検証し、関連する状態またはUIを更新します。
+ * @param event DOMイベントまたは入力イベントの情報です。
+ * @returns 「event」から生成した処理結果を返します。
+ */ (event: PointerEvent) => {
       selectionDragRef.current = undefined;
       if (editorResizeRef.current?.pointerId === event.pointerId) {
         editorResizeRef.current = undefined;
@@ -564,7 +1068,7 @@ function TableEditorOverlay({
     window.addEventListener("pointermove", onPointerMove);
     window.addEventListener("pointerup", onPointerUp);
     window.addEventListener("pointercancel", onPointerUp);
-    return () => {
+    return /** イベント情報を受け取り、DOMまたは画面状態を更新するコールバックです。 @returns 後片付けまたは登録解除を完了した結果を返します。 */ () => {
       window.removeEventListener("pointermove", onPointerMove);
       window.removeEventListener("pointerup", onPointerUp);
       window.removeEventListener("pointercancel", onPointerUp);
@@ -577,7 +1081,12 @@ function TableEditorOverlay({
     };
   }, []);
 
-  const tsv = useMemo(() => {
+  const tsv = useMemo(
+  /**
+   * 依存状態から再利用可能な派生値を計算するコールバックです。
+   * @returns 依存状態から計算した派生値を返します。
+   */
+  () => {
     const rendered = renderTableEditorDraft(currentDraft());
     return (
       markdownTableToTsv(rendered.text, {
@@ -587,12 +1096,23 @@ function TableEditorOverlay({
     );
   }, [rows, alignments, activeRow, activeColumn]);
 
+  /**
+   * 「currentDraft」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @returns 「currentDraft」が表編集状態の入力を処理して得た固有の結果を返します。
+   */
   function currentDraft(): TableEditorDraft {
     return {
       ...initial,
       rows,
       alignments: Array.from(
         { length: columnCount },
+
+        /**
+ * 「_」「index」を受け取り、処理結果を生成する処理です。
+         * @param _ 呼び出し側が渡すが、このコールバックでは使用しない値です。
+         * @param index 本文、表、配列内の対象位置を示すインデックスです。
+         * @returns 「_」「index」から生成した処理結果を返します。
+         */
         (_, index) => alignments[index] ?? "none",
       ),
       activeRow,
@@ -600,11 +1120,28 @@ function TableEditorOverlay({
     };
   }
 
+  /**
+   * 「currentHistorySnapshot」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @returns 「currentHistorySnapshot」が表編集状態の入力を処理して得た固有の結果を返します。
+   */
   function currentHistorySnapshot(): TableEditorHistorySnapshot {
     return {
-      rows: rows.map((row) => row.slice()),
+      rows: rows.map(
+      /**
+ * 「row」を変換し、変換後の要素を返すコールバックです。
+       * @param row 本文、表、配列内の対象位置を示すインデックスです。
+       * @returns 入力要素から生成した変換後の値を返します。
+       */
+      (row) => row.slice()),
       alignments: Array.from(
         { length: columnCount },
+
+        /**
+ * 「_」「index」から配列要素を生成するコールバックです。
+         * @param _ 呼び出し側が渡すが、このコールバックでは使用しない値です。
+         * @param index 本文、表、配列内の対象位置を示すインデックスです。
+         * @returns 「_」「index」から生成した処理結果を返します。
+         */
         (_, index) => alignments[index] ?? "none",
       ),
       activeRow,
@@ -612,6 +1149,13 @@ function TableEditorOverlay({
       rowHeights: rowHeights.slice(),
       columnWidths: Array.from(
         { length: columnCount },
+
+        /**
+ * 「_」「index」を受け取り、処理結果を生成する処理です。
+         * @param _ 呼び出し側が渡すが、このコールバックでは使用しない値です。
+         * @param index 本文、表、配列内の対象位置を示すインデックスです。
+         * @returns 「_」「index」から生成した処理結果を返します。
+         */
         (_, index) => columnWidths[index] ?? DEFAULT_COLUMN_WIDTH,
       ),
       gridSelection: { ...gridSelection },
@@ -619,11 +1163,25 @@ function TableEditorOverlay({
     };
   }
 
+  /**
+   * 履歴を更新または保存します。
+   * @returns 「recordHistory」の副作用または状態更新を実行し、値は返しません。
+   */
   function recordHistory(): void {
     recordTableEditorHistory(historyRef.current, currentHistorySnapshot());
-    setHistoryRevision((value) => value + 1);
+    setHistoryRevision(
+    /**
+ * 「value」を受け取り、処理結果を生成する処理です。
+     * @param value 「value」で検証・変換する入力値です。
+     * @returns 「value」から生成した処理結果を返します。
+     */
+    (value) => value + 1);
   }
 
+  /**
+   * 「undoDraft」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @returns 「undoDraft」の副作用または状態更新を実行し、値は返しません。
+   */
   function undoDraft(): void {
     const previous = undoTableEditorHistory(
       historyRef.current,
@@ -631,9 +1189,19 @@ function TableEditorOverlay({
     );
     if (!previous) return;
     restoreHistorySnapshot(previous);
-    setHistoryRevision((value) => value + 1);
+    setHistoryRevision(
+    /**
+ * 「value」を受け取り、処理結果を生成する処理です。
+     * @param value 「value」で検証・変換する入力値です。
+     * @returns 「value」から生成した処理結果を返します。
+     */
+    (value) => value + 1);
   }
 
+  /**
+   * 「redoDraft」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @returns 「redoDraft」の副作用または状態更新を実行し、値は返しません。
+   */
   function redoDraft(): void {
     const next = redoTableEditorHistory(
       historyRef.current,
@@ -641,15 +1209,38 @@ function TableEditorOverlay({
     );
     if (!next) return;
     restoreHistorySnapshot(next);
-    setHistoryRevision((value) => value + 1);
+    setHistoryRevision(
+    /**
+ * 「value」を受け取り、登録された副作用または結果を生成する処理です。
+     * @param value 「value」で検証・変換する入力値です。
+     * @returns 「value」から生成した処理結果を返します。
+     */
+    (value) => value + 1);
   }
 
+  /**
+   * 「restoreHistorySnapshot」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @param snapshot 「snapshot」は、「restoreHistorySnapshot」が表編集状態の処理対象を特定する入力です。
+   * @returns 「restoreHistorySnapshot」の副作用または状態更新を実行し、値は返しません。
+   */
   function restoreHistorySnapshot(snapshot: TableEditorHistorySnapshot): void {
-    const nextRows = snapshot.rows.map((row) => row.slice());
+    const nextRows = snapshot.rows.map(
+    /**
+ * 「row」を変換し、変換後の要素を返すコールバックです。
+     * @param row 本文、表、配列内の対象位置を示すインデックスです。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (row) => row.slice());
     const nextColumns = Math.max(
       1,
       snapshot.alignments.length,
-      ...nextRows.map((row) => row.length),
+      ...nextRows.map(
+      /**
+ * 「row」を変換し、変換後の要素を返すコールバックです。
+       * @param row 本文、表、配列内の対象位置を示すインデックスです。
+       * @returns 入力要素から生成した変換後の値を返します。
+       */
+      (row) => row.length),
     );
     const safeActiveRow = Math.max(
       0,
@@ -659,26 +1250,67 @@ function TableEditorOverlay({
       0,
       Math.min(nextColumns - 1, snapshot.activeColumn),
     );
-    const clampRow = (row: number): number =>
+
+    /**
+     * 行を正規化します。
+     * @param row 本文、表、配列内の対象位置を示すインデックスです。
+     * @returns 計算結果の数値です。
+     */
+    const clampRow = /**
+ * 「clampRow」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @param row 処理対象を特定する位置、範囲、または数量です。
+ * @returns 「clampRow」が表編集状態の入力を処理して得た固有の結果を返します。
+ */ (row: number): number =>
       Math.max(0, Math.min(nextRows.length - 1, row));
-    const clampColumn = (column: number): number =>
+
+    /**
+     * 列を正規化します。
+     * @param column 本文、表、配列内の対象位置を示すインデックスです。
+     * @returns 計算結果の数値です。
+     */
+    const clampColumn = /**
+ * 「clampColumn」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @param column 処理対象を特定する位置、範囲、または数量です。
+ * @returns 「clampColumn」が表編集状態の入力を処理して得た固有の結果を返します。
+ */ (column: number): number =>
       Math.max(0, Math.min(nextColumns - 1, column));
     setRows(nextRows);
     setAlignments(
       Array.from(
         { length: nextColumns },
+
+        /**
+ * 「_」「index」から配列要素を生成するコールバックです。
+         * @param _ 呼び出し側が渡すが、このコールバックでは使用しない値です。
+         * @param index 本文、表、配列内の対象位置を示すインデックスです。
+         * @returns 「_」「index」から生成した処理結果を返します。
+         */
         (_, index) => snapshot.alignments[index] ?? "none",
       ),
     );
     setColumnWidths(
       Array.from(
         { length: nextColumns },
+
+        /**
+ * 「_」「index」から配列要素を生成するコールバックです。
+         * @param _ 呼び出し側が渡すが、このコールバックでは使用しない値です。
+         * @param index 本文、表、配列内の対象位置を示すインデックスです。
+         * @returns 「_」「index」から生成した処理結果を返します。
+         */
         (_, index) => snapshot.columnWidths[index] ?? DEFAULT_COLUMN_WIDTH,
       ),
     );
     setRowHeights(
       Array.from(
         { length: nextRows.length },
+
+        /**
+ * 「_」「index」から配列要素を生成するコールバックです。
+         * @param _ 呼び出し側が渡すが、このコールバックでは使用しない値です。
+         * @param index 本文、表、配列内の対象位置を示すインデックスです。
+         * @returns 「_」「index」から生成した処理結果を返します。
+         */
         (_, index) => snapshot.rowHeights[index],
       ),
     );
@@ -695,6 +1327,12 @@ function TableEditorOverlay({
     setStatus("");
   }
 
+  /**
+   * 「singleCellSelection」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @param row 本文、表、配列内の対象位置を示すインデックスです。
+   * @param column 本文、表、配列内の対象位置を示すインデックスです。
+   * @returns 「singleCellSelection」の副作用または状態更新を実行し、値は返しません。
+   */
   function singleCellSelection(row: number, column: number): void {
     setGridSelection({
       anchorRow: row,
@@ -705,6 +1343,15 @@ function TableEditorOverlay({
     setSelectionKind("cells");
   }
 
+  /**
+   * 「focusCell」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @param row 本文、表、配列内の対象位置を示すインデックスです。
+   * @param column 本文、表、配列内の対象位置を示すインデックスです。
+   * @param select 「select」は、「focusCell」が表編集状態の処理対象を特定する入力です。
+   * @param rowCount 「rowCount」は、「focusCell」が表編集で処理する対象を特定する入力です。
+   * @param columns 「columns」は、「focusCell」が表編集で処理する対象を特定する入力です。
+   * @returns 「focusCell」の副作用または状態更新を実行し、値は返しません。
+   */
   function focusCell(
     row: number,
     column: number,
@@ -717,7 +1364,12 @@ function TableEditorOverlay({
     setActiveRow(safeRow);
     setActiveColumn(safeColumn);
     singleCellSelection(safeRow, safeColumn);
-    requestAnimationFrame(() => {
+    requestAnimationFrame(
+    /**
+ * 次の描画フレームでUI更新処理を実行するコールバックです。
+     * @returns 「focus」を実行し、値を返しません。
+     */
+    () => {
       const element = overlayRef.current?.querySelector<HTMLTextAreaElement>(
         `[data-table-cell="${safeRow}:${safeColumn}"]`,
       );
@@ -732,12 +1384,30 @@ function TableEditorOverlay({
     });
   }
 
+  /**
+   * 「replaceDraft」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @param next 「next」は、「replaceDraft」が表編集状態の処理対象を特定する入力です。
+   * @param captureHistory 「captureHistory」は、「replaceDraft」が表編集状態の処理対象を特定する入力です。
+   * @returns 「replaceDraft」の副作用または状態更新を実行し、値は返しません。
+   */
   function replaceDraft(next: TableEditorDraft, captureHistory = true): void {
-    const nextRows = next.rows.map((row) => row.slice());
+    const nextRows = next.rows.map(
+    /**
+ * 「row」を変換し、変換後の要素を返すコールバックです。
+     * @param row 本文、表、配列内の対象位置を示すインデックスです。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (row) => row.slice());
     const nextColumns = Math.max(
       1,
       next.alignments.length,
-      ...nextRows.map((row) => row.length),
+      ...nextRows.map(
+      /**
+ * 「row」を変換し、変換後の要素を返すコールバックです。
+       * @param row 本文、表、配列内の対象位置を示すインデックスです。
+       * @returns 入力要素から生成した変換後の値を返します。
+       */
+      (row) => row.length),
     );
     if (nextRows.length > MAX_ROWS || nextColumns > MAX_COLUMNS) {
       setStatus(messages.app.tableEditor.rowColumnLimit(MAX_ROWS, MAX_COLUMNS));
@@ -748,6 +1418,13 @@ function TableEditorOverlay({
       rows: nextRows,
       alignments: Array.from(
         { length: nextColumns },
+
+        /**
+ * 「_」「index」から配列要素を生成するコールバックです。
+         * @param _ 呼び出し側が渡すが、このコールバックでは使用しない値です。
+         * @param index 本文、表、配列内の対象位置を示すインデックスです。
+         * @returns 「_」「index」から生成した処理結果を返します。
+         */
         (_, index) => next.alignments[index] ?? "none",
       ),
     };
@@ -759,14 +1436,40 @@ function TableEditorOverlay({
     }
     setRows(normalizedNext.rows);
     setAlignments(normalizedNext.alignments);
-    setColumnWidths((previous) =>
+    setColumnWidths(
+    /**
+ * 「previous」を受け取り、登録された副作用または結果を生成する処理です。
+     * @param previous previousとして渡される、このコールバックの入力値です。
+     * @returns 「previous」から生成した処理結果を返します。
+     */
+    (previous) =>
       Array.from(
         { length: nextColumns },
+
+        /**
+ * 「_」「index」から配列要素を生成するコールバックです。
+         * @param _ 呼び出し側が渡すが、このコールバックでは使用しない値です。
+         * @param index 本文、表、配列内の対象位置を示すインデックスです。
+         * @returns 「_」「index」から生成した処理結果を返します。
+         */
         (_, index) => previous[index] ?? DEFAULT_COLUMN_WIDTH,
       ),
     );
-    setRowHeights((previous) =>
-      Array.from({ length: nextRows.length }, (_, index) => previous[index]),
+    setRowHeights(
+    /**
+ * 「previous」を受け取り、登録された副作用または結果を生成する処理です。
+     * @param previous previousとして渡される、このコールバックの入力値です。
+     * @returns 「previous」から生成した処理結果を返します。
+     */
+    (previous) =>
+      Array.from({ length: nextRows.length },
+      /**
+ * 「_」「index」から配列要素を生成するコールバックです。
+       * @param _ 呼び出し側が渡すが、このコールバックでは使用しない値です。
+       * @param index 本文、表、配列内の対象位置を示すインデックスです。
+       * @returns 「_」「index」から生成した処理結果を返します。
+       */
+      (_, index) => previous[index]),
     );
     cellSelectionRef.current.clear();
     setActiveRow(next.activeRow);
@@ -781,15 +1484,42 @@ function TableEditorOverlay({
     );
   }
 
+  /**
+   * セルを更新または保存します。
+   * @param row 本文、表、配列内の対象位置を示すインデックスです。
+   * @param column 本文、表、配列内の対象位置を示すインデックスです。
+   * @param value 「updateCell」で検証・変換する入力値です。
+   * @returns 「updateCell」の副作用または状態更新を実行し、値は返しません。
+   */
   function updateCell(row: number, column: number, value: string): void {
     const normalized = tableEditorCellStoredValue(value, rows[row]?.[column] ?? '');
     if ((rows[row]?.[column] ?? "") === normalized) return;
     recordHistory();
-    setRows((previous) =>
-      previous.map((current, rowIndex) => {
+    setRows(
+    /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+     * @param previous previousとして渡される、このコールバックの入力値です。
+     * @returns 「previous」から生成した処理結果を返します。
+     */
+    (previous) =>
+      previous.map(
+      /**
+ * 「current」「rowIndex」を変換し、変換後の要素を返すコールバックです。
+       * @param current currentとして渡される、このコールバックの入力値です。
+       * @param rowIndex 「rowIndex」は、「current」が表編集で処理する対象を特定する入力です。
+       * @returns 入力要素から生成した変換後の値を返します。
+       */
+      (current, rowIndex) => {
         if (rowIndex !== row) return current;
         const next = Array.from(
           { length: columnCount },
+
+          /**
+ * 「_」「index」を受け取り、処理結果を生成する処理です。
+           * @param _ 呼び出し側が渡すが、このコールバックでは使用しない値です。
+           * @param index 本文、表、配列内の対象位置を示すインデックスです。
+           * @returns 「_」「index」から生成した処理結果を返します。
+           */
           (_, index) => current[index] ?? "",
         );
         next[column] = normalized;
@@ -798,6 +1528,13 @@ function TableEditorOverlay({
     );
   }
 
+  /**
+   * 選択を更新または保存します。
+   * @param row 本文、表、配列内の対象位置を示すインデックスです。
+   * @param column 本文、表、配列内の対象位置を示すインデックスです。
+   * @param element 処理対象の要素です。
+   * @returns 「rememberCellSelection」の副作用または状態更新を実行し、値は返しません。
+   */
   function rememberCellSelection(
     row: number,
     column: number,
@@ -812,6 +1549,13 @@ function TableEditorOverlay({
     });
   }
 
+  /**
+   * 選択を開始します。
+   * @param event 処理対象のイベントです。
+   * @param row 本文、表、配列内の対象位置を示すインデックスです。
+   * @param column 本文、表、配列内の対象位置を示すインデックスです。
+   * @returns 「beginCellSelection」の副作用または状態更新を実行し、値は返しません。
+   */
   function beginCellSelection(
     event: React.PointerEvent<HTMLTableCellElement>,
     row: number,
@@ -830,7 +1574,13 @@ function TableEditorOverlay({
     if (event.shiftKey) {
       event.preventDefault();
       selectionDragRef.current = undefined;
-      setGridSelection((previous) => ({
+      setGridSelection(
+      /**
+ * 「previous」から（focusRow、focusColumn、event、row、column）のオブジェクトを生成して返すコールバックです。
+       * @param previous previousとして渡される、このコールバックの入力値です。
+       * @returns 初期化したオブジェクト（focusRow、focusColumn、event、row、column）を返します。
+       */
+      (previous) => ({
         ...previous,
         focusRow: row,
         focusColumn: column,
@@ -841,6 +1591,13 @@ function TableEditorOverlay({
     singleCellSelection(row, column);
   }
 
+  /**
+   * 「extendCellSelection」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @param event 処理対象のイベントです。
+   * @param row 本文、表、配列内の対象位置を示すインデックスです。
+   * @param column 本文、表、配列内の対象位置を示すインデックスです。
+   * @returns 「extendCellSelection」の副作用または状態更新を実行し、値は返しません。
+   */
   function extendCellSelection(
     event: React.PointerEvent<HTMLTableCellElement>,
     row: number,
@@ -859,6 +1616,11 @@ function TableEditorOverlay({
     setActiveColumn(column);
   }
 
+  /**
+   * 「selectRow」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @param row 本文、表、配列内の対象位置を示すインデックスです。
+   * @returns 「selectRow」の副作用または状態更新を実行し、値は返しません。
+   */
   function selectRow(row: number): void {
     setActiveRow(row);
     setActiveColumn(Math.min(activeColumn, columnCount - 1));
@@ -871,6 +1633,11 @@ function TableEditorOverlay({
     setSelectionKind("row");
   }
 
+  /**
+   * 「selectColumn」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @param column 本文、表、配列内の対象位置を示すインデックスです。
+   * @returns 「selectColumn」の副作用または状態更新を実行し、値は返しません。
+   */
   function selectColumn(column: number): void {
     setActiveColumn(column);
     setActiveRow(Math.min(activeRow, rows.length - 1));
@@ -883,6 +1650,10 @@ function TableEditorOverlay({
     setSelectionKind("column");
   }
 
+  /**
+   * 「selectAllCells」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @returns 「selectAllCells」の副作用または状態更新を実行し、値は返しません。
+   */
   function selectAllCells(): void {
     setActiveRow(0);
     setActiveColumn(0);
@@ -895,6 +1666,10 @@ function TableEditorOverlay({
     setSelectionKind("all");
   }
 
+  /**
+   * clear・selected・cellsを解除または削除します。
+   * @returns 「clearSelectedCells」の副作用または状態更新を実行し、値は返しません。
+   */
   function clearSelectedCells(): void {
     let changed = false;
     for (
@@ -920,6 +1695,12 @@ function TableEditorOverlay({
     setStatus("");
   }
 
+  /**
+   * 「insertLineBreak」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @param row 本文、表、配列内の対象位置を示すインデックスです。
+   * @param column 本文、表、配列内の対象位置を示すインデックスです。
+   * @returns 「insertLineBreak」の副作用または状態更新を実行し、値は返しません。
+   */
   function insertLineBreak(
     row = activeRow,
     column = activeColumn,
@@ -942,11 +1723,31 @@ function TableEditorOverlay({
     );
     recordHistory();
     const key = cellKey(row, column);
-    setRows((previous) =>
-      previous.map((current, rowIndex) => {
+    setRows(
+    /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+     * @param previous previousとして渡される、このコールバックの入力値です。
+     * @returns 「previous」から生成した処理結果を返します。
+     */
+    (previous) =>
+      previous.map(
+      /**
+ * 「current」「rowIndex」を変換し、変換後の要素を返すコールバックです。
+       * @param current currentとして渡される、このコールバックの入力値です。
+       * @param rowIndex 「rowIndex」は、「current」が表編集で処理する対象を特定する入力です。
+       * @returns 入力要素から生成した変換後の値を返します。
+       */
+      (current, rowIndex) => {
         if (rowIndex !== row) return current;
         const next = Array.from(
           { length: columnCount },
+
+          /**
+ * 「_」「index」を受け取り、処理結果を生成する処理です。
+           * @param _ 呼び出し側が渡すが、このコールバックでは使用しない値です。
+           * @param index 本文、表、配列内の対象位置を示すインデックスです。
+           * @returns 配列要素または初期値を返します。
+           */
           (_, index) => current[index] ?? "",
         );
         next[column] = edit.value;
@@ -964,7 +1765,12 @@ function TableEditorOverlay({
       from: displayCaretOffset,
       to: displayCaretOffset,
     });
-    requestAnimationFrame(() => {
+    requestAnimationFrame(
+    /**
+ * 次の描画フレームでUI更新処理を実行するコールバックです。
+     * @returns 「focus」の呼び出し結果を返します。
+     */
+    () => {
       const element = overlayRef.current?.querySelector<HTMLTextAreaElement>(
         `[data-table-cell="${key}"]`,
       );
@@ -974,6 +1780,13 @@ function TableEditorOverlay({
     });
   }
 
+  /**
+   * delete・line・break・before・display・offsetを解除または削除します。
+   * @param row 本文、表、配列内の対象位置を示すインデックスです。
+   * @param column 本文、表、配列内の対象位置を示すインデックスです。
+   * @param displayOffset 本文または選択範囲を示すゼロ基準の位置です。範囲の開始・終了や写像の基準になります。
+   * @returns 判定結果です。
+   */
   function deleteLineBreakBeforeDisplayOffset(
     row: number,
     column: number,
@@ -984,11 +1797,31 @@ function TableEditorOverlay({
     if (!edit) return false;
 
     recordHistory();
-    setRows((previous) =>
-      previous.map((current, rowIndex) => {
+    setRows(
+    /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+     * @param previous previousとして渡される、このコールバックの入力値です。
+     * @returns 「previous」から生成した処理結果を返します。
+     */
+    (previous) =>
+      previous.map(
+      /**
+ * 「current」「rowIndex」を変換し、変換後の要素を返すコールバックです。
+       * @param current currentとして渡される、このコールバックの入力値です。
+       * @param rowIndex 「rowIndex」は、「current」が表編集で処理する対象を特定する入力です。
+       * @returns 入力要素から生成した変換後の値を返します。
+       */
+      (current, rowIndex) => {
         if (rowIndex !== row) return current;
         const next = Array.from(
           { length: columnCount },
+
+          /**
+ * 「_」「index」を受け取り、処理結果を生成する処理です。
+           * @param _ 呼び出し側が渡すが、このコールバックでは使用しない値です。
+           * @param index 本文、表、配列内の対象位置を示すインデックスです。
+           * @returns 配列要素または初期値を返します。
+           */
           (_, index) => current[index] ?? "",
         );
         next[column] = edit.value;
@@ -1003,7 +1836,12 @@ function TableEditorOverlay({
       from: edit.caretOffset,
       to: edit.caretOffset,
     });
-    requestAnimationFrame(() => {
+    requestAnimationFrame(
+    /**
+ * 次の描画フレームでUI更新処理を実行するコールバックです。
+     * @returns 「focus」の呼び出し結果を返します。
+     */
+    () => {
       const element = overlayRef.current?.querySelector<HTMLTextAreaElement>(
         `[data-table-cell="${key}"]`,
       );
@@ -1014,6 +1852,12 @@ function TableEditorOverlay({
     return true;
   }
 
+  /**
+   * start・column・resizeを開始します。
+   * @param event 処理対象のイベントです。
+   * @param column 本文、表、配列内の対象位置を示すインデックスです。
+   * @returns 「startColumnResize」の副作用または状態更新を実行し、値は返しません。
+   */
   function startColumnResize(
     event: React.MouseEvent<HTMLDivElement>,
     column: number,
@@ -1031,6 +1875,11 @@ function TableEditorOverlay({
     document.body.style.userSelect = "none";
   }
 
+  /**
+   * 「autoFitColumn」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @param column 本文、表、配列内の対象位置を示すインデックスです。
+   * @returns 「autoFitColumn」の副作用または状態更新を実行し、値は返しません。
+   */
   function autoFitColumn(column: number): void {
     const editor = overlayRef.current;
     if (!editor) return;
@@ -1039,6 +1888,12 @@ function TableEditorOverlay({
         "textarea[data-table-cell]",
       ),
     ).filter(
+
+      /**
+ * 「cell」が条件に一致するか判定し、残す要素を決めるコールバックです。
+       * @param cell 処理対象のセルです。
+       * @returns 要素を採用するかどうかの真偽値を返します。
+       */
       (cell) => parseTableCellAddress(cell.dataset.tableCell)?.column === column,
     );
     const sample = cells[0];
@@ -1048,7 +1903,17 @@ function TableEditorOverlay({
     const canvas = document.createElement("canvas");
     const context = canvas.getContext("2d");
     const letterSpacing = Number.parseFloat(style.letterSpacing) || 0;
-    const measure = (value: string): number => {
+
+    /**
+     * measureを計算します。
+     * @param value 「measure」で検証・変換する入力値です。
+     * @returns 計算結果の数値です。
+     */
+    const measure = /**
+ * 「measure」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @param value 「measure」で検証・変換する入力値です。
+ * @returns 「measure」が表編集状態の入力を処理して得た固有の結果を返します。
+ */ (value: string): number => {
       if (!context) return Array.from(value).length * 8;
       context.font = [
         style.fontStyle,
@@ -1067,13 +1932,25 @@ function TableEditorOverlay({
       (Number.parseFloat(style.paddingRight) || 0) +
       8;
     const width = calculateAutoFitColumnWidth(
-      cells.map((cell) => cell.value),
+      cells.map(
+      /**
+ * 「cell」を変換し、変換後の要素を返すコールバックです。
+       * @param cell 処理対象のセルです。
+       * @returns 入力要素から生成した変換後の値を返します。
+       */
+      (cell) => cell.value),
       measure,
       horizontalChrome,
       MIN_COLUMN_WIDTH,
       MAX_AUTO_COLUMN_WIDTH,
     );
-    setColumnWidths((previous) => {
+    setColumnWidths(
+    /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+     * @param previous previousとして渡される、このコールバックの入力値です。
+     * @returns 「previous」から生成した処理結果を返します。
+     */
+    (previous) => {
       const next = previous.slice();
       while (next.length <= column) next.push(DEFAULT_COLUMN_WIDTH);
       if (next[column] === width) return previous;
@@ -1082,6 +1959,12 @@ function TableEditorOverlay({
     });
   }
 
+  /**
+   * 「autoFitColumnOnMouseUp」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @param event 処理対象のイベントです。
+   * @param column 本文、表、配列内の対象位置を示すインデックスです。
+   * @returns 「autoFitColumnOnMouseUp」の副作用または状態更新を実行し、値は返しません。
+   */
   function autoFitColumnOnMouseUp(
     event: React.MouseEvent<HTMLDivElement>,
     column: number,
@@ -1093,6 +1976,12 @@ function TableEditorOverlay({
     autoFitColumn(column);
   }
 
+  /**
+   * resize・column・by・keyboardを移動または調整します。
+   * @param event 処理対象のイベントです。
+   * @param column 本文、表、配列内の対象位置を示すインデックスです。
+   * @returns 「resizeColumnByKeyboard」の副作用または状態更新を実行し、値は返しません。
+   */
   function resizeColumnByKeyboard(
     event: React.KeyboardEvent<HTMLDivElement>,
     column: number,
@@ -1101,7 +1990,13 @@ function TableEditorOverlay({
       event.key === "ArrowLeft" ? -12 : event.key === "ArrowRight" ? 12 : 0;
     if (!delta) return;
     event.preventDefault();
-    setColumnWidths((previous) => {
+    setColumnWidths(
+    /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+     * @param previous previousとして渡される、このコールバックの入力値です。
+     * @returns 「previous」から生成した処理結果を返します。
+     */
+    (previous) => {
       const next = previous.slice();
       while (next.length <= column) next.push(DEFAULT_COLUMN_WIDTH);
       next[column] = Math.max(MIN_COLUMN_WIDTH, next[column] + delta);
@@ -1109,6 +2004,12 @@ function TableEditorOverlay({
     });
   }
 
+  /**
+   * start・row・resizeを開始します。
+   * @param event 処理対象のイベントです。
+   * @param row 本文、表、配列内の対象位置を示すインデックスです。
+   * @returns 「startRowResize」の副作用または状態更新を実行し、値は返しません。
+   */
   function startRowResize(
     event: React.PointerEvent<HTMLDivElement>,
     row: number,
@@ -1132,6 +2033,11 @@ function TableEditorOverlay({
     event.currentTarget.setPointerCapture(event.pointerId);
   }
 
+  /**
+   * 「autoFitRow」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @param row 本文、表、配列内の対象位置を示すインデックスです。
+   * @returns 「autoFitRow」の副作用または状態更新を実行し、値は返しません。
+   */
   function autoFitRow(row: number): void {
     const editor = overlayRef.current;
     if (!editor) return;
@@ -1140,11 +2046,23 @@ function TableEditorOverlay({
         "textarea[data-table-cell]",
       ),
     ).filter(
+
+      /**
+ * 「cell」が条件に一致するか判定し、残す要素を決めるコールバックです。
+       * @param cell 処理対象のセルです。
+       * @returns 要素を採用するかどうかの真偽値を返します。
+       */
       (cell) => parseTableCellAddress(cell.dataset.tableCell)?.row === row,
     );
     if (!cells.length) return;
 
-    const heights = cells.map((cell) => {
+    const heights = cells.map(
+    /**
+ * 「cell」を変換し、変換後の要素を返すコールバックです。
+     * @param cell 処理対象のセルです。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (cell) => {
       const clone = cell.cloneNode(false) as HTMLTextAreaElement;
       const width = Math.max(1, cell.getBoundingClientRect().width);
       clone.value = cell.value;
@@ -1164,7 +2082,13 @@ function TableEditorOverlay({
       return height + AUTO_FIT_ROW_VERTICAL_BUFFER;
     });
     const height = calculateAutoFitRowHeight(heights);
-    setRowHeights((previous) => {
+    setRowHeights(
+    /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+     * @param previous previousとして渡される、このコールバックの入力値です。
+     * @returns 「previous」から生成した処理結果を返します。
+     */
+    (previous) => {
       const next = previous.slice();
       while (next.length <= row) next.push(undefined);
       if (next[row] === height) return previous;
@@ -1173,6 +2097,12 @@ function TableEditorOverlay({
     });
   }
 
+  /**
+   * 「autoFitRowOnPointerUp」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @param event 処理対象のイベントです。
+   * @param row 本文、表、配列内の対象位置を示すインデックスです。
+   * @returns 「autoFitRowOnPointerUp」の副作用または状態更新を実行し、値は返しません。
+   */
   function autoFitRowOnPointerUp(
     event: React.PointerEvent<HTMLDivElement>,
     row: number,
@@ -1192,6 +2122,12 @@ function TableEditorOverlay({
     autoFitRow(row);
   }
 
+  /**
+   * resize・row・by・keyboardを移動または調整します。
+   * @param event 処理対象のイベントです。
+   * @param row 本文、表、配列内の対象位置を示すインデックスです。
+   * @returns 「resizeRowByKeyboard」の副作用または状態更新を実行し、値は返しません。
+   */
   function resizeRowByKeyboard(
     event: React.KeyboardEvent<HTMLDivElement>,
     row: number,
@@ -1207,7 +2143,13 @@ function TableEditorOverlay({
       (rowHeights[row] ??
         Math.round(rowElement.getBoundingClientRect().height)) + delta,
     );
-    setRowHeights((previous) => {
+    setRowHeights(
+    /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+     * @param previous previousとして渡される、このコールバックの入力値です。
+     * @returns 「previous」から生成した処理結果を返します。
+     */
+    (previous) => {
       const next = previous.slice();
       while (next.length <= row) next.push(undefined);
       next[row] = height;
@@ -1215,6 +2157,11 @@ function TableEditorOverlay({
     });
   }
 
+  /**
+   * start・editor・dragを開始します。
+   * @param event 処理対象のイベントです。
+   * @returns 「startEditorDrag」の副作用または状態更新を実行し、値は返しません。
+   */
   function startEditorDrag(event: React.PointerEvent<HTMLElement>): void {
     if (event.button !== 0) return;
     if (event.target instanceof Element && event.target.closest("button"))
@@ -1239,6 +2186,11 @@ function TableEditorOverlay({
     event.currentTarget.setPointerCapture(event.pointerId);
   }
 
+  /**
+   * start・editor・resizeを開始します。
+   * @param event 処理対象のイベントです。
+   * @returns 「startEditorResize」の副作用または状態更新を実行し、値は返しません。
+   */
   function startEditorResize(event: React.PointerEvent<HTMLDivElement>): void {
     if (event.button !== 0) return;
     const element = overlayRef.current;
@@ -1262,6 +2214,11 @@ function TableEditorOverlay({
     event.currentTarget.setPointerCapture(event.pointerId);
   }
 
+  /**
+   * resize・editor・by・keyboardを移動または調整します。
+   * @param event 処理対象のイベントです。
+   * @returns 「resizeEditorByKeyboard」の副作用または状態更新を実行し、値は返しません。
+   */
   function resizeEditorByKeyboard(
     event: React.KeyboardEvent<HTMLDivElement>,
   ): void {
@@ -1289,7 +2246,11 @@ function TableEditorOverlay({
     });
   }
 
-  /** リボンと同じapplyMarkdownTableActionをdraft表へ適用する。 */
+  /**
+   * リボンと同じapplyMarkdownTableActionをdraft表へ適用する。
+   * @param action 「action」は、「applySharedTableAction」が表編集状態の処理対象を特定する入力です。
+   * @returns 「applySharedTableAction」の副作用または状態更新を実行し、値は返しません。
+   */
   function applySharedTableAction(action: MarkdownTableAction): void {
     const rendered = renderTableEditorDraft(currentDraft());
     const edit = applyMarkdownTableAction(
@@ -1302,7 +2263,11 @@ function TableEditorOverlay({
     if (next) replaceDraft(next);
   }
 
-  /** 選択範囲が複数列なら、既存の共通配置操作を列ごとに適用する。 */
+  /**
+   * 選択範囲が複数列なら、既存の共通配置操作を列ごとに適用する。
+   * @param action 「action」は、「applySharedAlignmentAction」が表編集状態の処理対象を特定する入力です。
+   * @returns 「applySharedAlignmentAction」の副作用または状態更新を実行し、値は返しません。
+   */
   function applySharedAlignmentAction(
     action: "alignLeft" | "alignCenter" | "alignRight",
   ): void {
@@ -1328,7 +2293,13 @@ function TableEditorOverlay({
     working.activeColumn = Math.min(activeColumn, working.alignments.length - 1);
     if (renderTableEditorDraft(working).text === currentRenderedText) return;
     recordHistory();
-    setRows(working.rows.map((row) => row.slice()));
+    setRows(working.rows.map(
+    /**
+ * 「row」を変換し、変換後の要素を返すコールバックです。
+     * @param row 本文、表、配列内の対象位置を示すインデックスです。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (row) => row.slice()));
     setAlignments(working.alignments.slice());
     setActiveRow(working.activeRow);
     setActiveColumn(working.activeColumn);
@@ -1336,19 +2307,47 @@ function TableEditorOverlay({
     setStatus("");
   }
 
+  /**
+   * 配置を解除または削除します。
+   * @returns 「clearAlignment」の副作用または状態更新を実行し、値は返しません。
+   */
   function clearAlignment(): void {
-    if (selectedColumns.every((column) => (alignments[column] ?? "none") === "none")) {
+    if (selectedColumns.every(
+    /**
+ * 「column」が条件を満たすか判定し、全要素の適合結果を返すコールバックです。
+     * @param column 本文、表、配列内の対象位置を示すインデックスです。
+     * @returns 条件判定の結果を示す真偽値を返します。
+     */
+    (column) => (alignments[column] ?? "none") === "none")) {
       return;
     }
     recordHistory();
     const selected = new Set(selectedColumns);
-    setAlignments((previous) =>
-      Array.from({ length: columnCount }, (_, index) =>
+    setAlignments(
+    /**
+ * 「previous」を受け取り、登録された副作用または結果を生成する処理です。
+     * @param previous previousとして渡される、このコールバックの入力値です。
+     * @returns 「previous」から生成した処理結果を返します。
+     */
+    (previous) =>
+      Array.from({ length: columnCount },
+      /**
+ * 「_」「index」から配列要素を生成するコールバックです。
+       * @param _ 呼び出し側が渡すが、このコールバックでは使用しない値です。
+       * @param index 本文、表、配列内の対象位置を示すインデックスです。
+       * @returns 「_」「index」から生成した処理結果を返します。
+       */
+      (_, index) =>
         selected.has(index) ? "none" : (previous[index] ?? "none"),
       ),
     );
   }
 
+  /**
+   * セルを移動または調整します。
+   * @param direction 「direction」は、「moveCell」が表編集状態の処理対象を特定する入力です。
+   * @returns 「moveCell」の副作用または状態更新を実行し、値は返しません。
+   */
   function moveCell(direction: 1 | -1): void {
     const flat = activeRow * columnCount + activeColumn + direction;
     const wrapped =
@@ -1356,6 +2355,11 @@ function TableEditorOverlay({
     focusCell(Math.floor(wrapped / columnCount), wrapped % columnCount);
   }
 
+  /**
+   * move・verticalを移動または調整します。
+   * @param direction 「direction」は、「moveVertical」が表編集状態の処理対象を特定する入力です。
+   * @returns 「moveVertical」の副作用または状態更新を実行し、値は返しません。
+   */
   function moveVertical(direction: 1 | -1): void {
     focusCell(
       Math.max(0, Math.min(rows.length - 1, activeRow + direction)),
@@ -1363,12 +2367,24 @@ function TableEditorOverlay({
     );
   }
 
+  /**
+   * 行を移動または調整します。
+   * @param source 処理対象のソースです。
+   * @param target 処理対象の対象です。
+   * @returns 「moveRow」の副作用または状態更新を実行し、値は返しません。
+   */
   function moveRow(source: number, target: number): void {
     const safeTarget = Math.max(1, Math.min(rows.length - 1, target));
     if (source <= 0 || source >= rows.length || source === safeTarget) return;
     recordHistory();
     setRows(moveTableGridRow(rows, source, safeTarget));
-    setRowHeights((previous) =>
+    setRowHeights(
+    /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+     * @param previous previousとして渡される、このコールバックの入力値です。
+     * @returns 「previous」から生成した処理結果を返します。
+     */
+    (previous) =>
       moveTableGridItem(previous, source, safeTarget),
     );
     setActiveRow(safeTarget);
@@ -1383,6 +2399,12 @@ function TableEditorOverlay({
     setStatus("");
   }
 
+  /**
+   * 列を移動または調整します。
+   * @param source 処理対象のソースです。
+   * @param target 処理対象の対象です。
+   * @returns 「moveColumn」の副作用または状態更新を実行し、値は返しません。
+   */
   function moveColumn(source: number, target: number): void {
     const safeTarget = Math.max(0, Math.min(columnCount - 1, target));
     if (source < 0 || source >= columnCount || source === safeTarget) return;
@@ -1390,7 +2412,13 @@ function TableEditorOverlay({
     recordHistory();
     setRows(moved.rows);
     setAlignments(moved.alignments as TableEditorAlignment[]);
-    setColumnWidths((previous) =>
+    setColumnWidths(
+    /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+     * @param previous previousとして渡される、このコールバックの入力値です。
+     * @returns 「previous」から生成した処理結果を返します。
+     */
+    (previous) =>
       moveTableGridItem(previous, source, safeTarget),
     );
     setActiveColumn(safeTarget);
@@ -1405,6 +2433,10 @@ function TableEditorOverlay({
     setStatus("");
   }
 
+  /**
+   * 行を作成または組み立てます。
+   * @returns 「duplicateSelectedRows」の副作用または状態更新を実行し、値は返しません。
+   */
   function duplicateSelectedRows(): void {
     const fromRow = normalizedSelection.fromRow;
     const toRow = normalizedSelection.toRow;
@@ -1423,7 +2455,14 @@ function TableEditorOverlay({
     const selectedColumn = Math.min(activeColumn, columnCount - 1);
     setRows(nextRows);
     setRowHeights(
-      Array.from({ length: nextRows.length }, (_, index) => nextHeights[index]),
+      Array.from({ length: nextRows.length },
+      /**
+ * 「_」「index」を受け取り、処理結果を生成する処理です。
+       * @param _ 呼び出し側が渡すが、このコールバックでは使用しない値です。
+       * @param index 本文、表、配列内の対象位置を示すインデックスです。
+       * @returns 「_」「index」から生成した処理結果を返します。
+       */
+      (_, index) => nextHeights[index]),
     );
     setActiveRow(insertAt);
     setActiveColumn(selectedColumn);
@@ -1438,6 +2477,10 @@ function TableEditorOverlay({
     setStatus("");
   }
 
+  /**
+   * 列を作成または組み立てます。
+   * @returns 「duplicateSelectedColumns」の副作用または状態更新を実行し、値は返しません。
+   */
   function duplicateSelectedColumns(): void {
     const fromColumn = normalizedSelection.fromColumn;
     const toColumn = normalizedSelection.toColumn;
@@ -1456,6 +2499,13 @@ function TableEditorOverlay({
     const insertAt = toColumn + 1;
     const nextWidths = Array.from(
       { length: columnCount },
+
+      /**
+ * 「_」「index」を受け取り、処理結果を生成する処理です。
+       * @param _ 呼び出し側が渡すが、このコールバックでは使用しない値です。
+       * @param index 本文、表、配列内の対象位置を示すインデックスです。
+       * @returns 「_」「index」から生成した処理結果を返します。
+       */
       (_, index) => columnWidths[index] ?? DEFAULT_COLUMN_WIDTH,
     );
     nextWidths.splice(
@@ -1480,6 +2530,12 @@ function TableEditorOverlay({
     setStatus("");
   }
 
+  /**
+   * start・row・dragを開始します。
+   * @param event 処理対象のイベントです。
+   * @param row 本文、表、配列内の対象位置を示すインデックスです。
+   * @returns 「startRowDrag」の副作用または状態更新を実行し、値は返しません。
+   */
   function startRowDrag(event: React.DragEvent<HTMLElement>, row: number): void {
     if (row <= 0) return;
     selectRow(row);
@@ -1489,6 +2545,12 @@ function TableEditorOverlay({
     event.dataTransfer.setData("text/plain", `mve-table-row:${row}`);
   }
 
+  /**
+   * start・column・dragを開始します。
+   * @param event 処理対象のイベントです。
+   * @param column 本文、表、配列内の対象位置を示すインデックスです。
+   * @returns 「startColumnDrag」の副作用または状態更新を実行し、値は返しません。
+   */
   function startColumnDrag(
     event: React.DragEvent<HTMLElement>,
     column: number,
@@ -1500,28 +2562,58 @@ function TableEditorOverlay({
     event.dataTransfer.setData("text/plain", `mve-table-column:${column}`);
   }
 
+  /**
+   * 「allowRowDrop」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @param event 処理対象のイベントです。
+   * @param row 本文、表、配列内の対象位置を示すインデックスです。
+   * @returns 「allowRowDrop」の副作用または状態更新を実行し、値は返しません。
+   */
   function allowRowDrop(event: React.DragEvent, row: number): void {
     if (row <= 0 || gridDragRef.current?.kind !== "row") return;
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
-    setDragTarget((previous) =>
+    setDragTarget(
+    /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+     * @param previous previousとして渡される、このコールバックの入力値です。
+     * @returns 「allowColumnDrop」を実行し、値を返しません。
+     */
+    (previous) =>
       previous?.kind === "row" && previous.index === row
         ? previous
         : { kind: "row", index: row },
     );
   }
 
+  /**
+   * 「allowColumnDrop」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @param event 処理対象のイベントです。
+   * @param column 本文、表、配列内の対象位置を示すインデックスです。
+   * @returns 「allowColumnDrop」の副作用または状態更新を実行し、値は返しません。
+   */
   function allowColumnDrop(event: React.DragEvent, column: number): void {
     if (gridDragRef.current?.kind !== "column") return;
     event.preventDefault();
     event.dataTransfer.dropEffect = "move";
-    setDragTarget((previous) =>
+    setDragTarget(
+    /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+     * @param previous previousとして渡される、このコールバックの入力値です。
+     * @returns 「dropRow」を実行し、値を返しません。
+     */
+    (previous) =>
       previous?.kind === "column" && previous.index === column
         ? previous
         : { kind: "column", index: column },
     );
   }
 
+  /**
+   * 「dropRow」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @param event 処理対象のイベントです。
+   * @param row 本文、表、配列内の対象位置を示すインデックスです。
+   * @returns 「dropRow」の副作用または状態更新を実行し、値は返しません。
+   */
   function dropRow(event: React.DragEvent, row: number): void {
     const drag = gridDragRef.current;
     if (drag?.kind !== "row" || row <= 0) return;
@@ -1530,6 +2622,12 @@ function TableEditorOverlay({
     endGridDrag();
   }
 
+  /**
+   * 「dropColumn」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @param event 処理対象のイベントです。
+   * @param column 本文、表、配列内の対象位置を示すインデックスです。
+   * @returns 「dropColumn」の副作用または状態更新を実行し、値は返しません。
+   */
   function dropColumn(event: React.DragEvent, column: number): void {
     const drag = gridDragRef.current;
     if (drag?.kind !== "column") return;
@@ -1538,11 +2636,21 @@ function TableEditorOverlay({
     endGridDrag();
   }
 
+  /**
+   * 「endGridDrag」は、処理を終了し、保持していたリソースまたは状態を整理します。
+   * @returns 「endGridDrag」の副作用または状態更新を実行し、値は返しません。
+   */
   function endGridDrag(): void {
     gridDragRef.current = undefined;
     setDragTarget(undefined);
   }
 
+  /**
+   * キーを処理します。
+   * @param event 処理対象のイベントです。
+   * @param row 本文、表、配列内の対象位置を示すインデックスです。
+   * @returns イベントを処理し、状態更新または副作用だけを実行して値は返しません。
+   */
   function handleRowDragKey(
     event: React.KeyboardEvent<HTMLElement>,
     row: number,
@@ -1559,6 +2667,12 @@ function TableEditorOverlay({
     moveRow(row, target);
   }
 
+  /**
+   * キーを処理します。
+   * @param event 処理対象のイベントです。
+   * @param column 本文、表、配列内の対象位置を示すインデックスです。
+   * @returns イベントを処理し、状態更新または副作用だけを実行して値は返しません。
+   */
   function handleColumnDragKey(
     event: React.KeyboardEvent<HTMLElement>,
     column: number,
@@ -1575,7 +2689,11 @@ function TableEditorOverlay({
     moveColumn(column, target);
   }
 
-  /** Excel等のTSV貼り付けもリボン/本文貼り付けと同じapplyMarkdownTableTsvへ渡す。 */
+  /**
+   * Excel等のTSV貼り付けもリボン/本文貼り付けと同じapplyMarkdownTableTsvへ渡す。
+   * @param event 処理対象のイベントです。
+   * @returns 「pasteTsv」の副作用または状態更新を実行し、値は返しません。
+   */
   function pasteTsv(event: React.ClipboardEvent<HTMLTextAreaElement>): void {
     const value = event.clipboardData.getData("text/plain");
     if (!/[\t\r\n]/.test(value)) return;
@@ -1600,10 +2718,21 @@ function TableEditorOverlay({
     replaceDraft(next);
   }
 
+  /**
+   * 「tsvForRange」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @param range 処理対象の範囲です。
+   * @returns 「tsvForRange」が生成または変換した表編集の文字列を返します。
+   */
   function tsvForRange(range: NormalizedTableGridRange): string {
     const selectedRows = rows
       .slice(range.fromRow, range.toRow + 1)
-      .map((row) => row.slice(range.fromColumn, range.toColumn + 1));
+      .map(
+      /**
+ * 「row」を変換し、変換後の要素を返すコールバックです。
+       * @param row 本文、表、配列内の対象位置を示すインデックスです。
+       * @returns 入力要素から生成した変換後の値を返します。
+       */
+      (row) => row.slice(range.fromColumn, range.toColumn + 1));
     const selectedAlignments = alignments.slice(
       range.fromColumn,
       range.toColumn + 1,
@@ -1623,11 +2752,19 @@ function TableEditorOverlay({
     );
   }
 
+  /**
+   * 「selectedTsv」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @returns 「selectedTsv」が生成または変換した表編集の文字列を返します。
+   */
   function selectedTsv(): string {
     return tsvForRange(normalizedSelection);
   }
 
-  /** TSVコピーは単一セル選択時の従来動作を保ち、範囲選択時だけ選択範囲をコピーする。 */
+  /**
+   * TSVコピーは単一セル選択時の従来動作を保ち、範囲選択時だけ選択範囲をコピーする。
+   * @param forceSelection 「forceSelection」は、「copyTsv」が表編集状態の処理対象を特定する入力です。
+   * @returns 非同期処理の完了を表すPromiseです。
+   */
   async function copyTsv(forceSelection = false): Promise<void> {
     try {
       await writeClipboardText(
@@ -1635,7 +2772,12 @@ function TableEditorOverlay({
         messages.app.errors.clipboardUnavailable,
       );
       setStatus(messages.app.tableEditor.copied);
-      window.setTimeout(() => setStatus(""), 1200);
+      window.setTimeout(
+      /**
+ * 指定時間の経過後に遅延処理を実行するコールバックです。
+       * @returns 「setStatus」を実行し、値を返しません。
+       */
+      () => setStatus(""), 1200);
     } catch (copyError) {
       setStatus(
         copyError instanceof Error ? copyError.message : String(copyError),
@@ -1643,6 +2785,11 @@ function TableEditorOverlay({
     }
   }
 
+  /**
+   * 「rowIsSelected」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @param row 本文、表、配列内の対象位置を示すインデックスです。
+   * @returns 判定結果です。
+   */
   function rowIsSelected(row: number): boolean {
     return (
       normalizedSelection.fromColumn === 0 &&
@@ -1652,6 +2799,11 @@ function TableEditorOverlay({
     );
   }
 
+  /**
+   * 「columnIsSelected」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @param column 本文、表、配列内の対象位置を示すインデックスです。
+   * @returns 判定結果です。
+   */
   function columnIsSelected(column: number): boolean {
     return (
       normalizedSelection.fromRow === 0 &&
@@ -1661,6 +2813,10 @@ function TableEditorOverlay({
     );
   }
 
+  /**
+   * create・selection・summaryを作成または組み立てます。
+   * @returns 「createSelectionSummary」が生成または変換した表編集の文字列を返します。
+   */
   function createSelectionSummary(): string {
     const from = cellAddress(
       normalizedSelection.fromRow,
@@ -1674,15 +2830,34 @@ function TableEditorOverlay({
     return `${polishText.selection}: ${range} / ${selectedCellCount} ${polishText.cells}`;
   }
 
+  /**
+   * 「cellAddress」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @param row 本文、表、配列内の対象位置を示すインデックスです。
+   * @param column 本文、表、配列内の対象位置を示すインデックスです。
+   * @returns 「cellAddress」が生成または変換した表編集の文字列を返します。
+   */
   function cellAddress(row: number, column: number): string {
     return `${tableGridColumnLabel(column)}:${row === 0 ? "H" : row}`;
   }
 
+  /**
+   * close・and・restore・focusを解除または削除します。
+   * @returns 購読解除、タイマー解除、またはリソース破棄を実行して値は返しません。
+   */
   function closeAndRestoreFocus(): void {
     onClose();
-    requestAnimationFrame(() => view.focus());
+    requestAnimationFrame(
+    /**
+ * 次の描画フレームでUI更新処理を実行するコールバックです。
+     * @returns 「view.focus」を実行し、値を返しません。
+     */
+    () => view.focus());
   }
 
+  /**
+   * 「requestClose」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+   * @returns 「requestClose」の副作用または状態更新を実行し、値は返しません。
+   */
   function requestClose(): void {
     if (isDirty && !window.confirm(polishText.discard)) return;
     closeAndRestoreFocus();
@@ -1691,6 +2866,7 @@ function TableEditorOverlay({
   /**
    * ドラフトをCodeMirrorへ1トランザクションで適用する。
    * SourceEditorの通常更新リスナーが受信するため、以降はリボン編集と同じApp/host同期経路を通る。
+   * @returns 「apply」の副作用または状態更新を実行し、値は返しません。
    */
   function apply(): void {
     if (!view.dom.isConnected) {
@@ -1780,14 +2956,24 @@ function TableEditorOverlay({
         <ToolbarGroup label={messages.ribbon.groups.rows}>
           <button
             type="button"
-            onClick={() => applySharedTableAction("rowAfter")}
+            onClick={
+            /**
+ * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
+             * @returns 「applySharedTableAction」の呼び出し結果を返します。
+             */
+            () => applySharedTableAction("rowAfter")}
             disabled={rows.length >= MAX_ROWS}
           >
             {messages.app.tableEditor.addRow}
           </button>
           <button
             type="button"
-            onClick={() => applySharedTableAction("deleteRow")}
+            onClick={
+            /**
+ * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
+             * @returns 「applySharedTableAction」の呼び出し結果を返します。
+             */
+            () => applySharedTableAction("deleteRow")}
             disabled={activeRow === 0 || rows.length <= 1}
           >
             {messages.app.tableEditor.deleteRow}
@@ -1810,14 +2996,24 @@ function TableEditorOverlay({
         <ToolbarGroup label={messages.ribbon.groups.columns}>
           <button
             type="button"
-            onClick={() => applySharedTableAction("colAfter")}
+            onClick={
+            /**
+ * 登録された副作用または結果を生成する処理を実行するコールバックです。
+             * @returns 「applySharedTableAction」の呼び出し結果を返します。
+             */
+            () => applySharedTableAction("colAfter")}
             disabled={columnCount >= MAX_COLUMNS}
           >
             {messages.app.tableEditor.addColumn}
           </button>
           <button
             type="button"
-            onClick={() => applySharedTableAction("deleteColumn")}
+            onClick={
+            /**
+ * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
+             * @returns 「applySharedTableAction」の呼び出し結果を返します。
+             */
+            () => applySharedTableAction("deleteColumn")}
             disabled={columnCount <= 1}
           >
             {messages.app.tableEditor.deleteColumn}
@@ -1840,17 +3036,32 @@ function TableEditorOverlay({
           <ToolbarToggle
             label={messages.app.tableEditor.alignLeft}
             active={currentAlignment === "left"}
-            onClick={() => applySharedAlignmentAction("alignLeft")}
+            onClick={
+            /**
+ * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
+             * @returns 「applySharedAlignmentAction」の呼び出し結果を返します。
+             */
+            () => applySharedAlignmentAction("alignLeft")}
           />
           <ToolbarToggle
             label={messages.app.tableEditor.alignCenter}
             active={currentAlignment === "center"}
-            onClick={() => applySharedAlignmentAction("alignCenter")}
+            onClick={
+            /**
+ * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
+             * @returns 「applySharedAlignmentAction」の呼び出し結果を返します。
+             */
+            () => applySharedAlignmentAction("alignCenter")}
           />
           <ToolbarToggle
             label={messages.app.tableEditor.alignRight}
             active={currentAlignment === "right"}
-            onClick={() => applySharedAlignmentAction("alignRight")}
+            onClick={
+            /**
+ * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
+             * @returns 「applySharedAlignmentAction」の呼び出し結果を返します。
+             */
+            () => applySharedAlignmentAction("alignRight")}
           />
           <ToolbarToggle
             label={messages.app.tableEditor.clearAlignment}
@@ -1859,14 +3070,24 @@ function TableEditorOverlay({
           />
         </ToolbarGroup>
         <ToolbarGroup label={messages.ribbon.groups.excel} last>
-          <button type="button" onClick={() => void copyTsv()}>
+          <button type="button" onClick={
+          /**
+ * 登録された副作用または結果を生成する処理を実行するコールバックです。
+           * @returns 「copyTsv」の呼び出し結果を返します。
+           */
+          () => void copyTsv()}>
             {messages.app.tableEditor.copyTsv}
           </button>
           <button
             type="button"
             title={`${messages.ribbon.labels.cellBreak} (Alt+Enter)`}
             aria-keyshortcuts="Alt+Enter"
-            onClick={() => insertLineBreak()}
+            onClick={
+            /**
+ * 登録された副作用または結果を生成する処理を実行するコールバックです。
+             * @returns 「insertLineBreak」の呼び出し結果を返します。
+             */
+            () => insertLineBreak()}
             disabled={hasGridRange}
           >
             {messages.ribbon.labels.cellBreak}
@@ -1880,7 +3101,14 @@ function TableEditorOverlay({
         >
           <colgroup>
             <col style={{ width: `${ROW_HEADER_WIDTH}px` }} />
-            {Array.from({ length: columnCount }, (_, columnIndex) => (
+            {Array.from({ length: columnCount },
+            /**
+ * 「_」「columnIndex」から配列要素を生成するコールバックです。
+             * @param _ 呼び出し側が渡すが、このコールバックでは使用しない値です。
+             * @param columnIndex 「columnIndex」は、「_」が表編集で処理する対象を特定する入力です。
+             * @returns 「_」「columnIndex」から生成した処理結果を返します。
+             */
+            (_, columnIndex) => (
               <col
                 key={columnIndex}
                 style={{
@@ -1900,7 +3128,13 @@ function TableEditorOverlay({
                 aria-selected={selectionKind === "all"}
                 data-selected={selectionKind === "all" ? "true" : "false"}
                 onClick={selectAllCells}
-                onKeyDown={(event) => {
+                onKeyDown={
+                /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+                 * @param event 処理対象のイベントです。
+                 * @returns 「if」を実行し、値を返しません。
+                 */
+                (event) => {
                   if (event.key === "Enter" || event.key === " ") {
                     event.preventDefault();
                     selectAllCells();
@@ -1909,7 +3143,14 @@ function TableEditorOverlay({
               >
                 ◢
               </th>
-              {Array.from({ length: columnCount }, (_, columnIndex) => (
+              {Array.from({ length: columnCount },
+              /**
+ * 「_」「columnIndex」から配列要素を生成するコールバックです。
+               * @param _ 呼び出し側が渡すが、このコールバックでは使用しない値です。
+               * @param columnIndex 「columnIndex」は、「_」が表編集で処理する対象を特定する入力です。
+               * @returns 「_」「columnIndex」から生成した処理結果を返します。
+               */
+              (_, columnIndex) => (
                 <th
                   key={columnIndex}
                   className="mve-table-editor-column-selector"
@@ -1923,15 +3164,38 @@ function TableEditorOverlay({
                       ? "true"
                       : "false"
                   }
-                  onClick={() => selectColumn(columnIndex)}
-                  onKeyDown={(event) => {
+                  onClick={
+                  /**
+ * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
+                   * @returns 「selectColumn」を実行し、値を返しません。
+                   */
+                  () => selectColumn(columnIndex)}
+                  onKeyDown={
+                  /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+                   * @param event 処理対象のイベントです。
+                   * @returns 「if」を実行し、値を返しません。
+                   */
+                  (event) => {
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
                       selectColumn(columnIndex);
                     }
                   }}
-                  onDragOver={(event) => allowColumnDrop(event, columnIndex)}
-                  onDrop={(event) => dropColumn(event, columnIndex)}
+                  onDragOver={
+                  /**
+ * 「event」を受け取り、登録された副作用または結果を生成する処理です。
+                   * @param event 処理対象のイベントです。
+                   * @returns 「event」から生成した処理結果を返します。
+                   */
+                  (event) => allowColumnDrop(event, columnIndex)}
+                  onDrop={
+                  /**
+ * 「event」を受け取り、登録された副作用または結果を生成する処理です。
+                   * @param event 処理対象のイベントです。
+                   * @returns 「dropColumn」を実行し、値を返しません。
+                   */
+                  (event) => dropColumn(event, columnIndex)}
                 >
                   <span>{tableGridColumnLabel(columnIndex)}</span>
                   <span
@@ -1941,13 +3205,37 @@ function TableEditorOverlay({
                     draggable
                     title={polishText.dragColumn}
                     aria-label={`${polishText.dragColumn} ${tableGridColumnLabel(columnIndex)}`}
-                    onPointerDown={(event) => event.stopPropagation()}
-                    onClick={(event) => event.stopPropagation()}
-                    onDragStart={(event) =>
+                    onPointerDown={
+                    /**
+ * 「event」を受け取り、登録された副作用または結果を生成する処理です。
+                     * @param event 処理対象のイベントです。
+                     * @returns 「event.stopPropagation」を実行し、値を返しません。
+                     */
+                    (event) => event.stopPropagation()}
+                    onClick={
+                    /**
+ * 「event」を受け取り、登録された副作用または結果を生成する処理です。
+                     * @param event 処理対象のイベントです。
+                     * @returns 「event.stopPropagation」を実行し、値を返しません。
+                     */
+                    (event) => event.stopPropagation()}
+                    onDragStart={
+                    /**
+ * 「event」を受け取り、登録された副作用または結果を生成する処理です。
+                     * @param event 処理対象のイベントです。
+                     * @returns 「event」から生成した処理結果を返します。
+                     */
+                    (event) =>
                       startColumnDrag(event, columnIndex)
                     }
                     onDragEnd={endGridDrag}
-                    onKeyDown={(event) =>
+                    onKeyDown={
+                    /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+                     * @param event 処理対象のイベントです。
+                     * @returns 「event」から生成した処理結果を返します。
+                     */
+                    (event) =>
                       handleColumnDragKey(event, columnIndex)
                     }
                   >
@@ -1958,7 +3246,14 @@ function TableEditorOverlay({
             </tr>
           </thead>
           <tbody>
-            {rows.map((row, rowIndex) => (
+            {rows.map(
+            /**
+ * 「row」「rowIndex」を変換し、変換後の要素を返すコールバックです。
+             * @param row 本文、表、配列内の対象位置を示すインデックスです。
+             * @param rowIndex 「rowIndex」は、「row」が表編集で処理する対象を特定する入力です。
+             * @returns 入力要素から生成した変換後の値を返します。
+             */
+            (row, rowIndex) => (
               <tr
                 key={rowIndex}
                 className={rowIndex === 0 ? "mve-table-editor-header-row" : ""}
@@ -1967,8 +3262,20 @@ function TableEditorOverlay({
                     ? "true"
                     : "false"
                 }
-                onDragOver={(event) => allowRowDrop(event, rowIndex)}
-                onDrop={(event) => dropRow(event, rowIndex)}
+                onDragOver={
+                /**
+ * 「event」を受け取り、登録された副作用または結果を生成する処理です。
+                 * @param event 処理対象のイベントです。
+                 * @returns 「event」から生成した処理結果を返します。
+                 */
+                (event) => allowRowDrop(event, rowIndex)}
+                onDrop={
+                /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+                 * @param event 処理対象のイベントです。
+                 * @returns 「dropRow」を実行し、値を返しません。
+                 */
+                (event) => dropRow(event, rowIndex)}
               >
                 <th
                   className="mve-table-editor-row-selector"
@@ -1976,8 +3283,19 @@ function TableEditorOverlay({
                   tabIndex={0}
                   aria-selected={rowIsSelected(rowIndex)}
                   data-selected={rowIsSelected(rowIndex) ? "true" : "false"}
-                  onClick={() => selectRow(rowIndex)}
-                  onKeyDown={(event) => {
+                  onClick={
+                  /**
+ * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
+                   * @returns 「selectRow」を実行し、値を返しません。
+                   */
+                  () => selectRow(rowIndex)}
+                  onKeyDown={
+                  /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+                   * @param event 処理対象のイベントです。
+                   * @returns 「if」を実行し、値を返しません。
+                   */
+                  (event) => {
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
                       selectRow(rowIndex);
@@ -1993,11 +3311,35 @@ function TableEditorOverlay({
                       draggable
                       title={polishText.dragRow}
                       aria-label={`${polishText.dragRow} ${rowIndex}`}
-                      onPointerDown={(event) => event.stopPropagation()}
-                      onClick={(event) => event.stopPropagation()}
-                      onDragStart={(event) => startRowDrag(event, rowIndex)}
+                      onPointerDown={
+                      /**
+ * 「event」を受け取り、登録された副作用または結果を生成する処理です。
+                       * @param event 処理対象のイベントです。
+                       * @returns 「event.stopPropagation」を実行し、値を返しません。
+                       */
+                      (event) => event.stopPropagation()}
+                      onClick={
+                      /**
+ * 「event」を受け取り、登録された副作用または結果を生成する処理です。
+                       * @param event 処理対象のイベントです。
+                       * @returns 「event.stopPropagation」を実行し、値を返しません。
+                       */
+                      (event) => event.stopPropagation()}
+                      onDragStart={
+                      /**
+ * 「event」を受け取り、登録された副作用または結果を生成する処理です。
+                       * @param event 処理対象のイベントです。
+                       * @returns 「event」から生成した処理結果を返します。
+                       */
+                      (event) => startRowDrag(event, rowIndex)}
                       onDragEnd={endGridDrag}
-                      onKeyDown={(event) => handleRowDragKey(event, rowIndex)}
+                      onKeyDown={
+                      /**
+ * 「event」を受け取り、登録された副作用または結果を生成する処理です。
+                       * @param event 処理対象のイベントです。
+                       * @returns 「event」から生成した処理結果を返します。
+                       */
+                      (event) => handleRowDragKey(event, rowIndex)}
                     >
                       ⋮
                     </span>
@@ -2011,12 +3353,37 @@ function TableEditorOverlay({
                     aria-valuemin={MIN_ROW_HEIGHT}
                     aria-valuenow={rowHeights[rowIndex] ?? MIN_ROW_HEIGHT}
                     title={messages.app.tableEditor.resizeRow}
-                    onPointerDown={(event) => startRowResize(event, rowIndex)}
-                    onPointerUp={(event) => autoFitRowOnPointerUp(event, rowIndex)}
-                    onKeyDown={(event) => resizeRowByKeyboard(event, rowIndex)}
+                    onPointerDown={
+                    /**
+ * 「event」を受け取り、登録された副作用または結果を生成する処理です。
+                     * @param event 処理対象のイベントです。
+                     * @returns 「event」から生成した処理結果を返します。
+                     */
+                    (event) => startRowResize(event, rowIndex)}
+                    onPointerUp={
+                    /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+                     * @param event 処理対象のイベントです。
+                     * @returns 「event」から生成した処理結果を返します。
+                     */
+                    (event) => autoFitRowOnPointerUp(event, rowIndex)}
+                    onKeyDown={
+                    /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+                     * @param event 処理対象のイベントです。
+                     * @returns 「event」から生成した処理結果を返します。
+                     */
+                    (event) => resizeRowByKeyboard(event, rowIndex)}
                   />
                 </th>
-                {Array.from({ length: columnCount }, (_, columnIndex) => {
+                {Array.from({ length: columnCount },
+                /**
+ * 「_」「columnIndex」から配列要素を生成するコールバックです。
+                 * @param _ 呼び出し側が渡すが、このコールバックでは使用しない値です。
+                 * @param columnIndex 「columnIndex」は、「_」が表編集で処理する対象を特定する入力です。
+                 * @returns 「_」「columnIndex」から生成した処理結果を返します。
+                 */
+                (_, columnIndex) => {
                   const alignment = alignments[columnIndex] ?? "none";
                   const active =
                     rowIndex === activeRow && columnIndex === activeColumn;
@@ -2031,10 +3398,22 @@ function TableEditorOverlay({
                       data-alignment={alignment}
                       data-active={active ? "true" : "false"}
                       data-selected={selected ? "true" : "false"}
-                      onPointerDown={(event) =>
+                      onPointerDown={
+                      /**
+ * 「event」を受け取り、登録された副作用または結果を生成する処理です。
+                       * @param event 処理対象のイベントです。
+                       * @returns 「event」から生成した処理結果を返します。
+                       */
+                      (event) =>
                         beginCellSelection(event, rowIndex, columnIndex)
                       }
-                      onPointerEnter={(event) =>
+                      onPointerEnter={
+                      /**
+ * 「event」を受け取り、登録された副作用または結果を生成する処理です。
+                       * @param event 処理対象のイベントです。
+                       * @returns 「event」から生成した処理結果を返します。
+                       */
+                      (event) =>
                         extendCellSelection(event, rowIndex, columnIndex)
                       }
                     >
@@ -2044,14 +3423,26 @@ function TableEditorOverlay({
                         value={tableEditorCellDisplayValue(row[columnIndex] ?? "")}
                         style={rowTextareaStyle(rowHeights[rowIndex])}
                         data-table-cell={`${rowIndex}:${columnIndex}`}
-                        onFocus={(event) =>
+                        onFocus={
+                        /**
+ * 「event」を受け取り、登録された副作用または結果を生成する処理です。
+                         * @param event 処理対象のイベントです。
+                         * @returns 「event」から生成した処理結果を返します。
+                         */
+                        (event) =>
                           rememberCellSelection(
                             rowIndex,
                             columnIndex,
                             event.currentTarget,
                           )
                         }
-                        onSelect={(event) =>
+                        onSelect={
+                        /**
+ * 「event」を受け取り、登録された副作用または結果を生成する処理です。
+                         * @param event 処理対象のイベントです。
+                         * @returns 「event」から生成した処理結果を返します。
+                         */
+                        (event) =>
                           cellSelectionRef.current.set(
                             cellKey(rowIndex, columnIndex),
                             {
@@ -2060,7 +3451,13 @@ function TableEditorOverlay({
                             },
                           )
                         }
-                        onChange={(event) => {
+                        onChange={
+                        /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+                         * @param event 処理対象のイベントです。
+                         * @returns 「updateCell」を実行し、値を返しません。
+                         */
+                        (event) => {
                           updateCell(rowIndex, columnIndex, event.target.value);
                           cellSelectionRef.current.set(
                             cellKey(rowIndex, columnIndex),
@@ -2071,7 +3468,13 @@ function TableEditorOverlay({
                           );
                         }}
                         onPaste={pasteTsv}
-                        onKeyDown={(event) => {
+                        onKeyDown={
+                        /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+                         * @param event 処理対象のイベントです。
+                         * @returns 「if」を実行し、値を返しません。
+                         */
+                        (event) => {
                           if (
                             event.key === "Backspace" &&
                             !event.altKey &&
@@ -2118,13 +3521,31 @@ function TableEditorOverlay({
                             columnWidths[columnIndex] ?? DEFAULT_COLUMN_WIDTH,
                           )}
                           title={messages.app.tableEditor.resizeColumn}
-                          onMouseDown={(event) =>
+                          onMouseDown={
+                          /**
+ * 「event」を受け取り、登録された副作用または結果を生成する処理です。
+                           * @param event 処理対象のイベントです。
+                           * @returns 「event」から生成した処理結果を返します。
+                           */
+                          (event) =>
                             startColumnResize(event, columnIndex)
                           }
-                          onMouseUp={(event) =>
+                          onMouseUp={
+                          /**
+ * 「event」を受け取り、登録された副作用または結果を生成する処理です。
+                           * @param event 処理対象のイベントです。
+                           * @returns 「event」から生成した処理結果を返します。
+                           */
+                          (event) =>
                             autoFitColumnOnMouseUp(event, columnIndex)
                           }
-                          onKeyDown={(event) =>
+                          onKeyDown={
+                          /**
+ * 「event」を受け取り、登録された副作用または結果を生成する処理です。
+                           * @param event 処理対象のイベントです。
+                           * @returns 「event」から生成した処理結果を返します。
+                           */
+                          (event) =>
                             resizeColumnByKeyboard(event, columnIndex)
                           }
                         />
@@ -2172,13 +3593,30 @@ function TableEditorOverlay({
   );
 }
 
+/**
+ * 「ToolbarGroup」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+ * @param props 「props」は、「ToolbarGroup」が表編集状態の処理対象を特定する入力です。
+ * @returns 「ToolbarGroup」が表編集状態の入力を処理して得た固有の結果を返します。
+ */
 function ToolbarGroup({
   label,
   children,
   last = false,
 }: {
+
+  /**
+   * 「label」は、画面または通知へ表示する文言を保持します。
+   */
   label: string;
+
+  /**
+   * 「children」は、コンポーネントが表示する子要素を保持します。
+   */
   children: React.ReactNode;
+
+  /**
+   * 「last」は、処理条件または状態を表す真偽値です。
+   */
   last?: boolean;
 }): React.JSX.Element {
   return (
@@ -2193,13 +3631,30 @@ function ToolbarGroup({
   );
 }
 
+/**
+ * 「ToolbarToggle」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+ * @param props 「props」は、「ToolbarToggle」が表編集状態の処理対象を特定する入力です。
+ * @returns 「ToolbarToggle」が表編集状態の入力を処理して得た固有の結果を返します。
+ */
 function ToolbarToggle({
   label,
   active,
   onClick,
 }: {
+
+  /**
+   * 「label」は、画面または通知へ表示する文言を保持します。
+   */
   label: string;
+
+  /**
+   * 「active」は、画面の表示モードまたは現在のUI状態を示します。
+   */
   active: boolean;
+  /**
+   * 「onClick」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
+   * @returns イベントを処理し、状態更新または副作用だけを実行して値は返しません。
+   */
   onClick: () => void;
 }): React.JSX.Element {
   return (
@@ -2214,6 +3669,12 @@ function ToolbarToggle({
   );
 }
 
+/**
+ * 本文を更新または保存します。
+ * @param text 処理対象の本文です。
+ * @param unavailableMessage 処理対象のメッセージです。
+ * @returns 非同期処理の完了を表すPromiseです。
+ */
 async function writeClipboardText(
   text: string,
   unavailableMessage: string,
@@ -2234,7 +3695,12 @@ async function writeClipboardText(
   if (!copied) throw new Error(unavailableMessage);
 }
 
-/** CodeMirrorの内部文書へ挿入する改行を、現在の外部文書形式へ揃える。 */
+/**
+ * CodeMirrorの内部文書へ挿入する改行を、現在の外部文書形式へ揃える。
+ * @param state 処理対象の状態です。
+ * @param value 「toEditorInsertion」で検証・変換する入力値です。
+ * @returns 「toEditorInsertion」が生成または変換した表編集の文字列を返します。
+ */
 function toEditorInsertion(state: EditorState, value: string): string {
   const separator = state.facet(EditorState.lineSeparator) ?? "\n";
   return value.replace(/\r\n?|\n/g, "\n").replace(/\n/g, separator);

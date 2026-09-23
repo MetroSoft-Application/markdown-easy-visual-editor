@@ -1,3 +1,11 @@
+/**
+ * @file tableEditorPhase2.test.ts
+ * 実行境界: テスト実行環境。
+ * 責務: 現行実装の仕様と回帰条件を検証する。
+ * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
+ * 副作用: テスト用のモック、ブラウザー、ファイルを必要に応じて操作する。
+ * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ */
 import { describe, expect, it } from "vitest";
 import {
   moveTableGridColumn,
@@ -8,8 +16,18 @@ import {
   renderTableEditorDraft,
 } from "../src/webview/tableEditorModel";
 
-describe("table editor phase 2 integration", () => {
-  it("reorders data rows while keeping the Markdown header row fixed", () => {
+describe("table editor phase 2 integration",
+/**
+ * テスト「table editor phase 2 integration」の前提条件を設定し、期待結果を検証するコールバックです。
+ * @returns テストの前提条件と期待結果を検証し、値を返しません。
+ */
+() => {
+  it("reorders data rows while keeping the Markdown header row fixed",
+  /**
+ * テスト「reorders data rows while keeping the Markdown header row fixed」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const source = [
       "| Name | Value |",
       "| --- | ---: |",
@@ -34,7 +52,12 @@ describe("table editor phase 2 integration", () => {
     ].join("\n"));
   });
 
-  it("reorders column cells and alignment markers together", () => {
+  it("reorders column cells and alignment markers together",
+  /**
+ * テスト「reorders column cells and alignment markers together」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @returns テストの前提条件と期待結果を検証し、値を返しません。
+   */
+  () => {
     const source = [
       "| Left | Center | Right |",
       "| :--- | :---: | ---: |",

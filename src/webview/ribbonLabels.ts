@@ -1,8 +1,23 @@
+/**
+ * @file ribbonLabels.ts
+ * 実行境界: Webview。
+ * 責務: 編集UI、プレビュー、ユーザー操作を処理する。
+ * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
+ * 副作用: DOM、Webviewメッセージ、ブラウザーAPI、編集状態を操作する。
+ * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ */
 
 import type { Messages } from "../shared/messages";
 import type { RibbonLabelSpec } from "./ribbonDefinitionTypes";
 import type { TextColorUiText } from "./ribbonTypes";
 
+/**
+ * ラベルを取得または解決します。
+ * @param spec 「spec」は、「resolveRibbonLabel」がWebview UI状態の処理対象を特定する入力です。
+ * @param messages 「messages」は、「resolveRibbonLabel」がWebview UI状態の処理対象を特定する入力です。
+ * @param japanese 「japanese」は、「resolveRibbonLabel」がWebview UI状態の処理対象を特定する入力です。
+ * @returns 「resolveRibbonLabel」が生成したWebview UIの表示文字列を返します。
+ */
 export function resolveRibbonLabel(
   spec: RibbonLabelSpec,
   messages: Messages,
@@ -12,7 +27,14 @@ export function resolveRibbonLabel(
     return japanese ? spec.japanese : spec.english;
   }
 
-  const value = spec.path.split(".").reduce<unknown>((current, key) => {
+  const value = spec.path.split(".").reduce<unknown>(
+  /**
+ * テスト「.」の前提条件を設定し、期待結果を検証するコールバックです。
+   * @param current currentとして渡される、このコールバックの入力値です。
+   * @param key メッセージまたは設定表から値を取得する識別キーです。
+   * @returns テストデータまたは検証処理が生成した値を返します。
+   */
+  (current, key) => {
     if (!current || typeof current !== "object") return undefined;
     return key in current
       ? (current as Record<string, unknown>)[key]
@@ -36,6 +58,7 @@ export function resolveRibbonLabel(
   return value;
 }
 
+/** 「TEXT_COLOR_UI_TEXT」は、関連する処理間で共有する設定値または状態です。 */
 const TEXT_COLOR_UI_TEXT: Record<string, TextColorUiText> = {
   ja: {
     label: "文字色",
@@ -137,6 +160,11 @@ const TEXT_COLOR_UI_TEXT: Record<string, TextColorUiText> = {
   },
 };
 
+/**
+ * 本文を取得または解決します。
+ * @param language 表示文言の解決に使用する言語コードまたはロケールです。
+ * @returns 「getTextColorUiText」が読み取りまたは正規化した結果を返します。
+ */
 export function getTextColorUiText(language: string): TextColorUiText {
   const normalized = language.trim().toLowerCase().replace(/_/g, "-");
   if (normalized === "zh" || normalized.startsWith("zh-cn")) {

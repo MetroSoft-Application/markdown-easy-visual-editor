@@ -1,4 +1,18 @@
-/* VS Codeテーマに連動する共通変数とベースフォントを定義する。 */
+/**
+ * @file styles.css
+ * 実行境界: Webview。
+ * 責務: 画面のスタイル、状態表示、テーマ適用を定義する。
+ * 入出力: DOM要素、状態クラス、テーマ変数を入力として受け取り、視覚表現へ反映する。
+ * 副作用: DOMの視覚表現だけを変更し、Markdown本文や編集状態を直接変更しない。
+ * 不変条件: フォーカス表示、可読性、既存のレイアウト契約を維持する。
+ */
+/* VS Codeテーマに連動する共通変数とベースフォントを定義する。 *//**
+ * @style :root
+ * 対象UI: Webview全体で共有するテーマ色、境界線、リボン高さなどのCSS変数を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 :root {
     color-scheme: light dark;
     --mve-border: var(--vscode-panel-border, rgba(127, 127, 127, 0.35));
@@ -9,12 +23,24 @@
     font-family: var(--vscode-font-family, "Segoe UI", sans-serif);
 }
 
-/* 全要素のボックスサイズを統一する。 */
+/* 全要素のボックスサイズを統一する。 *//**
+ * @style *
+ * 対象UI: Webview内の全要素に適用するボックスサイズの基準を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 * {
     box-sizing: border-box;
 }
 
-/* Webviewのルートを画面全体に広げ、外側のスクロールを抑止する。 */
+/* Webviewのルートを画面全体に広げ、外側のスクロールを抑止する。 *//**
+ * @style html, body, #root
+ * 対象UI: Webview全体の表示領域、高さ、余白、スクロール基盤を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 html,
 body,
 #root {
@@ -24,13 +50,25 @@ body,
     overflow: hidden;
 }
 
-/* 本文の前景色と背景色をVS Codeテーマに合わせる。 */
+/* 本文の前景色と背景色をVS Codeテーマに合わせる。 *//**
+ * @style body
+ * 対象UI: Webview本文とテーマ適用領域を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 body {
     color: var(--vscode-editor-foreground);
     background: var(--vscode-editor-background);
 }
 
-/* フォーム部品のフォントと文字色を継承する。 */
+/* フォーム部品のフォントと文字色を継承する。 *//**
+ * @style button, select, input, textarea
+ * 対象UI: Webviewの操作ボタンと設定入力コントロールを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 button,
 select,
 input,
@@ -39,25 +77,49 @@ textarea {
     color: inherit;
 }
 
-/* ボタンを操作可能なカーソルで表示する。 */
+/* ボタンを操作可能なカーソルで表示する。 *//**
+ * @style button
+ * 対象UI: Webviewの操作ボタンと設定入力コントロールを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 button {
     cursor: pointer;
 }
 
-/* 無効化されたボタンを操作不可の見た目にする。 */
+/* 無効化されたボタンを操作不可の見た目にする。 *//**
+ * @style button:disabled
+ * 対象UI: Webviewの操作ボタンと設定入力コントロールを整える。
+ * 状態・テーマ: 操作を無効化した状態の視認性と入力不可を示す。
+ * アクセシビリティ: 無効状態を色だけに依存せず、操作不可の視認性を保つ。
+ */
+
 button:disabled {
     cursor: default;
     opacity: 0.48;
 }
 
-/* .app の表示とレイアウトを定義する。 */
+/* .app の表示とレイアウトを定義する。 *//**
+ * @style .app
+ * 対象UI: Webviewの.appが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .app {
     display: grid;
     grid-template-rows: auto minmax(0, 1fr) 24px;
     height: 100%;
 }
 
-/* .startup の表示とレイアウトを定義する。 */
+/* .startup の表示とレイアウトを定義する。 *//**
+ * @style .startup
+ * 対象UI: Webviewの.startupが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .startup {
     display: grid;
     height: 100%;
@@ -65,7 +127,13 @@ button:disabled {
     color: var(--vscode-descriptionForeground);
 }
 
-/* リボンのレイアウトと操作状態を整える。 */
+/* リボンのレイアウトと操作状態を整える。 *//**
+ * @style .ribbon
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .ribbon {
     z-index: 20;
     background: var(--vscode-editorGroupHeader-tabsBackground, var(--vscode-editor-background));
@@ -74,7 +142,13 @@ button:disabled {
     font-size: 12px;
 }
 
-/* リボンのレイアウトと操作状態を整える。 */
+/* リボンのレイアウトと操作状態を整える。 *//**
+ * @style .ribbon-tabs
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .ribbon-tabs {
     display: flex;
     align-items: stretch;
@@ -83,7 +157,13 @@ button:disabled {
     border-bottom: 1px solid var(--mve-border);
 }
 
-/* リボンのレイアウトと操作状態を整える。 */
+/* リボンのレイアウトと操作状態を整える。 *//**
+ * @style .ribbon-tabs button
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .ribbon-tabs button {
     border: 0;
     border-bottom: 2px solid transparent;
@@ -91,42 +171,84 @@ button:disabled {
     padding: 5px 10px;
 }
 
-/* リボンのレイアウトと操作状態を整える。 */
+/* リボンのレイアウトと操作状態を整える。 *//**
+ * @style .ribbon-tabs button:hover
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: ポインターが重なった状態の反応を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .ribbon-tabs button:hover {
     background: var(--mve-hover);
 }
 
-/* リボンのレイアウトと操作状態を整える。 */
+/* リボンのレイアウトと操作状態を整える。 *//**
+ * @style .ribbon-tabs button.active
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .ribbon-tabs button.active {
     border-bottom-color: var(--vscode-focusBorder);
     color: #4ec9b0;
 }
 
-/* リボンのレイアウトと操作状態を整える。 */
+/* リボンのレイアウトと操作状態を整える。 *//**
+ * @style .ribbon-tabs .ribbon-source-button
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .ribbon-tabs .ribbon-source-button {
     color: #4ec9b0;
     font-weight: 600;
 }
 
-/* リボンのレイアウトと操作状態を整える。 */
+/* リボンのレイアウトと操作状態を整える。 *//**
+ * @style .ribbon-tabs .ribbon-source-button.active
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .ribbon-tabs .ribbon-source-button.active {
     border-bottom-color: var(--vscode-focusBorder);
     background: var(--mve-active);
 }
 
-/* リボンのレイアウトと操作状態を整える。 */
+/* リボンのレイアウトと操作状態を整える。 *//**
+ * @style .ribbon-spacer
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .ribbon-spacer {
     flex: 1;
 }
 
-/* 表示モードをタブに依存しない共通操作としてまとめる。 */
+/* 表示モードをタブに依存しない共通操作としてまとめる。 *//**
+ * @style .ribbon-view-controls
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .ribbon-view-controls {
     display: flex;
     align-items: stretch;
     flex: 0 0 auto;
 }
 
-/* リボンのレイアウトと操作状態を整える。 */
+/* リボンのレイアウトと操作状態を整える。 *//**
+ * @style .ribbon-content
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .ribbon-content {
     display: flex;
     align-items: stretch;
@@ -137,7 +259,13 @@ button:disabled {
     overflow-y: hidden;
 }
 
-/* リボンのレイアウトと操作状態を整える。 */
+/* リボンのレイアウトと操作状態を整える。 *//**
+ * @style .ribbon-group
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .ribbon-group {
     display: grid;
     grid-template-rows: 1fr auto;
@@ -147,7 +275,13 @@ button:disabled {
     border-right: 1px solid var(--mve-border);
 }
 
-/* リボンのレイアウトと操作状態を整える。 */
+/* リボンのレイアウトと操作状態を整える。 *//**
+ * @style .ribbon-controls
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .ribbon-controls {
     display: flex;
     align-content: flex-start;
@@ -157,7 +291,13 @@ button:disabled {
     max-width: 330px;
 }
 
-/* リボンのレイアウトと操作状態を整える。 */
+/* リボンのレイアウトと操作状態を整える。 *//**
+ * @style .ribbon-group-label
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .ribbon-group-label {
     align-self: end;
     padding-top: 3px;
@@ -166,7 +306,13 @@ button:disabled {
     color: var(--vscode-descriptionForeground);
 }
 
-/* リボンのレイアウトと操作状態を整える。 */
+/* リボンのレイアウトと操作状態を整える。 *//**
+ * @style .ribbon-tool
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .ribbon-tool {
     display: flex;
     flex-direction: column;
@@ -180,25 +326,49 @@ button:disabled {
     white-space: nowrap;
 }
 
-/* リボンのレイアウトと操作状態を整える。 */
+/* リボンのレイアウトと操作状態を整える。 *//**
+ * @style .ribbon-tool:hover:not(:disabled)
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: 操作を無効化した状態の視認性と入力不可を示す。
+ * アクセシビリティ: 無効状態を色だけに依存せず、操作不可の視認性を保つ。
+ */
+
 .ribbon-tool:hover:not(:disabled) {
     border-color: var(--mve-border);
     background: var(--mve-hover);
 }
 
-/* リボンのレイアウトと操作状態を整える。 */
+/* リボンのレイアウトと操作状態を整える。 *//**
+ * @style .ribbon-tool.active
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .ribbon-tool.active {
     border-color: var(--vscode-focusBorder);
     background: var(--mve-active);
 }
 
-/* リボンのレイアウトと操作状態を整える。 */
+/* リボンのレイアウトと操作状態を整える。 *//**
+ * @style .ribbon-tool small
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .ribbon-tool small {
     font-size: 9px;
     color: var(--vscode-descriptionForeground);
 }
 
-/* リボンのレイアウトと操作状態を整える。 */
+/* リボンのレイアウトと操作状態を整える。 *//**
+ * @style .ribbon-hint
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .ribbon-hint {
     align-self: center;
     max-width: 100px;
@@ -208,7 +378,13 @@ button:disabled {
     white-space: normal;
 }
 
-/* リボンのレイアウトと操作状態を整える。 */
+/* リボンのレイアウトと操作状態を整える。 *//**
+ * @style .ribbon-select-label
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .ribbon-select-label {
     display: flex;
     flex-direction: column;
@@ -218,7 +394,13 @@ button:disabled {
     color: var(--vscode-descriptionForeground);
 }
 
-/* リボンのレイアウトと操作状態を整える。 */
+/* リボンのレイアウトと操作状態を整える。 *//**
+ * @style .ribbon-select-label select
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .ribbon-select-label select {
     min-width: 90px;
     height: 26px;
@@ -227,14 +409,26 @@ button:disabled {
     background: var(--vscode-dropdown-background);
 }
 
-/* リボンのレイアウトと操作状態を整える。 */
+/* リボンのレイアウトと操作状態を整える。 *//**
+ * @style .ribbon-form
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .ribbon-form {
     display: flex;
     align-items: flex-end;
     gap: 3px;
 }
 
-/* リボンのレイアウトと操作状態を整える。 */
+/* リボンのレイアウトと操作状態を整える。 *//**
+ * @style .ribbon-form label
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .ribbon-form label {
     display: flex;
     flex-direction: column;
@@ -244,7 +438,13 @@ button:disabled {
     font-size: 10px;
 }
 
-/* リボンのレイアウトと操作状態を整える。 */
+/* リボンのレイアウトと操作状態を整える。 *//**
+ * @style .ribbon-form input, .ribbon-select-label input
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .ribbon-form input,
 .ribbon-select-label input {
     width: 76px;
@@ -255,15 +455,33 @@ button:disabled {
     background: var(--vscode-input-background);
 }
 
-/* リボンのレイアウトと操作状態を整える。 */
+/* リボンのレイアウトと操作状態を整える。 *//**
+ * @style .ribbon-form input[type="number"]
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .ribbon-form input[type="number"] {
     width: 48px;
 }
 
-/* 設定タブのパスルールを、説明を保ったまま横並びで編集できるようにする。 */
+/* 設定タブのパスルールを、説明を保ったまま横並びで編集できるようにする。 *//**
+ * @style .ribbon-setting-form
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .ribbon-setting-form {
     display: block;
-}
+}/**
+ * @style .ribbon-setting-form label
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 .ribbon-setting-form label {
     display: flex;
@@ -272,7 +490,13 @@ button:disabled {
     padding: 2px;
     color: var(--vscode-descriptionForeground);
     font-size: 10px;
-}
+}/**
+ * @style .ribbon-setting-form input
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 .ribbon-setting-form input {
     width: 280px;
@@ -281,12 +505,24 @@ button:disabled {
     border: 1px solid var(--vscode-input-border, var(--mve-border));
     color: var(--vscode-input-foreground);
     background: var(--vscode-input-background);
-}
+}/**
+ * @style .ribbon-setting-form input:focus
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: キーボードフォーカス中の強調表示を適用する。
+ * アクセシビリティ: キーボード操作時のフォーカス表示を維持し、操作位置を識別できるようにする。
+ */
+
 
 .ribbon-setting-form input:focus {
     outline: 1px solid var(--vscode-focusBorder);
     outline-offset: -1px;
-}
+}/**
+ * @style .ribbon-setting-hint
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 .ribbon-setting-hint {
     max-width: 300px;
@@ -295,11 +531,23 @@ button:disabled {
     font-size: 10px;
     line-height: 1.35;
     white-space: normal;
-}
+}/**
+ * @style .ribbon-settings-group
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 .ribbon-settings-group {
     flex: 0 0 auto;
-}
+}/**
+ * @style .ribbon-settings-group .ribbon-controls
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 .ribbon-settings-group .ribbon-controls {
     flex-direction: column;
@@ -309,7 +557,13 @@ button:disabled {
     max-width: 334px;
 }
 
-/* 編集領域を横方向のワークスペースとして配置する。 */
+/* 編集領域を横方向のワークスペースとして配置する。 *//**
+ * @style .workspace
+ * 対象UI: Webviewの.workspaceが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .workspace {
     display: flex;
     width: 100%;
@@ -318,7 +572,13 @@ button:disabled {
     min-height: 0;
 }
 
-/* アウトラインパネルの配置・サイズ・操作状態を整える。 */
+/* アウトラインパネルの配置・サイズ・操作状態を整える。 *//**
+ * @style .outline-panel
+ * 対象UI: Webviewの.outline-panelが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .outline-panel {
     flex: 0 0 220px;
     overflow: auto;
@@ -326,7 +586,13 @@ button:disabled {
     border-right: 1px solid var(--mve-border);
 }
 
-/* アウトラインパネルの配置・サイズ・操作状態を整える。 */
+/* アウトラインパネルの配置・サイズ・操作状態を整える。 *//**
+ * @style .outline-resizer
+ * 対象UI: Webviewの.outline-resizerが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .outline-resizer {
     flex: 0 0 6px;
     cursor: col-resize;
@@ -334,14 +600,26 @@ button:disabled {
     background: var(--vscode-editorGroupHeader-tabsBackground);
 }
 
-/* アウトラインパネルの配置・サイズ・操作状態を整える。 */
+/* アウトラインパネルの配置・サイズ・操作状態を整える。 *//**
+ * @style .outline-resizer:hover, .outline-resizer:focus-visible
+ * 対象UI: Webviewの.outline-resizer:hover, .outline-resizer:focus-visibleが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: キーボードフォーカス中の強調表示を適用する。
+ * アクセシビリティ: キーボード操作時のフォーカス表示を維持し、操作位置を識別できるようにする。
+ */
+
 .outline-resizer:hover,
 .outline-resizer:focus-visible {
     outline: none;
     background: var(--vscode-focusBorder);
 }
 
-/* アウトラインパネルの配置・サイズ・操作状態を整える。 */
+/* アウトラインパネルの配置・サイズ・操作状態を整える。 *//**
+ * @style .outline-reopen
+ * 対象UI: Webviewの.outline-reopenが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .outline-reopen {
     flex: 0 0 22px;
     align-self: stretch;
@@ -353,7 +631,13 @@ button:disabled {
     font-size: 18px;
 }
 
-/* アウトラインパネルの配置・サイズ・操作状態を整える。 */
+/* アウトラインパネルの配置・サイズ・操作状態を整える。 *//**
+ * @style .outline-reopen:hover, .outline-reopen:focus-visible
+ * 対象UI: Webviewの.outline-reopen:hover, .outline-reopen:focus-visibleが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: キーボードフォーカス中の強調表示を適用する。
+ * アクセシビリティ: キーボード操作時のフォーカス表示を維持し、操作位置を識別できるようにする。
+ */
+
 .outline-reopen:hover,
 .outline-reopen:focus-visible {
     outline: none;
@@ -361,7 +645,13 @@ button:disabled {
     background: var(--mve-hover);
 }
 
-/* アウトラインパネルの配置・サイズ・操作状態を整える。 */
+/* アウトラインパネルの配置・サイズ・操作状態を整える。 *//**
+ * @style .outline-header
+ * 対象UI: Webviewの.outline-headerが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .outline-header {
     display: flex;
     align-items: center;
@@ -369,12 +659,24 @@ button:disabled {
     border-bottom: 1px solid var(--mve-border);
 }
 
-/* アウトラインパネルの配置・サイズ・操作状態を整える。 */
+/* アウトラインパネルの配置・サイズ・操作状態を整える。 *//**
+ * @style .outline-header h2
+ * 対象UI: Webviewの.outline-header h2が表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .outline-header h2 {
     flex: 1;
 }
 
-/* アウトラインパネルの配置・サイズ・操作状態を整える。 */
+/* アウトラインパネルの配置・サイズ・操作状態を整える。 *//**
+ * @style .outline-header button
+ * 対象UI: Webviewの操作ボタンと設定入力コントロールを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .outline-header button {
     margin-right: 8px;
     padding: 2px 7px;
@@ -383,13 +685,25 @@ button:disabled {
     background: transparent;
 }
 
-/* アウトラインパネルの配置・サイズ・操作状態を整える。 */
+/* アウトラインパネルの配置・サイズ・操作状態を整える。 *//**
+ * @style .outline-header button:hover
+ * 対象UI: Webviewの操作ボタンと設定入力コントロールを整える。
+ * 状態・テーマ: ポインターが重なった状態の反応を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .outline-header button:hover {
     border-color: var(--mve-border);
     background: var(--mve-hover);
 }
 
-/* アウトラインパネルの配置・サイズ・操作状態を整える。 */
+/* アウトラインパネルの配置・サイズ・操作状態を整える。 *//**
+ * @style .outline-panel h2, .panel-title h2
+ * 対象UI: Webviewの.outline-panel h2, .panel-title h2が表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .outline-panel h2,
 .panel-title h2 {
     margin: 0;
@@ -399,13 +713,25 @@ button:disabled {
     letter-spacing: .04em;
 }
 
-/* アウトラインパネルの配置・サイズ・操作状態を整える。 */
+/* アウトラインパネルの配置・サイズ・操作状態を整える。 *//**
+ * @style .outline-panel nav
+ * 対象UI: Webviewの.outline-panel navが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .outline-panel nav {
     display: flex;
     flex-direction: column;
 }
 
-/* アウトラインパネルの配置・サイズ・操作状態を整える。 */
+/* アウトラインパネルの配置・サイズ・操作状態を整える。 *//**
+ * @style .outline-panel nav button
+ * 対象UI: Webviewの操作ボタンと設定入力コントロールを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .outline-panel nav button {
     position: relative;
     overflow: hidden;
@@ -417,16 +743,34 @@ button:disabled {
     white-space: nowrap;
 }
 
-/* アウトラインパネルの配置・サイズ・操作状態を整える。 */
+/* アウトラインパネルの配置・サイズ・操作状態を整える。 *//**
+ * @style .outline-panel nav button:hover
+ * 対象UI: Webviewの操作ボタンと設定入力コントロールを整える。
+ * 状態・テーマ: ポインターが重なった状態の反応を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .outline-panel nav button:hover {
     background: var(--vscode-list-hoverBackground);
 }
 
-/* 右クリックドラッグ中の移動元と有効な挿入位置を表示する。 */
+/* 右クリックドラッグ中の移動元と有効な挿入位置を表示する。 *//**
+ * @style .outline-panel nav button.outline-drag-source
+ * 対象UI: Webviewの操作ボタンと設定入力コントロールを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .outline-panel nav button.outline-drag-source {
     opacity: .45;
     cursor: grabbing;
-}
+}/**
+ * @style .outline-panel nav button.outline-drop-before::before, .outline-panel nav button.outline-drop-after::after
+ * 対象UI: Webviewの操作ボタンと設定入力コントロールを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 .outline-panel nav button.outline-drop-before::before,
 .outline-panel nav button.outline-drop-after::after {
@@ -437,30 +781,60 @@ button:disabled {
     background: var(--vscode-focusBorder);
     content: '';
     pointer-events: none;
-}
+}/**
+ * @style .outline-panel nav button.outline-drop-before::before
+ * 対象UI: Webviewの操作ボタンと設定入力コントロールを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 .outline-panel nav button.outline-drop-before::before {
     top: 0;
-}
+}/**
+ * @style .outline-panel nav button.outline-drop-after::after
+ * 対象UI: Webviewの操作ボタンと設定入力コントロールを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 .outline-panel nav button.outline-drop-after::after {
     bottom: 0;
 }
 
-/* 右クリックドラッグ中は選択と通常カーソルを抑制する。 */
+/* 右クリックドラッグ中は選択と通常カーソルを抑制する。 *//**
+ * @style body.mve-dragging-outline, body.mve-dragging-outline .outline-panel nav button
+ * 対象UI: Webviewの操作ボタンと設定入力コントロールを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 body.mve-dragging-outline,
 body.mve-dragging-outline .outline-panel nav button {
     cursor: grabbing;
     user-select: none;
 }
 
-/* アウトラインパネルの配置・サイズ・操作状態を整える。 */
+/* アウトラインパネルの配置・サイズ・操作状態を整える。 *//**
+ * @style .outline-panel p
+ * 対象UI: Webviewの.outline-panel pが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .outline-panel p {
     padding: 0 12px;
     color: var(--vscode-descriptionForeground);
 }
 
-/* エディター領域をスクロール可能なコンテナとして配置する。 */
+/* エディター領域をスクロール可能なコンテナとして配置する。 *//**
+ * @style .editor-area
+ * 対象UI: Webviewの.editor-areaが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .editor-area {
     position: relative;
     flex: 1 1 auto;
@@ -472,7 +846,13 @@ body.mve-dragging-outline .outline-panel nav button {
     background: var(--vscode-editor-background);
 }
 
-/* 検索パネルと検索結果件数を表示する。 */
+/* 検索パネルと検索結果件数を表示する。 *//**
+ * @style .search-panel
+ * 対象UI: Webviewの.search-panelが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .search-panel {
     position: absolute;
     z-index: 25;
@@ -488,7 +868,13 @@ body.mve-dragging-outline .outline-panel nav button {
     box-shadow: 0 5px 18px rgba(0, 0, 0, .28);
 }
 
-/* 検索パネルと検索結果件数を表示する。 */
+/* 検索パネルと検索結果件数を表示する。 *//**
+ * @style .search-panel input
+ * 対象UI: Webviewの操作ボタンと設定入力コントロールを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .search-panel input {
     width: 170px;
     padding: 5px 7px;
@@ -497,19 +883,37 @@ body.mve-dragging-outline .outline-panel nav button {
     background: var(--vscode-input-background);
 }
 
-/* 検索パネルと検索結果件数を表示する。 */
+/* 検索パネルと検索結果件数を表示する。 *//**
+ * @style .search-panel button
+ * 対象UI: Webviewの操作ボタンと設定入力コントロールを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .search-panel button {
     padding: 5px 8px;
     border: 1px solid var(--mve-border);
     background: var(--vscode-button-secondaryBackground);
 }
 
-/* 検索パネルと検索結果件数を表示する。 */
+/* 検索パネルと検索結果件数を表示する。 *//**
+ * @style .search-panel button:hover:not(:disabled)
+ * 対象UI: Webviewの操作ボタンと設定入力コントロールを整える。
+ * 状態・テーマ: 操作を無効化した状態の視認性と入力不可を示す。
+ * アクセシビリティ: 無効状態を色だけに依存せず、操作不可の視認性を保つ。
+ */
+
 .search-panel button:hover:not(:disabled) {
     background: var(--vscode-button-secondaryHoverBackground);
 }
 
-/* 検索パネルと検索結果件数を表示する。 */
+/* 検索パネルと検索結果件数を表示する。 *//**
+ * @style .search-count
+ * 対象UI: Webviewの.search-countが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .search-count {
     min-width: 34px;
     color: var(--vscode-descriptionForeground);
@@ -517,19 +921,37 @@ body.mve-dragging-outline .outline-panel nav button {
     text-align: center;
 }
 
-/* CodeMirrorの検索一致箇所を強調表示する。 */
+/* CodeMirrorの検索一致箇所を強調表示する。 *//**
+ * @style .cm-search-match
+ * 対象UI: CodeMirrorソースエディターの入力、選択、補助表示を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .cm-search-match {
     background: color-mix(in srgb, var(--vscode-editor-findMatchBackground, #ffd33d) 55%, transparent);
     border-bottom: 1px solid var(--vscode-editor-findMatchBorder, #d7a400);
 }
 
-/* CodeMirrorの検索一致箇所を強調表示する。 */
+/* CodeMirrorの検索一致箇所を強調表示する。 *//**
+ * @style .cm-search-match-active
+ * 対象UI: CodeMirrorソースエディターの入力、選択、補助表示を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .cm-search-match-active {
     background: var(--vscode-editor-findMatchHighlightBackground, #f6b73c);
     outline: 1px solid var(--vscode-focusBorder);
 }
 
-/* テキストとプレビューの分割表示を整える。 */
+/* テキストとプレビューの分割表示を整える。 *//**
+ * @style .split-editor
+ * 対象UI: Webviewの.split-editorが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .split-editor {
     display: grid;
     grid-template-columns: minmax(0, 1fr) 8px minmax(0, 1fr);
@@ -539,7 +961,13 @@ body.mve-dragging-outline .outline-panel nav button {
     min-height: 0;
 }
 
-/* HTML出力のオプションをリボン内で省スペースに表示する。 */
+/* HTML出力のオプションをリボン内で省スペースに表示する。 *//**
+ * @style .ribbon-checkbox
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .ribbon-checkbox {
     display: flex;
     align-items: center;
@@ -549,19 +977,37 @@ body.mve-dragging-outline .outline-panel nav button {
     color: var(--vscode-descriptionForeground);
     font-size: 10px;
     line-height: 1.15;
-}
+}/**
+ * @style .ribbon-checkbox input
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 .ribbon-checkbox input {
     flex: 0 0 auto;
     margin: 0;
 }
 
-/* テキストのみ／プレビューのみでは分割用の空きトラックを作らず、表示領域全体を使う。 */
+/* テキストのみ／プレビューのみでは分割用の空きトラックを作らず、表示領域全体を使う。 *//**
+ * @style .split-editor.single-pane
+ * 対象UI: Webviewの.split-editor.single-paneが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .split-editor.single-pane {
     grid-template-rows: minmax(0, 1fr);
 }
 
-/* テキストとプレビューの分割表示を整える。 */
+/* テキストとプレビューの分割表示を整える。 *//**
+ * @style .split-source-pane, .split-preview
+ * 対象UI: Markdownプレビューの本文、見出し、リンク、ブロック要素を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .split-source-pane,
 .split-preview {
     min-width: 0;
@@ -570,24 +1016,48 @@ body.mve-dragging-outline .outline-panel nav button {
     background: var(--vscode-editor-background);
 }
 
-/* テキストとプレビューの分割表示を整える。 */
+/* テキストとプレビューの分割表示を整える。 *//**
+ * @style .split-source-pane.pane-hidden, .split-preview.pane-hidden
+ * 対象UI: Markdownプレビューの本文、見出し、リンク、ブロック要素を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .split-source-pane.pane-hidden,
 .split-preview.pane-hidden {
     display: none;
 }
 
-/* テキストとプレビューの分割表示を整える。 */
+/* テキストとプレビューの分割表示を整える。 *//**
+ * @style .split-divider.pane-hidden
+ * 対象UI: Webviewの.split-divider.pane-hiddenが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .split-divider.pane-hidden {
     display: none;
 }
 
-/* テキストとプレビューの分割表示を整える。 */
+/* テキストとプレビューの分割表示を整える。 *//**
+ * @style .split-source-pane .source-editor
+ * 対象UI: Webviewの.split-source-pane .source-editorが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .split-source-pane .source-editor {
     height: 100%;
     font-family: var(--mve-editor-font-family, var(--vscode-editor-font-family, monospace));
 }
 
-/* テキストとプレビューの分割表示を整える。 */
+/* テキストとプレビューの分割表示を整える。 *//**
+ * @style .split-preview
+ * 対象UI: Markdownプレビューの本文、見出し、リンク、ブロック要素を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .split-preview {
     width: 100%;
     height: 100%;
@@ -597,7 +1067,13 @@ body.mve-dragging-outline .outline-panel nav button {
     border-left: 0;
 }
 
-/* テキストとプレビューの分割表示を整える。 */
+/* テキストとプレビューの分割表示を整える。 *//**
+ * @style .split-divider
+ * 対象UI: Webviewの.split-dividerが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .split-divider {
     position: relative;
     z-index: 5;
@@ -608,7 +1084,13 @@ body.mve-dragging-outline .outline-panel nav button {
     background: var(--vscode-editorGroupHeader-tabsBackground);
 }
 
-/* テキストとプレビューの分割表示を整える。 */
+/* テキストとプレビューの分割表示を整える。 *//**
+ * @style .split-divider::after
+ * 対象UI: Webviewの.split-divider::afterが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .split-divider::after {
     content: '';
     position: absolute;
@@ -616,21 +1098,39 @@ body.mve-dragging-outline .outline-panel nav button {
     background: transparent;
 }
 
-/* テキストとプレビューの分割表示を整える。 */
+/* テキストとプレビューの分割表示を整える。 *//**
+ * @style .split-divider:hover, .split-divider:focus-visible
+ * 対象UI: Webviewの.split-divider:hover, .split-divider:focus-visibleが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: キーボードフォーカス中の強調表示を適用する。
+ * アクセシビリティ: キーボード操作時のフォーカス表示を維持し、操作位置を識別できるようにする。
+ */
+
 .split-divider:hover,
 .split-divider:focus-visible {
     outline: none;
     background: var(--vscode-focusBorder);
 }
 
-/* 分割境界のリサイズ中にカーソルと選択状態を固定する。 */
+/* 分割境界のリサイズ中にカーソルと選択状態を固定する。 *//**
+ * @style .mve-resizing-split, .mve-resizing-split *
+ * 対象UI: Webviewの.mve-resizing-split, .mve-resizing-split *が表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .mve-resizing-split,
 .mve-resizing-split * {
     cursor: col-resize !important;
     user-select: none !important;
 }
 
-/* テキストとプレビューの分割表示を整える。 */
+/* テキストとプレビューの分割表示を整える。 *//**
+ * @style .split-preview .rendered-markdown, .preview-only
+ * 対象UI: Markdownプレビューの本文、見出し、リンク、ブロック要素を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .split-preview .rendered-markdown,
 .preview-only {
     width: 100%;
@@ -640,20 +1140,44 @@ body.mve-dragging-outline .outline-panel nav button {
     padding: 24px 42px 80px;
 }
 
-/* 右側にホストエディターを開いたときも、狭いプレビューで余白が本文を圧迫しないようにする。 */
-@container (max-width: 720px) {
+/* 右側にホストエディターを開いたときも、狭いプレビューで余白が本文を圧迫しないようにする。 *//**
+ * @style @container (max-width: 720px)
+ * 対象UI: Webviewの@container (max-width: 720px)が表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
+@container (max-width: 720px) {/**
+ * @style .split-preview .rendered-markdown
+ * 対象UI: Markdownプレビューの本文、見出し、リンク、ブロック要素を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
     .split-preview .rendered-markdown {
         padding-right: 20px;
         padding-left: 20px;
     }
 }
 
-/* エディターの可視空白文字を表示する。 */
+/* エディターの可視空白文字を表示する。 *//**
+ * @style .cm-visible-space
+ * 対象UI: CodeMirrorソースエディターの入力、選択、補助表示を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .cm-visible-space {
     position: relative;
 }
 
-/* エディターの可視空白文字を表示する。 */
+/* エディターの可視空白文字を表示する。 *//**
+ * @style .cm-visible-space::after
+ * 対象UI: CodeMirrorソースエディターの入力、選択、補助表示を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .cm-visible-space::after {
     content: '·';
     position: absolute;
@@ -666,14 +1190,26 @@ body.mve-dragging-outline .outline-panel nav button {
     pointer-events: none;
 }
 
-/* Markdownプレビューの本文・見出し・要素を整える。 */
+/* Markdownプレビューの本文・見出し・要素を整える。 *//**
+ * @style .rendered-markdown
+ * 対象UI: Markdownプレビューの本文、見出し、リンク、ブロック要素を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .rendered-markdown {
     line-height: 1.72;
     overflow-wrap: anywhere;
     font-family: var(--mve-preview-font-family, var(--vscode-font-family, "Segoe UI", sans-serif));
 }
 
-/* Markdownプレビューの本文・見出し・要素を整える。 */
+/* Markdownプレビューの本文・見出し・要素を整える。 *//**
+ * @style .rendered-markdown h1
+ * 対象UI: Markdownプレビューの本文、見出し、リンク、ブロック要素を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .rendered-markdown h1 {
     margin: 1.5em 0 .7em;
     padding-bottom: .25em;
@@ -681,7 +1217,13 @@ body.mve-dragging-outline .outline-panel nav button {
     font-size: 2em;
 }
 
-/* Markdownプレビューの本文・見出し・要素を整える。 */
+/* Markdownプレビューの本文・見出し・要素を整える。 *//**
+ * @style .rendered-markdown h2
+ * 対象UI: Markdownプレビューの本文、見出し、リンク、ブロック要素を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .rendered-markdown h2 {
     margin: 1.4em 0 .6em;
     padding-bottom: .2em;
@@ -689,18 +1231,36 @@ body.mve-dragging-outline .outline-panel nav button {
     font-size: 1.55em;
 }
 
-/* Markdownプレビューの本文・見出し・要素を整える。 */
+/* Markdownプレビューの本文・見出し・要素を整える。 *//**
+ * @style .rendered-markdown h3
+ * 対象UI: Markdownプレビューの本文、見出し、リンク、ブロック要素を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .rendered-markdown h3 {
     margin-top: 1.2em;
     font-size: 1.25em;
 }
 
-/* Markdownプレビューの本文・見出し・要素を整える。 */
+/* Markdownプレビューの本文・見出し・要素を整える。 *//**
+ * @style .rendered-markdown a
+ * 対象UI: Markdownプレビューの本文、見出し、リンク、ブロック要素を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .rendered-markdown a {
     color: #4ec9b0;
 }
 
-/* Markdownプレビューの本文・見出し・要素を整える。 */
+/* Markdownプレビューの本文・見出し・要素を整える。 *//**
+ * @style .rendered-markdown img
+ * 対象UI: Markdownプレビューの本文、見出し、リンク、ブロック要素を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .rendered-markdown img {
     display: block;
     max-width: 100%;
@@ -708,31 +1268,61 @@ body.mve-dragging-outline .outline-panel nav button {
     margin: 12px 0;
 }
 
-/* 通常プレビューの表示倍率を画像と画像フレームへ反映 PDFやインスペクターには適用しない。 */
+/* 通常プレビューの表示倍率を画像と画像フレームへ反映 PDFやインスペクターには適用しない。 *//**
+ * @style .rendered-markdown[data-mve-image-zoom] .mve-image-frame, .rendered-markdown[data-mve-image-zoom] img:not([data-mve-enhanced="true"])
+ * 対象UI: Markdownプレビューの画像とリサイズ操作を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .rendered-markdown[data-mve-image-zoom] .mve-image-frame,
 .rendered-markdown[data-mve-image-zoom] img:not([data-mve-enhanced="true"]) {
     zoom: var(--mve-preview-image-zoom, 1);
 }
 
-/* Markdownプレビューの本文・見出し・要素を整える。 */
+/* Markdownプレビューの本文・見出し・要素を整える。 *//**
+ * @style .rendered-markdown img[data-mve-image-align="left"]
+ * 対象UI: Markdownプレビューの画像とリサイズ操作を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .rendered-markdown img[data-mve-image-align="left"] {
     margin-right: auto !important;
     margin-left: 0 !important;
 }
 
-/* Markdownプレビューの本文・見出し・要素を整える。 */
+/* Markdownプレビューの本文・見出し・要素を整える。 *//**
+ * @style .rendered-markdown img[data-mve-image-align="center"]
+ * 対象UI: Markdownプレビューの画像とリサイズ操作を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .rendered-markdown img[data-mve-image-align="center"] {
     margin-right: auto !important;
     margin-left: auto !important;
 }
 
-/* Markdownプレビューの本文・見出し・要素を整える。 */
+/* Markdownプレビューの本文・見出し・要素を整える。 *//**
+ * @style .rendered-markdown img[data-mve-image-align="right"]
+ * 対象UI: Markdownプレビューの画像とリサイズ操作を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .rendered-markdown img[data-mve-image-align="right"] {
     margin-right: 0 !important;
     margin-left: auto !important;
 }
 
-/* Markdownプレビューの本文・見出し・要素を整える。 */
+/* Markdownプレビューの本文・見出し・要素を整える。 *//**
+ * @style .rendered-markdown table
+ * 対象UI: Markdownプレビューで表示する表の罫線、幅、セル配置を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .rendered-markdown table {
     width: 100%;
     margin: 14px 0;
@@ -740,7 +1330,13 @@ body.mve-dragging-outline .outline-panel nav button {
     table-layout: auto;
 }
 
-/* Markdownプレビューの本文・見出し・要素を整える。 */
+/* Markdownプレビューの本文・見出し・要素を整える。 *//**
+ * @style .rendered-markdown th, .rendered-markdown td
+ * 対象UI: Markdownプレビューの本文、見出し、リンク、ブロック要素を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .rendered-markdown th,
 .rendered-markdown td {
     min-width: 60px;
@@ -749,19 +1345,37 @@ body.mve-dragging-outline .outline-panel nav button {
     vertical-align: top;
 }
 
-/* Markdownプレビューの本文・見出し・要素を整える。 */
+/* Markdownプレビューの本文・見出し・要素を整える。 *//**
+ * @style .rendered-markdown table th[data-mve-nowrap="true"], .rendered-markdown table td[data-mve-nowrap="true"]
+ * 対象UI: Markdownプレビューで表示する表の罫線、幅、セル配置を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .rendered-markdown table th[data-mve-nowrap="true"],
 .rendered-markdown table td[data-mve-nowrap="true"] {
     white-space: nowrap;
 }
 
-/* Markdownプレビューの本文・見出し・要素を整える。 */
+/* Markdownプレビューの本文・見出し・要素を整える。 *//**
+ * @style .rendered-markdown th
+ * 対象UI: Markdownプレビューの本文、見出し、リンク、ブロック要素を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .rendered-markdown th {
     background: var(--vscode-editor-inactiveSelectionBackground);
     font-weight: 600;
 }
 
-/* Markdownプレビューの本文・見出し・要素を整える。 */
+/* Markdownプレビューの本文・見出し・要素を整える。 *//**
+ * @style .rendered-markdown blockquote
+ * 対象UI: Markdownプレビューの本文、見出し、リンク、ブロック要素を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .rendered-markdown blockquote {
     margin: 1em 0;
     padding: 7px 14px;
@@ -770,7 +1384,13 @@ body.mve-dragging-outline .outline-panel nav button {
     color: var(--vscode-textBlockQuote-foreground);
 }
 
-/* Markdownプレビューの本文・見出し・要素を整える。 */
+/* Markdownプレビューの本文・見出し・要素を整える。 *//**
+ * @style .rendered-markdown pre
+ * 対象UI: Markdownプレビューの本文、見出し、リンク、ブロック要素を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .rendered-markdown pre {
     overflow: auto;
     padding: 12px 14px;
@@ -779,7 +1399,13 @@ body.mve-dragging-outline .outline-panel nav button {
     background: var(--vscode-textCodeBlock-background);
 }
 
-/* Markdownプレビューの本文・見出し・要素を整える。 */
+/* Markdownプレビューの本文・見出し・要素を整える。 *//**
+ * @style .rendered-markdown code:not(pre code)
+ * 対象UI: Markdownプレビューの本文、見出し、リンク、ブロック要素を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .rendered-markdown code:not(pre code) {
     padding: 1px 4px;
     border-radius: 3px;
@@ -787,19 +1413,37 @@ body.mve-dragging-outline .outline-panel nav button {
     font-family: var(--mve-preview-font-family, var(--vscode-editor-font-family, monospace));
 }
 
-/* Markdownプレビューの本文・見出し・要素を整える。 */
+/* Markdownプレビューの本文・見出し・要素を整える。 *//**
+ * @style .rendered-markdown mark
+ * 対象UI: Markdownプレビューの本文、見出し、リンク、ブロック要素を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .rendered-markdown mark {
     padding: 0 2px;
     color: #222;
     background: #ffe66d;
 }
 
-/* コードブロックの見出しと本文を整える。 */
+/* コードブロックの見出しと本文を整える。 *//**
+ * @style .code-figure
+ * 対象UI: Webviewの.code-figureが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .code-figure {
     margin: 1em 0;
 }
 
-/* コードブロックの見出しと本文を整える。 */
+/* コードブロックの見出しと本文を整える。 *//**
+ * @style .code-figure figcaption
+ * 対象UI: Webviewの.code-figure figcaptionが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .code-figure figcaption {
     display: flex;
     justify-content: space-between;
@@ -813,38 +1457,74 @@ body.mve-dragging-outline .outline-panel nav button {
     background: var(--vscode-editorGroupHeader-tabsBackground);
 }
 
-/* コードブロックの見出しと本文を整える。 */
+/* コードブロックの見出しと本文を整える。 *//**
+ * @style .code-figure figcaption button
+ * 対象UI: Webviewの操作ボタンと設定入力コントロールを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .code-figure figcaption button {
     border: 0;
     background: transparent;
 }
 
-/* コードブロックの見出しと本文を整える。 */
+/* コードブロックの見出しと本文を整える。 *//**
+ * @style .code-figure pre
+ * 対象UI: Webviewの.code-figure preが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .code-figure pre {
     margin-top: 0;
     border-radius: 0 0 5px 5px;
 }
 
-/* Mermaid図とエラーメッセージを表示する。 */
+/* Mermaid図とエラーメッセージを表示する。 *//**
+ * @style .diagram-block
+ * 対象UI: Webviewの.diagram-blockが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .diagram-block {
     overflow: auto;
     padding: 12px;
     text-align: center;
 }
 
-/* 巨大Mermaidを独立SVG画像として表示し、テキスト選択とリンクだけ軽量層で維持する。 */
+/* 巨大Mermaidを独立SVG画像として表示し、テキスト選択とリンクだけ軽量層で維持する。 *//**
+ * @style .mermaid-svg-frame
+ * 対象UI: Webviewの.mermaid-svg-frameが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .mermaid-svg-frame {
     position: relative;
     width: 100%;
     margin: 0 auto;
-}
+}/**
+ * @style .mermaid-svg-frame[data-mve-rasterized="false"]
+ * 対象UI: Webviewの.mermaid-svg-frame[data-mve-rasterized="false"]が表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 .mermaid-svg-frame[data-mve-rasterized="false"] {
     contain: paint;
     isolation: isolate;
     transform: translateZ(0);
     will-change: transform;
-}
+}/**
+ * @style .mermaid-svg-image
+ * 対象UI: Webviewの.mermaid-svg-imageが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 .mermaid-svg-image {
     display: block;
@@ -852,14 +1532,26 @@ body.mve-dragging-outline .outline-panel nav button {
     height: 100%;
     object-fit: contain;
     backface-visibility: hidden;
-}
+}/**
+ * @style .mermaid-interaction-layer
+ * 対象UI: Webviewの.mermaid-interaction-layerが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 .mermaid-interaction-layer {
     position: absolute;
     inset: 0;
     overflow: hidden;
     pointer-events: none;
-}
+}/**
+ * @style .mermaid-interaction
+ * 対象UI: Webviewの.mermaid-interactionが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 .mermaid-interaction {
     position: absolute;
@@ -869,13 +1561,25 @@ body.mve-dragging-outline .outline-panel nav button {
     white-space: nowrap;
     user-select: text;
     pointer-events: auto;
-}
+}/**
+ * @style .mermaid-interaction-link
+ * 対象UI: Webviewの.mermaid-interaction-linkが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 .mermaid-interaction-link {
     cursor: pointer;
 }
 
-/* Mermaid図とエラーメッセージを表示する。 */
+/* Mermaid図とエラーメッセージを表示する。 *//**
+ * @style .mermaid-error-message
+ * 対象UI: Webviewの.mermaid-error-messageが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .mermaid-error-message {
     overflow: auto;
     margin-top: 8px;
@@ -887,7 +1591,13 @@ body.mve-dragging-outline .outline-panel nav button {
     white-space: pre-wrap;
 }
 
-/* 数式ブロックと数式エラーを表示する。 */
+/* 数式ブロックと数式エラーを表示する。 *//**
+ * @style .math-block
+ * 対象UI: Webviewの.math-blockが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .math-block {
     display: block;
     overflow-x: auto;
@@ -895,13 +1605,25 @@ body.mve-dragging-outline .outline-panel nav button {
     text-align: center;
 }
 
-/* 数式ブロックと数式エラーを表示する。 */
+/* 数式ブロックと数式エラーを表示する。 *//**
+ * @style .math-error
+ * 対象UI: Webviewの.math-errorが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .math-error {
     color: var(--vscode-errorForeground);
     text-decoration: wavy underline;
 }
 
-/* 表示できない画像の代替表示を整える。 */
+/* 表示できない画像の代替表示を整える。 *//**
+ * @style .blocked-image
+ * 対象UI: Webviewの.blocked-imageが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .blocked-image {
     display: inline-block;
     padding: 8px;
@@ -909,7 +1631,13 @@ body.mve-dragging-outline .outline-panel nav button {
     color: var(--vscode-descriptionForeground);
 }
 
-/* 画像フレームのサイズ変更・配置・操作UIを整える。 */
+/* 画像フレームのサイズ変更・配置・操作UIを整える。 *//**
+ * @style .mve-image-frame
+ * 対象UI: Markdownプレビューの画像とリサイズ操作を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .mve-image-frame {
     position: relative;
     display: block;
@@ -918,25 +1646,49 @@ body.mve-dragging-outline .outline-panel nav button {
     margin: 12px 0;
 }
 
-/* 画像フレームのサイズ変更・配置・操作UIを整える。 */
+/* 画像フレームのサイズ変更・配置・操作UIを整える。 *//**
+ * @style .mve-image-frame[data-mve-image-align="left"]
+ * 対象UI: Markdownプレビューの画像とリサイズ操作を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .mve-image-frame[data-mve-image-align="left"] {
     margin-right: auto;
     margin-left: 0;
 }
 
-/* 画像フレームのサイズ変更・配置・操作UIを整える。 */
+/* 画像フレームのサイズ変更・配置・操作UIを整える。 *//**
+ * @style .mve-image-frame[data-mve-image-align="center"]
+ * 対象UI: Markdownプレビューの画像とリサイズ操作を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .mve-image-frame[data-mve-image-align="center"] {
     margin-right: auto;
     margin-left: auto;
 }
 
-/* 画像フレームのサイズ変更・配置・操作UIを整える。 */
+/* 画像フレームのサイズ変更・配置・操作UIを整える。 *//**
+ * @style .mve-image-frame[data-mve-image-align="right"]
+ * 対象UI: Markdownプレビューの画像とリサイズ操作を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .mve-image-frame[data-mve-image-align="right"] {
     margin-right: 0;
     margin-left: auto;
 }
 
-/* 画像フレームのサイズ変更・配置・操作UIを整える。 */
+/* 画像フレームのサイズ変更・配置・操作UIを整える。 *//**
+ * @style .mve-image-frame>img, .mve-image-frame>picture
+ * 対象UI: Markdownプレビューの画像とリサイズ操作を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .mve-image-frame>img,
 .mve-image-frame>picture {
     width: 100%;
@@ -945,12 +1697,24 @@ body.mve-dragging-outline .outline-panel nav button {
     margin: 0;
 }
 
-/* 画像フレームのサイズ変更・配置・操作UIを整える。 */
+/* 画像フレームのサイズ変更・配置・操作UIを整える。 *//**
+ * @style .mve-image-frame>picture
+ * 対象UI: Markdownプレビューの画像とリサイズ操作を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .mve-image-frame>picture {
     display: block;
 }
 
-/* 画像フレームのサイズ変更・配置・操作UIを整える。 */
+/* 画像フレームのサイズ変更・配置・操作UIを整える。 *//**
+ * @style .mve-image-frame>picture>img
+ * 対象UI: Markdownプレビューの画像とリサイズ操作を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .mve-image-frame>picture>img {
     width: 100%;
     max-width: 100%;
@@ -958,7 +1722,13 @@ body.mve-dragging-outline .outline-panel nav button {
     margin: 0;
 }
 
-/* 画像フレームのサイズ変更・配置・操作UIを整える。 */
+/* 画像フレームのサイズ変更・配置・操作UIを整える。 *//**
+ * @style .mve-image-badge
+ * 対象UI: Markdownプレビューの画像とリサイズ操作を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .mve-image-badge {
     position: absolute;
     z-index: 2;
@@ -975,7 +1745,13 @@ body.mve-dragging-outline .outline-panel nav button {
     pointer-events: none;
 }
 
-/* 画像フレームのサイズ変更・配置・操作UIを整える。 */
+/* 画像フレームのサイズ変更・配置・操作UIを整える。 *//**
+ * @style .mve-image-handle
+ * 対象UI: Markdownプレビューの画像とリサイズ操作を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .mve-image-handle {
     position: absolute;
     z-index: 3;
@@ -991,7 +1767,13 @@ body.mve-dragging-outline .outline-panel nav button {
     opacity: 0;
 }
 
-/* 画像フレームのサイズ変更・配置・操作UIを整える。 */
+/* 画像フレームのサイズ変更・配置・操作UIを整える。 *//**
+ * @style .mve-image-handle::after
+ * 対象UI: Markdownプレビューの画像とリサイズ操作を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .mve-image-handle::after {
     content: '';
     position: absolute;
@@ -1003,13 +1785,25 @@ body.mve-dragging-outline .outline-panel nav button {
     border-bottom: 2px solid var(--vscode-button-foreground);
 }
 
-/* 画像フレームのサイズ変更・配置・操作UIを整える。 */
+/* 画像フレームのサイズ変更・配置・操作UIを整える。 *//**
+ * @style .mve-image-frame:hover .mve-image-handle, .mve-image-frame.is-resizing .mve-image-handle
+ * 対象UI: Markdownプレビューの画像とリサイズ操作を整える。
+ * 状態・テーマ: ポインターが重なった状態の反応を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .mve-image-frame:hover .mve-image-handle,
 .mve-image-frame.is-resizing .mve-image-handle {
     opacity: 1;
 }
 
-/* 画像フレームのサイズ変更・配置・操作UIを整える。 */
+/* 画像フレームのサイズ変更・配置・操作UIを整える。 *//**
+ * @style .mve-image-align-actions
+ * 対象UI: Markdownプレビューの画像とリサイズ操作を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .mve-image-align-actions {
     position: absolute;
     z-index: 3;
@@ -1020,13 +1814,25 @@ body.mve-dragging-outline .outline-panel nav button {
     opacity: 0;
 }
 
-/* 画像フレームのサイズ変更・配置・操作UIを整える。 */
+/* 画像フレームのサイズ変更・配置・操作UIを整える。 *//**
+ * @style .mve-image-frame:hover .mve-image-align-actions, .mve-image-frame.is-resizing .mve-image-align-actions
+ * 対象UI: Markdownプレビューの画像とリサイズ操作を整える。
+ * 状態・テーマ: ポインターが重なった状態の反応を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .mve-image-frame:hover .mve-image-align-actions,
 .mve-image-frame.is-resizing .mve-image-align-actions {
     opacity: 1;
 }
 
-/* 画像フレームのサイズ変更・配置・操作UIを整える。 */
+/* 画像フレームのサイズ変更・配置・操作UIを整える。 *//**
+ * @style .mve-image-align-button
+ * 対象UI: Markdownプレビューの画像とリサイズ操作を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .mve-image-align-button {
     width: 20px;
     height: 20px;
@@ -1039,13 +1845,25 @@ body.mve-dragging-outline .outline-panel nav button {
     line-height: 1;
 }
 
-/* 画像フレームのサイズ変更・配置・操作UIを整える。 */
+/* 画像フレームのサイズ変更・配置・操作UIを整える。 *//**
+ * @style .mve-image-align-button[data-active="true"]
+ * 対象UI: Markdownプレビューの画像とリサイズ操作を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .mve-image-align-button[data-active="true"] {
     border-color: var(--vscode-focusBorder);
     outline: 1px solid var(--vscode-focusBorder);
 }
 
-/* 画像フレームのサイズ変更・配置・操作UIを整える。 */
+/* 画像フレームのサイズ変更・配置・操作UIを整える。 *//**
+ * @style .mve-image-reset
+ * 対象UI: Markdownプレビューの画像とリサイズ操作を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .mve-image-reset {
     position: absolute;
     z-index: 3;
@@ -1062,25 +1880,49 @@ body.mve-dragging-outline .outline-panel nav button {
     opacity: 0;
 }
 
-/* 画像フレームのサイズ変更・配置・操作UIを整える。 */
+/* 画像フレームのサイズ変更・配置・操作UIを整える。 *//**
+ * @style .mve-image-frame:hover .mve-image-reset
+ * 対象UI: Markdownプレビューの画像とリサイズ操作を整える。
+ * 状態・テーマ: ポインターが重なった状態の反応を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .mve-image-frame:hover .mve-image-reset {
     opacity: 1;
 }
 
-/* 画像フレームのサイズ変更・配置・操作UIを整える。 */
+/* 画像フレームのサイズ変更・配置・操作UIを整える。 *//**
+ * @style .mve-image-frame.is-resizing, .mve-image-frame.is-resizing *
+ * 対象UI: Markdownプレビューの画像とリサイズ操作を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .mve-image-frame.is-resizing,
 .mve-image-frame.is-resizing * {
     user-select: none !important;
 }
 
-/* 改ページ位置をプレビュー上で示す。 */
+/* 改ページ位置をプレビュー上で示す。 *//**
+ * @style .page-break
+ * 対象UI: Webviewの.page-breakが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .page-break {
     height: 12px;
     margin: 30px 0;
     border-top: 2px dashed var(--vscode-descriptionForeground);
 }
 
-/* 改ページ位置をプレビュー上で示す。 */
+/* 改ページ位置をプレビュー上で示す。 *//**
+ * @style .page-break::after
+ * 対象UI: Webviewの.page-break::afterが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .page-break::after {
     content: attr(aria-label);
     position: relative;
@@ -1091,36 +1933,72 @@ body.mve-dragging-outline .outline-panel nav button {
     font-size: 10px;
 }
 
-/* 目次の枠と階層表示を整える。 */
+/* 目次の枠と階層表示を整える。 *//**
+ * @style .table-of-contents
+ * 対象UI: Markdownプレビューの目次と階層表示を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .table-of-contents {
     padding: 12px 16px;
     border: 1px solid var(--mve-border);
     border-radius: 5px;
 }
 
-/* 目次の枠と階層表示を整える。 */
+/* 目次の枠と階層表示を整える。 *//**
+ * @style .table-of-contents ul
+ * 対象UI: Markdownプレビューの目次と階層表示を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .table-of-contents ul {
     margin-bottom: 0;
     padding-left: 0;
     list-style: none;
 }
 
-/* 目次の見出しレベルごとのインデントを設定する。 */
+/* 目次の見出しレベルごとのインデントを設定する。 *//**
+ * @style .toc-level-2
+ * 対象UI: Webviewの.toc-level-2が表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .toc-level-2 {
     padding-left: 16px;
 }
 
-/* 目次の第3レベルをさらにインデントする。 */
+/* 目次の第3レベルをさらにインデントする。 *//**
+ * @style .toc-level-3
+ * 対象UI: Webviewの.toc-level-3が表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .toc-level-3 {
     padding-left: 32px;
 }
 
-/* 目次の第4レベルをさらにインデントする。 */
+/* 目次の第4レベルをさらにインデントする。 *//**
+ * @style .toc-level-4
+ * 対象UI: Webviewの.toc-level-4が表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .toc-level-4 {
     padding-left: 48px;
 }
 
-/* Markdownアラートの表示と種類別の色を整える。 */
+/* Markdownアラートの表示と種類別の色を整える。 *//**
+ * @style .markdown-alert
+ * 対象UI: Webviewの.markdown-alertが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .markdown-alert {
     margin: 1em 0;
     padding: 9px 14px;
@@ -1128,13 +2006,25 @@ body.mve-dragging-outline .outline-panel nav button {
     background: var(--vscode-editor-inactiveSelectionBackground);
 }
 
-/* Markdownアラートの表示と種類別の色を整える。 */
+/* Markdownアラートの表示と種類別の色を整える。 *//**
+ * @style .alert-warning, .alert-caution
+ * 対象UI: Webviewの.alert-warning, .alert-cautionが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .alert-warning,
 .alert-caution {
     border-left-color: var(--vscode-notificationsWarningIcon-foreground);
 }
 
-/* インスペクター・診断・PDF設定パネルを整える。 */
+/* インスペクター・診断・PDF設定パネルを整える。 *//**
+ * @style .inspector-panel, .diagnostics-panel, .pdf-settings-panel
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .inspector-panel,
 .diagnostics-panel,
 .pdf-settings-panel {
@@ -1145,7 +2035,13 @@ body.mve-dragging-outline .outline-panel nav button {
     background: var(--mve-panel);
 }
 
-/* 各パネルのタイトル行と閉じる操作を整える。 */
+/* 各パネルのタイトル行と閉じる操作を整える。 *//**
+ * @style .panel-title
+ * 対象UI: Webviewの.panel-titleが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .panel-title {
     display: flex;
     align-items: center;
@@ -1154,14 +2050,26 @@ body.mve-dragging-outline .outline-panel nav button {
     border-bottom: 1px solid var(--mve-border);
 }
 
-/* 各パネルのタイトル行と閉じる操作を整える。 */
+/* 各パネルのタイトル行と閉じる操作を整える。 *//**
+ * @style .panel-title button
+ * 対象UI: Webviewの操作ボタンと設定入力コントロールを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .panel-title button {
     margin-right: 8px;
     border: 0;
     background: transparent;
 }
 
-/* インスペクター・診断・PDF設定パネルを整える。 */
+/* インスペクター・診断・PDF設定パネルを整える。 *//**
+ * @style .inspector-panel textarea
+ * 対象UI: Webviewの操作ボタンと設定入力コントロールを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .inspector-panel textarea {
     width: 100%;
     min-height: 170px;
@@ -1173,14 +2081,26 @@ body.mve-dragging-outline .outline-panel nav button {
     font-family: var(--vscode-editor-font-family, monospace);
 }
 
-/* インスペクター・診断・PDF設定パネルを整える。 */
+/* インスペクター・診断・PDF設定パネルを整える。 *//**
+ * @style .inspector-panel img
+ * 対象UI: Webviewの.inspector-panel imgが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .inspector-panel img {
     max-width: 100%;
     max-height: 240px;
     object-fit: contain;
 }
 
-/* インスペクター・診断・PDF設定パネルを整える。 */
+/* インスペクター・診断・PDF設定パネルを整える。 *//**
+ * @style .inspector-panel label, .pdf-settings-panel label
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .inspector-panel label,
 .pdf-settings-panel label {
     display: grid;
@@ -1188,7 +2108,13 @@ body.mve-dragging-outline .outline-panel nav button {
     margin: 10px 0;
 }
 
-/* インスペクター・診断・PDF設定パネルを整える。 */
+/* インスペクター・診断・PDF設定パネルを整える。 *//**
+ * @style .inspector-panel input, .pdf-settings-panel input, .pdf-settings-panel select
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .inspector-panel input,
 .pdf-settings-panel input,
 .pdf-settings-panel select {
@@ -1199,7 +2125,13 @@ body.mve-dragging-outline .outline-panel nav button {
     background: var(--vscode-input-background);
 }
 
-/* インスペクター・診断・PDF設定パネルを整える。 */
+/* インスペクター・診断・PDF設定パネルを整える。 *//**
+ * @style .pdf-margin-fields
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .pdf-margin-fields {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -1209,7 +2141,13 @@ body.mve-dragging-outline .outline-panel nav button {
     border: 1px solid var(--mve-border);
 }
 
-/* PDFの本文・見出し・コードを個別に調整する設定欄を整える。 */
+/* PDFの本文・見出し・コードを個別に調整する設定欄を整える。 *//**
+ * @style .pdf-typography-fields, .pdf-heading-fields
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .pdf-typography-fields,
 .pdf-heading-fields {
     margin: 12px 0;
@@ -1217,39 +2155,75 @@ body.mve-dragging-outline .outline-panel nav button {
     border: 1px solid var(--mve-border);
 }
 
-/* 見出しサイズは6段階をコンパクトな2列で表示する。 */
+/* 見出しサイズは6段階をコンパクトな2列で表示する。 *//**
+ * @style .pdf-heading-fields
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .pdf-heading-fields {
     display: grid;
     grid-template-columns: 1fr 1fr;
     gap: 0 8px;
     margin: 8px 0;
-}
+}/**
+ * @style .pdf-typography-fields legend, .pdf-heading-fields legend
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 .pdf-typography-fields legend,
 .pdf-heading-fields legend {
     padding: 0 4px;
     color: var(--vscode-descriptionForeground);
     font-size: 11px;
-}
+}/**
+ * @style .pdf-typography-fields label, .pdf-heading-fields label
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 .pdf-typography-fields label,
 .pdf-heading-fields label {
     margin: 6px 0;
 }
 
-/* インスペクター・診断・PDF設定パネルを整える。 */
+/* インスペクター・診断・PDF設定パネルを整える。 *//**
+ * @style .pdf-margin-fields legend
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .pdf-margin-fields legend {
     padding: 0 4px;
     color: var(--vscode-descriptionForeground);
     font-size: 11px;
 }
 
-/* インスペクター・診断・PDF設定パネルを整える。 */
+/* インスペクター・診断・PDF設定パネルを整える。 *//**
+ * @style .pdf-margin-fields label
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .pdf-margin-fields label {
     margin: 6px 0;
 }
 
-/* インスペクター・診断・PDF設定パネルを整える。 */
+/* インスペクター・診断・PDF設定パネルを整える。 *//**
+ * @style .pdf-checkbox
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .pdf-checkbox {
     display: flex !important;
     grid-template-columns: auto 1fr;
@@ -1257,12 +2231,24 @@ body.mve-dragging-outline .outline-panel nav button {
     gap: 7px !important;
 }
 
-/* インスペクター・診断・PDF設定パネルを整える。 */
+/* インスペクター・診断・PDF設定パネルを整える。 *//**
+ * @style .pdf-checkbox input
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .pdf-checkbox input {
     width: auto;
 }
 
-/* インスペクター・診断・PDF設定パネルを整える。 */
+/* インスペクター・診断・PDF設定パネルを整える。 *//**
+ * @style .inspector-preview
+ * 対象UI: Markdownプレビューの本文、見出し、リンク、ブロック要素を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .inspector-preview {
     max-height: 280px;
     overflow: auto;
@@ -1272,7 +2258,13 @@ body.mve-dragging-outline .outline-panel nav button {
     background: var(--vscode-editor-background);
 }
 
-/* 主要操作ボタンをVS Codeのボタン配色で表示する。 */
+/* 主要操作ボタンをVS Codeのボタン配色で表示する。 *//**
+ * @style .primary
+ * 対象UI: Webviewの.primaryが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .primary {
     padding: 6px 12px;
     border: 1px solid var(--vscode-button-border, transparent);
@@ -1280,7 +2272,13 @@ body.mve-dragging-outline .outline-panel nav button {
     background: var(--vscode-button-background);
 }
 
-/* 文書診断の項目と状態表示を整える。 */
+/* 文書診断の項目と状態表示を整える。 *//**
+ * @style .diagnostic
+ * 対象UI: Markdown編集画面の診断表示と位置情報を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .diagnostic {
     display: grid;
     gap: 3px;
@@ -1290,29 +2288,59 @@ body.mve-dragging-outline .outline-panel nav button {
     background: var(--vscode-editor-inactiveSelectionBackground);
 }
 
-/* エラー診断の境界色を設定する。 */
+/* エラー診断の境界色を設定する。 *//**
+ * @style .diagnostic.error
+ * 対象UI: Markdown編集画面の診断表示と位置情報を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .diagnostic.error {
     border-color: var(--vscode-errorForeground);
 }
 
-/* 警告診断の境界色を設定する。 */
+/* 警告診断の境界色を設定する。 *//**
+ * @style .diagnostic.warning
+ * 対象UI: Markdown編集画面の診断表示と位置情報を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .diagnostic.warning {
     border-color: var(--vscode-notificationsWarningIcon-foreground);
 }
 
-/* 文書診断の項目と状態表示を整える。 */
+/* 文書診断の項目と状態表示を整える。 *//**
+ * @style .diagnostic-summary
+ * 対象UI: Markdown編集画面の診断表示と位置情報を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .diagnostic-summary {
     margin: 8px 0 4px;
     font-weight: 600;
 }
 
-/* 文書診断の項目と状態表示を整える。 */
+/* 文書診断の項目と状態表示を整える。 *//**
+ * @style .diagnostic-help
+ * 対象UI: Markdown編集画面の診断表示と位置情報を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .diagnostic-help {
     color: var(--vscode-descriptionForeground);
     font-size: 11px;
 }
 
-/* 文書診断の項目と状態表示を整える。 */
+/* 文書診断の項目と状態表示を整える。 *//**
+ * @style .diagnostic-location
+ * 対象UI: Markdown編集画面の診断表示と位置情報を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .diagnostic-location {
     justify-self: start;
     padding: 0;
@@ -1322,7 +2350,13 @@ body.mve-dragging-outline .outline-panel nav button {
     font-size: 11px;
 }
 
-/* ステータスバーの情報を右寄せで表示する。 */
+/* ステータスバーの情報を右寄せで表示する。 *//**
+ * @style .status-bar
+ * 対象UI: Webviewの.status-barが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .status-bar {
     display: flex;
     align-items: center;
@@ -1334,7 +2368,13 @@ body.mve-dragging-outline .outline-panel nav button {
     font-size: 11px;
 }
 
-/* 操作結果の通知トーストを表示する。 */
+/* 操作結果の通知トーストを表示する。 *//**
+ * @style .toast
+ * 対象UI: Webviewの.toastが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .toast {
     position: fixed;
     z-index: 100;
@@ -1349,7 +2389,13 @@ body.mve-dragging-outline .outline-panel nav button {
     box-shadow: 0 5px 18px rgba(0, 0, 0, .28);
 }
 
-/* ダイアログ表示時の背景を覆う。 */
+/* ダイアログ表示時の背景を覆う。 *//**
+ * @style .modal-backdrop
+ * 対象UI: Webviewの.modal-backdropが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .modal-backdrop {
     position: fixed;
     z-index: 90;
@@ -1359,7 +2405,13 @@ body.mve-dragging-outline .outline-panel nav button {
     background: rgba(0, 0, 0, .45);
 }
 
-/* ヘルプと機能一覧のダイアログを整える。 */
+/* ヘルプと機能一覧のダイアログを整える。 *//**
+ * @style .help-dialog
+ * 対象UI: Webviewの.help-dialogが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .help-dialog {
     width: min(620px, calc(100vw - 40px));
     max-height: calc(100vh - 60px);
@@ -1371,12 +2423,24 @@ body.mve-dragging-outline .outline-panel nav button {
     box-shadow: 0 12px 40px rgba(0, 0, 0, .4);
 }
 
-/* リンク設定ダイアログを整える。 */
+/* リンク設定ダイアログを整える。 *//**
+ * @style .link-dialog
+ * 対象UI: リンク設定ダイアログの入力欄と説明を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .link-dialog {
     width: min(520px, calc(100vw - 40px));
 }
 
-/* リンク設定ダイアログを整える。 */
+/* リンク設定ダイアログを整える。 *//**
+ * @style .link-dialog label
+ * 対象UI: リンク設定ダイアログの入力欄と説明を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .link-dialog label {
     display: grid;
     gap: 5px;
@@ -1385,7 +2449,13 @@ body.mve-dragging-outline .outline-panel nav button {
     font-size: 12px;
 }
 
-/* リンク設定ダイアログを整える。 */
+/* リンク設定ダイアログを整える。 *//**
+ * @style .link-dialog input
+ * 対象UI: リンク設定ダイアログの入力欄と説明を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .link-dialog input {
     width: 100%;
     padding: 7px 8px;
@@ -1394,7 +2464,13 @@ body.mve-dragging-outline .outline-panel nav button {
     background: var(--vscode-input-background);
 }
 
-/* ダイアログの操作ボタンを配置する。 */
+/* ダイアログの操作ボタンを配置する。 *//**
+ * @style .dialog-actions
+ * 対象UI: Webviewの.dialog-actionsが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .dialog-actions {
     display: flex;
     justify-content: flex-end;
@@ -1402,19 +2478,37 @@ body.mve-dragging-outline .outline-panel nav button {
     margin-top: 18px;
 }
 
-/* ダイアログの操作ボタンを配置する。 */
+/* ダイアログの操作ボタンを配置する。 *//**
+ * @style .dialog-actions button
+ * 対象UI: Webviewの操作ボタンと設定入力コントロールを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .dialog-actions button {
     padding: 6px 12px;
     border: 1px solid var(--mve-border);
     background: var(--vscode-button-secondaryBackground);
 }
 
-/* ショートカット表の罫線を重ねて表示する。 */
+/* ショートカット表の罫線を重ねて表示する。 *//**
+ * @style .help-dialog table
+ * 対象UI: Webviewの.help-dialog tableが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .help-dialog table {
     border-collapse: collapse;
 }
 
-/* ショートカット表のセル間隔と罫線を設定する。 */
+/* ショートカット表のセル間隔と罫線を設定する。 *//**
+ * @style .help-dialog th, .help-dialog td
+ * 対象UI: Webviewの.help-dialog th, .help-dialog tdが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .help-dialog th,
 .help-dialog td {
     padding: 5px 8px;
@@ -1422,13 +2516,25 @@ body.mve-dragging-outline .outline-panel nav button {
     text-align: left;
 }
 
-/* ヘルプと機能一覧のダイアログを整える。 */
+/* ヘルプと機能一覧のダイアログを整える。 *//**
+ * @style .feature-list
+ * 対象UI: 機能一覧のセクション、見出し、説明文を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .feature-list {
     display: grid;
     gap: 10px;
 }
 
-/* ヘルプと機能一覧のダイアログを整える。 */
+/* ヘルプと機能一覧のダイアログを整える。 *//**
+ * @style .feature-list section
+ * 対象UI: 機能一覧のセクション、見出し、説明文を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .feature-list section {
     padding: 8px 10px;
     border: 1px solid var(--mve-border);
@@ -1436,13 +2542,25 @@ body.mve-dragging-outline .outline-panel nav button {
     background: var(--vscode-editorGroupHeader-tabsBackground);
 }
 
-/* ヘルプと機能一覧のダイアログを整える。 */
+/* ヘルプと機能一覧のダイアログを整える。 *//**
+ * @style .feature-list h3
+ * 対象UI: 機能一覧のセクション、見出し、説明文を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .feature-list h3 {
     margin: 0 0 4px;
     font-size: 12px;
 }
 
-/* ヘルプと機能一覧のダイアログを整える。 */
+/* ヘルプと機能一覧のダイアログを整える。 *//**
+ * @style .feature-list ul
+ * 対象UI: 機能一覧のセクション、見出し、説明文を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .feature-list ul {
     display: grid;
     gap: 4px;
@@ -1451,7 +2569,13 @@ body.mve-dragging-outline .outline-panel nav button {
     list-style: none;
 }
 
-/* ヘルプと機能一覧のダイアログを整える。 */
+/* ヘルプと機能一覧のダイアログを整える。 *//**
+ * @style .feature-list li
+ * 対象UI: 機能一覧のセクション、見出し、説明文を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .feature-list li {
     display: grid;
     grid-template-columns: minmax(110px, max-content) 1fr;
@@ -1459,17 +2583,35 @@ body.mve-dragging-outline .outline-panel nav button {
     line-height: 1.5;
 }
 
-/* ヘルプと機能一覧のダイアログを整える。 */
+/* ヘルプと機能一覧のダイアログを整える。 *//**
+ * @style .feature-list li strong
+ * 対象UI: 機能一覧のセクション、見出し、説明文を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .feature-list li strong {
     color: var(--vscode-foreground);
 }
 
-/* ヘルプと機能一覧のダイアログを整える。 */
+/* ヘルプと機能一覧のダイアログを整える。 *//**
+ * @style .feature-list li span
+ * 対象UI: 機能一覧のセクション、見出し、説明文を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .feature-list li span {
     color: var(--vscode-descriptionForeground);
 }
 
-/* PDF出力用の描画領域を画面外に配置する。 */
+/* PDF出力用の描画領域を画面外に配置する。 *//**
+ * @style .export-stage
+ * 対象UI: Webviewの.export-stageが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .export-stage {
     position: fixed;
     left: -20000px;
@@ -1478,17 +2620,35 @@ body.mve-dragging-outline .outline-panel nav button {
     pointer-events: none;
 }
 
-/* 印刷プレビュー時の画面と用紙を整える。 */
+/* 印刷プレビュー時の画面と用紙を整える。 *//**
+ * @style .print-preview-mode .editor-area
+ * 対象UI: Markdownプレビューの本文、見出し、リンク、ブロック要素を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .print-preview-mode .editor-area {
     background: #e5e7eb;
 }
 
-/* 印刷プレビュー時の画面と用紙を整える。 */
+/* 印刷プレビュー時の画面と用紙を整える。 *//**
+ * @style .print-preview-mode .pdf-settings-panel
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .print-preview-mode .pdf-settings-panel {
     background: var(--mve-panel);
 }
 
-/* インスペクター・診断・PDF設定パネルを整える。 */
+/* インスペクター・診断・PDF設定パネルを整える。 *//**
+ * @style .pdf-preview-shell
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .pdf-preview-shell {
     width: 100%;
     min-width: 0;
@@ -1497,7 +2657,13 @@ body.mve-dragging-outline .outline-panel nav button {
     background: #e5e7eb;
 }
 
-/* PDFプレビューをマウス操作なしでも拡大・縮小できるようにする。 */
+/* PDFプレビューをマウス操作なしでも拡大・縮小できるようにする。 *//**
+ * @style .pdf-preview-toolbar
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .pdf-preview-toolbar {
     position: sticky;
     z-index: 31;
@@ -1510,7 +2676,13 @@ body.mve-dragging-outline .outline-panel nav button {
     margin: -16px -16px 8px;
     padding: 4px 8px;
     background: color-mix(in srgb, #e5e7eb 92%, transparent);
-}
+}/**
+ * @style .pdf-preview-toolbar button
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 .pdf-preview-toolbar button {
     width: 28px;
@@ -1522,11 +2694,23 @@ body.mve-dragging-outline .outline-panel nav button {
     background: #fff;
     font-size: 17px;
     line-height: 1;
-}
+}/**
+ * @style .pdf-preview-toolbar button:hover
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: ポインターが重なった状態の反応を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 .pdf-preview-toolbar button:hover {
     background: #f3f4f6;
-}
+}/**
+ * @style .pdf-preview-zoom-value
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 .pdf-preview-zoom-value {
     min-width: 48px;
@@ -1535,12 +2719,24 @@ body.mve-dragging-outline .outline-panel nav button {
     text-align: center;
 }
 
-/* 実PDFの生成中も本文をすぐ表示するライブプレビュー領域。改ページの確定値は実PDF側を使用する。 */
+/* 実PDFの生成中も本文をすぐ表示するライブプレビュー領域。改ページの確定値は実PDF側を使用する。 *//**
+ * @style .pdf-preview-live-layer
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .pdf-preview-live-layer {
     width: 100%;
     max-width: 900px;
     margin: 0 auto;
-}
+}/**
+ * @style .pdf-preview-live-content
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 .pdf-preview-live-content {
     box-sizing: border-box;
@@ -1548,7 +2744,13 @@ body.mve-dragging-outline .outline-panel nav button {
     color: #202124;
     background: #fff;
     box-shadow: 0 4px 18px rgba(0, 0, 0, .2);
-}
+}/**
+ * @style .pdf-preview-content
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 .pdf-preview-content {
     max-width: none;
@@ -1558,36 +2760,108 @@ body.mve-dragging-outline .outline-panel nav button {
     color: #202124;
 }
 
-/* 実PDFの生成待ちに表示するライブ本文へ印刷設定を反映する。 */
-.pdf-preview-content h1 { font-size: var(--mve-pdf-h1-size); }
-.pdf-preview-content h2 { font-size: var(--mve-pdf-h2-size); }
-.pdf-preview-content h3 { font-size: var(--mve-pdf-h3-size); }
-.pdf-preview-content h4 { font-size: var(--mve-pdf-h4-size); }
-.pdf-preview-content h5 { font-size: var(--mve-pdf-h5-size); }
-.pdf-preview-content h6 { font-size: var(--mve-pdf-h6-size); }
+/* 実PDFの生成待ちに表示するライブ本文へ印刷設定を反映する。 *//**
+ * @style .pdf-preview-content h1
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
+.pdf-preview-content h1 { font-size: var(--mve-pdf-h1-size); }/**
+ * @style .pdf-preview-content h2
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
+.pdf-preview-content h2 { font-size: var(--mve-pdf-h2-size); }/**
+ * @style .pdf-preview-content h3
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
+.pdf-preview-content h3 { font-size: var(--mve-pdf-h3-size); }/**
+ * @style .pdf-preview-content h4
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
+.pdf-preview-content h4 { font-size: var(--mve-pdf-h4-size); }/**
+ * @style .pdf-preview-content h5
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
+.pdf-preview-content h5 { font-size: var(--mve-pdf-h5-size); }/**
+ * @style .pdf-preview-content h6
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
+.pdf-preview-content h6 { font-size: var(--mve-pdf-h6-size); }/**
+ * @style .pdf-preview-content pre, .pdf-preview-content code
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .pdf-preview-content pre,
-.pdf-preview-content code { font-size: var(--mve-pdf-code-size); }
+.pdf-preview-content code { font-size: var(--mve-pdf-code-size); }/**
+ * @style .pdf-preview-content p
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .pdf-preview-content p { margin-bottom: var(--mve-pdf-paragraph-spacing, 6pt); }
 
-/* ライブプレビューのヘッダー・フッターを整える。 */
+/* ライブプレビューのヘッダー・フッターを整える。 *//**
+ * @style .pdf-preview-header, .pdf-preview-footer
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .pdf-preview-header,
 .pdf-preview-footer {
     color: #666;
     font-size: 8pt;
     white-space: pre-wrap;
-}
+}/**
+ * @style .pdf-preview-header
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 .pdf-preview-header {
     margin-bottom: 12px;
     text-align: left;
-}
+}/**
+ * @style .pdf-preview-footer
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 .pdf-preview-footer {
     margin-top: 12px;
     text-align: center;
 }
 
-/* PDF.jsを透明状態で先に描画し、描画完了後に実PDFページを表示する。 */
+/* PDF.jsを透明状態で先に描画し、描画完了後に実PDFページを表示する。 *//**
+ * @style .pdf-preview-pdf-layer.is-preparing
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .pdf-preview-pdf-layer.is-preparing {
     position: absolute;
     inset: 0;
@@ -1595,12 +2869,24 @@ body.mve-dragging-outline .outline-panel nav button {
     pointer-events: none;
 }
 
-/* 生成済みPDFのページを実際のページ比率で縦に並べる。 */
+/* 生成済みPDFのページを実際のページ比率で縦に並べる。 *//**
+ * @style .pdf-pages
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .pdf-pages {
     padding: 24px 32px 48px;
 }
 
-/* 生成済みPDFのページを用紙として表示する。 */
+/* 生成済みPDFのページを用紙として表示する。 *//**
+ * @style .pdf-page
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .pdf-page {
     position: relative;
     width: min(100%, 794px);
@@ -1610,40 +2896,76 @@ body.mve-dragging-outline .outline-panel nav button {
     box-shadow: 0 4px 18px rgba(0, 0, 0, .2);
 }
 
-/* PDF.jsのキャンバスはPDFの実寸比率を維持して表示する。 */
+/* PDF.jsのキャンバスはPDFの実寸比率を維持して表示する。 *//**
+ * @style .pdf-page canvas
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .pdf-page canvas {
     display: block;
     width: 100%;
     height: auto;
 }
 
-/* 近傍ページだけを遅延描画して大規模文書の初回表示を軽くする。 */
+/* 近傍ページだけを遅延描画して大規模文書の初回表示を軽くする。 *//**
+ * @style .pdf-page-waiting canvas, .pdf-page-rendering canvas
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .pdf-page-waiting canvas,
 .pdf-page-rendering canvas {
     opacity: 0;
 }
 
-/* PDF生成・PDFページ描画中の状態を表示する。 */
+/* PDF生成・PDFページ描画中の状態を表示する。 *//**
+ * @style .pdf-preview-status, .pdf-preview-loading, .pdf-preview-error, .pdf-page-error
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .pdf-preview-status,
 .pdf-preview-loading,
 .pdf-preview-error,
 .pdf-page-error {
     color: var(--vscode-descriptionForeground);
     text-align: center;
-}
+}/**
+ * @style .pdf-preview-status
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 .pdf-preview-status {
     margin: 0 0 8px;
 }
 
-/* PDFページ描画失敗をページ内に表示する。 */
+/* PDFページ描画失敗をページ内に表示する。 *//**
+ * @style .pdf-page-error
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .pdf-page-error {
     position: absolute;
     inset: 50% 0 auto;
     transform: translateY(-50%);
 }
 
-/* インスペクター・診断・PDF設定パネルを整える。 */
+/* インスペクター・診断・PDF設定パネルを整える。 *//**
+ * @style .pdf-preview-note
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .pdf-preview-note {
     max-width: 900px;
     margin: 12px auto 0;
@@ -1652,62 +2974,128 @@ body.mve-dragging-outline .outline-panel nav button {
     text-align: center;
 }
 
-/* アウトライン幅のリサイズ中にカーソルと選択状態を固定する。 */
+/* アウトライン幅のリサイズ中にカーソルと選択状態を固定する。 *//**
+ * @style .mve-resizing-outline, .mve-resizing-outline *
+ * 対象UI: Webviewの.mve-resizing-outline, .mve-resizing-outline *が表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .mve-resizing-outline,
 .mve-resizing-outline * {
     cursor: col-resize !important;
     user-select: none !important;
 }
 
-/* コードブロック内のキーワード・セレクター・リテラルを着色する。 */
+/* コードブロック内のキーワード・セレクター・リテラルを着色する。 *//**
+ * @style .hljs-keyword, .hljs-selector-tag, .hljs-literal
+ * 対象UI: Webviewの操作ボタンと設定入力コントロールを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .hljs-keyword,
 .hljs-selector-tag,
 .hljs-literal {
     color: #c586c0;
 }
 
-/* コードブロック内の文字列と属性を着色する。 */
+/* コードブロック内の文字列と属性を着色する。 *//**
+ * @style .hljs-string, .hljs-attr
+ * 対象UI: Webviewの.hljs-string, .hljs-attrが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .hljs-string,
 .hljs-attr {
     color: #ce9178;
 }
 
-/* コードブロック内のタイトルとセクションを着色する。 */
+/* コードブロック内のタイトルとセクションを着色する。 *//**
+ * @style .hljs-title, .hljs-section
+ * 対象UI: Webviewの.hljs-title, .hljs-sectionが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .hljs-title,
 .hljs-section {
     color: #dcdcaa;
 }
 
-/* コードブロック内のコメントを着色する。 */
+/* コードブロック内のコメントを着色する。 *//**
+ * @style .hljs-comment
+ * 対象UI: Webviewの.hljs-commentが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .hljs-comment {
     color: #6a9955;
 }
 
-/* コードブロック内の数値を着色する。 */
+/* コードブロック内の数値を着色する。 *//**
+ * @style .hljs-number
+ * 対象UI: Webviewの.hljs-numberが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 .hljs-number {
     color: #b5cea8;
 }
 
-/* 画面幅に応じたレスポンシブ表示を設定する。 */
+/* 画面幅に応じたレスポンシブ表示を設定する。 *//**
+ * @style @media (max-width: 850px)
+ * 対象UI: Webviewの@media (max-width: 850px)が表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 @media (max-width: 850px) {
 
-    /* アウトラインパネルの配置・サイズ・操作状態を整える。 */
+    /* アウトラインパネルの配置・サイズ・操作状態を整える。 *//**
+ * @style .outline-panel
+ * 対象UI: Webviewの.outline-panelが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
     .outline-panel {
         display: none;
     }
 
-    /* テキストとプレビューの分割表示を整える。 */
+    /* テキストとプレビューの分割表示を整える。 *//**
+ * @style .split-editor
+ * 対象UI: Webviewの.split-editorが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
     .split-editor {
         grid-template-columns: 1fr !important;
         grid-template-rows: minmax(280px, 1fr) 8px minmax(280px, 1fr);
     }
 
-    /* 単独表示では分割用の行を残さず、表示中のペインを全高にする。 */
+    /* 単独表示では分割用の行を残さず、表示中のペインを全高にする。 *//**
+ * @style .split-editor.single-pane
+ * 対象UI: Webviewの.split-editor.single-paneが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
     .split-editor.single-pane {
         grid-template-rows: minmax(0, 1fr) !important;
     }
 
-    /* テキストとプレビューの分割表示を整える。 */
+    /* テキストとプレビューの分割表示を整える。 *//**
+ * @style .split-divider
+ * 対象UI: Webviewの.split-dividerが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
     .split-divider {
         cursor: row-resize;
         border-top: 1px solid var(--mve-border);
@@ -1716,7 +3104,13 @@ body.mve-dragging-outline .outline-panel nav button {
         border-left: 0;
     }
 
-    /* インスペクター・診断・PDF設定パネルを整える。 */
+    /* インスペクター・診断・PDF設定パネルを整える。 *//**
+ * @style .inspector-panel, .diagnostics-panel, .pdf-settings-panel
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
     .inspector-panel,
     .diagnostics-panel,
     .pdf-settings-panel {
@@ -1728,16 +3122,34 @@ body.mve-dragging-outline .outline-panel nav button {
         width: min(360px, 90vw);
     }
 
-    /* リボンのレイアウトと操作状態を整える。 */
+    /* リボンのレイアウトと操作状態を整える。 *//**
+ * @style .ribbon-group
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
     .ribbon-group {
         min-width: 72px;
     }
 }
 
-/* 画面幅に応じたレスポンシブ表示を設定する。 */
+/* 画面幅に応じたレスポンシブ表示を設定する。 *//**
+ * @style @media print
+ * 対象UI: Webviewの@media printが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 @media print {
 
-    /* リボンのレイアウトと操作状態を整える。 */
+    /* リボンのレイアウトと操作状態を整える。 *//**
+ * @style .ribbon, .outline-panel, .outline-resizer, .outline-reopen, .status-bar, .inspector-panel, .diagnostics-panel, .pdf-settings-panel, .search-panel
+ * 対象UI: リボンのツールバー、ボタン、設定項目を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
     .ribbon,
     .outline-panel,
     .outline-resizer,
@@ -1750,7 +3162,13 @@ body.mve-dragging-outline .outline-panel nav button {
         display: none !important;
     }
 
-    /* .app, .workspace, .editor-area の表示とレイアウトを定義する。 */
+    /* .app, .workspace, .editor-area の表示とレイアウトを定義する。 *//**
+ * @style .app, .workspace, .editor-area
+ * 対象UI: Webviewの.app, .workspace, .editor-areaが表す画面要素とレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
     .app,
     .workspace,
     .editor-area {
@@ -1759,24 +3177,54 @@ body.mve-dragging-outline .outline-panel nav button {
         overflow: visible !important;
     }
 
-    /* インスペクター・診断・PDF設定パネルを整える。 */
+    /* インスペクター・診断・PDF設定パネルを整える。 *//**
+ * @style .pdf-preview-shell
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
     .pdf-preview-shell {
         padding: 0;
         background: #fff;
     }
 
-    /* インスペクター・診断・PDF設定パネルを整える。 */
+    /* インスペクター・診断・PDF設定パネルを整える。 *//**
+ * @style .pdf-preview-note
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
     .pdf-preview-note {
         display: none;
-    }
+    }/**
+ * @style .pdf-preview-toolbar
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
     .pdf-preview-toolbar {
         display: none;
-    }
+    }/**
+ * @style .pdf-preview-live-layer
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
     .pdf-preview-live-layer {
         max-width: none;
-    }
+    }/**
+ * @style .pdf-preview-live-content
+ * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
     .pdf-preview-live-content {
         box-shadow: none;

@@ -1,3 +1,11 @@
+/**
+ * @file pdf.ts
+ * 実行境界: Extension Host。
+ * 責務: VS Code文書、Webview、外部リソースを連携する。
+ * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
+ * 副作用: 文書、ファイル、Webview、ブラウザーなどの外部状態を必要に応じて操作する。
+ * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ */
 import * as vscode from 'vscode';
 import type { Browser, BrowserContext } from 'playwright-core';
 import { promises as fs } from 'node:fs';
@@ -11,30 +19,63 @@ import {
 import { getMessages, type SupportedLanguage } from '../shared/messages';
 import { DEFAULT_FONT_FAMILY_STACK, fontFamilyForCss } from '../shared/fontFamily';
 
+/**
+ * 「PdfExportRequest」が満たすデータ契約を定義します。
+ */
 export interface PdfExportRequest {
-    /** PDF本文として出力する、サニタイズ前のWebview生成HTML。 */
+    /**
+     * PDF本文として出力する、サニタイズ前のWebview生成HTML。
+     */
     html: string;
-    /** PDF本文へ適用する、Webviewから収集したCSS。 */
+    /**
+     * PDF本文へ適用する、Webviewから収集したCSS。
+     */
     css: string;
-    /** 用紙・余白・タイポグラフィを含むPDF印刷設定。旧形式も受け付ける。 */
+    /**
+     * 用紙・余白・タイポグラフィを含むPDF印刷設定。旧形式も受け付ける。
+     */
     options: PdfOptions;
-    /** 相対画像の解決基準になるMarkdown文書URI。 */
+    /**
+     * 相対画像の解決基準になるMarkdown文書URI。
+     */
     documentUri: vscode.Uri;
-    /** standalone HTMLのlang属性とエラーメッセージに使う言語。 */
+    /**
+     * standalone HTMLのlang属性とエラーメッセージに使う言語。
+     */
     language: SupportedLanguage;
-    /** 実PDF保存か、短い期限で返す印刷プレビューかを区別する目的。 */
+    /**
+     * 実PDF保存か、短い期限で返す印刷プレビューかを区別する目的。
+     */
     purpose?: 'preview' | 'export';
-    /** プレビューの古い要求を中断し、ブラウザ資源を早期解放するためのシグナル。 */
+    /**
+     * プレビューの古い要求を中断し、ブラウザ資源を早期解放するためのシグナル。
+     */
     signal?: AbortSignal;
 }
 
+/** 「sharedBrowser」は、ブラウザー処理の共有状態または実行設定です。 */
+/** PDF出力で共有するChromiumブラウザー。文書ごとの起動を避けて起動コストを抑える。 */
 let sharedBrowser: Browser | undefined;
+/** 「sharedBrowserPromise」は、非同期初期化または処理の重複を防ぐ共有Promiseです。 */
+/** Chromium起動中の処理を共有し、同時要求が複数プロセスを作らないようにするPromise。 */
 let sharedBrowserPromise: Promise<Browser> | undefined;
+/** 「PDF_ASSET_TIMEOUT_MS」は、時間制限または遅延量を処理間で共有する値です。 */
+/** PDF資産の読み込みを待機する上限時間。 */
 const PDF_ASSET_TIMEOUT_MS = 5_000;
+/** 「PDF_PREVIEW_ASSET_TIMEOUT_MS」は、時間制限または遅延量を処理間で共有する値です。 */
+/** PDFプレビュー用資産の短い読み込み上限時間。 */
 const PDF_PREVIEW_ASSET_TIMEOUT_MS = 1_000;
+/** 「PDF_BROWSER_LAUNCH_TIMEOUT_MS」は、時間制限または遅延量を処理間で共有する値です。 */
+/** PDF用Chromiumを起動する上限時間。 */
 const PDF_BROWSER_LAUNCH_TIMEOUT_MS = 5_000;
+/** 「PDF_PREVIEW_RENDER_TIMEOUT_MS」は、時間制限または遅延量を処理間で共有する値です。 */
+/** プレビュー描画を待機する上限時間。 */
 const PDF_PREVIEW_RENDER_TIMEOUT_MS = 10_000;
+/** 「PDF_EXPORT_RENDER_TIMEOUT_MS」は、時間制限または遅延量を処理間で共有する値です。 */
+/** PDFファイル出力の描画を待機する上限時間。 */
 const PDF_EXPORT_RENDER_TIMEOUT_MS = 60_000;
+/** 「PDF_CONTEXT_CLOSE_TIMEOUT_MS」は、時間制限または遅延量を処理間で共有する値です。 */
+/** PDF用ブラウザーコンテキストを閉じる上限時間。 */
 const PDF_CONTEXT_CLOSE_TIMEOUT_MS = 2_000;
 
 /**
@@ -75,9 +116,20 @@ export async function renderPdf(request: PdfExportRequest): Promise<Buffer> {
         ? PDF_PREVIEW_RENDER_TIMEOUT_MS
         : PDF_EXPORT_RENDER_TIMEOUT_MS);
     const previewLog = request.purpose === 'preview'
-        ? (stage: string) => console.info(`[Markdown Easy Visual Editor] PDF preview ${stage} (${Date.now() - startedAt}ms)`)
+        ?
+        /**
+ * 「stage」を受け取り、登録された副作用または結果を生成する処理です。
+         * @param stage stageとして渡される、このコールバックの入力値です。
+         * @returns 「stage」から生成した処理結果を返します。
+         */
+        (stage: string) => console.info(`[Markdown Easy Visual Editor] PDF preview ${stage} (${Date.now() - startedAt}ms)`)
         : undefined;
     const html = await withRenderControl(
+
+        /**
+ * 処理結果を生成する処理を実行するコールバックです。
+         * @returns 非同期処理へ渡す完了結果を返します。
+         */
         () => buildStandaloneHtml(request),
         request.signal,
         deadlineAt,
@@ -85,6 +137,11 @@ export async function renderPdf(request: PdfExportRequest): Promise<Buffer> {
     );
     previewLog?.(`HTML ready: ${html.length} chars`);
     const browser = await withRenderControl(
+
+        /**
+ * 処理結果を生成する処理を実行するコールバックです。
+         * @returns 非同期処理へ渡す完了結果を返します。
+         */
         () => acquirePdfBrowser(request.language),
         request.signal,
         deadlineAt,
@@ -93,35 +150,83 @@ export async function renderPdf(request: PdfExportRequest): Promise<Buffer> {
     previewLog?.('browser ready');
     let context: BrowserContext | undefined;
     let closePromise: Promise<void> | undefined;
-    const closeContext = (): Promise<void> => {
+
+    /**
+     * close・contextを解除または削除します。
+     * @returns 非同期処理の完了を表すPromiseです。
+     */
+    const closeContext = /**
+ * 「closeContext」は、処理を終了し、保持していたリソースまたは状態を整理します。
+ * @returns 購読解除、タイマー解除、リソース破棄などの後片付けを実行し、値は返しません。
+ */ (): Promise<void> => {
         if (!context) return Promise.resolve();
         if (!closePromise) closePromise = closePdfContext(context);
         return closePromise;
     };
-    const abortContext = () => { void closeContext(); };
+
+    /**
+     * 「abortContext」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+     * @returns 「abortContext」が生成または整形したPDFプレビュー・出力の文字列を返します。
+     */
+    const abortContext = /**
+ * 「abortContext」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @returns 「abortContext」が生成または整形したPDFプレビュー・出力の文字列を返します。
+ */ () => { void closeContext(); };
     request.signal?.addEventListener('abort', abortContext, { once: true });
     try {
         context = await withRenderControl(
+
+            /**
+             * イベント情報を受け取り、DOMまたは画面状態を更新するコールバックです。
+             * @returns 「browser.newContext」の呼び出し結果を返します。
+             */
             () => browser.newContext({ javaScriptEnabled: false }),
             request.signal,
             deadlineAt,
             'browser context',
             abortContext,
+
+            /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+             * @param lateContext lateContextとして渡される、このコールバックの入力値です。
+             * @returns 「lateContext」から生成した処理結果を返します。
+             */
             (lateContext) => closePdfContext(lateContext)
         );
         const page = await withRenderControl(
+
+            /**
+ * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
+             * @returns 「newPage」の呼び出し結果を返します。
+             */
             () => context!.newPage(),
             request.signal,
             deadlineAt,
             'new page',
             abortContext,
+
+            /**
+ * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
+             * @returns 「closeContext」の呼び出し結果を返します。
+             */
             () => closeContext()
         );
         const assetTimeoutMs = request.purpose === 'preview'
             ? PDF_PREVIEW_ASSET_TIMEOUT_MS
             : PDF_ASSET_TIMEOUT_MS;
         await withRenderControl(
-            () => page.route('**/*', async (route) => {
+
+            /**
+             * 予約されたタイミングでタイマーまたはフレーム後の処理を実行するコールバックです。
+             * @returns 「page.route」を実行し、値を返しません。
+             */
+            () => page.route('**/*',
+            /**
+             * 「async」として「route」を受け取り、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+             * @param route 「route」は、「async」がPDFプレビュー・出力の処理対象を特定する入力です。
+             * @returns 「route.request」を実行し、値を返しません。
+             */
+            async (route) => {
                 const resource = route.request();
                 if (resource.resourceType() !== 'image' || !/^https?:/i.test(resource.url())) {
                     await route.continue();
@@ -132,7 +237,12 @@ export async function renderPdf(request: PdfExportRequest): Promise<Buffer> {
                     await route.fulfill({ response });
                 } catch {
                     // 応答しないリモート画像はPDF全体を止めず、欠損画像として扱う。
-                    await route.abort('timedout').catch(() => undefined);
+                    await route.abort('timedout').catch(
+                    /**
+                     * Promiseの失敗理由を受け取り、エラー表示またはフォールバックを実行するコールバックです。
+                     * @returns エラー処理またはフォールバックの結果を返します。
+                     */
+                    () => undefined);
                 }
             }),
             request.signal,
@@ -144,6 +254,11 @@ export async function renderPdf(request: PdfExportRequest): Promise<Buffer> {
         // 外部画像のloadを待つと、応答しないリモート画像でsetContent自体が無期限に止まる。
         // DOMの構築完了後に、フォント・画像だけを別途まとめて有限時間待つ。
         await withRenderControl(
+
+            /**
+ * 非同期処理の失敗理由を受け取り、回復処理または代替値を生成するコールバックです。
+             * @returns 「page.setContent」を実行し、値を返しません。
+             */
             () => page.setContent(html, { waitUntil: 'domcontentloaded', timeout: 10_000 }),
             request.signal,
             deadlineAt,
@@ -152,6 +267,11 @@ export async function renderPdf(request: PdfExportRequest): Promise<Buffer> {
         );
         previewLog?.('DOM ready');
         await withRenderControl(
+
+            /**
+ * 登録された副作用または結果を生成する処理を実行するコールバックです。
+             * @returns 「page.emulateMedia」の呼び出し結果を返します。
+             */
             () => page.emulateMedia({ media: 'print' }),
             request.signal,
             deadlineAt,
@@ -161,7 +281,17 @@ export async function renderPdf(request: PdfExportRequest): Promise<Buffer> {
         // DOMContentLoaded後も、正常なローカル画像は読み込み完了まで待つ。
         // リモート画像は上のrouteで同じ時間内に成功または中断する。
         await withRenderControl(
-            () => page.waitForLoadState('load', { timeout: assetTimeoutMs }).catch(() => undefined),
+
+            /**
+ * 非同期処理の失敗理由を受け取り、回復処理または代替値を生成するコールバックです。
+             * @returns 「page.waitForLoadState」の呼び出し結果を返します。
+             */
+            () => page.waitForLoadState('load', { timeout: assetTimeoutMs }).catch(
+            /**
+             * Promiseの失敗理由を受け取り、エラー表示またはフォールバックを実行するコールバックです。
+             * @returns エラー処理またはフォールバックの結果を返します。
+             */
+            () => undefined),
             request.signal,
             deadlineAt,
             'asset load',
@@ -170,6 +300,11 @@ export async function renderPdf(request: PdfExportRequest): Promise<Buffer> {
         previewLog?.('assets ready');
         const options = normalizePdfOptions(request.options);
         const pdf = await withRenderControl(
+
+            /**
+ * 非同期処理の失敗理由を受け取り、回復処理または代替値を生成するコールバックです。
+             * @returns 「page.pdf」の呼び出し結果を返します。
+             */
             () => page.pdf({
                 ...pdfPaperOptions(options.format, options.orientation),
                 printBackground: true,
@@ -199,7 +334,16 @@ export async function renderPdf(request: PdfExportRequest): Promise<Buffer> {
     }
 }
 
-/** PDF生成の各段階を中断・期限管理し、遅れて完了したリソースも解放する。 */
+/**
+ * PDF生成の各段階を中断・期限管理し、遅れて完了したリソースも解放する。
+ * @param operationFactory 表示領域のサイズまたは倍率で、画面レイアウト計算に使用します。
+ * @param signal 処理対象のシグナルです。
+ * @param deadlineAt 「deadlineAt」は、「withRenderControl」がPDFプレビュー・出力の処理対象を特定する入力です。
+ * @param stage 「stage」は、「withRenderControl」がPDFプレビュー・出力の処理対象を特定する入力です。
+ * @param onCancel 処理完了時に呼び出すコールバックです。
+ * @param lateCleanup 「lateCleanup」は、「withRenderControl」がPDFプレビュー・出力の処理対象を特定する入力です。
+ * @returns 非同期処理の完了を表すPromiseです。
+ */
 async function withRenderControl<T>(
     operationFactory: () => Promise<T>,
     signal: AbortSignal | undefined,
@@ -217,23 +361,61 @@ async function withRenderControl<T>(
     let abortHandler: (() => void) | undefined;
     let cancelled = false;
     let rejectCancellation: ((reason: Error) => void) | undefined;
-    const cancellation = new Promise<never>((_, reject) => {
+    const cancellation = new Promise<never>(
+    /**
+ * 非同期処理の完了値を受け取り、次の処理へ渡す結果を生成するコールバックです。
+     * @param _ 呼び出し側が渡すが、このコールバックでは使用しない値です。
+     * @param reject Promiseの完了または失敗を通知する関数です。
+     * @returns 解決値を処理した結果を返します。
+     */
+    (_, reject) => {
         rejectCancellation = reject;
     });
-    const cancel = (reason: Error): void => {
+
+    /**
+     * cancelを解除または削除します。
+     * @param reason 失敗した処理の原因または例外情報です。
+     * @returns 購読解除、タイマー解除、またはリソース破棄を実行して値は返しません。
+     */
+    const cancel = /**
+ * 「cancel」は、処理を終了し、保持していたリソースまたは状態を整理します。
+ * @param reason 失敗した処理の原因または例外情報です。
+ * @returns 条件を満たすかどうかを示す真偽値を返します。
+ */ (reason: Error): void => {
         if (cancelled) return;
         cancelled = true;
         onCancel?.();
-        void operation.then((value) => lateCleanup?.(value), () => undefined);
+        void operation.then(
+        /**
+ * 非同期処理の完了値を受け取り、次の処理へ渡す結果を生成するコールバックです。
+         * @param value 「value」で検証・変換する入力値です。
+         * @returns 解決値を処理した結果を返します。
+         */
+        (value) => lateCleanup?.(value),
+        /**
+         * Promiseの解決値を受け取り、後続の表示または状態更新へ渡すコールバックです。
+         * @returns 解決値を処理した結果を返します。
+         */
+        () => undefined);
         rejectCancellation?.(reason);
     };
 
-    timer = setTimeout(() => {
+    timer = setTimeout(
+    /**
+ * 指定時間の経過後に遅延処理を実行するコールバックです。
+     * @returns 「console.warn」の呼び出し結果を返します。
+     */
+    () => {
         console.warn(`[Markdown Easy Visual Editor] PDF ${stage} timed out.`);
         cancel(new Error(`PDF ${stage} timed out.`));
     }, remainingMs);
     if (signal) {
-        abortHandler = () => cancel(new Error('PDF preview render was canceled.'));
+        abortHandler =
+        /**
+ * 指定時間の経過後に遅延処理を実行するコールバックです。
+         * @returns 「cancel」を実行し、値を返しません。
+         */
+        () => cancel(new Error('PDF preview render was canceled.'));
         signal.addEventListener('abort', abortHandler, { once: true });
     }
     try {
@@ -241,36 +423,80 @@ async function withRenderControl<T>(
     } finally {
         if (timer) clearTimeout(timer);
         if (abortHandler) signal?.removeEventListener('abort', abortHandler);
-        if (!cancelled) void operation.catch(() => undefined);
+        if (!cancelled) void operation.catch(
+        /**
+         * Promiseの失敗理由を受け取り、エラー表示またはフォールバックを実行するコールバックです。
+         * @returns エラー処理またはフォールバックの結果を返します。
+         */
+        () => undefined);
     }
 }
 
+/**
+ * close・pdf・contextを解除または削除します。
+ * @param context 「context」は、「closePdfContext」がPDFプレビュー・出力の処理対象を特定する入力です。
+ * @returns 非同期処理の完了を表すPromiseです。
+ */
 async function closePdfContext(context: BrowserContext): Promise<void> {
-    const close = context.close().catch(() => undefined);
+    const close = context.close().catch(
+    /**
+     * Promiseの失敗理由を受け取り、エラー表示またはフォールバックを実行するコールバックです。
+     * @returns エラー処理またはフォールバックの結果を返します。
+     */
+    () => undefined);
     await Promise.race([
         close,
-        new Promise<void>((resolve) => setTimeout(resolve, PDF_CONTEXT_CLOSE_TIMEOUT_MS))
+        new Promise<void>(
+        /**
+         * 予約されたタイミングで「resolve」を受け取り、遅延処理を実行するコールバックです。
+         * @param resolve Promiseの完了または失敗を通知する関数です。
+         * @returns エラー処理またはフォールバックの結果を返します。
+         */
+        (resolve) => setTimeout(resolve, PDF_CONTEXT_CLOSE_TIMEOUT_MS))
     ]);
 }
 
-/** Extension lifecycle終了時に共有Chromiumを解放する。 */
+/**
+ * Extension lifecycle終了時に共有Chromiumを解放する。
+ * @returns 非同期処理の完了を表すPromiseです。
+ */
 export async function closePdfBrowser(): Promise<void> {
     const browser = sharedBrowser;
     sharedBrowser = undefined;
     if (browser?.isConnected()) await browser.close();
 }
 
-/** PDFプレビューの連続要求でChromiumを毎回起動しないよう、ブラウザプロセスを共有する。 */
+/**
+ * PDFプレビューの連続要求でChromiumを毎回起動しないよう、ブラウザプロセスを共有する。
+ * @param language 表示文言の解決に使用する言語コードまたはロケールです。
+ * @returns 非同期処理の完了を表すPromiseです。
+ */
 export async function acquirePdfBrowser(language: SupportedLanguage): Promise<Browser> {
     if (sharedBrowser?.isConnected()) return sharedBrowser;
     if (!sharedBrowserPromise) {
-        sharedBrowserPromise = launchPdfBrowser(language).then((browser) => {
+        sharedBrowserPromise = launchPdfBrowser(language).then(
+        /**
+ * 非同期処理の完了値を受け取り、次の処理へ渡す結果を生成するコールバックです。
+         * @param browser browserとして渡される、このコールバックの入力値です。
+         * @returns 解決値を処理した結果を返します。
+         */
+        (browser) => {
             sharedBrowser = browser;
-            browser.on('disconnected', () => {
+            browser.on('disconnected',
+            /**
+             * Promiseの解決値を受け取り、後続の表示または状態更新へ渡すコールバックです。
+             * @returns 解決値を処理した結果を返します。
+             */
+            () => {
                 if (sharedBrowser === browser) sharedBrowser = undefined;
             });
             return browser;
-        }).finally(() => {
+        }).finally(
+        /**
+         * Promiseの成否にかかわらず、購読解除やリソース整理を実行するコールバックです。
+         * @returns 置換後の文字列を返します。
+         */
+        () => {
             sharedBrowserPromise = undefined;
         });
     }
@@ -348,7 +574,19 @@ function readHtmlAttribute(tag: string, name: string): string | undefined {
  * @param name 検索する属性名。
  * @returns 属性値と置換範囲。属性がない場合はundefined。
  */
-function findHtmlAttribute(tag: string, name: string): { value: string; from: number; to: number } | undefined {
+function findHtmlAttribute(tag: string, name: string): {
+/**
+ * 「value」は、対象の内容または識別子を表す文字列です。
+ */
+value: string;
+/**
+ * 「from」は、本文または選択範囲の位置・長さを保持します。
+ */
+from: number;
+/**
+ * 「to」は、本文または選択範囲の位置・長さを保持します。
+ */
+to: number } | undefined {
     // 引用符付き・引用符なしの属性値を検出し、置換対象の文字位置も返す。
     const pattern = new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i');
     const match = pattern.exec(tag);
@@ -407,6 +645,7 @@ function resolveLocalImageUri(documentUri: vscode.Uri, source: string): vscode.U
 
 /**
  * 設定値・Edge・Chromeの順にPDF出力用ブラウザを起動する。
+ * @param language 表示文言の解決に使用する言語コードまたはロケールです。
  * @returns 起動したPlaywrightブラウザ。
  * @throws 利用可能なブラウザを起動できない場合。
  */
@@ -463,7 +702,13 @@ function template(value: string, footer = false): string {
  */
 function escapeHtml(value: string): string {
     // HTMLへ埋め込めない文字をエンティティへ変換する。
-    return value.replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]!);
+    return value.replace(/[&<>"']/g,
+    /**
+ * 「character」から（value、filePath）のオブジェクトを生成して返すコールバックです。
+     * @param character HTMLまたはテキストから取り出した対象文字列です。
+     * @returns 置換後の文字列を返します。
+     */
+    (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]!);
 }
 
 /**
@@ -487,6 +732,11 @@ function mimeFromPath(filePath: string): string {
     return ({ '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.gif': 'image/gif', '.webp': 'image/webp', '.svg': 'image/svg+xml' } as Record<string, string>)[extension] || 'image/png';
 }
 
+/** 「PRINT_CSS」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * PDF印刷時にWebviewの画面用スタイルを印刷用レイアウトへ合わせるCSS。
+ * 改ページ、背景、画像幅の規則をここへ集約し、プレビューと保存結果の差を抑える。
+ */
 const PRINT_CSS = `
   @page { size: auto; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -543,7 +793,23 @@ function sanitizeCssFontFamily(value: string): string {
 function pdfPaperOptions(
     format: PdfPaperFormat,
     orientation: PdfOptions['orientation']
-): { format?: string; width?: string; height?: string; landscape?: boolean } {
+): {
+/**
+ * 「format」は、対象の内容または識別子を表す文字列です。
+ */
+format?: string;
+/**
+ * 「width」は、対象の位置、サイズ、件数、または範囲を保持します。
+ */
+width?: string;
+/**
+ * 「height」は、対象の位置、サイズ、件数、または範囲を保持します。
+ */
+height?: string;
+/**
+ * 「landscape」は、関連処理が共有する構造化データの一項目です。
+ */
+landscape?: boolean } {
     if (format === 'B4' || format === 'B5') {
         const dimensions = format === 'B4'
             ? { width: 257, height: 364 }

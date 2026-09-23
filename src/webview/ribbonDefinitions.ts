@@ -1,9 +1,19 @@
+/**
+ * @file ribbonDefinitions.ts
+ * 実行境界: Webview。
+ * 責務: 編集UI、プレビュー、ユーザー操作を処理する。
+ * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
+ * 副作用: DOM、Webviewメッセージ、ブラウザーAPI、編集状態を操作する。
+ * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ */
 
 import type {
   RibbonControlChoiceDefinition,
   RibbonDefinitions,
 } from "./ribbonDefinitionTypes";
 
+/** 「headingChoices」は、関連する処理間で共有する設定値または状態です。 */
+/** 見出しレベル選択欄で表示するMarkdown見出しの選択肢。 */
 const headingChoices: readonly RibbonControlChoiceDefinition[] = [
   {
     value: "0",
@@ -59,6 +69,8 @@ const headingChoices: readonly RibbonControlChoiceDefinition[] = [
   },
 ];
 
+/** 「documentEmojiValues」は、後続処理で順序を保って参照する一覧です。 */
+/** 文書アイコン選択欄で扱う絵文字値。表示ラベルと保存値を同じ順序で対応付ける。 */
 const documentEmojiValues = [
   "\u{1F4D8}",
   "\u{1F4DA}",
@@ -86,6 +98,8 @@ const documentEmojiValues = [
   "\u{1F9EA}",
 ];
 
+/** 「RIBBON_DEFINITIONS」は、機能間で参照する対応表または定義です。 */
+/** リボンのタブ・グループ・入力項目を定義し、実装と表示順の共通契約を提供する表。 */
 export const RIBBON_DEFINITIONS: RibbonDefinitions = {
   tabs: {
     home: { kind: "message", path: "ribbon.tabs.home" },

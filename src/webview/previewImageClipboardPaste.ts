@@ -1,5 +1,24 @@
+/**
+ * @file previewImageClipboardPaste.ts
+ * 実行境界: Webview。
+ * 責務: 編集UI、プレビュー、ユーザー操作を処理する。
+ * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
+ * 副作用: DOM、Webviewメッセージ、ブラウザーAPI、編集状態を操作する。
+ * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ */
+/**
+ * 「PreservedImagePaste」が満たすデータ契約を定義します。
+ */
 interface PreservedImagePaste {
+
+  /**
+   * 「file」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
+   */
   file: File;
+
+  /**
+   * 「type」は、対象の識別や処理分岐に使用する値を保持します。
+   */
   type: string;
 }
 
@@ -7,9 +26,20 @@ interface PreservedImagePaste {
  * プレビュー画像コピーがHTML表現へ保持した元画像バイト列をFileへ戻し、
  * App既存の画像貼り付け処理へ再投入する。
  * Markdown本文へdata URLを直接挿入せず、画像形式も変換しない。
+ * @returns 「installPreviewImageClipboardPaste」の副作用または状態更新を実行し、値は返しません。
  */
 export function installPreviewImageClipboardPaste(): () => void {
-  const onPaste = (event: ClipboardEvent) => {
+
+  /**
+   * 「onPaste」は、イベント入力を受け取り、関連する状態またはUIを更新する処理です。
+   * @param event 処理対象のイベントです。
+   * @returns 「if」を実行し、値を返しません。
+   */
+  const onPaste = /**
+ * 「onPaste」は、イベント入力を検証し、関連する状態またはUIを更新します。
+ * @param event DOMイベントまたは入力イベントの情報です。
+ * @returns 「if」を実行し、値を返しません。
+ */ (event: ClipboardEvent) => {
     if (!(event.target instanceof Element)) return;
     if (!event.target.closest<HTMLElement>(".cm-content")) return;
 
@@ -64,12 +94,14 @@ export function installPreviewImageClipboardPaste(): () => void {
   };
 
   document.addEventListener("paste", onPaste, true);
-  return () => document.removeEventListener("paste", onPaste, true);
+  return /** イベント情報を受け取り、DOMまたは画面状態を更新するコールバックです。 @returns 後片付けまたは登録解除を完了した結果を返します。 */ () => document.removeEventListener("paste", onPaste, true);
 }
 
 /**
  * HTMLに埋め込まれた元形式data URLを同じバイト列のFileへ復元する。
  * data-mve-original-srcが残っていれば元拡張子を優先し、失われていてもMIMEから復元する。
+ * @param clipboard 「clipboard」は、「readPreservedImagePaste」がWebview UI状態の処理対象を特定する入力です。
+ * @returns 「readPreservedImagePaste」が対象を取得できない場合はundefinedを返します。
  */
 export function readPreservedImagePaste(
   clipboard: DataTransfer | null,
@@ -80,6 +112,12 @@ export function readPreservedImagePaste(
 
   const documentNode = new DOMParser().parseFromString(html, "text/html");
   const image = Array.from(documentNode.querySelectorAll<HTMLImageElement>("img")).find(
+
+    /**
+ * 「candidate」が検索条件に一致するか判定するコールバックです。
+     * @param candidate candidateとして渡される、このコールバックの入力値です。
+     * @returns 条件を満たすかどうかを示す真偽値を返します。
+     */
     (candidate) => /^data:image\//i.test(candidate.getAttribute("src")?.trim() ?? ""),
   );
   if (!image) return undefined;
@@ -103,10 +141,22 @@ export function readPreservedImagePaste(
   };
 }
 
-/** data:image/*;base64,... を元バイト列へ戻す。 */
+/**
+ * data:image/*;base64,... を元バイト列へ戻す。
+ * @param value 「decodeImageDataUrl」で検証・変換する入力値です。
+ * @returns 「decodeImageDataUrl」が生成または変換したWebview UIの文字列を返します。
+ */
 export function decodeImageDataUrl(
   value: string,
-): { type: string; bytes: Uint8Array } | undefined {
+): {
+/**
+ * 「type」は、対象の識別や処理分岐に使用する値を保持します。
+ */
+type: string;
+/**
+ * 「bytes」は、関連処理が共有する構造化データの一項目です。
+ */
+bytes: Uint8Array } | undefined {
   const match = /^data:([^;,]+);base64,([A-Za-z0-9+/=\s]+)$/i.exec(value);
   if (!match) return undefined;
   const type = normalizeMimeType(match[1] ?? "");
@@ -127,12 +177,22 @@ export function decodeImageDataUrl(
   }
 }
 
+/**
+ * 「imageExtensionFromSource」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+ * @param source 処理対象のソースです。
+ * @returns 「imageExtensionFromSource」が生成または変換したWebview UIの文字列を返します。
+ */
 function imageExtensionFromSource(source: string): string | undefined {
   const clean = source.split(/[?#]/, 1)[0] ?? "";
   const match = /\.([a-z0-9]{1,12})$/i.exec(clean);
   return match?.[1]?.toLowerCase();
 }
 
+/**
+ * 「extensionForImageMime」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+ * @param type 処理対象の種別です。
+ * @returns 「extensionForImageMime」が生成または変換したWebview UIの文字列を返します。
+ */
 function extensionForImageMime(type: string): string {
   switch (normalizeMimeType(type)) {
     case "image/png":
@@ -167,6 +227,11 @@ function extensionForImageMime(type: string): string {
   }
 }
 
+/**
+ * 種別を正規化します。
+ * @param type 処理対象の種別です。
+ * @returns 「normalizeMimeType」が生成または変換したWebview UIの文字列を返します。
+ */
 function normalizeMimeType(type: string): string {
   const normalized = type.trim().toLowerCase();
   if (normalized === "image/jpg" || normalized === "image/pjpeg") {

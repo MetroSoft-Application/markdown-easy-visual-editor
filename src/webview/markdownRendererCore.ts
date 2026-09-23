@@ -1,39 +1,114 @@
+/**
+ * @file markdownRendererCore.ts
+ * 実行境界: Webview。
+ * 責務: 編集UI、プレビュー、ユーザー操作を処理する。
+ * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
+ * 副作用: DOM、Webviewメッセージ、ブラウザーAPI、編集状態を操作する。
+ * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ */
 import katex from 'katex';
 import { Marked, Renderer, type Token } from 'marked';
 import { getOutline, slugify } from '../shared/markdown';
 import { getMessages, type Messages, type SupportedLanguage } from '../shared/messages';
 import { stripMveTextColorMarkup } from '../shared/textColor';
 
+/**
+ * 「RenderOptions」が満たすデータ契約を定義します。
+ */
 export interface RenderOptions {
+
+    /**
+     * 「remoteImagesEnabled」は、画面の表示モードまたは現在のUI状態を示します。
+     */
     remoteImagesEnabled: boolean;
+
+    /**
+     * 「language」は、関連処理が共有する構造化データの一項目です。
+     */
     language?: SupportedLanguage;
 }
 
+/**
+ * 「CustomToken」が満たすデータ契約を定義します。
+ */
 interface CustomToken {
+
+    /**
+     * 「type」は、対象の識別や処理分岐に使用する値を保持します。
+     */
     type: string;
+
+    /**
+     * 「raw」は、対象の内容または識別子を表す文字列です。
+     */
     raw: string;
+
+    /**
+     * 「text」は、画面または通知へ表示する文言を保持します。
+     */
     text: string;
+
+    /**
+     * 「tokens」は、関連する複数の対象または識別子を保持します。
+     */
     tokens?: Token[];
 }
 
+/**
+ * 「FootnoteDefinition」が満たすデータ契約を定義します。
+ */
 interface FootnoteDefinition {
+
+    /**
+     * 「id」は、対象の識別や処理分岐に使用する値を保持します。
+     */
     id: string;
+
+    /**
+     * 「text」は、画面または通知へ表示する文言を保持します。
+     */
     text: string;
+
+    /**
+     * 「from」は、本文または選択範囲の位置・長さを保持します。
+     */
     from: number;
+
+    /**
+     * 「to」は、本文または選択範囲の位置・長さを保持します。
+     */
     to: number;
 }
 
+/**
+ * 「UnsafeMarkdownBlock」が満たすデータ契約を定義します。
+ */
 export interface UnsafeMarkdownBlock {
+
+    /**
+     * 「html」は、解析・編集・変換の対象となる本文またはデータを保持します。
+     */
     html: string;
+
+    /**
+     * 「requiresSanitization」は、処理条件または状態を表す真偽値です。
+     */
     requiresSanitization: boolean;
 }
 
+/**
+ * 「CodeHighlighter」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
+ * @param text 処理対象の本文です。
+ * @param language 表示文言の解決に使用する言語コードまたはロケールです。
+ * @returns 「CodeHighlighter」が生成または変換したMarkdownの文字列を返します。
+ */
 export type CodeHighlighter = (text: string, language: string) => string | undefined;
 
 /**
  * MarkdownをmarkedでHTMLへ変換し、拡張記法を追加してDOMPurifyで無害化する。
  * @param markdown 変換対象のMarkdown本文。
  * @param options リモート画像などの描画設定。
+ * @param highlightCode 「highlightCode」は、「renderMarkdownUnsafeBlocks」がMarkdown解析・変換の処理対象を特定する入力です。
  * @returns 無害化済みのプレビューHTML。
  */
 export function renderMarkdownUnsafeBlocks(
@@ -54,10 +129,22 @@ export function renderMarkdownUnsafeBlocks(
      * @param token markedが解析した見出しトークン。
      * @returns ID付きの見出しHTML。
      */
-    renderer.heading = function ({ tokens, depth }) {
+    renderer.heading =
+    /**
+ * 「tokens」「depth」を受け取り、Markdown見出しの表示用HTMLを生成するコールバックです。
+     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはtokens、depthです。
+     * @returns Markdown見出しの表示用HTMLを返します。
+     */
+    function ({ tokens, depth }) {
         const content = this.parser.parseInline(tokens);
         const plain = stripMveTextColorMarkup(
-            tokens.map((token) => token.raw).join('')
+            tokens.map(
+            /**
+ * 「token」を変換し、変換後の要素を返すコールバックです。
+             * @param token tokenとして渡される、このコールバックの入力値です。
+             * @returns 置換後の文字列を返します。
+             */
+            (token) => token.raw).join('')
         );
         const explicit = /\s+\{#([^}]+)\}\s*$/.exec(plain);
         const base = explicit?.[1] ?? slugify(plain.replace(/\s+\{#[^}]+\}\s*$/, ''));
@@ -71,7 +158,13 @@ export function renderMarkdownUnsafeBlocks(
      * ローカルリンクはブラウザが解決できないhrefを持たないようにし、元の参照先をデータ属性へ退避する。
      * クリック時はRenderedMarkdownがこの属性をホストへ渡してVS Codeで開く。
      */
-    renderer.link = function ({ href, title, tokens }) {
+    renderer.link =
+    /**
+ * 「href」「title」「tokens」を受け取り、Markdownリンクの表示用HTMLを生成するコールバックです。
+     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはhref、title、tokensです。
+     * @returns Markdownリンクの表示用HTMLを返します。
+     */
+    function ({ href, title, tokens }) {
         const content = this.parser.parseInline(tokens);
         const titleAttribute = title ? ` title="${escapeAttribute(title)}"` : '';
         if (isLocalMarkdownLink(href)) {
@@ -85,7 +178,13 @@ export function renderMarkdownUnsafeBlocks(
      * @param token markedが解析した画像トークン。
      * @returns 画像要素またはブロック表示用HTML。
      */
-    renderer.image = ({ href, title, text }) => {
+    renderer.image =
+    /**
+ * 「href」「title」「text」を受け取り、Markdown画像の表示用HTMLを生成するコールバックです。
+     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはhref、title、textです。
+     * @returns 画像の表示用HTMLを返します。
+     */
+    ({ href, title, text }) => {
         const currentImageIndex = imageIndex++;
         if (!options.remoteImagesEnabled && /^https?:/i.test(href)) {
             return `<span class="blocked-image" title="${escapeAttribute(messages.renderer.remoteImageDisabled)}">🖼️ ${escapeHtml(text || href)}</span>`;
@@ -100,7 +199,13 @@ export function renderMarkdownUnsafeBlocks(
      * @param token markedが解析したコードトークン。
      * @returns Mermaidコンテナーまたはハイライト済みコードHTML。
      */
-    renderer.code = ({ text, lang }) => {
+    renderer.code =
+    /**
+ * 「text」「lang」を受け取り、コードまたはMermaidの表示用HTMLを生成するコールバックです。
+     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはtext、langです。
+     * @returns コードまたはMermaidの表示用HTMLを返します。
+     */
+    ({ text, lang }) => {
         const language = (lang || '').trim().split(/\s+/)[0].toLowerCase();
         if (language === 'mermaid') {
             return `<div class="diagram-block mermaid" data-mermaid-source="${escapeAttribute(encodeURIComponent(text))}">${escapeHtml(text)}</div>`;
@@ -114,9 +219,20 @@ export function renderMarkdownUnsafeBlocks(
      * @param token markedが解析したHTMLトークン。
      * @returns 改ページ要素または元のHTML。
      */
-    renderer.html = ({ text }) => {
+    renderer.html =
+    /**
+ * 「text」を受け取り、Markdown内HTMLを安全な表示用HTMLへ変換するコールバックです。
+     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはtextです。
+     * @returns 安全化したHTMLまたは改ページ要素を返します。
+     */
+    ({ text }) => {
         if (/^<!--\s*pagebreak\s*-->$/i.test(text.trim())) return `<div class="page-break" aria-label="${escapeAttribute(messages.renderer.pageBreak)}"></div>`;
-        return decorateHtmlImages(text, () => imageIndex++);
+        return decorateHtmlImages(text,
+        /**
+ * 画像要素へ付与する連番を払い出すコールバックです。
+         * @returns 次に割り当てる画像要素の連番を返します。
+         */
+        () => imageIndex++);
     };
 
     // 標準Markdownの解析器へ独自記法を登録し、拡張記法も同じトークン処理へ流す。
@@ -138,9 +254,20 @@ export function renderMarkdownUnsafeBlocks(
     // トークンを元本文の範囲へ対応付け、プレビュー要素から編集位置へ戻れるようにする。
     const tokens = parser.lexer(markdown);
     const ranges = locateTokenRanges(markdown, tokens);
-    const links = (tokens as typeof tokens & { links?: Record<string, unknown> }).links;
+    const links = (tokens as typeof tokens & {
+    /**
+     * 「links」は、関連する複数の対象または識別子を保持します。
+     */
+    links?: Record<string, unknown> }).links;
     // ブロック単位でHTMLを描画して出典範囲属性を付け、脚注セクションを本文末尾へ追加する。
-    const blocks = tokens.map((token, index): UnsafeMarkdownBlock | undefined => {
+    const blocks = tokens.map(
+    /**
+ * 「token」「index」を変換し、変換後の要素を返すコールバックです。
+     * @param token tokenとして渡される、このコールバックの入力値です。
+     * @param index 本文、表、配列内の対象位置を示すインデックスです。
+     * @returns 「token」が対象を取得できない場合はundefinedを返します。
+     */
+    (token, index): UnsafeMarkdownBlock | undefined => {
         const tokenList = Object.assign([token], { links });
         const rendered = String(parser.parser(tokenList));
         if (!rendered.trim()) return undefined;
@@ -150,21 +277,51 @@ export function renderMarkdownUnsafeBlocks(
             // コード/Mermaid本文と属性はrenderer.code内ですべてエスケープ済み。
             requiresSanitization: token.type !== 'code'
         };
-    }).filter((block): block is UnsafeMarkdownBlock => block !== undefined);
+    }).filter(
+    /**
+ * 「block」が条件に一致するか判定し、残す要素を決めるコールバックです。
+     * @param block blockとして渡される、このコールバックの入力値です。
+     * @returns 要素を採用するかどうかの真偽値を返します。
+     */
+    (block): block is UnsafeMarkdownBlock => block !== undefined);
     const footnotes = renderFootnoteSection(footnoteDefinitions, messages);
     if (footnotes) blocks.push({ html: footnotes, requiresSanitization: false });
     // 各トップレベルブロックを独立させ、UI側でDOMPurifyを短時間ずつ実行できるようにする。
-    return blocks.map((block) => ({ ...block, html: renderAlerts(block.html, messages) }));
+    return blocks.map(
+    /**
+ * 「block」を変換し、変換後の要素を返すコールバックです。
+     * @param block blockとして渡される、このコールバックの入力値です。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (block) => ({ ...block, html: renderAlerts(block.html, messages) }));
 }
 
+/**
+ * render・markdown・unsafeを描画します。
+ * @param markdown 解析・編集・変換の対象となる本文または生成済み内容です。
+ * @param options 処理経路や表示方法を指定する設定値です。
+ * @param highlightCode 「highlightCode」は、「renderMarkdownUnsafe」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @returns 「renderMarkdownUnsafe」が生成または変換したMarkdownの文字列を返します。
+ */
 export function renderMarkdownUnsafe(
     markdown: string,
     options: RenderOptions,
     highlightCode?: CodeHighlighter
 ): string {
-    return renderMarkdownUnsafeBlocks(markdown, options, highlightCode).map((block) => block.html).join('');
+    return renderMarkdownUnsafeBlocks(markdown, options, highlightCode).map(
+    /**
+ * 「block」を変換し、変換後の要素を返すコールバックです。
+     * @param block blockとして渡される、このコールバックの入力値です。
+     * @returns 置換後の文字列を返します。
+     */
+    (block) => block.html).join('');
 }
 
+/**
+ * リンクかどうかを判定します。
+ * @param href 「href」は、「isLocalMarkdownLink」がMarkdown解析・変換の処理対象を特定する入力です。
+ * @returns 判定結果です。
+ */
 function isLocalMarkdownLink(href: string): boolean {
     if (!href || href.startsWith('#')) return false;
     if (/^https?:\/\/file\+\.vscode-resource\.vscode-cdn\.net\//i.test(href)) return true;
@@ -179,7 +336,13 @@ function isLocalMarkdownLink(href: string): boolean {
  * @returns メタデータ付与後のHTML断片です。
  */
 function decorateHtmlImages(html: string, nextIndex: () => number): string {
-    return html.replace(/<img\b[^>]*>/gi, (tag) => {
+    return html.replace(/<img\b[^>]*>/gi,
+    /**
+ * 「tag」を受け取り、登録された副作用または結果を生成する処理です。
+     * @param tag HTMLまたはテキストから取り出した対象文字列です。
+     * @returns 「readHtmlAttribute」を実行し、値を返しません。
+     */
+    (tag) => {
         const source = readHtmlAttribute(tag, 'src') ?? '';
         const index = nextIndex();
         let decorated = upsertHtmlAttribute(tag, 'data-original-src', readHtmlAttribute(tag, 'data-original-src') ?? source);
@@ -194,6 +357,11 @@ function decorateHtmlImages(html: string, nextIndex: () => number): string {
     });
 }
 
+/**
+ * 配置を正規化します。
+ * @param value 「normalizeImageAlignment」で検証・変換する入力値です。
+ * @returns 「normalizeImageAlignment」が読み取りまたは正規化した結果を返します。
+ */
 function normalizeImageAlignment(value: string | undefined): 'left' | 'center' | 'right' {
     return value === 'center' || value === 'right' ? value : 'left';
 }
@@ -282,7 +450,15 @@ function inlineDelimited(name: string, rule: RegExp, tag: string): any {
          * @param token 描画対象の独自記法トークン。
          * @returns 指定タグで囲んだHTML。
          */
-        renderer(this: { parser: { parseInline: (tokens: Token[]) => string } }, token: CustomToken) {
+        renderer(this: {
+        /**
+         * 「parser」は、関連処理が共有する構造化データの一項目です。
+         */
+        parser: {
+        /**
+         * 「parseInline」は、関連処理が共有する構造化データの一項目です。
+         */
+        parseInline: (tokens: Token[]) => string } }, token: CustomToken) {
             return `<${tag}>${this.parser.parseInline(token.tokens ?? [])}</${tag}>`;
         }
     };
@@ -290,6 +466,7 @@ function inlineDelimited(name: string, rule: RegExp, tag: string): any {
 
 /**
  * ブロック数式をKaTeX描画へ渡すmarked拡張を作る。
+ * @param messages 「messages」は、「mathBlockExtension」がMarkdown解析・変換の処理対象を特定する入力です。
  * @returns markedへ登録するブロック数式拡張定義。
  */
 function mathBlockExtension(messages: Messages): any {
@@ -329,6 +506,7 @@ function mathBlockExtension(messages: Messages): any {
 
 /**
  * インライン数式をKaTeX描画へ渡すmarked拡張を作る。
+ * @param messages 「messages」は、「mathInlineExtension」がMarkdown解析・変換の処理対象を特定する入力です。
  * @returns markedへ登録するインライン数式拡張定義。
  */
 function mathInlineExtension(messages: Messages): any {
@@ -368,6 +546,7 @@ function mathInlineExtension(messages: Messages): any {
 /**
  * [toc]記法を文書見出しから生成した目次へ置換するmarked拡張を作る。
  * @param markdown 目次の見出しを取得するMarkdown本文。
+ * @param messages 「messages」は、「tocExtension」がMarkdown解析・変換の処理対象を特定する入力です。
  * @returns markedへ登録する目次拡張定義。
  */
 function tocExtension(markdown: string, messages: Messages): any {
@@ -490,6 +669,7 @@ function footnoteReferenceExtension(
  * 数式をKaTeXへ渡し、成功時は数式HTML、失敗時はエラーHTMLを返す。
  * @param source 描画する数式ソース。
  * @param displayMode ブロック表示として描画するかどうか。
+ * @param messages 「messages」は、「renderKatex」がMarkdown解析・変換の処理対象を特定する入力です。
  * @returns 数式または数式エラーのHTML。
  */
 function renderKatex(source: string, displayMode: boolean, messages: Messages): string {
@@ -504,6 +684,7 @@ function renderKatex(source: string, displayMode: boolean, messages: Messages): 
 /**
  * Markdown見出しから目次HTMLを生成する。
  * @param markdown 見出しを抽出するMarkdown本文。
+ * @param messages 「messages」は、「buildToc」がMarkdown解析・変換の処理対象を特定する入力です。
  * @returns 目次HTML。見出しがない場合は空文字列。
  */
 function buildToc(markdown: string, messages: Messages): string {
@@ -511,6 +692,12 @@ function buildToc(markdown: string, messages: Messages): string {
     if (!items.length) return '';
     return `<nav class="table-of-contents" aria-label="${escapeAttribute(messages.renderer.toc)}"><strong>${messages.renderer.toc}</strong><ul>${items
         .map(
+
+            /**
+ * 「item」を変換し、変換後の要素を返すコールバックです。
+             * @param item 変換または処理の対象となる値です。
+             * @returns 置換後の文字列を返します。
+             */
             (item) =>
                 `<li class="toc-level-${item.level}"><a href="#${escapeAttribute(item.id)}">${escapeHtml(item.text)}</a></li>`
         )
@@ -520,11 +707,20 @@ function buildToc(markdown: string, messages: Messages): string {
 /**
  * blockquote内の警告記法をアラート用のaside要素へ変換する。
  * @param html 警告記法を含む変換済みHTML。
+ * @param messages 「messages」は、「renderAlerts」がMarkdown解析・変換の処理対象を特定する入力です。
  * @returns アラート要素へ変換したHTML。
  */
 function renderAlerts(html: string, messages: Messages): string {
     return html.replace(
         /<blockquote>\s*<p>\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*<br>?(?:\n)?([\s\S]*?)<\/p>\s*<\/blockquote>/gi,
+
+        /**
+ * 「_match」「type」「content」を受け取り、入力文字列を置換して変換する処理です。
+         * @param _match _matchとして渡される、このコールバックの入力値です。
+         * @param type 処理対象の種別です。
+         * @param content 解析・編集・変換の対象となる本文または生成済み内容です。
+         * @returns 置換後の文字列を返します。
+         */
         (_match, type: string, content: string) => {
             const label = messages.renderer.alerts[type.toLowerCase() as keyof Messages['renderer']['alerts']] ?? type;
             return `<aside class="markdown-alert alert-${type.toLowerCase()}"><strong>${escapeHtml(label)}</strong><div>${content}</div></aside>`;
@@ -558,17 +754,36 @@ function collectFootnoteDefinitions(markdown: string): Map<string, FootnoteDefin
 /**
  * 脚注定義Mapから本文末尾へ追加する脚注セクションHTMLを生成する。
  * @param definitions 描画する脚注定義Map。
+ * @param messages 「messages」は、「renderFootnoteSection」がMarkdown解析・変換の処理対象を特定する入力です。
  * @returns 本文末尾へ追加する脚注セクションHTML。
  */
 function renderFootnoteSection(definitions: Map<string, FootnoteDefinition>, messages: Messages): string {
     if (!definitions.size) return '';
     const entries = [...definitions.values()];
-    const notes = entries.map(({ id, text }) => {
+    const notes = entries.map(
+    /**
+ * 「id」「text」を変換し、変換後の要素を返すコールバックです。
+     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはid、textです。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    ({ id, text }) => {
         const safeId = slugify(id);
         return `<li id="fn-${safeId}">${escapeHtml(text)} <a href="#fnref-${safeId}-1" aria-label="${escapeAttribute(messages.renderer.backToText)}">↩</a></li>`;
     }).join('');
-    const from = Math.min(...entries.map((entry) => entry.from));
-    const to = Math.max(...entries.map((entry) => entry.to));
+    const from = Math.min(...entries.map(
+    /**
+ * 「entry」を変換し、変換後の要素を返すコールバックです。
+     * @param entry entryとして渡される、このコールバックの入力値です。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (entry) => entry.from));
+    const to = Math.max(...entries.map(
+    /**
+ * 「entry」を変換し、変換後の要素を返すコールバックです。
+     * @param entry entryとして渡される、このコールバックの入力値です。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (entry) => entry.to));
     return `<section class="footnotes markdown-source-block" data-source-from="${from}" data-source-to="${to}"><hr><ol>${notes}</ol></section>`;
 }
 
@@ -578,10 +793,24 @@ function renderFootnoteSection(definitions: Map<string, FootnoteDefinition>, mes
  * @param tokens 対応付けるmarkedトークン一覧。
  * @returns 各トークンに対応する元本文の範囲一覧。
  */
-function locateTokenRanges(markdown: string, tokens: Token[]): Array<{ from: number; to: number }> {
+function locateTokenRanges(markdown: string, tokens: Token[]): Array<{
+/**
+ * 「from」は、本文または選択範囲の位置・長さを保持します。
+ */
+from: number;
+/**
+ * 「to」は、本文または選択範囲の位置・長さを保持します。
+ */
+to: number }> {
     const { normalized, originalOffsets } = normalizeWithOriginalOffsets(markdown);
     let cursor = 0;
-    return tokens.map((token) => {
+    return tokens.map(
+    /**
+ * 「token」を変換し、変換後の要素を返すコールバックです。
+     * @param token tokenとして渡される、このコールバックの入力値です。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (token) => {
         const raw = normalizeLineEndings(token.raw ?? '');
         const found = normalized.indexOf(raw, cursor);
         const normalizedFrom = found >= 0 ? found : cursor;
@@ -599,7 +828,15 @@ function locateTokenRanges(markdown: string, tokens: Token[]): Array<{ from: num
  * @param markdown 正規化対象のMarkdown本文。
  * @returns 正規化本文と元本文オフセットの対応表。
  */
-function normalizeWithOriginalOffsets(markdown: string): { normalized: string; originalOffsets: number[] } {
+function normalizeWithOriginalOffsets(markdown: string): {
+/**
+ * 「normalized」は、対象の内容または識別子を表す文字列です。
+ */
+normalized: string;
+/**
+ * 「originalOffsets」は、本文または選択範囲の位置・長さを保持します。
+ */
+originalOffsets: number[] } {
     let normalized = '';
     const originalOffsets = [0];
     let offset = 0;
@@ -631,7 +868,13 @@ function normalizeLineEndings(value: string): string {
  * @returns HTMLエンティティへ変換した文字列。
  */
 export function escapeHtml(value: string): string {
-    return value.replace(/[&<>"']/g, (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]!);
+    return value.replace(/[&<>"']/g,
+    /**
+ * 「character」から（value）のオブジェクトを生成して返すコールバックです。
+     * @param character HTMLまたはテキストから取り出した対象文字列です。
+     * @returns 置換後の文字列を返します。
+     */
+    (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]!);
 }
 
 /**

@@ -1,6 +1,16 @@
+/**
+ * @file ribbonLayout.ts
+ * 実行境界: Webview。
+ * 責務: 編集UI、プレビュー、ユーザー操作を処理する。
+ * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
+ * 副作用: DOM、Webviewメッセージ、ブラウザーAPI、編集状態を操作する。
+ * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ */
 
 import type { RibbonLayoutDefinition } from "./ribbonLayoutTypes";
 
+/** 「RIBBON_LAYOUT」は、機能間で参照する対応表または定義です。 */
+/** リボンのタブ、グループ、表示順を定義するレイアウト契約。 */
 export const RIBBON_LAYOUT: RibbonLayoutDefinition = {
   tabs: [
     {

@@ -1,23 +1,54 @@
 /**
+ * @file imageResize.ts
+ * 実行境界: Extension HostとWebviewの共有層。
+ * 責務: 両実行境界で共有する値、プロトコル、変換を扱う。
+ * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
+ * 副作用: 呼び出し元から渡された値を変換し、外部状態を直接変更しない。
+ * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ */
+/**
  * プレビュー上の画像インデックスに対応するMarkdown画像参照です。
- * @param kind Markdown記法またはHTMLタグです。
- * @param start 参照の開始オフセットです。
- * @param end 参照の終了オフセットです。
- * @param alt 画像の代替テキストです。
- * @param source 画像の参照先です。
- * @param title 画像タイトルです。
  */
 interface ImageReference {
+
+    /**
+     * 「kind」は、対象の識別や処理分岐に使用する値を保持します。
+     */
     kind: 'markdown' | 'html';
+
+    /**
+     * 「start」は、位置・サイズ・件数などを表す数値です。
+     */
     start: number;
+
+    /**
+     * 「end」は、位置・サイズ・件数などを表す数値です。
+     */
     end: number;
+
+    /**
+     * 「alt」は、対象の内容または識別子を表す文字列です。
+     */
     alt: string;
+
+    /**
+     * 「source」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
+     */
     source: string;
+
+    /**
+     * 「title」は、画面または通知へ表示する文言を保持します。
+     */
     title?: string;
 }
 
+/**
+ * 「ImageAlignment」として扱う値の型を定義します。
+ */
 export type ImageAlignment = 'left' | 'center' | 'right';
 
+/** 「MIN_IMAGE_WIDTH」は、入力・表示・資源の上限または下限を表す値です。 */
+/** プレビュー画像の保存幅に適用する下限。極端に小さい値で画像を操作不能にしない。 */
 const MIN_IMAGE_WIDTH = 48;
 
 /**
@@ -83,6 +114,11 @@ function normalizeWidth(width: number): number {
     return Math.max(MIN_IMAGE_WIDTH, Math.round(Number.isFinite(width) ? width : MIN_IMAGE_WIDTH));
 }
 
+/**
+ * 配置を正規化します。
+ * @param alignment 「alignment」は、「normalizeAlignment」が画像表示・保存の処理対象を特定する入力です。
+ * @returns 「normalizeAlignment」が読み取りまたは正規化した結果を返します。
+ */
 function normalizeAlignment(alignment: ImageAlignment): ImageAlignment {
     return alignment === 'center' || alignment === 'right' ? alignment : 'left';
 }
@@ -157,7 +193,14 @@ function scanImageReferences(markdown: string): ImageReference[] {
         index = referenceClosingBracket + 1;
     }
 
-    return references.sort((left, right) => left.start - right.start);
+    return references.sort(
+    /**
+ * 「left」「right」を比較し、並び順を示す数値を返すコールバックです。
+     * @param left 比較対象の左側の値です。
+     * @param right 比較対象の右側の値です。
+     * @returns 比較対象の順序を示す負数、0、または正数を返します。
+     */
+    (left, right) => left.start - right.start);
 }
 
 /**
@@ -203,8 +246,24 @@ function maskCode(source: string): string {
  * @param masked コードをマスクしたMarkdown本文です。
  * @returns 正規化ラベルから画像定義へのマップです。
  */
-function collectReferenceDefinitions(source: string, masked: string): Map<string, { source: string; title?: string }> {
-    const definitions = new Map<string, { source: string; title?: string }>();
+function collectReferenceDefinitions(source: string, masked: string): Map<string, {
+/**
+ * 「source」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
+ */
+source: string;
+/**
+ * 「title」は、画面または通知へ表示する文言を保持します。
+ */
+title?: string }> {
+    const definitions = new Map<string, {
+    /**
+     * 「source」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
+     */
+    source: string;
+    /**
+     * 「title」は、画面または通知へ表示する文言を保持します。
+     */
+    title?: string }>();
     const lines = masked.split(/(\r?\n)/);
     let offset = 0;
 
@@ -236,7 +295,15 @@ function normalizeReferenceLabel(label: string): string {
  * @param target 記法の括弧内文字列です。
  * @returns 解析したリンク先とタイトルです。
  */
-function parseMarkdownTarget(target: string): { source: string; title?: string } {
+function parseMarkdownTarget(target: string): {
+/**
+ * 「source」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
+ */
+source: string;
+/**
+ * 「title」は、画面または通知へ表示する文言を保持します。
+ */
+title?: string } {
     const trimmed = target.trim();
     if (!trimmed) return { source: '' };
     if (trimmed.startsWith('<')) {

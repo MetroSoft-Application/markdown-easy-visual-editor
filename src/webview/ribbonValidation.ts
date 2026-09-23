@@ -1,15 +1,45 @@
+/**
+ * @file ribbonValidation.ts
+ * 実行境界: Webview。
+ * 責務: 編集UI、プレビュー、ユーザー操作を処理する。
+ * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
+ * 副作用: DOM、Webviewメッセージ、ブラウザーAPI、編集状態を操作する。
+ * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ */
 
 import type { RibbonDefinitions } from "./ribbonDefinitionTypes";
 import type { RibbonLayoutDefinition } from "./ribbonLayoutTypes";
 
+/**
+ * 「RibbonValidationItemImplementation」が満たすデータ契約を定義します。
+ */
 export interface RibbonValidationItemImplementation {
+
+  /**
+   * 「kind」は、対象の識別や処理分岐に使用する値を保持します。
+   */
   readonly kind: "button" | "control";
 }
 
+/**
+ * 「RibbonValidationHeaderImplementation」が満たすデータ契約を定義します。
+ */
 export interface RibbonValidationHeaderImplementation {
+
+  /**
+   * 「kind」は、対象の識別や処理分岐に使用する値を保持します。
+   */
   readonly kind: "button";
 }
 
+/**
+ * validate・ribbon・configurationを検証します。
+ * @param layout 処理対象のレイアウトです。
+ * @param definitions 「definitions」は、「validateRibbonConfiguration」がWebview UI状態の処理対象を特定する入力です。
+ * @param implementations 「implementations」は、「validateRibbonConfiguration」がWebview UI状態の処理対象を特定する入力です。
+ * @param headerImplementations 「headerImplementations」は、「validateRibbonConfiguration」がWebview UI状態の処理対象を特定する入力です。
+ * @returns 「validateRibbonConfiguration」の副作用または状態更新を実行し、値は返しません。
+ */
 export function validateRibbonConfiguration(
   layout: RibbonLayoutDefinition,
   definitions: RibbonDefinitions,
@@ -20,7 +50,13 @@ export function validateRibbonConfiguration(
     throw new Error("Ribbon layout must contain at least one tab");
   }
 
-  const tabIds = layout.tabs.map((tab) => tab.id);
+  const tabIds = layout.tabs.map(
+  /**
+ * 「tab」を変換し、変換後の要素を返すコールバックです。
+   * @param tab tabとして渡される、このコールバックの入力値です。
+   * @returns 入力要素から生成した変換後の値を返します。
+   */
+  (tab) => tab.id);
   assertUnique(tabIds, "tabs");
   assertSameIds(tabIds, Object.keys(definitions.tabs), "tabs");
 
@@ -30,8 +66,20 @@ export function validateRibbonConfiguration(
     }
   }
 
-  const groupIds = layout.tabs.flatMap((tab) =>
-    tab.groups.map((group) => group.id),
+  const groupIds = layout.tabs.flatMap(
+  /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+   * @param tab tabとして渡される、このコールバックの入力値です。
+   * @returns 「tab」から生成した処理結果を返します。
+   */
+  (tab) =>
+    tab.groups.map(
+    /**
+ * 「group」を変換し、変換後の要素を返すコールバックです。
+     * @param group groupとして渡される、このコールバックの入力値です。
+     * @returns 入力要素から生成した変換後の値を返します。
+     */
+    (group) => group.id),
   );
   assertUnique(groupIds, "groups");
   assertSameIds(groupIds, Object.keys(definitions.groups), "groups");
@@ -44,8 +92,20 @@ export function validateRibbonConfiguration(
     }
   }
 
-  const itemIds = layout.tabs.flatMap((tab) =>
-    tab.groups.flatMap((group) => group.itemIds),
+  const itemIds = layout.tabs.flatMap(
+  /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+   * @param tab tabとして渡される、このコールバックの入力値です。
+   * @returns 「tab」から生成した処理結果を返します。
+   */
+  (tab) =>
+    tab.groups.flatMap(
+    /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+     * @param group groupとして渡される、このコールバックの入力値です。
+     * @returns 「group」から生成した処理結果を返します。
+     */
+    (group) => group.itemIds),
   );
   assertUnique(itemIds, "items");
   assertSameIds(itemIds, Object.keys(definitions.items), "item definitions");
@@ -84,6 +144,12 @@ export function validateRibbonConfiguration(
   validateContiguousHeaderGroups(layout, definitions);
 
   const usedContainerIds = Object.values(definitions.items).flatMap(
+
+    /**
+ * 「definition」を受け取り、登録された副作用または結果を生成する処理です。
+     * @param definition definitionとして渡される、このコールバックの入力値です。
+     * @returns 「definition」から生成した処理結果を返します。
+     */
     (definition) => (definition.container ? [definition.container] : []),
   );
   assertSameIds(
@@ -93,6 +159,12 @@ export function validateRibbonConfiguration(
   );
 
   const usedHeaderGroupIds = Object.values(definitions.headerItems).flatMap(
+
+    /**
+ * 「definition」を受け取り、登録された副作用または結果を生成する処理です。
+     * @param definition definitionとして渡される、このコールバックの入力値です。
+     * @returns 「definition」から生成した処理結果を返します。
+     */
     (definition) => (definition.group ? [definition.group] : []),
   );
   assertSameIds(
@@ -102,13 +174,31 @@ export function validateRibbonConfiguration(
   );
 }
 
+/**
+ * validate・contiguous・item・containersを検証します。
+ * @param layout 処理対象のレイアウトです。
+ * @param definitions 「definitions」は、「validateContiguousItemContainers」がWebview UI状態の処理対象を特定する入力です。
+ * @returns 「validateContiguousItemContainers」の副作用または状態更新を実行し、値は返しません。
+ */
 function validateContiguousItemContainers(
   layout: RibbonLayoutDefinition,
   definitions: RibbonDefinitions,
 ): void {
   const locations = new Map<
     string,
-    { tabId: string; groupId: string; lastIndex: number }
+    {
+    /**
+     * 「tabId」は、対象の識別や処理分岐に使用する値を保持します。
+     */
+    tabId: string;
+    /**
+     * 「groupId」は、対象の識別や処理分岐に使用する値を保持します。
+     */
+    groupId: string;
+    /**
+     * 「lastIndex」は、対象の位置、サイズ、件数、または範囲を保持します。
+     */
+    lastIndex: number }
   >();
   for (const tab of layout.tabs) {
     for (const group of tab.groups) {
@@ -136,6 +226,12 @@ function validateContiguousItemContainers(
   }
 }
 
+/**
+ * validate・contiguous・header・groupsを検証します。
+ * @param layout 処理対象のレイアウトです。
+ * @param definitions 「definitions」は、「validateContiguousHeaderGroups」がWebview UI状態の処理対象を特定する入力です。
+ * @returns 「validateContiguousHeaderGroups」の副作用または状態更新を実行し、値は返しません。
+ */
 function validateContiguousHeaderGroups(
   layout: RibbonLayoutDefinition,
   definitions: RibbonDefinitions,
@@ -152,12 +248,25 @@ function validateContiguousHeaderGroups(
   }
 }
 
+/**
+ * assert・uniqueを検証します。
+ * @param ids 「ids」は、「assertUnique」がWebview UI状態の処理対象を特定する入力です。
+ * @param name 対象を識別する名前で、表示または処理分岐に使用します。
+ * @returns 「assertUnique」の副作用または状態更新を実行し、値は返しません。
+ */
 function assertUnique(ids: readonly string[], name: string): void {
   if (new Set(ids).size !== ids.length) {
     throw new Error(`Ribbon ${name} contain duplicate IDs`);
   }
 }
 
+/**
+ * assert・same・idsを検証します。
+ * @param actual 検証または解析で実際に得られた値です。
+ * @param expected 検証で期待する値または状態です。
+ * @param name 対象を識別する名前で、表示または処理分岐に使用します。
+ * @returns 「assertSameIds」の副作用または状態更新を実行し、値は返しません。
+ */
 function assertSameIds(
   actual: readonly string[],
   expected: readonly string[],
@@ -165,8 +274,20 @@ function assertSameIds(
 ): void {
   const actualSet = new Set(actual);
   const expectedSet = new Set(expected);
-  const missing = expected.filter((id) => !actualSet.has(id));
-  const unexpected = actual.filter((id) => !expectedSet.has(id));
+  const missing = expected.filter(
+  /**
+ * 「id」が条件に一致するか判定し、残す要素を決めるコールバックです。
+   * @param id idとして渡される、このコールバックの入力値です。
+   * @returns 要素を採用するかどうかの真偽値を返します。
+   */
+  (id) => !actualSet.has(id));
+  const unexpected = actual.filter(
+  /**
+ * 「id」が条件に一致するか判定し、残す要素を決めるコールバックです。
+   * @param id idとして渡される、このコールバックの入力値です。
+   * @returns 要素を採用するかどうかの真偽値を返します。
+   */
+  (id) => !expectedSet.has(id));
   if (missing.length > 0 || unexpected.length > 0) {
     throw new Error(
       `Ribbon ${name} do not match: missing=${missing.join(",")}, unexpected=${unexpected.join(",")}`,

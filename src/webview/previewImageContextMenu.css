@@ -1,3 +1,17 @@
+/**
+ * @file previewImageContextMenu.css
+ * 実行境界: Webview。
+ * 責務: 画面のスタイル、状態表示、テーマ適用を定義する。
+ * 入出力: DOM要素、状態クラス、テーマ変数を入力として受け取り、視覚表現へ反映する。
+ * 副作用: DOMの視覚表現だけを変更し、Markdown本文や編集状態を直接変更しない。
+ * 不変条件: フォーカス表示、可読性、既存のレイアウト契約を維持する。
+ */
+/**
+ * @style .mve-preview-image-context-menu
+ * 対象UI: Markdownプレビューの本文、見出し、リンク、ブロック要素を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
 .mve-preview-image-context-menu {
     position: fixed;
     z-index: 2200;
@@ -9,7 +23,13 @@
     background: var(--vscode-menu-background, var(--vscode-editorWidget-background, #252526));
     color: var(--vscode-menu-foreground, var(--vscode-foreground));
     box-shadow: 0 6px 20px rgb(0 0 0 / 30%);
-}
+}/**
+ * @style .mve-preview-image-context-menu button
+ * 対象UI: Markdownプレビューの本文、見出し、リンク、ブロック要素を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 .mve-preview-image-context-menu button {
     display: block;
@@ -25,24 +45,48 @@
     text-align: left;
     cursor: pointer;
     white-space: nowrap;
-}
+}/**
+ * @style .mve-preview-image-context-menu button:hover:not(:disabled), .mve-preview-image-context-menu button:focus-visible
+ * 対象UI: Markdownプレビューの本文、見出し、リンク、ブロック要素を整える。
+ * 状態・テーマ: 操作を無効化した状態の視認性と入力不可を示す。
+ * アクセシビリティ: 無効状態を色だけに依存せず、操作不可の視認性を保つ。
+ */
+
 
 .mve-preview-image-context-menu button:hover:not(:disabled),
 .mve-preview-image-context-menu button:focus-visible {
     outline: 0;
     background: var(--vscode-menu-selectionBackground, var(--vscode-list-activeSelectionBackground, #04395e));
     color: var(--vscode-menu-selectionForeground, var(--vscode-list-activeSelectionForeground, #fff));
-}
+}/**
+ * @style .mve-preview-image-context-menu button:disabled
+ * 対象UI: Markdownプレビューの本文、見出し、リンク、ブロック要素を整える。
+ * 状態・テーマ: 操作を無効化した状態の視認性と入力不可を示す。
+ * アクセシビリティ: 無効状態を色だけに依存せず、操作不可の視認性を保つ。
+ */
+
 
 .mve-preview-image-context-menu button:disabled {
     opacity: 0.65;
     cursor: default;
-}
+}/**
+ * @style .mve-preview-image-context-menu[data-state="error"] button:disabled
+ * 対象UI: Markdownプレビューの本文、見出し、リンク、ブロック要素を整える。
+ * 状態・テーマ: 操作を無効化した状態の視認性と入力不可を示す。
+ * アクセシビリティ: 無効状態を色だけに依存せず、操作不可の視認性を保つ。
+ */
+
 
 .mve-preview-image-context-menu[data-state="error"] button:disabled {
     color: var(--vscode-errorForeground, #f48771);
     opacity: 1;
-}
+}/**
+ * @style .mve-preview-image-copy-toast
+ * 対象UI: Markdownプレビューの本文、見出し、リンク、ブロック要素を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 .mve-preview-image-copy-toast {
     position: fixed;
@@ -57,7 +101,13 @@
     color: var(--vscode-notifications-foreground, var(--vscode-foreground));
     box-shadow: 0 4px 18px rgb(0 0 0 / 28%);
     font-size: 12px;
-}
+}/**
+ * @style .mve-preview-image-copy-toast[data-state="error"]
+ * 対象UI: Markdownプレビューの本文、見出し、リンク、ブロック要素を整える。
+ * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
+ * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ */
+
 
 .mve-preview-image-copy-toast[data-state="error"] {
     color: var(--vscode-errorForeground, #f48771);

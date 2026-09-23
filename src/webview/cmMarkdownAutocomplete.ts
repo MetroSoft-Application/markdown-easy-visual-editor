@@ -1,7 +1,16 @@
+/**
+ * @file cmMarkdownAutocomplete.ts
+ * 実行境界: Webview。
+ * 責務: 編集UI、プレビュー、ユーザー操作を処理する。
+ * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
+ * 副作用: DOM、Webviewメッセージ、ブラウザーAPI、編集状態を操作する。
+ * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ */
 import { autocompletion, type Completion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
 import { StateEffect, type Extension } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
 
+/** 「allMarkdownOptions」は、呼び出し先へ渡す設定値の集合です。 */
 const allMarkdownOptions: readonly Completion[] = [
     { label: '# Heading 1', detail: '見出し1', type: 'keyword', apply: '# ' },
     { label: '## Heading 2', detail: '見出し2', type: 'keyword', apply: '## ' },
@@ -19,6 +28,11 @@ const allMarkdownOptions: readonly Completion[] = [
     { label: '[^id] Footnote', detail: '脚注参照', type: 'text', apply: '[^id]' }
 ];
 
+/**
+ * 「optionsForTrigger」は、関連する画面または処理の設定と現在状態を保持します。
+ * @param trigger 「trigger」は、「optionsForTrigger」がWebview UI状態の処理対象を特定する入力です。
+ * @returns 「optionsForTrigger」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ */
 function optionsForTrigger(trigger: string): readonly Completion[] {
     if (trigger.startsWith('#')) return allMarkdownOptions.slice(0, 3);
     if (trigger === '-') return allMarkdownOptions.slice(3, 6);
@@ -31,6 +45,11 @@ function optionsForTrigger(trigger: string): readonly Completion[] {
     return allMarkdownOptions;
 }
 
+/**
+ * 「markdownCompletionSource」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+ * @param context 「context」は、「markdownCompletionSource」がWebview UI状態の処理対象を特定する入力です。
+ * @returns 「markdownCompletionSource」が生成または整形したWebview UI状態の文字列を返します。
+ */
 function markdownCompletionSource(context: CompletionContext): CompletionResult | null {
     const line = context.state.doc.lineAt(context.pos);
     const before = line.text.slice(0, context.pos - line.from);
@@ -44,17 +63,44 @@ function markdownCompletionSource(context: CompletionContext): CompletionResult 
     };
 }
 
+/**
+ * 「attachExtension」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+ * @param extension 「extension」は、「attachExtension」がWebview UI状態の処理対象を特定する入力です。
+ * @returns 「attachExtension」の副作用または状態更新を実行し、値は返しません。
+ */
 function attachExtension(extension: Extension): void {
     const configured = new WeakSet<EditorView>();
-    const install = () => {
-        document.querySelectorAll<HTMLElement>('.source-editor .cm-editor').forEach((element) => {
+
+    /**
+     * 「install」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
+     * @returns 「install」がWebview UI状態の入力を処理して得た固有の結果を返します。
+     */
+    const install = /**
+ * 「install」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
+ * @returns 「install」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ */ () => {
+        document.querySelectorAll<HTMLElement>('.source-editor .cm-editor').forEach(
+        /**
+ * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
+         * @param element 処理対象の要素です。
+         * @returns 「EditorView.findFromDOM」を実行し、値を返しません。
+         */
+        (element) => {
             const view = EditorView.findFromDOM(element);
             if (!view || configured.has(view)) return;
             configured.add(view);
             view.dispatch({ effects: StateEffect.appendConfig.of(extension) });
         });
     };
-    const start = () => {
+
+    /**
+     * startを開始します。
+     * @returns 「start」が開始した処理の結果または非同期Promiseを返します。
+     */
+    const start = /**
+ * 「start」は、処理を開始し、必要な実行状態を準備します。
+ * @returns 「start」が開始した処理の結果または非同期Promiseを返します。
+ */ () => {
         install();
         const observer = new MutationObserver(install);
         observer.observe(document.documentElement, { childList: true, subtree: true });
