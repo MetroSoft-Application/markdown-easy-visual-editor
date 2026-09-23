@@ -1,25 +1,30 @@
 /**
- * @file index.cjs
- * 実行境界: テスト実行環境。
- * 責務: 現行実装の仕様と回帰条件を検証する。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: テスト用のモック、ブラウザー、ファイルを必要に応じて操作する。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview indexの回帰の仕様と回帰条件を検証する。失敗時は期待値と実装差分を示す。
  */
-/** 統合テストの期待値を検証するNode標準アサーション。 */
+/**
+ * indexの回帰のassertに関する状態または設定。
+ */
 const assert = require('node:assert/strict');
-/** 「fs」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * indexの回帰で扱う一覧または対応表。
+ */
 const fs = require('node:fs/promises');
-/** 「os」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * indexの回帰で扱う一覧または対応表。
+ */
 const os = require('node:os');
-/** 「path」は、対象ファイルまたは実行環境の場所を表す値です。 */
+/**
+ * indexの回帰で読み書きするリソースの場所。
+ */
 const path = require('node:path');
-/** 「vscode」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * indexの回帰のvscodeに関する状態または設定。
+ */
 const vscode = require('vscode');
 
 /**
- * 「run」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @returns 「run」が実行した検証シナリオ処理の結果を返します。
+ * indexの回帰の処理順序と完了状態を管理する。
+ * @returns indexの回帰のrunが生成する結果。
  */
 async function run() {
   const extension = vscode.extensions.getExtension('MetroSoft-Application.markdown-easy-visual-editor');
@@ -33,8 +38,8 @@ async function run() {
   await vscode.commands.executeCommand('markdownEasyVisualEditor.openVisual', representativeSample);
   await waitFor(
   /**
- * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
-   * @returns 「vscode.commands.executeCommand」の呼び出し結果を返します。
+   * indexの回帰のコールバックとして要素を処理する。
+   * @returns indexの回帰のコールバックが生成する結果。
    */
   () => {
     const input = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
@@ -44,8 +49,8 @@ async function run() {
   await waitFor(
 
     /**
- * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
-     * @returns 「document.uri.toString」の呼び出し結果を返します。
+     * 要素をfunction toString() { [native code] }へ渡し、indexの回帰の結果または副作用を処理する。
+     * @returns indexの回帰のコールバックが生成する結果。
      */
     () => vscode.window.activeTextEditor?.document.uri.toString() === representativeSample.toString(),
     'Markdownをテキストとして開けませんでした。'
@@ -63,17 +68,17 @@ async function run() {
     const emptyEditor = await vscode.window.showTextDocument(emptyDocument);
     assert.equal(await emptyEditor.edit(
     /**
- * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
-     * @param builder builderとして渡される、このコールバックの入力値です。
-     * @returns 「builder」が生成したデータまたはオブジェクトを返します。
+     * builderをset・end・of・lineへ渡し、indexの回帰の結果または副作用を処理する。
+     * @param builder - indexの回帰へ渡す入力。
+     * @returns indexの回帰のコールバックが生成する結果。
      */
     (builder) => builder.setEndOfLine(vscode.EndOfLine.CRLF)), true);
     await vscode.commands.executeCommand('workbench.action.closeAllEditors');
     await vscode.commands.executeCommand('vscode.openWith', emptyUri, 'markdownEasyVisualEditor.editor');
     await waitFor(
     /**
- * Promiseの完了または失敗を通知し、非同期処理の状態を確定するコールバックです。
-     * @returns 「Promise」の呼び出し結果を返します。
+     * indexの回帰のコールバックとして要素を処理する。
+     * @returns indexの回帰のコールバックが生成する結果。
      */
     () => {
       const input = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
@@ -81,9 +86,9 @@ async function run() {
     }, 'Empty CRLF document did not open in the custom editor.');
     await new Promise(
     /**
-     * 予約されたタイミングで「resolve」を受け取り、遅延処理を実行するコールバックです。
-     * @param resolve Promiseの完了または失敗を通知する関数です。
-     * @returns 「setTimeout」を実行し、値を返しません。
+     * 遅延処理の完了または失敗を待機側へ通知する。
+     * @param resolve - Promiseの成功を通知する関数。
+     * @returns 非同期処理の完了値。
      */
     (resolve) => setTimeout(resolve, 500));
 
@@ -91,9 +96,9 @@ async function run() {
     const emptyDocumentChanges = [];
     const emptyChangeDisposable = vscode.workspace.onDidChangeTextDocument(
     /**
-     * 予約されたタイミングで「event」を受け取り、遅延処理を実行するコールバックです。
-     * @param event 処理対象のイベントです。
-     * @returns イベントに応じた状態更新または委譲処理を実行し、値を返しません。
+     * イベントをifへ渡し、indexの回帰の結果または副作用を処理する。
+     * @param event - ユーザー操作またはDOMから通知されたイベント。
+     * @returns indexの回帰のコールバックが生成する結果。
      */
     (event) => {
       if (
@@ -106,9 +111,9 @@ async function run() {
           text: event.document.getText(),
           changes: event.contentChanges.map(
           /**
- * 「change」を変換し、変換後の要素を返すコールバックです。
-           * @param change changeとして渡される、このコールバックの入力値です。
-           * @returns 入力要素から生成した変換後の値を返します。
+           * 各changeからrange・offsetを取り出して一覧化する。
+           * @param change - changeのrange・offsetを参照する走査対象。
+           * @returns range・offsetを取り出した変換結果の一覧。
            */
           (change) => ({
             rangeOffset: change.rangeOffset,
@@ -124,15 +129,15 @@ async function run() {
       assert.equal(await vscode.workspace.applyEdit(leadingNewline), true);
       await waitFor(
       /**
- * Promiseの完了または失敗を通知し、非同期処理の状態を確定するコールバックです。
-       * @returns 「emptyDocument.getText」の呼び出し結果を返します。
+       * 要素をget・textへ渡し、indexの回帰の結果または副作用を処理する。
+       * @returns indexの回帰のコールバックが生成する結果。
        */
       () => emptyDocument.getText() === '\r\n', 'The first CRLF newline was not applied exactly once.');
       await new Promise(
       /**
-       * 予約されたタイミングで「resolve」を受け取り、遅延処理を実行するコールバックです。
-       * @param resolve Promiseの完了または失敗を通知する関数です。
-       * @returns 「setTimeout」を実行し、値を返しません。
+       * 遅延処理の完了または失敗を待機側へ通知する。
+       * @param resolve - Promiseの成功を通知する関数。
+       * @returns 非同期処理の完了値。
        */
       (resolve) => setTimeout(resolve, 750));
       assert.equal(emptyDocument.getText(), '\r\n', 'The first CRLF newline kept growing.');
@@ -151,8 +156,8 @@ async function run() {
     await vscode.commands.executeCommand('vscode.openWith', uri, 'markdownEasyVisualEditor.editor');
     await waitFor(
     /**
- * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
-     * @returns 「vscode.commands.executeCommand」の呼び出し結果を返します。
+     * indexの回帰のコールバックとして要素を処理する。
+     * @returns indexの回帰のコールバックが生成する結果。
      */
     () => {
       const input = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
@@ -161,22 +166,22 @@ async function run() {
     await vscode.commands.executeCommand('workbench.action.splitEditor');
     await waitFor(
     /**
- * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
-     * @returns 「flatMap」の呼び出し結果を返します。
+     * 要素をflat・mapへ渡し、indexの回帰の結果または副作用を処理する。
+     * @returns indexの回帰のコールバックが生成する結果。
      */
     () => vscode.window.tabGroups.all
       .flatMap(
       /**
- * 「group」を受け取り、入力文字列を置換して変換する処理です。
-       * @param group groupとして渡される、このコールバックの入力値です。
-       * @returns 置換後の文字列を返します。
+       * indexの回帰のコールバックとしてgroupを処理する。
+       * @param group - indexの回帰へ渡す入力。
+       * @returns indexの回帰のコールバックが生成する結果。
        */
       (group) => group.tabs)
       .filter(
       /**
- * 「tab」が条件に一致するか判定し、残す要素を決めるコールバックです。
-       * @param tab tabとして渡される、このコールバックの入力値です。
-       * @returns 要素を採用するかどうかの真偽値を返します。
+       * inputの条件を満たすtabだけを残す。
+       * @param tab - tabのinputを参照する走査対象。
+       * @returns 条件を満たした要素だけを含む一覧。
        */
       (tab) => tab.input && 'viewType' in tab.input && tab.input.viewType === 'markdownEasyVisualEditor.editor')
       .length >= 2, '同じ文書のCustom Editorを2パネルで開けませんでした。');
@@ -192,8 +197,8 @@ async function run() {
     await vscode.commands.executeCommand('markdownEasyVisualEditor.exportHtml', uri);
     await waitFor(
     /**
-     * 「async」として関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-     * @returns 置換後の文字列を返します。
+     * 要素をfile・has・bytesへ渡し、indexの回帰の結果または副作用を処理する。
+     * @returns indexの回帰のコールバックが生成する結果。
      */
     async () => fileHasBytes(htmlPath), '遅延フォントを含むHTML出力が完了しませんでした。', 30_000);
     const exportedHtml = await fs.readFile(htmlPath, 'utf8');
@@ -206,8 +211,8 @@ async function run() {
     await vscode.commands.executeCommand('markdownEasyVisualEditor.exportPdf', uri);
     await waitFor(
     /**
-     * 「async」として関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-     * @returns 「fileHasBytes」の呼び出し結果を返します。
+     * 要素をfile・has・bytesへ渡し、indexの回帰の結果または副作用を処理する。
+     * @returns indexの回帰のコールバックが生成する結果。
      */
     async () => fileHasBytes(pdfPath), '遅延PlaywrightによるPDF出力が完了しませんでした。', 60_000);
     const pdfHeader = (await fs.readFile(pdfPath)).subarray(0, 5).toString('ascii');
@@ -215,38 +220,38 @@ async function run() {
 
     await new Promise(
     /**
-     * 予約されたタイミングで「resolve」を受け取り、遅延処理を実行するコールバックです。
-     * @param resolve Promiseの完了または失敗を通知する関数です。
-     * @returns 「setTimeout」を実行し、値を返しません。
+     * 遅延処理の完了または失敗を待機側へ通知する。
+     * @param resolve - Promiseの成功を通知する関数。
+     * @returns 非同期処理の完了値。
      */
     (resolve) => setTimeout(resolve, 750));
     await vscode.commands.executeCommand('markdownEasyVisualEditor.undo');
     await waitFor(
     /**
- * 指定時間の経過後に後続処理を実行するコールバックです。
-     * @returns 「document.getText」の呼び出し結果を返します。
+     * 要素をget・textへ渡し、indexの回帰の結果または副作用を処理する。
+     * @returns 条件が成立したかを示す真偽値。
      */
     () => !document.getText().includes('保存確認'), 'extension undo command did not update the document.');
     await vscode.commands.executeCommand('markdownEasyVisualEditor.redo');
     await waitFor(
     /**
-     * 予約されたタイミングでタイマーまたはフレーム後の処理を実行するコールバックです。
-     * @returns 「document.getText」の呼び出し結果を返します。
+     * 要素をget・textへ渡し、indexの回帰の結果または副作用を処理する。
+     * @returns indexの回帰のコールバックが生成する結果。
      */
     () => document.getText().includes('保存確認'), 'extension redo command did not update the document.');
 
     await vscode.commands.executeCommand('undo');
     await waitFor(
     /**
- * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
-     * @returns 「document.getText」の呼び出し結果を返します。
+     * 要素をget・textへ渡し、indexの回帰の結果または副作用を処理する。
+     * @returns 条件が成立したかを示す真偽値。
      */
     () => !document.getText().includes('保存確認'), 'Undoが文書へ反映されませんでした。');
     await vscode.commands.executeCommand('redo');
     await waitFor(
     /**
- * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
-     * @returns 「document.getText」の呼び出し結果を返します。
+     * 要素をget・textへ渡し、indexの回帰の結果または副作用を処理する。
+     * @returns indexの回帰のコールバックが生成する結果。
      */
     () => document.getText().includes('保存確認'), 'Redoが文書へ反映されませんでした。');
   } finally {
@@ -256,11 +261,11 @@ async function run() {
 }
 
 /**
- * wait・forを待機します。
- * @param predicate 「predicate」は、「waitFor」が検証シナリオの処理対象を特定する入力です。
- * @param message 処理対象のメッセージです。
- * @param timeout 処理対象のタイムアウトです。
- * @returns 「waitFor」が検証シナリオの入力を処理して得た固有の結果を返します。
+ * indexの回帰が指定条件を満たすまで待機する。
+ * @param predicate - indexの回帰へ渡す入力。
+ * @param message - HostとWebviewの間で受け渡すメッセージ。
+ * @param timeout - indexの回帰の位置・寸法・件数・時間を表す数値。
+ * @returns indexの回帰のwait・forが生成する結果。
  */
 async function waitFor(predicate, message, timeout = 10_000) {
   const deadline = Date.now() + timeout;
@@ -268,9 +273,9 @@ async function waitFor(predicate, message, timeout = 10_000) {
     if (await predicate()) return;
     await new Promise(
     /**
-     * 予約されたタイミングで「resolve」を受け取り、遅延処理を実行するコールバックです。
-     * @param resolve Promiseの完了または失敗を通知する関数です。
-     * @returns 「setTimeout」を実行し、値を返しません。
+     * 遅延処理の完了または失敗を待機側へ通知する。
+     * @param resolve - Promiseの成功を通知する関数。
+     * @returns 非同期処理の完了値。
      */
     (resolve) => setTimeout(resolve, 100));
   }
@@ -278,9 +283,9 @@ async function waitFor(predicate, message, timeout = 10_000) {
 }
 
 /**
- * 「fileHasBytes」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param filePath 「filePath」は、「fileHasBytes」が検証シナリオで処理する対象を特定する入力です。
- * @returns 「fileHasBytes」が検証シナリオの入力を処理して得た固有の結果を返します。
+ * indexの回帰のfile・has・bytesを処理し、呼び出し側へ結果または副作用を返す。
+ * @param filePath - 読み書きするファイルのパス。
+ * @returns indexの回帰のfile・has・bytesが生成する結果。
  */
 async function fileHasBytes(filePath) {
   try {

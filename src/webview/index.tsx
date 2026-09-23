@@ -1,10 +1,5 @@
 /**
- * @file index.tsx
- * 実行境界: Webview。
- * 責務: 編集UI、プレビュー、ユーザー操作を処理する。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: DOM、Webviewメッセージ、ブラウザーAPI、編集状態を操作する。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview Webview Reactツリーの起動点として、Host API、初期設定、メッセージ購読を初期化する。
  */
 import React from "react";
 import { createRoot } from "react-dom/client";
@@ -27,19 +22,20 @@ import { installPreviewImageClipboardPaste } from "./previewImageClipboardPaste"
 import { installSelectedTextSearchTransfer } from "./searchSelectedText";
 import { installTableEditorOverlay } from "./tableEditorOverlay";
 
-(globalThis as typeof globalThis & {
-/**
- * 「__mveBundleExecutedAt」は、位置・サイズ・件数などを表す数値です。
- */
-__mveBundleExecutedAt?: number })
-  .__mveBundleExecutedAt = performance.now();
+(
+  globalThis as typeof globalThis & {
+    /**
+     * indexの・mve・bundle・executed・atを表す数値。
+     */
+    __mveBundleExecutedAt?: number;
+  }
+).__mveBundleExecutedAt = performance.now();
 preloadMarkdownWorker();
 
 /**
- * 行番号の左クリック完了後に、その論理行のテキスト全体を選択する。
- * CodeMirrorのmousedown処理は妨げず、本文編集・IME・DOM同期へ干渉しない。
- * @param event ルート要素上のクリックイベント。
- * @returns イベントを処理し、状態更新または副作用だけを実行して値は返しません。
+ * indexのイベントまたはメッセージを受け取り、状態を更新する。
+ * @param event - ユーザー操作またはDOMから通知されたイベント。
+ * @returns 副作用を完了し、値は返さない。
  */
 function handleLineNumberClick(event: MouseEvent): void {
   if (event.button !== 0 || !(event.target instanceof Element)) return;
@@ -67,28 +63,19 @@ function handleLineNumberClick(event: MouseEvent): void {
 }
 
 /**
- * テーブルエディターのツールボタンを、1回の物理操作につき1回だけ発火させる。
- * Webview/React境界で同じclickが再送されても、新しいpointerdown/keydownがない限り破棄する。
- * @returns 「installTableEditorToolbarActivationGuard」の副作用または状態更新を実行し、値は返しません。
+ * indexのinstall・table・editor・toolbar・activation・guardを処理し、呼び出し側へ結果または副作用を返す。
+ * @returns indexのinstall・table・editor・toolbar・activation・guardが生成する結果。
  */
 function installTableEditorToolbarActivationGuard(): () => void {
   let activationSerial = 0;
   let consumedSerial = -1;
   let activationButton: HTMLButtonElement | undefined;
 
-
-  /**
-   * 「toolbarButton」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-   * @param target 処理対象の対象です。
-   * @returns 「toolbarButton」が対象を取得できない場合はundefinedを返します。
-   */
   const toolbarButton = /**
- * 「toolbarButton」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param target 処理対象のDOM要素、エディター、または実行コンテキストです。
- * @returns 「toolbarButton」がWebview UI状態の入力を処理して得た固有の結果を返します。
- */ (
-    target: EventTarget | null,
-  ): HTMLButtonElement | undefined => {
+   * indexのtoolbar・buttonを処理し、呼び出し側へ結果または副作用を返す。
+   * @param target - indexへ渡す入力。
+   * @returns 副作用を完了し、値は返さない。
+   */ (target: EventTarget | null): HTMLButtonElement | undefined => {
     if (!(target instanceof Element)) return undefined;
     return (
       target.closest<HTMLButtonElement>(".mve-table-editor-toolbar button") ??
@@ -96,64 +83,40 @@ function installTableEditorToolbarActivationGuard(): () => void {
     );
   };
 
-
-  /**
-   * 「arm」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-   * @param button 「button」は、「arm」がWebview UI状態の処理対象を特定する入力です。
-   * @returns 「arm」がWebview UI状態の入力を処理して得た固有の結果を返します。
-   */
   const arm = /**
- * 「arm」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param button 「button」は、「arm」がWebview UIで処理する対象を特定する入力です。
- * @returns 「arm」がWebview UI状態の入力を処理して得た固有の結果を返します。
- */ (button: HTMLButtonElement) => {
+   * indexのarmを処理し、呼び出し側へ結果または副作用を返す。
+   * @param button - indexへ渡す入力。
+   * @returns indexのarmが生成する結果。
+   */ (button: HTMLButtonElement) => {
     activationSerial += 1;
     activationButton = button;
   };
 
-
-  /**
-   * 「onPointerDown」は、イベント入力を受け取り、関連する状態またはUIを更新する処理です。
-   * @param event 処理対象のイベントです。
-   * @returns 「if」を実行し、値を返しません。
-   */
   const onPointerDown = /**
- * 「onPointerDown」は、イベント入力を検証し、関連する状態またはUIを更新します。
- * @param event DOMイベントまたは入力イベントの情報です。
- * @returns 「if」を実行し、値を返しません。
- */ (event: PointerEvent) => {
+   * indexのイベントまたはメッセージを受け取り、状態を更新する。
+   * @param event - ユーザー操作またはDOMから通知されたイベント。
+   * @returns indexのon・pointer・downが生成する結果。
+   */ (event: PointerEvent) => {
     if (event.button !== 0) return;
     const button = toolbarButton(event.target);
     if (button && !button.disabled) arm(button);
   };
 
-
-  /**
-   * 「onKeyDown」は、イベント入力を受け取り、関連する状態またはUIを更新する処理です。
-   * @param event 処理対象のイベントです。
-   * @returns 「if」を実行し、値を返しません。
-   */
   const onKeyDown = /**
- * 「onKeyDown」は、イベント入力を検証し、関連する状態またはUIを更新します。
- * @param event DOMイベントまたは入力イベントの情報です。
- * @returns 「if」を実行し、値を返しません。
- */ (event: KeyboardEvent) => {
+   * keydownイベントでifを実行する。
+   * @param event - ユーザー操作またはDOMから通知されたイベント。
+   * @returns 副作用を完了し、値は返さない。
+   */ (event: KeyboardEvent) => {
     if (event.repeat || (event.key !== "Enter" && event.key !== " ")) return;
     const button = toolbarButton(event.target);
     if (button && !button.disabled) arm(button);
   };
 
-
-  /**
-   * 「onClick」は、イベント入力を受け取り、関連する状態またはUIを更新する処理です。
-   * @param event 処理対象のイベントです。
-   * @returns 「event」から生成した処理結果を返します。
-   */
   const onClick = /**
- * 「onClick」は、イベント入力を検証し、関連する状態またはUIを更新します。
- * @param event DOMイベントまたは入力イベントの情報です。
- * @returns 「event」から生成した処理結果を返します。
- */ (event: MouseEvent) => {
+   * clickイベントでtoolbar・buttonを実行する。
+   * @param event - ユーザー操作またはDOMから通知されたイベント。
+   * @returns 副作用を完了し、値は返さない。
+   */ (event: MouseEvent) => {
     const button = toolbarButton(event.target);
     if (!button || button.disabled) return;
 
@@ -173,14 +136,20 @@ function installTableEditorToolbarActivationGuard(): () => void {
   document.addEventListener("pointerdown", onPointerDown, true);
   document.addEventListener("keydown", onKeyDown, true);
   document.addEventListener("click", onClick, true);
-  return /** イベント情報を受け取り、DOMまたは画面状態を更新するコールバックです。 @returns 後片付けまたは登録解除を完了した結果を返します。 */ () => {
+  /**
+   * イベントでremove・event・listenerを実行する。
+   * @returns 副作用を完了し、値は返さない。
+   */
+  return () => {
     document.removeEventListener("pointerdown", onPointerDown, true);
     document.removeEventListener("keydown", onKeyDown, true);
     document.removeEventListener("click", onClick, true);
   };
 }
 
-/** 「root」は、対象ファイルまたは実行環境の場所を表す値です。 */
+/**
+ * indexで一時生成物または検証対象を置くディレクトリ。
+ */
 const root = document.getElementById("root");
 if (!root) throw new Error(getMessages("en").internal.rootNotFound);
 root.addEventListener("click", handleLineNumberClick);
@@ -192,7 +161,10 @@ installSelectedTextSearchTransfer();
 installTableEditorToolbarActivationGuard();
 installTableEditorOverlay();
 
-/** Reactのルート要素へアプリケーション本体をStrictMode付きで描画する。 */
+/**
+ * indexで使う値または実行環境を組み立てる。
+ * @returns indexで生成または変換した値。
+ */
 createRoot(root).render(
   <React.StrictMode>
     <App />

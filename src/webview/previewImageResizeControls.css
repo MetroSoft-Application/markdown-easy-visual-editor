@@ -1,16 +1,10 @@
-/**
- * @file previewImageResizeControls.css
- * 実行境界: Webview。
- * 責務: 画面のスタイル、状態表示、テーマ適用を定義する。
- * 入出力: DOM要素、状態クラス、テーマ変数を入力として受け取り、視覚表現へ反映する。
- * 副作用: DOMの視覚表現だけを変更し、Markdown本文や編集状態を直接変更しない。
- * 不変条件: フォーカス表示、可読性、既存のレイアウト契約を維持する。
+/*
+ * @fileoverview 画像リサイズハンドルとガイドの配置、操作状態、テーマ色を定義する。
+ * スタイルだけを変更し、本文データと編集状態を変更しない。
  */
-/**
- * @style html[data-mve-image-resize-controls='hidden'] .split-preview .mve-image-badge, html[data-mve-image-resize-controls='hidden'] .split-preview .mve-image-handle, html[data-mve-image-r
- * 対象UI: Markdownプレビューの画像とリサイズ操作を整える。
- * 状態・テーマ: 通常状態のレイアウトとテーマ変数を適用する。
- * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+/*
+ * @style html[data-mve-image-resize-controls='hidden'] .split-preview .mve-image-badge, html[data-mve-image-resize-controls='hidden'] .split-preview .mve-image-handle, html[data-mve-image-resize-controls='hidden'] .split-preview .mve-image-align-actions, html[data-mve-image-resize-controls='hidden'] .split-preview .mve-image-reset
+ * プレビュー画像とリサイズ操作を表示する。
  */
 html[data-mve-image-resize-controls='hidden'] .split-preview .mve-image-badge,
 html[data-mve-image-resize-controls='hidden'] .split-preview .mve-image-handle,

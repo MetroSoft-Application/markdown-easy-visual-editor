@@ -1,243 +1,236 @@
 /**
- * @file previewImageClipboardPaste.ts
- * 実行境界: Webview。
- * 責務: 編集UI、プレビュー、ユーザー操作を処理する。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: DOM、Webviewメッセージ、ブラウザーAPI、編集状態を操作する。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview クリップボードから貼り付けた画像を検証し、画像保存と本文への参照挿入へつなぐ。
  */
 /**
- * 「PreservedImagePaste」が満たすデータ契約を定義します。
+ * previewimageclipboardpasteで共有するデータ形状を表すインターフェース。
  */
 interface PreservedImagePaste {
 
-  /**
-   * 「file」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
-   */
-  file: File;
+    /**
+     * previewimageclipboardpasteで読み書きするリソースの場所。
+     */
+    file: File;
 
-  /**
-   * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-   */
-  type: string;
+    /**
+     * previewimageclipboardpasteで対象や分岐を識別する値の型。
+     */
+    type: string;
 }
 
 /**
- * プレビュー画像コピーがHTML表現へ保持した元画像バイト列をFileへ戻し、
- * App既存の画像貼り付け処理へ再投入する。
- * Markdown本文へdata URLを直接挿入せず、画像形式も変換しない。
- * @returns 「installPreviewImageClipboardPaste」の副作用または状態更新を実行し、値は返しません。
+ * previewimageclipboardpasteのinstall・preview・image・clipboard・pasteを処理し、呼び出し側へ結果または副作用を返す。
+ * @returns previewimageclipboardpasteのinstall・preview・image・clipboard・pasteが生成する結果。
  */
 export function installPreviewImageClipboardPaste(): () => void {
 
-  /**
-   * 「onPaste」は、イベント入力を受け取り、関連する状態またはUIを更新する処理です。
-   * @param event 処理対象のイベントです。
-   * @returns 「if」を実行し、値を返しません。
-   */
-  const onPaste = /**
- * 「onPaste」は、イベント入力を検証し、関連する状態またはUIを更新します。
- * @param event DOMイベントまたは入力イベントの情報です。
- * @returns 「if」を実行し、値を返しません。
- */ (event: ClipboardEvent) => {
-    if (!(event.target instanceof Element)) return;
-    if (!event.target.closest<HTMLElement>(".cm-content")) return;
 
-    const preserved = readPreservedImagePaste(event.clipboardData);
-    if (!preserved) return;
+    const onPaste = /**
+   * pasteイベントでifを実行する。
+   * @param event - ユーザー操作またはDOMから通知されたイベント。
+   * @returns 副作用を完了し、値は返さない。
+   */ (event: ClipboardEvent) => {
+            if (!(event.target instanceof Element)) return;
+            if (!event.target.closest<HTMLElement>(".cm-content")) return;
 
-    let transfer: DataTransfer;
-    try {
-      transfer = new DataTransfer();
-      transfer.items.add(preserved.file);
-    } catch (error) {
-      console.warn(
-        "[Markdown Easy Visual Editor] Could not reconstruct copied preview image as a file.",
-        error,
-      );
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      return;
-    }
+            const preserved = readPreservedImagePaste(event.clipboardData);
+            if (!preserved) return;
 
-    const target = event.target;
-    event.preventDefault();
-    event.stopImmediatePropagation();
+            let transfer: DataTransfer;
+            try {
+                transfer = new DataTransfer();
+                transfer.items.add(preserved.file);
+            } catch (error) {
+                console.warn(
+                    "[Markdown Easy Visual Editor] Could not reconstruct copied preview image as a file.",
+                    error,
+                );
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                return;
+            }
 
-    // React側の既存pasteハンドラーへ、通常の画像ファイル貼り付けとして渡す。
-    // この合成イベントには埋め込みHTMLを含めないため、このハンドラー自身では再処理されない。
-    const forwarded = new ClipboardEvent("paste", {
-      bubbles: true,
-      cancelable: true,
-      composed: true,
-      clipboardData: transfer,
-    });
+            const target = event.target;
+            event.preventDefault();
+            event.stopImmediatePropagation();
 
-    // Chromium実装差でClipboardEventInit.clipboardDataが反映されない場合も、
-    // App側から同じDataTransferを読めるように補完する。
-    if (!forwarded.clipboardData?.items.length) {
-      try {
-        Object.defineProperty(forwarded, "clipboardData", {
-          configurable: true,
-          value: transfer,
-        });
-      } catch (error) {
-        console.warn(
-          "[Markdown Easy Visual Editor] Could not attach copied preview image to paste event.",
-          error,
-        );
-        return;
-      }
-    }
+            // React側の既存pasteハンドラーへ、通常の画像ファイル貼り付けとして渡す。
+            // この合成イベントには埋め込みHTMLを含めないため、このハンドラー自身では再処理されない。
+            const forwarded = new ClipboardEvent("paste", {
+                bubbles: true,
+                cancelable: true,
+                composed: true,
+                clipboardData: transfer,
+            });
 
-    target.dispatchEvent(forwarded);
-  };
+            // Chromium実装差でClipboardEventInit.clipboardDataが反映されない場合も、
+            // App側から同じDataTransferを読めるように補完する。
+            if (!forwarded.clipboardData?.items.length) {
+                try {
+                    Object.defineProperty(forwarded, "clipboardData", {
+                        configurable: true,
+                        value: transfer,
+                    });
+                } catch (error) {
+                    console.warn(
+                        "[Markdown Easy Visual Editor] Could not attach copied preview image to paste event.",
+                        error,
+                    );
+                    return;
+                }
+            }
 
-  document.addEventListener("paste", onPaste, true);
-  return /** イベント情報を受け取り、DOMまたは画面状態を更新するコールバックです。 @returns 後片付けまたは登録解除を完了した結果を返します。 */ () => document.removeEventListener("paste", onPaste, true);
+            target.dispatchEvent(forwarded);
+        };
+
+    document.addEventListener("paste", onPaste, true);
+    /**
+     * イベントでremove・event・listenerを実行する。
+     * @returns 副作用を完了し、値は返さない。
+     */
+    return () => document.removeEventListener("paste", onPaste, true);
 }
 
 /**
- * HTMLに埋め込まれた元形式data URLを同じバイト列のFileへ復元する。
- * data-mve-original-srcが残っていれば元拡張子を優先し、失われていてもMIMEから復元する。
- * @param clipboard 「clipboard」は、「readPreservedImagePaste」がWebview UI状態の処理対象を特定する入力です。
- * @returns 「readPreservedImagePaste」が対象を取得できない場合はundefinedを返します。
+ * previewimageclipboardpasteから必要な値またはリソースを取得する。
+ * @param clipboard - previewimageclipboardpasteへ渡す入力。
+ * @returns 副作用を完了し、値は返さない。
  */
 export function readPreservedImagePaste(
-  clipboard: DataTransfer | null,
+    clipboard: DataTransfer | null,
 ): PreservedImagePaste | undefined {
-  if (!clipboard) return undefined;
-  const html = clipboard.getData("text/html");
-  if (!html) return undefined;
+    if (!clipboard) return undefined;
+    const html = clipboard.getData("text/html");
+    if (!html) return undefined;
 
-  const documentNode = new DOMParser().parseFromString(html, "text/html");
-  const image = Array.from(documentNode.querySelectorAll<HTMLImageElement>("img")).find(
+    const documentNode = new DOMParser().parseFromString(html, "text/html");
+    const image = Array.from(documentNode.querySelectorAll<HTMLImageElement>("img")).find(
 
-    /**
- * 「candidate」が検索条件に一致するか判定するコールバックです。
-     * @param candidate candidateとして渡される、このコールバックの入力値です。
-     * @returns 条件を満たすかどうかを示す真偽値を返します。
-     */
-    (candidate) => /^data:image\//i.test(candidate.getAttribute("src")?.trim() ?? ""),
-  );
-  if (!image) return undefined;
+        /**
+         * get・attributeが条件に一致する最初のcandidateを取得する。
+         * @param candidate - candidateのget・attributeを参照する走査対象。
+         * @returns 条件に一致した最初の要素。未検出時はundefined。
+         */
+        (candidate) => /^data:image\//i.test(candidate.getAttribute("src")?.trim() ?? ""),
+    );
+    if (!image) return undefined;
 
-  const dataUrl = image.getAttribute("src")?.trim() ?? "";
-  const parsed = decodeImageDataUrl(dataUrl);
-  if (!parsed) return undefined;
+    const dataUrl = image.getAttribute("src")?.trim() ?? "";
+    const parsed = decodeImageDataUrl(dataUrl);
+    if (!parsed) return undefined;
 
-  const originalSource = image.getAttribute("data-mve-original-src") ?? "";
-  const extension =
-    imageExtensionFromSource(originalSource) ?? extensionForImageMime(parsed.type);
+    const originalSource = image.getAttribute("data-mve-original-src") ?? "";
+    const extension =
+        imageExtensionFromSource(originalSource) ?? extensionForImageMime(parsed.type);
 
-  // Appの既存BMP貼り付けは image/bmp だけをPNG化するため、同義MIMEで元BMPを保持する。
-  // ホスト側では image/x-ms-bmp を .bmp として正式に受け付ける。
-  const fileType = parsed.type === "image/bmp" ? "image/x-ms-bmp" : parsed.type;
-  return {
-    type: parsed.type,
-    file: new File([parsed.bytes], `clipboard-image.${extension}`, {
-      type: fileType,
-    }),
-  };
+    // Appの既存BMP貼り付けは image/bmp だけをPNG化するため、同義MIMEで元BMPを保持する。
+    // ホスト側では image/x-ms-bmp を .bmp として正式に受け付ける。
+    const fileType = parsed.type === "image/bmp" ? "image/x-ms-bmp" : parsed.type;
+    return {
+        type: parsed.type,
+        file: new File([parsed.bytes], `clipboard-image.${extension}`, {
+            type: fileType,
+        }),
+    };
 }
 
 /**
- * data:image/*;base64,... を元バイト列へ戻す。
- * @param value 「decodeImageDataUrl」で検証・変換する入力値です。
- * @returns 「decodeImageDataUrl」が生成または変換したWebview UIの文字列を返します。
+ * previewimageclipboardpasteの入力を構造化した値へ変換する。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @returns previewimageclipboardpasteのdecode・image・data・urlが生成する結果。
  */
 export function decodeImageDataUrl(
-  value: string,
+    value: string,
 ): {
-/**
- * 「type」は、対象の識別や処理分岐に使用する値を保持します。
- */
-type: string;
-/**
- * 「bytes」は、関連処理が共有する構造化データの一項目です。
- */
-bytes: Uint8Array } | undefined {
-  const match = /^data:([^;,]+);base64,([A-Za-z0-9+/=\s]+)$/i.exec(value);
-  if (!match) return undefined;
-  const type = normalizeMimeType(match[1] ?? "");
-  if (!type.startsWith("image/")) return undefined;
+    /**
+     * previewimageclipboardpasteで対象や分岐を識別する値の型。
+     */
+    type: string;
+    /**
+     * previewimageclipboardpasteの位置・寸法・件数・時間を表す数値。
+     */
+    bytes: Uint8Array
+} | undefined {
+    const match = /^data:([^;,]+);base64,([A-Za-z0-9+/=\s]+)$/i.exec(value);
+    if (!match) return undefined;
+    const type = normalizeMimeType(match[1] ?? "");
+    if (!type.startsWith("image/")) return undefined;
 
-  const payload = (match[2] ?? "").replace(/\s+/g, "");
-  if (!payload) return undefined;
+    const payload = (match[2] ?? "").replace(/\s+/g, "");
+    if (!payload) return undefined;
 
-  try {
-    const binary = window.atob(payload);
-    const bytes = new Uint8Array(binary.length);
-    for (let index = 0; index < binary.length; index += 1) {
-      bytes[index] = binary.charCodeAt(index);
+    try {
+        const binary = window.atob(payload);
+        const bytes = new Uint8Array(binary.length);
+        for (let index = 0; index < binary.length; index += 1) {
+            bytes[index] = binary.charCodeAt(index);
+        }
+        return { type, bytes };
+    } catch {
+        return undefined;
     }
-    return { type, bytes };
-  } catch {
-    return undefined;
-  }
 }
 
 /**
- * 「imageExtensionFromSource」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param source 処理対象のソースです。
- * @returns 「imageExtensionFromSource」が生成または変換したWebview UIの文字列を返します。
+ * previewimageclipboardpasteの入力を検証し、表示または保存に使う形式へ変換する。
+ * @param source - 解析・描画・変換の起点となる本文。
+ * @returns 副作用を完了し、値は返さない。
  */
 function imageExtensionFromSource(source: string): string | undefined {
-  const clean = source.split(/[?#]/, 1)[0] ?? "";
-  const match = /\.([a-z0-9]{1,12})$/i.exec(clean);
-  return match?.[1]?.toLowerCase();
+    const clean = source.split(/[?#]/, 1)[0] ?? "";
+    const match = /\.([a-z0-9]{1,12})$/i.exec(clean);
+    return match?.[1]?.toLowerCase();
 }
 
 /**
- * 「extensionForImageMime」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param type 処理対象の種別です。
- * @returns 「extensionForImageMime」が生成または変換したWebview UIの文字列を返します。
+ * previewimageclipboardpasteのextension・for・image・mimeを処理し、呼び出し側へ結果または副作用を返す。
+ * @param type - 操作領域の種類を示す識別子。
+ * @returns previewimageclipboardpasteで利用する文字列。
  */
 function extensionForImageMime(type: string): string {
-  switch (normalizeMimeType(type)) {
-    case "image/png":
-      return "png";
-    case "image/apng":
-      return "apng";
-    case "image/jpeg":
-      return "jpg";
-    case "image/gif":
-      return "gif";
-    case "image/webp":
-      return "webp";
-    case "image/svg+xml":
-      return "svg";
-    case "image/bmp":
-      return "bmp";
-    case "image/avif":
-      return "avif";
-    case "image/x-icon":
-    case "image/vnd.microsoft.icon":
-      return "ico";
-    case "image/heic":
-      return "heic";
-    case "image/heif":
-      return "heif";
-    case "image/jxl":
-      return "jxl";
-    case "image/tiff":
-      return "tiff";
-    default:
-      return "img";
-  }
+    switch (normalizeMimeType(type)) {
+        case "image/png":
+            return "png";
+        case "image/apng":
+            return "apng";
+        case "image/jpeg":
+            return "jpg";
+        case "image/gif":
+            return "gif";
+        case "image/webp":
+            return "webp";
+        case "image/svg+xml":
+            return "svg";
+        case "image/bmp":
+            return "bmp";
+        case "image/avif":
+            return "avif";
+        case "image/x-icon":
+        case "image/vnd.microsoft.icon":
+            return "ico";
+        case "image/heic":
+            return "heic";
+        case "image/heif":
+            return "heif";
+        case "image/jxl":
+            return "jxl";
+        case "image/tiff":
+            return "tiff";
+        default:
+            return "img";
+    }
 }
 
 /**
- * 種別を正規化します。
- * @param type 処理対象の種別です。
- * @returns 「normalizeMimeType」が生成または変換したWebview UIの文字列を返します。
+ * previewimageclipboardpasteの入力を許可された形式へ整える。
+ * @param type - 操作領域の種類を示す識別子。
+ * @returns previewimageclipboardpasteで利用する文字列。
  */
 function normalizeMimeType(type: string): string {
-  const normalized = type.trim().toLowerCase();
-  if (normalized === "image/jpg" || normalized === "image/pjpeg") {
-    return "image/jpeg";
-  }
-  if (normalized === "image/svg") return "image/svg+xml";
-  if (normalized === "image/x-ms-bmp") return "image/bmp";
-  return normalized;
+    const normalized = type.trim().toLowerCase();
+    if (normalized === "image/jpg" || normalized === "image/pjpeg") {
+        return "image/jpeg";
+    }
+    if (normalized === "image/svg") return "image/svg+xml";
+    if (normalized === "image/x-ms-bmp") return "image/bmp";
+    return normalized;
 }

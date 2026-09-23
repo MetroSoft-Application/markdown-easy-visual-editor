@@ -1,64 +1,66 @@
 /**
- * @file resourceLink.ts
- * 実行境界: Extension Host。
- * 責務: VS Code文書、Webview、外部リソースを連携する。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: 文書、ファイル、Webview、ブラウザーなどの外部状態を必要に応じて操作する。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview ローカルリソースをWebviewから参照できるURIへ変換し、ワークスペース外の参照を拒否する。
  */
-/** VS Code Webviewが安全なローカル資源として公開するURLのホスト名。許可判定を一箇所に固定する。 */
+/**
+ * Webviewからローカルリソースを参照するためのURIホスト。
+ */
 const WEBVIEW_RESOURCE_HOST = 'file+.vscode-resource.vscode-cdn.net';
 
 /**
- * 「ResourceLinkTarget」として扱う値の型を定義します。
+ * resourcelinkで扱う値の種類と境界を表す型。
  */
 export type ResourceLinkTarget =
     | {
-    /**
-     * 「kind」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    kind: 'localWebview';
-    /**
-     * 「path」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
-     */
-    path: string }
+        /**
+         * メッセージ、項目、または処理の種類を識別する値。
+         */
+        kind: 'localWebview';
+        /**
+         * 読み書きするファイルまたはリソースの場所。
+         */
+        path: string
+    }
     | {
-    /**
-     * 「kind」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    kind: 'invalidLocalWebview' }
+        /**
+         * メッセージ、項目、または処理の種類を識別する値。
+         */
+        kind: 'invalidLocalWebview'
+    }
     | {
-    /**
-     * 「kind」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    kind: 'external';
-    /**
-     * 「href」は、対象の内容または識別子を表す文字列です。
-     */
-    href: string }
+        /**
+         * メッセージ、項目、または処理の種類を識別する値。
+         */
+        kind: 'external';
+        /**
+         * リンク操作領域の遷移先URI。
+         */
+        href: string
+    }
     | {
-    /**
-     * 「kind」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    kind: 'absoluteFile';
-    /**
-     * 「href」は、対象の内容または識別子を表す文字列です。
-     */
-    href: string }
+        /**
+         * メッセージ、項目、または処理の種類を識別する値。
+         */
+        kind: 'absoluteFile';
+        /**
+         * リンク操作領域の遷移先URI。
+         */
+        href: string
+    }
     | {
-    /**
-     * 「kind」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    kind: 'relative';
-    /**
-     * 「href」は、対象の内容または識別子を表す文字列です。
-     */
-    href: string };
+        /**
+         * メッセージ、項目、または処理の種類を識別する値。
+         */
+        kind: 'relative';
+        /**
+         * リンク操作領域の遷移先URI。
+         */
+        href: string
+    };
 
 /**
- * リンクを、ブラウザで開く外部URLとVS Codeで開くローカル参照に分類する。
- * @param href 「href」は、「classifyResourceLink」がExtension Host処理の処理対象を特定する入力です。
- * @returns 「classifyResourceLink」がExtension Host処理の入力を処理して得た固有の結果を返します。
+ * resourcelinkのclassify・resource・linkを処理し、呼び出し側へ結果または副作用を返す。
+ * @param href - リンク操作領域の遷移先URI。
+ * @returns resourcelinkのclassify・resource・linkが生成する結果。
  */
 export function classifyResourceLink(href: string): ResourceLinkTarget {
     const localWebviewPath = resolveWebviewResourcePath(href);
@@ -72,9 +74,9 @@ export function classifyResourceLink(href: string): ResourceLinkTarget {
 }
 
 /**
- * URLかどうかを判定します。
- * @param href 「href」は、「isWebviewResourceUrl」がExtension Host処理の処理対象を特定する入力です。
- * @returns 判定結果です。
+ * resourcelinkの条件を判定する。
+ * @param href - リンク操作領域の遷移先URI。
+ * @returns 条件が成立したかを示す真偽値。
  */
 function isWebviewResourceUrl(href: string): boolean {
     try {
@@ -86,9 +88,9 @@ function isWebviewResourceUrl(href: string): boolean {
 }
 
 /**
- * Webview が生成したローカルリソース URL を、VS Code で開くファイルパスへ戻す。
- * @param href 「href」は、「resolveWebviewResourcePath」がExtension Host処理の処理対象を特定する入力です。
- * @returns 「resolveWebviewResourcePath」が生成または変換したExtension Hostの文字列を返します。
+ * resourcelinkから必要な値またはリソースを取得する。
+ * @param href - リンク操作領域の遷移先URI。
+ * @returns 条件に一致する値。未検出時はundefinedまたはnull。
  */
 export function resolveWebviewResourcePath(href: string): string | undefined {
     let url: URL;

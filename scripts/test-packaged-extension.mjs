@@ -1,10 +1,5 @@
 /**
- * @file test-packaged-extension.mjs
- * 実行境界: 開発・検証スクリプト。
- * 責務: ビルド、スモーク、統合検証または補助生成を実行する。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: プロセス、生成物、Webview、VS Code、Chromiumなどの外部環境を操作する。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview テスト・パッケージ・拡張機能を開発・検証環境で実行する。前提条件や失敗条件を終了コードとログで示す。
  */
 import { runTests, runVSCodeCommand } from '@vscode/test-electron';
 import { execFile } from 'node:child_process';
@@ -17,19 +12,31 @@ import { promisify } from 'node:util';
 delete process.env.ELECTRON_RUN_AS_NODE;
 delete process.env.VSCODE_DEV;
 
-/** 「temporaryRoot」は、対象ファイルまたは実行環境の場所を表す値です。 */
+/**
+ * 起動計測で作成した一時ファイルのルート。
+ */
 const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), 'mve-packaged-extension-'));
-/** 「suppliedVsixPath」は、対象ファイルまたは実行環境の場所を表す値です。 */
+/**
+ * テスト・パッケージ・拡張機能で読み書きするリソースの場所。
+ */
 const suppliedVsixPath = process.argv[2];
-/** 「vsixPath」は、対象ファイルまたは実行環境の場所を表す値です。 */
+/**
+ * テスト・パッケージ・拡張機能で読み書きするリソースの場所。
+ */
 const vsixPath = suppliedVsixPath
   ? path.resolve(suppliedVsixPath)
   : path.join(temporaryRoot, 'markdown-easy-visual-editor-test.vsix');
-/** 「extensionsDir」は、対象ファイルまたは実行環境の場所を表す値です。 */
+/**
+ * テスト・パッケージ・拡張機能で一時生成物または検証対象を置くディレクトリ。
+ */
 const extensionsDir = path.join(temporaryRoot, 'extensions');
-/** 「userDataDir」は、対象ファイルまたは実行環境の場所を表す値です。 */
+/**
+ * テスト・パッケージ・拡張機能で一時生成物または検証対象を置くディレクトリ。
+ */
 const userDataDir = path.join(temporaryRoot, 'data');
-/** 「runnerDir」は、対象ファイルまたは実行環境の場所を表す値です。 */
+/**
+ * テスト・パッケージ・拡張機能で一時生成物または検証対象を置くディレクトリ。
+ */
 const runnerDir = path.join(temporaryRoot, 'runner');
 
 try {
@@ -81,9 +88,9 @@ try {
 }
 
 /**
- * ルートを解除または削除します。
- * @param directory 読み込みまたは出力するリソースの場所を示します。
- * @returns 「removeTemporaryRoot」がExtension Host処理の入力を処理して得た固有の結果を返します。
+ * テスト・パッケージ・拡張機能の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+ * @param directory - テスト・パッケージ・拡張機能で読み書きするリソースの場所。
+ * @returns テスト・パッケージ・拡張機能のremove・temporary・rootが生成する結果。
  */
 async function removeTemporaryRoot(directory) {
   for (let attempt = 0; attempt < 8; attempt += 1) {
@@ -97,9 +104,9 @@ async function removeTemporaryRoot(directory) {
       }
       await new Promise(
       /**
-       * 予約されたタイミングで「resolve」を受け取り、遅延処理を実行するコールバックです。
-       * @param resolve Promiseの完了または失敗を通知する関数です。
-       * @returns エラー処理またはフォールバックの結果を返します。
+       * 遅延処理の完了または失敗を待機側へ通知する。
+       * @param resolve - Promiseの成功を通知する関数。
+       * @returns 非同期処理の完了値。
        */
       (resolve) => setTimeout(resolve, 250));
     }

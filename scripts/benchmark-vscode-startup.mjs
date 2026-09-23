@@ -1,10 +1,5 @@
 /**
- * @file benchmark-vscode-startup.mjs
- * 実行境界: 開発・検証スクリプト。
- * 責務: ビルド、スモーク、統合検証または補助生成を実行する。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: プロセス、生成物、Webview、VS Code、Chromiumなどの外部環境を操作する。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview 性能・VS Code・起動を開発・検証環境で実行する。前提条件や失敗条件を終了コードとログで示す。
  */
 import { runTests } from '@vscode/test-electron';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
@@ -15,24 +10,36 @@ import { Writable } from 'node:stream';
 delete process.env.ELECTRON_RUN_AS_NODE;
 delete process.env.VSCODE_DEV;
 
-/** 「temporaryRoot」は、対象ファイルまたは実行環境の場所を表す値です。 */
+/**
+ * 起動計測で作成した一時ファイルのルート。
+ */
 const temporaryRoot = await mkdtemp(path.join(os.tmpdir(), 'mve-real-startup-'));
-/** 「plainPath」は、対象ファイルまたは実行環境の場所を表す値です。 */
+/**
+ * 性能・VS Code・起動で読み書きするリソースの場所。
+ */
 const plainPath = path.join(temporaryRoot, 'plain.md');
-/** 「mermaidPath」は、対象ファイルまたは実行環境の場所を表す値です。 */
+/**
+ * 性能・VS Code・起動で読み書きするリソースの場所。
+ */
 const mermaidPath = path.join(temporaryRoot, 'mermaid.md');
 await writeFile(plainPath, '# Plain Markdown\n\nCold startup measurement.\n', 'utf8');
 await writeFile(mermaidPath, '```mermaid\nflowchart TD\n  Start --> Ready\n```\n', 'utf8');
 
-/** 「scenarios」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * 性能・VS Code・起動で扱う一覧または対応表。
+ */
 const scenarios = [
   ['plain', plainPath, false],
   ['representative', path.resolve('sample', '06-specification-template.md'), false],
   ['mermaid-first', mermaidPath, true]
 ];
-/** 「repetitions」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * 各起動シナリオを繰り返す回数。
+ */
 const repetitions = Math.max(1, Number.parseInt(process.env.MVE_STARTUP_RUNS ?? '3', 10) || 3);
-/** 「regressionLimits」は、入力・表示・資源の上限または下限を表す値です。 */
+/**
+ * 起動シナリオごとに許可する性能上限。
+ */
 const regressionLimits = {
   plain: { endToEndMs: 2300, previewReadyMs: 1400 },
   representative: { endToEndMs: 2800, previewReadyMs: 1800 },
@@ -48,11 +55,11 @@ try {
       const childOutput = [];
       const outputSink = new Writable({
         /**
-         * writeを更新または保存します。
-         * @param chunk 「chunk」は、「write」が検証シナリオの処理対象を特定する入力です。
-         * @param _encoding 「_encoding」は、「write」が検証シナリオの処理対象を特定する入力です。
-         * @param callback 処理完了時に呼び出すコールバックです。
-         * @returns 「chunk」「_encoding」「callback」から生成した処理結果を返します。
+         * 性能・VS Code・起動の値を保存先または共有状態へ書き出す。
+         * @param chunk - ストリームから受け取ったデータ片。
+         * @param _encoding - ストリームが通知する文字エンコーディング。
+         * @param callback - ストリーム処理の完了を通知する関数。
+         * @returns 副作用を完了し、値は返さない。
          */
         write(chunk, _encoding, callback) {
           childOutput.push(String(chunk));
@@ -102,25 +109,25 @@ try {
 }
 
 /**
- * 「medianTiming」は、処理時間、入力サイズ、または対象数を制限する境界値です。
- * @param samples 「samples」は、「medianTiming」が検証シナリオの処理対象を特定する入力です。
- * @returns 「medianTiming」が検証シナリオの入力を処理して得た固有の結果を返します。
+ * 複数回の起動計測から各指標の中央値を計算する。
+ * @param samples - 起動または描画計測の結果一覧。
+ * @returns 性能・VS Code・起動のmedian・timingが生成する結果。
  */
 function medianTiming(samples) {
   const result = { runs: samples.length };
   for (const key of ['editorOpenedMs', 'endToEndMs', 'webviewReadyMs', 'initializedMs', 'previewReadyMs', 'firstMermaidReadyMs']) {
     const values = samples.map(
     /**
- * 「sample」を変換し、変換後の要素を返すコールバックです。
-     * @param sample sampleとして渡される、このコールバックの入力値です。
-     * @returns 入力要素から生成した変換後の値を返します。
+     * samplesの各要素を変換して一覧化する。
+     * @param sample - 性能・VS Code・起動へ渡す入力。
+     * @returns 入力要素から生成した変換結果の一覧。
      */
     (sample) => sample[key]).filter(Number.isFinite).sort(
     /**
- * 「left」「right」を比較し、並び順を示す数値を返すコールバックです。
-     * @param left 比較対象の左側の値です。
-     * @param right 比較対象の右側の値です。
-     * @returns 比較対象の順序を示す負数、0、または正数を返します。
+     * 2つの値を比較して並び順を決める。
+     * @param left - 比較対象の左側の値。
+     * @param right - 比較対象の右側の値。
+     * @returns 2つの要素の順序を示す数値。
      */
     (left, right) => left - right);
     if (!values.length) continue;
@@ -131,11 +138,11 @@ function medianTiming(samples) {
 }
 
 /**
- * assert・startup・limitsを検証します。
- * @param name ベンチマーク対象のシナリオ名で、測定結果の識別に使用します。
- * @param timing 性能計測または待機処理に使用する時間値です。
- * @param limits 検証シナリオが回帰と判定する性能上限の表です。
- * @returns 「assertStartupLimits」が判定した検証結果を返します。
+ * 起動計測値がシナリオ別の上限を超えていないことを検証する。
+ * @param name - 性能・VS Code・起動の対象や分岐を識別する値。
+ * @param timing - 1シナリオ分の起動計測結果。
+ * @param limits - シナリオごとに許可する性能上限。
+ * @returns 条件が成立したかを示す真偽値。
  */
 function assertStartupLimits(name, timing, limits) {
   for (const [metric, maximum] of Object.entries(limits)) {
@@ -147,9 +154,9 @@ function assertStartupLimits(name, timing, limits) {
 }
 
 /**
- * remove・profileを解除または削除します。
- * @param profileRoot 処理対象のルートです。
- * @returns 「removeProfile」が検証シナリオの入力を処理して得た固有の結果を返します。
+ * 統合テスト用VS Codeプロファイルを削除し、失敗時も後始末を再試行する。
+ * @param profileRoot - 統合テスト用プロファイルの一時ディレクトリ。
+ * @returns 性能・VS Code・起動のremove・profileが生成する結果。
  */
 async function removeProfile(profileRoot) {
   for (let attempt = 0; attempt < 8; attempt++) {
@@ -163,9 +170,9 @@ async function removeProfile(profileRoot) {
       }
       await new Promise(
       /**
-       * 予約されたタイミングで「resolve」を受け取り、遅延処理を実行するコールバックです。
-       * @param resolve Promiseの完了または失敗を通知する関数です。
-       * @returns エラー処理またはフォールバックの結果を返します。
+       * 遅延処理の完了または失敗を待機側へ通知する。
+       * @param resolve - Promiseの成功を通知する関数。
+       * @returns 非同期処理の完了値。
        */
       (resolve) => setTimeout(resolve, 250));
     }

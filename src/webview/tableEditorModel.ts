@@ -1,167 +1,165 @@
 /**
- * @file tableEditorModel.ts
- * 実行境界: Webview。
- * 責務: 編集UI、プレビュー、ユーザー操作を処理する。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: DOM、Webviewメッセージ、ブラウザーAPI、編集状態を操作する。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview 表編集のセル値、選択範囲、行列移動を管理し、表示用値と保存用値を分離する。
  */
 /**
- * 「TableEditorAlignment」として扱う値の型を定義します。
+ * tableeditormodelで扱う値の種類と境界を表す型。
  */
 export type TableEditorAlignment = 'none' | 'left' | 'center' | 'right';
 
 /**
- * 「TableEditorDraft」が満たすデータ契約を定義します。
+ * tableeditormodelで共有するデータ形状を表すインターフェース。
  */
 export interface TableEditorDraft {
 
     /**
-     * 「from」は、本文または選択範囲の位置・長さを保持します。
+     * tableeditormodelのfromを表す数値。
      */
     from: number;
 
     /**
-     * 「to」は、本文または選択範囲の位置・長さを保持します。
+     * tableeditormodelのtoを表す数値。
      */
     to: number;
 
     /**
-     * 「originalText」は、画面または通知へ表示する文言を保持します。
+     * tableeditormodelで解析・表示・保存する本文。
      */
     originalText: string;
     /**
-     * 表を開いた時点の本文全体。編集中の外部変更を検知するために保持する。
+     * tableeditormodelで解析・表示・保存する本文。
      */
     sourceText: string;
 
     /**
-     * 「indent」は、対象の内容または識別子を表す文字列です。
+     * tableeditormodelで扱うindentの文字列。
      */
     indent: string;
 
     /**
-     * 「eol」は、対象の内容または識別子を表す文字列です。
+     * tableeditormodelで扱うeolの文字列。
      */
     eol: string;
 
     /**
-     * 「rows」は、対象の位置、サイズ、件数、または範囲を保持します。
+     * tableeditormodelで扱うrowsの一覧。
      */
     rows: string[][];
 
     /**
-     * 「alignments」は、関連する複数の対象または識別子を保持します。
+     * tableeditormodelのalignmentsに関する状態または設定。
      */
     alignments: TableEditorAlignment[];
 
     /**
-     * 「activeRow」は、対象の位置、サイズ、件数、または範囲を保持します。
+     * tableeditormodelの状態を示すフラグ。
      */
     activeRow: number;
 
     /**
-     * 「activeColumn」は、対象の位置、サイズ、件数、または範囲を保持します。
+     * tableeditormodelの状態を示すフラグ。
      */
     activeColumn: number;
 }
 
 /**
- * 「RenderedTableDraft」が満たすデータ契約を定義します。
+ * tableeditormodelで共有するデータ形状を表すインターフェース。
  */
 export interface RenderedTableDraft {
 
     /**
-     * 「text」は、画面または通知へ表示する文言を保持します。
+     * 表示・解析・変換の対象となる本文。
      */
     text: string;
 
     /**
-     * 「caretOffset」は、本文または選択範囲の位置・長さを保持します。
+     * tableeditormodelの位置・寸法・件数・時間を表す数値。
      */
     caretOffset: number;
 }
 
 /**
- * 「TableEditorApplyResult」として扱う値の型を定義します。
+ * tableeditormodelの処理結果と失敗時情報のデータ形状。
  */
 export type TableEditorApplyResult =
     | {
-    /**
-     * 「kind」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    kind: 'stale' }
+        /**
+         * メッセージ、項目、または処理の種類を識別する値。
+         */
+        kind: 'stale'
+    }
     | {
-    /**
-     * 「kind」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    kind: 'noop' }
+        /**
+         * メッセージ、項目、または処理の種類を識別する値。
+         */
+        kind: 'noop'
+    }
     | {
-    /**
-     * 「kind」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    kind: 'changed';
-    /**
-     * 「text」は、画面または通知へ表示する文言を保持します。
-     */
-    text: string;
-    /**
-     * 「caretOffset」は、本文または選択範囲の位置・長さを保持します。
-     */
-    caretOffset: number };
+        /**
+         * メッセージ、項目、または処理の種類を識別する値。
+         */
+        kind: 'changed';
+        /**
+         * 表示・解析・変換の対象となる本文。
+         */
+        text: string;
+        /**
+         * tableeditormodelの位置・寸法・件数・時間を表す数値。
+         */
+        caretOffset: number
+    };
 
 /**
- * 「TableEditorLineBreakEdit」が満たすデータ契約を定義します。
+ * tableeditormodelで共有するデータ形状を表すインターフェース。
  */
 export interface TableEditorLineBreakEdit {
 
     /**
-     * 「value」は、対象の内容または識別子を表す文字列です。
+     * 検証・変換・保存の対象となる値。
      */
     value: string;
 
     /**
-     * 「caretOffset」は、本文または選択範囲の位置・長さを保持します。
+     * tableeditormodelの位置・寸法・件数・時間を表す数値。
      */
     caretOffset: number;
 }
 
 /**
- * 「TableEditorLineBreakDelete」が満たすデータ契約を定義します。
+ * tableeditormodelで共有するデータ形状を表すインターフェース。
  */
 export interface TableEditorLineBreakDelete {
 
     /**
-     * 「value」は、対象の内容または識別子を表す文字列です。
+     * 検証・変換・保存の対象となる値。
      */
     value: string;
 
     /**
-     * 「caretOffset」は、本文または選択範囲の位置・長さを保持します。
+     * tableeditormodelの位置・寸法・件数・時間を表す数値。
      */
     caretOffset: number;
 }
 
 /**
- * 表編集UIに表示するセル値へ、保存済みMarkdown改行を変換する。
- * @param value 「tableEditorCellDisplayValue」で検証・変換する入力値です。
- * @returns 「tableEditorCellDisplayValue」が生成または変換した表編集の文字列を返します。
+ * tableeditormodelのtable・editor・cell・display・valueを処理し、呼び出し側へ結果または副作用を返す。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @returns tableeditormodelで利用する文字列。
  */
 export function tableEditorCellDisplayValue(value: string): string {
     return value.replace(/<br\s*\/?>/gi,
-    /**
- * 「lineBreak」を受け取り、入力文字列を置換して変換する処理です。
-     * @param lineBreak lineBreakとして渡される、このコールバックの入力値です。
-     * @returns 置換後の文字列を返します。
-     */
-    (lineBreak) => `${lineBreak}\n`);
+        /**
+         * tableeditormodelのコールバックとしてline・breakを処理する。
+         * @param lineBreak - tableeditormodelの位置・寸法・件数・時間を表す数値。
+         * @returns tableeditormodelで利用する文字列。
+         */
+        (lineBreak) => `${lineBreak}\n`);
 }
 
 /**
- * 表編集UIの実改行を、Markdown表へ保存する改行タグへ変換する。
- * @param value 「tableEditorCellStoredValue」で検証・変換する入力値です。
- * @param previousStoredValue 「previousStoredValue」は、「tableEditorCellStoredValue」が表編集で処理する対象を特定する入力です。
- * @returns 「tableEditorCellStoredValue」が生成または変換した表編集の文字列を返します。
+ * tableeditormodelのtable・editor・cell・stored・valueを処理し、呼び出し側へ結果または副作用を返す。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @param previousStoredValue - tableeditormodelで受け渡す文字列。
+ * @returns tableeditormodelで利用する文字列。
  */
 export function tableEditorCellStoredValue(value: string, previousStoredValue?: string): string {
     const valueWithoutDeletedBreakNewline = previousStoredValue === undefined
@@ -179,31 +177,31 @@ export function tableEditorCellStoredValue(value: string, previousStoredValue?: 
 }
 
 /**
- * 「TableEditorDisplayEdit」が満たすデータ契約を定義します。
+ * tableeditormodelで共有するデータ形状を表すインターフェース。
  */
 interface TableEditorDisplayEdit {
 
     /**
-     * 「prefixLength」は、本文または選択範囲の位置・長さを保持します。
+     * tableeditormodelの位置・寸法・件数・時間を表す数値。
      */
     prefixLength: number;
 
     /**
-     * 「previousEnd」は、位置・サイズ・件数などを表す数値です。
+     * tableeditormodelのprevious・endを表す数値。
      */
     previousEnd: number;
 
     /**
-     * 「nextEnd」は、位置・サイズ・件数などを表す数値です。
+     * tableeditormodelのnext・endを表す数値。
      */
     nextEnd: number;
 }
 
 /**
- * remove・deleted・break・newlineを解除または削除します。
- * @param nextDisplayValue 「nextDisplayValue」は、「removeDeletedBreakNewline」が表編集で処理する対象を特定する入力です。
- * @param previousDisplayValue 「previousDisplayValue」は、「removeDeletedBreakNewline」が表編集で処理する対象を特定する入力です。
- * @returns 「removeDeletedBreakNewline」が生成または変換した表編集の文字列を返します。
+ * tableeditormodelの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+ * @param nextDisplayValue - tableeditormodelの位置・寸法・件数・時間を表す数値。
+ * @param previousDisplayValue - tableeditormodelの位置・寸法・件数・時間を表す数値。
+ * @returns tableeditormodelで利用する文字列。
  */
 function removeDeletedBreakNewline(nextDisplayValue: string, previousDisplayValue: string): string {
     const edit = findTableEditorDisplayEdit(previousDisplayValue, nextDisplayValue);
@@ -212,16 +210,16 @@ function removeDeletedBreakNewline(nextDisplayValue: string, previousDisplayValu
     if (nextDisplayValue.length >= previousDisplayValue.length) return nextDisplayValue;
 
     const deletedBreak = [...previousDisplayValue.matchAll(/<br\s*\/?>/gi)].find(
-    /**
- * 「match」が検索条件に一致するか判定するコールバックです。
-     * @param match matchとして渡される、このコールバックの入力値です。
-     * @returns 条件に一致した要素、または該当しない場合はundefinedを返します。
-     */
-    (match) => {
-        const start = match.index ?? -1;
-        const end = start + match[0].length;
-        return start < edit.previousEnd && end > edit.prefixLength;
-    });
+        /**
+         * 位置が条件に一致する最初のmatchを取得する。
+         * @param match - matchの位置を参照する走査対象。
+         * @returns 条件に一致した最初の要素。未検出時はundefined。
+         */
+        (match) => {
+            const start = match.index ?? -1;
+            const end = start + match[0].length;
+            return start < edit.previousEnd && end > edit.prefixLength;
+        });
     if (!deletedBreak) return nextDisplayValue;
 
     // Treat a visible <br> as one deletion unit even when Backspace/Delete
@@ -238,10 +236,10 @@ function removeDeletedBreakNewline(nextDisplayValue: string, previousDisplayValu
 }
 
 /**
- * find・table・editor・display・editを取得または解決します。
- * @param previousValue 「previousValue」は、「findTableEditorDisplayEdit」が表編集で処理する対象を特定する入力です。
- * @param nextValue 「nextValue」は、「findTableEditorDisplayEdit」が表編集で処理する対象を特定する入力です。
- * @returns 「findTableEditorDisplayEdit」が対象を取得できない場合はundefinedを返します。
+ * tableeditormodelから必要な値またはリソースを取得する。
+ * @param previousValue - tableeditormodelで受け渡す文字列。
+ * @param nextValue - tableeditormodelの位置・寸法・件数・時間を表す数値。
+ * @returns 条件に一致する値。未検出時はundefinedまたはnull。
  */
 function findTableEditorDisplayEdit(previousValue: string, nextValue: string): TableEditorDisplayEdit | undefined {
     let prefixLength = 0;
@@ -269,10 +267,10 @@ function findTableEditorDisplayEdit(previousValue: string, nextValue: string): T
 }
 
 /**
- * 表示上の選択位置を保存値のオフセットへ変換する。
- * @param value 「tableEditorCellStoredOffsetFromDisplay」で検証・変換する入力値です。
- * @param displayOffset 本文または選択範囲を示すゼロ基準の位置です。範囲の開始・終了や写像の基準になります。
- * @returns 計算結果の数値です。
+ * tableeditormodelのtable・editor・cell・stored・offset・from・displayを処理し、呼び出し側へ結果または副作用を返す。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @param displayOffset - tableeditormodelの位置・寸法・件数・時間を表す数値。
+ * @returns tableeditormodelで利用する数値。
  */
 export function tableEditorCellStoredOffsetFromDisplay(value: string, displayOffset: number): number {
     const displayValue = tableEditorCellDisplayValue(value);
@@ -302,10 +300,10 @@ export function tableEditorCellStoredOffsetFromDisplay(value: string, displayOff
 }
 
 /**
- * 保存値のオフセットを表示上の選択位置へ変換する。
- * @param value 「tableEditorCellDisplayOffsetFromStored」で検証・変換する入力値です。
- * @param storedOffset 本文または選択範囲を示すゼロ基準の位置です。範囲の開始・終了や写像の基準になります。
- * @returns 計算結果の数値です。
+ * tableeditormodelのtable・editor・cell・display・offset・from・storedを処理し、呼び出し側へ結果または副作用を返す。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @param storedOffset - tableeditormodelの位置・寸法・件数・時間を表す数値。
+ * @returns tableeditormodelで利用する数値。
  */
 export function tableEditorCellDisplayOffsetFromStored(value: string, storedOffset: number): number {
     const target = clampOffset(storedOffset, value.length);
@@ -329,11 +327,11 @@ export function tableEditorCellDisplayOffsetFromStored(value: string, storedOffs
 }
 
 /**
- * セル内の選択範囲へMarkdown表で使う改行タグを挿入する。
- * @param value 「insertTableEditorLineBreak」で検証・変換する入力値です。
- * @param selectionStart 「selectionStart」は、「insertTableEditorLineBreak」が表編集状態の処理対象を特定する入力です。
- * @param selectionEnd 「selectionEnd」は、「insertTableEditorLineBreak」が表編集状態の処理対象を特定する入力です。
- * @returns 「insertTableEditorLineBreak」が表編集状態の入力を処理して得た固有の結果を返します。
+ * tableeditormodelの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @param selectionStart - tableeditormodelへ渡す入力。
+ * @param selectionEnd - tableeditormodelへ渡す入力。
+ * @returns tableeditormodelのinsert・table・editor・line・breakが生成する結果。
  */
 export function insertTableEditorLineBreak(value: string, selectionStart = value.length, selectionEnd = selectionStart): TableEditorLineBreakEdit {
     const from = Math.max(0, Math.min(selectionStart, value.length));
@@ -346,10 +344,10 @@ export function insertTableEditorLineBreak(value: string, selectionStart = value
 }
 
 /**
- * 次の表示行の先頭からBackspaceしたときに直前のMarkdown改行を削除する。
- * @param value 「deleteTableEditorLineBreakBeforeDisplayOffset」で検証・変換する入力値です。
- * @param displayOffset 本文または選択範囲を示すゼロ基準の位置です。範囲の開始・終了や写像の基準になります。
- * @returns 「deleteTableEditorLineBreakBeforeDisplayOffset」が対象を取得できない場合はundefinedを返します。
+ * tableeditormodelの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @param displayOffset - tableeditormodelの位置・寸法・件数・時間を表す数値。
+ * @returns 副作用を完了し、値は返さない。
  */
 export function deleteTableEditorLineBreakBeforeDisplayOffset(
     value: string,
@@ -380,10 +378,10 @@ export function deleteTableEditorLineBreakBeforeDisplayOffset(
 }
 
 /**
- * clamp・offsetを正規化します。
- * @param value 「clampOffset」で検証・変換する入力値です。
- * @param maximum 「maximum」は、「clampOffset」が表編集状態の処理対象を特定する入力です。
- * @returns 計算結果の数値です。
+ * tableeditormodelの寸法、容量、位置、または計測値を求める。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @param maximum - tableeditormodelの位置・寸法・件数・時間を表す数値。
+ * @returns tableeditormodelで利用する数値。
  */
 function clampOffset(value: number, maximum: number): number {
     if (!Number.isFinite(value)) return maximum;
@@ -391,19 +389,19 @@ function clampOffset(value: number, maximum: number): number {
 }
 
 /**
- * カーソル位置を含むGFM表を、専用エディター用のセルモデルへ変換する。
- * @param source 処理対象のソースです。
- * @param offset 本文または選択範囲を示すゼロ基準の位置です。範囲の開始・終了や写像の基準になります。
- * @returns 「readTableEditorDraft」が対象を取得できない場合はundefinedを返します。
+ * tableeditormodelから必要な値またはリソースを取得する。
+ * @param source - 解析・描画・変換の起点となる本文。
+ * @param offset - tableeditormodelの位置・寸法・件数・時間を表す数値。
+ * @returns 副作用を完了し、値は返さない。
  */
 export function readTableEditorDraft(source: string, offset: number): TableEditorDraft | undefined {
     const lineBreaks = [...source.matchAll(/\r\n|\r|\n/g)].map(
-    /**
- * 「match」を変換し、変換後の要素を返すコールバックです。
-     * @param match matchとして渡される、このコールバックの入力値です。
-     * @returns 入力要素から生成した変換後の値を返します。
-     */
-    (match) => match[0]);
+        /**
+         * 各matchを変換して一覧化する。
+         * @param match - tableeditormodelへ渡す入力。
+         * @returns 入力要素から生成した変換結果の一覧。
+         */
+        (match) => match[0]);
     const eol = lineBreaks[0] ?? '\n';
     const lines = source.split(/\r\n|\r|\n/);
     const starts: number[] = [];
@@ -428,12 +426,12 @@ export function readTableEditorDraft(source: string, offset: number): TableEdito
     const rows = rowLines.map(splitTableCells);
     const separator = splitTableCells(lines[startLine + 1]);
     const columnCount = Math.max(1, separator.length, ...rows.map(
-    /**
- * 「row」を変換し、変換後の要素を返すコールバックです。
-     * @param row 本文、表、配列内の対象位置を示すインデックスです。
-     * @returns 入力要素から生成した変換後の値を返します。
-     */
-    (row) => row.length));
+        /**
+         * 各行からlengthを取り出して一覧化する。
+         * @param row - 行のlengthを参照する走査対象。
+         * @returns lengthを取り出した変換結果の一覧。
+         */
+        (row) => row.length));
     for (const row of rows) while (row.length < columnCount) row.push('');
     while (separator.length < columnCount) separator.push('---');
 
@@ -459,52 +457,52 @@ export function readTableEditorDraft(source: string, offset: number): TableEdito
 }
 
 /**
- * セルモデルをGFM表へ戻し、現在セルの先頭位置も返す。
- * @param draft 「draft」は、「renderTableEditorDraft」が表編集状態の処理対象を特定する入力です。
- * @returns 「renderTableEditorDraft」が生成した表編集状態のデータを返します。
+ * tableeditormodelを表示用の結果へ変換する。
+ * @param draft - tableeditormodelへ渡す入力。
+ * @returns tableeditormodelで生成または変換した値。
  */
 export function renderTableEditorDraft(draft: TableEditorDraft): RenderedTableDraft {
     const sourceRows = draft.rows.length ? draft.rows : [[]];
     const columnCount = Math.max(1, draft.alignments.length, ...sourceRows.map(
-    /**
- * 「row」を変換し、変換後の要素を返すコールバックです。
-     * @param row 本文、表、配列内の対象位置を示すインデックスです。
-     * @returns 入力要素から生成した変換後の値を返します。
-     */
-    (row) => row.length));
+        /**
+         * 各行からlengthを取り出して一覧化する。
+         * @param row - 行のlengthを参照する走査対象。
+         * @returns lengthを取り出した変換結果の一覧。
+         */
+        (row) => row.length));
     // 表セル内の未エスケープの縦棒は、セル境界と区別できるように保存時だけエスケープする。
     const rows = sourceRows.map(
-    /**
- * 「row」を変換し、変換後の要素を返すコールバックです。
-     * @param row 本文、表、配列内の対象位置を示すインデックスです。
-     * @returns 入力要素から生成した変換後の値を返します。
-     */
-    (row) => Array.from(
-        { length: columnCount },
-
         /**
- * 「_」「index」から配列要素を生成するコールバックです。
-         * @param _ 呼び出し側が渡すが、このコールバックでは使用しない値です。
-         * @param index 本文、表、配列内の対象位置を示すインデックスです。
-         * @returns 「_」「index」から生成した処理結果を返します。
+         * 各行をfromへ渡し、変換結果を一覧化する。
+         * @param row - 走査中の要素。
+         * @returns 入力要素から生成した変換結果の一覧。
          */
-        (_, index) => escapeUnescapedPipes(row[index] ?? '')
-    ));
+        (row) => Array.from(
+            { length: columnCount },
+
+            /**
+             * ・をescape・unescaped・pipesへ渡し、tableeditormodelの結果または副作用を処理する。
+             * @param _ - 引数位置を維持するための未使用値。
+             * @param index - 配列・行列・文字列の要素位置を示す番号。
+             * @returns tableeditormodelのコールバックが生成する結果。
+             */
+            (_, index) => escapeUnescapedPipes(row[index] ?? '')
+        ));
     const alignments = Array.from({ length: columnCount },
-    /**
- * 「_」「index」から配列要素を生成するコールバックです。
-     * @param _ 呼び出し側が渡すが、このコールバックでは使用しない値です。
-     * @param index 本文、表、配列内の対象位置を示すインデックスです。
-     * @returns 「_」「index」から生成した処理結果を返します。
-     */
-    (_, index) => draft.alignments[index] ?? 'none');
+        /**
+         * tableeditormodelのコールバックとして・を処理する。
+         * @param _ - 引数位置を維持するための未使用値。
+         * @param index - 配列・行列・文字列の要素位置を示す番号。
+         * @returns tableeditormodelのコールバックが生成する結果。
+         */
+        (_, index) => draft.alignments[index] ?? 'none');
     const renderedRows = rows.map(
-    /**
- * 「row」を変換し、変換後の要素を返すコールバックです。
-     * @param row 本文、表、配列内の対象位置を示すインデックスです。
-     * @returns 入力要素から生成した変換後の値を返します。
-     */
-    (row) => renderRow(draft.indent, row));
+        /**
+         * 各行をrender・rowへ渡し、変換結果を一覧化する。
+         * @param row - 走査中の要素。
+         * @returns 入力要素から生成した変換結果の一覧。
+         */
+        (row) => renderRow(draft.indent, row));
     const separator = renderRow(draft.indent, alignments.map(alignmentSeparator));
     const lines = [renderedRows[0], separator, ...renderedRows.slice(1)];
     const activeRow = Math.max(0, Math.min(draft.activeRow, rows.length - 1));
@@ -518,10 +516,10 @@ export function renderTableEditorDraft(draft: TableEditorDraft): RenderedTableDr
 }
 
 /**
- * 現在本文へ安全に適用できるかを判定し、変更がある場合だけ置換内容を返す。
- * @param draft 「draft」は、「prepareTableEditorApply」が表編集状態の処理対象を特定する入力です。
- * @param currentSource 処理対象のソースです。
- * @returns 「prepareTableEditorApply」が表編集状態の入力を処理して得た固有の結果を返します。
+ * tableeditormodelで使う値または実行環境を組み立てる。
+ * @param draft - tableeditormodelへ渡す入力。
+ * @param currentSource - tableeditormodelで扱う文字列または本文。
+ * @returns tableeditormodelのprepare・table・editor・applyが生成する結果。
  */
 export function prepareTableEditorApply(draft: TableEditorDraft, currentSource: string): TableEditorApplyResult {
     if (currentSource !== draft.sourceText) return { kind: 'stale' };
@@ -531,9 +529,9 @@ export function prepareTableEditorApply(draft: TableEditorDraft, currentSource: 
 }
 
 /**
- * 行かどうかを判定します。
- * @param line 「line」は、「isTableRow」が表編集状態の処理対象を特定する入力です。
- * @returns 判定結果です。
+ * tableeditormodelの条件を判定する。
+ * @param line - tableeditormodelの位置・寸法・件数・時間を表す数値。
+ * @returns 条件が成立したかを示す真偽値。
  */
 function isTableRow(line: string | undefined): boolean {
     const trimmed = line?.trim() ?? '';
@@ -541,25 +539,25 @@ function isTableRow(line: string | undefined): boolean {
 }
 
 /**
- * 行かどうかを判定します。
- * @param line 「line」は、「isSeparatorRow」が表編集状態の処理対象を特定する入力です。
- * @returns 判定結果です。
+ * tableeditormodelの条件を判定する。
+ * @param line - tableeditormodelの位置・寸法・件数・時間を表す数値。
+ * @returns 条件が成立したかを示す真偽値。
  */
 function isSeparatorRow(line: string): boolean {
     const cells = splitTableCells(line);
     return cells.length > 0 && cells.every(
-    /**
- * 「cell」が条件を満たすか判定し、全要素の適合結果を返すコールバックです。
-     * @param cell 処理対象のセルです。
-     * @returns 条件判定の結果を示す真偽値を返します。
-     */
-    (cell) => /^:?-{3,}:?$/.test(cell.trim()));
+        /**
+         * セルをtestへ渡し、tableeditormodelの結果または副作用を処理する。
+         * @param cell - tableeditormodelで走査または更新する要素。
+         * @returns tableeditormodelで利用する文字列。
+         */
+        (cell) => /^:?-{3,}:?$/.test(cell.trim()));
 }
 
 /**
- * 「splitTableCells」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param line 「line」は、「splitTableCells」が表編集状態の処理対象を特定する入力です。
- * @returns 「splitTableCells」が生成または変換した表編集の文字列を返します。
+ * tableeditormodelのsplit・table・cellsを処理し、呼び出し側へ結果または副作用を返す。
+ * @param line - tableeditormodelの位置・寸法・件数・時間を表す数値。
+ * @returns tableeditormodelで利用する文字列。
  */
 function splitTableCells(line: string): string[] {
     let body = line.trim();
@@ -581,11 +579,11 @@ function splitTableCells(line: string): string[] {
 }
 
 /**
- * 「tableColumnAt」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param line 「line」は、「tableColumnAt」が表編集状態の処理対象を特定する入力です。
- * @param offset 本文または選択範囲を示すゼロ基準の位置です。範囲の開始・終了や写像の基準になります。
- * @param columnCount 「columnCount」は、「tableColumnAt」が表編集で処理する対象を特定する入力です。
- * @returns 計算結果の数値です。
+ * tableeditormodelのtable・column・atを処理し、呼び出し側へ結果または副作用を返す。
+ * @param line - tableeditormodelの位置・寸法・件数・時間を表す数値。
+ * @param offset - tableeditormodelの位置・寸法・件数・時間を表す数値。
+ * @param columnCount - tableeditormodelで走査または更新する要素。
+ * @returns tableeditormodelで利用する数値。
  */
 function tableColumnAt(line: string, offset: number, columnCount: number): number {
     const before = line.slice(0, Math.max(0, offset));
@@ -597,9 +595,9 @@ function tableColumnAt(line: string, offset: number, columnCount: number): numbe
 }
 
 /**
- * 「separatorAlignment」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param value 「separatorAlignment」で検証・変換する入力値です。
- * @returns 「separatorAlignment」が表編集状態の入力を処理して得た固有の結果を返します。
+ * tableeditormodelのseparator・alignmentを処理し、呼び出し側へ結果または副作用を返す。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @returns tableeditormodelのseparator・alignmentが生成する結果。
  */
 function separatorAlignment(value: string): TableEditorAlignment {
     const trimmed = value.trim();
@@ -612,9 +610,9 @@ function separatorAlignment(value: string): TableEditorAlignment {
 }
 
 /**
- * 「alignmentSeparator」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param alignment 「alignment」は、「alignmentSeparator」が表編集状態の処理対象を特定する入力です。
- * @returns 「alignmentSeparator」が生成または変換した表編集の文字列を返します。
+ * tableeditormodelのalignment・separatorを処理し、呼び出し側へ結果または副作用を返す。
+ * @param alignment - tableeditormodelへ渡す入力。
+ * @returns tableeditormodelで利用する文字列。
  */
 function alignmentSeparator(alignment: TableEditorAlignment): string {
     if (alignment === 'left') return ':---';
@@ -624,20 +622,20 @@ function alignmentSeparator(alignment: TableEditorAlignment): string {
 }
 
 /**
- * 行を描画します。
- * @param indent 「indent」は、「renderRow」が表編集状態の処理対象を特定する入力です。
- * @param cells 「cells」は、「renderRow」が表編集状態の処理対象を特定する入力です。
- * @returns 「renderRow」が生成または変換した表編集の文字列を返します。
+ * tableeditormodelを表示用の結果へ変換する。
+ * @param indent - tableeditormodelで受け渡す文字列。
+ * @param cells - tableeditormodelで走査または更新する要素。
+ * @returns tableeditormodelで利用する文字列。
  */
 function renderRow(indent: string, cells: string[]): string {
     return `${indent}| ${cells.join(' | ')} |`;
 }
 
 /**
- * 「countTrailingBackslashes」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param value 「countTrailingBackslashes」で検証・変換する入力値です。
- * @param end 「end」は、「countTrailingBackslashes」が表編集状態の処理対象を特定する入力です。
- * @returns 計算結果の数値です。
+ * tableeditormodelのcount・trailing・backslashesを処理し、呼び出し側へ結果または副作用を返す。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @param end - tableeditormodelで扱う数値。
+ * @returns tableeditormodelで利用する数値。
  */
 function countTrailingBackslashes(value: string, end: number): number {
     let count = 0;
@@ -646,9 +644,9 @@ function countTrailingBackslashes(value: string, end: number): number {
 }
 
 /**
- * escape・unescaped・pipesを安全な形式へ変換します。
- * @param value 「escapeUnescapedPipes」で検証・変換する入力値です。
- * @returns 「escapeUnescapedPipes」が生成または変換した表編集の文字列を返します。
+ * tableeditormodelの入力を許可された形式へ整える。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @returns tableeditormodelで利用する文字列。
  */
 function escapeUnescapedPipes(value: string): string {
     let result = '';
@@ -660,10 +658,10 @@ function escapeUnescapedPipes(value: string): string {
 }
 
 /**
- * is・inside・markdown・fenceかどうかを判定します。
- * @param lines 「lines」は、「isInsideMarkdownFence」が表編集状態の処理対象を特定する入力です。
- * @param lineIndex 「lineIndex」は、「isInsideMarkdownFence」が表編集で処理する対象を特定する入力です。
- * @returns 判定結果です。
+ * tableeditormodelの条件を判定する。
+ * @param lines - tableeditormodelの位置・寸法・件数・時間を表す数値。
+ * @param lineIndex - tableeditormodelの位置・寸法・件数・時間を表す数値。
+ * @returns 条件が成立したかを示す真偽値。
  */
 function isInsideMarkdownFence(lines: string[], lineIndex: number): boolean {
     let fenceCharacter = '';

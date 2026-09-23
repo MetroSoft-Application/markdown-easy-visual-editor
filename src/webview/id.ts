@@ -1,14 +1,9 @@
 /**
- * @file id.ts
- * 実行境界: Webview。
- * 責務: 編集UI、プレビュー、ユーザー操作を処理する。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: DOM、Webviewメッセージ、ブラウザーAPI、編集状態を操作する。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview Webviewのidを管理する。Hostとの通信、ユーザー操作、表示状態の契約を保つ。
  */
 /**
- * Webviewインスタンスを識別するための一意なクライアントIDを生成する。
- * @returns 暗号学的UUIDまたは乱数と時刻から作ったクライアントID。
+ * idで使う値または実行環境を組み立てる。
+ * @returns idで利用する文字列。
  */
 export function createClientId(): string {
     // 利用可能なら暗号学的UUIDを使い、使えない環境では乱数バイトからIDを生成する。
@@ -19,10 +14,10 @@ export function createClientId(): string {
     else for (let index = 0; index < bytes.length; index++) bytes[index] = Math.floor(Math.random() * 256);
     // 時刻由来の接頭辞と16進化したバイト列を連結してクライアントIDにする。
     return `${Date.now().toString(36)}-${Array.from(bytes,
-    /**
- * 「value」から配列要素を生成するコールバックです。
-     * @param value 「value」で検証・変換する入力値です。
-     * @returns 「value」から生成した処理結果を返します。
-     */
-    (value) => value.toString(16).padStart(2, '0')).join('')}`;
+        /**
+         * 値をfunction toString() { [native code] }へ渡し、idの結果または副作用を処理する。
+         * @param value - 検証・変換・保存の対象となる値。
+         * @returns idのコールバックが生成する結果。
+         */
+        (value) => value.toString(16).padStart(2, '0')).join('')}`;
 }

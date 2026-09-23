@@ -1,20 +1,15 @@
 /**
- * @file ime-caret-smoke.mjs
- * 実行境界: 開発・検証スクリプト。
- * 責務: ビルド、スモーク、統合検証または補助生成を実行する。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: プロセス、生成物、Webview、VS Code、Chromiumなどの外部環境を操作する。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview IME・キャレット・スモーク検証を開発・検証環境で実行する。前提条件や失敗条件を終了コードとログで示す。
  */
 import { chromium } from 'playwright-core';
 import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 
 /**
- * ファイルを取得または解決します。
- * @param root 処理対象のルートです。
- * @param name 対象を識別する名前で、表示または処理分岐に使用します。
- * @returns 「findFile」が読み取りまたは正規化した結果を返します。
+ * 指定した名前のファイルを検証用ディレクトリから再帰的に探す。
+ * @param root - IME・キャレット・スモーク検証へ渡す入力。
+ * @param name - IME・キャレット・スモーク検証の対象や分岐を識別する値。
+ * @returns IME・キャレット・スモーク検証のfind・fileが生成する結果。
  */
 async function findFile(root, name) {
   for (const entry of await readdir(root, { withFileTypes: true })) {
@@ -27,24 +22,34 @@ async function findFile(root, name) {
   }
 }
 
-/** 「executablePath」は、対象ファイルまたは実行環境の場所を表す値です。 */
+/**
+ * IME・キャレット・スモーク検証で読み書きするリソースの場所。
+ */
 const executablePath = await findFile(path.resolve('.chromium'), 'chrome-headless-shell.exe');
 if (!executablePath) throw new Error('Chromium がありません。npm run pdf:install-browser を実行してください。');
-/** 「webviewBundle」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * IME・キャレット・スモーク検証のwebview・bundleとして読み込んだ本文または設定。
+ */
 const webviewBundle = await readFile(path.resolve('dist/webview.js'), 'utf8');
-/** 「markdownWorkerBundle」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * IME・キャレット・スモーク検証で解析・表示・保存する本文。
+ */
 const markdownWorkerBundle = await readFile(path.resolve('dist/markdown-worker.js'), 'utf8');
-/** 「markdownRichWorkerBundle」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * IME・キャレット・スモーク検証で解析・表示・保存する本文。
+ */
 const markdownRichWorkerBundle = await readFile(path.resolve('dist/markdown-rich-worker.js'), 'utf8');
-/** 「browser」は、ブラウザー処理の共有状態または実行設定です。 */
+/**
+ * IME・キャレット・スモーク検証の位置・寸法・件数・時間を表す数値。
+ */
 const browser = await chromium.launch({ executablePath, headless: true });
 
 try {
   const context = await browser.newContext();
   await context.addInitScript(
   /**
- * ブラウザーのWebviewテストで使用するグローバル状態を初期化するコールバックです。
-   * @returns 「Set」を実行し、値を返しません。
+   * 要素をsetへ渡し、IME・キャレット・スモーク検証の結果または副作用を処理する。
+   * @returns IME・キャレット・スモーク検証のコールバックが生成する結果。
    */
   () => {
     window.__mveMessages = [];
@@ -54,30 +59,26 @@ try {
     window.__mveAppliedOperations = new Set();
     window.acquireVsCodeApi =
     /**
- * WebviewテストへVS Code API互換オブジェクトを提供するコールバックです。
-     * @returns 初期化したオブジェクト（postMessage）を返します。
+     * WebviewからVS Codeのメッセージ送信・状態保存APIを取得する。
+     * @returns VS Codeのメッセージ送信・状態保存API。
      */
     () => ({
 
-      /**
-       * 「postMessage」は、言語や通信契約に応じた表示文言または対応表を保持します。
-       * @param message 処理対象のメッセージです。
-       * @returns メッセージをHostまたはWebviewへ送信し、値は返しません。
-       */
+      
       postMessage: /**
- * 「postMessage」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param message 「message」は、「postMessage」が検証シナリオで処理する対象を特定する入力です。
- * @returns メッセージをHostまたはWebviewへ送信し、値は返しません。
- */ (message) => {
+       * IME・キャレット・スモーク検証の変更または要求をHost・Webview間へ通知する。
+       * @param message - HostとWebviewの間で受け渡すメッセージ。
+       * @returns IME・キャレット・スモーク検証のpost・messageが生成する結果。
+       */ (message) => {
         window.__mveMessages.push(message);
         if (message.type === 'localChanges') {
           const baseVersion = window.__mveHostVersion;
           for (const change of [...message.changes].sort(
           /**
- * 「left」「right」を比較し、並び順を示す数値を返すコールバックです。
-           * @param left 比較対象の左側の値です。
-           * @param right 比較対象の右側の値です。
-           * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+           * 2つの値を比較して並び順を決める。
+           * @param left - 比較対象の左側の値。
+           * @param right - 比較対象の右側の値。
+           * @returns 2つの要素の順序を示す数値。
            */
           (left, right) => right.rangeOffset - left.rangeOffset)) {
             window.__mveHostText = window.__mveHostText.slice(0, change.rangeOffset)
@@ -89,8 +90,8 @@ try {
           window.__mveAppliedOperations.add(`${message.clientId}\0${message.opId}`);
           setTimeout(
           /**
- * 指定時間の経過後に遅延処理を実行するコールバックです。
-           * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+           * 指定時間の経過後に後続処理を実行する。
+           * @returns 副作用を完了し、値は返さない。
            */
           () => window.dispatchEvent(new MessageEvent('message', {
             data: {
@@ -107,8 +108,8 @@ try {
         if (message.type === 'requestResync') {
           setTimeout(
           /**
- * 指定時間の経過後に遅延処理を実行するコールバックです。
-           * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+           * 指定時間の経過後に後続処理を実行する。
+           * @returns 副作用を完了し、値は返さない。
            */
           () => window.dispatchEvent(new MessageEvent('message', {
             data: {
@@ -126,23 +127,17 @@ try {
         }
       },
 
-      /**
-       * 状態を取得または解決します。
-       * @returns Hostが保持する保存済み状態を返し、未保存の場合はundefinedを返します。
-       */
+      
       getState: /**
- * 「getState」は、要求された状態、値、または対象を読み取ります。
- * @returns Hostが保持する保存済み状態を返し、未保存の場合はundefinedを返します。
- */ () => undefined,
+       * IME・キャレット・スモーク検証から必要な値またはリソースを取得する。
+       * @returns 条件に一致する値。未検出時はundefinedまたはnull。
+       */ () => undefined,
 
-      /**
-       * 状態を更新または保存します。
-       * @returns 指定された状態をHostへ保存し、値は返しません。
-       */
+      
       setState: /**
- * 「setState」は、入力を検証して対象の状態または内容へ適用します。
- * @returns 指定された状態をHostへ保存し、値は返しません。
- */ () => undefined
+       * IME・キャレット・スモーク検証の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+       * @returns 副作用を完了し、値は返さない。
+       */ () => undefined
     });
   });
   const page = await context.newPage();
@@ -152,9 +147,9 @@ try {
   await page.setContent('<!doctype html><html lang="ja"><head><meta charset="utf-8"></head><body><div id="root"></div></body></html>');
   await page.evaluate(
   /**
- * 「workerSource」「richWorkerSource」を受け取り、テスト用のWorkerまたはBlob URLを登録する処理です。
-   * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはworkerSource、richWorkerSourceです。
-   * @returns 「URL.createObjectURL」を実行し、値を返しません。
+   * ブラウザーのDOM状態のcreate・object・url結果を読み取り、検証用の値へ変換する。
+   * @param options - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   ({ workerSource, richWorkerSource }) => {
     document.body.dataset.mveMarkdownWorkerUri = URL.createObjectURL(new Blob([workerSource], { type: 'text/javascript' }));
@@ -165,23 +160,23 @@ try {
   await page.addScriptTag({ content: webviewBundle });
   await page.waitForFunction(
   /**
- * Webviewへメッセージイベントを発火する処理を実行するコールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * HostとWebviewのメッセージ状態が完了条件を満たすまで待機する。
+   * @returns IME・キャレット・スモーク検証のコールバックが生成する結果。
    */
   () => window.__mveMessages.some(
   /**
- * 「message」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
-   * @param message 処理対象のメッセージです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * IME・キャレット・スモーク検証のコールバックとしてメッセージを処理する。
+   * @param message - HostとWebviewの間で受け渡すメッセージ。
+   * @returns IME・キャレット・スモーク検証のコールバックが生成する結果。
    */
   (message) => message.type === 'ready'));
 
   const source = '最中最中に\n文字入力\n最中に何か入力';
   await page.evaluate(
   /**
- * 「text」を受け取り、Webviewへメッセージイベントを発火する処理です。
-   * @param text 処理対象の本文です。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * Host側の本文状態のdispatch・event結果を読み取り、検証用の値へ変換する。
+   * @param text - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (text) => {
     window.__mveHostText = text;
@@ -209,17 +204,17 @@ try {
   await editor.press('End');
   await page.evaluate(
   /**
- * 登録された処理を受け取り、イベントに応じた状態更新または委譲処理を実行するコールバックです。
-   * @returns 「for」を実行し、値を返しません。
+   * ブラウザーのDOM状態のfor結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => {
     window.__mveImeEvents = [];
     for (const type of ['compositionstart', 'compositionupdate', 'compositionend', 'beforeinput', 'input', 'keydown', 'keyup']) {
       document.addEventListener(type,
       /**
-       * イベント情報を「event」を受け取り、DOMまたは画面状態を更新するコールバックです。
-       * @param event 処理対象のイベントです。
-       * @returns 「event」から生成した処理結果を返します。
+       * イベントで一覧追加を実行する。
+       * @param event - ユーザー操作またはDOMから通知されたイベント。
+       * @returns 副作用を完了し、値は返さない。
        */
       (event) => window.__mveImeEvents.push({
         type,
@@ -232,8 +227,8 @@ try {
   });
   const start = await page.evaluate(
   /**
- * 登録された処理を受け取り、イベントに応じた状態更新または委譲処理を実行するコールバックです。
-   * @returns DOM検索で得た要素または状態を返します。
+   * ブラウザー内の「.source-editor」を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => Number(document.querySelector('.source-editor')?.getAttribute('data-selection-from')));
   // Windowsの日本語IMEは、予測・文節変換中のpreedit選択を入力開始位置へ置くことがある。
@@ -244,14 +239,14 @@ try {
   const firstPreeditOperations = await page.evaluate(
 
     /**
- * Webviewへメッセージイベントを発火する処理を実行するコールバックです。
-     * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+     * HostとWebviewのメッセージ状態のfilter結果を読み取り、検証用の値へ変換する。
+     * @returns ブラウザー内で読み取った値または変換結果。
      */
     () => window.__mveMessages.filter(
     /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns 要素を採用するかどうかの真偽値を返します。
+     * 種別「localChanges」のメッセージだけを残す。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件を満たした要素だけを含む一覧。
      */
     (message) => message.type === 'localChanges').length
   );
@@ -260,8 +255,8 @@ try {
   }
   await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * Host側の本文状態のdispatch・event結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => {
     const baseVersion = window.__mveHostVersion;
@@ -279,21 +274,21 @@ try {
   await page.waitForFunction(
 
     /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-     * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+     * HostとWebviewのメッセージ状態が完了条件を満たすまで待機する。
+     * @returns IME・キャレット・スモーク検証のコールバックが生成する結果。
      */
     () => window.__mveMessages.filter(
     /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns 要素を採用するかどうかの真偽値を返します。
+     * 種別「localChanges」のメッセージだけを残す。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件を満たした要素だけを含む一覧。
      */
     (message) => message.type === 'localChanges').length === 1
   );
   await page.evaluate(
   /**
-   * 配列要素を採用するか判定するコールバックです。
-   * @returns 要素を採用するかどうかの真偽値を返します。
+   * ブラウザー内の「.cm-content」を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => {
     const content = document.querySelector('.cm-content');
@@ -303,14 +298,14 @@ try {
   const operationsBeforeSecondPreedit = await page.evaluate(
 
     /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-     * @returns Webviewの状態から取得した値を返します。
+     * HostとWebviewのメッセージ状態のfilter結果を読み取り、検証用の値へ変換する。
+     * @returns ブラウザー内で読み取った値または変換結果。
      */
     () => window.__mveMessages.filter(
     /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns 要素を採用するかどうかの真偽値を返します。
+     * 種別「localChanges」のメッセージだけを残す。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件を満たした要素だけを含む一覧。
      */
     (message) => message.type === 'localChanges').length
   );
@@ -320,14 +315,14 @@ try {
   const secondPreeditOperations = await page.evaluate(
 
     /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-     * @returns DOM検索で得た要素または状態を返します。
+     * HostとWebviewのメッセージ状態のfilter結果を読み取り、検証用の値へ変換する。
+     * @returns ブラウザー内で読み取った値または変換結果。
      */
     () => window.__mveMessages.filter(
     /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns 要素を採用するかどうかの真偽値を返します。
+     * 種別「localChanges」のメッセージだけを残す。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件を満たした要素だけを含む一覧。
      */
     (message) => message.type === 'localChanges').length
   );
@@ -339,8 +334,8 @@ try {
   await cdp.send('Input.insertText', { text: secondComposition.at(-1) });
   const selectionBeforeNextKey = await page.evaluate(
   /**
- * 処理結果を生成する処理を実行するコールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * ブラウザー内の「.cm-content」を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => {
     const content = document.querySelector('.cm-content');
@@ -351,8 +346,8 @@ try {
   await page.waitForTimeout(800);
   const result = await page.evaluate(
   /**
- * （hostText、editorText、selectionFrom、selectionTo、domSelectionOffset）を持つオブジェクトを初期化して返すコールバックです。
-   * @returns 初期化したオブジェクト（hostText、editorText、selectionFrom、selectionTo、domSelectionOffset）を返します。
+   * ブラウザー内の「.cm-content」を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => ({
     hostText: window.__mveHostText,
@@ -361,8 +356,8 @@ try {
     selectionTo: Number(document.querySelector('.source-editor')?.getAttribute('data-selection-to')),
     domSelectionOffset: (
     /**
- * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
-     * @returns DOM検索で得た要素または状態を返します。
+     * 要素をquery・selectorへ渡し、IME・キャレット・スモーク検証の結果または副作用を処理する。
+     * @returns IME・キャレット・スモーク検証のコールバックが生成する結果。
      */
     () => {
       const content = document.querySelector('.cm-content');
@@ -380,9 +375,9 @@ try {
   const expectedHostText = `${source.slice(0, start)}${committedText}${source.slice(start)}\n外部エディター追記`;
   if (result.events.filter(
   /**
- * 「event」が条件に一致するか判定し、残す要素を決めるコールバックです。
-   * @param event 処理対象のイベントです。
-   * @returns 要素を採用するかどうかの真偽値を返します。
+   * 種別「compositionend」のイベントだけを残す。
+   * @param event - イベントのtypeを参照する走査対象。
+   * @returns 条件を満たした要素だけを含む一覧。
    */
   (event) => event.type === 'compositionend').length !== 2
     || result.hostText !== expectedHostText
@@ -396,9 +391,9 @@ try {
   await page.waitForTimeout(100);
   const marker = await page.evaluate(
   /**
- * 「offset」を受け取り、検証対象のJSONペイロードを生成する処理です。
-   * @param offset 本文または選択範囲を示すゼロ基準の位置です。範囲の開始・終了や写像の基準になります。
-   * @returns 「offset」から生成した処理結果を返します。
+   * Host側の本文状態のslice結果を読み取り、検証用の値へ変換する。
+   * @param offset - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (offset) => window.__mveHostText.slice(offset, offset + 1), expected);
   if (marker !== 'k') throw new Error(`IME確定後の次の入力位置が不正です: expected=${expected}, actual=${JSON.stringify(marker)}`);

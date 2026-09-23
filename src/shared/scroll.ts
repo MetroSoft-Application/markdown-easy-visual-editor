@@ -1,20 +1,12 @@
 /**
- * @file scroll.ts
- * 実行境界: Extension HostとWebviewの共有層。
- * 責務: 両実行境界で共有する値、プロトコル、変換を扱う。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: 呼び出し元から渡された値を変換し、外部状態を直接変更しない。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview 本文位置とプレビュー位置の対応を計算し、スクロール同期の境界をそろえる。
  */
 /**
- * スクロール量から、コンテナー全体に対する相対位置を求める。
- *
- * 分割表示の通常位置ではソースオフセットアンカーを優先するため、
- * 比率同期は先頭・末尾の境界位置だけに限定する。
- * @param scrollTop 現在のスクロール位置。
- * @param scrollHeight スクロール対象の全体高さ。
- * @param clientHeight 表示領域の高さ。
- * @returns 先頭なら0、末尾なら1、それ以外はundefined。
+ * スクロールから必要な値またはリソースを取得する。
+ * @param scrollTop - スクロールで扱う数値。
+ * @param scrollHeight - スクロールの位置・寸法・件数・時間を表す数値。
+ * @param clientHeight - スクロールの位置・寸法・件数・時間を表す数値。
+ * @returns 条件に一致する値。未検出時はundefinedまたはnull。
  */
 export function getScrollRatio(scrollTop: number, scrollHeight: number, clientHeight: number): number | undefined {
     const maxScrollTop = Math.max(0, scrollHeight - clientHeight);
@@ -26,11 +18,11 @@ export function getScrollRatio(scrollTop: number, scrollHeight: number, clientHe
 }
 
 /**
- * スクロール比率を指定したときのスクロール位置を求める。
- * @param ratio 0から1までのスクロール比率。
- * @param scrollHeight スクロール対象の全体高さ。
- * @param clientHeight 表示領域の高さ。
- * @returns 設定すべきスクロール位置。
+ * スクロールから必要な値またはリソースを取得する。
+ * @param ratio - スクロールで扱う数値。
+ * @param scrollHeight - スクロールの位置・寸法・件数・時間を表す数値。
+ * @param clientHeight - スクロールの位置・寸法・件数・時間を表す数値。
+ * @returns スクロールで利用する数値。
  */
 export function getScrollTopForRatio(ratio: number, scrollHeight: number, clientHeight: number): number {
     const maxScrollTop = Math.max(0, scrollHeight - clientHeight);

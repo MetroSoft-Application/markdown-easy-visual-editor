@@ -1,20 +1,15 @@
 /**
- * @file smoke-fast.mjs
- * 実行境界: 開発・検証スクリプト。
- * 責務: ビルド、スモーク、統合検証または補助生成を実行する。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: プロセス、生成物、Webview、VS Code、Chromiumなどの外部環境を操作する。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview スモーク検証・高速を開発・検証環境で実行する。前提条件や失敗条件を終了コードとログで示す。
  */
 import { chromium } from 'playwright-core';
 import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 
 /**
- * ファイルを取得または解決します。
- * @param root 処理対象のルートです。
- * @param name 対象を識別する名前で、表示または処理分岐に使用します。
- * @returns 「findFile」が読み取りまたは正規化した結果を返します。
+ * 指定した名前のファイルを検証用ディレクトリから再帰的に探す。
+ * @param root - スモーク検証・高速へ渡す入力。
+ * @param name - スモーク検証・高速の対象や分岐を識別する値。
+ * @returns スモーク検証・高速のfind・fileが生成する結果。
  */
 async function findFile(root, name) {
   for (const entry of await readdir(root, { withFileTypes: true })) {
@@ -27,28 +22,40 @@ async function findFile(root, name) {
   }
 }
 
-/** 「executablePath」は、対象ファイルまたは実行環境の場所を表す値です。 */
+/**
+ * スモーク検証・高速で読み書きするリソースの場所。
+ */
 const executablePath = await findFile(path.resolve('.chromium'), 'chrome-headless-shell.exe');
 if (!executablePath) throw new Error('Chromium がありません。npm run pdf:install-browser を実行してください。');
-/** 「webviewBundle」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * スモーク検証・高速のwebview・bundleとして読み込んだ本文または設定。
+ */
 const webviewBundle = await readFile(path.resolve('dist/webview.js'), 'utf8');
-/** 「markdownWorkerBundle」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * スモーク検証・高速で解析・表示・保存する本文。
+ */
 const markdownWorkerBundle = await readFile(path.resolve('dist/markdown-worker.js'), 'utf8');
-/** 「markdownRichWorkerBundle」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * スモーク検証・高速で解析・表示・保存する本文。
+ */
 const markdownRichWorkerBundle = await readFile(path.resolve('dist/markdown-rich-worker.js'), 'utf8');
 if (/react\.development\.js|@milkdown|MILKDOWN_LISTENER/.test(webviewBundle)) {
   throw new Error('製品Webviewバンドルに開発用ReactまたはMilkdownが残っています。');
 }
-/** 「browser」は、ブラウザー処理の共有状態または実行設定です。 */
+/**
+ * スモーク検証・高速の位置・寸法・件数・時間を表す数値。
+ */
 const browser = await chromium.launch({ executablePath, headless: true });
-/** 「errors」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * スモーク検証・高速で扱う一覧または対応表。
+ */
 const errors = [];
 try {
   const context = await browser.newContext();
   await context.addInitScript(
   /**
- * ブラウザーのWebviewテストで使用するグローバル状態を初期化するコールバックです。
-   * @returns 「Set」を実行し、値を返しません。
+   * 要素をsetへ渡し、スモーク検証・高速の結果または副作用を処理する。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => {
     window.__mveMessages = [];
@@ -65,21 +72,17 @@ try {
     window.__mveGlobalSettings = undefined;
     window.acquireVsCodeApi =
     /**
- * WebviewテストへVS Code API互換オブジェクトを提供するコールバックです。
-     * @returns 初期化したオブジェクト（postMessage）を返します。
+     * WebviewからVS Codeのメッセージ送信・状態保存APIを取得する。
+     * @returns VS Codeのメッセージ送信・状態保存API。
      */
     () => ({
 
-      /**
-       * 「postMessage」は、言語や通信契約に応じた表示文言または対応表を保持します。
-       * @param message 処理対象のメッセージです。
-       * @returns メッセージをHostまたはWebviewへ送信し、値は返しません。
-       */
+      
       postMessage: /**
- * 「postMessage」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param message 「message」は、「postMessage」が検証シナリオで処理する対象を特定する入力です。
- * @returns メッセージをHostまたはWebviewへ送信し、値は返しません。
- */ (message) => {
+       * スモーク検証・高速の変更または要求をHost・Webview間へ通知する。
+       * @param message - HostとWebviewの間で受け渡すメッセージ。
+       * @returns スモーク検証・高速のpost・messageが生成する結果。
+       */ (message) => {
         window.__mveMessages.push(message);
         if (message.type === 'localChanges') {
           if (window.__mveHoldLocalOperations) {
@@ -91,10 +94,10 @@ try {
           const baseVersion = window.__mveHostVersion;
           for (const change of [...message.changes].sort(
           /**
- * 「left」「right」を比較し、並び順を示す数値を返すコールバックです。
-           * @param left 比較対象の左側の値です。
-           * @param right 比較対象の右側の値です。
-           * @returns 置換後の文字列を返します。
+           * 2つの値を比較して並び順を決める。
+           * @param left - 比較対象の左側の値。
+           * @param right - 比較対象の右側の値。
+           * @returns 2つの要素の順序を示す数値。
            */
           (left, right) => right.rangeOffset - left.rangeOffset)) {
             window.__mveHostText = window.__mveHostText.slice(0, change.rangeOffset)
@@ -106,8 +109,8 @@ try {
           window.__mveAppliedOperations.add(`${message.clientId}\0${message.opId}`);
           setTimeout(
           /**
- * 指定時間の経過後に遅延処理を実行するコールバックです。
-           * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+           * 指定時間の経過後に後続処理を実行する。
+           * @returns 副作用を完了し、値は返さない。
            */
           () => {
             const ack = {
@@ -135,8 +138,8 @@ try {
           window.__mveHostVersion += 1;
           setTimeout(
           /**
- * 指定時間の経過後に遅延処理を実行するコールバックです。
-           * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+           * 指定時間の経過後に後続処理を実行する。
+           * @returns 副作用を完了し、値は返さない。
            */
           () => window.dispatchEvent(new MessageEvent('message', {
             data: {
@@ -149,8 +152,8 @@ try {
         }
         if (message.type === 'requestResync') setTimeout(
         /**
- * 指定時間の経過後に遅延処理を実行するコールバックです。
-         * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+         * 指定時間の経過後に後続処理を実行する。
+         * @returns 副作用を完了し、値は返さない。
          */
         () => window.dispatchEvent(new MessageEvent('message', {
           data: {
@@ -172,8 +175,8 @@ try {
           };
           setTimeout(
           /**
- * 指定時間の経過後に遅延処理を実行するコールバックです。
-           * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+           * 指定時間の経過後に後続処理を実行する。
+           * @returns 副作用を完了し、値は返さない。
            */
           () => window.dispatchEvent(new MessageEvent('message', {
             data: { type: 'settingsChanged', settings: window.__mveGlobalSettings }
@@ -186,8 +189,8 @@ try {
           };
           setTimeout(
           /**
- * 指定時間の経過後に遅延処理を実行するコールバックです。
-           * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+           * 指定時間の経過後に後続処理を実行する。
+           * @returns 副作用を完了し、値は返さない。
            */
           () => window.dispatchEvent(new MessageEvent('message', {
             data: { type: 'settingsChanged', settings: window.__mveGlobalSettings }
@@ -200,8 +203,8 @@ try {
           };
           setTimeout(
           /**
- * 指定時間の経過後に遅延処理を実行するコールバックです。
-           * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+           * 指定時間の経過後に後続処理を実行する。
+           * @returns 副作用を完了し、値は返さない。
            */
           () => window.dispatchEvent(new MessageEvent('message', {
             data: { type: 'settingsChanged', settings: window.__mveGlobalSettings }
@@ -215,8 +218,8 @@ try {
           };
           setTimeout(
           /**
- * 指定時間の経過後に遅延処理を実行するコールバックです。
-           * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+           * 指定時間の経過後に後続処理を実行する。
+           * @returns 副作用を完了し、値は返さない。
            */
           () => window.dispatchEvent(new MessageEvent('message', {
             data: { type: 'settingsChanged', settings: window.__mveGlobalSettings }
@@ -224,23 +227,17 @@ try {
         }
       },
 
-      /**
-       * 状態を取得または解決します。
-       * @returns Hostが保持する保存済み状態を返し、未保存の場合はundefinedを返します。
-       */
+      
       getState: /**
- * 「getState」は、要求された状態、値、または対象を読み取ります。
- * @returns Hostが保持する保存済み状態を返し、未保存の場合はundefinedを返します。
- */ () => undefined,
+       * スモーク検証・高速から必要な値またはリソースを取得する。
+       * @returns 条件に一致する値。未検出時はundefinedまたはnull。
+       */ () => undefined,
 
-      /**
-       * 状態を更新または保存します。
-       * @returns 指定された状態をHostへ保存し、値は返しません。
-       */
+      
       setState: /**
- * 「setState」は、入力を検証して対象の状態または内容へ適用します。
- * @returns 指定された状態をHostへ保存し、値は返しません。
- */ () => undefined
+       * スモーク検証・高速の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+       * @returns 副作用を完了し、値は返さない。
+       */ () => undefined
     });
   });
   const page = await context.newPage();
@@ -248,25 +245,25 @@ try {
   page.setDefaultTimeout(5_000);
   page.on('pageerror',
   /**
- * 「error」を受け取り、テスト用のWorkerまたはBlob URLを登録する処理です。
-   * @param error 発生したエラーです。
-   * @returns 「errors.push」を実行し、値を返しません。
+   * pageerrorイベントで一覧追加を実行する。
+   * @param error - ユーザー操作またはDOMから通知されたイベント。
+   * @returns 副作用を完了し、値は返さない。
    */
   (error) => errors.push(error.message));
   page.on('console',
   /**
- * 「message」を受け取り、テスト用のWorkerまたはBlob URLを登録する処理です。
-   * @param message 処理対象のメッセージです。
-   * @returns 「if」を実行し、値を返しません。
+   * consoleイベントでifを実行する。
+   * @param message - ユーザー操作またはDOMから通知されたイベント。
+   * @returns 副作用を完了し、値は返さない。
    */
   (message) => { if (message.type() === 'error') errors.push(message.text()); });
   await page.goto('about:blank');
   await page.setContent('<!doctype html><html lang="ja"><head><meta charset="utf-8"></head><body><div id="root"></div></body></html>');
   await page.evaluate(
   /**
- * 「workerSource」「richWorkerSource」を受け取り、テスト用のWorkerまたはBlob URLを登録する処理です。
-   * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはworkerSource、richWorkerSourceです。
-   * @returns 「URL.createObjectURL」を実行し、値を返しません。
+   * ブラウザーのDOM状態のcreate・object・url結果を読み取り、検証用の値へ変換する。
+   * @param options - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   ({ workerSource, richWorkerSource }) => {
     document.body.dataset.mveMarkdownWorkerUri = URL.createObjectURL(new Blob([workerSource], { type: 'text/javascript' }));
@@ -277,22 +274,22 @@ try {
   await page.addScriptTag({ path: path.resolve('dist/webview.js') });
   await page.waitForFunction(
   /**
- * Webviewへメッセージイベントを発火する処理を実行するコールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * HostとWebviewのメッセージ状態が完了条件を満たすまで待機する。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveMessages.some(
   /**
- * 「message」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
-   * @param message 処理対象のメッセージです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * スモーク検証・高速のコールバックとしてメッセージを処理する。
+   * @param message - HostとWebviewの間で受け渡すメッセージ。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (message) => message.type === 'ready'));
   const settings = { language: 'ja', imageDirectory: 'assets/${documentBasename}', maxPasteSizeMb: 20, remoteImagesEnabled: false, mermaidTheme: 'default', outlineVisible: true, workspaceTrusted: true, editorFontFamily: '', previewFontFamily: '' };
   await page.evaluate(
   /**
- * 「initSettings」を受け取り、Webviewへメッセージイベントを発火する処理です。
-   * @param initSettings initSettingsとして渡される、このコールバックの入力値です。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * Webviewの共有設定のdispatch・event結果を読み取り、検証用の値へ変換する。
+   * @param initSettings - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (initSettings) => {
     window.__mveGlobalSettings = { ...initSettings, scrollSyncEnabled: true };
@@ -304,16 +301,16 @@ try {
   await page.setViewportSize({ width: 475, height: 720 });
   const messageCountBeforeSettings = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns Webviewの状態から取得した値を返します。
+   * HostとWebviewのメッセージ状態を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => window.__mveMessages.length);
   await page.getByRole('tab', { name: '設定', exact: true }).click();
   await page.waitForTimeout(200);
   const messageCountAfterSettings = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns Webviewの状態から取得した値を返します。
+   * HostとWebviewのメッセージ状態を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => window.__mveMessages.length);
   if (messageCountAfterSettings !== messageCountBeforeSettings) throw new Error('opening settings sent an unexpected host message');
@@ -325,8 +322,8 @@ try {
   await editorFontInput.blur();
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @returns 期待条件の真偽値または条件に一致した要素を返します。
+   * Webviewの共有設定が完了条件を満たすまで待機する。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveGlobalSettings.editorFontFamily === 'Arial');
   await editorFontInput.click();
@@ -334,8 +331,8 @@ try {
   await editorFontInput.press('Enter');
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @returns 期待条件の真偽値または条件に一致した要素を返します。
+   * Webviewの共有設定が完了条件を満たすまで待機する。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveGlobalSettings.editorFontFamily === 'Enter Font');
   await editorFontInput.fill('Unsaved Font');
@@ -345,65 +342,65 @@ try {
   }
   const editorFontMessageStart = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns Webviewの状態から取得した値を返します。
+   * HostとWebviewのメッセージ状態を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => window.__mveMessages.length);
   await editorFontInput.fill('Editor Test Font');
   const editorMessagesWhileTyping = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @param start startとして渡される、このコールバックの入力値です。
-   * @returns 「start」が開始した処理の結果または非同期Promiseを返します。
+   * HostとWebviewのメッセージ状態のslice結果を読み取り、検証用の値へ変換する。
+   * @param start - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (start) => window.__mveMessages.slice(start).filter(
   /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-   * @param message 処理対象のメッセージです。
-   * @returns 要素を採用するかどうかの真偽値を返します。
+   * 種別「setFontFamilies」のメッセージだけを残す。
+   * @param message - メッセージのtypeを参照する走査対象。
+   * @returns 条件を満たした要素だけを含む一覧。
    */
   (message) => message.type === 'setFontFamilies').length, editorFontMessageStart);
   if (editorMessagesWhileTyping !== 0) throw new Error('editor font input sent host messages while typing');
   await editorFontInput.blur();
   await page.waitForFunction(
   /**
-   * 配列要素を採用するか判定するコールバックです。
-   * @returns 要素を採用するかどうかの真偽値を返します。
+   * Webviewの共有設定が完了条件を満たすまで待機する。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveGlobalSettings.editorFontFamily === 'Editor Test Font');
   const previewFontMessageStart = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns Webviewの状態から取得した値を返します。
+   * HostとWebviewのメッセージ状態を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => window.__mveMessages.length);
   await previewFontInput.fill('Preview Test Font');
   const previewMessagesWhileTyping = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @param start startとして渡される、このコールバックの入力値です。
-   * @returns 「start」が開始した処理の結果または非同期Promiseを返します。
+   * HostとWebviewのメッセージ状態のslice結果を読み取り、検証用の値へ変換する。
+   * @param start - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (start) => window.__mveMessages.slice(start).filter(
   /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-   * @param message 処理対象のメッセージです。
-   * @returns 要素を採用するかどうかの真偽値を返します。
+   * 種別「setFontFamilies」のメッセージだけを残す。
+   * @param message - メッセージのtypeを参照する走査対象。
+   * @returns 条件を満たした要素だけを含む一覧。
    */
   (message) => message.type === 'setFontFamilies').length, previewFontMessageStart);
   if (previewMessagesWhileTyping !== 0) throw new Error('preview font input sent host messages while typing');
   await previewFontInput.blur();
   await page.waitForFunction(
   /**
-   * 配列要素を採用するか判定するコールバックです。
-   * @returns 要素を採用するかどうかの真偽値を返します。
+   * Webviewの共有設定が完了条件を満たすまで待機する。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveGlobalSettings.editorFontFamily === 'Editor Test Font'
     && window.__mveGlobalSettings.previewFontFamily === 'Preview Test Font');
   const appliedFontStyles = await page.evaluate(
   /**
- * （editor、preview、editorContent、previewContent、independently）を持つオブジェクトを初期化して返すコールバックです。
-   * @returns 初期化したオブジェクト（editor、preview、editorContent、previewContent、independently）を返します。
+   * ブラウザー内の「.cm-content」を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => ({
     editor: getComputedStyle(document.documentElement).getPropertyValue('--mve-editor-font-family').trim(),
@@ -424,14 +421,14 @@ try {
   await editorFontInput.blur();
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @returns 期待条件の真偽値または条件に一致した要素を返します。
+   * Webviewの共有設定が完了条件を満たすまで待機する。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveGlobalSettings.editorFontFamily === '');
   const invalidFontFallback = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns Webviewの状態から取得した値を返します。
+   * ブラウザーのDOM状態のget・computed・style結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => getComputedStyle(document.documentElement).getPropertyValue('--mve-editor-font-family').trim());
   await editorFontInput.fill('');
@@ -439,15 +436,15 @@ try {
   await previewFontInput.blur();
   await page.waitForFunction(
   /**
- * 検証対象のJSONペイロードを生成する処理を実行するコールバックです。
-   * @returns 期待条件の真偽値または条件に一致した要素を返します。
+   * Webviewの共有設定が完了条件を満たすまで待機する。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveGlobalSettings.editorFontFamily === ''
     && window.__mveGlobalSettings.previewFontFamily === '');
   const emptyFontFallback = await page.evaluate(
   /**
- * （editor、preview、fallback、name、exact）を持つオブジェクトを初期化して返すコールバックです。
-   * @returns 初期化したオブジェクト（editor、preview、fallback、name、exact）を返します。
+   * ブラウザーのDOM状態のget・computed・style結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => ({
     editor: getComputedStyle(document.documentElement).getPropertyValue('--mve-editor-font-family').trim(),
@@ -462,8 +459,8 @@ try {
   await imageDirectoryInput.fill('images/${documentBasename}');
   const settingBounds = await page.evaluate(
   /**
- * 検証対象のJSONペイロードを生成する処理を実行するコールバックです。
-   * @returns DOM検索で得た要素または状態を返します。
+   * ブラウザー内の「.ribbon-settings-group」を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => {
     const group = document.querySelector('.ribbon-settings-group')?.getBoundingClientRect();
@@ -487,15 +484,15 @@ try {
   await page.locator('button[title^="画像"]').click();
   const requestedImageDirectory = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns 「reverse」を実行し、値を返しません。
+   * HostとWebviewのメッセージ状態のreverse結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => [...window.__mveMessages]
     .reverse().find(
     /**
- * 「message」が検索条件に一致するか判定するコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns 条件に一致した要素、または該当しない場合はundefinedを返します。
+     * typeが条件に一致する最初のメッセージを取得する。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件に一致した最初の要素。未検出時はundefined。
      */
     (message) => message.type === 'pickImage')?.imageDirectory);
   if (requestedImageDirectory !== 'images/${documentBasename}') {
@@ -503,8 +500,8 @@ try {
   }
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @returns 期待条件の真偽値または条件に一致した要素を返します。
+   * Webviewの共有設定が完了条件を満たすまで待機する。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveGlobalSettings.imageDirectory === 'images/${documentBasename}');
   await page.getByRole('tab', { name: 'ホーム', exact: true }).click();
@@ -512,54 +509,54 @@ try {
   await page.waitForTimeout(500);
   const emptyCrLfStart = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns 初期化したオブジェクト（local、resync）を返します。
+   * HostとWebviewのメッセージ状態のfilter結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => ({
     local: window.__mveMessages.filter(
     /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns 要素を採用するかどうかの真偽値を返します。
+     * 種別「localChanges」のメッセージだけを残す。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件を満たした要素だけを含む一覧。
      */
     (message) => message.type === 'localChanges').length,
     resync: window.__mveMessages.filter(
     /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns 要素を採用するかどうかの真偽値を返します。
+     * 種別「requestResync」のメッセージだけを残す。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件を満たした要素だけを含む一覧。
      */
     (message) => message.type === 'requestResync').length
   }));
   await page.locator('.split-editor .cm-content').press('Enter');
   await page.waitForFunction(
   /**
-   * 配列要素を採用するか判定するコールバックです。
-   * @returns 要素を採用するかどうかの真偽値を返します。
+   * Host側の本文状態が完了条件を満たすまで待機する。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveHostText === '\n' && window.__mvePhysicalText === '\r\n');
   await page.waitForTimeout(300);
   const emptyCrLfResult = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @param start startとして渡される、このコールバックの入力値です。
-   * @returns 「start」が開始した処理の結果または非同期Promiseを返します。
+   * HostとWebviewのメッセージ状態のfilter結果を読み取り、検証用の値へ変換する。
+   * @param start - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (start) => ({
     text: window.__mveHostText,
     physicalText: window.__mvePhysicalText,
     local: window.__mveMessages.filter(
     /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns 要素を採用するかどうかの真偽値を返します。
+     * 種別「localChanges」のメッセージだけを残す。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件を満たした要素だけを含む一覧。
      */
     (message) => message.type === 'localChanges').length - start.local,
     resync: window.__mveMessages.filter(
     /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns 要素を採用するかどうかの真偽値を返します。
+     * 種別「requestResync」のメッセージだけを残す。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件を満たした要素だけを含む一覧。
      */
     (message) => message.type === 'requestResync').length - start.resync
   }), emptyCrLfStart);
@@ -571,18 +568,18 @@ try {
   const source = ('# Smoke\n\nfirst\\\nsecond\n\nReference [link][target] and note[^note].\n\n<!-- ordinary comment -->\n\n<div>raw-one</div>\n<div>raw-two</div>\n\n[target]: https://example.com\n\n[^note]: footnote body\n\n```ts\nconst value = 1;\n```\n'
     + Array.from({ length: 220 },
     /**
- * 「_」「index」を受け取り、Webviewへメッセージイベントを発火する処理です。
-     * @param _ 呼び出し側が渡すが、このコールバックでは使用しない値です。
-     * @param index 本文、表、配列内の対象位置を示すインデックスです。
-     * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+     * ・をrepeatへ渡し、スモーク検証・高速の結果または副作用を処理する。
+     * @param _ - 引数位置を維持するための未使用値。
+     * @param index - 配列・行列・文字列の要素位置を示す番号。
+     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     (_, index) => `\n## Long section ${index}\n\n${'content '.repeat(16)}${index}\n`).join('')
     + '\n| H1 | H2 |\n| --- | --- |\n| old | old2 |\n');
   const sourceVersion = await page.evaluate(
   /**
- * 「text」を受け取り、Webviewへメッセージイベントを発火する処理です。
-   * @param text 処理対象の本文です。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * Host側の本文状態のreplace結果を読み取り、検証用の値へ変換する。
+   * @param text - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (text) => {
     window.__mveHostText = text;
@@ -594,9 +591,9 @@ try {
   }, source);
   await page.evaluate(
   /**
- * 「text」「version」を受け取り、Webviewへメッセージイベントを発火する処理です。
-   * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはtext、versionです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * Webviewの共有設定のdispatch・event結果を読み取り、検証用の値へ変換する。
+   * @param options - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   ({ text, version }) => window.dispatchEvent(new MessageEvent('message', {
     data: { type: 'init', text, version, uri: 'file:///C:/smoke.md', settings: window.__mveGlobalSettings }
@@ -605,9 +602,9 @@ try {
     await page.locator('.split-editor').waitFor();
     await page.waitForFunction(
     /**
- * 非同期処理の失敗理由を受け取り、回復処理または代替値を生成するコールバックです。
-     * @param expectedLength expectedLengthとして渡される、このコールバックの入力値です。
-     * @returns 「expectedLength」から生成した処理結果を返します。
+     * ブラウザー内に「.split-preview .rendered-markdown」が現れるまで待機する。
+     * @param expectedLength - ブラウザー内で評価するコールバック。
+     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     (expectedLength) => (
       Number(document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-document-length')) === expectedLength
@@ -618,31 +615,31 @@ try {
   if (!(await page.locator('.split-preview br').count())) throw new Error('hardbreak rendering failed');
   const anchorMarkup = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @param text 処理対象の本文です。
-   * @returns エラー処理またはフォールバックの結果を返します。
+   * ブラウザー内の「.split-preview .markdown-source-block」を読み取り、検証用の値へ変換する。
+   * @param text - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (text) => {
     const reference = [...document.querySelectorAll('.split-preview .markdown-source-block')]
       .find(
       /**
- * 「element」が検索条件に一致するか判定するコールバックです。
-       * @param element 処理対象の要素です。
-       * @returns 条件に一致した要素、または該当しない場合はundefinedを返します。
+       * text・contentが条件に一致する最初の要素を取得する。
+       * @param element - 要素のtext・contentを参照する走査対象。
+       * @returns 条件に一致した最初の要素。未検出時はundefined。
        */
       (element) => element.textContent?.includes('Reference'));
     const rawOne = [...document.querySelectorAll('.split-preview div')].find(
     /**
- * 「element」が検索条件に一致するか判定するコールバックです。
-     * @param element 処理対象の要素です。
-     * @returns 条件に一致した要素、または該当しない場合はundefinedを返します。
+     * text・contentが条件に一致する最初の要素を取得する。
+     * @param element - 要素のtext・contentを参照する走査対象。
+     * @returns 条件に一致した最初の要素。未検出時はundefined。
      */
     (element) => element.textContent === 'raw-one');
     const rawTwo = [...document.querySelectorAll('.split-preview div')].find(
     /**
- * 「element」が検索条件に一致するか判定するコールバックです。
-     * @param element 処理対象の要素です。
-     * @returns 条件に一致した要素、または該当しない場合はundefinedを返します。
+     * text・contentが条件に一致する最初の要素を取得する。
+     * @param element - 要素のtext・contentを参照する走査対象。
+     * @returns 条件に一致した最初の要素。未検出時はundefined。
      */
     (element) => element.textContent === 'raw-two');
     const footnotes = document.querySelector('.split-preview .footnotes');
@@ -662,21 +659,18 @@ try {
     throw new Error(`reference/footnote source anchors are invalid: ${JSON.stringify(anchorMarkup)}`);
   }
 
-  /**
-   * 「runImageZoomSmoke」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-   * @returns 「runImageZoomSmoke」が生成または抽出した表示対象を返します。
-   */
+  
   const runImageZoomSmoke = /**
- * 「runImageZoomSmoke」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @returns 「runImageZoomSmoke」が生成または抽出した表示対象を返します。
- */ async () => {
+   * スモーク検証・高速の処理順序と完了状態を管理する。
+   * @returns スモーク検証・高速のrun・image・zoom・smokeが生成する結果。
+   */ async () => {
     const zoomImage = page.locator('.split-preview img[data-mve-image-kind="html"]').first();
     await zoomImage.waitFor();
     await zoomImage.scrollIntoViewIfNeeded();
     await page.waitForFunction(
     /**
- * 処理結果を生成する処理を実行するコールバックです。
-     * @returns 期待条件の真偽値または条件に一致した要素を返します。
+     * ブラウザー内に「.split-preview img[data-mve-image-kind=」が現れるまで待機する。
+     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     () => {
       const image = document.querySelector('.split-preview img[data-mve-image-kind="html"]');
@@ -685,8 +679,8 @@ try {
     });
     const imageZoomBefore = await page.evaluate(
     /**
- * 検証対象のJSONペイロードを生成する処理を実行するコールバックです。
-     * @returns DOM検索で得た要素または状態を返します。
+     * ブラウザー内の「.split-preview img[data-mve-image-kind=」を読み取り、検証用の値へ変換する。
+     * @returns ブラウザー内で読み取った値または変換結果。
      */
     () => {
       const image = document.querySelector('.split-preview img[data-mve-image-kind="html"]');
@@ -709,21 +703,21 @@ try {
     await page.locator('.editor-area').dispatchEvent('wheel', { deltaY: -100, ctrlKey: true });
     await page.waitForFunction(
     /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-     * @param value 「value」で検証・変換する入力値です。
-     * @returns 「value」から生成した処理結果を返します。
+     * ブラウザー内に「.status-bar」が現れるまで待機する。
+     * @param value - ブラウザー内で評価するコールバック。
+     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     (value) => document.querySelector('.status-bar')?.textContent !== value, imageZoomStatusBefore);
     await page.waitForFunction(
     /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-     * @returns 期待条件の真偽値または条件に一致した要素を返します。
+     * ブラウザー内に「.split-preview .rendered-markdown」が現れるまで待機する。
+     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     () => document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-mve-image-zoom') === '1.1');
     const imageZoomAfter = await page.evaluate(
     /**
- * 検証対象のJSONペイロードを生成する処理を実行するコールバックです。
-     * @returns DOM検索で得た要素または状態を返します。
+     * ブラウザー内の「.split-preview img[data-mve-image-kind=」を読み取り、検証用の値へ変換する。
+     * @returns ブラウザー内で読み取った値または変換結果。
      */
     () => {
       const image = document.querySelector('.split-preview img[data-mve-image-kind="html"]');
@@ -743,8 +737,8 @@ try {
     }
     const imageResizeSourceBefore = await page.evaluate(
     /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-     * @returns Webviewの状態から取得した値を返します。
+     * Host側の本文状態を読み取り、検証用の値へ変換する。
+     * @returns ブラウザー内で読み取った値または変換結果。
      */
     () => window.__mveHostText);
     const imageResizeHandle = page.locator('.split-preview .mve-image-handle').first();
@@ -757,28 +751,28 @@ try {
     await page.mouse.up();
     await page.waitForFunction(
     /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-     * @param text 処理対象の本文です。
-     * @returns 「text」から生成した処理結果を返します。
+     * Host側の本文状態が完了条件を満たすまで待機する。
+     * @param text - ブラウザー内で評価するコールバック。
+     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     (text) => window.__mveHostText !== text, imageResizeSourceBefore);
     if (!(await page.evaluate(
     /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-     * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+     * Host側の本文状態のincludes結果を読み取り、検証用の値へ変換する。
+     * @returns ブラウザー内で読み取った値または変換結果。
      */
     () => window.__mveHostText.includes('width="180"')))) {
       throw new Error(`image resize while zoomed did not save a logical width: ${await page.evaluate(
       /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-       * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+       * Host側の本文状態を読み取り、検証用の値へ変換する。
+       * @returns ブラウザー内で読み取った値または変換結果。
        */
       () => window.__mveHostText)}`);
     }
     await page.waitForFunction(
     /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-     * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+     * ブラウザー内に「.split-preview img[data-mve-image-kind=」が現れるまで待機する。
+     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     () => {
       const image = document.querySelector('.split-preview img[data-mve-image-kind="html"]');
@@ -792,21 +786,21 @@ try {
     await page.locator('.editor-area').dispatchEvent('wheel', { deltaY: 100, ctrlKey: true });
     await page.waitForFunction(
     /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-     * @param value 「value」で検証・変換する入力値です。
-     * @returns 「value」から生成した処理結果を返します。
+     * ブラウザー内に「.status-bar」が現れるまで待機する。
+     * @param value - ブラウザー内で評価するコールバック。
+     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     (value) => document.querySelector('.status-bar')?.textContent !== value, imageZoomStatusBeforeShrink);
     await page.waitForFunction(
     /**
- * 検証対象のJSONペイロードを生成する処理を実行するコールバックです。
-     * @returns 期待条件の真偽値または条件に一致した要素を返します。
+     * ブラウザー内に「.split-preview .rendered-markdown」が現れるまで待機する。
+     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     () => document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-mve-image-zoom') === '1');
     const imageZoomAfterShrink = await page.evaluate(
     /**
- * 検証対象のJSONペイロードを生成する処理を実行するコールバックです。
-     * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+     * ブラウザー内の「.split-preview img[data-mve-image-kind=」を読み取り、検証用の値へ変換する。
+     * @returns ブラウザー内で読み取った値または変換結果。
      */
     () => {
       const image = document.querySelector('.split-preview img[data-mve-image-kind="html"]');
@@ -826,21 +820,21 @@ try {
     await page.locator('.editor-area').dispatchEvent('wheel', { deltaY: -100, ctrlKey: true });
     await page.waitForFunction(
     /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-     * @param value 「value」で検証・変換する入力値です。
-     * @returns 「value」から生成した処理結果を返します。
+     * ブラウザー内に「.status-bar」が現れるまで待機する。
+     * @param value - ブラウザー内で評価するコールバック。
+     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     (value) => document.querySelector('.status-bar')?.textContent !== value, imageZoomStatusBeforeRegrow);
     await page.waitForFunction(
     /**
- * 検証対象のJSONペイロードを生成する処理を実行するコールバックです。
-     * @returns 期待条件の真偽値または条件に一致した要素を返します。
+     * ブラウザー内に「.split-preview .rendered-markdown」が現れるまで待機する。
+     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     () => document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-mve-image-zoom') === '1.1');
     const imageZoomAfterRegrow = await page.evaluate(
     /**
- * 検証対象のJSONペイロードを生成する処理を実行するコールバックです。
-     * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+     * ブラウザー内の「.split-preview img[data-mve-image-kind=」を読み取り、検証用の値へ変換する。
+     * @returns ブラウザー内で読み取った値または変換結果。
      */
     () => {
       const image = document.querySelector('.split-preview img[data-mve-image-kind="html"]');
@@ -860,21 +854,21 @@ try {
     await page.locator('.editor-area').dispatchEvent('wheel', { deltaY: 100, ctrlKey: true });
     await page.waitForFunction(
     /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-     * @param value 「value」で検証・変換する入力値です。
-     * @returns 「value」から生成した処理結果を返します。
+     * ブラウザー内に「.status-bar」が現れるまで待機する。
+     * @param value - ブラウザー内で評価するコールバック。
+     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     (value) => document.querySelector('.status-bar')?.textContent !== value, imageZoomStatusAfterRegrow);
     await page.waitForFunction(
     /**
- * 検証対象のJSONペイロードを生成する処理を実行するコールバックです。
-     * @returns 期待条件の真偽値または条件に一致した要素を返します。
+     * ブラウザー内に「.split-preview .rendered-markdown」が現れるまで待機する。
+     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     () => document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-mve-image-zoom') === '1');
     const imageZoomRestored = await page.evaluate(
     /**
- * 検証対象のJSONペイロードを生成する処理を実行するコールバックです。
-     * @returns DOM検索で得た要素または状態を返します。
+     * ブラウザー内の「.split-preview img[data-mve-image-kind=」を読み取り、検証用の値へ変換する。
+     * @returns ブラウザー内で読み取った値または変換結果。
      */
     () => {
       const image = document.querySelector('.split-preview img[data-mve-image-kind="html"]');
@@ -892,9 +886,9 @@ try {
     }
     await page.locator('.split-preview').evaluate(
     /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-     * @param element 処理対象の要素です。
-     * @returns 「page.locator」を実行し、値を返しません。
+     * ブラウザー内の状態を読み取り、検証用の値へ変換する。
+     * @param element - ブラウザー内で評価するコールバック。
+     * @returns ブラウザー内で読み取った値または変換結果。
      */
     (element) => { element.scrollTop = 0; });
   };
@@ -906,30 +900,30 @@ try {
   await sourceEditor.press('Shift+End');
   const beforeCutText = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns 要素を採用するかどうかの真偽値を返します。
+   * Host側の本文状態を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => window.__mveHostText);
   await sourceEditor.press('Control+X');
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @param text 処理対象の本文です。
-   * @returns 「text」から生成した処理結果を返します。
+   * Host側の本文状態が完了条件を満たすまで待機する。
+   * @param text - ブラウザー内で評価するコールバック。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (text) => window.__mveHostText !== text, beforeCutText);
   if (await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns Webviewの状態から取得した値を返します。
+   * Host側の本文状態のincludes結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => window.__mveHostText.includes('Reference [link]'))) throw new Error('Ctrl+X did not delete the selected line');
   await sourceEditor.press('Control+Z');
   await page.waitForFunction(
   /**
- * 「text」を受け取り、検証対象のJSONペイロードを生成する処理です。
-   * @param text 処理対象の本文です。
-   * @returns 「text」から生成した処理結果を返します。
+   * Host側の本文状態が完了条件を満たすまで待機する。
+   * @param text - ブラウザー内で評価するコールバック。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (text) => window.__mveHostText === text, beforeCutText);
   await page.locator('.split-editor .cm-line').filter({ hasText: 'Reference [link]' }).first().waitFor();
@@ -952,9 +946,9 @@ try {
   }
   const tableEditorSize = await page.locator('.mve-table-editor').evaluate(
   /**
- * 「element」を受け取り、検証対象のJSONペイロードを生成する処理です。
-   * @param element 処理対象の要素です。
-   * @returns 「element」から生成した処理結果を返します。
+   * ブラウザー内の状態のget・bounding・client・rect結果を読み取り、検証用の値へ変換する。
+   * @param element - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => {
     const bounds = element.getBoundingClientRect();
@@ -983,16 +977,16 @@ try {
   await altEnterCell.press('End');
   const hostBeforeAltEnter = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns DOM検索で得た要素または状態を返します。
+   * Host側の本文状態を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => window.__mveHostText);
   const rowHeightBeforeAltEnter = Number(await page.locator('.mve-table-editor-row-resizer').nth(1).getAttribute('aria-valuenow'));
   await altEnterCell.press('Alt+Enter');
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @returns 期待条件の真偽値または条件に一致した要素を返します。
+   * ブラウザー内に「[data-table-cell=」が現れるまで待機する。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => {
     const value = document.querySelector('[data-table-cell="1:0"]')?.value ?? '';
@@ -1000,16 +994,16 @@ try {
   });
   await page.waitForFunction(
   /**
- * 「before」を受け取り、検証対象のJSONペイロードを生成する処理です。
-   * @param before beforeとして渡される、このコールバックの入力値です。
-   * @returns 「before」から生成した処理結果を返します。
+   * ブラウザー内に「.mve-table-editor-row-resizer」が現れるまで待機する。
+   * @param before - ブラウザー内で評価するコールバック。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (before) => Number(document.querySelectorAll('.mve-table-editor-row-resizer')[1]?.getAttribute('aria-valuenow')) > before, rowHeightBeforeAltEnter);
   const altEnterCellMetrics = await altEnterCell.evaluate(
   /**
- * 「element」から（value、scrollHeight、clientHeight、rowHeight、clipped）のオブジェクトを生成して返すコールバックです。
-   * @param element 処理対象の要素です。
-   * @returns 初期化したオブジェクト（value、scrollHeight、clientHeight、rowHeight、clipped）を返します。
+   * ブラウザー内の「.mve-table-editor-row-resizer」を読み取り、検証用の値へ変換する。
+   * @param element - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => ({
     value: element.value,
@@ -1022,9 +1016,9 @@ try {
   }
   if (await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @param text 処理対象の本文です。
-   * @returns 「text」から生成した処理結果を返します。
+   * Host側の本文状態を読み取り、検証用の値へ変換する。
+   * @param text - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (text) => window.__mveHostText !== text, hostBeforeAltEnter)) throw new Error('table editor Alt+Enter changed the source document before Apply');
   const rowHeightAfterAltEnter = Number(await page.locator('.mve-table-editor-row-resizer').nth(1).getAttribute('aria-valuenow'));
@@ -1033,16 +1027,16 @@ try {
   await page.locator('.mve-table-editor').waitFor({ state: 'detached' });
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @returns 期待条件の真偽値または条件に一致した要素を返します。
+   * Host側の本文状態が完了条件を満たすまで待機する。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveHostText.includes('| old<br> | old2 |'));
   await sourceEditor.press('Control+Z');
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @param text 処理対象の本文です。
-   * @returns 「text」から生成した処理結果を返します。
+   * Host側の本文状態が完了条件を満たすまで待機する。
+   * @param text - ブラウザー内で評価するコールバック。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (text) => window.__mveHostText === text, hostBeforeAltEnter);
   await page.getByRole('button', { name: '表を編集', exact: true }).click();
@@ -1051,31 +1045,31 @@ try {
   if (await page.locator('.mve-table-editor-grid tbody tr').count() !== 3) throw new Error('table editor row copy did not duplicate the selected row');
   const copiedRowState = await page.locator('.mve-table-editor-grid tbody tr').evaluateAll(
   /**
- * 「tableRows」を受け取り、検証対象のJSONペイロードを生成する処理です。
-   * @param tableRows 「tableRows」は、「tableRows」が検証シナリオで処理する対象を特定する入力です。
-   * @returns 「tableRows」から生成した処理結果を返します。
+   * table・rowsをmapへ渡し、スモーク検証・高速の結果または副作用を処理する。
+   * @param tableRows - スモーク検証・高速で走査または更新する要素。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (tableRows) =>
     tableRows.map(
     /**
- * 「row」を変換し、変換後の要素を返すコールバックです。
-     * @param row 本文、表、配列内の対象位置を示すインデックスです。
-     * @returns 入力要素から生成した変換後の値を返します。
+     * 各行から対象DOM要素を抽出して一覧化する。
+     * @param row - 行のquery・selector・allを参照する走査対象。
+     * @returns query・selector・allを取り出した変換結果の一覧。
      */
     (row) => [...row.querySelectorAll('textarea')].map(
     /**
- * 「cell」を変換し、変換後の要素を返すコールバックです。
-     * @param cell 処理対象のセルです。
-     * @returns 入力要素から生成した変換後の値を返します。
+     * 各セルから値を取り出して一覧化する。
+     * @param cell - セルの値を参照する走査対象。
+     * @returns 値を取り出した変換結果の一覧。
      */
     (cell) => cell.value))
   );
   if (!copiedRowState.some(
   /**
- * 「row」「index」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
-   * @param row 本文、表、配列内の対象位置を示すインデックスです。
-   * @param index 本文、表、配列内の対象位置を示すインデックスです。
-   * @returns 条件判定の結果を示す真偽値を返します。
+   * 行をstringifyへ渡し、スモーク検証・高速の結果または副作用を処理する。
+   * @param row - スモーク検証・高速で走査または更新する要素。
+   * @param index - 配列・行列・文字列の要素位置を示す番号。
+   * @returns スモーク検証・高速で利用する文字列。
    */
   (row, index) => index > 0 && JSON.stringify(row) === JSON.stringify(copiedRowState[index - 1]))) {
     throw new Error(`table editor row copy did not preserve row values: ${JSON.stringify(copiedRowState)}`);
@@ -1085,15 +1079,15 @@ try {
   if (copiedColumnCount !== 5) throw new Error(`table editor column copy did not duplicate the selected column range: ${copiedColumnCount}`);
   const copiedColumnState = await page.locator('.mve-table-editor-grid tbody tr').first().locator('textarea').evaluateAll(
   /**
- * 「cells」を受け取り、検証対象のJSONペイロードを生成する処理です。
-   * @param cells cellsとして渡される、このコールバックの入力値です。
-   * @returns 「cells」から生成した処理結果を返します。
+   * cellsをmapへ渡し、スモーク検証・高速の結果または副作用を処理する。
+   * @param cells - スモーク検証・高速で走査または更新する要素。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (cells) => cells.map(
   /**
- * 「cell」を変換し、変換後の要素を返すコールバックです。
-   * @param cell 処理対象のセルです。
-   * @returns 入力要素から生成した変換後の値を返します。
+   * 各セルから値を取り出して一覧化する。
+   * @param cell - セルの値を参照する走査対象。
+   * @returns 値を取り出した変換結果の一覧。
    */
   (cell) => cell.value));
   if (copiedColumnState.length !== 4 || JSON.stringify(copiedColumnState.slice(0, 2)) !== JSON.stringify(copiedColumnState.slice(2))) {
@@ -1101,9 +1095,9 @@ try {
   }
   page.once('dialog',
   /**
- * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
-   * @param dialog dialogとして渡される、このコールバックの入力値です。
-   * @returns 「dialog」から生成した処理結果を返します。
+   * dialogをacceptへ渡し、スモーク検証・高速の結果または副作用を処理する。
+   * @param dialog - スモーク検証・高速へ渡す入力。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (dialog) => dialog.accept());
   await page.getByRole('button', { name: 'キャンセル', exact: true }).click();
@@ -1121,9 +1115,9 @@ try {
   }
   const tableColumnBefore = await page.locator('.mve-table-editor-grid col').nth(1).evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @param element 処理対象の要素です。
-   * @returns 「element」から生成した処理結果を返します。
+   * ブラウザー内の状態のget・bounding・client・rect結果を読み取り、検証用の値へ変換する。
+   * @param element - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => element.getBoundingClientRect().width);
   const columnResizer = page.locator('.mve-table-editor-column-resizer').first();
@@ -1132,17 +1126,17 @@ try {
     await columnResizer.press('ArrowRight');
     await page.waitForFunction(
     /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-     * @param expected expectedとして渡される、このコールバックの入力値です。
-     * @returns 「expected」から生成した処理結果を返します。
+     * ブラウザー内に「.mve-table-editor-column-resizer」が現れるまで待機する。
+     * @param expected - ブラウザー内で評価するコールバック。
+     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     (expected) => Number(document.querySelector('.mve-table-editor-column-resizer')?.getAttribute('aria-valuenow')) === expected, tableColumnStateBefore + step * 12);
   }
   const tableColumnAfter = await page.locator('.mve-table-editor-grid col').nth(1).evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @param element 処理対象の要素です。
-   * @returns 「element」から生成した処理結果を返します。
+   * ブラウザー内の状態のget・bounding・client・rect結果を読み取り、検証用の値へ変換する。
+   * @param element - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => element.getBoundingClientRect().width);
   const tableColumnStateAfter = Number(await columnResizer.getAttribute('aria-valuenow'));
@@ -1155,9 +1149,9 @@ try {
   await columnResizer.click();
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @param before beforeとして渡される、このコールバックの入力値です。
-   * @returns 「before」から生成した処理結果を返します。
+   * ブラウザー内に「.mve-table-editor-column-resizer」が現れるまで待機する。
+   * @param before - ブラウザー内で評価するコールバック。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (before) => Number(document.querySelector('.mve-table-editor-column-resizer')?.getAttribute('aria-valuenow')) > before, autoFitColumnBefore);
   const autoFitColumnAfter = Number(await columnResizer.getAttribute('aria-valuenow'));
@@ -1170,9 +1164,9 @@ try {
   await rowResizer.click();
   await page.waitForFunction(
   /**
- * 「before」を受け取り、検証対象のJSONペイロードを生成する処理です。
-   * @param before beforeとして渡される、このコールバックの入力値です。
-   * @returns 「before」から生成した処理結果を返します。
+   * ブラウザー内に「.mve-table-editor-row-resizer」が現れるまで待機する。
+   * @param before - ブラウザー内で評価するコールバック。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (before) => Number(document.querySelectorAll('.mve-table-editor-row-resizer')[1]?.getAttribute('aria-valuenow')) > before, rowHeightBefore);
   const rowHeightAfter = Number(await rowResizer.getAttribute('aria-valuenow'));
@@ -1181,9 +1175,9 @@ try {
   }
   const autoFitRowMetrics = await autoFitCell.evaluate(
   /**
- * 「element」から（value、scrollHeight、clientHeight、clipped、name）のオブジェクトを生成して返すコールバックです。
-   * @param element 処理対象の要素です。
-   * @returns 初期化したオブジェクト（value、scrollHeight、clientHeight、clipped、name）を返します。
+   * ブラウザー内の状態を読み取り、検証用の値へ変換する。
+   * @param element - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => ({
     value: element.value,
@@ -1195,17 +1189,17 @@ try {
   }
   page.once('dialog',
   /**
- * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
-   * @param dialog dialogとして渡される、このコールバックの入力値です。
-   * @returns 「dialog」から生成した処理結果を返します。
+   * dialogをacceptへ渡し、スモーク検証・高速の結果または副作用を処理する。
+   * @param dialog - スモーク検証・高速へ渡す入力。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (dialog) => dialog.accept());
   await page.getByRole('button', { name: 'キャンセル', exact: true }).click();
   await page.locator('.mve-table-editor').waitFor({ state: 'detached' });
   const noOpMessageStart = await page.evaluate(
   /**
- * 検証対象のJSONペイロードを生成する処理を実行するコールバックです。
-   * @returns Webviewの状態から取得した値を返します。
+   * HostとWebviewのメッセージ状態を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => window.__mveMessages.length);
   await page.getByRole('button', { name: '表を編集', exact: true }).click();
@@ -1213,23 +1207,23 @@ try {
   await page.waitForTimeout(300);
   const noOpLocalChanges = await page.evaluate(
   /**
- * 「start」を受け取り、検証対象のJSONペイロードを生成する処理です。
-   * @param start startとして渡される、このコールバックの入力値です。
-   * @returns 「start」が開始した処理の結果または非同期Promiseを返します。
+   * HostとWebviewのメッセージ状態のslice結果を読み取り、検証用の値へ変換する。
+   * @param start - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (start) => window.__mveMessages
     .slice(start).filter(
     /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns 要素を採用するかどうかの真偽値を返します。
+     * 種別「localChanges」のメッセージだけを残す。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件を満たした要素だけを含む一覧。
      */
     (message) => message.type === 'localChanges'), noOpMessageStart);
   if (noOpLocalChanges.length !== 0) throw new Error(`untouched table apply emitted synchronization: ${JSON.stringify(noOpLocalChanges)}`);
   const editMessageStart = await page.evaluate(
   /**
-   * 配列要素を採用するか判定するコールバックです。
-   * @returns 要素を採用するかどうかの真偽値を返します。
+   * HostとWebviewのメッセージ状態を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => window.__mveMessages.length);
   await page.getByRole('button', { name: '表を編集', exact: true }).click();
@@ -1238,9 +1232,9 @@ try {
   await editableCell.fill('alpha<br>beta');
   await editableCell.evaluate(
   /**
- * 「element」を受け取り、検証対象のJSONペイロードを生成する処理です。
-   * @param element 処理対象の要素です。
-   * @returns 「element.value.indexOf」を実行し、値を返しません。
+   * ブラウザー内の状態のindex・of結果を読み取り、検証用の値へ変換する。
+   * @param element - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => {
     const start = element.value.indexOf('<br>');
@@ -1255,9 +1249,9 @@ try {
   await editableCell.fill('alpha<br>beta');
   await editableCell.evaluate(
   /**
- * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
-   * @param element 処理対象の要素です。
-   * @returns 「element.value.indexOf」を実行し、値を返しません。
+   * ブラウザー内の状態のindex・of結果を読み取り、検証用の値へ変換する。
+   * @param element - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => {
     const start = element.value.indexOf('<br>');
@@ -1267,16 +1261,16 @@ try {
   await editableCell.press('Backspace');
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @returns 期待条件の真偽値または条件に一致した要素を返します。
+   * ブラウザー内に「[data-table-cell=」が現れるまで待機する。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => document.querySelector('[data-table-cell="1:0"]')?.value === 'alphabeta');
   await editableCell.fill('alpha<br>beta');
   await editableCell.evaluate(
   /**
- * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
-   * @param element 処理対象の要素です。
-   * @returns 「element.value.indexOf」を実行し、値を返しません。
+   * ブラウザー内の状態のindex・of結果を読み取り、検証用の値へ変換する。
+   * @param element - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => {
     const start = element.value.indexOf('<br>');
@@ -1286,8 +1280,8 @@ try {
   await editableCell.press('Backspace');
   await page.waitForFunction(
   /**
- * 検証対象のJSONペイロードを生成する処理を実行するコールバックです。
-   * @returns 期待条件の真偽値または条件に一致した要素を返します。
+   * ブラウザー内に「[data-table-cell=」が現れるまで待機する。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => document.querySelector('[data-table-cell="1:0"]')?.value === 'alphabeta');
   if ((await editableCell.inputValue()).includes('<br><br>')) {
@@ -1305,15 +1299,15 @@ try {
   try {
     await page.waitForFunction(
     /**
- * 非同期処理の失敗理由を受け取り、回復処理または代替値を生成するコールバックです。
-     * @returns 期待条件の真偽値または条件に一致した要素を返します。
+     * Host側の本文状態が完了条件を満たすまで待機する。
+     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     () => window.__mveHostText.includes('| beforeafter<br> | old2 |'));
   } catch (error) {
     const state = await page.evaluate(
     /**
-     * Promiseの失敗理由を受け取り、エラー表示またはフォールバックを実行するコールバックです。
-     * @returns エラー処理またはフォールバックの結果を返します。
+     * HostとWebviewのメッセージ状態のslice結果を読み取り、検証用の値へ変換する。
+     * @returns ブラウザー内で読み取った値または変換結果。
      */
     () => ({
       hostTail: window.__mveHostText.slice(-300),
@@ -1323,23 +1317,23 @@ try {
   }
   const tableEditMessages = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @param start startとして渡される、このコールバックの入力値です。
-   * @returns 「start」が開始した処理の結果または非同期Promiseを返します。
+   * HostとWebviewのメッセージ状態のslice結果を読み取り、検証用の値へ変換する。
+   * @param start - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (start) => window.__mveMessages
     .slice(start).filter(
     /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns 要素を採用するかどうかの真偽値を返します。
+     * 種別「localChanges」のメッセージだけを残す。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件を満たした要素だけを含む一覧。
      */
     (message) => message.type === 'localChanges'), editMessageStart);
   if (tableEditMessages.length !== 1) throw new Error(`table apply emitted ${tableEditMessages.length} synchronization operations`);
   const lineBreakMessageStart = await page.evaluate(
   /**
-   * 配列要素を採用するか判定するコールバックです。
-   * @returns 要素を採用するかどうかの真偽値を返します。
+   * HostとWebviewのメッセージ状態を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => window.__mveMessages.length);
   await page.getByRole('button', { name: '表を編集', exact: true }).click();
@@ -1347,22 +1341,22 @@ try {
   await page.getByRole('button', { name: '適用', exact: true }).click();
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @returns 期待条件の真偽値または条件に一致した要素を返します。
+   * Host側の本文状態が完了条件を満たすまで待機する。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveHostText.includes('| new | old2 |'));
   const lineBreakMessages = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @param start startとして渡される、このコールバックの入力値です。
-   * @returns 「start」が開始した処理の結果または非同期Promiseを返します。
+   * HostとWebviewのメッセージ状態のslice結果を読み取り、検証用の値へ変換する。
+   * @param start - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (start) => window.__mveMessages
     .slice(start).filter(
     /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns 要素を採用するかどうかの真偽値を返します。
+     * 種別「localChanges」のメッセージだけを残す。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件を満たした要素だけを含む一覧。
      */
     (message) => message.type === 'localChanges'), lineBreakMessageStart);
   if (lineBreakMessages.length !== 1) throw new Error(`follow-up table apply emitted ${lineBreakMessages.length} synchronization operations`);
@@ -1370,14 +1364,14 @@ try {
   const editorNode = await page.locator('.split-editor .cm-editor').elementHandle();
   const sourceEditMessageStart = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns Webviewの状態から取得した値を返します。
+   * HostとWebviewのメッセージ状態のfilter結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => window.__mveMessages.filter(
   /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-   * @param message 処理対象のメッセージです。
-   * @returns 要素を採用するかどうかの真偽値を返します。
+   * 種別「localChanges」のメッセージだけを残す。
+   * @param message - メッセージのtypeを参照する走査対象。
+   * @returns 条件を満たした要素だけを含む一覧。
    */
   (message) => message.type === 'localChanges').length);
   await sourceEditor.click();
@@ -1389,105 +1383,105 @@ try {
   await sourceEditor.type('  \nX');
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @returns 期待条件の真偽値または条件に一致した要素を返します。
+   * Host側の本文状態が完了条件を満たすまで待機する。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveHostText.includes('second  \n'));
   if ((await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns Webviewの状態から取得した値を返します。
+   * HostとWebviewのメッセージ状態のfilter結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => window.__mveMessages.filter(
   /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-   * @param message 処理対象のメッセージです。
-   * @returns 要素を採用するかどうかの真偽値を返します。
+   * 種別「localChanges」のメッセージだけを残す。
+   * @param message - メッセージのtypeを参照する走査対象。
+   * @returns 条件を満たした要素だけを含む一覧。
    */
   (message) => message.type === 'localChanges').length)) <= sourceEditMessageStart) {
     throw new Error('source edit did not emit a synchronization operation');
   }
   const beforeRibbonUndo = await page.evaluate(
   /**
-   * 配列要素を採用するか判定するコールバックです。
-   * @returns 要素を採用するかどうかの真偽値を返します。
+   * Host側の本文状態を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => window.__mveHostText);
   await sourceEditor.press('Z');
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @param text 処理対象の本文です。
-   * @returns 「text」から生成した処理結果を返します。
+   * Host側の本文状態が完了条件を満たすまで待機する。
+   * @param text - ブラウザー内で評価するコールバック。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (text) => window.__mveHostText.length === text.length + 1, beforeRibbonUndo);
   await page.locator('button[title^="元に戻す"]').click();
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @param text 処理対象の本文です。
-   * @returns 「text」から生成した処理結果を返します。
+   * Host側の本文状態が完了条件を満たすまで待機する。
+   * @param text - ブラウザー内で評価するコールバック。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (text) => window.__mveHostText === text, beforeRibbonUndo);
   await page.locator('button[title^="やり直す"]').click();
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @param text 処理対象の本文です。
-   * @returns 「text」から生成した処理結果を返します。
+   * Host側の本文状態が完了条件を満たすまで待機する。
+   * @param text - ブラウザー内で評価するコールバック。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (text) => window.__mveHostText.length === text.length + 1, beforeRibbonUndo);
   const beforeKeyboardUndo = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns Webviewの状態から取得した値を返します。
+   * Host側の本文状態を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => window.__mveHostText);
   await sourceEditor.click();
   await sourceEditor.press('Q');
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @param text 処理対象の本文です。
-   * @returns 「text」から生成した処理結果を返します。
+   * Host側の本文状態が完了条件を満たすまで待機する。
+   * @param text - ブラウザー内で評価するコールバック。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (text) => window.__mveHostText.length === text.length + 1, beforeKeyboardUndo);
   await sourceEditor.press('Control+Z');
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @param text 処理対象の本文です。
-   * @returns 「text」から生成した処理結果を返します。
+   * Host側の本文状態が完了条件を満たすまで待機する。
+   * @param text - ブラウザー内で評価するコールバック。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (text) => window.__mveHostText === text, beforeKeyboardUndo);
   await sourceEditor.press('Control+Shift+Z');
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @param text 処理対象の本文です。
-   * @returns 「text」から生成した処理結果を返します。
+   * Host側の本文状態が完了条件を満たすまで待機する。
+   * @param text - ブラウザー内で評価するコールバック。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (text) => window.__mveHostText.length === text.length + 1, beforeKeyboardUndo);
   await sourceEditor.press('Control+Z');
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @param text 処理対象の本文です。
-   * @returns 「text」から生成した処理結果を返します。
+   * Host側の本文状態が完了条件を満たすまで待機する。
+   * @param text - ブラウザー内で評価するコールバック。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (text) => window.__mveHostText.length === text.length, beforeKeyboardUndo);
   await sourceEditor.press('Control+Z');
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @param text 処理対象の本文です。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * Host側の本文状態が完了条件を満たすまで待機する。
+   * @param text - ブラウザー内で評価するコールバック。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (text) => window.__mveHostText === text, beforeRibbonUndo);
   await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * Webviewの実行状態を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => {
     window.__mveDebugEnabled = true;
@@ -1502,32 +1496,32 @@ try {
   await page.waitForTimeout(50);
   if (!(await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @param node nodeとして渡される、このコールバックの入力値です。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * ブラウザー内の「.split-editor .cm-editor」を読み取り、検証用の値へ変換する。
+   * @param node - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (node) => node === document.querySelector('.split-editor .cm-editor'), editorNode))) throw new Error('blank-line edit remounted the source editor');
   await page.locator('.cm-scroller').dispatchEvent('wheel', { deltaY: 1 });
   await page.locator('.split-preview').dispatchEvent('wheel', { deltaY: 1 });
   await page.locator('.cm-scroller').evaluate(
   /**
- * 「element」を受け取り、登録された副作用または結果を生成する処理です。
-   * @param element 処理対象の要素です。
-   * @returns 「page.locator」を実行し、値を返しません。
+   * ブラウザー内の状態を読み取り、検証用の値へ変換する。
+   * @param element - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => { element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.7; });
   await page.locator('.split-preview').evaluate(
   /**
- * 「element」を受け取り、処理結果を生成する処理です。
-   * @param element 処理対象の要素です。
-   * @returns 「page.waitForTimeout」を実行し、値を返しません。
+   * ブラウザー内の状態を読み取り、検証用の値へ変換する。
+   * @param element - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => { element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.7; });
   await page.waitForTimeout(200);
   const beforeExternal = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns DOM検索で得た要素または状態を返します。
+   * ブラウザー内の「.split-preview」を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => {
     const preview = document.querySelector('.split-preview');
@@ -1539,9 +1533,9 @@ try {
       ?? [...(preview?.querySelectorAll('[data-source-from]') ?? [])]
         .find(
         /**
- * 「element」が検索条件に一致するか判定するコールバックです。
-         * @param element 処理対象の要素です。
-         * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+         * get・bounding・client・rectが条件に一致する最初の要素を取得する。
+         * @param element - 要素のget・bounding・client・rectを参照する走査対象。
+         * @returns 条件に一致した最初の要素。未検出時はundefined。
          */
         (element) => element.getBoundingClientRect().bottom > (bounds?.top ?? 0) + 1);
     const blockBounds = block?.getBoundingClientRect();
@@ -1554,8 +1548,8 @@ try {
   });
   const externalLength = await page.evaluate(
   /**
- * Webviewへメッセージイベントを発火する処理を実行するコールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * Host側の本文状態のdispatch・event結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => {
     const baseVersion = window.__mveHostVersion;
@@ -1569,9 +1563,9 @@ try {
   });
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @param length lengthとして渡される、このコールバックの入力値です。
-   * @returns 「length」から生成した処理結果を返します。
+   * ブラウザー内に「.split-preview .rendered-markdown」が現れるまで待機する。
+   * @param length - ブラウザー内で評価するコールバック。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (length) => (
     Number(document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-document-length')) === length
@@ -1579,8 +1573,8 @@ try {
   await page.waitForTimeout(100);
   const afterExternal = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns DOM検索で得た要素または状態を返します。
+   * ブラウザー内の「.split-preview」を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => {
     const preview = document.querySelector('.split-preview');
@@ -1592,9 +1586,9 @@ try {
       ?? [...(preview?.querySelectorAll('[data-source-from]') ?? [])]
         .find(
         /**
- * 「element」が検索条件に一致するか判定するコールバックです。
-         * @param element 処理対象の要素です。
-         * @returns 条件に一致した要素、または該当しない場合はundefinedを返します。
+         * get・bounding・client・rectが条件に一致する最初の要素を取得する。
+         * @param element - 要素のget・bounding・client・rectを参照する走査対象。
+         * @returns 条件に一致した最初の要素。未検出時はundefined。
          */
         (element) => element.getBoundingClientRect().bottom > (bounds?.top ?? 0) + 1);
     const blockBounds = block?.getBoundingClientRect();
@@ -1613,8 +1607,8 @@ try {
   }
   const beforeTopInsertion = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns 「document.querySelector」を実行し、値を返しません。
+   * ブラウザー内の「.split-preview」を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => {
     const preview = document.querySelector('.split-preview');
@@ -1626,9 +1620,9 @@ try {
       ?? [...(preview?.querySelectorAll('[data-source-from]') ?? [])]
         .find(
         /**
- * 「element」が検索条件に一致するか判定するコールバックです。
-         * @param element 処理対象の要素です。
-         * @returns 条件に一致した要素、または該当しない場合はundefinedを返します。
+         * get・bounding・client・rectが条件に一致する最初の要素を取得する。
+         * @param element - 要素のget・bounding・client・rectを参照する走査対象。
+         * @returns 条件に一致した最初の要素。未検出時はundefined。
          */
         (element) => element.getBoundingClientRect().bottom > (previewBounds?.top ?? 0) + 1);
     const blockBounds = previewBlock?.getBoundingClientRect();
@@ -1647,17 +1641,17 @@ try {
   });
   const { insertedLength: topInsertionLength, documentLength: expectedTopInsertionDocumentLength } = await page.evaluate(
   /**
- * Webviewへメッセージイベントを発火する処理を実行するコールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * Host側の本文状態のfrom結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => {
     const baseVersion = window.__mveHostVersion;
     const prefix = Array.from({ length: 40 },
     /**
- * 「_」「index」を受け取り、Webviewへメッセージイベントを発火する処理です。
-     * @param _ 呼び出し側が渡すが、このコールバックでは使用しない値です。
-     * @param index 本文、表、配列内の対象位置を示すインデックスです。
-     * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+     * スモーク検証・高速のコールバックとして・を処理する。
+     * @param _ - 引数位置を維持するための未使用値。
+     * @param index - 配列・行列・文字列の要素位置を示す番号。
+     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     (_, index) => `# inserted-${index}\n\nbody\n\n`).join('');
     const change = { rangeOffset: 0, rangeLength: 0, text: prefix };
@@ -1671,9 +1665,9 @@ try {
   try {
     await page.waitForFunction(
     /**
- * 非同期処理の失敗理由を受け取り、回復処理または代替値を生成するコールバックです。
-     * @param expectedLength expectedLengthとして渡される、このコールバックの入力値です。
-     * @returns 「expectedLength」から生成した処理結果を返します。
+     * ブラウザー内に「.split-preview .rendered-markdown」が現れるまで待機する。
+     * @param expectedLength - ブラウザー内で評価するコールバック。
+     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     (expectedLength) => (
       Number(document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-document-length')) === expectedLength
@@ -1681,17 +1675,17 @@ try {
   } catch (error) {
     const state = await page.evaluate(
     /**
-     * Promiseの失敗理由を受け取り、エラー表示またはフォールバックを実行するコールバックです。
-     * @returns エラー処理またはフォールバックの結果を返します。
+     * ブラウザー内の「.source-editor」を読み取り、検証用の値へ変換する。
+     * @returns ブラウザー内で読み取った値または変換結果。
      */
     () => ({
       sourceLength: document.querySelector('.source-editor')?.getAttribute('data-document-length'),
       previewLength: document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-document-length'),
       workerMeasures: performance.getEntriesByName('mve-preview-markdown-worker').map(
       /**
- * 「entry」を変換し、変換後の要素を返すコールバックです。
-       * @param entry entryとして渡される、このコールバックの入力値です。
-       * @returns 入力要素から生成した変換後の値を返します。
+       * 各エントリからdurationを取り出して一覧化する。
+       * @param entry - エントリのdurationを参照する走査対象。
+       * @returns durationを取り出した変換結果の一覧。
        */
       (entry) => entry.duration)
     }));
@@ -1700,9 +1694,9 @@ try {
   try {
     await page.waitForFunction(
     /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはsourceOffset、previewOffset、insertedLengthです。
-     * @returns 期待条件の真偽値または条件に一致した要素を返します。
+     * ブラウザー内に「.source-editor」が現れるまで待機する。
+     * @param options - ブラウザー内で評価するコールバック。
+     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     ({ sourceOffset, previewOffset, insertedLength }) => {
       const currentSource = Number(document.querySelector('.source-editor')?.getAttribute('data-viewport-offset'));
@@ -1716,9 +1710,9 @@ try {
         ?? [...(preview?.querySelectorAll('[data-source-from]') ?? [])]
           .find(
           /**
- * 「element」が検索条件に一致するか判定するコールバックです。
-           * @param element 処理対象の要素です。
-           * @returns 条件に一致した要素、または該当しない場合はundefinedを返します。
+           * get・bounding・client・rectが条件に一致する最初の要素を取得する。
+           * @param element - 要素のget・bounding・client・rectを参照する走査対象。
+           * @returns 条件に一致した最初の要素。未検出時はundefined。
            */
           (element) => element.getBoundingClientRect().bottom > (previewBounds?.top ?? 0) + 1);
       const blockBounds = previewBlock?.getBoundingClientRect();
@@ -1738,8 +1732,8 @@ try {
   } catch (error) {
     const anchorState = await page.evaluate(
     /**
-     * Promiseの失敗理由を受け取り、エラー表示またはフォールバックを実行するコールバックです。
-     * @returns エラー処理またはフォールバックの結果を返します。
+     * ブラウザー内の「.split-preview」を読み取り、検証用の値へ変換する。
+     * @returns ブラウザー内で読み取った値または変換結果。
      */
     () => {
       const preview = document.querySelector('.split-preview');
@@ -1751,9 +1745,9 @@ try {
         ?? [...(preview?.querySelectorAll('[data-source-from]') ?? [])]
           .find(
           /**
- * 「element」が検索条件に一致するか判定するコールバックです。
-           * @param element 処理対象の要素です。
-           * @returns 条件に一致した要素、または該当しない場合はundefinedを返します。
+           * get・bounding・client・rectが条件に一致する最初の要素を取得する。
+           * @param element - 要素のget・bounding・client・rectを参照する走査対象。
+           * @returns 条件に一致した最初の要素。未検出時はundefined。
            */
           (element) => element.getBoundingClientRect().bottom > (previewBounds?.top ?? 0) + 1);
       const blockBounds = previewBlock?.getBoundingClientRect();
@@ -1777,8 +1771,8 @@ try {
   }
   const afterTopInsertion = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns 「document.querySelector」を実行し、値を返しません。
+   * ブラウザー内の「.split-preview」を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => {
     const preview = document.querySelector('.split-preview');
@@ -1790,9 +1784,9 @@ try {
       ?? [...(preview?.querySelectorAll('[data-source-from]') ?? [])]
         .find(
         /**
- * 「element」が検索条件に一致するか判定するコールバックです。
-         * @param element 処理対象の要素です。
-         * @returns 条件に一致した要素、または該当しない場合はundefinedを返します。
+         * get・bounding・client・rectが条件に一致する最初の要素を取得する。
+         * @param element - 要素のget・bounding・client・rectを参照する走査対象。
+         * @returns 条件に一致した最初の要素。未検出時はundefined。
          */
         (element) => element.getBoundingClientRect().bottom > (previewBounds?.top ?? 0) + 1);
     const blockBounds = previewBlock?.getBoundingClientRect();
@@ -1828,20 +1822,20 @@ try {
   await page.waitForTimeout(350);
   if (!(await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns Webviewの状態から取得した値を返します。
+   * Host側の本文状態のincludes結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => window.__mveHostText.includes('second  \nXY')))) throw new Error('blank-line edit moved the caret');
   if (await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns Webviewの状態から取得した値を返します。
+   * Host側の本文状態のincludes結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => window.__mveHostText.includes('\r'))) throw new Error('host protocol text is not LF-normalized');
   const queuedMessageStart = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns DOM検索で得た要素または状態を返します。
+   * HostとWebviewのメッセージ状態を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => {
     window.__mveAckDelay = 500;
@@ -1853,18 +1847,18 @@ try {
   await page.waitForTimeout(1_200);
   const queuedOperations = await page.evaluate(
   /**
- * 「start」を受け取り、検証対象のJSONペイロードを生成する処理です。
-   * @param start startとして渡される、このコールバックの入力値です。
-   * @returns 「start」が開始した処理の結果または非同期Promiseを返します。
+   * ブラウザー内の「.cm-content」を読み取り、検証用の値へ変換する。
+   * @param start - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (start) => {
     window.__mveAckDelay = 0;
     return {
       operations: window.__mveMessages.slice(start).filter(
       /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-       * @param message 処理対象のメッセージです。
-       * @returns 要素を採用するかどうかの真偽値を返します。
+       * 種別「localChanges」のメッセージだけを残す。
+       * @param message - メッセージのtypeを参照する走査対象。
+       * @returns 条件を満たした要素だけを含む一覧。
        */
       (message) => message.type === 'localChanges'),
       hostText: window.__mveHostText,
@@ -1881,8 +1875,8 @@ try {
   await page.waitForTimeout(50);
   if (!(await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns Webviewの状態から取得した値を返します。
+   * Host側の本文状態のstarts・with結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => window.__mveHostText.startsWith('# inserted-0\n')))) {
     throw new Error('undo incorrectly reverted an external host change');
@@ -1894,20 +1888,20 @@ try {
   await focusTarget.click();
   await page.waitForFunction(
   /**
- * Webviewへメッセージイベントを発火する処理を実行するコールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * ブラウザーのDOM状態が完了条件を満たすまで待機する。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => document.activeElement?.getAttribute('aria-label') === '検索文字列');
   const activeBeforeBlurSync = await page.evaluate(
   /**
- * Webviewへメッセージイベントを発火する処理を実行するコールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * ブラウザーのDOM状態のget・attribute結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.textContent);
   await page.evaluate(
   /**
- * Webviewへメッセージイベントを発火する処理を実行するコールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * Host側の本文状態のdispatch・event結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => {
     const baseVersion = window.__mveHostVersion;
@@ -1921,8 +1915,8 @@ try {
   await page.waitForTimeout(50);
   const activeAfterBlurSync = await page.evaluate(
   /**
- * 検証対象のJSONペイロードを生成する処理を実行するコールバックです。
-   * @returns Webviewの状態から取得した値を返します。
+   * ブラウザーのDOM状態のget・attribute結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.textContent);
   if (activeAfterBlurSync !== activeBeforeBlurSync) {
@@ -1931,22 +1925,22 @@ try {
   await page.getByRole('tab', { name: '表示', exact: true }).click();
   const openSourceMessageStart = await page.evaluate(
   /**
- * 登録された処理が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
-   * @returns Webviewの状態から取得した値を返します。
+   * HostとWebviewのメッセージ状態を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => window.__mveMessages.length);
   await page.getByRole('button', { name: 'テキストを右側に開く', exact: true }).click();
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @param start startとして渡される、このコールバックの入力値です。
-   * @returns 「start」が開始した処理の結果または非同期Promiseを返します。
+   * HostとWebviewのメッセージ状態が完了条件を満たすまで待機する。
+   * @param start - ブラウザー内で評価するコールバック。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (start) => window.__mveMessages.slice(start).some(
   /**
- * 「message」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
-   * @param message 処理対象のメッセージです。
-   * @returns 条件判定の結果を示す真偽値を返します。
+   * スモーク検証・高速のコールバックとしてメッセージを処理する。
+   * @param message - HostとWebviewの間で受け渡すメッセージ。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (message) => message.type === 'openSource'), openSourceMessageStart);
   const outline = page.locator('[title="アウトラインの表示/非表示"]');
@@ -1959,8 +1953,8 @@ try {
   await page.locator('.outline-panel').waitFor({ state: 'hidden' });
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @returns 期待条件の真偽値または条件に一致した要素を返します。
+   * Webviewの共有設定が完了条件を満たすまで待機する。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveGlobalSettings.outlineVisible === false);
   await page.waitForTimeout(300);
@@ -1968,8 +1962,8 @@ try {
   await page.locator('.outline-panel').waitFor();
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @returns 期待条件の真偽値または条件に一致した要素を返します。
+   * Webviewの共有設定が完了条件を満たすまで待機する。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveGlobalSettings.outlineVisible === true);
   await page.getByRole('button', { name: '検索', exact: true }).click();
@@ -1978,8 +1972,8 @@ try {
   await page.locator('.search-panel').getByRole('button', { name: '閉じる', exact: true }).click();
   const formatMessageStart = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns Webviewの状態から取得した値を返します。
+   * HostとWebviewのメッセージ状態を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => window.__mveMessages.length);
   await page.getByRole('tab', { name: 'ホーム', exact: true }).click();
@@ -1987,23 +1981,23 @@ try {
   await page.waitForTimeout(100);
   const formatOperation = await page.evaluate(
   /**
- * 「start」を受け取り、検証対象のJSONペイロードを生成する処理です。
-   * @param start startとして渡される、このコールバックの入力値です。
-   * @returns 「start」が開始した処理の結果または非同期Promiseを返します。
+   * HostとWebviewのメッセージ状態のslice結果を読み取り、検証用の値へ変換する。
+   * @param start - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (start) => window.__mveMessages
     .slice(start)
     .find(
     /**
- * 「message」が検索条件に一致するか判定するコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns 条件に一致した要素、または該当しない場合はundefinedを返します。
+     * typeが条件に一致する最初のメッセージを取得する。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件に一致した最初の要素。未検出時はundefined。
      */
     (message) => message.type === 'localChanges'), formatMessageStart);
   const expectedFormatOffset = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns Webviewの状態から取得した値を返します。
+   * Host側の本文状態のindex・of結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => window.__mveHostText.indexOf('**Long section 150**'));
   if (!formatOperation || formatOperation.changes.length !== 1
@@ -2026,39 +2020,39 @@ try {
   await scrollSync.click();
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @returns 期待条件の真偽値または条件に一致した要素を返します。
+   * ブラウザー内に「button[title=」が現れるまで待機する。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => document.querySelector('button[title="テキストとプレビューのスクロール位置を同期します"]')?.getAttribute('aria-pressed') === 'false');
   const scrollSyncDisabledMessage = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * HostとWebviewのメッセージ状態のreverse結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => [...window.__mveMessages]
     .reverse()
     .find(
     /**
- * 「message」が検索条件に一致するか判定するコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+     * typeが条件に一致する最初のメッセージを取得する。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件に一致した最初の要素。未検出時はundefined。
      */
     (message) => message.type === 'setScrollSyncEnabled'));
   if (scrollSyncDisabledMessage?.enabled !== false) throw new Error(`scroll sync OFF was not sent to host: ${JSON.stringify(scrollSyncDisabledMessage)}`);
   await page.waitForTimeout(300);
   const previewBeforeDisabledSourceScroll = await page.locator('.split-preview').evaluate(
   /**
- * 「element」を受け取り、検証対象のJSONペイロードを生成する処理です。
-   * @param element 処理対象の要素です。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * ブラウザー内の状態を読み取り、検証用の値へ変換する。
+   * @param element - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => element.scrollTop);
   await page.locator('.cm-scroller').dispatchEvent('wheel', { deltaY: 1 });
   await page.locator('.cm-scroller').evaluate(
   /**
- * 「element」を受け取り、Webviewへメッセージイベントを発火する処理です。
-   * @param element 処理対象の要素です。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * ブラウザー内の状態を読み取り、検証用の値へ変換する。
+   * @param element - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => {
     const maximum = element.scrollHeight - element.clientHeight;
@@ -2067,8 +2061,8 @@ try {
   await page.waitForTimeout(150);
   const disabledScrollPositions = await page.evaluate(
   /**
- * （source、preview、pane、data、type）を持つオブジェクトを初期化して返すコールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * ブラウザー内の「.cm-scroller」を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => ({
     source: document.querySelector('.cm-scroller')?.scrollTop ?? 0,
@@ -2079,48 +2073,48 @@ try {
   }
   await page.evaluate(
   /**
- * 「text」「version」を受け取り、Webviewへメッセージイベントを発火する処理です。
-   * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはtext、versionです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * Webviewの共有設定のdispatch・event結果を読み取り、検証用の値へ変換する。
+   * @param options - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   ({ text, version }) => window.dispatchEvent(new MessageEvent('message', {
     data: { type: 'init', text, version, uri: 'file:///C:/another-document.md', settings: window.__mveGlobalSettings }
   })), { text: await page.evaluate(
   /**
- * Webviewへメッセージイベントを発火する処理を実行するコールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * Host側の本文状態を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => window.__mveHostText), version: await page.evaluate(
   /**
- * Webviewへメッセージイベントを発火する処理を実行するコールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * Webviewの実行状態を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => window.__mveHostVersion) });
   await outline.click();
   await page.locator('.outline-panel').waitFor({ state: 'hidden' });
   await page.waitForFunction(
   /**
- * Webviewへメッセージイベントを発火する処理を実行するコールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * Webviewの共有設定が完了条件を満たすまで待機する。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveGlobalSettings.outlineVisible === false);
   await page.evaluate(
   /**
- * 「text」「version」を受け取り、Webviewへメッセージイベントを発火する処理です。
-   * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはtext、versionです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * Webviewの共有設定のdispatch・event結果を読み取り、検証用の値へ変換する。
+   * @param options - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   ({ text, version }) => window.dispatchEvent(new MessageEvent('message', {
     data: { type: 'init', text, version, uri: 'file:///C:/third-document.md', settings: window.__mveGlobalSettings }
   })), { text: await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns DOM検索で得た要素または状態を返します。
+   * Host側の本文状態を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => window.__mveHostText), version: await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * Webviewの実行状態を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => window.__mveHostVersion) });
   await page.locator('.outline-panel').waitFor({ state: 'hidden' });
@@ -2131,14 +2125,14 @@ try {
   await scrollSync.click();
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * ブラウザー内に「button[title=」が現れるまで待機する。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => document.querySelector('button[title="テキストとプレビューのスクロール位置を同期します"]')?.getAttribute('aria-pressed') === 'true');
   await page.evaluate(
   /**
- * 検証対象のJSONペイロードを生成する処理を実行するコールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * Webviewの実行状態を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => {
     window.__mveDebugEnabled = true;
@@ -2147,16 +2141,16 @@ try {
   await page.locator('.cm-scroller').dispatchEvent('wheel', { deltaY: -10_000 });
   await page.locator('.cm-scroller').evaluate(
   /**
- * 「element」を受け取り、検証対象のJSONペイロードを生成する処理です。
-   * @param element 処理対象の要素です。
-   * @returns 「page.waitForTimeout」を実行し、値を返しません。
+   * ブラウザー内の状態を読み取り、検証用の値へ変換する。
+   * @param element - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => { element.scrollTop = 0; });
   await page.waitForTimeout(150);
   const topScrollState = await page.evaluate(
   /**
- * （source、preview、top、at、gap）を持つオブジェクトを初期化して返すコールバックです。
-   * @returns 初期化したオブジェクト（source、preview、top、at、gap）を返します。
+   * ブラウザー内の「.cm-scroller」を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => ({
     source: document.querySelector('.cm-scroller')?.scrollTop ?? Number.POSITIVE_INFINITY,
@@ -2167,15 +2161,15 @@ try {
   }
   await page.evaluate(
   /**
- * 処理結果を生成する処理を実行するコールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * ブラウザー内の「.split-preview」を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => {
     window.__mveBottomScrollSamples = [];
     window.__mveBottomScrollSampler = window.setInterval(
     /**
- * 処理結果を生成する処理を実行するコールバックです。
-     * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+     * 要素をquery・selectorへ渡し、スモーク検証・高速の結果または副作用を処理する。
+     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     () => {
       const preview = document.querySelector('.split-preview');
@@ -2189,16 +2183,16 @@ try {
   await page.locator('.cm-scroller').dispatchEvent('wheel', { deltaY: 10_000 });
   await page.locator('.cm-scroller').evaluate(
   /**
- * 「element」を受け取り、処理結果を生成する処理です。
-   * @param element 処理対象の要素です。
-   * @returns 「element」から生成した処理結果を返します。
+   * ブラウザー内の状態を読み取り、検証用の値へ変換する。
+   * @param element - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => { element.scrollTop = element.scrollHeight; });
   await page.waitForTimeout(800);
   const bottomScrollState = await page.evaluate(
   /**
- * 処理結果を生成する処理を実行するコールバックです。
-   * @returns DOM検索で得た要素または状態を返します。
+   * ブラウザー内の「.cm-scroller」を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => {
     window.clearInterval(window.__mveBottomScrollSampler);
@@ -2210,9 +2204,9 @@ try {
       previewGap: preview ? preview.scrollHeight - preview.clientHeight - preview.scrollTop : Number.POSITIVE_INFINITY,
       minimumPreviewGap: samples.length ? Math.min(...samples.map(
       /**
- * 「sample」を変換し、変換後の要素を返すコールバックです。
-       * @param sample sampleとして渡される、このコールバックの入力値です。
-       * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+       * 各sampleからgapを取り出して一覧化する。
+       * @param sample - sampleのgapを参照する走査対象。
+       * @returns gapを取り出した変換結果の一覧。
        */
       (sample) => sample.gap)) : Number.POSITIVE_INFINITY,
       samples: samples.slice(-12),
@@ -2225,16 +2219,16 @@ try {
   await page.locator('.split-preview').dispatchEvent('wheel', { deltaY: -10_000 });
   await page.locator('.split-preview').evaluate(
   /**
- * 「element」を受け取り、検証対象のJSONペイロードを生成する処理です。
-   * @param element 処理対象の要素です。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * ブラウザー内の状態を読み取り、検証用の値へ変換する。
+   * @param element - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => { element.scrollTop = 0; });
   await page.waitForTimeout(150);
   const reverseTopScrollState = await page.evaluate(
   /**
- * （source、preview、top、deltaY）を持つオブジェクトを初期化して返すコールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * ブラウザー内の「.cm-scroller」を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => ({
     source: document.querySelector('.cm-scroller')?.scrollTop ?? Number.POSITIVE_INFINITY,
@@ -2246,16 +2240,16 @@ try {
   await page.locator('.split-preview').dispatchEvent('wheel', { deltaY: 10_000 });
   await page.locator('.split-preview').evaluate(
   /**
- * 「element」を受け取り、検証対象のJSONペイロードを生成する処理です。
-   * @param element 処理対象の要素です。
-   * @returns 「element」から生成した処理結果を返します。
+   * ブラウザー内の状態を読み取り、検証用の値へ変換する。
+   * @param element - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => { element.scrollTop = element.scrollHeight; });
   await page.waitForTimeout(300);
   const reverseBottomScrollState = await page.evaluate(
   /**
- * 検証対象のJSONペイロードを生成する処理を実行するコールバックです。
-   * @returns DOM検索で得た要素または状態を返します。
+   * ブラウザー内の「.cm-scroller」を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => {
     const source = document.querySelector('.cm-scroller');
@@ -2272,9 +2266,9 @@ try {
   const divider = page.locator('.split-divider');
   const before = await page.locator('.split-editor').evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @param element 処理対象の要素です。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * ブラウザー内の状態のget・computed・style結果を読み取り、検証用の値へ変換する。
+   * @param element - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => getComputedStyle(element).gridTemplateColumns);
   const bounds = await divider.boundingBox();
@@ -2285,9 +2279,9 @@ try {
   await page.mouse.up();
   const after = await page.locator('.split-editor').evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @param element 処理対象の要素です。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * ブラウザー内の状態のget・computed・style結果を読み取り、検証用の値へ変換する。
+   * @param element - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => getComputedStyle(element).gridTemplateColumns);
   if (before === after) throw new Error('split divider did not resize');
@@ -2295,16 +2289,16 @@ try {
   await page.locator('.editor-area').dispatchEvent('wheel', { deltaY: -100, ctrlKey: true });
   await page.waitForFunction(
   /**
- * 「value」を受け取り、検証対象のJSONペイロードを生成する処理です。
-   * @param value 「value」で検証・変換する入力値です。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * ブラウザー内に「.status-bar」が現れるまで待機する。
+   * @param value - ブラウザー内で評価するコールバック。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (value) => document.querySelector('.status-bar')?.textContent !== value, zoomBefore);
   await page.waitForTimeout(300);
   const resizedBottomScrollState = await page.evaluate(
   /**
- * 検証対象のJSONペイロードを生成する処理を実行するコールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * ブラウザー内の「.cm-scroller」を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => {
     window.__mveDebugEnabled = false;
@@ -2322,16 +2316,16 @@ try {
   await page.locator('.cm-scroller').dispatchEvent('wheel', { deltaY: 1 });
   await page.locator('.cm-scroller').evaluate(
   /**
- * 「element」を受け取り、登録された副作用または結果を生成する処理です。
-   * @param element 処理対象の要素です。
-   * @returns 「page.waitForTimeout」を実行し、値を返しません。
+   * ブラウザー内の状態を読み取り、検証用の値へ変換する。
+   * @param element - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => { element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.55; });
   await page.waitForTimeout(150);
   const anchorsBeforeModeChange = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns 「document.querySelector」を実行し、値を返しません。
+   * ブラウザー内の「.split-preview」を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => {
     const preview = document.querySelector('.split-preview');
@@ -2343,9 +2337,9 @@ try {
       ?? [...(preview?.querySelectorAll('[data-source-from]') ?? [])]
         .find(
         /**
- * 「element」が検索条件に一致するか判定するコールバックです。
-         * @param element 処理対象の要素です。
-         * @returns 条件に一致した要素、または該当しない場合はundefinedを返します。
+         * get・bounding・client・rectが条件に一致する最初の要素を取得する。
+         * @param element - 要素のget・bounding・client・rectを参照する走査対象。
+         * @returns 条件に一致した最初の要素。未検出時はundefined。
          */
         (element) => element.getBoundingClientRect().bottom > (previewBounds?.top ?? 0) + 1);
     const blockBounds = previewBlock?.getBoundingClientRect();
@@ -2369,8 +2363,8 @@ try {
   await page.waitForTimeout(500);
   const anchorsAfterWindowResize = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns 「document.querySelector」を実行し、値を返しません。
+   * ブラウザー内の「.split-preview」を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => {
     const preview = document.querySelector('.split-preview');
@@ -2382,9 +2376,9 @@ try {
       ?? [...(preview?.querySelectorAll('[data-source-from]') ?? [])]
         .find(
         /**
- * 「element」が検索条件に一致するか判定するコールバックです。
-         * @param element 処理対象の要素です。
-         * @returns 条件に一致した要素、または該当しない場合はundefinedを返します。
+         * get・bounding・client・rectが条件に一致する最初の要素を取得する。
+         * @param element - 要素のget・bounding・client・rectを参照する走査対象。
+         * @returns 条件に一致した最初の要素。未検出時はundefined。
          */
         (element) => element.getBoundingClientRect().bottom > (previewBounds?.top ?? 0) + 1);
     const blockBounds = previewBlock?.getBoundingClientRect();
@@ -2418,9 +2412,9 @@ try {
   await page.locator('.split-preview').waitFor({ state: 'hidden' });
   await page.waitForFunction(
   /**
- * 「target」を受け取り、処理結果を生成する処理です。
-   * @param target 処理対象の対象です。
-   * @returns 「target」から生成した処理結果を返します。
+   * ブラウザー内に「.source-editor」が現れるまで待機する。
+   * @param target - ブラウザー内で評価するコールバック。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (target) => {
     const editor = document.querySelector('.source-editor');
@@ -2434,8 +2428,8 @@ try {
   }
   const sourceAfterModeChange = await page.evaluate(
   /**
- * 検証対象のJSONペイロードを生成する処理を実行するコールバックです。
-   * @returns DOM検索で得た要素または状態を返します。
+   * ブラウザー内の「.source-editor」を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => {
     return {
@@ -2453,8 +2447,8 @@ try {
   await page.waitForTimeout(50);
   const previewAfterModeChange = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns 「document.querySelector」を実行し、値を返しません。
+   * ブラウザー内の「.split-preview」を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => {
     const preview = document.querySelector('.split-preview');
@@ -2466,9 +2460,9 @@ try {
       ?? [...(preview?.querySelectorAll('[data-source-from]') ?? [])]
         .find(
         /**
- * 「element」が検索条件に一致するか判定するコールバックです。
-         * @param element 処理対象の要素です。
-         * @returns 条件に一致した要素、または該当しない場合はundefinedを返します。
+         * get・bounding・client・rectが条件に一致する最初の要素を取得する。
+         * @param element - 要素のget・bounding・client・rectを参照する走査対象。
+         * @returns 条件に一致した最初の要素。未検出時はundefined。
          */
         (element) => element.getBoundingClientRect().bottom > (previewBounds?.top ?? 0) + 1);
     const blockBounds = previewBlock?.getBoundingClientRect();
@@ -2491,8 +2485,8 @@ try {
 
   const previewOnlyOutlineOffset = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns DOM検索で得た要素または状態を返します。
+   * Host側の本文状態のindex・of結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => window.__mveHostText.indexOf('## Long section 120'));
   await page.getByRole('button', { name: 'Long section 120', exact: true }).click();
@@ -2502,18 +2496,18 @@ try {
   }
   await page.waitForFunction(
   /**
- * 「target」を受け取り、処理結果を生成する処理です。
-   * @param target 処理対象の対象です。
-   * @returns 「target」から生成した処理結果を返します。
+   * ブラウザー内に「.split-preview」が現れるまで待機する。
+   * @param target - ブラウザー内で評価するコールバック。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (target) => {
     const preview = document.querySelector('.split-preview');
     const previewBounds = preview?.getBoundingClientRect();
     const targetBlock = [...(preview?.querySelectorAll('[data-source-from]') ?? [])].find(
     /**
- * 「element」が検索条件に一致するか判定するコールバックです。
-     * @param element 処理対象の要素です。
-     * @returns 条件に一致した要素、または該当しない場合はundefinedを返します。
+     * get・attributeが条件に一致する最初の要素を取得する。
+     * @param element - 要素のget・attributeを参照する走査対象。
+     * @returns 条件に一致した最初の要素。未検出時はundefined。
      */
     (element) => {
       const from = Number(element.getAttribute('data-source-from'));
@@ -2531,15 +2525,15 @@ try {
   await page.getByRole('button', { name: 'Long section 120', exact: true }).click();
   const caretBeforePreview = await page.evaluate(
   /**
- * 処理結果を生成する処理を実行するコールバックです。
-   * @returns DOM検索で得た要素または状態を返します。
+   * Host側の本文状態のindex・of結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => window.__mveHostText.indexOf('## Long section 120'));
   await page.waitForFunction(
   /**
- * 「target」を受け取り、処理結果を生成する処理です。
-   * @param target 処理対象の対象です。
-   * @returns 「target」から生成した処理結果を返します。
+   * ブラウザー内に「.source-editor」が現れるまで待機する。
+   * @param target - ブラウザー内で評価するコールバック。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (target) => {
     const from = Number(document.querySelector('.source-editor')?.getAttribute('data-viewport-offset'));
@@ -2548,18 +2542,18 @@ try {
   }, caretBeforePreview);
   await page.waitForFunction(
   /**
- * 「target」を受け取り、処理結果を生成する処理です。
-   * @param target 処理対象の対象です。
-   * @returns 「target」から生成した処理結果を返します。
+   * ブラウザー内に「.split-preview」が現れるまで待機する。
+   * @param target - ブラウザー内で評価するコールバック。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (target) => {
     const preview = document.querySelector('.split-preview');
     const previewBounds = preview?.getBoundingClientRect();
     const targetBlock = [...(preview?.querySelectorAll('.markdown-source-block') ?? [])].find(
     /**
- * 「element」が検索条件に一致するか判定するコールバックです。
-     * @param element 処理対象の要素です。
-     * @returns 条件に一致した要素、または該当しない場合はundefinedを返します。
+     * get・attributeが条件に一致する最初の要素を取得する。
+     * @param element - 要素のget・attributeを参照する走査対象。
+     * @returns 条件に一致した最初の要素。未検出時はundefined。
      */
     (element) => {
       const from = Number(element.getAttribute('data-source-from'));
@@ -2574,18 +2568,18 @@ try {
   await page.waitForTimeout(400);
   const outlineSplitState = await page.evaluate(
   /**
- * 「target」を受け取り、処理結果を生成する処理です。
-   * @param target 処理対象の対象です。
-   * @returns 「target」から生成した処理結果を返します。
+   * ブラウザー内の「.split-preview」を読み取り、検証用の値へ変換する。
+   * @param target - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (target) => {
     const preview = document.querySelector('.split-preview');
     const previewBounds = preview?.getBoundingClientRect();
     const targetBlock = [...(preview?.querySelectorAll('.markdown-source-block') ?? [])].find(
     /**
- * 「element」が検索条件に一致するか判定するコールバックです。
-     * @param element 処理対象の要素です。
-     * @returns 条件に一致した要素、または該当しない場合はundefinedを返します。
+     * get・attributeが条件に一致する最初の要素を取得する。
+     * @param element - 要素のget・attributeを参照する走査対象。
+     * @returns 条件に一致した最初の要素。未検出時はundefined。
      */
     (element) => {
       const from = Number(element.getAttribute('data-source-from'));
@@ -2618,25 +2612,25 @@ try {
   await page.waitForTimeout(50);
   const printPreviewAnchor = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns DOM検索で得た要素または状態を返します。
+   * ブラウザー内の「.editor-area」を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => {
     const container = document.querySelector('.editor-area');
     const top = container?.getBoundingClientRect().top ?? 0;
     return [...document.querySelectorAll('.pdf-preview-content [data-source-from]')].find(
     /**
- * 「element」が検索条件に一致するか判定するコールバックです。
-     * @param element 処理対象の要素です。
-     * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+     * get・bounding・client・rectが条件に一致する最初の要素を取得する。
+     * @param element - 要素のget・bounding・client・rectを参照する走査対象。
+     * @returns 条件に一致した最初の要素。未検出時はundefined。
      */
     (element) => element.getBoundingClientRect().bottom > top + 1)?.getAttribute('data-source-from');
   });
   if (printPreviewAnchor !== String(caretBeforePreview)) throw new Error(`print preview mode did not preserve the preview anchor: expected=${caretBeforePreview}, actual=${printPreviewAnchor}`);
   const previewPrefixLength = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * Host側の本文状態のdispatch・event結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => {
     const baseVersion = window.__mveHostVersion;
@@ -2659,9 +2653,9 @@ try {
   await page.waitForTimeout(100);
   const selectionRestored = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはoffset、prefixLengthです。
-   * @returns 「offset」「prefixLength」から生成した処理結果を返します。
+   * Host側の本文状態のslice結果を読み取り、検証用の値へ変換する。
+   * @param options - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   ({ offset, prefixLength }) =>
     window.__mveHostText.slice(offset + prefixLength, offset + prefixLength + 1) === '!',
@@ -2669,42 +2663,42 @@ try {
   if (!selectionRestored) throw new Error('preview-only external insertion did not map the unmounted source selection');
   await page.evaluate(
   /**
- * 登録された処理を受け取り、イベントに応じた状態更新または委譲処理を実行するコールバックです。
-   * @returns 「for」を実行し、値を返しません。
+   * ブラウザーのDOM状態のfor結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => {
     window.__mveImeEvents = [];
     for (const type of ['compositionstart', 'compositionupdate', 'compositionend', 'beforeinput', 'input']) {
       document.addEventListener(type,
       /**
-       * イベント情報を「event」を受け取り、DOMまたは画面状態を更新するコールバックです。
-       * @param event 処理対象のイベントです。
-       * @returns 「event」から生成した処理結果を返します。
+       * イベントで一覧追加を実行する。
+       * @param event - ユーザー操作またはDOMから通知されたイベント。
+       * @returns 副作用を完了し、値は返さない。
        */
       (event) => window.__mveImeEvents.push({ type, data: event.data, inputType: event.inputType }), true);
     }
   });
   const imeStart = await page.evaluate(
   /**
-   * DOMイベントを受け取り、対象UIの状態またはイベント購読を更新するコールバックです。
-   * @returns DOM検索で得た要素または状態を返します。
+   * ブラウザー内の「.source-editor」を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => Number(document.querySelector('.source-editor')?.getAttribute('data-selection-from')));
   await cdp.send('Input.imeSetComposition', { text: '変', selectionStart: 1, selectionEnd: 1 });
   await page.waitForTimeout(10);
   const imeAfterFirst = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * ブラウザー内の「.cm-content」を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => ({
     hostTail: window.__mveHostText.slice(-50),
     editorTail: document.querySelector('.cm-content')?.textContent?.slice(-50),
     localCount: window.__mveMessages.filter(
     /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns 要素を採用するかどうかの真偽値を返します。
+     * 種別「localChanges」のメッセージだけを残す。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件を満たした要素だけを含む一覧。
      */
     (message) => message.type === 'localChanges').length,
     events: window.__mveImeEvents
@@ -2712,8 +2706,8 @@ try {
   await page.waitForTimeout(10);
   await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * Host側の本文状態のdispatch・event結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => {
     const baseVersion = window.__mveHostVersion;
@@ -2732,8 +2726,8 @@ try {
   await page.waitForTimeout(250);
   const imeResult = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns 初期化したオブジェクト（hasInput、hasExternal、tail、resyncs、editorTail）を返します。
+   * ブラウザー内の「.cm-content」を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => ({
     hasInput: window.__mveHostText.includes('変'),
@@ -2741,9 +2735,9 @@ try {
     tail: window.__mveHostText.slice(-80),
     resyncs: window.__mveMessages.filter(
     /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns 要素を採用するかどうかの真偽値を返します。
+     * 種別「requestResync」のメッセージだけを残す。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件を満たした要素だけを含む一覧。
      */
     (message) => message.type === 'requestResync').length,
     editorTail: document.querySelector('.cm-content')?.textContent?.slice(-80),
@@ -2761,30 +2755,30 @@ try {
 
   const unackedResyncStart = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * HostとWebviewのメッセージ状態のfilter結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => {
     window.__mveHoldLocalOperations = true;
     return window.__mveMessages.filter(
     /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns 要素を採用するかどうかの真偽値を返します。
+     * 種別「requestResync」のメッセージだけを残す。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件を満たした要素だけを含む一覧。
      */
     (message) => message.type === 'requestResync').length;
   });
   await page.locator('.cm-content').press('u');
   await page.waitForFunction(
   /**
-   * 配列要素を採用するか判定するコールバックです。
-   * @returns 要素を採用するかどうかの真偽値を返します。
+   * Webviewの実行状態が完了条件を満たすまで待機する。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveHeldOperations.length === 1);
   await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * Host側の本文状態のshift結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => {
     const operation = window.__mveHeldOperations.shift();
@@ -2804,9 +2798,9 @@ try {
     }));
     const mappedChanges = operation.changes.map(
     /**
- * 「change」を変換し、変換後の要素を返すコールバックです。
-     * @param change changeとして渡される、このコールバックの入力値です。
-     * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+     * 各changeからrange・offsetを取り出して一覧化する。
+     * @param change - changeのrange・offsetを参照する走査対象。
+     * @returns range・offsetを取り出した変換結果の一覧。
      */
     (change) => ({
       ...change,
@@ -2815,10 +2809,10 @@ try {
     const ackBaseVersion = window.__mveHostVersion;
     for (const change of [...mappedChanges].sort(
     /**
- * 「left」「right」を比較し、並び順を示す数値を返すコールバックです。
-     * @param left 比較対象の左側の値です。
-     * @param right 比較対象の右側の値です。
-     * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+     * 2つの値を比較して並び順を決める。
+     * @param left - 比較対象の左側の値。
+     * @param right - 比較対象の右側の値。
+     * @returns 2つの要素の順序を示す数値。
      */
     (left, right) => right.rangeOffset - left.rangeOffset)) {
       window.__mveHostText = window.__mveHostText.slice(0, change.rangeOffset)
@@ -2841,24 +2835,24 @@ try {
   await page.waitForTimeout(20);
   const unackedResult = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @param resyncStart resyncStartとして渡される、このコールバックの入力値です。
-   * @returns 初期化したオブジェクト（resyncs、converged、requests、rebase）を返します。
+   * HostとWebviewのメッセージ状態のfilter結果を読み取り、検証用の値へ変換する。
+   * @param resyncStart - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (resyncStart) => ({
     resyncs: window.__mveMessages.filter(
     /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns 要素を採用するかどうかの真偽値を返します。
+     * 種別「requestResync」のメッセージだけを残す。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件を満たした要素だけを含む一覧。
      */
     (message) => message.type === 'requestResync').length - resyncStart,
     converged: window.__mveHostText.includes('unacked-external\n') && window.__mveHostText.includes('u'),
     requests: window.__mveMessages.filter(
     /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns 要素を採用するかどうかの真偽値を返します。
+     * 種別「requestResync」のメッセージだけを残す。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件を満たした要素だけを含む一覧。
      */
     (message) => message.type === 'requestResync').slice(resyncStart)
   }), unackedResyncStart);
@@ -2868,64 +2862,64 @@ try {
 
   const mixedStart = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns 初期化したオブジェクト（localCount、resyncCount）を返します。
+   * HostとWebviewのメッセージ状態のfilter結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => ({
     localCount: window.__mveMessages.filter(
     /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns 要素を採用するかどうかの真偽値を返します。
+     * 種別「localChanges」のメッセージだけを残す。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件を満たした要素だけを含む一覧。
      */
     (message) => message.type === 'localChanges').length,
     resyncCount: window.__mveMessages.filter(
     /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns 要素を採用するかどうかの真偽値を返します。
+     * 種別「requestResync」のメッセージだけを残す。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件を満たした要素だけを含む一覧。
      */
     (message) => message.type === 'requestResync').length
   }));
   for (let index = 0; index < 50; index += 1) {
     const beforeLocal = await page.evaluate(
     /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-     * @returns 要素を採用するかどうかの真偽値を返します。
+     * HostとWebviewのメッセージ状態のfilter結果を読み取り、検証用の値へ変換する。
+     * @returns ブラウザー内で読み取った値または変換結果。
      */
     () => window.__mveMessages.filter(
     /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns 要素を採用するかどうかの真偽値を返します。
+     * 種別「localChanges」のメッセージだけを残す。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件を満たした要素だけを含む一覧。
      */
     (message) => message.type === 'localChanges').length);
     await page.locator('.cm-content').press('x');
     await page.waitForFunction(
     /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-     * @param count 処理対象の件数、容量、または上限を表す数値です。
-     * @returns 要素を採用するかどうかの真偽値を返します。
+     * HostとWebviewのメッセージ状態が完了条件を満たすまで待機する。
+     * @param count - ブラウザー内で評価するコールバック。
+     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     (count) => window.__mveMessages.filter(
     /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns 要素を採用するかどうかの真偽値を返します。
+     * 種別「localChanges」のメッセージだけを残す。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件を満たした要素だけを含む一覧。
      */
     (message) => message.type === 'localChanges').length > count, beforeLocal);
     const localOperation = await page.evaluate(
     /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-     * @param count 処理対象の件数、容量、または上限を表す数値です。
-     * @returns 要素を採用するかどうかの真偽値を返します。
+     * HostとWebviewのメッセージ状態のfilter結果を読み取り、検証用の値へ変換する。
+     * @param count - ブラウザー内で評価するコールバック。
+     * @returns ブラウザー内で読み取った値または変換結果。
      */
     (count) => window.__mveMessages
       .filter(
       /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-       * @param message 処理対象のメッセージです。
-       * @returns 要素を採用するかどうかの真偽値を返します。
+       * 種別「localChanges」のメッセージだけを残す。
+       * @param message - メッセージのtypeを参照する走査対象。
+       * @returns 条件を満たした要素だけを含む一覧。
        */
       (message) => message.type === 'localChanges')[count], beforeLocal);
     if (!localOperation) throw new Error(`local operation ${index} was not captured`);
@@ -2934,22 +2928,22 @@ try {
     // 実装の競合処理ではなくテストのタイミングを検証してしまう。
     await page.waitForFunction(
     /**
- * 「opId」を受け取り、Webviewへメッセージイベントを発火する処理です。
-     * @param opId opIdとして渡される、このコールバックの入力値です。
-     * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+     * Webviewの実行状態が完了条件を満たすまで待機する。
+     * @param opId - ブラウザー内で評価するコールバック。
+     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     (opId) => window.__mveAcks.some(
     /**
- * 「message」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+     * スモーク検証・高速のコールバックとしてメッセージを処理する。
+     * @param message - HostとWebviewの間で受け渡すメッセージ。
+     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     (message) => message.opId === opId), localOperation.opId);
     await page.evaluate(
     /**
- * 「iteration」を受け取り、Webviewへメッセージイベントを発火する処理です。
-     * @param iteration 表示領域のサイズまたは倍率で、画面レイアウト計算に使用します。
-     * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+     * Host側の本文状態のdispatch・event結果を読み取り、検証用の値へ変換する。
+     * @param iteration - ブラウザー内で評価するコールバック。
+     * @returns ブラウザー内で読み取った値または変換結果。
      */
     (iteration) => {
       const baseVersion = window.__mveHostVersion;
@@ -2965,23 +2959,23 @@ try {
   await page.waitForTimeout(50);
   const mixedResult = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @param start startとして渡される、このコールバックの入力値です。
-   * @returns 「start」が開始した処理の結果または非同期Promiseを返します。
+   * HostとWebviewのメッセージ状態のfilter結果を読み取り、検証用の値へ変換する。
+   * @param start - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (start) => ({
     localCount: window.__mveMessages.filter(
     /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns 要素を採用するかどうかの真偽値を返します。
+     * 種別「localChanges」のメッセージだけを残す。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件を満たした要素だけを含む一覧。
      */
     (message) => message.type === 'localChanges').length - start.localCount,
     resyncCount: window.__mveMessages.filter(
     /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns 要素を採用するかどうかの真偽値を返します。
+     * 種別「requestResync」のメッセージだけを残す。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件を満たした要素だけを含む一覧。
      */
     (message) => message.type === 'requestResync').length - start.resyncCount,
     hasFirst: window.__mveHostText.includes('mix-0\n'),
@@ -2992,37 +2986,37 @@ try {
   }
   await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns Webviewの状態から取得した値を返します。
+   * Webviewの実行状態を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => { window.__mveAckDelay = 150; });
   await page.locator('.cm-content').press('Backspace');
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @returns 期待条件の真偽値または条件に一致した要素を返します。
+   * HostとWebviewのメッセージ状態が完了条件を満たすまで待機する。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => {
     const operation = [...window.__mveMessages].reverse().find(
     /**
- * 「message」が検索条件に一致するか判定するコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+     * typeが条件に一致する最初のメッセージを取得する。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件に一致した最初の要素。未検出時はundefined。
      */
     (message) => message.type === 'localChanges');
     return operation?.changes[0]?.rangeLength === 1;
   });
   const resyncMessageCounts = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * HostとWebviewのメッセージ状態のreverse結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => {
     const operation = [...window.__mveMessages].reverse().find(
     /**
- * 「message」が検索条件に一致するか判定するコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+     * typeが条件に一致する最初のメッセージを取得する。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件に一致した最初の要素。未検出時はundefined。
      */
     (message) => message.type === 'localChanges');
     const change = operation.changes[0];
@@ -3047,16 +3041,16 @@ try {
     return {
       local: window.__mveMessages.filter(
       /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-       * @param message 処理対象のメッセージです。
-       * @returns 要素を採用するかどうかの真偽値を返します。
+       * 種別「localChanges」のメッセージだけを残す。
+       * @param message - メッセージのtypeを参照する走査対象。
+       * @returns 条件を満たした要素だけを含む一覧。
        */
       (message) => message.type === 'localChanges').length,
       resync: window.__mveMessages.filter(
       /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-       * @param message 処理対象のメッセージです。
-       * @returns 要素を採用するかどうかの真偽値を返します。
+       * 種別「requestResync」のメッセージだけを残す。
+       * @param message - メッセージのtypeを参照する走査対象。
+       * @returns 条件を満たした要素だけを含む一覧。
        */
       (message) => message.type === 'requestResync').length
     };
@@ -3064,22 +3058,22 @@ try {
   await page.waitForTimeout(250);
   const resyncResult = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns 初期化したオブジェクト（local、resync、silently、local）を返します。
+   * HostとWebviewのメッセージ状態のfilter結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => ({
     local: window.__mveMessages.filter(
     /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns 要素を採用するかどうかの真偽値を返します。
+     * 種別「localChanges」のメッセージだけを残す。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件を満たした要素だけを含む一覧。
      */
     (message) => message.type === 'localChanges').length,
     resync: window.__mveMessages.filter(
     /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns 要素を採用するかどうかの真偽値を返します。
+     * 種別「requestResync」のメッセージだけを残す。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件を満たした要素だけを含む一覧。
      */
     (message) => message.type === 'requestResync').length
   }));
@@ -3089,49 +3083,49 @@ try {
   }
   const retryLoopStart = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns 初期化したオブジェクト（local、resync）を返します。
+   * HostとWebviewのメッセージ状態のfilter結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => ({
     local: window.__mveMessages.filter(
     /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns 要素を採用するかどうかの真偽値を返します。
+     * 種別「localChanges」のメッセージだけを残す。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件を満たした要素だけを含む一覧。
      */
     (message) => message.type === 'localChanges').length,
     resync: window.__mveMessages.filter(
     /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns 要素を採用するかどうかの真偽値を返します。
+     * 種別「requestResync」のメッセージだけを残す。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件を満たした要素だけを含む一覧。
      */
     (message) => message.type === 'requestResync').length
   }));
   await page.evaluate(
   /**
-   * 配列要素を採用するか判定するコールバックです。
-   * @returns 要素を採用するかどうかの真偽値を返します。
+   * Webviewの実行状態を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => { window.__mveHoldLocalOperations = true; });
   await sourceEditor.type('retry-loop-input');
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * Webviewの実行状態が完了条件を満たすまで待機する。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveHeldOperations.length === 1);
   const firstHeld = await page.evaluate(
   /**
- * Webviewへメッセージイベントを発火する処理を実行するコールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * Webviewの実行状態のshift結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => window.__mveHeldOperations.shift());
   await page.evaluate(
   /**
- * 「operation」を受け取り、Webviewへメッセージイベントを発火する処理です。
-   * @param operation 表示領域のサイズまたは倍率で、画面レイアウト計算に使用します。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * Host側の本文状態のdispatch・event結果を読み取り、検証用の値へ変換する。
+   * @param operation - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (operation) => {
     const version = window.__mveHostVersion;
@@ -3149,21 +3143,21 @@ try {
   }, firstHeld);
   await page.waitForFunction(
   /**
- * Webviewへメッセージイベントを発火する処理を実行するコールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * Webviewの実行状態が完了条件を満たすまで待機する。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveHeldOperations.length === 1);
   const secondHeld = await page.evaluate(
   /**
- * Webviewへメッセージイベントを発火する処理を実行するコールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * Webviewの実行状態のshift結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => window.__mveHeldOperations.shift());
   await page.evaluate(
   /**
- * 「operation」を受け取り、Webviewへメッセージイベントを発火する処理です。
-   * @param operation 表示領域のサイズまたは倍率で、画面レイアウト計算に使用します。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * Host側の本文状態のdispatch・event結果を読み取り、検証用の値へ変換する。
+   * @param operation - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (operation) => {
     window.dispatchEvent(new MessageEvent('message', {
@@ -3181,23 +3175,23 @@ try {
   await page.waitForTimeout(100);
   const retryLoopResult = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @param start startとして渡される、このコールバックの入力値です。
-   * @returns 「start」が開始した処理の結果または非同期Promiseを返します。
+   * ブラウザー内の「.cm-content」を読み取り、検証用の値へ変換する。
+   * @param start - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (start) => ({
     local: window.__mveMessages.filter(
     /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns 要素を採用するかどうかの真偽値を返します。
+     * 種別「localChanges」のメッセージだけを残す。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件を満たした要素だけを含む一覧。
      */
     (message) => message.type === 'localChanges').length - start.local,
     resync: window.__mveMessages.filter(
     /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns 要素を採用するかどうかの真偽値を返します。
+     * 種別「requestResync」のメッセージだけを残す。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件を満たした要素だけを含む一覧。
      */
     (message) => message.type === 'requestResync').length - start.resync,
     held: window.__mveHeldOperations.length,
@@ -3208,29 +3202,29 @@ try {
   }
   await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns 「sourceEditor.type」を実行し、値を返しません。
+   * Webviewの実行状態を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => { window.__mveHoldLocalOperations = false; });
   await sourceEditor.type(' recovered');
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * Host側の本文状態が完了条件を満たすまで待機する。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveHostText.includes('retry-loop-input recovered'));
   await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * Webviewの実行状態を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => { window.__mveAckDelay = 0; });
   await page.locator('.split-preview').waitFor();
   for (let index = 0; index < 10; index += 1) {
     const currentZoom = await page.evaluate(
     /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-     * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+     * ブラウザー内の「.split-preview .rendered-markdown」を読み取り、検証用の値へ変換する。
+     * @returns ブラウザー内で読み取った値または変換結果。
      */
     () => Number.parseFloat(
       document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-mve-image-zoom') ?? '',
@@ -3244,24 +3238,24 @@ try {
     });
     await page.waitForFunction(
     /**
- * 「value」を受け取り、Webviewへメッセージイベントを発火する処理です。
-     * @param value 「value」で検証・変換する入力値です。
-     * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+     * ブラウザー内に「.split-preview .rendered-markdown」が現れるまで待機する。
+     * @param value - ブラウザー内で評価するコールバック。
+     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     (value) => document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-mve-image-zoom') !== value, previousZoom);
   }
   await page.waitForFunction(
   /**
- * Webviewへメッセージイベントを発火する処理を実行するコールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * ブラウザー内に「.split-preview .rendered-markdown」が現れるまで待機する。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-mve-image-zoom') === '1');
   const imageSmokeSource = `# Image zoom smoke\n\n<img src="${zoomImageSource}" width="160" alt="zoom image">\n`;
   await page.evaluate(
   /**
- * 「text」を受け取り、Webviewへメッセージイベントを発火する処理です。
-   * @param text 処理対象の本文です。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * Host側の本文状態のreplace結果を読み取り、検証用の値へ変換する。
+   * @param text - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (text) => {
     const previousText = window.__mveHostText;
@@ -3280,16 +3274,16 @@ try {
   }, imageSmokeSource);
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @param text 処理対象の本文です。
-   * @returns 「text」から生成した処理結果を返します。
+   * Host側の本文状態が完了条件を満たすまで待機する。
+   * @param text - ブラウザー内で評価するコールバック。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (text) => window.__mveHostText === text, imageSmokeSource);
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @param length lengthとして渡される、このコールバックの入力値です。
-   * @returns 「length」から生成した処理結果を返します。
+   * ブラウザー内に「.split-preview .rendered-markdown」が現れるまで待機する。
+   * @param length - ブラウザー内で評価するコールバック。
+   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (length) => Number(
     document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-document-length'),

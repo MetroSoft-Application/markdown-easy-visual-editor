@@ -1,119 +1,114 @@
 /**
- * @file canonicalText.ts
- * 実行境界: Extension HostとWebviewの共有層。
- * 責務: 両実行境界で共有する値、プロトコル、変換を扱う。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: 呼び出し元から渡された値を変換し、外部状態を直接変更しない。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview 改行形式を正規化した本文と元の位置の対応を計算し、HostとWebviewの変更範囲を同じ座標系で扱う。
  */
 import type { TextChange } from './protocol';
 import { validateTextChanges } from './textChanges';
 
 /**
- * 「TextPositionLike」が満たすデータ契約を定義します。
+ * canonicaltextで共有するデータ形状を表すインターフェース。
  */
 export interface TextPositionLike {
 
     /**
-     * 「line」は、位置・サイズ・件数などを表す数値です。
+     * canonicaltextの位置・寸法・件数・時間を表す数値。
      */
     line: number;
 
     /**
-     * 「character」は、位置・サイズ・件数などを表す数値です。
+     * canonicaltextのcharacterを表す数値。
      */
     character: number;
 }
 
 /**
- * 「TextRangeLike」が満たすデータ契約を定義します。
+ * canonicaltextで共有するデータ形状を表すインターフェース。
  */
 export interface TextRangeLike {
 
     /**
-     * 「start」は、本文または選択範囲の開始・終了位置を保持します。
+     * canonicaltextのstartに関する状態または設定。
      */
     start: TextPositionLike;
 
     /**
-     * 「end」は、本文または選択範囲の開始・終了位置を保持します。
+     * canonicaltextのendに関する状態または設定。
      */
     end: TextPositionLike;
 }
 
 /**
- * 「TextContentChangeLike」が満たすデータ契約を定義します。
+ * canonicaltextで共有するデータ形状を表すインターフェース。
  */
 export interface TextContentChangeLike {
 
     /**
-     * 「range」は、本文または選択範囲の開始・終了位置を保持します。
+     * canonicaltextのrangeに関する状態または設定。
      */
     range: TextRangeLike;
 
     /**
-     * 「text」は、画面または通知へ表示する文言を保持します。
+     * 表示・解析・変換の対象となる本文。
      */
     text: string;
 }
 
 /**
- * 「CanonicalWorkspaceEditLike」が満たすデータ契約を定義します。
+ * canonicaltextで共有するデータ形状を表すインターフェース。
  */
 export interface CanonicalWorkspaceEditLike {
 
     /**
-     * 「range」は、本文または選択範囲の開始・終了位置を保持します。
+     * canonicaltextのrangeに関する状態または設定。
      */
     range: TextRangeLike;
 
     /**
-     * 「text」は、画面または通知へ表示する文言を保持します。
+     * 表示・解析・変換の対象となる本文。
      */
     text: string;
 }
 
 /**
- * 「CanonicalTextPositionIndex」が満たすデータ契約を定義します。
+ * canonicaltextで共有するデータ形状を表すインターフェース。
  */
 export interface CanonicalTextPositionIndex {
     /**
-     * 「offsetAt」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-     * @param position 「position」は、「offsetAt」が関連処理の処理対象を特定する入力です。
-     * @returns 計算結果の数値です。
+     * canonicaltextのoffset・atを処理し、呼び出し側へ結果または副作用を返す。
+     * @param position - canonicaltextの位置・寸法・件数・時間を表す数値。
+     * @returns canonicaltextで利用する文字列。
      */
     offsetAt(position: TextPositionLike): number;
     /**
-     * 「positionAt」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-     * @param offset 本文または選択範囲を示すゼロ基準の位置です。範囲の開始・終了や写像の基準になります。
-     * @returns 「positionAt」が関連処理の入力を処理して得た固有の結果を返します。
+     * canonicaltextのposition・atを処理し、呼び出し側へ結果または副作用を返す。
+     * @param offset - canonicaltextの位置・寸法・件数・時間を表す数値。
+     * @returns canonicaltextで利用する文字列。
      */
     positionAt(offset: number): TextPositionLike;
 }
 
 /**
- * 同期プロトコルで扱う本文をLFへ正規化する。
- * @param value 「toCanonicalText」で検証・変換する入力値です。
- * @returns 「toCanonicalText」が生成した関連処理の表示文字列を返します。
+ * canonicaltextのto・canonical・textを処理し、呼び出し側へ結果または副作用を返す。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @returns canonicaltextで利用する文字列。
  */
 export function toCanonicalText(value: string): string {
     return value.replace(/\r\n?|\n/g, '\n');
 }
 
 /**
- * LF正規化済み本文を指定EOLへ変換する。
- * @param value 「fromCanonicalText」で検証・変換する入力値です。
- * @param eol 「eol」は、「fromCanonicalText」が関連処理の処理対象を特定する入力です。
- * @returns 「fromCanonicalText」が生成した関連処理の表示文字列を返します。
+ * canonicaltextのfrom・canonical・textを処理し、呼び出し側へ結果または副作用を返す。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @param eol - canonicaltextへ渡す入力。
+ * @returns canonicaltextで利用する文字列。
  */
 export function fromCanonicalText(value: string, eol: '\n' | '\r\n'): string {
     return toCanonicalText(value).replace(/\n/g, eol);
 }
 
 /**
- * LF本文の行開始位置を一度だけ構築し、複数の位置変換を対数時間で処理する。
- * @param canonicalText 処理対象の本文です。
- * @returns 「indexCanonicalText」が計算した位置・サイズ・件数などの数値を返します。
+ * canonicaltextのindex・canonical・textを処理し、呼び出し側へ結果または副作用を返す。
+ * @param canonicalText - canonicaltextで扱う文字列または本文。
+ * @returns canonicaltextのindex・canonical・textが生成する結果。
  */
 export function indexCanonicalText(canonicalText: string): CanonicalTextPositionIndex {
     const lineStarts = [0];
@@ -125,9 +120,9 @@ export function indexCanonicalText(canonicalText: string): CanonicalTextPosition
 
     return {
         /**
-         * 「offsetAt」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-         * @param position 「position」は、「offsetAt」が関連処理の処理対象を特定する入力です。
-         * @returns 計算結果の数値です。
+         * canonicaltextのoffset・atを処理し、呼び出し側へ結果または副作用を返す。
+         * @param position - canonicaltextの位置・寸法・件数・時間を表す数値。
+         * @returns canonicaltextで利用する数値。
          */
         offsetAt(position: TextPositionLike): number {
             if (!Number.isInteger(position.line) || !Number.isInteger(position.character)
@@ -146,9 +141,9 @@ export function indexCanonicalText(canonicalText: string): CanonicalTextPosition
             return lineStart + position.character;
         },
         /**
-         * 「positionAt」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-         * @param offset 本文または選択範囲を示すゼロ基準の位置です。範囲の開始・終了や写像の基準になります。
-         * @returns 「positionAt」が関連処理の入力を処理して得た固有の結果を返します。
+         * canonicaltextのposition・atを処理し、呼び出し側へ結果または副作用を返す。
+         * @param offset - canonicaltextの位置・寸法・件数・時間を表す数値。
+         * @returns canonicaltextのposition・atが生成する結果。
          */
         positionAt(offset: number): TextPositionLike {
             if (!Number.isInteger(offset) || offset < 0 || offset > canonicalText.length) {
@@ -168,10 +163,10 @@ export function indexCanonicalText(canonicalText: string): CanonicalTextPosition
 }
 
 /**
- * LF正規化済み本文の行・桁位置を本文オフセットへ変換する。
- * @param canonicalText 処理対象の本文です。
- * @param position 「position」は、「canonicalOffsetAt」が関連処理の処理対象を特定する入力です。
- * @returns 計算結果の数値です。
+ * canonicaltextの条件を判定する。
+ * @param canonicalText - canonicaltextで扱う文字列または本文。
+ * @param position - canonicaltextの位置・寸法・件数・時間を表す数値。
+ * @returns 条件が成立したかを示す真偽値。
  */
 export function canonicalOffsetAt(
     canonicalText: string,
@@ -181,10 +176,10 @@ export function canonicalOffsetAt(
 }
 
 /**
- * LF正規化済み本文のオフセットを行・桁位置へ変換する。
- * @param canonicalText 処理対象の本文です。
- * @param offset 本文または選択範囲を示すゼロ基準の位置です。範囲の開始・終了や写像の基準になります。
- * @returns 条件を満たすかどうかを示す真偽値を返します。
+ * canonicaltextの条件を判定する。
+ * @param canonicalText - canonicaltextで扱う文字列または本文。
+ * @param offset - canonicaltextの位置・寸法・件数・時間を表す数値。
+ * @returns 条件が成立したかを示す真偽値。
  */
 export function canonicalPositionAt(
     canonicalText: string,
@@ -194,11 +189,10 @@ export function canonicalPositionAt(
 }
 
 /**
- * VS CodeのcontentChangesをLF座標のTextChangeへ変換する。
- * rangeOffset/rangeLengthはCRLF幅に依存するため使わず、Positionから再計算する。
- * @param previousCanonicalText 処理対象の本文です。
- * @param contentChanges 「contentChanges」は、「canonicalizeContentChanges」が関連処理の処理対象を特定する入力です。
- * @returns 条件を満たすかどうかを示す真偽値を返します。
+ * canonicaltextの入力を許可された形式へ整える。
+ * @param previousCanonicalText - canonicaltextで扱う文字列または本文。
+ * @param contentChanges - canonicaltextで扱う文字列または本文。
+ * @returns 条件が成立したかを示す真偽値。
  */
 export function canonicalizeContentChanges(
     previousCanonicalText: string,
@@ -206,30 +200,30 @@ export function canonicalizeContentChanges(
 ): TextChange[] {
     const positionIndex = indexCanonicalText(previousCanonicalText);
     const changes = contentChanges.map(
-    /**
- * 「change」を変換し、変換後の要素を返すコールバックです。
-     * @param change changeとして渡される、このコールバックの入力値です。
-     * @returns 入力要素から生成した変換後の値を返します。
-     */
-    (change) => {
-        const from = positionIndex.offsetAt(change.range.start);
-        const to = positionIndex.offsetAt(change.range.end);
-        return {
-            rangeOffset: from,
-            rangeLength: to - from,
-            text: toCanonicalText(change.text)
-        };
-    });
+        /**
+         * 各changeから範囲を取り出して一覧化する。
+         * @param change - changeの範囲を参照する走査対象。
+         * @returns 範囲を取り出した変換結果の一覧。
+         */
+        (change) => {
+            const from = positionIndex.offsetAt(change.range.start);
+            const to = positionIndex.offsetAt(change.range.end);
+            return {
+                rangeOffset: from,
+                rangeLength: to - from,
+                text: toCanonicalText(change.text)
+            };
+        });
     validateTextChanges(changes, previousCanonicalText.length);
     return changes;
 }
 
 /**
- * LF同期差分を、VS Codeへ渡す行・桁範囲と物理EOL本文へ変換する。
- * @param canonicalBaseText 処理対象の本文です。
- * @param changes 「changes」は、「materializeCanonicalChanges」が関連処理の処理対象を特定する入力です。
- * @param eol 「eol」は、「materializeCanonicalChanges」が関連処理の処理対象を特定する入力です。
- * @returns 「materializeCanonicalChanges」が関連処理の入力を処理して得た固有の結果を返します。
+ * canonicaltextのmaterialize・canonical・changesを処理し、呼び出し側へ結果または副作用を返す。
+ * @param canonicalBaseText - canonicaltextで扱う文字列または本文。
+ * @param changes - 本文へ適用する変更範囲の一覧。
+ * @param eol - canonicaltextへ渡す入力。
+ * @returns canonicaltextに対応する要素の一覧。
  */
 export function materializeCanonicalChanges(
     canonicalBaseText: string,
@@ -239,16 +233,16 @@ export function materializeCanonicalChanges(
     validateTextChanges(changes, canonicalBaseText.length);
     const positionIndex = indexCanonicalText(canonicalBaseText);
     return changes.map(
-    /**
- * 「change」を変換し、変換後の要素を返すコールバックです。
-     * @param change changeとして渡される、このコールバックの入力値です。
-     * @returns 入力要素から生成した変換後の値を返します。
-     */
-    (change) => ({
-        range: {
-            start: positionIndex.positionAt(change.rangeOffset),
-            end: positionIndex.positionAt(change.rangeOffset + change.rangeLength)
-        },
-        text: fromCanonicalText(change.text, eol)
-    }));
+        /**
+         * 各changeからrange・offsetを取り出して一覧化する。
+         * @param change - changeのrange・offsetを参照する走査対象。
+         * @returns range・offsetを取り出した変換結果の一覧。
+         */
+        (change) => ({
+            range: {
+                start: positionIndex.positionAt(change.rangeOffset),
+                end: positionIndex.positionAt(change.rangeOffset + change.rangeLength)
+            },
+            text: fromCanonicalText(change.text, eol)
+        }));
 }

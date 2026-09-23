@@ -1,43 +1,41 @@
 /**
- * @file fontFamily.ts
- * 実行境界: Extension HostとWebviewの共有層。
- * 責務: 両実行境界で共有する値、プロトコル、変換を扱う。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: 呼び出し元から渡された値を変換し、外部状態を直接変更しない。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview エディター、プレビュー、HTML、PDFで共有するフォント設定を正規化し、空値・不正値を既定のフォントへ戻す。
  */
 /**
- * フォントファミリー設定をCSSへ安全に渡すための共通処理。
- * フォント名が未インストールでも指定できるため、候補一覧とは独立して扱う。
+ * fontfamilyへ渡す設定項目と既定値のデータ形状。
  */
 
 export interface FontFamilySettings {
 
     /**
-     * 「editorFontFamily」は、表示テーマまたはスタイル設定を保持します。
+     * fontfamilyで共有するフォント設定または移行状態。
      */
     editorFontFamily: string;
 
     /**
-     * 「previewFontFamily」は、表示テーマまたはスタイル設定を保持します。
+     * fontfamilyで共有するフォント設定または移行状態。
      */
     previewFontFamily: string;
 }
 
-/** 既存のPDF・印刷表示で使用していた標準フォントフォールバック。 */
+/**
+ * CSSへ渡す既定のフォントフォールバック列。
+ */
 export const DEFAULT_FONT_FAMILY_STACK = '"Noto Sans JP", "Yu Gothic UI", sans-serif';
 
-/** 「DEFAULT_FONT_FAMILY_SETTINGS」は、呼び出し先へ渡す設定値の集合です。 */
-/** エディターとプレビューへ初期適用するフォント設定。入力が空または不正な場合の共通フォールバックにも使う。 */
+
+/**
+ * フォント設定が未指定のときに使う既定の入力値。
+ */
 export const DEFAULT_FONT_FAMILY_SETTINGS: FontFamilySettings = {
     editorFontFamily: '',
     previewFontFamily: ''
 };
 
 /**
- * ユーザー入力や永続化値をCSS宣言へ安全に渡せる値へ正規化する。
- * @param value 「normalizeFontFamily」で検証・変換する入力値です。
- * @returns 「normalizeFontFamily」が生成または変換した関連処理の文字列を返します。
+ * フォント入力をCSSで扱える形式へ整え、空値・不正値を既定スタックへ戻す。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @returns fontfamilyで利用する文字列。
  */
 export function normalizeFontFamily(value: unknown): string {
     if (typeof value !== 'string') return '';
@@ -47,10 +45,10 @@ export function normalizeFontFamily(value: unknown): string {
 }
 
 /**
- * CSS変数または出力用CSSへ設定するフォントファミリー値を返す。
- * @param value 「fontFamilyForCss」で検証・変換する入力値です。
- * @param fallback 「fallback」は、「fontFamilyForCss」が関連処理の処理対象を特定する入力です。
- * @returns 「fontFamilyForCss」が生成または変換した関連処理の文字列を返します。
+ * fontfamilyのfont・family・for・cssを処理し、呼び出し側へ結果または副作用を返す。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @param fallback - fontfamilyで受け渡す文字列。
+ * @returns fontfamilyで利用する文字列。
  */
 export function fontFamilyForCss(value: unknown, fallback: string): string {
     const normalizedValue = normalizeFontFamily(value);
@@ -67,9 +65,9 @@ export function fontFamilyForCss(value: unknown, fallback: string): string {
 }
 
 /**
- * 永続化されたフォント設定を読み取り、未指定値を空文字へそろえる。
- * @param value 「normalizeFontFamilySettings」で検証・変換する入力値です。
- * @returns 「normalizeFontFamilySettings」が対象を取得できない場合はundefinedを返します。
+ * fontfamilyの入力を許可された形式へ整える。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @returns 副作用を完了し、値は返さない。
  */
 export function normalizeFontFamilySettings(value: unknown): FontFamilySettings | undefined {
     if (!value || typeof value !== 'object') return undefined;

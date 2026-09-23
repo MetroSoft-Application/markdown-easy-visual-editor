@@ -1,36 +1,30 @@
 /**
- * @file mermaidSvg.ts
- * 実行境界: Extension HostとWebviewの共有層。
- * 責務: 両実行境界で共有する値、プロトコル、変換を扱う。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: 呼び出し元から渡された値を変換し、外部状態を直接変更しない。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview Mermaidが生成したSVGを検証し、画像領域・リンク領域・アクセシビリティ情報を抽出する。
  */
 /**
- * キャッシュ済みSVGを複数回インライン挿入しても参照IDが衝突しないよう名前空間化する。
- * id本体、URL参照、href、CSS IDセレクター、ARIAの空白区切り参照を同時に更新する。
- * @param svg 「svg」は、「namespaceMermaidSvg」がMermaid描画の処理対象を特定する入力です。
- * @param namespace 「namespace」は、「namespaceMermaidSvg」がMermaid描画の処理対象を特定する入力です。
- * @returns 「namespaceMermaidSvg」が生成または変換したMermaidの文字列を返します。
+ * mermaidsvgのnamespace・mermaid・svgを処理し、呼び出し側へ結果または副作用を返す。
+ * @param svg - Mermaidが生成したSVG本文。
+ * @param namespace - mermaidsvgの対象や分岐を識別する値。
+ * @returns mermaidsvgで利用する文字列。
  */
 export function namespaceMermaidSvg(svg: string, namespace: string): string {
     const safeNamespace = namespace.replace(/[^a-zA-Z0-9_-]/g, '-');
     const ids = [...svg.matchAll(/\bid=(['"])([^'"]+)\1/g)].map(
-    /**
- * 「match」を変換し、変換後の要素を返すコールバックです。
-     * @param match matchとして渡される、このコールバックの入力値です。
-     * @returns 置換後の文字列を返します。
-     */
-    (match) => match[2]);
+        /**
+         * 各matchを変換して一覧化する。
+         * @param match - mermaidsvgへ渡す入力。
+         * @returns 入力要素から生成した変換結果の一覧。
+         */
+        (match) => match[2]);
     let result = svg;
     for (const id of [...new Set(ids)].sort(
-    /**
- * 「left」「right」を比較し、並び順を示す数値を返すコールバックです。
-     * @param left 比較対象の左側の値です。
-     * @param right 比較対象の右側の値です。
-     * @returns 置換後の文字列を返します。
-     */
-    (left, right) => right.length - left.length)) {
+        /**
+         * 2つの値を比較して並び順を決める。
+         * @param left - 比較対象の左側の値。
+         * @param right - 比較対象の右側の値。
+         * @returns 2つの要素の順序を示す数値。
+         */
+        (left, right) => right.length - left.length)) {
         const escaped = escapeRegExp(id);
         const replacement = `${safeNamespace}-${id}`;
         result = result.replace(new RegExp(`(\\bid=(['"]))${escaped}\\2`, 'g'), `$1${replacement}$2`);
@@ -44,9 +38,9 @@ export function namespaceMermaidSvg(svg: string, namespace: string): string {
 }
 
 /**
- * escape・reg・expを安全な形式へ変換します。
- * @param value 「escapeRegExp」で検証・変換する入力値です。
- * @returns 「escapeRegExp」が生成または変換したMermaidの文字列を返します。
+ * mermaidsvgの入力を許可された形式へ整える。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @returns mermaidsvgで利用する文字列。
  */
 function escapeRegExp(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

@@ -1,243 +1,244 @@
 /**
- * @file protocol.ts
- * 実行境界: Extension HostとWebviewの共有層。
- * 責務: 両実行境界で共有する値、プロトコル、変換を扱う。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: 呼び出し元から渡された値を変換し、外部状態を直接変更しない。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview HostとWebviewが送受信するメッセージ、設定、ペイロードの型・既定値・正規化規則を定義する。
  */
 import type { Diagnostic } from './markdown';
 import { DEFAULT_FONT_FAMILY_STACK, type FontFamilySettings } from './fontFamily';
 import type { SupportedLanguage } from './messages';
 
 /**
- * 「EditorMode」として扱う値の型を定義します。
+ * 本文編集とプレビューの表示構成を表す値。
  */
 export type EditorMode = 'split' | 'preview';
 /**
- * 「ViewMode」として扱う値の型を定義します。
+ * 本文ペインとプレビューペインの表示状態を表す値。
  */
 export type ViewMode = 'both' | 'text' | 'preview';
 /**
- * 「EditorTheme」として扱う値の型を定義します。
+ * 編集画面に適用するライト・ダークテーマを表す値。
  */
 export type EditorTheme = 'light' | 'dark';
 
-/** PDFで選択できる用紙。A判はPlaywright標準、B4/B5はJIS寸法で明示指定する。 */
+/**
+ * PDF設定で選択できる用紙サイズの一覧。
+ */
 export const PDF_PAPER_FORMATS = ['A0', 'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'B4', 'B5'] as const;
 /**
- * 「PdfPaperFormat」として扱う値の型を定義します。
+ * PDF設定で選択できる用紙サイズのリテラル型。
  */
 export type PdfPaperFormat = typeof PDF_PAPER_FORMATS[number];
 
 /**
- * 「ImagePayload」が満たすデータ契約を定義します。
+ * 画像保存で受け渡す名前、MIMEタイプ、Base64本文の組。
  */
 export interface ImagePayload {
 
     /**
-     * 「name」は、対象の識別や処理分岐に使用する値を保持します。
+     * 画像の元ファイル名または表示名。
      */
     name?: string;
 
     /**
-     * 「mime」は、対象の内容または識別子を表す文字列です。
+     * 画像データのMIMEタイプ。
      */
     mime: string;
 
     /**
-     * 「base64」は、対象の内容または識別子を表す文字列です。
+     * 画像本文をBase64で表したデータ。
      */
     base64: string;
 }
 
 /**
- * 「PdfOptions」が満たすデータ契約を定義します。
+ * PDF生成に使う用紙、向き、余白、本文スタイルの設定。
  */
 export interface PdfOptions {
     /**
-     * 用紙サイズ。Letterは採用せず、日本で一般的なA判・B判を使用する。
+     * PDFで選択する用紙サイズ。
      */
     format: PdfPaperFormat;
 
     /**
-     * 「orientation」は、Host/Webview間で共有するメッセージまたは設定状態を保持します。
+     * PDFの用紙方向。
      */
     orientation: 'portrait' | 'landscape';
 
     /**
-     * 「margins」は、Host/Webview間で共有するメッセージまたは設定状態を保持します。
+     * PDFの上下左右余白。
      */
     margins: {
-    /**
-     * 「top」は、位置・サイズ・件数などを表す数値です。
-     */
-    top: number;
-    /**
-     * 「right」は、位置・サイズ・件数などを表す数値です。
-     */
-    right: number;
-    /**
-     * 「bottom」は、位置・サイズ・件数などを表す数値です。
-     */
-    bottom: number;
-    /**
-     * 「left」は、位置・サイズ・件数などを表す数値です。
-     */
-    left: number };
+        /**
+         * PDF本文領域の上余白。
+         */
+        top: number;
+        /**
+         * PDF本文領域の右余白。
+         */
+        right: number;
+        /**
+         * PDF本文領域の下余白。
+         */
+        bottom: number;
+        /**
+         * PDF本文領域の左余白。
+         */
+        left: number
+    };
 
     /**
-     * 「header」は、対象の内容または識別子を表す文字列です。
+     * PDFヘッダーに挿入する文字列。
      */
     header: string;
 
     /**
-     * 「footer」は、対象の内容または識別子を表す文字列です。
+     * PDFフッターに挿入する文字列。
      */
     footer: string;
     /**
-     * 印刷本文へ適用するCSSフォントファミリー。未指定時は標準フォントへフォールバックする。
+     * PDF本文に適用するフォント指定。
      */
     fontFamily?: string;
     /**
-     * 本文のフォントサイズ。単位はポイントで、6〜48ptへ正規化される。
+     * PDF本文の文字サイズ。
      */
     bodyFontSize?: number;
     /**
-     * H1〜H6のフォントサイズ。単位はポイントで、各値は6〜72ptへ正規化される。
+     * PDF見出しごとの文字サイズ設定。
      */
     headingFontSizes?: {
+        /**
+         * PDF見出し1の文字サイズ。
+         */
+        h1: number;
+        /**
+         * PDF見出し2の文字サイズ。
+         */
+        h2: number;
+        /**
+         * PDF見出し3の文字サイズ。
+         */
+        h3: number;
+        /**
+         * PDF見出し4の文字サイズ。
+         */
+        h4: number;
+        /**
+         * PDF見出し5の文字サイズ。
+         */
+        h5: number;
+        /**
+         * PDF見出し6の文字サイズ。
+         */
+        h6: number
+    };
     /**
-     * 「h1」は、位置・サイズ・件数などを表す数値です。
-     */
-    h1: number;
-    /**
-     * 「h2」は、位置・サイズ・件数などを表す数値です。
-     */
-    h2: number;
-    /**
-     * 「h3」は、位置・サイズ・件数などを表す数値です。
-     */
-    h3: number;
-    /**
-     * 「h4」は、位置・サイズ・件数などを表す数値です。
-     */
-    h4: number;
-    /**
-     * 「h5」は、位置・サイズ・件数などを表す数値です。
-     */
-    h5: number;
-    /**
-     * 「h6」は、位置・サイズ・件数などを表す数値です。
-     */
-    h6: number };
-    /**
-     * pre要素とcode要素のフォントサイズ。単位はポイントで、6〜36ptへ正規化される。
+     * PDFコードブロックの文字サイズ。
      */
     codeFontSize?: number;
     /**
-     * 本文の行高。単位を持たない倍率で、0.8〜3へ正規化される。
+     * PDF本文の行間倍率。
      */
     lineHeight?: number;
     /**
-     * 段落の下側余白。単位はポイントで、0〜48ptへ正規化される。
+     * PDF段落間の間隔。
      */
     paragraphSpacing?: number;
 
     /**
-     * 「saveWithoutDialog」は、処理条件または状態を表す真偽値です。
+     * 出力を保存ダイアログなしで確定する設定。
      */
     saveWithoutDialog: boolean;
 }
 
 /**
- * すべての印刷用タイポグラフィ設定が補完・範囲検証済みになったPDF設定。
- * Webviewの入力値や過去バージョンの保存値をそのまま使わず、PDF生成前にこの型へ変換する。
+ * 共有プロトコルへ渡す設定項目と既定値のデータ形状。
  */
 export type NormalizedPdfOptions = Omit<PdfOptions, 'fontFamily' | 'bodyFontSize' | 'headingFontSizes' | 'codeFontSize' | 'lineHeight' | 'paragraphSpacing'> & {
 
     /**
-     * 「fontFamily」は、表示テーマまたはスタイル設定を保持します。
+     * PDF本文に適用するフォント指定。
      */
     fontFamily: string;
 
     /**
-     * 「bodyFontSize」は、画面または通知へ表示する文言を保持します。
+     * PDF本文の文字サイズ。
      */
     bodyFontSize: number;
 
     /**
-     * 「headingFontSizes」は、表示テーマまたはスタイル設定を保持します。
+     * PDF見出しごとの文字サイズ設定。
      */
     headingFontSizes: {
-    /**
-     * 「h1」は、位置・サイズ・件数などを表す数値です。
-     */
-    h1: number;
-    /**
-     * 「h2」は、位置・サイズ・件数などを表す数値です。
-     */
-    h2: number;
-    /**
-     * 「h3」は、位置・サイズ・件数などを表す数値です。
-     */
-    h3: number;
-    /**
-     * 「h4」は、位置・サイズ・件数などを表す数値です。
-     */
-    h4: number;
-    /**
-     * 「h5」は、位置・サイズ・件数などを表す数値です。
-     */
-    h5: number;
-    /**
-     * 「h6」は、位置・サイズ・件数などを表す数値です。
-     */
-    h6: number };
+        /**
+         * PDF見出し1の文字サイズ。
+         */
+        h1: number;
+        /**
+         * PDF見出し2の文字サイズ。
+         */
+        h2: number;
+        /**
+         * PDF見出し3の文字サイズ。
+         */
+        h3: number;
+        /**
+         * PDF見出し4の文字サイズ。
+         */
+        h4: number;
+        /**
+         * PDF見出し5の文字サイズ。
+         */
+        h5: number;
+        /**
+         * PDF見出し6の文字サイズ。
+         */
+        h6: number
+    };
 
     /**
-     * 「codeFontSize」は、表示テーマまたはスタイル設定を保持します。
+     * PDFコードブロックの文字サイズ。
      */
     codeFontSize: number;
 
     /**
-     * 「lineHeight」は、対象の位置、サイズ、件数、または範囲を保持します。
+     * PDF本文の行間倍率。
      */
     lineHeight: number;
 
     /**
-     * 「paragraphSpacing」は、位置・サイズ・件数などを表す数値です。
+     * PDF段落間の間隔。
      */
     paragraphSpacing: number;
 };
 
 /**
- * 「HtmlExportOptions」が満たすデータ契約を定義します。
+ * 共有プロトコルへ渡す設定項目と既定値のデータ形状。
  */
 export interface HtmlExportOptions {
 
     /**
-     * 「embedImages」は、処理条件または状態を表す真偽値です。
+     * PDF見出しembedImagesの文字サイズ。
      */
     embedImages: boolean;
 
     /**
-     * 「convertLinkedMarkdown」は、処理条件または状態を表す真偽値です。
+     * PDF見出しconvertLinkedMarkdownの文字サイズ。
      */
     convertLinkedMarkdown: boolean;
 
     /**
-     * 「saveWithoutDialog」は、処理条件または状態を表す真偽値です。
+     * 出力を保存ダイアログなしで確定する設定。
      */
     saveWithoutDialog: boolean;
 }
 
 /**
- * HTML出力で文書をまたいで共有するグローバル設定。
+ * 共有プロトコルへ渡す設定項目と既定値のデータ形状。
  */
 export type HtmlExportSettings = Pick<HtmlExportOptions, 'embedImages' | 'convertLinkedMarkdown' | 'saveWithoutDialog'>;
 
-/** PDF出力UIとExplorer起点の出力で共有する初期値。全Markdown文書共通の標準印刷設定でもある。 */
+/**
+ * PDF設定が未指定のときに使う用紙、余白、文字組みの既定値。
+ */
 export const DEFAULT_PDF_OPTIONS: NormalizedPdfOptions = {
     format: 'A4',
     orientation: 'portrait',
@@ -254,9 +255,9 @@ export const DEFAULT_PDF_OPTIONS: NormalizedPdfOptions = {
 };
 
 /**
- * 永続化済みまたは過去バージョンのPDF設定を、現在の安全な設定へ正規化する。
- * @param value globalState、Webviewメッセージ、旧形式の設定など、検証前の値。
- * @returns 欠落値を標準値で補完し、数値を許容範囲へ収めたPDF設定。
+ * PDF設定を許可値へ正規化し、範囲外の寸法や余白を境界値へ収める。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @returns 共有プロトコルで生成または変換した値。
  */
 export function normalizePdfOptions(value: unknown): NormalizedPdfOptions {
     const candidate = value && typeof value === 'object' ? value as Partial<PdfOptions> : {};
@@ -266,42 +267,28 @@ export function normalizePdfOptions(value: unknown): NormalizedPdfOptions {
     const headings = (candidate.headingFontSizes && typeof candidate.headingFontSizes === 'object'
         ? candidate.headingFontSizes
         : {}) as Partial<NonNullable<PdfOptions['headingFontSizes']>>;
-    /**
-     * 数値化できない値を標準値へ戻し、指定範囲に収める。
-     * @param input 「input」は、「numberInRange」がHost/Webview共有プロトコルの処理対象を特定する入力です。
-     * @param fallback 「fallback」は、「numberInRange」がHost/Webview共有プロトコルの処理対象を特定する入力です。
-     * @param min 「min」は、「numberInRange」がHost/Webview共有プロトコルの処理対象を特定する入力です。
-     * @param max 「max」は、「numberInRange」がHost/Webview共有プロトコルの処理対象を特定する入力です。
-     * @returns 計算結果の数値です。
-     */
+
     const numberInRange = /**
- * 「numberInRange」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param input 「input」は、「numberInRange」がHost/Webview共有プロトコルで処理する対象を特定する入力です。
- * @param fallback 「fallback」は、「numberInRange」がHost/Webview共有プロトコルで処理する対象を特定する入力です。
- * @param min 「min」は、「numberInRange」がHost/Webview共有プロトコルで処理する対象を特定する入力です。
- * @param max 「max」は、「numberInRange」がHost/Webview共有プロトコルで処理する対象を特定する入力です。
- * @returns 「numberInRange」がHost/Webview共有プロトコルの入力を処理して得た固有の結果を返します。
- */ (input: unknown, fallback: number, min: number, max: number): number => {
-        const parsed = typeof input === 'number' ? input : Number(input);
-        return Number.isFinite(parsed) ? Math.max(min, Math.min(max, parsed)) : fallback;
-    };
-    /**
-     * 余白のように整数で扱う設定を、範囲検証後に丸める。
-     * @param input 「input」は、「integerInRange」がHost/Webview共有プロトコルの処理対象を特定する入力です。
-     * @param fallback 「fallback」は、「integerInRange」がHost/Webview共有プロトコルの処理対象を特定する入力です。
-     * @param min 「min」は、「integerInRange」がHost/Webview共有プロトコルの処理対象を特定する入力です。
-     * @param max 「max」は、「integerInRange」がHost/Webview共有プロトコルの処理対象を特定する入力です。
-     * @returns 計算結果の数値です。
-     */
+     * 共有プロトコルのnumber・in・rangeを処理し、呼び出し側へ結果または副作用を返す。
+     * @param input - 共有プロトコルへ渡す入力。
+     * @param fallback - 共有プロトコルで扱う数値。
+     * @param min - 入力または寸法に許可する下限値。
+     * @param max - 入力または寸法に許可する上限値。
+     * @returns 共有プロトコルで利用する数値。
+     */ (input: unknown, fallback: number, min: number, max: number): number => {
+            const parsed = typeof input === 'number' ? input : Number(input);
+            return Number.isFinite(parsed) ? Math.max(min, Math.min(max, parsed)) : fallback;
+        };
+
     const integerInRange = /**
- * 「integerInRange」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param input 「input」は、「integerInRange」がHost/Webview共有プロトコルで処理する対象を特定する入力です。
- * @param fallback 「fallback」は、「integerInRange」がHost/Webview共有プロトコルで処理する対象を特定する入力です。
- * @param min 「min」は、「integerInRange」がHost/Webview共有プロトコルで処理する対象を特定する入力です。
- * @param max 「max」は、「integerInRange」がHost/Webview共有プロトコルで処理する対象を特定する入力です。
- * @returns 「integerInRange」がHost/Webview共有プロトコルの入力を処理して得た固有の結果を返します。
- */ (input: unknown, fallback: number, min: number, max: number): number =>
-        Math.round(numberInRange(input, fallback, min, max));
+     * 共有プロトコルのinteger・in・rangeを処理し、呼び出し側へ結果または副作用を返す。
+     * @param input - 共有プロトコルへ渡す入力。
+     * @param fallback - 共有プロトコルで扱う数値。
+     * @param min - 入力または寸法に許可する下限値。
+     * @param max - 入力または寸法に許可する上限値。
+     * @returns 共有プロトコルで利用する数値。
+     */ (input: unknown, fallback: number, min: number, max: number): number =>
+            Math.round(numberInRange(input, fallback, min, max));
     const format = typeof candidate.format === 'string' && (PDF_PAPER_FORMATS as readonly string[]).includes(candidate.format)
         ? candidate.format as PdfPaperFormat
         : 'A4';
@@ -338,22 +325,26 @@ export function normalizePdfOptions(value: unknown): NormalizedPdfOptions {
     };
 }
 
-/** HTML出力UIとExplorer起点の出力で共有するグローバル設定の初期値。 */
+/**
+ * HTML出力の永続設定がないときに使う既定値。
+ */
 export const DEFAULT_HTML_EXPORT_SETTINGS: HtmlExportSettings = {
     embedImages: false,
     convertLinkedMarkdown: false,
     saveWithoutDialog: true
 };
 
-/** HTML出力要求へ渡す初期値。 */
+/**
+ * HTML出力設定が未指定のときに使う既定値。
+ */
 export const DEFAULT_HTML_EXPORT_OPTIONS: HtmlExportOptions = {
     ...DEFAULT_HTML_EXPORT_SETTINGS
 };
 
 /**
- * 永続化値やWebviewメッセージをHTML出力のグローバル設定へ正規化する。
- * @param value 「normalizeHtmlExportSettings」で検証・変換する入力値です。
- * @returns 「normalizeHtmlExportSettings」が読み取りまたは正規化した結果を返します。
+ * HTML出力設定を許可値へ正規化し、未指定項目へ既定値を補う。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @returns 共有プロトコルで生成または変換した値。
  */
 export function normalizeHtmlExportSettings(value: unknown): HtmlExportSettings {
     const candidate = value && typeof value === 'object'
@@ -373,10 +364,10 @@ export function normalizeHtmlExportSettings(value: unknown): HtmlExportSettings 
 }
 
 /**
- * グローバルHTML設定を出力要求へ反映する。
- * @param current 「current」は、「mergeHtmlExportOptions」がHost/Webview共有プロトコルの処理対象を特定する入力です。
- * @param next 「next」は、「mergeHtmlExportOptions」がHost/Webview共有プロトコルの処理対象を特定する入力です。
- * @returns 「mergeHtmlExportOptions」が生成または整形したHost/Webview共有プロトコルの文字列を返します。
+ * 共有プロトコルのmerge・html・export・optionsを処理し、呼び出し側へ結果または副作用を返す。
+ * @param current - 共有プロトコルへ渡す入力。
+ * @param next - 共有プロトコルの位置・寸法・件数・時間を表す数値。
+ * @returns 共有プロトコルのmerge・html・export・optionsが生成する結果。
  */
 export function mergeHtmlExportOptions(
     current: HtmlExportOptions,
@@ -389,835 +380,866 @@ export function mergeHtmlExportOptions(
 }
 
 /**
- * 「WebviewSettings」が満たすデータ契約を定義します。
+ * 共有プロトコルへ渡す設定項目と既定値のデータ形状。
  */
 export interface WebviewSettings extends FontFamilySettings {
 
     /**
-     * 「language」は、Host/Webview間で共有するメッセージまたは設定状態を保持します。
+     * PDF見出しlanguageの文字サイズ。
      */
     language: SupportedLanguage;
 
     /**
-     * 「imageDirectory」は、対象の内容または識別子を表す文字列です。
+     * PDF見出しimageDirectoryの文字サイズ。
      */
     imageDirectory: string;
 
     /**
-     * 「maxPasteSizeMb」は、件数・容量・上限などの数値を保持します。
+     * PDF見出しmaxPasteSizeMbの文字サイズ。
      */
     maxPasteSizeMb: number;
 
     /**
-     * 「remoteImagesEnabled」は、画面の表示モードまたは現在のUI状態を示します。
+     * PDF見出しremoteImagesEnabledの文字サイズ。
      */
     remoteImagesEnabled: boolean;
 
     /**
-     * 「mermaidTheme」は、表示テーマまたはスタイル設定を保持します。
+     * PDF見出しmermaidThemeの文字サイズ。
      */
     mermaidTheme: 'auto' | 'default' | 'dark' | 'neutral';
     /**
-     * MermaidをWebviewとは別のブラウザプロセスで描画できるか。
+     * PDF見出しmermaidHostRenderingの文字サイズ。
      */
     mermaidHostRendering?: boolean;
 
     /**
-     * 「editorTheme」は、表示テーマまたはスタイル設定を保持します。
+     * PDF見出しeditorThemeの文字サイズ。
      */
     editorTheme?: EditorTheme;
 
     /**
-     * 「viewMode」は、Host/Webview間で共有するメッセージまたは設定状態を保持します。
+     * PDF見出しviewModeの文字サイズ。
      */
     viewMode?: ViewMode;
     /**
-     * すべての文書で共有するアウトラインの表示状態。
+     * PDF見出しoutlineVisibleの文字サイズ。
      */
     outlineVisible?: boolean;
     /**
-     * 分割表示でテキストとプレビューのスクロール位置を相互に同期するか。
+     * PDF見出しscrollSyncEnabledの文字サイズ。
      */
     scrollSyncEnabled?: boolean;
     /**
-     * プレビュー画像のリサイズ・配置操作UIを表示するか。未設定時は表示する。
+     * PDF見出しpreviewImageResizeControlsVisibleの文字サイズ。
      */
     previewImageResizeControlsVisible?: boolean;
     /**
-     * PDF印刷設定。文書をまたいで共有するグローバル設定。
+     * PDF見出しpdfOptionsの文字サイズ。
      */
     pdfOptions?: PdfOptions;
     /**
-     * HTML出力設定。文書をまたいで共有するグローバル設定。
+     * PDF見出しtmlOptionsの文字サイズ。
      */
     htmlOptions: HtmlExportSettings;
 
     /**
-     * 「workspaceTrusted」は、処理条件または状態を表す真偽値です。
+     * 共有プロトコルのworkspace・trustedを制御する同期設定。
      */
     workspaceTrusted: boolean;
     /**
-     * 開発用の実 VS Code 起動計測を有効にする。
+     * 共有プロトコルのstartup・probeを制御する同期設定。
      */
     startupProbe?: boolean;
 }
 
 /**
- * WebviewとExtension Host間の本文差分。
- * `rangeOffset` / `rangeLength` / `text` はすべてLF正規化済み本文を基準とし、
- * VS Code文書の物理EOL（LF/CRLF）はExtension Host境界でのみ変換する。
+ * 共有プロトコルで共有するデータ形状を表すインターフェース。
  */
 export interface TextChange {
 
     /**
-     * 「rangeOffset」は、本文または選択範囲の位置・長さを保持します。
+     * 共有プロトコルの位置・寸法・件数・時間を表す数値。
      */
     rangeOffset: number;
 
     /**
-     * 「rangeLength」は、本文または選択範囲の位置・長さを保持します。
+     * 共有プロトコルの位置・寸法・件数・時間を表す数値。
      */
     rangeLength: number;
 
     /**
-     * 「text」は、画面または通知へ表示する文言を保持します。
+     * 共有プロトコルで受け渡すtextの文字列。
      */
     text: string;
 }
 
 /**
- * 「MermaidInteraction」が満たすデータ契約を定義します。
+ * 図中の文字・リンク領域と正規化座標を表すデータ。
  */
 export interface MermaidInteraction {
 
     /**
-     * 「type」は、対象の識別や処理分岐に使用する値を保持します。
+     * 共有プロトコルで対象や分岐を識別する値の型。
      */
     type: 'text' | 'link';
 
     /**
-     * 「text」は、画面または通知へ表示する文言を保持します。
+     * 共有プロトコルで受け渡すtextの文字列。
      */
     text: string;
 
     /**
-     * 「href」は、対象の内容または識別子を表す文字列です。
+     * 共有プロトコルで受け渡すhrefの文字列。
      */
     href?: string;
 
     /**
-     * 「left」は、位置・サイズ・件数などを表す数値です。
+     * 親領域の左端を基準にした相対位置または比較値。
      */
     left: number;
 
     /**
-     * 「top」は、位置・サイズ・件数などを表す数値です。
+     * 親領域の上端を基準にした相対位置または比較値。
      */
     top: number;
 
     /**
-     * 「width」は、対象の位置、サイズ、件数、または範囲を保持します。
+     * 表示領域または列の幅。
      */
     width: number;
 
     /**
-     * 「height」は、対象の位置、サイズ、件数、または範囲を保持します。
+     * 表示領域または行の高さ。
      */
     height: number;
 }
 
 /**
- * 「HostToWebviewMessage」として扱う値の型を定義します。
+ * 共有プロトコルで送受信するメッセージまたは要求のデータ形状。
  */
 export type HostToWebviewMessage =
     | {
 
         /**
-         * 「type」は、対象の識別や処理分岐に使用する値を保持します。
+         * 共有プロトコルで対象や分岐を識別する値の型。
          */
         type: 'init';
         /**
-         * LF正規化済み本文。
+         * 共有プロトコルで受け渡すtextの文字列。
          */
         text: string;
 
         /**
-         * 「version」は、位置・サイズ・件数などを表す数値です。
+         * 共有プロトコルのversionを表す数値。
          */
         version: number;
 
         /**
-         * 「uri」は、対象の内容または識別子を表す文字列です。
+         * 共有プロトコルで受け渡すuriの文字列。
          */
         uri: string;
 
         /**
-         * 「settings」は、利用側が共有する設定または現在状態を保持します。
+         * 共有プロトコルへ渡す設定または境界値。
          */
         settings: WebviewSettings;
     }
     | {
-    /**
-     * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    type: 'editAck';
-    /**
-     * 「clientId」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    clientId: string;
-    /**
-     * 「opId」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    opId: string;
-    /**
-     * 「baseVersion」は、位置・サイズ・件数などを表す数値です。
-     */
-    baseVersion: number;
-    /**
-     * 「version」は、位置・サイズ・件数などを表す数値です。
-     */
-    version: number;
-    /**
-     * 「changes」は、関連する複数の対象または識別子を保持します。
-     */
-    changes: TextChange[] }
+        /**
+         * 共有プロトコルで対象や分岐を識別する値の型。
+         */
+        type: 'editAck';
+        /**
+         * 共有プロトコルで受け渡すclient・idの文字列。
+         */
+        clientId: string;
+        /**
+         * 共有プロトコルで受け渡すop・idの文字列。
+         */
+        opId: string;
+        /**
+         * 共有プロトコルのbase・versionを表す数値。
+         */
+        baseVersion: number;
+        /**
+         * 共有プロトコルのversionを表す数値。
+         */
+        version: number;
+        /**
+         * 本文へ適用する変更範囲の一覧。
+         */
+        changes: TextChange[]
+    }
     | {
-    /**
-     * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    type: 'externalChanges';
-    /**
-     * 「baseVersion」は、位置・サイズ・件数などを表す数値です。
-     */
-    baseVersion: number;
-    /**
-     * 「version」は、位置・サイズ・件数などを表す数値です。
-     */
-    version: number;
-    /**
-     * 「changes」は、関連する複数の対象または識別子を保持します。
-     */
-    changes: TextChange[];
-    /**
-     * 「clientId」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    clientId?: string;
-    /**
-     * 「opId」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    opId?: string }
+        /**
+         * 共有プロトコルで対象や分岐を識別する値の型。
+         */
+        type: 'externalChanges';
+        /**
+         * 共有プロトコルのbase・versionを表す数値。
+         */
+        baseVersion: number;
+        /**
+         * 共有プロトコルのversionを表す数値。
+         */
+        version: number;
+        /**
+         * 本文へ適用する変更範囲の一覧。
+         */
+        changes: TextChange[];
+        /**
+         * 共有プロトコルで受け渡すclient・idの文字列。
+         */
+        clientId?: string;
+        /**
+         * 共有プロトコルで受け渡すop・idの文字列。
+         */
+        opId?: string
+    }
     | {
 
         /**
-         * 「type」は、対象の識別や処理分岐に使用する値を保持します。
+         * 共有プロトコルで対象や分岐を識別する値の型。
          */
         type: 'resyncRequired';
 
         /**
-         * 「clientId」は、対象の識別や処理分岐に使用する値を保持します。
+         * 共有プロトコルで受け渡すclient・idの文字列。
          */
         clientId: string;
 
         /**
-         * 「opId」は、対象の識別や処理分岐に使用する値を保持します。
+         * 共有プロトコルで受け渡すop・idの文字列。
          */
         opId?: string;
 
         /**
-         * 「operationApplied」は、表示領域のサイズまたは倍率を保持します。
+         * 共有プロトコルのoperation・appliedを制御する同期設定。
          */
         operationApplied?: boolean;
         /**
-         * LF正規化済み本文。
+         * 共有プロトコルで受け渡すtextの文字列。
          */
         text: string;
 
         /**
-         * 「version」は、位置・サイズ・件数などを表す数値です。
+         * 共有プロトコルのversionを表す数値。
          */
         version: number;
 
         /**
-         * 「reason」は、対象の内容または識別子を表す文字列です。
+         * 共有プロトコルで受け渡すreasonの文字列。
          */
         reason: string;
     }
     | {
-    /**
-     * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    type: 'settingsChanged';
-    /**
-     * 「settings」は、利用側が共有する設定または現在状態を保持します。
-     */
-    settings: WebviewSettings }
+        /**
+         * 共有プロトコルで対象や分岐を識別する値の型。
+         */
+        type: 'settingsChanged';
+        /**
+         * 共有プロトコルへ渡す設定または境界値。
+         */
+        settings: WebviewSettings
+    }
     | {
-    /**
-     * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    type: 'imagesSaved';
-    /**
-     * 「requestId」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    requestId: string;
-    /**
-     * 「paths」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
-     */
-    paths: string[] }
+        /**
+         * 共有プロトコルで対象や分岐を識別する値の型。
+         */
+        type: 'imagesSaved';
+        /**
+         * 共有プロトコルで受け渡すrequest・idの文字列。
+         */
+        requestId: string;
+        /**
+         * 共有プロトコルで受け渡すpathsの文字列。
+         */
+        paths: string[]
+    }
     | {
-    /**
-     * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    type: 'localResourcesChecked';
-    /**
-     * 「requestId」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    requestId: string;
-    /**
-     * 「diagnostics」は、関連する複数の対象または識別子を保持します。
-     */
-    diagnostics: Diagnostic[] }
+        /**
+         * 共有プロトコルで対象や分岐を識別する値の型。
+         */
+        type: 'localResourcesChecked';
+        /**
+         * 共有プロトコルで受け渡すrequest・idの文字列。
+         */
+        requestId: string;
+        /**
+         * 共有プロトコルのdiagnosticsに関する状態または設定。
+         */
+        diagnostics: Diagnostic[]
+    }
     | {
-    /**
-     * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    type: 'operationFailed';
-    /**
-     * 「requestId」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    requestId?: string;
-    /**
-     * 「message」は、画面または通知へ表示する文言を保持します。
-     */
-    message: string }
+        /**
+         * 共有プロトコルで対象や分岐を識別する値の型。
+         */
+        type: 'operationFailed';
+        /**
+         * 共有プロトコルで受け渡すrequest・idの文字列。
+         */
+        requestId?: string;
+        /**
+         * 共有プロトコルで受け渡すmessageの文字列。
+         */
+        message: string
+    }
     | {
-    /**
-     * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    type: 'pdfExported';
-    /**
-     * 「requestId」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    requestId: string;
-    /**
-     * 「path」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
-     */
-    path: string }
+        /**
+         * 共有プロトコルで対象や分岐を識別する値の型。
+         */
+        type: 'pdfExported';
+        /**
+         * 共有プロトコルで受け渡すrequest・idの文字列。
+         */
+        requestId: string;
+        /**
+         * 共有プロトコルで受け渡すpathの文字列。
+         */
+        path: string
+    }
     | {
-    /**
-     * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    type: 'htmlExported';
-    /**
-     * 「requestId」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    requestId: string;
-    /**
-     * 「paths」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
-     */
-    paths: string[] }
+        /**
+         * 共有プロトコルで対象や分岐を識別する値の型。
+         */
+        type: 'htmlExported';
+        /**
+         * 共有プロトコルで受け渡すrequest・idの文字列。
+         */
+        requestId: string;
+        /**
+         * 共有プロトコルで受け渡すpathsの文字列。
+         */
+        paths: string[]
+    }
     | {
 
         /**
-         * 「type」は、対象の識別や処理分岐に使用する値を保持します。
+         * 共有プロトコルで対象や分岐を識別する値の型。
          */
         type: 'renderHtmlDocuments';
 
         /**
-         * 「requestId」は、対象の識別や処理分岐に使用する値を保持します。
+         * 共有プロトコルで受け渡すrequest・idの文字列。
          */
         requestId: string;
 
         /**
-         * 「documents」は、Host/Webview間で共有するメッセージまたは設定状態を保持します。
+         * 文書URIと開いている文書オブジェクトの対応表。
          */
         documents: Array<{
-        /**
-         * 「id」は、対象の識別や処理分岐に使用する値を保持します。
-         */
-        id: string;
-        /**
-         * 「markdown」は、解析・編集・変換の対象となる本文またはデータを保持します。
-         */
-        markdown: string }>;
+            /**
+             * 共有プロトコルで受け渡すidの文字列。
+             */
+            id: string;
+            /**
+             * 共有プロトコルで受け渡すmarkdownの文字列。
+             */
+            markdown: string
+        }>;
     }
     | {
-    /**
-     * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    type: 'pdfPreviewReady';
-    /**
-     * 「requestId」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    requestId: string;
-    /**
-     * 「pdfBase64」は、対象の内容または識別子を表す文字列です。
-     */
-    pdfBase64: string }
+        /**
+         * 共有プロトコルで対象や分岐を識別する値の型。
+         */
+        type: 'pdfPreviewReady';
+        /**
+         * 共有プロトコルで受け渡すrequest・idの文字列。
+         */
+        requestId: string;
+        /**
+         * 共有プロトコルで受け渡すpdf・base64の文字列。
+         */
+        pdfBase64: string
+    }
     | {
 
         /**
-         * 「type」は、対象の識別や処理分岐に使用する値を保持します。
+         * 共有プロトコルで対象や分岐を識別する値の型。
          */
         type: 'mermaidRendered';
 
         /**
-         * 「requestId」は、対象の識別や処理分岐に使用する値を保持します。
+         * 共有プロトコルで受け渡すrequest・idの文字列。
          */
         requestId: string;
 
         /**
-         * 「svg」は、対象の内容または識別子を表す文字列です。
+         * 共有プロトコルで受け渡すsvgの文字列。
          */
         svg?: string;
 
         /**
-         * 「pngBase64」は、対象の内容または識別子を表す文字列です。
+         * 共有プロトコルで受け渡すpng・base64の文字列。
          */
         pngBase64?: string;
 
         /**
-         * 「interactions」は、関連する複数の対象または識別子を保持します。
+         * 図中の文字・リンク操作領域の一覧。
          */
         interactions?: MermaidInteraction[];
 
         /**
-         * 「ariaLabel」は、画面または通知へ表示する文言を保持します。
+         * 共有プロトコルで受け渡すaria・labelの文字列。
          */
         ariaLabel?: string;
 
         /**
-         * 「error」は、対象の内容または識別子を表す文字列です。
+         * 共有プロトコルで受け渡すerrorの文字列。
          */
         error?: string;
 
         /**
-         * 「rendererUnavailable」は、処理条件または状態を表す真偽値です。
+         * 共有プロトコルのrenderer・unavailableを制御する同期設定。
          */
         rendererUnavailable?: boolean;
     }
     | {
-    /**
-     * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    type: 'hostCommand';
-    /**
-     * 「command」は、Host/Webview間で共有するメッセージまたは設定状態を保持します。
-     */
-    command: 'insertImage' | 'exportPdf' | 'exportHtml' | 'undo' | 'redo' };
+        /**
+         * 共有プロトコルで対象や分岐を識別する値の型。
+         */
+        type: 'hostCommand';
+        /**
+         * 共有プロトコルのcommandに関する状態または設定。
+         */
+        command: 'insertImage' | 'exportPdf' | 'exportHtml' | 'undo' | 'redo'
+    };
 
 /**
- * 「WebviewToHostMessage」として扱う値の型を定義します。
+ * 共有プロトコルで送受信するメッセージまたは要求のデータ形状。
  */
 export type WebviewToHostMessage =
     | {
-    /**
-     * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    type: 'ready';
-    /**
-     * 「clientId」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    clientId: string }
+        /**
+         * 共有プロトコルで対象や分岐を識別する値の型。
+         */
+        type: 'ready';
+        /**
+         * 共有プロトコルで受け渡すclient・idの文字列。
+         */
+        clientId: string
+    }
     | {
-    /**
-     * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    type: 'initialized';
-    /**
-     * 「clientId」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    clientId: string }
+        /**
+         * 共有プロトコルで対象や分岐を識別する値の型。
+         */
+        type: 'initialized';
+        /**
+         * 共有プロトコルで受け渡すclient・idの文字列。
+         */
+        clientId: string
+    }
     | {
 
         /**
-         * 「type」は、対象の識別や処理分岐に使用する値を保持します。
+         * 共有プロトコルで対象や分岐を識別する値の型。
          */
         type: 'startupReady';
 
         /**
-         * 「clientId」は、対象の識別や処理分岐に使用する値を保持します。
+         * 共有プロトコルで受け渡すclient・idの文字列。
          */
         clientId: string;
 
         /**
-         * 「markdownLength」は、本文または選択範囲の位置・長さを保持します。
+         * 共有プロトコルの位置・寸法・件数・時間を表す数値。
          */
         markdownLength: number;
 
         /**
-         * 「metrics」は、関連する複数の対象または識別子を保持します。
+         * 共有プロトコルで受け渡すmetricsの文字列。
          */
         metrics?: Record<string, number>;
     }
     | {
-    /**
-     * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    type: 'startupMermaidReady';
-    /**
-     * 「clientId」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    clientId: string }
+        /**
+         * 共有プロトコルで対象や分岐を識別する値の型。
+         */
+        type: 'startupMermaidReady';
+        /**
+         * 共有プロトコルで受け渡すclient・idの文字列。
+         */
+        clientId: string
+    }
     | {
-    /**
-     * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    type: 'localChanges';
-    /**
-     * 「clientId」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    clientId: string;
-    /**
-     * 「opId」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    opId: string;
-    /**
-     * 「baseVersion」は、位置・サイズ・件数などを表す数値です。
-     */
-    baseVersion: number;
-    /**
-     * 「changes」は、関連する複数の対象または識別子を保持します。
-     */
-    changes: TextChange[] }
+        /**
+         * 共有プロトコルで対象や分岐を識別する値の型。
+         */
+        type: 'localChanges';
+        /**
+         * 共有プロトコルで受け渡すclient・idの文字列。
+         */
+        clientId: string;
+        /**
+         * 共有プロトコルで受け渡すop・idの文字列。
+         */
+        opId: string;
+        /**
+         * 共有プロトコルのbase・versionを表す数値。
+         */
+        baseVersion: number;
+        /**
+         * 本文へ適用する変更範囲の一覧。
+         */
+        changes: TextChange[]
+    }
     | {
-    /**
-     * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    type: 'historyCommand';
-    /**
-     * 「clientId」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    clientId: string;
-    /**
-     * 「command」は、Host/Webview間で共有するメッセージまたは設定状態を保持します。
-     */
-    command: 'undo' | 'redo' }
+        /**
+         * 共有プロトコルで対象や分岐を識別する値の型。
+         */
+        type: 'historyCommand';
+        /**
+         * 共有プロトコルで受け渡すclient・idの文字列。
+         */
+        clientId: string;
+        /**
+         * 共有プロトコルのcommandに関する状態または設定。
+         */
+        command: 'undo' | 'redo'
+    }
     | {
-    /**
-     * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    type: 'saveImages';
-    /**
-     * 「requestId」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    requestId: string;
-    /**
-     * 「images」は、関連する複数の対象または識別子を保持します。
-     */
-    images: ImagePayload[];
-    /**
-     * 「imageDirectory」は、対象の内容または識別子を表す文字列です。
-     */
-    imageDirectory: string }
+        /**
+         * 共有プロトコルで対象や分岐を識別する値の型。
+         */
+        type: 'saveImages';
+        /**
+         * 共有プロトコルで受け渡すrequest・idの文字列。
+         */
+        requestId: string;
+        /**
+         * 共有プロトコルで扱うimagesの一覧。
+         */
+        images: ImagePayload[];
+        /**
+         * 共有プロトコルで受け渡すimage・directoryの文字列。
+         */
+        imageDirectory: string
+    }
     | {
-    /**
-     * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    type: 'pickImage';
-    /**
-     * 「requestId」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    requestId: string;
-    /**
-     * 「imageDirectory」は、対象の内容または識別子を表す文字列です。
-     */
-    imageDirectory: string }
+        /**
+         * 共有プロトコルで対象や分岐を識別する値の型。
+         */
+        type: 'pickImage';
+        /**
+         * 共有プロトコルで受け渡すrequest・idの文字列。
+         */
+        requestId: string;
+        /**
+         * 共有プロトコルで受け渡すimage・directoryの文字列。
+         */
+        imageDirectory: string
+    }
     | {
-    /**
-     * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    type: 'checkLocalResources';
-    /**
-     * 「requestId」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    requestId: string;
-    /**
-     * 「markdown」は、解析・編集・変換の対象となる本文またはデータを保持します。
-     */
-    markdown: string }
+        /**
+         * 共有プロトコルで対象や分岐を識別する値の型。
+         */
+        type: 'checkLocalResources';
+        /**
+         * 共有プロトコルで受け渡すrequest・idの文字列。
+         */
+        requestId: string;
+        /**
+         * 共有プロトコルで受け渡すmarkdownの文字列。
+         */
+        markdown: string
+    }
     | {
-    /**
-     * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    type: 'setEditorTheme';
-    /**
-     * 「theme」は、表示テーマまたはスタイル設定を保持します。
-     */
-    theme: EditorTheme }
+        /**
+         * 共有プロトコルで対象や分岐を識別する値の型。
+         */
+        type: 'setEditorTheme';
+        /**
+         * 描画や表示に適用する配色テーマ。
+         */
+        theme: EditorTheme
+    }
     | {
-    /**
-     * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    type: 'setImageDirectory';
-    /**
-     * 「directory」は、対象の内容または識別子を表す文字列です。
-     */
-    directory: string }
+        /**
+         * 共有プロトコルで対象や分岐を識別する値の型。
+         */
+        type: 'setImageDirectory';
+        /**
+         * 共有プロトコルで受け渡すdirectoryの文字列。
+         */
+        directory: string
+    }
     | {
-    /**
-     * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    type: 'setFontFamilies';
-    /**
-     * 「editorFontFamily」は、表示テーマまたはスタイル設定を保持します。
-     */
-    editorFontFamily: string;
-    /**
-     * 「previewFontFamily」は、表示テーマまたはスタイル設定を保持します。
-     */
-    previewFontFamily: string }
+        /**
+         * 共有プロトコルで対象や分岐を識別する値の型。
+         */
+        type: 'setFontFamilies';
+        /**
+         * 共有プロトコルで受け渡すeditor・font・familyの文字列。
+         */
+        editorFontFamily: string;
+        /**
+         * 共有プロトコルで受け渡すpreview・font・familyの文字列。
+         */
+        previewFontFamily: string
+    }
     | {
-    /**
-     * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    type: 'setViewMode';
-    /**
-     * 「viewMode」は、Host/Webview間で共有するメッセージまたは設定状態を保持します。
-     */
-    viewMode: ViewMode }
+        /**
+         * 共有プロトコルで対象や分岐を識別する値の型。
+         */
+        type: 'setViewMode';
+        /**
+         * 共有プロトコルのview・modeに関する状態または設定。
+         */
+        viewMode: ViewMode
+    }
     | {
-    /**
-     * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    type: 'setOutlineVisible';
-    /**
-     * 「visible」は、画面の表示モードまたは現在のUI状態を示します。
-     */
-    visible: boolean }
+        /**
+         * 共有プロトコルで対象や分岐を識別する値の型。
+         */
+        type: 'setOutlineVisible';
+        /**
+         * 共有プロトコルのvisibleを有効または表示する設定。
+         */
+        visible: boolean
+    }
     | {
-    /**
-     * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    type: 'setScrollSyncEnabled';
-    /**
-     * 「enabled」は、画面の表示モードまたは現在のUI状態を示します。
-     */
-    enabled: boolean }
+        /**
+         * 共有プロトコルで対象や分岐を識別する値の型。
+         */
+        type: 'setScrollSyncEnabled';
+        /**
+         * 共有プロトコルのenabledを有効または表示する設定。
+         */
+        enabled: boolean
+    }
     | {
-    /**
-     * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    type: 'setPreviewImageResizeControlsVisible';
-    /**
-     * 「visible」は、画面の表示モードまたは現在のUI状態を示します。
-     */
-    visible: boolean }
+        /**
+         * 共有プロトコルで対象や分岐を識別する値の型。
+         */
+        type: 'setPreviewImageResizeControlsVisible';
+        /**
+         * 共有プロトコルのvisibleを有効または表示する設定。
+         */
+        visible: boolean
+    }
     | {
-    /**
-     * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    type: 'setPdfOptions';
-    /**
-     * 「options」は、利用側が共有する設定または現在状態を保持します。
-     */
-    options: PdfOptions }
+        /**
+         * 共有プロトコルで対象や分岐を識別する値の型。
+         */
+        type: 'setPdfOptions';
+        /**
+         * 呼び出し側が指定する処理設定。
+         */
+        options: PdfOptions
+    }
     | {
-    /**
-     * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    type: 'setHtmlOptions';
-    /**
-     * 「options」は、利用側が共有する設定または現在状態を保持します。
-     */
-    options: HtmlExportSettings }
+        /**
+         * 共有プロトコルで対象や分岐を識別する値の型。
+         */
+        type: 'setHtmlOptions';
+        /**
+         * 呼び出し側が指定する処理設定。
+         */
+        options: HtmlExportSettings
+    }
     | {
 
         /**
-         * 「type」は、対象の識別や処理分岐に使用する値を保持します。
+         * 共有プロトコルで対象や分岐を識別する値の型。
          */
         type: 'exportPdf';
 
         /**
-         * 「requestId」は、対象の識別や処理分岐に使用する値を保持します。
+         * 共有プロトコルで受け渡すrequest・idの文字列。
          */
         requestId: string;
 
         /**
-         * 「html」は、解析・編集・変換の対象となる本文またはデータを保持します。
+         * 共有プロトコルで受け渡すhtmlの文字列。
          */
         html: string;
 
         /**
-         * 「css」は、対象の内容または識別子を表す文字列です。
+         * 共有プロトコルで受け渡すcssの文字列。
          */
         css: string;
 
         /**
-         * 「options」は、利用側が共有する設定または現在状態を保持します。
+         * 呼び出し側が指定する処理設定。
          */
         options: PdfOptions;
     }
     | {
 
         /**
-         * 「type」は、対象の識別や処理分岐に使用する値を保持します。
+         * 共有プロトコルで対象や分岐を識別する値の型。
          */
         type: 'exportHtml';
 
         /**
-         * 「requestId」は、対象の識別や処理分岐に使用する値を保持します。
+         * 共有プロトコルで受け渡すrequest・idの文字列。
          */
         requestId: string;
 
         /**
-         * 「markdown」は、解析・編集・変換の対象となる本文またはデータを保持します。
+         * 共有プロトコルで受け渡すmarkdownの文字列。
          */
         markdown: string;
 
         /**
-         * 「html」は、解析・編集・変換の対象となる本文またはデータを保持します。
+         * 共有プロトコルで受け渡すhtmlの文字列。
          */
         html: string;
 
         /**
-         * 「css」は、対象の内容または識別子を表す文字列です。
+         * 共有プロトコルで受け渡すcssの文字列。
          */
         css: string;
 
         /**
-         * 「options」は、利用側が共有する設定または現在状態を保持します。
+         * 呼び出し側が指定する処理設定。
          */
         options: HtmlExportOptions;
     }
     | {
 
         /**
-         * 「type」は、対象の識別や処理分岐に使用する値を保持します。
+         * 共有プロトコルで対象や分岐を識別する値の型。
          */
         type: 'htmlDocumentsRendered';
 
         /**
-         * 「requestId」は、対象の識別や処理分岐に使用する値を保持します。
+         * 共有プロトコルで受け渡すrequest・idの文字列。
          */
         requestId: string;
 
         /**
-         * 「documents」は、Host/Webview間で共有するメッセージまたは設定状態を保持します。
+         * 文書URIと開いている文書オブジェクトの対応表。
          */
         documents: Array<{
-        /**
-         * 「id」は、対象の識別や処理分岐に使用する値を保持します。
-         */
-        id: string;
-        /**
-         * 「html」は、解析・編集・変換の対象となる本文またはデータを保持します。
-         */
-        html: string }>;
+            /**
+             * 共有プロトコルで受け渡すidの文字列。
+             */
+            id: string;
+            /**
+             * 共有プロトコルで受け渡すhtmlの文字列。
+             */
+            html: string
+        }>;
     }
     | {
 
         /**
-         * 「type」は、対象の識別や処理分岐に使用する値を保持します。
+         * 共有プロトコルで対象や分岐を識別する値の型。
          */
         type: 'renderPdfPreview';
 
         /**
-         * 「requestId」は、対象の識別や処理分岐に使用する値を保持します。
+         * 共有プロトコルで受け渡すrequest・idの文字列。
          */
         requestId: string;
 
         /**
-         * 「html」は、解析・編集・変換の対象となる本文またはデータを保持します。
+         * 共有プロトコルで受け渡すhtmlの文字列。
          */
         html: string;
 
         /**
-         * 「css」は、対象の内容または識別子を表す文字列です。
+         * 共有プロトコルで受け渡すcssの文字列。
          */
         css: string;
 
         /**
-         * 「options」は、利用側が共有する設定または現在状態を保持します。
+         * 呼び出し側が指定する処理設定。
          */
         options: PdfOptions;
     }
     | {
 
         /**
-         * 「type」は、対象の識別や処理分岐に使用する値を保持します。
+         * 共有プロトコルで対象や分岐を識別する値の型。
          */
         type: 'renderMermaid';
 
         /**
-         * 「requestId」は、対象の識別や処理分岐に使用する値を保持します。
+         * 共有プロトコルで受け渡すrequest・idの文字列。
          */
         requestId: string;
 
         /**
-         * 「source」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
+         * 共有プロトコルで受け渡すsourceの文字列。
          */
         source: string;
 
         /**
-         * 「theme」は、表示テーマまたはスタイル設定を保持します。
+         * 描画や表示に適用する配色テーマ。
          */
         theme: 'default' | 'dark' | 'neutral';
     }
     | {
-    /**
-     * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    type: 'cancelMermaidRender';
-    /**
-     * 「requestId」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    requestId: string }
+        /**
+         * 共有プロトコルで対象や分岐を識別する値の型。
+         */
+        type: 'cancelMermaidRender';
+        /**
+         * 共有プロトコルで受け渡すrequest・idの文字列。
+         */
+        requestId: string
+    }
     | {
-    /**
-     * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    type: 'openSource' }
+        /**
+         * 共有プロトコルで対象や分岐を識別する値の型。
+         */
+        type: 'openSource'
+    }
     | {
-    /**
-     * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    type: 'openResource';
-    /**
-     * 「href」は、対象の内容または識別子を表す文字列です。
-     */
-    href: string }
+        /**
+         * 共有プロトコルで対象や分岐を識別する値の型。
+         */
+        type: 'openResource';
+        /**
+         * 共有プロトコルで受け渡すhrefの文字列。
+         */
+        href: string
+    }
     | {
-    /**
-     * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    type: 'requestResync';
-    /**
-     * 「clientId」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    clientId: string;
-    /**
-     * 「opId」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    opId?: string;
-    /**
-     * 「version」は、位置・サイズ・件数などを表す数値です。
-     */
-    version: number;
-    /**
-     * 「reason」は、対象の内容または識別子を表す文字列です。
-     */
-    reason: string };
+        /**
+         * 共有プロトコルで対象や分岐を識別する値の型。
+         */
+        type: 'requestResync';
+        /**
+         * 共有プロトコルで受け渡すclient・idの文字列。
+         */
+        clientId: string;
+        /**
+         * 共有プロトコルで受け渡すop・idの文字列。
+         */
+        opId?: string;
+        /**
+         * 共有プロトコルのversionを表す数値。
+         */
+        version: number;
+        /**
+         * 共有プロトコルで受け渡すreasonの文字列。
+         */
+        reason: string
+    };
 
 /**
- * 「VsCodeApi」が満たすデータ契約を定義します。
+ * 共有プロトコルで共有するデータ形状を表すインターフェース。
  */
 export interface VsCodeApi<State = unknown> {
     /**
-     * HostとWebviewの間へメッセージを送信する呼び出し契約です。
-     * @param message 処理対象のメッセージです。
-     * @returns 状態更新または副作用を実行し、値は返しません。
+     * 共有プロトコルの変更または要求をHost・Webview間へ通知する。
+     * @param message - HostとWebviewの間で受け渡すメッセージ。
+     * @returns 共有プロトコルのpost・messageが生成する結果。
      */
     postMessage(message: WebviewToHostMessage): void;
     /**
-     * Hostから保存済み状態を読み取る呼び出し契約です。
-     * @returns 処理が対象を取得できない場合はundefinedを返します。
+     * 共有プロトコルから必要な値またはリソースを取得する。
+     * @returns 共有プロトコルのget・stateが生成する結果。
      */
     getState(): State | undefined;
     /**
-     * Hostへ現在状態を保存する呼び出し契約です。
-     * @param newState 処理対象の状態です。
-     * @returns 状態更新または副作用を実行し、値は返しません。
+     * 共有プロトコルの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+     * @param newState - 共有プロトコルへ渡す入力。
+     * @returns 副作用を完了し、値は返さない。
      */
     setState(newState: State): void;
 }

@@ -1,43 +1,38 @@
 /**
- * @file cmSelectionMatchHighlight.ts
- * 実行境界: Webview。
- * 責務: 編集UI、プレビュー、ユーザー操作を処理する。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: DOM、Webviewメッセージ、ブラウザーAPI、編集状態を操作する。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview Webviewのcmselectionmatchhighlightを管理する。Hostとの通信、ユーザー操作、表示状態の契約を保つ。
  */
 import type { Extension } from '@codemirror/state';
 import { Decoration, EditorView, ViewPlugin, type DecorationSet, type ViewUpdate } from '@codemirror/view';
 
 /**
- * 「SelectionMatchRange」が満たすデータ契約を定義します。
+ * cmselectionmatchhighlightで共有するデータ形状を表すインターフェース。
  */
 export interface SelectionMatchRange {
 
     /**
-     * 「from」は、本文または選択範囲の位置・長さを保持します。
+     * cmselectionmatchhighlightのfromを表す数値。
      */
     from: number;
 
     /**
-     * 「to」は、本文または選択範囲の位置・長さを保持します。
+     * cmselectionmatchhighlightのtoを表す数値。
      */
     to: number;
 }
 
-/** 「MAX_MATCHES」は、入力・表示・資源の上限または下限を表す値です。 */
+/**
+ * 検索結果として保持する一致箇所の上限。
+ */
 const MAX_MATCHES = 5000;
 
 /**
- * 明示選択された文字列と完全に同じ文字列の出現位置を返す。
- * 大文字小文字・空白・改行を一切正規化せず、重なった一致も対象にする。
- * 現在選択している範囲そのものだけは一致表示から除外する。
- * @param source 処理対象のソースです。
- * @param query 「query」は、「findExactSelectionMatches」がWebview UI状態の処理対象を特定する入力です。
- * @param selectionFrom 「selectionFrom」は、「findExactSelectionMatches」がWebview UI状態の処理対象を特定する入力です。
- * @param selectionTo 「selectionTo」は、「findExactSelectionMatches」がWebview UI状態の処理対象を特定する入力です。
- * @param maxMatches 「maxMatches」は、「findExactSelectionMatches」がWebview UI状態の処理対象を特定する入力です。
- * @returns 「findExactSelectionMatches」が読み取りまたは正規化した結果を返します。
+ * cmselectionmatchhighlightから必要な値またはリソースを取得する。
+ * @param source - 解析・描画・変換の起点となる本文。
+ * @param query - cmselectionmatchhighlightの位置・寸法・件数・時間を表す数値。
+ * @param selectionFrom - cmselectionmatchhighlightで扱う数値。
+ * @param selectionTo - cmselectionmatchhighlightで扱う数値。
+ * @param maxMatches - cmselectionmatchhighlightの位置・寸法・件数・時間を表す数値。
+ * @returns cmselectionmatchhighlightに対応する要素の一覧。
  */
 export function findExactSelectionMatches(
     source: string,
@@ -64,9 +59,9 @@ export function findExactSelectionMatches(
 }
 
 /**
- * 現在の明示選択に対応する一致Decorationを作る。
- * @param view 処理対象のviewです。
- * @returns 「createSelectionMatchDecorations」が生成したデータまたはオブジェクトを返します。
+ * cmselectionmatchhighlightで使う値または実行環境を組み立てる。
+ * @param view - cmselectionmatchhighlightへ渡す入力。
+ * @returns cmselectionmatchhighlightで生成または変換した値。
  */
 function createSelectionMatchDecorations(view: EditorView): DecorationSet {
     const selection = view.state.selection;
@@ -96,56 +91,58 @@ function createSelectionMatchDecorations(view: EditorView): DecorationSet {
             const absolute = { from: match.from + from, to: match.to + from };
             if (absolute.to >= visible.from && absolute.from <= visible.to
                 && !matches.some(
-                /**
- * 「item」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
-                 * @param item 変換または処理の対象となる値です。
-                 * @returns 条件判定の結果を示す真偽値を返します。
-                 */
-                (item) => item.from === absolute.from && item.to === absolute.to)) {
+                    /**
+                     * cmselectionmatchhighlightのコールバックとして項目を処理する。
+                     * @param item - cmselectionmatchhighlightで走査または更新する要素。
+                     * @returns 副作用を完了し、値は返さない。
+                     */
+                    (item) => item.from === absolute.from && item.to === absolute.to)) {
                 matches.push(absolute);
             }
         }
     }
     matches.sort(
-    /**
- * 「left」「right」を比較し、並び順を示す数値を返すコールバックです。
-     * @param left 比較対象の左側の値です。
-     * @param right 比較対象の右側の値です。
-     * @returns 比較対象の順序を示す負数、0、または正数を返します。
-     */
-    (left, right) => left.from - right.from || left.to - right.to);
+        /**
+         * 2つの値を比較して並び順を決める。
+         * @param left - 比較対象の左側の値。
+         * @param right - 比較対象の右側の値。
+         * @returns 2つの要素の順序を示す数値。
+         */
+        (left, right) => left.from - right.from || left.to - right.to);
     return Decoration.set(
         matches.map(
-        /**
- * 「from」「to」を変換し、変換後の要素を返すコールバックです。
-         * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはfrom、toです。
-         * @returns 入力要素から生成した変換後の値を返します。
-         */
-        ({ from, to }) => Decoration.mark({ class: 'cm-exact-selection-match' }).range(from, to))
+            /**
+             * 各設定をmarkへ渡し、変換結果を一覧化する。
+             * @param options - 呼び出し側が指定する処理設定。
+             * @returns 入力要素から生成した変換結果の一覧。
+             */
+            ({ from, to }) => Decoration.mark({ class: 'cm-exact-selection-match' }).range(from, to))
     );
 }
 
-/** 「exactSelectionMatchPlugin」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * cmselectionmatchhighlightのexact・selection・match・pluginに関する状態または設定。
+ */
 const exactSelectionMatchPlugin = ViewPlugin.fromClass(class {
 
     /**
-     * 「decorations」は、表示領域のサイズまたは倍率を保持します。
+     * cmselectionmatchhighlightのdecorationsに関する状態または設定。
      */
     decorations: DecorationSet;
 
     /**
-     * 処理に必要な状態を初期化します。
-     * @param view 処理対象のviewです。
-     * @returns 「constructor」がWebview UI状態の入力を処理して得た固有の結果を返します。
+     * cmselectionmatchhighlightで使う値または実行環境を組み立てる。
+     * @param view - cmselectionmatchhighlightへ渡す入力。
+     * @returns 初期化したインスタンス。
      */
     constructor(view: EditorView) {
         this.decorations = createSelectionMatchDecorations(view);
     }
 
     /**
-     * updateを更新または保存します。
-     * @param update 「update」は、「update」がWebview UI状態の処理対象を特定する入力です。
-     * @returns 状態更新または副作用を実行し、値は返しません。
+     * cmselectionmatchhighlightの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+     * @param update - cmselectionmatchhighlightへ渡す入力。
+     * @returns 副作用を完了し、値は返さない。
      */
     update(update: ViewUpdate): void {
         if (update.docChanged || update.selectionSet || update.viewportChanged) {
@@ -154,19 +151,17 @@ const exactSelectionMatchPlugin = ViewPlugin.fromClass(class {
     }
 }, {
 
-    /**
-     * 「decorations」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-     * @param plugin 「plugin」は、「decorations」がWebview UI状態の処理対象を特定する入力です。
-     * @returns 「decorations」がWebview UI状態の入力を処理して得た固有の結果を返します。
-     */
+
     decorations: /**
- * 「decorations」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param plugin 「plugin」は、「decorations」がWebview UIで処理する対象を特定する入力です。
- * @returns 「decorations」がWebview UI状態の入力を処理して得た固有の結果を返します。
- */ (plugin) => plugin.decorations
+     * cmselectionmatchhighlightのdecorationsを処理し、呼び出し側へ結果または副作用を返す。
+     * @param plugin - cmselectionmatchhighlightへ渡す入力。
+     * @returns cmselectionmatchhighlightのdecorationsが生成する結果。
+     */ (plugin) => plugin.decorations
 });
 
-/** 「exactSelectionMatchTheme」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * cmselectionmatchhighlightのexact・selection・match・themeに関する状態または設定。
+ */
 const exactSelectionMatchTheme = EditorView.baseTheme({
     '.cm-exact-selection-match': {
         backgroundColor: 'var(--vscode-editor-selectionHighlightBackground, rgba(173, 214, 255, 0.22))',
@@ -174,5 +169,7 @@ const exactSelectionMatchTheme = EditorView.baseTheme({
     }
 });
 
-/** SourceEditor生成時に直接登録する完全一致ハイライト拡張。 */
+/**
+ * cmselectionmatchhighlightのexact・selection・match・extensionとして順序を保つ一覧。
+ */
 export const exactSelectionMatchExtension: Extension = [exactSelectionMatchPlugin, exactSelectionMatchTheme];

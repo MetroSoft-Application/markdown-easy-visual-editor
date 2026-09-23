@@ -1,1789 +1,1797 @@
 /**
- * @file messages.ts
- * 実行境界: Extension HostとWebviewの共有層。
- * 責務: 両実行境界で共有する値、プロトコル、変換を扱う。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: 呼び出し元から渡された値を変換し、外部状態を直接変更しない。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
- */
-/**
- * UIとユーザー向けメッセージの型・組み立て処理。
- * 文言本体は同階層の locales.json に置き、このファイルには埋め込まない。
+ * @fileoverview HostとWebviewで使う表示文言とローカライズキーを対応付ける。未登録キーのフォールバックを一貫させる。
  */
 import localeCatalog from './locales.json';
 
-/** 「SUPPORTED_LANGUAGES」は、関連する処理間で共有する設定値または状態です。 */
-/** ロケール正規化とメッセージカタログが受け付ける言語識別子。 */
+
+/**
+ * ローカライズ辞書が提供する言語コードの一覧。
+ */
 export const SUPPORTED_LANGUAGES = ['ja', 'en', 'zh-cn', 'ko', 'fr', 'de', 'es'] as const;
 /**
- * 「SupportedLanguage」として扱う値の型を定義します。
+ * ローカライズ辞書が提供する言語コード。
  */
 export type SupportedLanguage = typeof SUPPORTED_LANGUAGES[number];
 /**
- * 「LanguageSetting」として扱う値の型を定義します。
+ * 表示言語の自動判定または明示指定。
  */
 export type LanguageSetting = 'auto' | SupportedLanguage;
 
 /**
- * 「Messages」が満たすデータ契約を定義します。
+ * 表示文言で送受信するメッセージまたは要求のデータ形状。
  */
 export interface Messages {
 
     /**
-     * 「ribbon」は、言語別メッセージまたは表示用データの一項目です。
+     * リボンで表示する文言をまとめた辞書。
      */
     ribbon: {
 
         /**
-         * 「tabs」は、言語別メッセージまたは表示用データの一項目です。
+         * リボンのタブ名をまとめた辞書。
          */
         tabs: {
-        /**
-         * 「home」は、対象の内容または識別子を表す文字列です。
-         */
-        home: string;
-        /**
-         * 「insert」は、対象の内容または識別子を表す文字列です。
-         */
-        insert: string;
-        /**
-         * 「table」は、対象の内容または識別子を表す文字列です。
-         */
-        table: string;
-        /**
-         * 「view」は、画面の表示モードまたは現在のUI状態を示します。
-         */
-        view: string;
-        /**
-         * 「export」は、対象の内容または識別子を表す文字列です。
-         */
-        export: string;
-        /**
-         * 「settings」は、利用側が共有する設定または現在状態を保持します。
-         */
-        settings: string;
-        /**
-         * 「help」は、対象の内容または識別子を表す文字列です。
-         */
-        help: string };
+            /**
+             * ホームタブとして表示するローカライズ済み文言。
+             */
+            home: string;
+            /**
+             * 挿入タブとして表示するローカライズ済み文言。
+             */
+            insert: string;
+            /**
+             * 表タブとして表示するローカライズ済み文言。
+             */
+            table: string;
+            /**
+             * 表示タブとして表示するローカライズ済み文言。
+             */
+            view: string;
+            /**
+             * 出力タブとして表示するローカライズ済み文言。
+             */
+            export: string;
+            /**
+             * 設定タブとして表示するローカライズ済み文言。
+             */
+            settings: string;
+            /**
+             * ヘルプタブとして表示するローカライズ済み文言。
+             */
+            help: string
+        };
 
         /**
-         * 「label」は、画面または通知へ表示する文言を保持します。
+         * 表示項目「表示文言」の文言として表示するローカライズ済み文言。
          */
         label: string;
 
         /**
-         * 「source」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
+         * 表示項目「source」の文言として表示するローカライズ済み文言。
          */
         source: string;
 
         /**
-         * 「sourceTitle」は、画面または通知へ表示する文言を保持します。
+         * 本文編集面の見出しとして表示するローカライズ済み文言。
          */
         sourceTitle: string;
 
         /**
-         * 「outline」は、対象の内容または識別子を表す文字列です。
+         * outline設定の表示文言として表示するローカライズ済み文言。
          */
         outline: string;
 
         /**
-         * 「outlineTitle」は、画面または通知へ表示する文言を保持します。
+         * 目次の見出しとして表示するローカライズ済み文言。
          */
         outlineTitle: string;
 
         /**
-         * 「scrollSync」は、対象の内容または識別子を表す文字列です。
+         * 表示項目「スクロール同期」の文言として表示するローカライズ済み文言。
          */
         scrollSync: string;
 
         /**
-         * 「scrollSyncTitle」は、画面または通知へ表示する文言を保持します。
+         * スクロール同期設定の見出しとして表示するローカライズ済み文言。
          */
         scrollSyncTitle: string;
 
         /**
-         * 「search」は、対象の内容または識別子を表す文字列です。
+         * 表示項目「search」の文言として表示するローカライズ済み文言。
          */
         search: string;
 
         /**
-         * 「split」は、対象の内容または識別子を表す文字列です。
+         * split設定の表示文言として表示するローカライズ済み文言。
          */
         split: string;
 
         /**
-         * 「textOnly」は、画面または通知へ表示する文言を保持します。
+         * 表示項目「本文のみ表示」の文言として表示するローカライズ済み文言。
          */
         textOnly: string;
 
         /**
-         * 「previewOnly」は、対象の内容または識別子を表す文字列です。
+         * プレビューのみ表示設定の表示文言として表示するローカライズ済み文言。
          */
         previewOnly: string;
 
         /**
-         * 「pin」は、対象の内容または識別子を表す文字列です。
+         * 表示項目「pin」の文言として表示するローカライズ済み文言。
          */
         pin: string;
 
         /**
-         * 「unpin」は、対象の内容または識別子を表す文字列です。
+         * 表示項目「unpin」の文言として表示するローカライズ済み文言。
          */
         unpin: string;
 
         /**
-         * 「collapse」は、対象の内容または識別子を表す文字列です。
+         * 表示項目「collapse」の文言として表示するローカライズ済み文言。
          */
         collapse: string;
 
         /**
-         * 「expand」は、対象の内容または識別子を表す文字列です。
+         * 表示項目「expand」の文言として表示するローカライズ済み文言。
          */
         expand: string;
 
         /**
-         * 「groups」は、言語別メッセージまたは表示用データの一項目です。
+         * 表示文言のgroupsに関する状態または設定。
          */
         groups: {
 
             /**
-             * 「history」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「履歴」の文言として表示するローカライズ済み文言。
              */
             history: string;
 
             /**
-             * 「paragraph」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「段落」の文言として表示するローカライズ済み文言。
              */
             paragraph: string;
 
             /**
-             * 「textFormat」は、画面または通知へ表示する文言を保持します。
+             * 表示項目「文字書式」の文言として表示するローカライズ済み文言。
              */
             textFormat: string;
 
             /**
-             * 「clear」は、対象の内容または識別子を表す文字列です。
+             * 解除操作のラベルとして表示するローカライズ済み文言。
              */
             clear: string;
 
             /**
-             * 「basic」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「basic」の文言として表示するローカライズ済み文言。
              */
             basic: string;
 
             /**
-             * 「block」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「block」の文言として表示するローカライズ済み文言。
              */
             block: string;
 
             /**
-             * 「assist」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「assist」の文言として表示するローカライズ済み文言。
              */
             assist: string;
 
             /**
-             * 「rows」は、対象の位置、サイズ、件数、または範囲を保持します。
+             * 表示項目「rows」の文言として表示するローカライズ済み文言。
              */
             rows: string;
 
             /**
-             * 「columns」は、対象の位置、サイズ、件数、または範囲を保持します。
+             * 表示項目「columns」の文言として表示するローカライズ済み文言。
              */
             columns: string;
 
             /**
-             * 「alignment」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「alignment」の文言として表示するローカライズ済み文言。
              */
             alignment: string;
 
             /**
-             * 「excel」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「excel」の文言として表示するローカライズ済み文言。
              */
             excel: string;
 
             /**
-             * 「pane」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「pane」の文言として表示するローカライズ済み文言。
              */
             pane: string;
 
             /**
-             * 「pdf」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「pdf」の文言として表示するローカライズ済み文言。
              */
             pdf: string;
 
             /**
-             * 「html」は、解析・編集・変換の対象となる本文またはデータを保持します。
+             * 表示項目「html」の文言として表示するローカライズ済み文言。
              */
             html: string;
 
             /**
-             * 「inspection」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「inspection」の文言として表示するローカライズ済み文言。
              */
             inspection: string;
 
             /**
-             * 「help」は、対象の内容または識別子を表す文字列です。
+             * ヘルプタブとして表示するローカライズ済み文言。
              */
             help: string;
         };
 
         /**
-         * 「labels」は、画面または通知へ表示する文言を保持します。
+         * 表示文言のlabelsに関する状態または設定。
          */
         labels: {
 
             /**
-             * 「undo」は、対象の内容または識別子を表す文字列です。
+             * 元に戻す操作のラベルとして表示するローカライズ済み文言。
              */
             undo: string;
 
             /**
-             * 「redo」は、対象の内容または識別子を表す文字列です。
+             * やり直す操作のラベルとして表示するローカライズ済み文言。
              */
             redo: string;
 
             /**
-             * 「style」は、表示テーマまたはスタイル設定を保持します。
+             * 表示項目「style」の文言として表示するローカライズ済み文言。
              */
             style: string;
 
             /**
-             * 「body」は、画面または通知へ表示する文言を保持します。
+             * 表示項目「body」の文言として表示するローカライズ済み文言。
              */
             body: string;
             /**
-             * 「heading」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-             * @param level 「level」は、「heading」が言語別メッセージ処理の処理対象を特定する入力です。
-             * @returns 「heading」が生成または変換した言語別メッセージの文字列を返します。
+             * 表示文言のheadingを処理し、呼び出し側へ結果または副作用を返す。
+             * @param level - 表示文言で扱う数値。
+             * @returns 表示文言で利用する文字列。
              */
             heading: (level: number) => string;
 
             /**
-             * 「quote」は、対象の内容または識別子を表す文字列です。
+             * 引用書式コマンドのラベルとして表示するローカライズ済み文言。
              */
             quote: string;
 
             /**
-             * 「bulletList」は、対象の内容または識別子を表す文字列です。
+             * 箇条書き書式コマンドのラベルとして表示するローカライズ済み文言。
              */
             bulletList: string;
 
             /**
-             * 「orderedList」は、対象の内容または識別子を表す文字列です。
+             * 番号付きリスト書式コマンドのラベルとして表示するローカライズ済み文言。
              */
             orderedList: string;
 
             /**
-             * 「taskList」は、対象の内容または識別子を表す文字列です。
+             * タスクリスト書式コマンドのラベルとして表示するローカライズ済み文言。
              */
             taskList: string;
 
             /**
-             * 「indent」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「indent」の文言として表示するローカライズ済み文言。
              */
             indent: string;
 
             /**
-             * 「outdent」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「outdent」の文言として表示するローカライズ済み文言。
              */
             outdent: string;
 
             /**
-             * 「bold」は、対象の内容または識別子を表す文字列です。
+             * 太字書式コマンドのラベルとして表示するローカライズ済み文言。
              */
             bold: string;
 
             /**
-             * 「italic」は、対象の内容または識別子を表す文字列です。
+             * 斜体書式コマンドのラベルとして表示するローカライズ済み文言。
              */
             italic: string;
 
             /**
-             * 「strike」は、対象の内容または識別子を表す文字列です。
+             * 取り消し線書式コマンドのラベルとして表示するローカライズ済み文言。
              */
             strike: string;
 
             /**
-             * 「underline」は、対象の内容または識別子を表す文字列です。
+             * 下線書式コマンドのラベルとして表示するローカライズ済み文言。
              */
             underline: string;
 
             /**
-             * 「highlight」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「highlight」の文言として表示するローカライズ済み文言。
              */
             highlight: string;
 
             /**
-             * 「code」は、対象の内容または識別子を表す文字列です。
+             * コード書式コマンドのラベルとして表示するローカライズ済み文言。
              */
             code: string;
 
             /**
-             * 「superscript」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「superscript」の文言として表示するローカライズ済み文言。
              */
             superscript: string;
 
             /**
-             * 「subscript」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「subscript」の文言として表示するローカライズ済み文言。
              */
             subscript: string;
 
             /**
-             * 「clearInline」は、対象の内容または識別子を表す文字列です。
+             * インライン書式解除操作のラベルとして表示するローカライズ済み文言。
              */
             clearInline: string;
 
             /**
-             * 「clearBlock」は、対象の内容または識別子を表す文字列です。
+             * ブロック書式解除操作のラベルとして表示するローカライズ済み文言。
              */
             clearBlock: string;
 
             /**
-             * 「clearAll」は、対象の内容または識別子を表す文字列です。
+             * clear・all操作のラベルとして表示するローカライズ済み文言。
              */
             clearAll: string;
 
             /**
-             * 「unlink」は、対象の内容または識別子を表す文字列です。
+             * unlink書式コマンドのラベルとして表示するローカライズ済み文言。
              */
             unlink: string;
 
             /**
-             * 「link」は、対象の内容または識別子を表す文字列です。
+             * リンク書式コマンドのラベルとして表示するローカライズ済み文言。
              */
             link: string;
 
             /**
-             * 「image」は、対象の内容または識別子を表す文字列です。
+             * 画像書式コマンドのラベルとして表示するローカライズ済み文言。
              */
             image: string;
 
             /**
-             * 「tableSize」は、件数・容量・上限などの数値を保持します。
+             * 表示項目「table・size」の文言として表示するローカライズ済み文言。
              */
             tableSize: string;
 
             /**
-             * 「rows」は、対象の位置、サイズ、件数、または範囲を保持します。
+             * 表示項目「rows」の文言として表示するローカライズ済み文言。
              */
             rows: string;
 
             /**
-             * 「columns」は、対象の位置、サイズ、件数、または範囲を保持します。
+             * 表示項目「columns」の文言として表示するローカライズ済み文言。
              */
             columns: string;
 
             /**
-             * 「insertTable」は、対象の内容または識別子を表す文字列です。
+             * insert・table操作のラベルとして表示するローカライズ済み文言。
              */
             insertTable: string;
 
             /**
-             * 「horizontalRule」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「horizontal・rule」の文言として表示するローカライズ済み文言。
              */
             horizontalRule: string;
 
             /**
-             * 「hardBreak」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「hard・break」の文言として表示するローカライズ済み文言。
              */
             hardBreak: string;
 
             /**
-             * 「language」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「language」の文言として表示するローカライズ済み文言。
              */
             language: string;
 
             /**
-             * 「codeBlock」は、対象の内容または識別子を表す文字列です。
+             * code・block書式コマンドのラベルとして表示するローカライズ済み文言。
              */
             codeBlock: string;
 
             /**
-             * 「math」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「math」の文言として表示するローカライズ済み文言。
              */
             math: string;
 
             /**
-             * 「footnote」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「footnote」の文言として表示するローカライズ済み文言。
              */
             footnote: string;
 
             /**
-             * 「toc」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「toc」の文言として表示するローカライズ済み文言。
              */
             toc: string;
 
             /**
-             * 「pageBreak」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「page・break」の文言として表示するローカライズ済み文言。
              */
             pageBreak: string;
 
             /**
-             * 「emoji」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「emoji」の文言として表示するローカライズ済み文言。
              */
             emoji: string;
 
             /**
-             * 「insertEmoji」は、対象の内容または識別子を表す文字列です。
+             * insert・emoji操作のラベルとして表示するローカライズ済み文言。
              */
             insertEmoji: string;
 
             /**
-             * 「addBefore」は、対象の内容または識別子を表す文字列です。
+             * add・before操作のラベルとして表示するローカライズ済み文言。
              */
             addBefore: string;
 
             /**
-             * 「addAfter」は、対象の内容または識別子を表す文字列です。
+             * add・after操作のラベルとして表示するローカライズ済み文言。
              */
             addAfter: string;
 
             /**
-             * 「addLeft」は、対象の内容または識別子を表す文字列です。
+             * add・left操作のラベルとして表示するローカライズ済み文言。
              */
             addLeft: string;
 
             /**
-             * 「addRight」は、対象の内容または識別子を表す文字列です。
+             * add・right操作のラベルとして表示するローカライズ済み文言。
              */
             addRight: string;
 
             /**
-             * 「deleteRow」は、対象の位置、サイズ、件数、または範囲を保持します。
+             * delete・row操作のラベルとして表示するローカライズ済み文言。
              */
             deleteRow: string;
 
             /**
-             * 「toggleHeader」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「toggle・header」の文言として表示するローカライズ済み文言。
              */
             toggleHeader: string;
 
             /**
-             * 「deleteColumn」は、対象の位置、サイズ、件数、または範囲を保持します。
+             * delete・column操作のラベルとして表示するローカライズ済み文言。
              */
             deleteColumn: string;
 
             /**
-             * 「alignLeft」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「align・left」の文言として表示するローカライズ済み文言。
              */
             alignLeft: string;
 
             /**
-             * 「alignCenter」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「align・center」の文言として表示するローカライズ済み文言。
              */
             alignCenter: string;
 
             /**
-             * 「alignRight」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「align・right」の文言として表示するローカライズ済み文言。
              */
             alignRight: string;
 
             /**
-             * 「alignColumns」は、対象の位置、サイズ、件数、または範囲を保持します。
+             * 表示項目「align・columns」の文言として表示するローカライズ済み文言。
              */
             alignColumns: string;
 
             /**
-             * 「cellBreak」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「cell・break」の文言として表示するローカライズ済み文言。
              */
             cellBreak: string;
 
             /**
-             * 「copyTsv」は、対象の内容または識別子を表す文字列です。
+             * copy・tsv操作のラベルとして表示するローカライズ済み文言。
              */
             copyTsv: string;
 
             /**
-             * 「printPreview」は、対象の内容または識別子を表す文字列です。
+             * print・preview設定の表示文言として表示するローカライズ済み文言。
              */
             printPreview: string;
 
             /**
-             * 「exportPdf」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「export・pdf」の文言として表示するローカライズ済み文言。
              */
             exportPdf: string;
 
             /**
-             * 「exportHtml」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「export・html」の文言として表示するローカライズ済み文言。
              */
             exportHtml: string;
 
             /**
-             * 「embedImages」は、対象の内容または識別子を表す文字列です。
+             * embed・images書式コマンドのラベルとして表示するローカライズ済み文言。
              */
             embedImages: string;
 
             /**
-             * 「convertLinkedMarkdown」は、対象の内容または識別子を表す文字列です。
+             * convert・linked・markdown書式コマンドのラベルとして表示するローカライズ済み文言。
              */
             convertLinkedMarkdown: string;
 
             /**
-             * 「saveWithoutDialog」は、対象の内容または識別子を表す文字列です。
+             * save・without・dialog操作のラベルとして表示するローカライズ済み文言。
              */
             saveWithoutDialog: string;
 
             /**
-             * 「preflight」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「preflight」の文言として表示するローカライズ済み文言。
              */
             preflight: string;
 
             /**
-             * 「shortcuts」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「shortcuts」の文言として表示するローカライズ済み文言。
              */
             shortcuts: string;
 
             /**
-             * 「features」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「features」の文言として表示するローカライズ済み文言。
              */
             features: string;
 
             /**
-             * 「markdownSupport」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「markdown・support」の文言として表示するローカライズ済み文言。
              */
             markdownSupport: string;
 
             /**
-             * 「about」は、対象の内容または識別子を表す文字列です。
+             * 画面または設定項目の説明として表示するローカライズ済み文言。
              */
             about: string;
 
             /**
-             * 「header」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「header」の文言として表示するローカライズ済み文言。
              */
             header: string;
 
             /**
-             * 「headerPlaceholder」は、対象の内容または識別子を表す文字列です。
+             * 入力欄のプレースホルダーとして表示するローカライズ済み文言。
              */
             headerPlaceholder: string;
         };
 
         /**
-         * 「featureDescriptions」は、言語別メッセージまたは表示用データの一項目です。
+         * 表示文言のfeature・descriptionsに関する状態または設定。
          */
         featureDescriptions: {
 
             /**
-             * 「undo」は、対象の内容または識別子を表す文字列です。
+             * 元に戻す操作のラベルとして表示するローカライズ済み文言。
              */
             undo: string;
 
             /**
-             * 「redo」は、対象の内容または識別子を表す文字列です。
+             * やり直す操作のラベルとして表示するローカライズ済み文言。
              */
             redo: string;
 
             /**
-             * 「bold」は、対象の内容または識別子を表す文字列です。
+             * 太字書式コマンドのラベルとして表示するローカライズ済み文言。
              */
             bold: string;
 
             /**
-             * 「italic」は、対象の内容または識別子を表す文字列です。
+             * 斜体書式コマンドのラベルとして表示するローカライズ済み文言。
              */
             italic: string;
 
             /**
-             * 「clearInline」は、対象の内容または識別子を表す文字列です。
+             * インライン書式解除操作のラベルとして表示するローカライズ済み文言。
              */
             clearInline: string;
 
             /**
-             * 「clearBlock」は、対象の内容または識別子を表す文字列です。
+             * ブロック書式解除操作のラベルとして表示するローカライズ済み文言。
              */
             clearBlock: string;
 
             /**
-             * 「link」は、対象の内容または識別子を表す文字列です。
+             * リンク書式コマンドのラベルとして表示するローカライズ済み文言。
              */
             link: string;
 
             /**
-             * 「image」は、対象の内容または識別子を表す文字列です。
+             * 画像書式コマンドのラベルとして表示するローカライズ済み文言。
              */
             image: string;
 
             /**
-             * 「insertTable」は、対象の内容または識別子を表す文字列です。
+             * insert・table操作のラベルとして表示するローカライズ済み文言。
              */
             insertTable: string;
 
             /**
-             * 「codeBlock」は、対象の内容または識別子を表す文字列です。
+             * code・block書式コマンドのラベルとして表示するローカライズ済み文言。
              */
             codeBlock: string;
 
             /**
-             * 「math」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「math」の文言として表示するローカライズ済み文言。
              */
             math: string;
 
             /**
-             * 「footnote」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「footnote」の文言として表示するローカライズ済み文言。
              */
             footnote: string;
 
             /**
-             * 「toc」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「toc」の文言として表示するローカライズ済み文言。
              */
             toc: string;
 
             /**
-             * 「addBefore」は、対象の内容または識別子を表す文字列です。
+             * add・before操作のラベルとして表示するローカライズ済み文言。
              */
             addBefore: string;
 
             /**
-             * 「deleteRow」は、対象の位置、サイズ、件数、または範囲を保持します。
+             * delete・row操作のラベルとして表示するローカライズ済み文言。
              */
             deleteRow: string;
 
             /**
-             * 「deleteColumn」は、対象の位置、サイズ、件数、または範囲を保持します。
+             * delete・column操作のラベルとして表示するローカライズ済み文言。
              */
             deleteColumn: string;
 
             /**
-             * 「alignLeft」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「align・left」の文言として表示するローカライズ済み文言。
              */
             alignLeft: string;
 
             /**
-             * 「alignCenter」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「align・center」の文言として表示するローカライズ済み文言。
              */
             alignCenter: string;
 
             /**
-             * 「alignRight」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「align・right」の文言として表示するローカライズ済み文言。
              */
             alignRight: string;
 
             /**
-             * 「copyTsv」は、対象の内容または識別子を表す文字列です。
+             * copy・tsv操作のラベルとして表示するローカライズ済み文言。
              */
             copyTsv: string;
 
             /**
-             * 「tableEditor」は、対象の内容または識別子を表す文字列です。
+             * table・editor設定の表示文言として表示するローカライズ済み文言。
              */
             tableEditor: string;
 
             /**
-             * 「tableEditorColumnResize」は、対象の位置、サイズ、件数、または範囲を保持します。
+             * table・editor・column・resize設定の表示文言として表示するローカライズ済み文言。
              */
             tableEditorColumnResize: string;
 
             /**
-             * 「tableEditorRowResize」は、対象の位置、サイズ、件数、または範囲を保持します。
+             * table・editor・row・resize設定の表示文言として表示するローカライズ済み文言。
              */
             tableEditorRowResize: string;
 
             /**
-             * 「tableEditorLayout」は、対象の内容または識別子を表す文字列です。
+             * table・editor・layout設定の表示文言として表示するローカライズ済み文言。
              */
             tableEditorLayout: string;
 
             /**
-             * 「outline」は、対象の内容または識別子を表す文字列です。
+             * outline設定の表示文言として表示するローカライズ済み文言。
              */
             outline: string;
 
             /**
-             * 「search」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「search」の文言として表示するローカライズ済み文言。
              */
             search: string;
 
             /**
-             * 「split」は、対象の内容または識別子を表す文字列です。
+             * split設定の表示文言として表示するローカライズ済み文言。
              */
             split: string;
 
             /**
-             * 「textOnly」は、画面または通知へ表示する文言を保持します。
+             * 表示項目「本文のみ表示」の文言として表示するローカライズ済み文言。
              */
             textOnly: string;
 
             /**
-             * 「previewOnly」は、対象の内容または識別子を表す文字列です。
+             * プレビューのみ表示設定の表示文言として表示するローカライズ済み文言。
              */
             previewOnly: string;
 
             /**
-             * 「printPreview」は、対象の内容または識別子を表す文字列です。
+             * print・preview設定の表示文言として表示するローカライズ済み文言。
              */
             printPreview: string;
 
             /**
-             * 「exportPdf」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「export・pdf」の文言として表示するローカライズ済み文言。
              */
             exportPdf: string;
 
             /**
-             * 「preflight」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「preflight」の文言として表示するローカライズ済み文言。
              */
             preflight: string;
         };
 
         /**
-         * 「hintZoom」は、対象の内容または識別子を表す文字列です。
+         * 操作部品のツールチップとして表示するローカライズ済み文言。
          */
         hintZoom: string;
 
         /**
-         * 「codeLanguages」は、言語別メッセージまたは表示用データの一項目です。
+         * 表示文言のcode・languagesに関する状態または設定。
          */
         codeLanguages: ReadonlyArray<{
-        /**
-         * 「value」は、対象の内容または識別子を表す文字列です。
-         */
-        value: string;
-        /**
-         * 「label」は、画面または通知へ表示する文言を保持します。
-         */
-        label: string }>;
+            /**
+             * 表示項目「値」の文言として表示するローカライズ済み文言。
+             */
+            value: string;
+            /**
+             * 表示項目「表示文言」の文言として表示するローカライズ済み文言。
+             */
+            label: string
+        }>;
 
         /**
-         * 「snippets」は、言語別メッセージまたは表示用データの一項目です。
+         * 表示文言のsnippetsに関する状態または設定。
          */
         snippets: {
-        /**
-         * 「mermaid」は、対象の識別や処理分岐に使用する値を保持します。
-         */
-        mermaid: string;
-        /**
-         * 「footnote」は、対象の内容または識別子を表す文字列です。
-         */
-        footnote: string;
-        /**
-         * 「note」は、対象の内容または識別子を表す文字列です。
-         */
-        note: string;
-        /**
-         * 「warning」は、対象の内容または識別子を表す文字列です。
-         */
-        warning: string };
+            /**
+             * 表示項目「mermaid」の文言として表示するローカライズ済み文言。
+             */
+            mermaid: string;
+            /**
+             * 表示項目「footnote」の文言として表示するローカライズ済み文言。
+             */
+            footnote: string;
+            /**
+             * 表示項目「note」の文言として表示するローカライズ済み文言。
+             */
+            note: string;
+            /**
+             * 失敗または入力エラーの説明として表示するローカライズ済み文言。
+             */
+            warning: string
+        };
 
         /**
-         * 「settings」は、利用側が共有する設定または現在状態を保持します。
+         * 表示文言へ渡す設定または境界値。
          */
         settings: {
 
             /**
-             * 「images」は、対象の内容または識別子を表す文字列です。
+             * images書式コマンドのラベルとして表示するローカライズ済み文言。
              */
             images: string;
 
             /**
-             * 「imageDirectory」は、対象の内容または識別子を表す文字列です。
+             * image・directory書式コマンドのラベルとして表示するローカライズ済み文言。
              */
             imageDirectory: string;
 
             /**
-             * 「imageDirectoryPlaceholder」は、対象の内容または識別子を表す文字列です。
+             * 入力欄のプレースホルダーとして表示するローカライズ済み文言。
              */
             imageDirectoryPlaceholder: string;
 
             /**
-             * 「imageDirectoryHint」は、対象の内容または識別子を表す文字列です。
+             * 操作部品のツールチップとして表示するローカライズ済み文言。
              */
             imageDirectoryHint: string;
 
             /**
-             * 「fonts」は、表示テーマまたはスタイル設定を保持します。
+             * fonts設定の表示文言として表示するローカライズ済み文言。
              */
             fonts: string;
 
             /**
-             * 「fontSettings」は、利用側が共有する設定または現在状態を保持します。
+             * font・settings設定の表示文言として表示するローカライズ済み文言。
              */
             fontSettings: string;
 
             /**
-             * 「editorFontFamily」は、表示テーマまたはスタイル設定を保持します。
+             * editor・font・family設定の表示文言として表示するローカライズ済み文言。
              */
             editorFontFamily: string;
 
             /**
-             * 「previewFontFamily」は、表示テーマまたはスタイル設定を保持します。
+             * preview・font・family設定の表示文言として表示するローカライズ済み文言。
              */
             previewFontFamily: string;
 
             /**
-             * 「fontFamilyPlaceholder」は、表示テーマまたはスタイル設定を保持します。
+             * 入力欄のプレースホルダーとして表示するローカライズ済み文言。
              */
             fontFamilyPlaceholder: string;
 
             /**
-             * 「fontFamilyHint」は、表示テーマまたはスタイル設定を保持します。
+             * 操作部品のツールチップとして表示するローカライズ済み文言。
              */
             fontFamilyHint: string;
 
             /**
-             * 「apply」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「apply」の文言として表示するローカライズ済み文言。
              */
             apply: string;
         };
     };
 
     /**
-     * 「app」は、言語別メッセージまたは表示用データの一項目です。
+     * 表示文言のappに関する状態または設定。
      */
     app: {
 
         /**
-         * 「startup」は、対象の内容または識別子を表す文字列です。
+         * 表示項目「startup」の文言として表示するローカライズ済み文言。
          */
         startup: string;
 
         /**
-         * 「outline」は、対象の内容または識別子を表す文字列です。
+         * outline設定の表示文言として表示するローカライズ済み文言。
          */
         outline: string;
 
         /**
-         * 「hideOutline」は、対象の内容または識別子を表す文字列です。
+         * hide・outline設定の表示文言として表示するローカライズ済み文言。
          */
         hideOutline: string;
 
         /**
-         * 「showOutline」は、対象の内容または識別子を表す文字列です。
+         * show・outline設定の表示文言として表示するローカライズ済み文言。
          */
         showOutline: string;
 
         /**
-         * 「outlineWidth」は、対象の位置、サイズ、件数、または範囲を保持します。
+         * outline・width設定の表示文言として表示するローカライズ済み文言。
          */
         outlineWidth: string;
 
         /**
-         * 「noHeadings」は、対象の内容または識別子を表す文字列です。
+         * no・headings書式コマンドのラベルとして表示するローカライズ済み文言。
          */
         noHeadings: string;
 
         /**
-         * 「searchAndReplace」は、対象の内容または識別子を表す文字列です。
+         * 表示項目「search・and・replace」の文言として表示するローカライズ済み文言。
          */
         searchAndReplace: string;
 
         /**
-         * 「searchText」は、画面または通知へ表示する文言を保持します。
+         * 表示項目「search・text」の文言として表示するローカライズ済み文言。
          */
         searchText: string;
 
         /**
-         * 「replacementText」は、画面または通知へ表示する文言を保持します。
+         * 表示項目「replacement・text」の文言として表示するローカライズ済み文言。
          */
         replacementText: string;
 
         /**
-         * 「replacement」は、対象の内容または識別子を表す文字列です。
+         * 表示項目「replacement」の文言として表示するローカライズ済み文言。
          */
         replacement: string;
 
         /**
-         * 「previousMatch」は、対象の内容または識別子を表す文字列です。
+         * 表示項目「previous・match」の文言として表示するローカライズ済み文言。
          */
         previousMatch: string;
 
         /**
-         * 「nextMatch」は、対象の内容または識別子を表す文字列です。
+         * 表示項目「next・match」の文言として表示するローカライズ済み文言。
          */
         nextMatch: string;
 
         /**
-         * 「replaceAll」は、対象の内容または識別子を表す文字列です。
+         * 表示項目「replace・all」の文言として表示するローカライズ済み文言。
          */
         replaceAll: string;
 
         /**
-         * 「close」は、対象の内容または識別子を表す文字列です。
+         * 閉じる操作のラベルとして表示するローカライズ済み文言。
          */
         close: string;
 
         /**
-         * 「splitBoundary」は、対象の内容または識別子を表す文字列です。
+         * split・boundary設定の表示文言として表示するローカライズ済み文言。
          */
         splitBoundary: string;
 
         /**
-         * 「selectionFormatting」は、対象の内容または識別子を表す文字列です。
+         * 表示項目「selection・formatting」の文言として表示するローカライズ済み文言。
          */
         selectionFormatting: string;
 
         /**
-         * 「diagnosticsTitle」は、画面または通知へ表示する文言を保持します。
+         * 画面または設定項目の見出しとして表示するローカライズ済み文言。
          */
         diagnosticsTitle: string;
 
         /**
-         * 「diagnosticHelp」は、対象の内容または識別子を表す文字列です。
+         * 画面または設定項目の説明として表示するローカライズ済み文言。
          */
         diagnosticHelp: string;
 
         /**
-         * 「noProblems」は、対象の内容または識別子を表す文字列です。
+         * 表示項目「no・problems」の文言として表示するローカライズ済み文言。
          */
         noProblems: string;
 
         /**
-         * 「severity」は、言語別メッセージまたは表示用データの一項目です。
+         * 表示文言のseverityに関する状態または設定。
          */
         severity: {
+            /**
+             * 失敗または入力エラーの説明として表示するローカライズ済み文言。
+             */
+            error: string;
+            /**
+             * 失敗または入力エラーの説明として表示するローカライズ済み文言。
+             */
+            warning: string;
+            /**
+             * 表示項目「info」の文言として表示するローカライズ済み文言。
+             */
+            info: string
+        };
         /**
-         * 「error」は、対象の内容または識別子を表す文字列です。
-         */
-        error: string;
-        /**
-         * 「warning」は、対象の内容または識別子を表す文字列です。
-         */
-        warning: string;
-        /**
-         * 「info」は、対象の内容または識別子を表す文字列です。
-         */
-        info: string };
-        /**
-         * 「line」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-         * @param line 「line」は、「line」が言語別メッセージ処理の処理対象を特定する入力です。
-         * @returns 「line」が生成または変換した言語別メッセージの文字列を返します。
+         * 表示文言のlineを処理し、呼び出し側へ結果または副作用を返す。
+         * @param line - 表示文言の位置・寸法・件数・時間を表す数値。
+         * @returns 表示文言で利用する文字列。
          */
         line: (line: number) => string;
 
         /**
-         * 「printSettings」は、利用側が共有する設定または現在状態を保持します。
+         * 表示項目「print・settings」の文言として表示するローカライズ済み文言。
          */
         printSettings: string;
 
         /**
-         * 「printSettingsHelp」は、利用側が共有する設定または現在状態を保持します。
+         * 画面または設定項目の説明として表示するローカライズ済み文言。
          */
         printSettingsHelp: string;
 
         /**
-         * 「paper」は、対象の内容または識別子を表す文字列です。
+         * paper設定の表示文言として表示するローカライズ済み文言。
          */
         paper: string;
 
         /**
-         * 「orientation」は、対象の内容または識別子を表す文字列です。
+         * 表示項目「orientation」の文言として表示するローカライズ済み文言。
          */
         orientation: string;
 
         /**
-         * 「portrait」は、対象の内容または識別子を表す文字列です。
+         * 表示項目「portrait」の文言として表示するローカライズ済み文言。
          */
         portrait: string;
 
         /**
-         * 「landscape」は、対象の内容または識別子を表す文字列です。
+         * 表示項目「landscape」の文言として表示するローカライズ済み文言。
          */
         landscape: string;
 
         /**
-         * 「header」は、対象の内容または識別子を表す文字列です。
+         * 表示項目「header」の文言として表示するローカライズ済み文言。
          */
         header: string;
 
         /**
-         * 「footer」は、対象の内容または識別子を表す文字列です。
+         * 表示項目「footer」の文言として表示するローカライズ済み文言。
          */
         footer: string;
 
         /**
-         * 「margins」は、対象の内容または識別子を表す文字列です。
+         * margins設定の表示文言として表示するローカライズ済み文言。
          */
         margins: string;
 
         /**
-         * 「top」は、対象の内容または識別子を表す文字列です。
+         * 表示項目「top」の文言として表示するローカライズ済み文言。
          */
         top: string;
 
         /**
-         * 「right」は、対象の内容または識別子を表す文字列です。
+         * 表示項目「right」の文言として表示するローカライズ済み文言。
          */
         right: string;
 
         /**
-         * 「bottom」は、対象の内容または識別子を表す文字列です。
+         * 表示項目「bottom」の文言として表示するローカライズ済み文言。
          */
         bottom: string;
 
         /**
-         * 「left」は、対象の内容または識別子を表す文字列です。
+         * 表示項目「left」の文言として表示するローカライズ済み文言。
          */
         left: string;
 
         /**
-         * 「withoutDialog」は、対象の内容または識別子を表す文字列です。
+         * 表示項目「without・dialog」の文言として表示するローカライズ済み文言。
          */
         withoutDialog: string;
         /**
-         * PDF印刷設定パネルのタイポグラフィ欄に表示する見出し。
+         * 表示項目「typography」の文言として表示するローカライズ済み文言。
          */
         typography: string;
 
         /**
-         * 「fontFamily」は、表示テーマまたはスタイル設定を保持します。
+         * font・family設定の表示文言として表示するローカライズ済み文言。
          */
         fontFamily: string;
 
         /**
-         * 「bodyFontSize」は、画面または通知へ表示する文言を保持します。
+         * body・font・size設定の表示文言として表示するローカライズ済み文言。
          */
         bodyFontSize: string;
 
         /**
-         * 「headingFontSizes」は、表示テーマまたはスタイル設定を保持します。
+         * heading・font・sizes書式コマンドのラベルとして表示するローカライズ済み文言。
          */
         headingFontSizes: string;
 
         /**
-         * 「codeFontSize」は、表示テーマまたはスタイル設定を保持します。
+         * code・font・size書式コマンドのラベルとして表示するローカライズ済み文言。
          */
         codeFontSize: string;
 
         /**
-         * 「lineHeight」は、対象の位置、サイズ、件数、または範囲を保持します。
+         * 表示項目「line・height」の文言として表示するローカライズ済み文言。
          */
         lineHeight: string;
 
         /**
-         * 「paragraphSpacing」は、対象の内容または識別子を表す文字列です。
+         * 表示項目「paragraph・spacing」の文言として表示するローカライズ済み文言。
          */
         paragraphSpacing: string;
 
         /**
-         * 「status」は、言語別メッセージまたは表示用データの一項目です。
+         * 表示文言のstatusに関する状態または設定。
          */
         status: {
 
             /**
-             * 「modeSplit」は、対象の内容または識別子を表す文字列です。
+             * mode・split設定の表示文言として表示するローカライズ済み文言。
              */
             modeSplit: string;
 
             /**
-             * 「modePreview」は、対象の内容または識別子を表す文字列です。
+             * mode・preview設定の表示文言として表示するローカライズ済み文言。
              */
             modePreview: string;
             /**
-             * 「lines」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-             * @param count 処理対象の件数、容量、または上限を表す数値です。
-             * @returns 「lines」が生成または変換した言語別メッセージの文字列を返します。
+             * 表示文言のlinesを処理し、呼び出し側へ結果または副作用を返す。
+             * @param count - 表示文言の位置・寸法・件数・時間を表す数値。
+             * @returns 表示文言で利用する文字列。
              */
             lines: (count: number) => string;
             /**
-             * 「textCharacters」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-             * @param count 処理対象の件数、容量、または上限を表す数値です。
-             * @returns 「textCharacters」が生成した言語別メッセージの表示文字列を返します。
+             * 表示文言のtext・charactersを処理し、呼び出し側へ結果または副作用を返す。
+             * @param count - 表示文言の位置・寸法・件数・時間を表す数値。
+             * @returns 表示文言で利用する文字列。
              */
             textCharacters: (count: number) => string;
             /**
-             * 「markdownCharacters」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-             * @param count 処理対象の件数、容量、または上限を表す数値です。
-             * @returns 「markdownCharacters」が生成または変換した言語別メッセージの文字列を返します。
+             * 表示文言の変更または利用者の操作意図を記録し、後続処理へ渡す。
+             * @param count - 表示文言の位置・寸法・件数・時間を表す数値。
+             * @returns 表示文言で利用する文字列。
              */
             markdownCharacters: (count: number) => string;
             /**
-             * 「zoom」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-             * @param percent 「percent」は、「zoom」が言語別メッセージ処理の処理対象を特定する入力です。
-             * @returns 「zoom」が生成または変換した言語別メッセージの文字列を返します。
+             * 表示文言のzoomを処理し、呼び出し側へ結果または副作用を返す。
+             * @param percent - 表示文言で扱う数値。
+             * @returns 表示文言で利用する文字列。
              */
             zoom: (percent: number) => string;
 
             /**
-             * 「syncing」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「syncing」の文言として表示するローカライズ済み文言。
              */
             syncing: string;
 
             /**
-             * 「synced」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「synced」の文言として表示するローカライズ済み文言。
              */
             synced: string;
         };
 
         /**
-         * 「inspector」は、言語別メッセージまたは表示用データの一項目です。
+         * 表示文言のinspectorに関する状態または設定。
          */
         inspector: {
-        /**
-         * 「mermaid」は、対象の識別や処理分岐に使用する値を保持します。
-         */
-        mermaid: string;
-        /**
-         * 「math」は、対象の内容または識別子を表す文字列です。
-         */
-        math: string;
-        /**
-         * 「image」は、対象の内容または識別子を表す文字列です。
-         */
-        image: string;
-        /**
-         * 「alt」は、対象の内容または識別子を表す文字列です。
-         */
-        alt: string;
-        /**
-         * 「reference」は、対象の内容または識別子を表す文字列です。
-         */
-        reference: string;
-        /**
-         * 「openFile」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
-         */
-        openFile: string;
-        /**
-         * 「apply」は、対象の内容または識別子を表す文字列です。
-         */
-        apply: string };
+            /**
+             * 表示項目「mermaid」の文言として表示するローカライズ済み文言。
+             */
+            mermaid: string;
+            /**
+             * 表示項目「math」の文言として表示するローカライズ済み文言。
+             */
+            math: string;
+            /**
+             * 画像書式コマンドのラベルとして表示するローカライズ済み文言。
+             */
+            image: string;
+            /**
+             * 表示項目「alt」の文言として表示するローカライズ済み文言。
+             */
+            alt: string;
+            /**
+             * 表示項目「reference」の文言として表示するローカライズ済み文言。
+             */
+            reference: string;
+            /**
+             * open・file操作のラベルとして表示するローカライズ済み文言。
+             */
+            openFile: string;
+            /**
+             * 表示項目「apply」の文言として表示するローカライズ済み文言。
+             */
+            apply: string
+        };
 
         /**
-         * 「link」は、言語別メッセージまたは表示用データの一項目です。
+         * 表示文言のlinkに関する状態または設定。
          */
         link: {
-        /**
-         * 「title」は、画面または通知へ表示する文言を保持します。
-         */
-        title: string;
-        /**
-         * 「url」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
-         */
-        url: string;
-        /**
-         * 「urlPlaceholder」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
-         */
-        urlPlaceholder: string;
-        /**
-         * 「text」は、画面または通知へ表示する文言を保持します。
-         */
-        text: string;
-        /**
-         * 「textHint」は、画面または通知へ表示する文言を保持します。
-         */
-        textHint: string;
-        /**
-         * 「cancel」は、対象の内容または識別子を表す文字列です。
-         */
-        cancel: string;
-        /**
-         * 「insert」は、対象の内容または識別子を表す文字列です。
-         */
-        insert: string };
+            /**
+             * 画面または設定項目の見出しとして表示するローカライズ済み文言。
+             */
+            title: string;
+            /**
+             * 表示項目「url」の文言として表示するローカライズ済み文言。
+             */
+            url: string;
+            /**
+             * 入力欄のプレースホルダーとして表示するローカライズ済み文言。
+             */
+            urlPlaceholder: string;
+            /**
+             * 表示項目「本文」の文言として表示するローカライズ済み文言。
+             */
+            text: string;
+            /**
+             * 操作部品のツールチップとして表示するローカライズ済み文言。
+             */
+            textHint: string;
+            /**
+             * キャンセル操作のラベルとして表示するローカライズ済み文言。
+             */
+            cancel: string;
+            /**
+             * 挿入タブとして表示するローカライズ済み文言。
+             */
+            insert: string
+        };
 
         /**
-         * 「tableEditor」は、言語別メッセージまたは表示用データの一項目です。
+         * 表示文言のtable・editorに関する状態または設定。
          */
         tableEditor: {
 
             /**
-             * 「title」は、画面または通知へ表示する文言を保持します。
+             * 画面または設定項目の見出しとして表示するローカライズ済み文言。
              */
             title: string;
 
             /**
-             * 「close」は、対象の内容または識別子を表す文字列です。
+             * 閉じる操作のラベルとして表示するローカライズ済み文言。
              */
             close: string;
 
             /**
-             * 「addRow」は、対象の位置、サイズ、件数、または範囲を保持します。
+             * add・row操作のラベルとして表示するローカライズ済み文言。
              */
             addRow: string;
 
             /**
-             * 「deleteRow」は、対象の位置、サイズ、件数、または範囲を保持します。
+             * delete・row操作のラベルとして表示するローカライズ済み文言。
              */
             deleteRow: string;
 
             /**
-             * 「addColumn」は、対象の位置、サイズ、件数、または範囲を保持します。
+             * add・column操作のラベルとして表示するローカライズ済み文言。
              */
             addColumn: string;
 
             /**
-             * 「deleteColumn」は、対象の位置、サイズ、件数、または範囲を保持します。
+             * delete・column操作のラベルとして表示するローカライズ済み文言。
              */
             deleteColumn: string;
 
             /**
-             * 「alignLeft」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「align・left」の文言として表示するローカライズ済み文言。
              */
             alignLeft: string;
 
             /**
-             * 「alignCenter」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「align・center」の文言として表示するローカライズ済み文言。
              */
             alignCenter: string;
 
             /**
-             * 「alignRight」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「align・right」の文言として表示するローカライズ済み文言。
              */
             alignRight: string;
 
             /**
-             * 「clearAlignment」は、対象の内容または識別子を表す文字列です。
+             * clear・alignment操作のラベルとして表示するローカライズ済み文言。
              */
             clearAlignment: string;
 
             /**
-             * 「copyTsv」は、対象の内容または識別子を表す文字列です。
+             * copy・tsv操作のラベルとして表示するローカライズ済み文言。
              */
             copyTsv: string;
 
             /**
-             * 「copyColumn」は、対象の位置、サイズ、件数、または範囲を保持します。
+             * copy・column操作のラベルとして表示するローカライズ済み文言。
              */
             copyColumn: string;
 
             /**
-             * 「copyRow」は、対象の位置、サイズ、件数、または範囲を保持します。
+             * copy・row操作のラベルとして表示するローカライズ済み文言。
              */
             copyRow: string;
 
             /**
-             * 「cancel」は、対象の内容または識別子を表す文字列です。
+             * キャンセル操作のラベルとして表示するローカライズ済み文言。
              */
             cancel: string;
 
             /**
-             * 「apply」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「apply」の文言として表示するローカライズ済み文言。
              */
             apply: string;
 
             /**
-             * 「navigationHint」は、対象の内容または識別子を表す文字列です。
+             * 操作部品のツールチップとして表示するローカライズ済み文言。
              */
             navigationHint: string;
 
             /**
-             * 「sourceEditorRequired」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
+             * source・editor・required設定の表示文言として表示するローカライズ済み文言。
              */
             sourceEditorRequired: string;
 
             /**
-             * 「tableRequired」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「table・required」の文言として表示するローカライズ済み文言。
              */
             tableRequired: string;
             /**
-             * 「rowColumnLimit」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-             * @param rows 「rows」は、「rowColumnLimit」が言語別メッセージで処理する対象を特定する入力です。
-             * @param columns 「columns」は、「rowColumnLimit」が言語別メッセージで処理する対象を特定する入力です。
-             * @returns 「rowColumnLimit」が生成または変換した言語別メッセージの文字列を返します。
+             * 表示文言のrow・column・limitを処理し、呼び出し側へ結果または副作用を返す。
+             * @param rows - 表示文言で走査または更新する要素。
+             * @param columns - 表示文言で走査または更新する要素。
+             * @returns 表示文言で利用する文字列。
              */
             rowColumnLimit: (rows: number, columns: number) => string;
 
             /**
-             * 「copied」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「copied」の文言として表示するローカライズ済み文言。
              */
             copied: string;
 
             /**
-             * 「sourceEditorClosed」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
+             * source・editor・closed操作のラベルとして表示するローカライズ済み文言。
              */
             sourceEditorClosed: string;
 
             /**
-             * 「documentChanged」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「document・changed」の文言として表示するローカライズ済み文言。
              */
             documentChanged: string;
 
             /**
-             * 「resizeColumn」は、対象の位置、サイズ、件数、または範囲を保持します。
+             * 表示項目「resize・column」の文言として表示するローカライズ済み文言。
              */
             resizeColumn: string;
 
             /**
-             * 「resizeRow」は、対象の位置、サイズ、件数、または範囲を保持します。
+             * 表示項目「resize・row」の文言として表示するローカライズ済み文言。
              */
             resizeRow: string;
 
             /**
-             * 「resizeEditor」は、件数・容量・上限などの数値を保持します。
+             * resize・editor設定の表示文言として表示するローカライズ済み文言。
              */
             resizeEditor: string;
         };
 
         /**
-         * 「help」は、言語別メッセージまたは表示用データの一項目です。
+         * 表示文言のhelpに関する状態または設定。
          */
         help: {
 
             /**
-             * 「shortcuts」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「shortcuts」の文言として表示するローカライズ済み文言。
              */
             shortcuts: string;
 
             /**
-             * 「markdown」は、解析・編集・変換の対象となる本文またはデータを保持します。
+             * 表示項目「markdown」の文言として表示するローカライズ済み文言。
              */
             markdown: string;
 
             /**
-             * 「about」は、対象の内容または識別子を表す文字列です。
+             * 画面または設定項目の説明として表示するローカライズ済み文言。
              */
             about: string;
 
             /**
-             * 「shortcutImage」は、対象の内容または識別子を表す文字列です。
+             * shortcut・image書式コマンドのラベルとして表示するローカライズ済み文言。
              */
             shortcutImage: string;
 
             /**
-             * 「shortcutTableBreak」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「shortcut・table・break」の文言として表示するローカライズ済み文言。
              */
             shortcutTableBreak: string;
 
             /**
-             * 「markdownIntro」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「markdown・intro」の文言として表示するローカライズ済み文言。
              */
             markdownIntro: string;
 
             /**
-             * 「markdownFeatures」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「markdown・features」の文言として表示するローカライズ済み文言。
              */
             markdownFeatures: string;
 
             /**
-             * 「aboutIntro」は、対象の内容または識別子を表す文字列です。
+             * 画面または設定項目の説明として表示するローカライズ済み文言。
              */
             aboutIntro: string;
 
             /**
-             * 「aboutFeatures」は、対象の内容または識別子を表す文字列です。
+             * 画面または設定項目の説明として表示するローカライズ済み文言。
              */
             aboutFeatures: string;
         };
 
         /**
-         * 「toast」は、言語別メッセージまたは表示用データの一項目です。
+         * 表示文言のtoastを処理し、呼び出し側へ結果または副作用を返す。
+         * @param count - 表示文言の位置・寸法・件数・時間を表す数値。
+         * @returns 表示文言で利用する文字列。
          */
         toast: {
             /**
-             * 「imagesSaved」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-             * @param count 処理対象の件数、容量、または上限を表す数値です。
-             * @returns 「imagesSaved」が生成または変換した言語別メッセージの文字列を返します。
+             * 表示文言の入力を検証し、表示または保存に使う形式へ変換する。
+             * @param count - 表示文言の位置・寸法・件数・時間を表す数値。
+             * @returns 表示文言で利用する文字列。
              */
             imagesSaved: (count: number) => string;
             /**
-             * 「pdfResourceWarnings」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-             * @param count 処理対象の件数、容量、または上限を表す数値です。
-             * @param detail 「detail」は、「pdfResourceWarnings」が言語別メッセージ処理の処理対象を特定する入力です。
-             * @returns 「pdfResourceWarnings」が生成または変換した言語別メッセージの文字列を返します。
+             * 表示文言のpdf・resource・warningsを処理し、呼び出し側へ結果または副作用を返す。
+             * @param count - 表示文言の位置・寸法・件数・時間を表す数値。
+             * @param detail - 表示文言で受け渡す文字列。
+             * @returns 表示文言で利用する文字列。
              */
             pdfResourceWarnings: (count: number, detail: string) => string;
             /**
-             * 「preflightSummary」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-             * @param errors 「errors」は、「preflightSummary」が言語別メッセージ処理の処理対象を特定する入力です。
-             * @param warnings 「warnings」は、「preflightSummary」が言語別メッセージ処理の処理対象を特定する入力です。
-             * @param infos 「infos」は、「preflightSummary」が言語別メッセージ処理の処理対象を特定する入力です。
-             * @returns 「preflightSummary」が生成または変換した言語別メッセージの文字列を返します。
+             * 表示文言のpreflight・summaryを処理し、呼び出し側へ結果または副作用を返す。
+             * @param errors - 表示文言で発生した例外または失敗理由。
+             * @param warnings - 表示文言で扱う数値。
+             * @param infos - 表示文言で扱う数値。
+             * @returns 表示文言で利用する文字列。
              */
             preflightSummary: (errors: number, warnings: number, infos: number) => string;
             /**
-             * 「imageSaveFailed」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-             * @param detail 「detail」は、「imageSaveFailed」が言語別メッセージ処理の処理対象を特定する入力です。
-             * @returns 「imageSaveFailed」が生成または変換した言語別メッセージの文字列を返します。
+             * 表示文言の入力を検証し、表示または保存に使う形式へ変換する。
+             * @param detail - 表示文言で受け渡す文字列。
+             * @returns 表示文言で利用する文字列。
              */
             imageSaveFailed: (detail: string) => string;
             /**
-             * 「pdfExportFailed」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-             * @param detail 「detail」は、「pdfExportFailed」が言語別メッセージ処理の処理対象を特定する入力です。
-             * @returns 「pdfExportFailed」が生成または変換した言語別メッセージの文字列を返します。
+             * 表示文言のpdf・export・failedを処理し、呼び出し側へ結果または副作用を返す。
+             * @param detail - 表示文言で受け渡す文字列。
+             * @returns 表示文言で利用する文字列。
              */
             pdfExportFailed: (detail: string) => string;
             /**
-             * 「resourceCheckFailed」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-             * @param detail 「detail」は、「resourceCheckFailed」が言語別メッセージ処理の処理対象を特定する入力です。
-             * @param duringPdf 「duringPdf」は、「resourceCheckFailed」が言語別メッセージ処理の処理対象を特定する入力です。
-             * @returns 「resourceCheckFailed」が生成または変換した言語別メッセージの文字列を返します。
+             * 表示文言のresource・check・failedを処理し、呼び出し側へ結果または副作用を返す。
+             * @param detail - 表示文言で受け渡す文字列。
+             * @param duringPdf - 表示文言で読み書きするリソースの場所。
+             * @returns 表示文言で利用する文字列。
              */
             resourceCheckFailed: (detail: string, duringPdf: boolean) => string;
             /**
-             * 「operationFailed」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-             * @param detail 「detail」は、「operationFailed」が言語別メッセージ処理の処理対象を特定する入力です。
-             * @returns 「operationFailed」が生成または変換した言語別メッセージの文字列を返します。
+             * 表示文言のoperation・failedを処理し、呼び出し側へ結果または副作用を返す。
+             * @param detail - 表示文言で受け渡す文字列。
+             * @returns 表示文言で利用する文字列。
              */
             operationFailed: (detail: string) => string;
             /**
-             * 「pdfExported」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-             * @param path 言語別メッセージで読み込みまたは出力するリソースの場所です。
-             * @returns 「pdfExported」が生成または変換した言語別メッセージの文字列を返します。
+             * 表示文言のpdf・exportedを処理し、呼び出し側へ結果または副作用を返す。
+             * @param path - 読み書きするファイルまたはリソースの場所。
+             * @returns 表示文言で利用する文字列。
              */
             pdfExported: (path: string) => string;
             /**
-             * 「htmlExported」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-             * @param path 言語別メッセージで読み込みまたは出力するリソースの場所です。
-             * @param count 処理対象の件数、容量、または上限を表す数値です。
-             * @returns 「htmlExported」が生成または変換した言語別メッセージの文字列を返します。
+             * 表示文言のhtml・exportedを処理し、呼び出し側へ結果または副作用を返す。
+             * @param path - 読み書きするファイルまたはリソースの場所。
+             * @param count - 表示文言の位置・寸法・件数・時間を表す数値。
+             * @returns 表示文言で利用する文字列。
              */
             htmlExported: (path: string, count: number) => string;
             /**
-             * 「htmlExportFailed」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-             * @param detail 「detail」は、「htmlExportFailed」が言語別メッセージ処理の処理対象を特定する入力です。
-             * @returns 「htmlExportFailed」が生成または変換した言語別メッセージの文字列を返します。
+             * 表示文言のhtml・export・failedを処理し、呼び出し側へ結果または副作用を返す。
+             * @param detail - 表示文言で受け渡す文字列。
+             * @returns 表示文言で利用する文字列。
              */
             htmlExportFailed: (detail: string) => string;
 
             /**
-             * 「tableCellRequired」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「table・cell・required」の文言として表示するローカライズ済み文言。
              */
             tableCellRequired: string;
 
             /**
-             * 「cannotPasteTsv」は、対象の内容または識別子を表す文字列です。
+             * cannot・paste・tsv操作のラベルとして表示するローカライズ済み文言。
              */
             cannotPasteTsv: string;
 
             /**
-             * 「tableCopied」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「table・copied」の文言として表示するローカライズ済み文言。
              */
             tableCopied: string;
             /**
-             * 「cannotCopyTsv」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-             * @param detail 「detail」は、「cannotCopyTsv」が言語別メッセージ処理の処理対象を特定する入力です。
-             * @returns 「cannotCopyTsv」が生成または変換した言語別メッセージの文字列を返します。
+             * 表示文言の条件を判定する。
+             * @param detail - 表示文言で受け渡す文字列。
+             * @returns 条件が成立したかを示す真偽値。
              */
             cannotCopyTsv: (detail?: string) => string;
 
             /**
-             * 「workspaceTrustRequired」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「workspace・trust・required」の文言として表示するローカライズ済み文言。
              */
             workspaceTrustRequired: string;
             /**
-             * 「pdfStartedWithDiagnostics」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-             * @param count 処理対象の件数、容量、または上限を表す数値です。
-             * @param detail 「detail」は、「pdfStartedWithDiagnostics」が言語別メッセージ処理の処理対象を特定する入力です。
-             * @returns 「pdfStartedWithDiagnostics」が生成または変換した言語別メッセージの文字列を返します。
+             * 表示文言のpdf・started・with・diagnosticsを処理し、呼び出し側へ結果または副作用を返す。
+             * @param count - 表示文言の位置・寸法・件数・時間を表す数値。
+             * @param detail - 表示文言で受け渡す文字列。
+             * @returns 表示文言で利用する文字列。
              */
             pdfStartedWithDiagnostics: (count: number, detail: string) => string;
             /**
-             * 「pdfFallbackToMarkdown」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-             * @param detail 「detail」は、「pdfFallbackToMarkdown」が言語別メッセージ処理の処理対象を特定する入力です。
-             * @returns 「pdfFallbackToMarkdown」が生成または変換した言語別メッセージの文字列を返します。
+             * 表示文言のpdf・fallback・to・markdownを処理し、呼び出し側へ結果または副作用を返す。
+             * @param detail - 表示文言で受け渡す文字列。
+             * @returns 表示文言で利用する文字列。
              */
             pdfFallbackToMarkdown: (detail?: string) => string;
         };
 
         /**
-         * 「errors」は、言語別メッセージまたは表示用データの一項目です。
+         * 表示文言のerrorsに関する状態または設定。
          */
         errors: {
 
             /**
-             * 「ackMismatch」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「ack・mismatch」の文言として表示するローカライズ済み文言。
              */
             ackMismatch: string;
             /**
-             * 「pendingOperationChain」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-             * @param opId 「opId」は、「pendingOperationChain」が言語別メッセージ処理の処理対象を特定する入力です。
-             * @returns 「pendingOperationChain」が生成または変換した言語別メッセージの文字列を返します。
+             * 表示文言のpending・operation・chainを処理し、呼び出し側へ結果または副作用を返す。
+             * @param opId - 表示文言の対象や分岐を識別する値。
+             * @returns 表示文言で利用する文字列。
              */
             pendingOperationChain: (opId: string) => string;
 
             /**
-             * 「clipboardUnavailable」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「clipboard・unavailable」の文言として表示するローカライズ済み文言。
              */
             clipboardUnavailable: string;
 
             /**
-             * 「bmpConversion」は、対象の内容または識別子を表す文字列です。
+             * 表示項目「bmp・conversion」の文言として表示するローカライズ済み文言。
              */
             bmpConversion: string;
             /**
-             * 「imageSize」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-             * @param maxSizeMb 「maxSizeMb」は、「imageSize」が言語別メッセージ処理の処理対象を特定する入力です。
-             * @returns 「imageSize」が生成または変換した言語別メッセージの文字列を返します。
+             * 表示文言の入力を検証し、表示または保存に使う形式へ変換する。
+             * @param maxSizeMb - 表示文言の位置・寸法・件数・時間を表す数値。
+             * @returns 表示文言で利用する文字列。
              */
             imageSize: (maxSizeMb: number) => string;
         };
     };
 
     /**
-     * 「renderer」は、言語別メッセージまたは表示用データの一項目です。
+     * 表示文言のrendererに関する状態または設定。
      */
     renderer: {
 
         /**
-         * 「remoteImageDisabled」は、対象の内容または識別子を表す文字列です。
+         * remote・image・disabled書式コマンドのラベルとして表示するローカライズ済み文言。
          */
         remoteImageDisabled: string;
 
         /**
-         * 「copy」は、対象の内容または識別子を表す文字列です。
+         * コピー操作のラベルとして表示するローカライズ済み文言。
          */
         copy: string;
 
         /**
-         * 「copied」は、対象の内容または識別子を表す文字列です。
+         * 表示項目「copied」の文言として表示するローカライズ済み文言。
          */
         copied: string;
 
         /**
-         * 「pageBreak」は、対象の内容または識別子を表す文字列です。
+         * 表示項目「page・break」の文言として表示するローカライズ済み文言。
          */
         pageBreak: string;
 
         /**
-         * 「toc」は、対象の内容または識別子を表す文字列です。
+         * 表示項目「toc」の文言として表示するローカライズ済み文言。
          */
         toc: string;
 
         /**
-         * 「backToText」は、画面または通知へ表示する文言を保持します。
+         * 表示項目「back・to・text」の文言として表示するローカライズ済み文言。
          */
         backToText: string;
 
         /**
-         * 「mathError」は、対象の内容または識別子を表す文字列です。
+         * 失敗または入力エラーの説明として表示するローカライズ済み文言。
          */
         mathError: string;
 
         /**
-         * 「mermaidError」は、対象の内容または識別子を表す文字列です。
+         * 失敗または入力エラーの説明として表示するローカライズ済み文言。
          */
         mermaidError: string;
 
         /**
-         * 「alerts」は、言語別メッセージまたは表示用データの一項目です。
+         * 表示文言のalertsに関する状態または設定。
          */
         alerts: {
-        /**
-         * 「note」は、対象の内容または識別子を表す文字列です。
-         */
-        note: string;
-        /**
-         * 「tip」は、対象の内容または識別子を表す文字列です。
-         */
-        tip: string;
-        /**
-         * 「important」は、対象の内容または識別子を表す文字列です。
-         */
-        important: string;
-        /**
-         * 「warning」は、対象の内容または識別子を表す文字列です。
-         */
-        warning: string;
-        /**
-         * 「caution」は、対象の内容または識別子を表す文字列です。
-         */
-        caution: string };
+            /**
+             * 表示項目「note」の文言として表示するローカライズ済み文言。
+             */
+            note: string;
+            /**
+             * 表示項目「tip」の文言として表示するローカライズ済み文言。
+             */
+            tip: string;
+            /**
+             * 表示項目「important」の文言として表示するローカライズ済み文言。
+             */
+            important: string;
+            /**
+             * 失敗または入力エラーの説明として表示するローカライズ済み文言。
+             */
+            warning: string;
+            /**
+             * 表示項目「caution」の文言として表示するローカライズ済み文言。
+             */
+            caution: string
+        };
     };
 
     /**
-     * 「diagnostics」は、言語別メッセージまたは表示用データの一項目です。
+     * 表示文言のdiagnosticsを処理し、呼び出し側へ結果または副作用を返す。
+     * @param marker - 表示文言で受け渡す文字列。
+     * @returns 表示文言で利用する文字列。
      */
     diagnostics: {
         /**
-         * 「unclosedFence」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-         * @param marker 「marker」は、「unclosedFence」が言語別メッセージ処理の処理対象を特定する入力です。
-         * @returns 「unclosedFence」が生成または変換した言語別メッセージの文字列を返します。
+         * 表示文言のunclosed・fenceを処理し、呼び出し側へ結果または副作用を返す。
+         * @param marker - 表示文言で受け渡す文字列。
+         * @returns 表示文言で利用する文字列。
          */
         unclosedFence: (marker: string) => string;
         /**
-         * 「duplicateHeading」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-         * @param id 「id」は、「duplicateHeading」が言語別メッセージ処理の処理対象を特定する入力です。
-         * @returns 「duplicateHeading」が生成または変換した言語別メッセージの文字列を返します。
+         * 表示文言のduplicate・headingを処理し、呼び出し側へ結果または副作用を返す。
+         * @param id - 表示文言の対象や分岐を識別する値。
+         * @returns 表示文言で利用する文字列。
          */
         duplicateHeading: (id: string) => string;
 
         /**
-         * 「invalidTableSeparator」は、対象の内容または識別子を表す文字列です。
+         * 失敗または入力エラーの説明として表示するローカライズ済み文言。
          */
         invalidTableSeparator: string;
 
         /**
-         * 「emptyImageAlt」は、対象の内容または識別子を表す文字列です。
+         * empty・image・alt書式コマンドのラベルとして表示するローカライズ済み文言。
          */
         emptyImageAlt: string;
         /**
-         * 「localImageCheck」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-         * @param source 処理対象のソースです。
-         * @returns 「localImageCheck」が生成または変換した言語別メッセージの文字列を返します。
+         * 表示文言のlocal・image・checkを処理し、呼び出し側へ結果または副作用を返す。
+         * @param source - 解析・描画・変換の起点となる本文。
+         * @returns 表示文言で利用する文字列。
          */
         localImageCheck: (source: string) => string;
 
         /**
-         * 「emptyTableHeader」は、対象の内容または識別子を表す文字列です。
+         * 表示項目「empty・table・header」の文言として表示するローカライズ済み文言。
          */
         emptyTableHeader: string;
         /**
-         * 「tableColumnMismatch」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-         * @param header 「header」は、「tableColumnMismatch」が言語別メッセージ処理の処理対象を特定する入力です。
-         * @param separator 「separator」は、「tableColumnMismatch」が言語別メッセージ処理の処理対象を特定する入力です。
-         * @param kind 対象の種別または処理経路を選択する識別値です。
-         * @returns 「tableColumnMismatch」が生成または変換した言語別メッセージの文字列を返します。
+         * 表示文言のtable・column・mismatchを処理し、呼び出し側へ結果または副作用を返す。
+         * @param header - 表示文言で扱う数値。
+         * @param separator - 表示文言で扱う数値。
+         * @param kind - メッセージ、項目、または処理の種類を識別する値。
+         * @returns 表示文言で利用する文字列。
          */
         tableColumnMismatch: (header: number, separator: number, kind: 'separator' | 'body') => string;
         /**
-         * 「missingReference」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-         * @param label 「label」は、「missingReference」が言語別メッセージ処理の処理対象を特定する入力です。
-         * @returns 「missingReference」が生成または変換した言語別メッセージの文字列を返します。
+         * 表示文言のmissing・referenceを処理し、呼び出し側へ結果または副作用を返す。
+         * @param label - 画面または検証結果に表示する説明文。
+         * @returns 表示文言で利用する文字列。
          */
         missingReference: (label: string) => string;
         /**
-         * 「localResource」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-         * @param kind 対象の種別または処理経路を選択する識別値です。
-         * @param missing 「missing」は、「localResource」が言語別メッセージ処理の処理対象を特定する入力です。
-         * @param source 処理対象のソースです。
-         * @param detail 「detail」は、「localResource」が言語別メッセージ処理の処理対象を特定する入力です。
-         * @returns 「localResource」が生成または変換した言語別メッセージの文字列を返します。
+         * 表示文言のlocal・resourceを処理し、呼び出し側へ結果または副作用を返す。
+         * @param kind - メッセージ、項目、または処理の種類を識別する値。
+         * @param missing - 表示文言の条件を示すフラグ。
+         * @param source - 解析・描画・変換の起点となる本文。
+         * @param detail - 表示文言で受け渡す文字列。
+         * @returns 表示文言で利用する文字列。
          */
         localResource: (kind: 'image' | 'link', missing: boolean, source: string, detail: string) => string;
     };
 
     /**
-     * 「host」は、言語別メッセージまたは表示用データの一項目です。
+     * 表示文言のhostに関する状態または設定。
      */
     host: {
 
         /**
-         * 「pdfTrustRequired」は、対象の内容または識別子を表す文字列です。
+         * 表示項目「pdf・trust・required」の文言として表示するローカライズ済み文言。
          */
         pdfTrustRequired: string;
 
         /**
-         * 「pdfProgress」は、対象の内容または識別子を表す文字列です。
+         * 表示項目「pdf・progress」の文言として表示するローカライズ済み文言。
          */
         pdfProgress: string;
         /**
-         * 「pdfExported」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-         * @param path 言語別メッセージで読み込みまたは出力するリソースの場所です。
-         * @returns 「pdfExported」が生成または変換した言語別メッセージの文字列を返します。
+         * 表示文言のpdf・exportedを処理し、呼び出し側へ結果または副作用を返す。
+         * @param path - 読み書きするファイルまたはリソースの場所。
+         * @returns 表示文言で利用する文字列。
          */
         pdfExported: (path: string) => string;
 
         /**
-         * 「htmlTrustRequired」は、対象の内容または識別子を表す文字列です。
+         * 表示項目「html・trust・required」の文言として表示するローカライズ済み文言。
          */
         htmlTrustRequired: string;
 
         /**
-         * 「htmlProgress」は、対象の内容または識別子を表す文字列です。
+         * 表示項目「html・progress」の文言として表示するローカライズ済み文言。
          */
         htmlProgress: string;
         /**
-         * 「htmlExported」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-         * @param path 言語別メッセージで読み込みまたは出力するリソースの場所です。
-         * @returns 「htmlExported」が生成または変換した言語別メッセージの文字列を返します。
+         * 表示文言のhtml・exportedを処理し、呼び出し側へ結果または副作用を返す。
+         * @param path - 読み書きするファイルまたはリソースの場所。
+         * @returns 表示文言で利用する文字列。
          */
         htmlExported: (path: string) => string;
 
         /**
-         * 「htmlRenderTimeout」は、対象の内容または識別子を表す文字列です。
+         * 表示項目「html・render・timeout」の文言として表示するローカライズ済み文言。
          */
         htmlRenderTimeout: string;
 
         /**
-         * 「open」は、対象の内容または識別子を表す文字列です。
+         * 開く操作のラベルとして表示するローカライズ済み文言。
          */
         open: string;
 
         /**
-         * 「saveCanceled」は、対象の内容または識別子を表す文字列です。
+         * save・canceled操作のラベルとして表示するローカライズ済み文言。
          */
         saveCanceled: string;
 
         /**
-         * 「imageDocumentMustBeSaved」は、対象の内容または識別子を表す文字列です。
+         * image・document・must・be・saved操作のラベルとして表示するローカライズ済み文言。
          */
         imageDocumentMustBeSaved: string;
         /**
-         * 「unsupportedImage」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-         * @param mime 「mime」は、「unsupportedImage」が言語別メッセージ処理の処理対象を特定する入力です。
-         * @returns 「unsupportedImage」が生成または変換した言語別メッセージの文字列を返します。
+         * 表示文言のunsupported・imageを処理し、呼び出し側へ結果または副作用を返す。
+         * @param mime - 画像または出力データのMIMEタイプ。
+         * @returns 表示文言で利用する文字列。
          */
         unsupportedImage: (mime: string) => string;
 
         /**
-         * 「invalidImageDirectory」は、対象の内容または識別子を表す文字列です。
+         * 失敗または入力エラーの説明として表示するローカライズ済み文言。
          */
         invalidImageDirectory: string;
 
         /**
-         * 「pdfBrowserUnavailable」は、対象の位置、サイズ、件数、または範囲を保持します。
+         * 表示項目「pdf・browser・unavailable」の文言として表示するローカライズ済み文言。
          */
         pdfBrowserUnavailable: string;
 
         /**
-         * 「errorPrefix」は、対象の内容または識別子を表す文字列です。
+         * 失敗または入力エラーの説明として表示するローカライズ済み文言。
          */
         errorPrefix: string;
 
         /**
-         * 「clientIdMismatch」は、対象の内容または識別子を表す文字列です。
+         * 表示項目「client・id・mismatch」の文言として表示するローカライズ済み文言。
          */
         clientIdMismatch: string;
     };
 
     /**
-     * 「editor」は、言語別メッセージまたは表示用データの一項目です。
+     * 表示文言のeditorに関する状態または設定。
      */
     editor: {
-    /**
-     * 「placeholder」は、対象の内容または識別子を表す文字列です。
-     */
-    placeholder: string;
-    /**
-     * 「codePlaceholder」は、対象の内容または識別子を表す文字列です。
-     */
-    codePlaceholder: string;
-    /**
-     * 「defaultLinkLabel」は、画面または通知へ表示する文言を保持します。
-     */
-    defaultLinkLabel: string;
-    /**
-     * 「defaultImageAlt」は、対象の内容または識別子を表す文字列です。
-     */
-    defaultImageAlt: string;
-    /**
-     * 「plainText」は、画面または通知へ表示する文言を保持します。
-     */
-    plainText: string };
+        /**
+         * 入力欄のプレースホルダーとして表示するローカライズ済み文言。
+         */
+        placeholder: string;
+        /**
+         * 入力欄のプレースホルダーとして表示するローカライズ済み文言。
+         */
+        codePlaceholder: string;
+        /**
+         * default・link・label書式コマンドのラベルとして表示するローカライズ済み文言。
+         */
+        defaultLinkLabel: string;
+        /**
+         * default・image・alt書式コマンドのラベルとして表示するローカライズ済み文言。
+         */
+        defaultImageAlt: string;
+        /**
+         * 表示項目「plain・text」の文言として表示するローカライズ済み文言。
+         */
+        plainText: string
+    };
 
     /**
-     * 「internal」は、言語別メッセージまたは表示用データの一項目です。
+     * 表示文言のinternalに関する状態または設定。
      */
     internal: {
-    /**
-     * 「concurrentEditsOverlap」は、対象の内容または識別子を表す文字列です。
-     */
-    concurrentEditsOverlap: string;
-    /**
-     * 「rootNotFound」は、対象の内容または識別子を表す文字列です。
-     */
-    rootNotFound: string };
+        /**
+         * 表示項目「concurrent・edits・overlap」の文言として表示するローカライズ済み文言。
+         */
+        concurrentEditsOverlap: string;
+        /**
+         * 表示項目「root・not・found」の文言として表示するローカライズ済み文言。
+         */
+        rootNotFound: string
+    };
 }
 
 /**
- * 「RawCatalog」として扱う値の型を定義します。
+ * 表示文言で扱う値の種類と境界を表す型。
  */
 type RawCatalog = Record<string, unknown>;
 /**
- * 「RawLocales」として扱う値の型を定義します。
+ * 表示文言で扱う値の種類と境界を表す型。
  */
 type RawLocales = Record<SupportedLanguage, RawCatalog>;
 /**
- * 「Values」として扱う値の型を定義します。
+ * 表示文言で扱う値の種類と境界を表す型。
  */
 type Values = Record<string, string | number>;
 
-/** 「rawLocales」は、関連する処理間で共有する設定値または状態です。 */
-/** 生成済みロケールJSONを型付きカタログとして参照する共有データ。 */
+
+/**
+ * 表示文言で扱う一覧または対応表。
+ */
 const rawLocales = localeCatalog as RawLocales;
 
 /**
- * 言語を正規化します。
- * @param value 「normalizeLanguage」で検証・変換する入力値です。
- * @returns 「normalizeLanguage」が生成または変換した言語別メッセージの文字列を返します。
+ * 表示文言の入力を許可された形式へ整える。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @returns 表示文言で利用する文字列。
  */
 function normalizeLanguage(value: string | undefined): string {
     return (value ?? '').trim().toLowerCase().replace(/_/g, '-');
 }
 
 /**
- * 「languageFromLocale」は、言語や通信契約に応じた表示文言または対応表を保持します。
- * @param value 「languageFromLocale」で検証・変換する入力値です。
- * @returns 「languageFromLocale」が対象を取得できない場合はundefinedを返します。
+ * 表示文言のlanguage・from・localeを処理し、呼び出し側へ結果または副作用を返す。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @returns 副作用を完了し、値は返さない。
  */
 function languageFromLocale(value: string | undefined): SupportedLanguage | undefined {
     const normalized = normalizeLanguage(value);
@@ -1794,10 +1802,10 @@ function languageFromLocale(value: string | undefined): SupportedLanguage | unde
 }
 
 /**
- * 言語を取得または解決します。
- * @param setting 保存済み設定または処理経路を選択するオプションです。未設定時の既定値や正規化対象を含みます。
- * @param vscodeLanguage 「vscodeLanguage」は、「resolveLanguage」が言語別メッセージで処理する対象を特定する入力です。
- * @returns 正規化した設定値またはVS Codeロケールから解決したSupportedLanguageを返し、解決できない場合はenへフォールバックします。
+ * 設定値と利用可能な辞書から表示言語を決める。
+ * @param setting - 表示文言へ渡す設定または境界値。
+ * @param vscodeLanguage - 表示文言の対象や分岐を識別する値。
+ * @returns 表示文言のresolve・languageが生成する結果。
  */
 export function resolveLanguage(setting: string | undefined, vscodeLanguage?: string): SupportedLanguage {
     const normalized = normalizeLanguage(setting);
@@ -1806,19 +1814,19 @@ export function resolveLanguage(setting: string | undefined, vscodeLanguage?: st
 }
 
 /**
- * resolve・catalogを取得または解決します。
- * @param language 表示文言の解決に使用する言語コードまたはロケールです。
- * @returns 指定されたSupportedLanguageに対応するローカライズ済みRawCatalogを返します。
+ * 表示文言から必要な値またはリソースを取得する。
+ * @param language - 表示文言の対象や分岐を識別する値。
+ * @returns 表示文言のresolve・catalogが生成する結果。
  */
 function resolveCatalog(language: SupportedLanguage): RawCatalog {
     return rawLocales[language];
 }
 
 /**
- * readを取得または解決します。
- * @param catalog 「catalog」は、「read」が言語別メッセージ処理の処理対象を特定する入力です。
- * @param key メッセージまたは設定表から値を取得する識別キーです。
- * @returns 「read」が生成または変換した言語別メッセージの文字列を返します。
+ * 表示文言から必要な値またはリソースを取得する。
+ * @param catalog - 表示文言へ渡す入力。
+ * @param key - 表示文言の対象や分岐を識別する値。
+ * @returns 表示文言で利用する文字列。
  */
 function read(catalog: RawCatalog, key: string): string {
     let value: unknown = catalog;
@@ -1830,44 +1838,39 @@ function read(catalog: RawCatalog, key: string): string {
 }
 
 /**
- * 「interpolate」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param template 「template」は、「interpolate」が言語別メッセージ処理の処理対象を特定する入力です。
- * @param values 「values」は、「interpolate」が言語別メッセージで処理する対象を特定する入力です。
- * @returns 「interpolate」が生成または変換した言語別メッセージの文字列を返します。
+ * 表示文言のinterpolateを処理し、呼び出し側へ結果または副作用を返す。
+ * @param template - 表示文言で受け渡す文字列。
+ * @param values - 表示文言へ渡す入力。
+ * @returns 表示文言で利用する文字列。
  */
 function interpolate(template: string, values: Values = {}): string {
     return template.replace(/\{([A-Za-z][A-Za-z0-9]*)\}/g,
-    /**
- * テスト「.」の前提条件を設定し、期待結果を検証するコールバックです。
-     * @param match matchとして渡される、このコールバックの入力値です。
-     * @param key メッセージまたは設定表から値を取得する識別キーです。
-     * @returns テストの前提条件と期待結果を検証し、値を返しません。
-     */
-    (match, key: string) => (
-        Object.prototype.hasOwnProperty.call(values, key) ? String(values[key]) : match
-    ));
+        /**
+         * matchをcallへ渡し、表示文言の結果または副作用を処理する。
+         * @param match - 表示文言へ渡す入力。
+         * @param key - 表示文言の対象や分岐を識別する値。
+         * @returns 表示文言のコールバックが生成する結果。
+         */
+        (match, key: string) => (
+            Object.prototype.hasOwnProperty.call(values, key) ? String(values[key]) : match
+        ));
 }
 
 /**
- * create・messagesを作成または組み立てます。
- * @param language 表示文言の解決に使用する言語コードまたはロケールです。
- * @returns 「createMessages」が生成したデータまたはオブジェクトを返します。
+ * 表示文言で使う値または実行環境を組み立てる。
+ * @param language - 表示文言の対象や分岐を識別する値。
+ * @returns 表示文言で生成または変換した値。
  */
 function createMessages(language: SupportedLanguage): Messages {
     const raw = resolveCatalog(language) as Record<string, any>;
 
-    /**
-     * 「text」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-     * @param key メッセージまたは設定表から値を取得する識別キーです。
-     * @param values 「values」は、「text」が言語別メッセージで処理する対象を特定する入力です。
-     * @returns 「text」が生成した言語別メッセージの表示文字列を返します。
-     */
+
     const text = /**
- * 「text」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param key メッセージまたは設定表から値を取得する識別キーです。
- * @param values 「values」は、「text」が言語別メッセージで処理する対象を特定する入力です。
- * @returns 「text」が生成した言語別の表示文言またはメッセージを返します。
- */ (key: string, values?: Values): string => interpolate(read(raw, key), values);
+     * 表示文言のtextを処理し、呼び出し側へ結果または副作用を返す。
+     * @param key - 表示文言の対象や分岐を識別する値。
+     * @param values - 表示文言へ渡す入力。
+     * @returns 表示文言で利用する文字列。
+     */ (key: string, values?: Values): string => interpolate(read(raw, key), values);
     return {
         ribbon: {
             tabs: raw.ribbon.tabs,
@@ -1890,16 +1893,12 @@ function createMessages(language: SupportedLanguage): Messages {
             labels: {
                 ...raw.ribbon.labels,
 
-                /**
-                 * 「heading」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-                 * @param level 「level」は、「heading」が言語別メッセージ処理の処理対象を特定する入力です。
-                 * @returns 「heading」が生成した言語別の表示文言またはメッセージを返します。
-                 */
+
                 heading: /**
- * 「heading」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param level 処理対象を特定する位置、範囲、または数量です。
- * @returns 「heading」が生成した言語別の表示文言またはメッセージを返します。
- */ (level: number) => text('ribbon.labels.heading', { level }),
+                 * 表示文言のheadingを処理し、呼び出し側へ結果または副作用を返す。
+                 * @param level - 表示文言で扱う数値。
+                 * @returns 表示文言のheadingが生成する結果。
+                 */ (level: number) => text('ribbon.labels.heading', { level }),
                 exportHtml: raw.ribbon.labels.exportHtml,
                 embedImages: raw.ribbon.labels.embedImages,
                 convertLinkedMarkdown: raw.ribbon.labels.convertLinkedMarkdown,
@@ -1935,16 +1934,12 @@ function createMessages(language: SupportedLanguage): Messages {
             noProblems: raw.app.noProblems,
             severity: raw.app.severity,
 
-            /**
-             * 「line」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-             * @param line 「line」は、「line」が言語別メッセージ処理の処理対象を特定する入力です。
-             * @returns 「line」が生成した言語別の表示文言またはメッセージを返します。
-             */
+
             line: /**
- * 「line」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param line 「line」は、「line」が言語別メッセージで処理する対象を特定する入力です。
- * @returns 「line」が生成した言語別の表示文言またはメッセージを返します。
- */ (line: number) => text('app.line', { line }),
+             * 表示文言のlineを処理し、呼び出し側へ結果または副作用を返す。
+             * @param line - 表示文言の位置・寸法・件数・時間を表す数値。
+             * @returns 表示文言のlineが生成する結果。
+             */ (line: number) => text('app.line', { line }),
             printSettings: raw.app.printSettings,
             printSettingsHelp: raw.app.printSettingsHelp,
             paper: raw.app.paper,
@@ -1970,49 +1965,33 @@ function createMessages(language: SupportedLanguage): Messages {
                 modeSplit: raw.app.status.modeSplit,
                 modePreview: raw.app.status.modePreview,
 
-                /**
-                 * 「lines」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-                 * @param count 処理対象の件数、容量、または上限を表す数値です。
-                 * @returns 「lines」が生成した言語別の表示文言またはメッセージを返します。
-                 */
+
                 lines: /**
- * 「lines」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param count 処理対象を特定する位置、範囲、または数量です。
- * @returns 「lines」が生成した言語別の表示文言またはメッセージを返します。
- */ (count: number) => text('app.status.lines', { count }),
+                 * 表示文言のlinesを処理し、呼び出し側へ結果または副作用を返す。
+                 * @param count - 表示文言の位置・寸法・件数・時間を表す数値。
+                 * @returns 表示文言のlinesが生成する結果。
+                 */ (count: number) => text('app.status.lines', { count }),
 
-                /**
-                 * 「textCharacters」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-                 * @param count 処理対象の件数、容量、または上限を表す数値です。
-                 * @returns 「textCharacters」が生成した言語別の表示文言またはメッセージを返します。
-                 */
+
                 textCharacters: /**
- * 「textCharacters」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param count 処理対象を特定する位置、範囲、または数量です。
- * @returns 「textCharacters」が生成した言語別の表示文言またはメッセージを返します。
- */ (count: number) => text('app.status.textCharacters', { count }),
+                 * 表示文言のtext・charactersを処理し、呼び出し側へ結果または副作用を返す。
+                 * @param count - 表示文言の位置・寸法・件数・時間を表す数値。
+                 * @returns 表示文言のtext・charactersが生成する結果。
+                 */ (count: number) => text('app.status.textCharacters', { count }),
 
-                /**
-                 * 「markdownCharacters」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-                 * @param count 処理対象の件数、容量、または上限を表す数値です。
-                 * @returns 「markdownCharacters」が生成した言語別の表示文言またはメッセージを返します。
-                 */
+
                 markdownCharacters: /**
- * 「markdownCharacters」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param count 処理対象を特定する位置、範囲、または数量です。
- * @returns 「markdownCharacters」が生成した言語別の表示文言またはメッセージを返します。
- */ (count: number) => text('app.status.markdownCharacters', { count }),
+                 * 表示文言の変更または利用者の操作意図を記録し、後続処理へ渡す。
+                 * @param count - 表示文言の位置・寸法・件数・時間を表す数値。
+                 * @returns 表示文言のmarkdown・charactersが生成する結果。
+                 */ (count: number) => text('app.status.markdownCharacters', { count }),
 
-                /**
-                 * 「zoom」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-                 * @param percent 「percent」は、「zoom」が言語別メッセージ処理の処理対象を特定する入力です。
-                 * @returns 「zoom」が生成した言語別の表示文言またはメッセージを返します。
-                 */
+
                 zoom: /**
- * 「zoom」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param percent 「percent」は、「zoom」が言語別メッセージで処理する対象を特定する入力です。
- * @returns 「zoom」が生成した言語別の表示文言またはメッセージを返します。
- */ (percent: number) => text('app.status.zoom', { percent }),
+                 * 表示文言のzoomを処理し、呼び出し側へ結果または副作用を返す。
+                 * @param percent - 表示文言で扱う数値。
+                 * @returns 表示文言のzoomが生成する結果。
+                 */ (percent: number) => text('app.status.zoom', { percent }),
                 syncing: raw.app.status.syncing,
                 synced: raw.app.status.synced
             },
@@ -2038,18 +2017,13 @@ function createMessages(language: SupportedLanguage): Messages {
                 sourceEditorRequired: raw.app.tableEditor.sourceEditorRequired,
                 tableRequired: raw.app.tableEditor.tableRequired,
 
-                /**
-                 * 「rowColumnLimit」は、処理時間、入力サイズ、または対象数を制限する境界値です。
-                 * @param rows 「rows」は、「rowColumnLimit」が言語別メッセージで処理する対象を特定する入力です。
-                 * @param columns 「columns」は、「rowColumnLimit」が言語別メッセージで処理する対象を特定する入力です。
-                 * @returns 「rowColumnLimit」が生成した言語別の表示文言またはメッセージを返します。
-                 */
+
                 rowColumnLimit: /**
- * 「rowColumnLimit」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param rows 「rows」は、「rowColumnLimit」が言語別メッセージで処理する対象を特定する入力です。
- * @param columns 「columns」は、「rowColumnLimit」が言語別メッセージで処理する対象を特定する入力です。
- * @returns 「rowColumnLimit」が生成した言語別の表示文言またはメッセージを返します。
- */ (rows: number, columns: number) => text('app.tableEditor.rowColumnLimit', { rows, columns }),
+                 * 表示文言のrow・column・limitを処理し、呼び出し側へ結果または副作用を返す。
+                 * @param rows - 表示文言で走査または更新する要素。
+                 * @param columns - 表示文言で走査または更新する要素。
+                 * @returns 表示文言のrow・column・limitが生成する結果。
+                 */ (rows: number, columns: number) => text('app.tableEditor.rowColumnLimit', { rows, columns }),
                 copied: raw.app.tableEditor.copied,
                 sourceEditorClosed: raw.app.tableEditor.sourceEditorClosed,
                 documentChanged: raw.app.tableEditor.documentChanged,
@@ -2060,320 +2034,213 @@ function createMessages(language: SupportedLanguage): Messages {
             help: raw.app.help,
             toast: {
 
-                /**
-                 * 「imagesSaved」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-                 * @param count 処理対象の件数、容量、または上限を表す数値です。
-                 * @returns 「imagesSaved」が生成した言語別の表示文言またはメッセージを返します。
-                 */
+
                 imagesSaved: /**
- * 「imagesSaved」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param count 処理対象を特定する位置、範囲、または数量です。
- * @returns 「imagesSaved」が生成した言語別の表示文言またはメッセージを返します。
- */ (count: number) => text('app.toast.imagesSaved', { count }),
+                 * 表示文言の入力を検証し、表示または保存に使う形式へ変換する。
+                 * @param count - 表示文言の位置・寸法・件数・時間を表す数値。
+                 * @returns 表示文言のimages・savedが生成する結果。
+                 */ (count: number) => text('app.toast.imagesSaved', { count }),
 
-                /**
-                 * 「pdfResourceWarnings」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-                 * @param count 処理対象の件数、容量、または上限を表す数値です。
-                 * @param detail 「detail」は、「pdfResourceWarnings」が言語別メッセージ処理の処理対象を特定する入力です。
-                 * @returns 「pdfResourceWarnings」が生成した言語別の表示文言またはメッセージを返します。
-                 */
+
                 pdfResourceWarnings: /**
- * 「pdfResourceWarnings」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param count 処理対象を特定する位置、範囲、または数量です。
- * @param detail 「detail」は、「pdfResourceWarnings」が言語別メッセージで処理する対象を特定する入力です。
- * @returns 「pdfResourceWarnings」が生成した言語別の表示文言またはメッセージを返します。
- */ (count: number, detail: string) => text('app.toast.pdfResourceWarnings', { count, detail }),
+                 * 表示文言のpdf・resource・warningsを処理し、呼び出し側へ結果または副作用を返す。
+                 * @param count - 表示文言の位置・寸法・件数・時間を表す数値。
+                 * @param detail - 表示文言で受け渡す文字列。
+                 * @returns 表示文言のpdf・resource・warningsが生成する結果。
+                 */ (count: number, detail: string) => text('app.toast.pdfResourceWarnings', { count, detail }),
 
-                /**
-                 * 「preflightSummary」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-                 * @param errors 「errors」は、「preflightSummary」が言語別メッセージ処理の処理対象を特定する入力です。
-                 * @param warnings 「warnings」は、「preflightSummary」が言語別メッセージ処理の処理対象を特定する入力です。
-                 * @param infos 「infos」は、「preflightSummary」が言語別メッセージ処理の処理対象を特定する入力です。
-                 * @returns 「preflightSummary」が生成した言語別の表示文言またはメッセージを返します。
-                 */
+
                 preflightSummary: /**
- * 「preflightSummary」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param errors 「errors」は、「preflightSummary」が言語別メッセージで処理する対象を特定する入力です。
- * @param warnings 「warnings」は、「preflightSummary」が言語別メッセージで処理する対象を特定する入力です。
- * @param infos 「infos」は、「preflightSummary」が言語別メッセージで処理する対象を特定する入力です。
- * @returns 「preflightSummary」が生成した言語別の表示文言またはメッセージを返します。
- */ (errors: number, warnings: number, infos: number) => text('app.toast.preflightSummary', { errors, warnings, infos }),
+                 * 表示文言のpreflight・summaryを処理し、呼び出し側へ結果または副作用を返す。
+                 * @param errors - 表示文言で発生した例外または失敗理由。
+                 * @param warnings - 表示文言で扱う数値。
+                 * @param infos - 表示文言で扱う数値。
+                 * @returns 表示文言のpreflight・summaryが生成する結果。
+                 */ (errors: number, warnings: number, infos: number) => text('app.toast.preflightSummary', { errors, warnings, infos }),
 
-                /**
-                 * 「imageSaveFailed」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-                 * @param detail 「detail」は、「imageSaveFailed」が言語別メッセージ処理の処理対象を特定する入力です。
-                 * @returns 「imageSaveFailed」が生成した言語別の表示文言またはメッセージを返します。
-                 */
+
                 imageSaveFailed: /**
- * 「imageSaveFailed」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param detail 「detail」は、「imageSaveFailed」が言語別メッセージで処理する対象を特定する入力です。
- * @returns 「imageSaveFailed」が生成した言語別の表示文言またはメッセージを返します。
- */ (detail: string) => text('app.toast.imageSaveFailed', { detail }),
+                 * 表示文言の入力を検証し、表示または保存に使う形式へ変換する。
+                 * @param detail - 表示文言で受け渡す文字列。
+                 * @returns 表示文言のimage・save・failedが生成する結果。
+                 */ (detail: string) => text('app.toast.imageSaveFailed', { detail }),
 
-                /**
-                 * 「pdfExportFailed」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-                 * @param detail 「detail」は、「pdfExportFailed」が言語別メッセージ処理の処理対象を特定する入力です。
-                 * @returns 「pdfExportFailed」が生成した言語別の表示文言またはメッセージを返します。
-                 */
+
                 pdfExportFailed: /**
- * 「pdfExportFailed」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param detail 「detail」は、「pdfExportFailed」が言語別メッセージで処理する対象を特定する入力です。
- * @returns 「pdfExportFailed」が生成した言語別の表示文言またはメッセージを返します。
- */ (detail: string) => text('app.toast.pdfExportFailed', { detail }),
+                 * 表示文言のpdf・export・failedを処理し、呼び出し側へ結果または副作用を返す。
+                 * @param detail - 表示文言で受け渡す文字列。
+                 * @returns 表示文言のpdf・export・failedが生成する結果。
+                 */ (detail: string) => text('app.toast.pdfExportFailed', { detail }),
 
-                /**
-                 * 「resourceCheckFailed」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-                 * @param detail 「detail」は、「resourceCheckFailed」が言語別メッセージ処理の処理対象を特定する入力です。
-                 * @param duringPdf 「duringPdf」は、「resourceCheckFailed」が言語別メッセージ処理の処理対象を特定する入力です。
-                 * @returns 「resourceCheckFailed」が生成した言語別の表示文言またはメッセージを返します。
-                 */
+
                 resourceCheckFailed: /**
- * 「resourceCheckFailed」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param detail 「detail」は、「resourceCheckFailed」が言語別メッセージで処理する対象を特定する入力です。
- * @param duringPdf 「duringPdf」は、「resourceCheckFailed」が言語別メッセージで処理する対象を特定する入力です。
- * @returns 「resourceCheckFailed」が生成した言語別の表示文言またはメッセージを返します。
- */ (detail: string, duringPdf: boolean) => text('app.toast.resourceCheckFailed', { prefix: duringPdf ? `${raw.host.pdfProgress} ` : '', detail }),
+                 * 表示文言のresource・check・failedを処理し、呼び出し側へ結果または副作用を返す。
+                 * @param detail - 表示文言で受け渡す文字列。
+                 * @param duringPdf - 表示文言で読み書きするリソースの場所。
+                 * @returns 表示文言のresource・check・failedが生成する結果。
+                 */ (detail: string, duringPdf: boolean) => text('app.toast.resourceCheckFailed', { prefix: duringPdf ? `${raw.host.pdfProgress} ` : '', detail }),
 
-                /**
-                 * 「operationFailed」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-                 * @param detail 「detail」は、「operationFailed」が言語別メッセージ処理の処理対象を特定する入力です。
-                 * @returns 「operationFailed」が生成した言語別の表示文言またはメッセージを返します。
-                 */
+
                 operationFailed: /**
- * 「operationFailed」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param detail 「detail」は、「operationFailed」が言語別メッセージで処理する対象を特定する入力です。
- * @returns 「operationFailed」が生成した言語別の表示文言またはメッセージを返します。
- */ (detail: string) => text('app.toast.operationFailed', { detail }),
+                 * 表示文言のoperation・failedを処理し、呼び出し側へ結果または副作用を返す。
+                 * @param detail - 表示文言で受け渡す文字列。
+                 * @returns 表示文言のoperation・failedが生成する結果。
+                 */ (detail: string) => text('app.toast.operationFailed', { detail }),
 
-                /**
-                 * 「pdfExported」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-                 * @param path 言語別メッセージで読み込みまたは出力するリソースの場所です。
-                 * @returns 「pdfExported」が生成した言語別の表示文言またはメッセージを返します。
-                 */
+
                 pdfExported: /**
- * 「pdfExported」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param path 言語別メッセージで読み込みまたは出力するリソースの場所です。
- * @returns 「pdfExported」が生成した言語別の表示文言またはメッセージを返します。
- */ (path: string) => text('app.toast.pdfExported', { path }),
+                 * 表示文言のpdf・exportedを処理し、呼び出し側へ結果または副作用を返す。
+                 * @param path - 読み書きするファイルまたはリソースの場所。
+                 * @returns 表示文言のpdf・exportedが生成する結果。
+                 */ (path: string) => text('app.toast.pdfExported', { path }),
 
-                /**
-                 * 「htmlExported」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-                 * @param path 言語別メッセージで読み込みまたは出力するリソースの場所です。
-                 * @param count 処理対象の件数、容量、または上限を表す数値です。
-                 * @returns 「htmlExported」が生成した言語別の表示文言またはメッセージを返します。
-                 */
+
                 htmlExported: /**
- * 「htmlExported」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param path 言語別メッセージで読み込みまたは出力するリソースの場所です。
- * @param count 処理対象を特定する位置、範囲、または数量です。
- * @returns 「htmlExported」が生成した言語別の表示文言またはメッセージを返します。
- */ (path: string, count: number) => text('app.toast.htmlExported', { path, count }),
+                 * 表示文言のhtml・exportedを処理し、呼び出し側へ結果または副作用を返す。
+                 * @param path - 読み書きするファイルまたはリソースの場所。
+                 * @param count - 表示文言の位置・寸法・件数・時間を表す数値。
+                 * @returns 表示文言で利用する文字列。
+                 */ (path: string, count: number) => text('app.toast.htmlExported', { path, count }),
 
-                /**
-                 * 「htmlExportFailed」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-                 * @param detail 「detail」は、「htmlExportFailed」が言語別メッセージ処理の処理対象を特定する入力です。
-                 * @returns 「htmlExportFailed」が生成した言語別の表示文言またはメッセージを返します。
-                 */
+
                 htmlExportFailed: /**
- * 「htmlExportFailed」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param detail 「detail」は、「htmlExportFailed」が言語別メッセージで処理する対象を特定する入力です。
- * @returns 「htmlExportFailed」が生成した言語別の表示文言またはメッセージを返します。
- */ (detail: string) => text('app.toast.htmlExportFailed', { detail }),
+                 * 表示文言のhtml・export・failedを処理し、呼び出し側へ結果または副作用を返す。
+                 * @param detail - 表示文言で受け渡す文字列。
+                 * @returns 表示文言で利用する文字列。
+                 */ (detail: string) => text('app.toast.htmlExportFailed', { detail }),
                 tableCellRequired: raw.app.toast.tableCellRequired,
                 cannotPasteTsv: raw.app.toast.cannotPasteTsv,
                 tableCopied: raw.app.toast.tableCopied,
 
-                /**
-                 * 「cannotCopyTsv」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-                 * @param detail 「detail」は、「cannotCopyTsv」が言語別メッセージ処理の処理対象を特定する入力です。
-                 * @returns 条件を満たすかどうかを示す真偽値を返します。
-                 */
+
                 cannotCopyTsv: /**
- * 「cannotCopyTsv」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param detail 「detail」は、「cannotCopyTsv」が言語別メッセージで処理する対象を特定する入力です。
- * @returns 条件を満たすかどうかを示す真偽値を返します。
- */ (detail?: string) => detail ? text('app.toast.cannotCopyTsv', { detail }) : raw.app.toast.cannotCopyTsvEmpty,
+                 * 表示文言の条件を判定する。
+                 * @param detail - 表示文言で受け渡す文字列。
+                 * @returns 条件が成立したかを示す真偽値。
+                 */ (detail?: string) => detail ? text('app.toast.cannotCopyTsv', { detail }) : raw.app.toast.cannotCopyTsvEmpty,
                 workspaceTrustRequired: raw.app.toast.workspaceTrustRequired,
 
-                /**
-                 * 「pdfStartedWithDiagnostics」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-                 * @param count 処理対象の件数、容量、または上限を表す数値です。
-                 * @param detail 「detail」は、「pdfStartedWithDiagnostics」が言語別メッセージ処理の処理対象を特定する入力です。
-                 * @returns 「pdfStartedWithDiagnostics」が生成した言語別の表示文言またはメッセージを返します。
-                 */
-                pdfStartedWithDiagnostics: /**
- * 「pdfStartedWithDiagnostics」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param count 処理対象を特定する位置、範囲、または数量です。
- * @param detail 「detail」は、「pdfStartedWithDiagnostics」が言語別メッセージで処理する対象を特定する入力です。
- * @returns 「pdfStartedWithDiagnostics」が生成した言語別の表示文言またはメッセージを返します。
- */ (count: number, detail: string) => text('app.toast.pdfStartedWithDiagnostics', { count, detail }),
 
-                /**
-                 * 「pdfFallbackToMarkdown」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-                 * @param detail 「detail」は、「pdfFallbackToMarkdown」が言語別メッセージ処理の処理対象を特定する入力です。
-                 * @returns 「pdfFallbackToMarkdown」が生成した言語別の表示文言またはメッセージを返します。
-                 */
+                pdfStartedWithDiagnostics: /**
+                 * 表示文言のpdf・started・with・diagnosticsを処理し、呼び出し側へ結果または副作用を返す。
+                 * @param count - 表示文言の位置・寸法・件数・時間を表す数値。
+                 * @param detail - 表示文言で受け渡す文字列。
+                 * @returns 表示文言のpdf・started・with・diagnosticsが生成する結果。
+                 */ (count: number, detail: string) => text('app.toast.pdfStartedWithDiagnostics', { count, detail }),
+
+
                 pdfFallbackToMarkdown: /**
- * 「pdfFallbackToMarkdown」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param detail 「detail」は、「pdfFallbackToMarkdown」が言語別メッセージで処理する対象を特定する入力です。
- * @returns 「pdfFallbackToMarkdown」が生成した言語別の表示文言またはメッセージを返します。
- */ (detail?: string) => text('app.toast.pdfFallbackToMarkdown', { prefix: detail ? `${detail} ` : '' })
+                 * 表示文言のpdf・fallback・to・markdownを処理し、呼び出し側へ結果または副作用を返す。
+                 * @param detail - 表示文言で受け渡す文字列。
+                 * @returns 表示文言のpdf・fallback・to・markdownが生成する結果。
+                 */ (detail?: string) => text('app.toast.pdfFallbackToMarkdown', { prefix: detail ? `${detail} ` : '' })
             },
             errors: {
                 ackMismatch: raw.app.errors.ackMismatch,
 
-                /**
-                 * 「pendingOperationChain」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-                 * @param opId 「opId」は、「pendingOperationChain」が言語別メッセージ処理の処理対象を特定する入力です。
-                 * @returns 「pendingOperationChain」が生成した言語別の表示文言またはメッセージを返します。
-                 */
+
                 pendingOperationChain: /**
- * 「pendingOperationChain」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param opId 「opId」は、「pendingOperationChain」が言語別メッセージで処理する対象を特定する入力です。
- * @returns 「pendingOperationChain」が生成した言語別の表示文言またはメッセージを返します。
- */ (opId: string) => text('app.errors.pendingOperationChain', { opId }),
+                 * 表示文言のpending・operation・chainを処理し、呼び出し側へ結果または副作用を返す。
+                 * @param opId - 表示文言の対象や分岐を識別する値。
+                 * @returns 表示文言のpending・operation・chainが生成する結果。
+                 */ (opId: string) => text('app.errors.pendingOperationChain', { opId }),
                 clipboardUnavailable: raw.app.errors.clipboardUnavailable,
                 bmpConversion: raw.app.errors.bmpConversion,
 
-                /**
-                 * 「imageSize」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-                 * @param maxSizeMb 「maxSizeMb」は、「imageSize」が言語別メッセージ処理の処理対象を特定する入力です。
-                 * @returns 「imageSize」が生成した言語別の表示文言またはメッセージを返します。
-                 */
+
                 imageSize: /**
- * 「imageSize」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param maxSizeMb 「maxSizeMb」は、「imageSize」が言語別メッセージで処理する対象を特定する入力です。
- * @returns 「imageSize」が生成した言語別の表示文言またはメッセージを返します。
- */ (maxSizeMb: number) => text('app.errors.imageSize', { maxSizeMb })
+                 * 表示文言の入力を検証し、表示または保存に使う形式へ変換する。
+                 * @param maxSizeMb - 表示文言の位置・寸法・件数・時間を表す数値。
+                 * @returns 表示文言のimage・sizeが生成する結果。
+                 */ (maxSizeMb: number) => text('app.errors.imageSize', { maxSizeMb })
             }
         },
         renderer: raw.renderer,
         diagnostics: {
 
-            /**
-             * 「unclosedFence」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-             * @param marker 「marker」は、「unclosedFence」が言語別メッセージ処理の処理対象を特定する入力です。
-             * @returns 「unclosedFence」が生成した言語別の表示文言またはメッセージを返します。
-             */
-            unclosedFence: /**
- * 「unclosedFence」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param marker 「marker」は、「unclosedFence」が言語別メッセージで処理する対象を特定する入力です。
- * @returns 「unclosedFence」が生成した言語別の表示文言またはメッセージを返します。
- */ (marker: string) => text('diagnostics.unclosedFence', { marker }),
 
-            /**
-             * 見出しを作成または組み立てます。
-             * @param id 「id」は、「duplicateHeading」が言語別メッセージ処理の処理対象を特定する入力です。
-             * @returns 「duplicateHeading」が生成した言語別の表示文言またはメッセージを返します。
-             */
+            unclosedFence: /**
+             * 表示文言のunclosed・fenceを処理し、呼び出し側へ結果または副作用を返す。
+             * @param marker - 表示文言で受け渡す文字列。
+             * @returns 表示文言のunclosed・fenceが生成する結果。
+             */ (marker: string) => text('diagnostics.unclosedFence', { marker }),
+
+
             duplicateHeading: /**
- * 「duplicateHeading」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param id 「id」は、「duplicateHeading」が言語別メッセージで処理する対象を特定する入力です。
- * @returns 「duplicateHeading」が生成した言語別の表示文言またはメッセージを返します。
- */ (id: string) => text('diagnostics.duplicateHeading', { id }),
+             * 表示文言のduplicate・headingを処理し、呼び出し側へ結果または副作用を返す。
+             * @param id - 表示文言の対象や分岐を識別する値。
+             * @returns 表示文言のduplicate・headingが生成する結果。
+             */ (id: string) => text('diagnostics.duplicateHeading', { id }),
             invalidTableSeparator: raw.diagnostics.invalidTableSeparator,
             emptyImageAlt: raw.diagnostics.emptyImageAlt,
 
-            /**
-             * 「localImageCheck」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-             * @param source 処理対象のソースです。
-             * @returns 「localImageCheck」が生成した言語別の表示文言またはメッセージを返します。
-             */
+
             localImageCheck: /**
- * 「localImageCheck」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param source 言語別メッセージで解析・編集・変換する本文またはデータです。
- * @returns 「localImageCheck」が生成した言語別の表示文言またはメッセージを返します。
- */ (source: string) => text('diagnostics.localImageCheck', { source }),
+             * 表示文言のlocal・image・checkを処理し、呼び出し側へ結果または副作用を返す。
+             * @param source - 解析・描画・変換の起点となる本文。
+             * @returns 表示文言のlocal・image・checkが生成する結果。
+             */ (source: string) => text('diagnostics.localImageCheck', { source }),
             emptyTableHeader: raw.diagnostics.emptyTableHeader,
 
-            /**
-             * 「tableColumnMismatch」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-             * @param header 「header」は、「tableColumnMismatch」が言語別メッセージ処理の処理対象を特定する入力です。
-             * @param count 処理対象の件数、容量、または上限を表す数値です。
-             * @param kind 対象の種別または処理経路を選択する識別値です。
-             * @returns 「tableColumnMismatch」が生成した言語別の表示文言またはメッセージを返します。
-             */
+
             tableColumnMismatch: /**
- * 「tableColumnMismatch」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param header 「header」は、「tableColumnMismatch」が言語別メッセージで処理する対象を特定する入力です。
- * @param count 処理対象を特定する位置、範囲、または数量です。
- * @param kind 処理対象の種別または画面モードを表す識別値です。
- * @returns 「tableColumnMismatch」が生成した言語別の表示文言またはメッセージを返します。
- */ (header: number, count: number, kind: 'separator' | 'body') => text('diagnostics.tableColumnMismatch', { header, count, kind: raw.diagnostics.tableKind[kind] }),
+             * 表示文言のtable・column・mismatchを処理し、呼び出し側へ結果または副作用を返す。
+             * @param header - 表示文言で扱う数値。
+             * @param count - 表示文言の位置・寸法・件数・時間を表す数値。
+             * @param kind - メッセージ、項目、または処理の種類を識別する値。
+             * @returns 表示文言のtable・column・mismatchが生成する結果。
+             */ (header: number, count: number, kind: 'separator' | 'body') => text('diagnostics.tableColumnMismatch', { header, count, kind: raw.diagnostics.tableKind[kind] }),
 
-            /**
-             * 「missingReference」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-             * @param label 「label」は、「missingReference」が言語別メッセージ処理の処理対象を特定する入力です。
-             * @returns 「missingReference」が生成した言語別の表示文言またはメッセージを返します。
-             */
+
             missingReference: /**
- * 「missingReference」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param label 「label」は、「missingReference」が言語別メッセージで処理する対象を特定する入力です。
- * @returns 「missingReference」が生成した言語別の表示文言またはメッセージを返します。
- */ (label: string) => text('diagnostics.missingReference', { label }),
+             * 表示文言のmissing・referenceを処理し、呼び出し側へ結果または副作用を返す。
+             * @param label - 画面または検証結果に表示する説明文。
+             * @returns 表示文言のmissing・referenceが生成する結果。
+             */ (label: string) => text('diagnostics.missingReference', { label }),
 
-            /**
-             * 「localResource」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-             * @param kind 対象の種別または処理経路を選択する識別値です。
-             * @param missing 「missing」は、「localResource」が言語別メッセージ処理の処理対象を特定する入力です。
-             * @param source 処理対象のソースです。
-             * @param detail 「detail」は、「localResource」が言語別メッセージ処理の処理対象を特定する入力です。
-             * @returns 「localResource」が生成した言語別の表示文言またはメッセージを返します。
-             */
+
             localResource: /**
- * 「localResource」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param kind 処理対象の種別または画面モードを表す識別値です。
- * @param missing 「missing」は、「localResource」が言語別メッセージで処理する対象を特定する入力です。
- * @param source 言語別メッセージで解析・編集・変換する本文またはデータです。
- * @param detail 「detail」は、「localResource」が言語別メッセージで処理する対象を特定する入力です。
- * @returns 「localResource」が生成した言語別の表示文言またはメッセージを返します。
- */ (kind: 'image' | 'link', missing: boolean, source: string, detail: string) => {
-                const suffix = kind === 'image' ? (missing ? 'imageMissing' : 'imageCheckFailed') : (missing ? 'linkMissing' : 'linkCheckFailed');
-                return text(`diagnostics.localResource.${suffix}`, { source, detail });
-            }
+             * 表示文言のlocal・resourceを処理し、呼び出し側へ結果または副作用を返す。
+             * @param kind - メッセージ、項目、または処理の種類を識別する値。
+             * @param missing - 表示文言の条件を示すフラグ。
+             * @param source - 解析・描画・変換の起点となる本文。
+             * @param detail - 表示文言で受け渡す文字列。
+             * @returns 表示文言のlocal・resourceが生成する結果。
+             */ (kind: 'image' | 'link', missing: boolean, source: string, detail: string) => {
+                    const suffix = kind === 'image' ? (missing ? 'imageMissing' : 'imageCheckFailed') : (missing ? 'linkMissing' : 'linkCheckFailed');
+                    return text(`diagnostics.localResource.${suffix}`, { source, detail });
+                }
         },
         host: {
             pdfTrustRequired: raw.host.pdfTrustRequired,
             pdfProgress: raw.host.pdfProgress,
 
-            /**
-             * 「pdfExported」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-             * @param path 言語別メッセージで読み込みまたは出力するリソースの場所です。
-             * @returns 「pdfExported」が生成した言語別の表示文言またはメッセージを返します。
-             */
+
             pdfExported: /**
- * 「pdfExported」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param path 言語別メッセージで読み込みまたは出力するリソースの場所です。
- * @returns 「pdfExported」が生成した言語別の表示文言またはメッセージを返します。
- */ (path: string) => text('host.pdfExported', { path }),
+             * 表示文言のpdf・exportedを処理し、呼び出し側へ結果または副作用を返す。
+             * @param path - 読み書きするファイルまたはリソースの場所。
+             * @returns 表示文言のpdf・exportedが生成する結果。
+             */ (path: string) => text('host.pdfExported', { path }),
             htmlTrustRequired: raw.host.htmlTrustRequired,
             htmlProgress: raw.host.htmlProgress,
 
-            /**
-             * 「htmlExported」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-             * @param path 言語別メッセージで読み込みまたは出力するリソースの場所です。
-             * @returns 「htmlExported」が生成した言語別の表示文言またはメッセージを返します。
-             */
+
             htmlExported: /**
- * 「htmlExported」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param path 言語別メッセージで読み込みまたは出力するリソースの場所です。
- * @returns 「htmlExported」が生成した言語別の表示文言またはメッセージを返します。
- */ (path: string) => text('host.htmlExported', { path }),
+             * 表示文言のhtml・exportedを処理し、呼び出し側へ結果または副作用を返す。
+             * @param path - 読み書きするファイルまたはリソースの場所。
+             * @returns 表示文言のhtml・exportedが生成する結果。
+             */ (path: string) => text('host.htmlExported', { path }),
             htmlRenderTimeout: raw.host.htmlRenderTimeout,
             open: raw.host.open,
             saveCanceled: raw.host.saveCanceled,
             imageDocumentMustBeSaved: raw.host.imageDocumentMustBeSaved,
 
-            /**
-             * 「unsupportedImage」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-             * @param mime 「mime」は、「unsupportedImage」が言語別メッセージ処理の処理対象を特定する入力です。
-             * @returns 「unsupportedImage」が生成した言語別の表示文言またはメッセージを返します。
-             */
+
             unsupportedImage: /**
- * 「unsupportedImage」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param mime 「mime」は、「unsupportedImage」が言語別メッセージで処理する対象を特定する入力です。
- * @returns 「unsupportedImage」が生成した言語別の表示文言またはメッセージを返します。
- */ (mime: string) => text('host.unsupportedImage', { mime }),
+             * 表示文言のunsupported・imageを処理し、呼び出し側へ結果または副作用を返す。
+             * @param mime - 画像または出力データのMIMEタイプ。
+             * @returns 表示文言のunsupported・imageが生成する結果。
+             */ (mime: string) => text('host.unsupportedImage', { mime }),
             invalidImageDirectory: raw.host.invalidImageDirectory,
             pdfBrowserUnavailable: raw.host.pdfBrowserUnavailable,
             errorPrefix: raw.host.errorPrefix,
@@ -2385,23 +2252,25 @@ function createMessages(language: SupportedLanguage): Messages {
 }
 
 /**
- * get・messagesを取得または解決します。
- * @param language 表示文言の解決に使用する言語コードまたはロケールです。
- * @param vscodeLanguage 「vscodeLanguage」は、「getMessages」が言語別メッセージで処理する対象を特定する入力です。
- * @returns 「getMessages」が読み取りまたは正規化した結果を返します。
+ * 選択した言語のローカライズ辞書を読み込み、未登録キーをフォールバックで補う。
+ * @param language - 表示文言の対象や分岐を識別する値。
+ * @param vscodeLanguage - 表示文言の対象や分岐を識別する値。
+ * @returns 表示文言のget・messagesが生成する結果。
  */
 export function getMessages(language: SupportedLanguage | string | undefined, vscodeLanguage?: string): Messages {
     return MESSAGE_CATALOG[resolveLanguage(language, vscodeLanguage)];
 }
 
-/** 「MESSAGE_CATALOG」は、機能間で参照する対応表または定義です。 */
-/** 正規化済み言語ごとのメッセージを保持し、表示文言を一貫して解決する共有カタログ。 */
+
+/**
+ * 表示文言のmessage・catalogに関する状態または設定。
+ */
 export const MESSAGE_CATALOG: Record<SupportedLanguage, Messages> = Object.fromEntries(
     SUPPORTED_LANGUAGES.map(
-    /**
- * 「language」を変換し、変換後の要素を返すコールバックです。
-     * @param language 表示文言の解決に使用する言語コードまたはロケールです。
-     * @returns 入力要素から生成した変換後の値を返します。
-     */
-    (language) => [language, createMessages(language)])
+        /**
+         * 各languageをcreate・messagesへ渡し、変換結果を一覧化する。
+         * @param language - 表示文言の対象や分岐を識別する値。
+         * @returns 入力要素から生成した変換結果の一覧。
+         */
+        (language) => [language, createMessages(language)])
 ) as Record<SupportedLanguage, Messages>;

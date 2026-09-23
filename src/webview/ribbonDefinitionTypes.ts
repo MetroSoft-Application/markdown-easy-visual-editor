@@ -1,294 +1,292 @@
 /**
- * @file ribbonDefinitionTypes.ts
- * 実行境界: Webview。
- * 責務: 編集UI、プレビュー、ユーザー操作を処理する。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: DOM、Webviewメッセージ、ブラウザーAPI、編集状態を操作する。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview リボン項目の種類、表示条件、実行契約を型で表す。
  */
 import type {
-  RibbonContainerId,
-  RibbonGroupId,
-  RibbonHeaderGroupId,
-  RibbonHeaderItemId,
-  RibbonItemId,
-  RibbonTabId,
+    RibbonContainerId,
+    RibbonGroupId,
+    RibbonHeaderGroupId,
+    RibbonHeaderItemId,
+    RibbonItemId,
+    RibbonTabId,
 } from "./ribbonIds";
 
 /**
- * 「RibbonLabelSpec」として扱う値の型を定義します。
+ * リボン表示文言をメッセージキーまたは固定文言で表す型。
  */
 export type RibbonLabelSpec =
-  | {
-  /**
-   * 「kind」は、対象の識別や処理分岐に使用する値を保持します。
-   */
-  kind: "message";
-  /**
-   * 「path」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
-   */
-  path: string }
-  | {
-  /**
-   * 「kind」は、対象の識別や処理分岐に使用する値を保持します。
-   */
-  kind: "messageWithNumber";
-  /**
-   * 「path」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
-   */
-  path: string;
-  /**
-   * 「value」は、位置・サイズ・件数などを表す数値です。
-   */
-  value: number }
-  | {
-  /**
-   * 「kind」は、対象の識別や処理分岐に使用する値を保持します。
-   */
-  kind: "localized";
-  /**
-   * 「japanese」は、対象の内容または識別子を表す文字列です。
-   */
-  japanese: string;
-  /**
-   * 「english」は、対象の内容または識別子を表す文字列です。
-   */
-  english: string };
+    | {
+        /**
+         * メッセージ、項目、または処理の種類を識別する値。
+         */
+        kind: "message";
+        /**
+         * 読み書きするファイルまたはリソースの場所。
+         */
+        path: string
+    }
+    | {
+        /**
+         * メッセージ、項目、または処理の種類を識別する値。
+         */
+        kind: "messageWithNumber";
+        /**
+         * 読み書きするファイルまたはリソースの場所。
+         */
+        path: string;
+        /**
+         * 検証・変換・保存の対象となる値。
+         */
+        value: number
+    }
+    | {
+        /**
+         * メッセージ、項目、または処理の種類を識別する値。
+         */
+        kind: "localized";
+        /**
+         * 日本語表示で使う文言。
+         */
+        japanese: string;
+        /**
+         * 英語表示で使う文言。
+         */
+        english: string
+    };
 
 /**
- * 「RibbonButtonOptions」が満たすデータ契約を定義します。
+ * リボン定義型へ渡す設定項目と既定値のデータ形状。
  */
 export interface RibbonButtonOptions {
 
-  /**
-   * 「shortcut」は、対象の内容または識別子を表す文字列です。
-   */
-  readonly shortcut?: string;
+    /**
+     * リボン項目に割り当てるキーボードショートカット。
+     */
+    readonly shortcut?: string;
 
-  /**
-   * 「variant」は、関連処理が共有する構造化データの一項目です。
-   */
-  readonly variant?: "tool" | "source" | "header";
+    /**
+     * リボン項目の表示種別。
+     */
+    readonly variant?: "tool" | "source" | "header";
 
-  /**
-   * 「title」は、画面または通知へ表示する文言を保持します。
-   */
-  readonly title?: RibbonLabelSpec;
+    /**
+     * 画面や出力に表示するタイトル。
+     */
+    readonly title?: RibbonLabelSpec;
 }
 
 /**
- * 「RibbonControlFieldDefinition」が満たすデータ契約を定義します。
+ * リボン定義型で共有するデータ形状を表すインターフェース。
  */
 export interface RibbonControlFieldDefinition {
 
-  /**
-   * 「id」は、対象の識別や処理分岐に使用する値を保持します。
-   */
-  readonly id: string;
+    /**
+     * リボン定義型で扱うidの文字列。
+     */
+    readonly id: string;
 
-  /**
-   * 「label」は、画面または通知へ表示する文言を保持します。
-   */
-  readonly label: RibbonLabelSpec;
+    /**
+     * 画面または検証結果に表示する説明文。
+     */
+    readonly label: RibbonLabelSpec;
 
-  /**
-   * 「placeholder」は、関連処理が共有する構造化データの一項目です。
-   */
-  readonly placeholder?: RibbonLabelSpec;
+    /**
+     * 入力欄に値がないときに表示する案内文。
+     */
+    readonly placeholder?: RibbonLabelSpec;
 
-  /**
-   * 「min」は、位置・サイズ・件数などを表す数値です。
-   */
-  readonly min?: number;
+    /**
+     * 入力または寸法に許可する下限値。
+     */
+    readonly min?: number;
 
-  /**
-   * 「max」は、位置・サイズ・件数などを表す数値です。
-   */
-  readonly max?: number;
+    /**
+     * 入力または寸法に許可する上限値。
+     */
+    readonly max?: number;
 }
 
 /**
- * 「RibbonControlChoiceDefinition」が満たすデータ契約を定義します。
+ * リボン定義型で共有するデータ形状を表すインターフェース。
  */
 export interface RibbonControlChoiceDefinition {
 
-  /**
-   * 「value」は、対象の内容または識別子を表す文字列です。
-   */
-  readonly value: string;
+    /**
+     * 検証・変換・保存の対象となる値。
+     */
+    readonly value: string;
 
-  /**
-   * 「label」は、画面または通知へ表示する文言を保持します。
-   */
-  readonly label: RibbonLabelSpec;
+    /**
+     * 画面または検証結果に表示する説明文。
+     */
+    readonly label: RibbonLabelSpec;
 }
 
 /**
- * 「RibbonControlOptions」が満たすデータ契約を定義します。
+ * リボン定義型へ渡す設定項目と既定値のデータ形状。
  */
 export interface RibbonControlOptions {
 
-  /**
-   * 「values」は、関連する複数の対象または識別子を保持します。
-   */
-  readonly values?: readonly string[];
+    /**
+     * リボン定義型で扱うvaluesの一覧。
+     */
+    readonly values?: readonly string[];
 
-  /**
-   * 「fields」は、関連する複数の対象または識別子を保持します。
-   */
-  readonly fields?: readonly RibbonControlFieldDefinition[];
+    /**
+     * リボン定義型のfieldsに関する状態または設定。
+     */
+    readonly fields?: readonly RibbonControlFieldDefinition[];
 
-  /**
-   * 「choices」は、関連する複数の対象または識別子を保持します。
-   */
-  readonly choices?: readonly RibbonControlChoiceDefinition[];
+    /**
+     * 選択コントロールへ表示する候補の一覧。
+     */
+    readonly choices?: readonly RibbonControlChoiceDefinition[];
 
-  /**
-   * 「hint」は、関連処理が共有する構造化データの一項目です。
-   */
-  readonly hint?: RibbonLabelSpec;
+    /**
+     * リボン定義型のhintに関する状態または設定。
+     */
+    readonly hint?: RibbonLabelSpec;
 }
 
 /**
- * 「RibbonItemDefinition」が満たすデータ契約を定義します。
+ * リボン定義型で共有するデータ形状を表すインターフェース。
  */
 export interface RibbonItemDefinition {
 
-  /**
-   * 「label」は、画面または通知へ表示する文言を保持します。
-   */
-  readonly label: RibbonLabelSpec;
+    /**
+     * 画面または検証結果に表示する説明文。
+     */
+    readonly label: RibbonLabelSpec;
 
-  /**
-   * 「options」は、利用側が共有する設定または現在状態を保持します。
-   */
-  readonly options?: RibbonButtonOptions & RibbonControlOptions;
+    /**
+     * 呼び出し側が指定する処理設定。
+     */
+    readonly options?: RibbonButtonOptions & RibbonControlOptions;
 
-  /**
-   * 「container」は、関連処理が共有する構造化データの一項目です。
-   */
-  readonly container?: RibbonContainerId;
+    /**
+     * リボン定義型のcontainerに関する状態または設定。
+     */
+    readonly container?: RibbonContainerId;
 }
 
 /**
- * 「RibbonGroupDefinition」が満たすデータ契約を定義します。
+ * リボン定義型で共有するデータ形状を表すインターフェース。
  */
 export interface RibbonGroupDefinition {
 
-  /**
-   * 「label」は、画面または通知へ表示する文言を保持します。
-   */
-  readonly label: RibbonLabelSpec;
+    /**
+     * 画面または検証結果に表示する説明文。
+     */
+    readonly label: RibbonLabelSpec;
 
-  /**
-   * 「className」は、対象の識別や処理分岐に使用する値を保持します。
-   */
-  readonly className?: string;
+    /**
+     * リボン定義型で扱うclass・nameの文字列。
+     */
+    readonly className?: string;
 }
 
 /**
- * 「RibbonContainerDefinition」が満たすデータ契約を定義します。
+ * リボン定義型で共有するデータ形状を表すインターフェース。
  */
 export interface RibbonContainerDefinition {
 
-  /**
-   * 「className」は、対象の識別や処理分岐に使用する値を保持します。
-   */
-  readonly className: string;
+    /**
+     * リボン定義型で扱うclass・nameの文字列。
+     */
+    readonly className: string;
 
-  /**
-   * 「ariaLabel」は、画面または通知へ表示する文言を保持します。
-   */
-  readonly ariaLabel: RibbonLabelSpec;
+    /**
+     * 図の内容を補足するアクセシビリティ用ラベル。
+     */
+    readonly ariaLabel: RibbonLabelSpec;
 }
 
 /**
- * 「RibbonHeaderGroupDefinition」が満たすデータ契約を定義します。
+ * リボン定義型で共有するデータ形状を表すインターフェース。
  */
 export interface RibbonHeaderGroupDefinition {
 
-  /**
-   * 「className」は、対象の識別や処理分岐に使用する値を保持します。
-   */
-  readonly className: string;
+    /**
+     * リボン定義型で扱うclass・nameの文字列。
+     */
+    readonly className: string;
 
-  /**
-   * 「ariaLabel」は、画面または通知へ表示する文言を保持します。
-   */
-  readonly ariaLabel: RibbonLabelSpec;
+    /**
+     * 図の内容を補足するアクセシビリティ用ラベル。
+     */
+    readonly ariaLabel: RibbonLabelSpec;
 }
 
 /**
- * 「RibbonHeaderItemDefinition」が満たすデータ契約を定義します。
+ * リボン定義型で共有するデータ形状を表すインターフェース。
  */
 export interface RibbonHeaderItemDefinition {
 
-  /**
-   * 「label」は、画面または通知へ表示する文言を保持します。
-   */
-  readonly label: RibbonLabelSpec;
+    /**
+     * 画面または検証結果に表示する説明文。
+     */
+    readonly label: RibbonLabelSpec;
 
-  /**
-   * 「collapsedLabel」は、画面または通知へ表示する文言を保持します。
-   */
-  readonly collapsedLabel?: RibbonLabelSpec;
+    /**
+     * リボン定義型の状態を示すフラグ。
+     */
+    readonly collapsedLabel?: RibbonLabelSpec;
 
-  /**
-   * 「expandedLabel」は、画面または通知へ表示する文言を保持します。
-   */
-  readonly expandedLabel?: RibbonLabelSpec;
+    /**
+     * リボン定義型のexpanded・labelに関する状態または設定。
+     */
+    readonly expandedLabel?: RibbonLabelSpec;
 
-  /**
-   * 「options」は、利用側が共有する設定または現在状態を保持します。
-   */
-  readonly options?: RibbonButtonOptions;
+    /**
+     * 呼び出し側が指定する処理設定。
+     */
+    readonly options?: RibbonButtonOptions;
 
-  /**
-   * 「group」は、関連処理が共有する構造化データの一項目です。
-   */
-  readonly group?: RibbonHeaderGroupId;
+    /**
+     * リボン定義型のgroupに関する状態または設定。
+     */
+    readonly group?: RibbonHeaderGroupId;
 }
 
 /**
- * 「RibbonDefinitions」が満たすデータ契約を定義します。
+ * リボン定義型で共有するデータ形状を表すインターフェース。
  */
 export interface RibbonDefinitions {
 
-  /**
-   * 「tabs」は、関連する複数の対象または識別子を保持します。
-   */
-  readonly tabs: Record<RibbonTabId, RibbonLabelSpec>;
+    /**
+     * リボン定義型のtabsに関する状態または設定。
+     */
+    readonly tabs: Record<RibbonTabId, RibbonLabelSpec>;
 
-  /**
-   * 「groups」は、関連する複数の対象または識別子を保持します。
-   */
-  readonly groups: Record<RibbonGroupId, RibbonGroupDefinition>;
+    /**
+     * リボン定義型のgroupsに関する状態または設定。
+     */
+    readonly groups: Record<RibbonGroupId, RibbonGroupDefinition>;
 
-  /**
-   * 「items」は、関連する複数の対象または識別子を保持します。
-   */
-  readonly items: Record<RibbonItemId, RibbonItemDefinition>;
+    /**
+     * リボン定義型で扱うitemsの一覧。
+     */
+    readonly items: Record<RibbonItemId, RibbonItemDefinition>;
 
-  /**
-   * 「containers」は、関連する複数の対象または識別子を保持します。
-   */
-  readonly containers: Record<RibbonContainerId, RibbonContainerDefinition>;
+    /**
+     * リボン定義型のcontainersに関する状態または設定。
+     */
+    readonly containers: Record<RibbonContainerId, RibbonContainerDefinition>;
 
-  /**
-   * 「headerItems」は、関連する複数の対象または識別子を保持します。
-   */
-  readonly headerItems: Record<RibbonHeaderItemId, RibbonHeaderItemDefinition>;
+    /**
+     * リボン定義型で扱うheader・itemsの一覧。
+     */
+    readonly headerItems: Record<RibbonHeaderItemId, RibbonHeaderItemDefinition>;
 
-  /**
-   * 「headerGroups」は、関連する複数の対象または識別子を保持します。
-   */
-  readonly headerGroups: Record<
-    RibbonHeaderGroupId,
-    RibbonHeaderGroupDefinition
-  >;
+    /**
+     * リボン定義型のheader・groupsに関する状態または設定。
+     */
+    readonly headerGroups: Record<
+        RibbonHeaderGroupId,
+        RibbonHeaderGroupDefinition
+    >;
 
-  /**
-   * 「tabListLabel」は、画面または通知へ表示する文言を保持します。
-   */
-  readonly tabListLabel: RibbonLabelSpec;
+    /**
+     * リボン定義型のtab・list・labelに関する状態または設定。
+     */
+    readonly tabListLabel: RibbonLabelSpec;
 }

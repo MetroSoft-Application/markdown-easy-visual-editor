@@ -1,10 +1,5 @@
 /**
- * @file html.ts
- * 実行境界: Extension Host。
- * 責務: VS Code文書、Webview、外部リソースを連携する。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: 文書、ファイル、Webview、ブラウザーなどの外部状態を必要に応じて操作する。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview Markdownプレビュー用HTMLを組み立て、テーマ・設定・リソースURIをWebviewへ渡す。HTMLへ入る値をエスケープする。
  */
 import { promises as fs } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -17,129 +12,129 @@ import { collectLocalResourceReferences } from '../shared/markdown';
 import { decodeLocalResourceSource } from './resourceCheck';
 
 /**
- * 「HtmlExportRequest」が満たすデータ契約を定義します。
+ * HTMLで送受信するメッセージまたは要求のデータ形状。
  */
 export interface HtmlExportRequest {
 
     /**
-     * 「markdown」は、解析・編集・変換の対象となる本文またはデータを保持します。
+     * 解析・編集・変換の対象となるMarkdown本文。
      */
     markdown: string;
 
     /**
-     * 「html」は、解析・編集・変換の対象となる本文またはデータを保持します。
+     * 表示または出力するHTML本文。
      */
     html: string;
 
     /**
-     * 「css」は、対象の内容または識別子を表す文字列です。
+     * HTMLで解析・表示・保存する本文。
      */
     css: string;
 
     /**
-     * 「options」は、利用側が共有する設定または現在状態を保持します。
+     * 呼び出し側が指定する処理設定。
      */
     options: HtmlExportOptions;
 
     /**
-     * 「documentUri」は、関連処理が共有する構造化データの一項目です。
+     * HTMLで読み書きするリソースの場所。
      */
     documentUri: vscode.Uri;
 
     /**
-     * 「language」は、対象の内容または識別子を表す文字列です。
+     * HTMLで扱うlanguageの文字列。
      */
     language: string;
 
     /**
-     * 「fontFamily」は、表示テーマまたはスタイル設定を保持します。
+     * HTMLで共有するフォント設定または移行状態。
      */
     fontFamily?: string;
 }
 
 /**
- * 「HtmlExportResult」が満たすデータ契約を定義します。
+ * HTMLの処理結果と失敗時情報のデータ形状。
  */
 export interface HtmlExportResult {
 
     /**
-     * 「target」は、操作対象または処理目的を示す値を保持します。
+     * HTMLのtargetに関する状態または設定。
      */
     target: vscode.Uri;
 
     /**
-     * 「paths」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
+     * HTMLで扱うpathsの一覧。
      */
     paths: vscode.Uri[];
 }
 
 /**
- * 「HtmlDocument」が満たすデータ契約を定義します。
+ * HTMLで共有するデータ形状を表すインターフェース。
  */
 export interface HtmlDocument {
 
     /**
-     * 「uri」は、読み込みまたは出力する文書リソースを示します。
+     * VS Codeまたはブラウザーが扱うリソースURI。
      */
     uri: vscode.Uri;
 
     /**
-     * 「sourcePath」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
+     * HTMLで読み書きするリソースの場所。
      */
     sourcePath: string;
 
     /**
-     * 「markdown」は、解析・編集・変換の対象となる本文またはデータを保持します。
+     * 解析・編集・変換の対象となるMarkdown本文。
      */
     markdown: string;
 
     /**
-     * 「html」は、解析・編集・変換の対象となる本文またはデータを保持します。
+     * 表示または出力するHTML本文。
      */
     html: string;
 
     /**
-     * 「outputPath」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
+     * HTMLで読み書きするリソースの場所。
      */
     outputPath: string;
 }
 
 /**
- * 「HtmlExportPreparation」が満たすデータ契約を定義します。
+ * HTMLで共有するデータ形状を表すインターフェース。
  */
 export interface HtmlExportPreparation {
 
     /**
-     * 「target」は、操作対象または処理目的を示す値を保持します。
+     * HTMLのtargetに関する状態または設定。
      */
     target: vscode.Uri;
 
     /**
-     * 「documents」は、関連する複数の対象または識別子を保持します。
+     * 文書URIと開いている文書オブジェクトの対応表。
      */
     documents: HtmlDocument[];
 }
 
 /**
- * 「HtmlRenderedDocument」が満たすデータ契約を定義します。
+ * HTMLで共有するデータ形状を表すインターフェース。
  */
 export interface HtmlRenderedDocument {
 
     /**
-     * 「id」は、対象の識別や処理分岐に使用する値を保持します。
+     * HTMLで扱うidの文字列。
      */
     id: string;
 
     /**
-     * 「html」は、解析・編集・変換の対象となる本文またはデータを保持します。
+     * 表示または出力するHTML本文。
      */
     html: string;
 }
 
 /**
- * 現在のMarkdownを単独で開けるHTMLへ変換し、必要ならリンク先も同じ構成で保存する。
- * @param request 処理対象の要求です。
- * @returns 非同期処理の完了を表すPromiseです。
+ * HTMLのexport・htmlを処理し、呼び出し側へ結果または副作用を返す。
+ * @param request - HTMLへ渡す入力。
+ * @returns 副作用を完了し、値は返さない。
  */
 export async function exportHtml(request: HtmlExportRequest): Promise<HtmlExportResult | undefined> {
     const preparation = await prepareHtmlExport(request);
@@ -148,9 +143,9 @@ export async function exportHtml(request: HtmlExportRequest): Promise<HtmlExport
 }
 
 /**
- * 保存先を決定し、再帰変換対象のMarkdownを収集する。
- * @param request 処理対象の要求です。
- * @returns 非同期処理の完了を表すPromiseです。
+ * HTMLで使う値または実行環境を組み立てる。
+ * @param request - HTMLへ渡す入力。
+ * @returns 副作用を完了し、値は返さない。
  */
 export async function prepareHtmlExport(request: HtmlExportRequest): Promise<HtmlExportPreparation | undefined> {
     const defaultUri = request.documentUri.scheme === 'file'
@@ -176,11 +171,11 @@ export async function prepareHtmlExport(request: HtmlExportRequest): Promise<Htm
 }
 
 /**
- * Webviewで描画済みのHTMLを使って、準備済みのHTML文書群を保存する。
- * @param request 処理対象の要求です。
- * @param preparation 表示領域のサイズまたは倍率で、画面レイアウト計算に使用します。
- * @param renderedDocuments 「renderedDocuments」は、「writePreparedHtml」がHTML出力の処理対象を特定する入力です。
- * @returns 非同期処理の完了を表すPromiseです。
+ * HTMLの値を保存先または共有状態へ書き出す。
+ * @param request - HTMLへ渡す入力。
+ * @param preparation - HTMLへ渡す入力。
+ * @param renderedDocuments - HTMLへ渡す要素の一覧。
+ * @returns HTMLの非同期処理で得られる結果。
  */
 export async function writePreparedHtml(
     request: HtmlExportRequest,
@@ -188,41 +183,41 @@ export async function writePreparedHtml(
     renderedDocuments: readonly HtmlRenderedDocument[] = []
 ): Promise<HtmlExportResult> {
     const renderedById = new Map(renderedDocuments.map(
-    /**
- * 「document」を変換し、変換後の要素を返すコールバックです。
-     * @param document 処理対象の文書です。
-     * @returns 入力要素から生成した変換後の値を返します。
-     */
-    (document) => [normalizePath(document.id), document.html]));
+        /**
+         * 各documentから識別子を取り出して一覧化する。
+         * @param document - documentの識別子を参照する走査対象。
+         * @returns 識別子を取り出した変換結果の一覧。
+         */
+        (document) => [normalizePath(document.id), document.html]));
     const documents = preparation.documents.map(
-    /**
- * 「document」を変換し、変換後の要素を返すコールバックです。
-     * @param document 処理対象の文書です。
-     * @returns 入力要素から生成した変換後の値を返します。
-     */
-    (document) => ({
-        ...document,
-        html: renderedById.get(normalizePath(document.sourcePath)) ?? document.html
-    }));
+        /**
+         * 各documentからsource・pathを取り出して一覧化する。
+         * @param document - documentのsource・pathを参照する走査対象。
+         * @returns source・pathを取り出した変換結果の一覧。
+         */
+        (document) => ({
+            ...document,
+            html: renderedById.get(normalizePath(document.sourcePath)) ?? document.html
+        }));
     const output = await Promise.all(documents.map(
-    /**
- * 「document」を変換し、変換後の要素を返すコールバックです。
-     * @param document 処理対象の文書です。
-     * @returns 入力要素から生成した変換後の値を返します。
-     */
-    async (document) => {
-        const body = await rewriteBody(
-            document.html,
-            document.sourcePath,
-            document.outputPath,
-            documents,
-            request.options
-        );
-        const standalone = buildStandaloneHtml(body, request.css, request.language, request.fontFamily);
-        await fs.mkdir(path.dirname(document.outputPath), { recursive: true });
-        await fs.writeFile(document.outputPath, standalone, 'utf8');
-        return vscode.Uri.file(document.outputPath);
-    }));
+        /**
+         * 各documentからhtmlを取り出して一覧化する。
+         * @param document - documentのhtmlを参照する走査対象。
+         * @returns htmlを取り出した変換結果の一覧。
+         */
+        async (document) => {
+            const body = await rewriteBody(
+                document.html,
+                document.sourcePath,
+                document.outputPath,
+                documents,
+                request.options
+            );
+            const standalone = buildStandaloneHtml(body, request.css, request.language, request.fontFamily);
+            await fs.mkdir(path.dirname(document.outputPath), { recursive: true });
+            await fs.writeFile(document.outputPath, standalone, 'utf8');
+            return vscode.Uri.file(document.outputPath);
+        }));
 
     return {
         target: preparation.target,
@@ -231,10 +226,10 @@ export async function writePreparedHtml(
 }
 
 /**
- * 「collectDocuments」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param request 処理対象の要求です。
- * @param targetPath 「targetPath」は、「collectDocuments」がHTMLで処理する対象を特定する入力です。
- * @returns 非同期処理の完了を表すPromiseです。
+ * HTMLから必要な値またはリソースを取得する。
+ * @param request - HTMLへ渡す入力。
+ * @param targetPath - HTMLで読み書きするリソースの場所。
+ * @returns HTMLに対応する要素の一覧。
  */
 async function collectDocuments(request: HtmlExportRequest, targetPath: string): Promise<HtmlDocument[]> {
     const documents: HtmlDocument[] = [];
@@ -257,12 +252,12 @@ async function collectDocuments(request: HtmlExportRequest, targetPath: string):
         const document = documents[index];
         const references = collectLocalResourceReferences(document.markdown)
             .filter(
-            /**
- * 「reference」が条件に一致するか判定し、残す要素を決めるコールバックです。
-             * @param reference referenceとして渡される、このコールバックの入力値です。
-             * @returns 要素を採用するかどうかの真偽値を返します。
-             */
-            (reference) => reference.kind === 'link');
+                /**
+                 * 種別「link」のreferenceだけを残す。
+                 * @param reference - referenceのkindを参照する走査対象。
+                 * @returns 条件を満たした要素だけを含む一覧。
+                 */
+                (reference) => reference.kind === 'link');
         for (const reference of references) {
             const linkedUri = resolveLocalFileUri(document.uri, reference.source);
             if (!linkedUri || !isMarkdownPath(linkedUri.fsPath)) continue;
@@ -290,32 +285,32 @@ async function collectDocuments(request: HtmlExportRequest, targetPath: string):
 }
 
 /**
- * Markdownを描画します。
- * @param markdown 解析・編集・変換の対象となる本文または生成済み内容です。
- * @returns 「renderLinkedMarkdown」が生成または変換したHTMLの文字列を返します。
+ * HTMLを表示用の結果へ変換する。
+ * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
+ * @returns HTMLで利用する文字列。
  */
 function renderLinkedMarkdown(markdown: string): string {
     const renderer = new marked.Renderer();
     renderer.image =
-    /**
- * 「href」「title」「text」を受け取り、Markdown画像の表示用HTMLを生成するコールバックです。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはhref、title、textです。
-     * @returns 画像の表示用HTMLを返します。
-     */
-    ({ href, title, text }) => {
-        const titleAttribute = title ? ` title="${escapeAttribute(title)}"` : '';
-        return `<img src="${escapeAttribute(href)}" data-original-src="${escapeAttribute(href)}" alt="${escapeAttribute(text)}"${titleAttribute}>`;
-    };
+        /**
+         * HTMLの入力を検証し、表示または保存に使う形式へ変換する。
+         * @param options - 呼び出し側が指定する処理設定。
+         * @returns HTMLで利用する文字列。
+         */
+        ({ href, title, text }) => {
+            const titleAttribute = title ? ` title="${escapeAttribute(title)}"` : '';
+            return `<img src="${escapeAttribute(href)}" data-original-src="${escapeAttribute(href)}" alt="${escapeAttribute(text)}"${titleAttribute}>`;
+        };
     return String(marked.parse(markdown, { gfm: true, renderer }));
 }
 
 /**
- * HTMLを作成または組み立てます。
- * @param body 解析・編集・変換の対象となる本文または生成済み内容です。
- * @param css 「css」は、「buildStandaloneHtml」がHTML出力の処理対象を特定する入力です。
- * @param language 表示文言の解決に使用する言語コードまたはロケールです。
- * @param fontFamily 「fontFamily」は、「buildStandaloneHtml」がHTML出力の処理対象を特定する入力です。
- * @returns 「buildStandaloneHtml」が生成または変換したHTMLの文字列を返します。
+ * HTMLで使う値または実行環境を組み立てる。
+ * @param body - HTMLの位置・寸法・件数・時間を表す数値。
+ * @param css - HTMLで扱う文字列または本文。
+ * @param language - HTMLの対象や分岐を識別する値。
+ * @param fontFamily - HTMLの位置・寸法・件数・時間を表す数値。
+ * @returns HTMLで利用する文字列。
  */
 function buildStandaloneHtml(body: string, css: string, language: string, fontFamily?: string): string {
     const safeCss = css.replace(/<\/style/gi, '<\\/style');
@@ -324,13 +319,13 @@ function buildStandaloneHtml(body: string, css: string, language: string, fontFa
 }
 
 /**
- * 「rewriteBody」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param html 解析・編集・変換の対象となる本文または生成済み内容です。
- * @param sourcePath 「sourcePath」は、「rewriteBody」がHTMLで処理する対象を特定する入力です。
- * @param outputPath 「outputPath」は、「rewriteBody」がHTMLで処理する対象を特定する入力です。
- * @param documents 「documents」は、「rewriteBody」がHTML出力の処理対象を特定する入力です。
- * @param options 処理経路や表示方法を指定する設定値です。
- * @returns 非同期処理の完了を表すPromiseです。
+ * HTMLのrewrite・bodyを処理し、呼び出し側へ結果または副作用を返す。
+ * @param html - 表示または出力するHTML本文。
+ * @param sourcePath - HTMLで読み書きするリソースの場所。
+ * @param outputPath - HTMLで読み書きするリソースの場所。
+ * @param documents - 文書URIと開いている文書オブジェクトの対応表。
+ * @param options - 呼び出し側が指定する処理設定。
+ * @returns HTMLで利用する文字列。
  */
 async function rewriteBody(
     html: string,
@@ -341,33 +336,33 @@ async function rewriteBody(
 ): Promise<string> {
     let result = stripUnsafeMarkup(html);
     const imageTags = [...result.matchAll(/<img\b[^>]*>/gi)].map(
-    /**
- * 「match」を変換し、変換後の要素を返すコールバックです。
-     * @param match matchとして渡される、このコールバックの入力値です。
-     * @returns 置換後の文字列を返します。
-     */
-    (match) => match[0]);
+        /**
+         * 各matchを変換して一覧化する。
+         * @param match - HTMLへ渡す入力。
+         * @returns 入力要素から生成した変換結果の一覧。
+         */
+        (match) => match[0]);
     for (const tag of imageTags) {
         const replacement = await rewriteImageTag(tag, sourcePath, outputPath, options);
         result = result.replace(tag, replacement);
     }
     result = result.replace(/<a\b[^>]*>/gi,
-    /**
- * 「tag」を受け取り、入力文字列を置換して変換する処理です。
-     * @param tag HTMLまたはテキストから取り出した対象文字列です。
-     * @returns 置換後の文字列を返します。
-     */
-    (tag) => rewriteLinkTag(tag, sourcePath, outputPath, documents, options));
+        /**
+         * tagをrewrite・link・tagへ渡し、HTMLの結果または副作用を処理する。
+         * @param tag - HTMLで受け渡す文字列。
+         * @returns HTMLで利用する文字列。
+         */
+        (tag) => rewriteLinkTag(tag, sourcePath, outputPath, documents, options));
     return result.replace(/\sdata-(?:original-src|mve-[\w-]+)(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?/gi, '');
 }
 
 /**
- * 「rewriteImageTag」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param tag 「tag」は、「rewriteImageTag」がHTML出力の処理対象を特定する入力です。
- * @param sourcePath 「sourcePath」は、「rewriteImageTag」がHTMLで処理する対象を特定する入力です。
- * @param outputPath 「outputPath」は、「rewriteImageTag」がHTMLで処理する対象を特定する入力です。
- * @param options 処理経路や表示方法を指定する設定値です。
- * @returns 非同期処理の完了を表すPromiseです。
+ * HTMLのrewrite・image・tagを処理し、呼び出し側へ結果または副作用を返す。
+ * @param tag - HTMLで受け渡す文字列。
+ * @param sourcePath - HTMLで読み書きするリソースの場所。
+ * @param outputPath - HTMLで読み書きするリソースの場所。
+ * @param options - 呼び出し側が指定する処理設定。
+ * @returns HTMLで利用する文字列。
  */
 async function rewriteImageTag(
     tag: string,
@@ -394,13 +389,13 @@ async function rewriteImageTag(
 }
 
 /**
- * 「rewriteLinkTag」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param tag 「tag」は、「rewriteLinkTag」がHTML出力の処理対象を特定する入力です。
- * @param sourcePath 「sourcePath」は、「rewriteLinkTag」がHTMLで処理する対象を特定する入力です。
- * @param outputPath 「outputPath」は、「rewriteLinkTag」がHTMLで処理する対象を特定する入力です。
- * @param documents 「documents」は、「rewriteLinkTag」がHTML出力の処理対象を特定する入力です。
- * @param options 処理経路や表示方法を指定する設定値です。
- * @returns 「rewriteLinkTag」が生成または変換したHTMLの文字列を返します。
+ * HTMLのrewrite・link・tagを処理し、呼び出し側へ結果または副作用を返す。
+ * @param tag - HTMLで受け渡す文字列。
+ * @param sourcePath - HTMLで読み書きするリソースの場所。
+ * @param outputPath - HTMLで読み書きするリソースの場所。
+ * @param documents - 文書URIと開いている文書オブジェクトの対応表。
+ * @param options - 呼び出し側が指定する処理設定。
+ * @returns HTMLで利用する文字列。
  */
 function rewriteLinkTag(
     tag: string,
@@ -416,12 +411,12 @@ function rewriteLinkTag(
     const linkedPath = resolveLocalPath(sourcePath, original);
     if (!linkedPath) return cleanDataAttributes(tag);
     const linkedDocument = documents.find(
-    /**
- * 「document」が検索条件に一致するか判定するコールバックです。
-     * @param document 処理対象の文書です。
-     * @returns 条件に一致した要素、または該当しない場合はundefinedを返します。
-     */
-    (document) => normalizePath(document.sourcePath) === normalizePath(linkedPath));
+        /**
+         * source・pathが条件に一致する最初のdocumentを取得する。
+         * @param document - documentのsource・pathを参照する走査対象。
+         * @returns 条件に一致した最初の要素。未検出時はundefined。
+         */
+        (document) => normalizePath(document.sourcePath) === normalizePath(linkedPath));
     const isMarkdown = isMarkdownPath(linkedPath);
     const destinationPath = options.convertLinkedMarkdown && isMarkdown && linkedDocument
         ? linkedDocument.outputPath
@@ -432,10 +427,10 @@ function rewriteLinkTag(
 }
 
 /**
- * URIを取得または解決します。
- * @param baseUri 「baseUri」は、「resolveLocalFileUri」がHTML出力の処理対象を特定する入力です。
- * @param source 処理対象のソースです。
- * @returns 「resolveLocalFileUri」が対象を取得できない場合はundefinedを返します。
+ * HTMLから必要な値またはリソースを取得する。
+ * @param baseUri - HTMLで読み書きするリソースの場所。
+ * @param source - 解析・描画・変換の起点となる本文。
+ * @returns 条件に一致する値。未検出時はundefinedまたはnull。
  */
 function resolveLocalFileUri(baseUri: vscode.Uri, source: string): vscode.Uri | undefined {
     const clean = decodeLocalResourceSource(source);
@@ -453,10 +448,10 @@ function resolveLocalFileUri(baseUri: vscode.Uri, source: string): vscode.Uri | 
 }
 
 /**
- * パスを取得または解決します。
- * @param baseFilePath 「baseFilePath」は、「resolveLocalPath」がHTMLで処理する対象を特定する入力です。
- * @param source 処理対象のソースです。
- * @returns 「resolveLocalPath」が生成または変換したHTMLの文字列を返します。
+ * HTMLから必要な値またはリソースを取得する。
+ * @param baseFilePath - HTMLで読み書きするリソースの場所。
+ * @param source - 解析・描画・変換の起点となる本文。
+ * @returns HTMLで利用する文字列。
  */
 function resolveLocalPath(baseFilePath: string, source: string): string {
     const clean = decodeLocalResourceSource(source);
@@ -473,11 +468,11 @@ function resolveLocalPath(baseFilePath: string, source: string): string {
 }
 
 /**
- * 「outputPathFor」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param sourcePath 「sourcePath」は、「outputPathFor」がHTMLで処理する対象を特定する入力です。
- * @param rootSourcePath 「rootSourcePath」は、「outputPathFor」がHTMLで処理する対象を特定する入力です。
- * @param rootOutputPath 「rootOutputPath」は、「outputPathFor」がHTMLで処理する対象を特定する入力です。
- * @returns 「outputPathFor」が生成または変換したHTMLの文字列を返します。
+ * HTMLのoutput・path・forを処理し、呼び出し側へ結果または副作用を返す。
+ * @param sourcePath - HTMLで読み書きするリソースの場所。
+ * @param rootSourcePath - HTMLで読み書きするリソースの場所。
+ * @param rootOutputPath - HTMLで読み書きするリソースの場所。
+ * @returns HTMLで利用する文字列。
  */
 function outputPathFor(sourcePath: string, rootSourcePath: string, rootOutputPath: string): string {
     const sourceRoot = path.dirname(rootSourcePath);
@@ -489,28 +484,28 @@ function outputPathFor(sourcePath: string, rootSourcePath: string, rootOutputPat
 }
 
 /**
- * 「relativeHref」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param fromFilePath 「fromFilePath」は、「relativeHref」がHTMLで処理する対象を特定する入力です。
- * @param toFilePath 「toFilePath」は、「relativeHref」がHTMLで処理する対象を特定する入力です。
- * @returns 「relativeHref」が生成または変換したHTMLの文字列を返します。
+ * HTMLのrelative・hrefを処理し、呼び出し側へ結果または副作用を返す。
+ * @param fromFilePath - HTMLで読み書きするリソースの場所。
+ * @param toFilePath - HTMLで読み書きするリソースの場所。
+ * @returns HTMLで利用する文字列。
  */
 function relativeHref(fromFilePath: string, toFilePath: string): string {
     const relative = path.relative(path.dirname(fromFilePath), toFilePath).replace(/\\/g, '/');
     const normalized = relative || path.basename(toFilePath);
     return normalized.split('/').map(
-    /**
- * 「segment」を変換し、変換後の要素を返すコールバックです。
-     * @param segment segmentとして渡される、このコールバックの入力値です。
-     * @returns 入力要素から生成した変換後の値を返します。
-     */
-    (segment) => segment === '.' || segment === '..' ? segment : encodeURIComponent(segment)).join('/');
+        /**
+         * 各segmentをencode・uricomponentへ渡し、変換結果を一覧化する。
+         * @param segment - HTMLへ渡す入力。
+         * @returns 入力要素から生成した変換結果の一覧。
+         */
+        (segment) => segment === '.' || segment === '..' ? segment : encodeURIComponent(segment)).join('/');
 }
 
 /**
- * 属性を取得または解決します。
- * @param tag 「tag」は、「readAttribute」がHTML出力の処理対象を特定する入力です。
- * @param name 対象を識別する名前で、表示または処理分岐に使用します。
- * @returns 「readAttribute」が生成または変換したHTMLの文字列を返します。
+ * HTMLから必要な値またはリソースを取得する。
+ * @param tag - HTMLで受け渡す文字列。
+ * @param name - HTMLの対象や分岐を識別する値。
+ * @returns 副作用を完了し、値は返さない。
  */
 function readAttribute(tag: string, name: string): string | undefined {
     const match = new RegExp(`\\b${name}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i').exec(tag);
@@ -518,11 +513,11 @@ function readAttribute(tag: string, name: string): string | undefined {
 }
 
 /**
- * 「replaceAttribute」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param tag 「tag」は、「replaceAttribute」がHTML出力の処理対象を特定する入力です。
- * @param name 対象を識別する名前で、表示または処理分岐に使用します。
- * @param value 「replaceAttribute」で検証・変換する入力値です。
- * @returns 「replaceAttribute」が生成または変換したHTMLの文字列を返します。
+ * HTMLの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+ * @param tag - HTMLで受け渡す文字列。
+ * @param name - HTMLの対象や分岐を識別する値。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @returns HTMLで利用する文字列。
  */
 function replaceAttribute(tag: string, name: string, value: string): string {
     const pattern = new RegExp(`\\b${name}\\s*=\\s*(?:"[^"]*"|'[^']*'|[^\\s>]+)`, 'i');
@@ -533,18 +528,18 @@ function replaceAttribute(tag: string, name: string, value: string): string {
 }
 
 /**
- * 「cleanDataAttributes」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param tag 「tag」は、「cleanDataAttributes」がHTML出力の処理対象を特定する入力です。
- * @returns 「cleanDataAttributes」が生成または変換したHTMLの文字列を返します。
+ * HTMLから不要または危険な情報を除去する。
+ * @param tag - HTMLで受け渡す文字列。
+ * @returns HTMLで利用する文字列。
  */
 function cleanDataAttributes(tag: string): string {
     return tag.replace(/\sdata-(?:original-src|mve-[\w-]+)(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?/gi, '');
 }
 
 /**
- * 値を解析または復元します。
- * @param value 「decodeHtmlValue」で検証・変換する入力値です。
- * @returns 「decodeHtmlValue」が生成または変換したHTMLの文字列を返します。
+ * HTMLの入力を構造化した値へ変換する。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @returns 副作用を完了し、値は返さない。
  */
 function decodeHtmlValue(value: string | undefined): string | undefined {
     if (!value) return undefined;
@@ -557,9 +552,9 @@ function decodeHtmlValue(value: string | undefined): string | undefined {
 }
 
 /**
- * read・fragmentを取得または解決します。
- * @param value 「readFragment」で検証・変換する入力値です。
- * @returns 「readFragment」が生成または変換したHTMLの文字列を返します。
+ * HTMLから必要な値またはリソースを取得する。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @returns HTMLで利用する文字列。
  */
 function readFragment(value: string): string {
     const index = value.indexOf('#');
@@ -568,70 +563,70 @@ function readFragment(value: string): string {
 }
 
 /**
- * is・remote・resourceかどうかを判定します。
- * @param value 「isRemoteResource」で検証・変換する入力値です。
- * @returns 判定結果です。
+ * HTMLの条件を判定する。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @returns 条件が成立したかを示す真偽値。
  */
 function isRemoteResource(value: string): boolean {
     return /^(?:https?:|mailto:|tel:|ftp:|data:|blob:|javascript:|#|\/\/)/i.test(value);
 }
 
 /**
- * パスかどうかを判定します。
- * @param value 「isMarkdownPath」で検証・変換する入力値です。
- * @returns 判定結果です。
+ * HTMLの条件を判定する。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @returns 条件が成立したかを示す真偽値。
  */
 function isMarkdownPath(value: string): boolean {
     return /\.(?:md|markdown)$/i.test(value);
 }
 
 /**
- * パスを正規化します。
- * @param value 「normalizePath」で検証・変換する入力値です。
- * @returns 「normalizePath」が生成または変換したHTMLの文字列を返します。
+ * HTMLの入力を許可された形式へ整える。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @returns HTMLで利用する文字列。
  */
 function normalizePath(value: string): string {
     return path.normalize(path.resolve(value)).toLowerCase();
 }
 
 /**
- * 「replaceExtension」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param value 「replaceExtension」で検証・変換する入力値です。
- * @param extension 「extension」は、「replaceExtension」がHTML出力の処理対象を特定する入力です。
- * @returns 「replaceExtension」が生成または変換したHTMLの文字列を返します。
+ * HTMLの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @param extension - HTMLの位置・寸法・件数・時間を表す数値。
+ * @returns HTMLで利用する文字列。
  */
 function replaceExtension(value: string, extension: string): string {
     return value.replace(/\.[^./\\]+$/, extension);
 }
 
 /**
- * 「ensureHtmlExtension」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param value 「ensureHtmlExtension」で検証・変換する入力値です。
- * @returns 「ensureHtmlExtension」が生成または変換したHTMLの文字列を返します。
+ * HTMLのensure・html・extensionを処理し、呼び出し側へ結果または副作用を返す。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @returns HTMLで利用する文字列。
  */
 function ensureHtmlExtension(value: string): string {
     return /\.html?$/i.test(value) ? value : `${value}.html`;
 }
 
 /**
- * 属性を安全な形式へ変換します。
- * @param value 「escapeAttribute」で検証・変換する入力値です。
- * @returns 「escapeAttribute」が生成または変換したHTMLの文字列を返します。
+ * HTMLの入力を許可された形式へ整える。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @returns HTMLで利用する文字列。
  */
 function escapeAttribute(value: string): string {
     return value.replace(/[&<>"']/g,
-    /**
- * 「character」から（value、javascript、filePath）のオブジェクトを生成して返すコールバックです。
-     * @param character HTMLまたはテキストから取り出した対象文字列です。
-     * @returns 置換後の文字列を返します。
-     */
-    (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]!);
+        /**
+         * HTMLの前提条件を準備し、回帰条件を検証するテストケース。
+         * @param character - テスト本体を実行するコールバック。
+         * @returns テストケースを実行し、値は返さない。
+         */
+        (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]!);
 }
 
 /**
- * 「stripUnsafeMarkup」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param value 「stripUnsafeMarkup」で検証・変換する入力値です。
- * @returns 「stripUnsafeMarkup」が生成または変換したHTMLの文字列を返します。
+ * HTMLから不要または危険な情報を除去する。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @returns HTMLで利用する文字列。
  */
 function stripUnsafeMarkup(value: string): string {
     return value
@@ -641,9 +636,9 @@ function stripUnsafeMarkup(value: string): string {
 }
 
 /**
- * 「mimeFromPath」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param filePath 「filePath」は、「mimeFromPath」がHTMLで処理する対象を特定する入力です。
- * @returns 「mimeFromPath」が生成または変換したHTMLの文字列を返します。
+ * HTMLのmime・from・pathを処理し、呼び出し側へ結果または副作用を返す。
+ * @param filePath - 読み書きするファイルのパス。
+ * @returns HTMLで利用する文字列。
  */
 function mimeFromPath(filePath: string): string {
     const extension = path.extname(filePath).toLowerCase();
@@ -657,15 +652,11 @@ function mimeFromPath(filePath: string): string {
     } as Record<string, string>)[extension] ?? 'image/png';
 }
 
-/**
- * 「HTML_CSS」は、関連する処理間で共有する設定値または状態を保持します。
- * @param fontFamily 「fontFamily」は、「HTML_CSS」がHTML出力の処理対象を特定する入力です。
- * @returns 「HTML_CSS」が生成または変換したHTMLの文字列を返します。
- */
+
 const HTML_CSS = /**
- * 「HTML_CSS」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param fontFamily 「fontFamily」は、「HTML_CSS」がHTMLで処理する対象を特定する入力です。
- * @returns 「HTML_CSS」が生成または整形したHTML出力の文字列を返します。
+ * HTMLのhtml・cssを処理し、呼び出し側へ結果または副作用を返す。
+ * @param fontFamily - HTMLの位置・寸法・件数・時間を表す数値。
+ * @returns HTMLで利用する文字列。
  */ (fontFamily: string): string => `
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body { margin: 0; font-family: ${fontFamily}; color: #202124; background: #fff; }

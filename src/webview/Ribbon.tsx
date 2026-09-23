@@ -1,10 +1,5 @@
 /**
- * @file Ribbon.tsx
- * 実行境界: Webview。
- * 責務: 編集UI、プレビュー、ユーザー操作を処理する。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: DOM、Webviewメッセージ、ブラウザーAPI、編集状態を操作する。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview 編集画面のリボンを表示し、コマンド・設定・表示状態の変更をHostへ委譲する。
  */
 import React, { useEffect, useState } from "react";
 import type { EditorMode, HtmlExportOptions } from "../shared/protocol";
@@ -52,82 +47,81 @@ validateRibbonConfiguration(
 );
 
 /**
- * 「Props」が満たすデータ契約を定義します。
+ * リボンで共有するデータ形状を表すインターフェース。
  */
 interface Props {
-
   /**
-   * 「messages」は、画面または通知へ表示する文言を保持します。
+   * リボンで扱うmessagesの一覧。
    */
   messages: Messages;
 
   /**
-   * 「mode」は、画面の表示モードまたは現在のUI状態を示します。
+   * 編集面とプレビューの表示構成。
    */
   mode: EditorMode;
 
   /**
-   * 「readOnly」は、処理条件または状態を表す真偽値です。
+   * 編集操作を許可しない状態。
    */
   readOnly: boolean;
 
   /**
-   * 「activeMarks」は、画面の表示モードまたは現在のUI状態を示します。
+   * 選択範囲で有効なMarkdown書式の対応表。
    */
   activeMarks: Record<string, boolean>;
 
   /**
-   * 「outlineVisible」は、画面の表示モードまたは現在のUI状態を示します。
+   * リボンのoutline・visibleを示す状態フラグ。
    */
   outlineVisible: boolean;
 
   /**
-   * 「scrollSyncEnabled」は、画面の表示モードまたは現在のUI状態を示します。
+   * 本文とプレビューのスクロール同期を有効にする設定。
    */
   scrollSyncEnabled: boolean;
 
   /**
-   * 「splitView」は、関連処理が共有する構造化データの一項目です。
+   * リボンのsplit・viewに関する状態または設定。
    */
   splitView: "both" | "text" | "preview";
 
   /**
-   * 「htmlOptions」は、利用側が共有する設定または現在状態を保持します。
+   * リボンへ渡す設定または境界値。
    */
   htmlOptions: HtmlExportOptions;
 
   /**
-   * 「imageDirectory」は、対象の内容または識別子を表す文字列です。
+   * リボンで読み書きするリソースの場所。
    */
   imageDirectory: string;
 
   /**
-   * 「editorFontFamily」は、表示テーマまたはスタイル設定を保持します。
+   * リボンで共有するフォント設定または移行状態。
    */
   editorFontFamily: string;
 
   /**
-   * 「previewFontFamily」は、表示テーマまたはスタイル設定を保持します。
+   * リボンで共有するフォント設定または移行状態。
    */
   previewFontFamily: string;
   /**
-   * 「onHtmlOptionsChange」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-   * @param options 処理経路や表示方法を指定する設定値です。
-   * @returns イベントを処理し、状態更新または副作用だけを実行して値は返しません。
+   * リボンのイベントまたはメッセージを受け取り、状態を更新する。
+   * @param options - 呼び出し側が指定する処理設定。
+   * @returns リボンのon・html・options・changeが生成する結果。
    */
   onHtmlOptionsChange: (options: HtmlExportOptions) => void;
   /**
-   * 「onCommand」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-   * @param command 「command」は、「onCommand」がWebview UI状態の処理対象を特定する入力です。
-   * @returns イベントを処理し、状態更新または副作用だけを実行して値は返しません。
+   * リボンのイベントまたはメッセージを受け取り、状態を更新する。
+   * @param command - リボンへ渡す入力。
+   * @returns リボンのon・commandが生成する結果。
    */
   onCommand: (command: RibbonCommand) => void;
 }
 
 /**
- * 「Ribbon」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param props 「props」は、「Ribbon」がWebview UI状態の処理対象を特定する入力です。
- * @returns 「Ribbon」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ * 編集コマンドと設定項目をまとめたリボンを表示するコンポーネント。
+ * @param options - 呼び出し側が指定する処理設定。
+ * @returns リボンのribbonが生成する結果。
  */
 export function Ribbon({
   messages,
@@ -165,13 +159,13 @@ export function Ribbon({
   const japanese = document.documentElement.lang.toLowerCase().startsWith("ja");
   const activeTab =
     RIBBON_LAYOUT.tabs.find(
-    /**
- * 「definition」が検索条件に一致するか判定するコールバックです。
-     * @param definition definitionとして渡される、このコールバックの入力値です。
-     * @returns 条件に一致した要素、または該当しない場合はundefinedを返します。
-     */
-    (definition) => definition.id === tab) ??
-    RIBBON_LAYOUT.tabs[0];
+      /**
+       * 識別子が条件に一致する最初のdefinitionを取得する。
+       * @param definition - definitionの識別子を参照する走査対象。
+       * @returns 条件に一致した最初の要素。未検出時はundefined。
+       */
+      (definition) => definition.id === tab,
+    ) ?? RIBBON_LAYOUT.tabs[0];
   const context: RibbonImplementationContext = {
     messages,
     japanese,
@@ -212,10 +206,9 @@ export function Ribbon({
   };
 
   useEffect(
-
     /**
- * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
-     * @returns Reactが保持する初期状態またはメモ化値を返します。
+     * 依存状態の変化に応じて表示または購読を更新する。
+     * @returns リボンのコールバックが生成する結果。
      */
     () =>
       subscribePreviewImageResizeControlsVisible(setImageResizeControlsVisible),
@@ -223,30 +216,36 @@ export function Ribbon({
   );
 
   useEffect(
-  /**
- * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
-   * @returns Reactが保持する初期状態またはメモ化値を返します。
-   */
-  () => setImageDirectoryDraft(imageDirectory), [imageDirectory]);
+    /**
+     * 依存状態の変化に応じて表示または購読を更新する。
+     * @returns リボンのコールバックが生成する結果。
+     */
+    () => setImageDirectoryDraft(imageDirectory),
+    [imageDirectory],
+  );
   useEffect(
-  /**
- * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
-   * @returns Reactが保持する初期状態またはメモ化値を返します。
-   */
-  () => setEditorFontFamilyDraft(editorFontFamily), [editorFontFamily]);
+    /**
+     * 依存状態の変化に応じて表示または購読を更新する。
+     * @returns リボンのコールバックが生成する結果。
+     */
+    () => setEditorFontFamilyDraft(editorFontFamily),
+    [editorFontFamily],
+  );
   useEffect(
+    /**
+     * 依存状態の変化に応じて表示または購読を更新する。
+     * @returns リボンのコールバックが生成する結果。
+     */
+    () => setPreviewFontFamilyDraft(previewFontFamily),
+    [previewFontFamily],
+  );
   /**
- * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
-   * @returns Reactが保持する初期状態またはメモ化値を返します。
-   */
-  () => setPreviewFontFamilyDraft(previewFontFamily), [previewFontFamily]);
-  /**
-   * render・buttonを描画します。
-   * @param id 「id」は、「renderButton」がWebview UI状態の処理対象を特定する入力です。
-   * @param labelSpec 「labelSpec」は、「renderButton」がWebview UI状態の処理対象を特定する入力です。
-   * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはmessages、messagesです。
-   * @param implementation 「implementation」は、「renderButton」がWebview UI状態の処理対象を特定する入力です。
-   * @returns 「renderButton」が生成したWebview UI状態のデータを返します。
+   * リボンを表示用の結果へ変換する。
+   * @param id - リボンの対象や分岐を識別する値。
+   * @param labelSpec - リボンで扱う文字列または本文。
+   * @param options - 呼び出し側が指定する処理設定。
+   * @param implementation - リボンへ渡す入力。
+   * @returns リボンで生成または変換した値。
    */
   function renderButton(
     id: string,
@@ -268,11 +267,12 @@ export function Ribbon({
           disabled={disabled}
           title={title ?? label}
           onClick={
-          /**
- * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
-           * @returns 「implementation.onClick」の呼び出し結果を返します。
-           */
-          () => implementation.onClick(context)}
+            /**
+             * clickイベントでon・clickを実行する。
+             * @returns 副作用を完了し、値は返さない。
+             */
+            () => implementation.onClick(context)
+          }
         >
           {label}
         </button>
@@ -288,11 +288,12 @@ export function Ribbon({
           disabled={disabled}
           title={title}
           onClick={
-          /**
- * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
-           * @returns 「implementation.onClick」の呼び出し結果を返します。
-           */
-          () => implementation.onClick(context)}
+            /**
+             * clickイベントでon・clickを実行する。
+             * @returns 副作用を完了し、値は返さない。
+             */
+            () => implementation.onClick(context)
+          }
         >
           {label}
         </button>
@@ -307,19 +308,20 @@ export function Ribbon({
         disabled={disabled}
         title={title}
         onClick={
-        /**
- * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
-         * @returns 「implementation.onClick」の呼び出し結果を返します。
-         */
-        () => implementation.onClick(context)}
+          /**
+           * clickイベントでon・clickを実行する。
+           * @returns 副作用を完了し、値は返さない。
+           */
+          () => implementation.onClick(context)
+        }
       />
     );
   }
 
   /**
-   * 項目を描画します。
-   * @param id 「id」は、「renderItem」がWebview UI状態の処理対象を特定する入力です。
-   * @returns 「renderItem」が生成したWebview UI状態のデータを返します。
+   * リボンを表示用の結果へ変換する。
+   * @param id - リボンの対象や分岐を識別する値。
+   * @returns リボンで生成または変換した値。
    */
   function renderItem(id: RibbonItemId): React.JSX.Element {
     const definition = getItemDefinition(id);
@@ -339,9 +341,9 @@ export function Ribbon({
           definition,
 
           /**
- * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
-           * @param spec specとして渡される、このコールバックの入力値です。
-           * @returns 「spec」から生成した処理結果を返します。
+           * specをresolve・ribbon・labelへ渡し、リボンの結果または副作用を処理する。
+           * @param spec - リボンへ渡す入力。
+           * @returns リボンに対応する要素の一覧。
            */
           (spec) => resolveRibbonLabel(spec, messages, japanese),
         )}
@@ -350,9 +352,9 @@ export function Ribbon({
   }
 
   /**
-   * 項目を描画します。
-   * @param itemIds 「itemIds」は、「renderGroupItems」がWebview UI状態の処理対象を特定する入力です。
-   * @returns 「renderGroupItems」が生成したWebview UI状態のデータを返します。
+   * リボンを表示用の結果へ変換する。
+   * @param itemIds - リボンの対象や分岐を識別する値。
+   * @returns リボンに対応する要素の一覧。
    */
   function renderGroupItems(
     itemIds: readonly RibbonItemId[],
@@ -393,9 +395,9 @@ export function Ribbon({
   }
 
   /**
-   * 項目を描画します。
-   * @param itemIds 「itemIds」は、「renderHeaderItems」がWebview UI状態の処理対象を特定する入力です。
-   * @returns 「renderHeaderItems」が生成したWebview UI状態のデータを返します。
+   * リボンを表示用の結果へ変換する。
+   * @param itemIds - リボンの対象や分岐を識別する値。
+   * @returns リボンに対応する要素の一覧。
    */
   function renderHeaderItems(
     itemIds: readonly RibbonHeaderItemId[],
@@ -437,15 +439,15 @@ export function Ribbon({
   }
 
   /**
-   * render・header・buttonを描画します。
-   * @param id 「id」は、「renderHeaderButton」がWebview UI状態の処理対象を特定する入力です。
-   * @returns 「renderHeaderButton」が生成したWebview UI状態のデータを返します。
+   * リボンを表示用の結果へ変換する。
+   * @param id - リボンの対象や分岐を識別する値。
+   * @returns リボンで生成または変換した値。
    */
   function renderHeaderButton(id: RibbonHeaderItemId): React.JSX.Element {
     const definition = RIBBON_DEFINITIONS.headerItems[id];
     const labelSpec = context.collapsed
-      ? definition.collapsedLabel ?? definition.label
-      : definition.expandedLabel ?? definition.label;
+      ? (definition.collapsedLabel ?? definition.label)
+      : (definition.expandedLabel ?? definition.label);
     return renderButton(
       id,
       labelSpec,
@@ -458,24 +460,25 @@ export function Ribbon({
     <header
       className={`ribbon ${collapsed ? "collapsed" : ""}`}
       onClickCapture={
-      /**
- * 「event」を受け取り、処理結果を生成する処理です。
-       * @param event 処理対象のイベントです。
-       * @returns 「event.target.closest」を実行し、値を返しません。
-       */
-      (event) => {
-        const target =
-          event.target instanceof Element
-            ? event.target.closest("button")
-            : null;
-        if (!target) return;
-        mveDebug("ribbon.dom-click", {
-          text: target.textContent?.trim(),
-          title: target.getAttribute("title"),
-          detail: event.detail,
-          className: target.className,
-        });
-      }}
+        /**
+         * イベントをclosestへ渡し、リボンの結果または副作用を処理する。
+         * @param event - ユーザー操作またはDOMから通知されたイベント。
+         * @returns リボンのコールバックが生成する結果。
+         */
+        (event) => {
+          const target =
+            event.target instanceof Element
+              ? event.target.closest("button")
+              : null;
+          if (!target) return;
+          mveDebug("ribbon.dom-click", {
+            text: target.textContent?.trim(),
+            title: target.getAttribute("title"),
+            detail: event.detail,
+            className: target.className,
+          });
+        }
+      }
     >
       <div
         className="ribbon-tabs"
@@ -487,59 +490,62 @@ export function Ribbon({
         )}
       >
         {RIBBON_LAYOUT.tabs.map(
-        /**
- * 「definition」を変換し、変換後の要素を返すコールバックです。
-         * @param definition definitionとして渡される、このコールバックの入力値です。
-         * @returns 入力要素から生成した変換後の値を返します。
-         */
-        (definition) => (
-          <button
-            key={definition.id}
-            type="button"
-            role="tab"
-            aria-selected={tab === definition.id}
-            className={tab === definition.id ? "active" : ""}
-            onClick={
-            /**
- * 登録された副作用または結果を生成する処理を実行するコールバックです。
-             * @returns 「setTab」を実行し、値を返しません。
-             */
-            () => {
-              setTab(definition.id);
-              setCollapsed(false);
-            }}
-          >
-            {resolveRibbonLabel(
-              RIBBON_DEFINITIONS.tabs[definition.id],
-              messages,
-              japanese,
-            )}
-          </button>
-        ))}
+          /**
+           * 各definitionから識別子を取り出して一覧化する。
+           * @param definition - definitionの識別子を参照する走査対象。
+           * @returns 識別子を取り出した変換結果の一覧。
+           */
+          (definition) => (
+            <button
+              key={definition.id}
+              type="button"
+              role="tab"
+              aria-selected={tab === definition.id}
+              className={tab === definition.id ? "active" : ""}
+              onClick={
+                /**
+                 * click操作を表示または編集状態へ反映する。
+                 * @returns 副作用を完了し、値は返さない。
+                 */
+                () => {
+                  setTab(definition.id);
+                  setCollapsed(false);
+                }
+              }
+            >
+              {resolveRibbonLabel(
+                RIBBON_DEFINITIONS.tabs[definition.id],
+                messages,
+                japanese,
+              )}
+            </button>
+          ),
+        )}
         <span className="ribbon-spacer" />
         {renderHeaderItems(RIBBON_LAYOUT.header.itemIds)}
       </div>
       {!collapsed && (
         <div className="ribbon-content" role="tabpanel">
           {activeTab.groups.map(
-          /**
- * 「group」を変換し、変換後の要素を返すコールバックです。
-           * @param group groupとして渡される、このコールバックの入力値です。
-           * @returns 入力要素から生成した変換後の値を返します。
-           */
-          (group) => (
-            <Group
-              key={group.id}
-              label={resolveRibbonLabel(
-                RIBBON_DEFINITIONS.groups[group.id].label,
-                messages,
-                japanese,
-              )}
-              className={RIBBON_DEFINITIONS.groups[group.id].className}
-            >
-              {renderGroupItems(group.itemIds)}
-            </Group>
-          ))}
+            /**
+             * 各groupから識別子を取り出して一覧化する。
+             * @param group - groupの識別子を参照する走査対象。
+             * @returns 識別子を取り出した変換結果の一覧。
+             */
+            (group) => (
+              <Group
+                key={group.id}
+                label={resolveRibbonLabel(
+                  RIBBON_DEFINITIONS.groups[group.id].label,
+                  messages,
+                  japanese,
+                )}
+                className={RIBBON_DEFINITIONS.groups[group.id].className}
+              >
+                {renderGroupItems(group.itemIds)}
+              </Group>
+            ),
+          )}
         </div>
       )}
     </header>
@@ -547,9 +553,9 @@ export function Ribbon({
 }
 
 /**
- * get・item・definitionを取得または解決します。
- * @param id 「id」は、「getItemDefinition」がWebview UI状態の処理対象を特定する入力です。
- * @returns 「getItemDefinition」が読み取りまたは正規化した結果を返します。
+ * リボンから必要な値またはリソースを取得する。
+ * @param id - リボンの対象や分岐を識別する値。
+ * @returns リボンのget・item・definitionが生成する結果。
  */
 function getItemDefinition(id: RibbonItemId): RibbonItemDefinition {
   const definition = RIBBON_DEFINITIONS.items[id];
@@ -560,9 +566,9 @@ function getItemDefinition(id: RibbonItemId): RibbonItemDefinition {
 }
 
 /**
- * get・item・implementationを取得または解決します。
- * @param id 「id」は、「getItemImplementation」がWebview UI状態の処理対象を特定する入力です。
- * @returns 「getItemImplementation」が読み取りまたは正規化した結果を返します。
+ * リボンから必要な値またはリソースを取得する。
+ * @param id - リボンの対象や分岐を識別する値。
+ * @returns リボンのget・item・implementationが生成する結果。
  */
 function getItemImplementation(id: RibbonItemId): RibbonItemImplementation {
   const implementation = RIBBON_IMPLEMENTATIONS[id];
@@ -573,9 +579,9 @@ function getItemImplementation(id: RibbonItemId): RibbonItemImplementation {
 }
 
 /**
- * get・header・implementationを取得または解決します。
- * @param id 「id」は、「getHeaderImplementation」がWebview UI状態の処理対象を特定する入力です。
- * @returns 「getHeaderImplementation」が読み取りまたは正規化した結果を返します。
+ * リボンから必要な値またはリソースを取得する。
+ * @param id - リボンの対象や分岐を識別する値。
+ * @returns リボンのget・header・implementationが生成する結果。
  */
 function getHeaderImplementation(
   id: RibbonHeaderImplementationId,
@@ -588,28 +594,27 @@ function getHeaderImplementation(
 }
 
 /**
- * 「Group」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param props 「props」は、「Group」がWebview UI状態の処理対象を特定する入力です。
- * @returns 「Group」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ * リボンのgroupを処理し、呼び出し側へ結果または副作用を返す。
+ * @param options - 呼び出し側が指定する処理設定。
+ * @returns リボンのgroupが生成する結果。
  */
 function Group({
   label,
   children,
   className,
 }: {
-
   /**
-   * 「label」は、画面または通知へ表示する文言を保持します。
+   * 画面または検証結果に表示する説明文。
    */
   label: string;
 
   /**
-   * 「children」は、コンポーネントが表示する子要素を保持します。
+   * リボンのchildrenに関する状態または設定。
    */
   children: React.ReactNode;
 
   /**
-   * 「className」は、対象の識別や処理分岐に使用する値を保持します。
+   * リボンで扱うclass・nameの文字列。
    */
   className?: string;
 }): React.JSX.Element {
@@ -622,9 +627,9 @@ function Group({
 }
 
 /**
- * 「Tool」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param props 「props」は、「Tool」がWebview UI状態の処理対象を特定する入力です。
- * @returns 「Tool」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ * リボンのtoolを処理し、呼び出し側へ結果または副作用を返す。
+ * @param options - 呼び出し側が指定する処理設定。
+ * @returns リボンのtoolが生成する結果。
  */
 function Tool({
   label,
@@ -634,34 +639,33 @@ function Tool({
   title,
   onClick,
 }: {
-
   /**
-   * 「label」は、画面または通知へ表示する文言を保持します。
+   * 画面または検証結果に表示する説明文。
    */
   label: string;
 
   /**
-   * 「shortcut」は、対象の内容または識別子を表す文字列です。
+   * リボン項目に割り当てるキーボードショートカット。
    */
   shortcut?: string;
 
   /**
-   * 「active」は、画面の表示モードまたは現在のUI状態を示します。
+   * リボンの状態を示すフラグ。
    */
   active?: boolean;
 
   /**
-   * 「disabled」は、処理条件または状態を表す真偽値です。
+   * リボンの状態を示すフラグ。
    */
   disabled?: boolean;
 
   /**
-   * 「title」は、画面または通知へ表示する文言を保持します。
+   * 画面や出力に表示するタイトル。
    */
   title?: string;
   /**
-   * 「onClick」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-   * @returns イベントを処理し、状態更新または副作用だけを実行して値は返しません。
+   * リボンのイベントまたはメッセージを受け取り、状態を更新する。
+   * @returns リボンのon・clickが生成する結果。
    */
   onClick: () => void;
 }): React.JSX.Element {

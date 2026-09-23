@@ -1,21 +1,20 @@
 /**
- * @file lazy-runtime-smoke.mjs
- * 実行境界: 開発・検証スクリプト。
- * 責務: ビルド、スモーク、統合検証または補助生成を実行する。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: プロセス、生成物、Webview、VS Code、Chromiumなどの外部環境を操作する。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview lazy・ランタイム・スモーク検証を開発・検証環境で実行する。前提条件や失敗条件を終了コードとログで示す。
  */
 import { chromium } from 'playwright-core';
 import { createServer } from 'node:http';
 import { access, readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 
-/** 「executablePath」は、対象ファイルまたは実行環境の場所を表す値です。 */
+/**
+ * lazy・ランタイム・スモーク検証で読み書きするリソースの場所。
+ */
 const executablePath = await findFile(path.resolve('.chromium'), 'chrome-headless-shell.exe');
 if (!executablePath) throw new Error('Chromium がありません。npm run pdf:install-browser を実行してください。');
 
-/** 「allowedAssets」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * lazy・ランタイム・スモーク検証の条件を示すフラグ。
+ */
 const allowedAssets = new Set([
   'export-fonts.css',
   'markdown-fallback.js',
@@ -26,13 +25,15 @@ const allowedAssets = new Set([
   'webview.css',
   'webview.js'
 ]);
-/** 「server」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * lazy・ランタイム・スモーク検証のserverに関する状態または設定。
+ */
 const server = createServer(
 /**
- * 「async」として「request」「response」を受け取り、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param request 処理対象の要求です。
- * @param response 「response」は、「async」が検証シナリオの処理対象を特定する入力です。
- * @returns 「URL」を実行し、値を返しません。
+ * requestをurlへ渡し、lazy・ランタイム・スモーク検証の結果または副作用を処理する。
+ * @param request - lazy・ランタイム・スモーク検証へ渡す入力。
+ * @param response - lazy・ランタイム・スモーク検証へ渡す入力。
+ * @returns lazy・ランタイム・スモーク検証のコールバックが生成する結果。
  */
 async (request, response) => {
   try {
@@ -60,22 +61,28 @@ async (request, response) => {
 });
 await new Promise(
 /**
- * 非同期処理の失敗理由を受け取り、回復処理または代替値を生成するコールバックです。
- * @param resolve Promiseの完了または失敗を通知する関数です。
- * @param reject Promiseの完了または失敗を通知する関数です。
- * @returns エラー処理またはフォールバックの結果を返します。
+ * 非同期処理のonce通知を待機側へ渡す。
+ * @param resolve - Promiseの成功を通知する関数。
+ * @param reject - Promiseの失敗を通知する関数。
+ * @returns 非同期処理の完了値。
  */
 (resolve, reject) => {
   server.once('error', reject);
   server.listen(0, '127.0.0.1', resolve);
 });
-/** 「address」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * lazy・ランタイム・スモーク検証で扱う一覧または対応表。
+ */
 const address = server.address();
 if (!address || typeof address === 'string') throw new Error('テスト HTTP サーバーを開始できませんでした。');
-/** 「origin」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * lazy・ランタイム・スモーク検証のoriginとして利用する実行環境または外部資源。
+ */
 const origin = `http://127.0.0.1:${address.port}`;
 
-/** 「browser」は、ブラウザー処理の共有状態または実行設定です。 */
+/**
+ * lazy・ランタイム・スモーク検証の位置・寸法・件数・時間を表す数値。
+ */
 const browser = await chromium.launch({ executablePath, headless: true });
 try {
   await verifyMarkdownFallback();
@@ -89,16 +96,16 @@ try {
   await browser.close();
   await new Promise(
   /**
- * Promiseの完了または失敗を通知し、非同期処理の状態を確定するコールバックです。
-   * @param resolve Promiseの完了または失敗を通知する関数です。
-   * @returns Promiseの完了または失敗を通知し、値を返しません。
+   * 非同期処理の閉じる通知を待機側へ渡す。
+   * @param resolve - Promiseの成功を通知する関数。
+   * @returns 非同期処理の完了値。
    */
   (resolve) => server.close(resolve));
 }
 
 /**
- * verify・compact・mermaid・avoids・host・startupを検証します。
- * @returns 「verifyCompactMermaidAvoidsHostStartup」が検証シナリオの入力を処理して得た固有の結果を返します。
+ * lazy・ランタイム・スモーク検証の入力と不変条件を検証し、違反時に失敗を通知する。
+ * @returns lazy・ランタイム・スモーク検証のverify・compact・mermaid・avoids・host・startupが生成する結果。
  */
 async function verifyCompactMermaidAvoidsHostStartup() {
   const markdown = [
@@ -120,53 +127,53 @@ async function verifyCompactMermaidAvoidsHostStartup() {
   try {
     await page.waitForFunction(
     /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-     * @returns 期待条件の真偽値または条件に一致した要素を返します。
+     * ブラウザー内に「.split-preview .mermaid[data-mermaid-status=」が現れるまで待機する。
+     * @returns lazy・ランタイム・スモーク検証のコールバックが生成する結果。
      */
     () => (
       document.querySelectorAll('.split-preview .mermaid[data-mermaid-status="ready"] svg').length === 2
     ), undefined, { timeout: 20_000 });
     const state = await page.evaluate(
     /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-     * @returns DOM検索で得た要素または状態を返します。
+     * ブラウザー内の「.split-preview .mermaid svg」を読み取り、検証用の値へ変換する。
+     * @returns ブラウザー内で読み取った値または変換結果。
      */
     () => {
       const diagrams = [...document.querySelectorAll('.split-preview .mermaid svg')];
       const ids = diagrams.flatMap(
       /**
- * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
-       * @param svg svgとして渡される、このコールバックの入力値です。
-       * @returns 「svg」から生成した処理結果を返します。
+       * SVG要素をquery・selector・allへ渡し、lazy・ランタイム・スモーク検証の結果または副作用を処理する。
+       * @param svg - Mermaidが生成したSVG本文。
+       * @returns lazy・ランタイム・スモーク検証のコールバックが生成する結果。
        */
       (svg) => [...svg.querySelectorAll('[id]')].map(
       /**
- * 「element」を変換し、変換後の要素を返すコールバックです。
-       * @param element 処理対象の要素です。
-       * @returns 入力要素から生成した変換後の値を返します。
+       * 各要素から識別子を取り出して一覧化する。
+       * @param element - 要素の識別子を参照する走査対象。
+       * @returns 識別子を取り出した変換結果の一覧。
        */
       (element) => element.id));
       return {
         hostRequests: window.__mveMessages.filter(
         /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-         * @param message 処理対象のメッセージです。
-         * @returns 条件判定の結果を示す真偽値を返します。
+         * 種別「renderMermaid」のメッセージだけを残す。
+         * @param message - メッセージのtypeを参照する走査対象。
+         * @returns 条件を満たした要素だけを含む一覧。
          */
         (message) => message.type === 'renderMermaid').length,
         duplicateIds: ids.filter(
         /**
- * 「id」「index」が条件に一致するか判定し、残す要素を決めるコールバックです。
-         * @param id idとして渡される、このコールバックの入力値です。
-         * @param index 本文、表、配列内の対象位置を示すインデックスです。
-         * @returns 要素を採用するかどうかの真偽値を返します。
+         * sの条件を満たす識別子だけを残す。
+         * @param id - 識別子のsを参照する走査対象。
+         * @param index - 位置のofを参照する走査対象。
+         * @returns 条件を満たした要素だけを含む一覧。
          */
         (id, index) => ids.indexOf(id) !== index),
         text: diagrams.map(
         /**
- * 「svg」を変換し、変換後の要素を返すコールバックです。
-         * @param svg svgとして渡される、このコールバックの入力値です。
-         * @returns 入力要素から生成した変換後の値を返します。
+         * 各SVG要素からtext・contentを取り出して一覧化する。
+         * @param svg - SVG要素のtext・contentを参照する走査対象。
+         * @returns text・contentを取り出した変換結果の一覧。
          */
         (svg) => svg.textContent ?? '')
       };
@@ -179,9 +186,9 @@ async function verifyCompactMermaidAvoidsHostStartup() {
     }
     if (state.text.some(
     /**
- * 「text」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
-     * @param text 処理対象の本文です。
-     * @returns 条件判定の結果を示す真偽値を返します。
+     * 本文をincludesへ渡し、lazy・ランタイム・スモーク検証の結果または副作用を処理する。
+     * @param text - 表示・解析・変換の対象となる本文。
+     * @returns 条件が成立したかを示す真偽値。
      */
     (text) => !text.includes('Start') || !text.includes('Ready'))) {
       throw new Error(`小型 Mermaid のラベルが欠落しました: ${JSON.stringify(state.text)}`);
@@ -192,16 +199,16 @@ async function verifyCompactMermaidAvoidsHostStartup() {
 }
 
 /**
- * verify・large・mermaid・keeps・host・isolationを検証します。
- * @returns 「verifyLargeMermaidKeepsHostIsolation」が検証シナリオの入力を処理して得た固有の結果を返します。
+ * lazy・ランタイム・スモーク検証の入力と不変条件を検証し、違反時に失敗を通知する。
+ * @returns lazy・ランタイム・スモーク検証のverify・large・mermaid・keeps・host・isolationが生成する結果。
  */
 async function verifyLargeMermaidKeepsHostIsolation() {
   const edges = Array.from({ length: 240 },
   /**
- * 「_」「index」から配列要素を生成するコールバックです。
-   * @param _ 呼び出し側が渡すが、このコールバックでは使用しない値です。
-   * @param index 本文、表、配列内の対象位置を示すインデックスです。
-   * @returns 「_」「index」から生成した処理結果を返します。
+   * lazy・ランタイム・スモーク検証のコールバックとして・を処理する。
+   * @param _ - 引数位置を維持するための未使用値。
+   * @param index - 配列・行列・文字列の要素位置を示す番号。
+   * @returns lazy・ランタイム・スモーク検証のコールバックが生成する結果。
    */
   (_, index) => `  N${index} --> N${index + 1}`);
   const markdown = `\`\`\`mermaid\nflowchart TD\n${edges.join("\n")}\n\`\`\`\n`;
@@ -212,15 +219,15 @@ async function verifyLargeMermaidKeepsHostIsolation() {
   try {
     await page.waitForFunction(
     /**
- * 登録された処理が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
-     * @returns 期待条件の真偽値または条件に一致した要素を返します。
+     * HostとWebviewのメッセージ状態が完了条件を満たすまで待機する。
+     * @returns lazy・ランタイム・スモーク検証のコールバックが生成する結果。
      */
     () => (
       window.__mveMessages.some(
       /**
- * 「message」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
-       * @param message 処理対象のメッセージです。
-       * @returns 条件判定の結果を示す真偽値を返します。
+       * lazy・ランタイム・スモーク検証のコールバックとしてメッセージを処理する。
+       * @param message - HostとWebviewの間で受け渡すメッセージ。
+       * @returns lazy・ランタイム・スモーク検証のコールバックが生成する結果。
        */
       (message) => message.type === 'renderMermaid')
     ), undefined, { timeout: 20_000 });
@@ -230,8 +237,8 @@ async function verifyLargeMermaidKeepsHostIsolation() {
 }
 
 /**
- * verify・markdown・fallbackを検証します。
- * @returns 「verifyMarkdownFallback」が生成または整形した検証シナリオの文字列を返します。
+ * lazy・ランタイム・スモーク検証の入力と不変条件を検証し、違反時に失敗を通知する。
+ * @returns lazy・ランタイム・スモーク検証のverify・markdown・fallbackが生成する結果。
  */
 async function verifyMarkdownFallback() {
   const markdown = [
@@ -255,8 +262,8 @@ async function verifyMarkdownFallback() {
     try {
       await page.waitForFunction(
       /**
- * 非同期処理の失敗理由を受け取り、回復処理または代替値を生成するコールバックです。
-       * @returns 期待条件の真偽値または条件に一致した要素を返します。
+       * ブラウザー内に「.split-preview p strong」が現れるまで待機する。
+       * @returns lazy・ランタイム・スモーク検証のコールバックが生成する結果。
        */
       () => (
         document.body.dataset.mveMarkdownWorkerStatus === 'fallback'
@@ -265,8 +272,8 @@ async function verifyMarkdownFallback() {
     } catch (error) {
       const state = await page.evaluate(
       /**
-       * Promiseの失敗理由を受け取り、エラー表示またはフォールバックを実行するコールバックです。
-       * @returns エラー処理またはフォールバックの結果を返します。
+       * ブラウザー内の「.split-preview」を読み取り、検証用の値へ変換する。
+       * @returns ブラウザー内で読み取った値または変換結果。
        */
       () => ({
         workerStatus: document.body.dataset.mveMarkdownWorkerStatus,
@@ -276,8 +283,8 @@ async function verifyMarkdownFallback() {
     }
     const unsafe = await page.evaluate(
     /**
- * 非同期処理の失敗理由を受け取り、回復処理または代替値を生成するコールバックです。
-     * @returns 初期化したオブジェクト（hasToc、hasKatex、scriptCount、eventHandlerCount、executed）を返します。
+     * ブラウザー内の「.split-preview .table-of-contents」を読み取り、検証用の値へ変換する。
+     * @returns ブラウザー内で読み取った値または変換結果。
      */
     () => ({
       hasToc: Boolean(document.querySelector('.split-preview .table-of-contents')),
@@ -296,8 +303,8 @@ async function verifyMarkdownFallback() {
 }
 
 /**
- * verify・rich・markdown・fallbackを検証します。
- * @returns 「verifyRichMarkdownFallback」が生成または整形した検証シナリオの文字列を返します。
+ * lazy・ランタイム・スモーク検証の入力と不変条件を検証し、違反時に失敗を通知する。
+ * @returns lazy・ランタイム・スモーク検証のverify・rich・markdown・fallbackが生成する結果。
  */
 async function verifyRichMarkdownFallback() {
   const markdown = '# Rich fallback\n\n```javascript\nconst answer = 42;\n```\n';
@@ -309,8 +316,8 @@ async function verifyRichMarkdownFallback() {
   try {
     await page.waitForFunction(
     /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-     * @returns 期待条件の真偽値または条件に一致した要素を返します。
+     * ブラウザー内に「.split-preview .hljs-keyword」が現れるまで待機する。
+     * @returns lazy・ランタイム・スモーク検証のコールバックが生成する結果。
      */
     () => (
       document.body.dataset.mveMarkdownWorkerStatus === 'fallback'
@@ -322,8 +329,8 @@ async function verifyRichMarkdownFallback() {
 }
 
 /**
- * verify・inline・mermaid・fallbackを検証します。
- * @returns 「verifyInlineMermaidFallback」が検証シナリオの入力を処理して得た固有の結果を返します。
+ * lazy・ランタイム・スモーク検証の入力と不変条件を検証し、違反時に失敗を通知する。
+ * @returns lazy・ランタイム・スモーク検証に対応する要素の一覧。
  */
 async function verifyInlineMermaidFallback() {
   const markdown = '# Mermaid\n\n```mermaid\ngraph TD\n  A --> B\n```\n';
@@ -335,8 +342,8 @@ async function verifyInlineMermaidFallback() {
     try {
       await page.waitForFunction(
       /**
- * 非同期処理の失敗理由を受け取り、回復処理または代替値を生成するコールバックです。
-       * @returns 期待条件の真偽値または条件に一致した要素を返します。
+       * ブラウザー内に「.split-preview .mermaid[data-mermaid-status=」が現れるまで待機する。
+       * @returns lazy・ランタイム・スモーク検証に対応する要素の一覧。
        */
       () => (
         document.querySelector('.split-preview .mermaid[data-mermaid-status="ready"] svg') !== null
@@ -344,8 +351,8 @@ async function verifyInlineMermaidFallback() {
     } catch (error) {
       const state = await page.evaluate(
       /**
-       * Promiseの失敗理由を受け取り、エラー表示またはフォールバックを実行するコールバックです。
-       * @returns エラー処理またはフォールバックの結果を返します。
+       * ブラウザー内の「.mermaid」を読み取り、検証用の値へ変換する。
+       * @returns ブラウザー内で読み取った値または変換結果。
        */
       () => ({
         workerStatus: document.body.dataset.mveMarkdownWorkerStatus,
@@ -356,9 +363,9 @@ async function verifyInlineMermaidFallback() {
         mermaidKeys: window.mermaid ? Object.keys(window.mermaid).slice(0, 20) : [],
         diagrams: [...document.querySelectorAll('.mermaid')].map(
         /**
- * 「node」を変換し、変換後の要素を返すコールバックです。
-         * @param node nodeとして渡される、このコールバックの入力値です。
-         * @returns 入力要素から生成した変換後の値を返します。
+         * 各DOMノードからget・attributeを取り出して一覧化する。
+         * @param node - DOMノードのget・attributeを参照する走査対象。
+         * @returns get・attributeを取り出した変換結果の一覧。
          */
         (node) => ({
           status: node.getAttribute('data-mermaid-status'),
@@ -373,8 +380,8 @@ async function verifyInlineMermaidFallback() {
 }
 
 /**
- * verify・lazy・export・fontsを検証します。
- * @returns 「verifyLazyExportFonts」が検証シナリオの入力を処理して得た固有の結果を返します。
+ * lazy・ランタイム・スモーク検証の入力と不変条件を検証し、違反時に失敗を通知する。
+ * @returns lazy・ランタイム・スモーク検証のverify・lazy・export・fontsが生成する結果。
  */
 async function verifyLazyExportFonts() {
   const markdown = '# Export fonts\n\n埋め込みフォントの回帰検証。\n';
@@ -385,45 +392,45 @@ async function verifyLazyExportFonts() {
   try {
     await page.waitForFunction(
     /**
- * 「length」を受け取り、Webviewへメッセージイベントを発火する処理です。
-     * @param length lengthとして渡される、このコールバックの入力値です。
-     * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+     * ブラウザー内に「.split-preview .rendered-markdown」が現れるまで待機する。
+     * @param length - ブラウザー内で評価するコールバック。
+     * @returns lazy・ランタイム・スモーク検証のコールバックが生成する結果。
      */
     (length) => (
       Number(document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-document-length')) === length
     ), markdown.length);
     await page.evaluate(
     /**
- * 登録された処理が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
-     * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+     * Webviewの実行状態のdispatch・event結果を読み取り、検証用の値へ変換する。
+     * @returns ブラウザー内で読み取った値または変換結果。
      */
     () => window.dispatchEvent(new MessageEvent('message', {
       data: { type: 'hostCommand', command: 'exportHtml' }
     })));
     await page.waitForFunction(
     /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-     * @returns 期待条件の真偽値または条件に一致した要素を返します。
+     * HostとWebviewのメッセージ状態が完了条件を満たすまで待機する。
+     * @returns lazy・ランタイム・スモーク検証のコールバックが生成する結果。
      */
     () => window.__mveMessages.some(
     /**
- * 「message」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns 条件判定の結果を示す真偽値を返します。
+     * lazy・ランタイム・スモーク検証のコールバックとしてメッセージを処理する。
+     * @param message - HostとWebviewの間で受け渡すメッセージ。
+     * @returns 副作用を完了し、値は返さない。
      */
     (message) => message.type === 'exportHtml'), undefined, {
       timeout: 20_000
     });
     const css = await page.evaluate(
     /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-     * @returns Webviewの状態から取得した値を返します。
+     * HostとWebviewのメッセージ状態のfind結果を読み取り、検証用の値へ変換する。
+     * @returns ブラウザー内で読み取った値または変換結果。
      */
     () => window.__mveMessages.find(
     /**
- * 「message」が検索条件に一致するか判定するコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns 条件に一致した要素、または該当しない場合はundefinedを返します。
+     * typeが条件に一致する最初のメッセージを取得する。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件に一致した最初の要素。未検出時はundefined。
      */
     (message) => message.type === 'exportHtml')?.css ?? '');
     if (css.length < 1024 * 1024 || !css.includes('@font-face') || !css.includes('data:font/')) {
@@ -435,10 +442,10 @@ async function verifyLazyExportFonts() {
 }
 
 /**
- * エディターを開始します。
- * @param markdown 解析・編集・変換の対象となる本文または生成済み内容です。
- * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはworkerUri、richWorkerUriです。
- * @returns 「openEditor」が検証シナリオの入力を処理して得た固有の結果を返します。
+ * lazy・ランタイム・スモーク検証の表示または操作を開始する。
+ * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
+ * @param options - 呼び出し側が指定する処理設定。
+ * @returns lazy・ランタイム・スモーク検証のopen・editorが生成する結果。
  */
 async function openEditor(markdown, {
   workerUri,
@@ -449,17 +456,17 @@ async function openEditor(markdown, {
   const errors = [];
   page.on('pageerror',
   /**
- * 「error」を受け取り、登録された副作用または結果を生成する処理です。
-   * @param error 発生したエラーです。
-   * @returns 「error」から生成した処理結果を返します。
+   * pageerrorイベントで一覧追加を実行する。
+   * @param error - ユーザー操作またはDOMから通知されたイベント。
+   * @returns 副作用を完了し、値は返さない。
    */
   (error) => errors.push(error.message));
   await page.goto(origin);
   await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはmarkdown、mermaidHostRendering、workerUri、richWorkerUri、originです。
-   * @returns 「postMessage」を実行し、値を返しません。
+   * HostとWebviewのメッセージ状態のメッセージ送信結果を読み取り、検証用の値へ変換する。
+   * @param options - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   ({ markdown, mermaidHostRendering, workerUri, richWorkerUri, origin }) => {
     document.body.dataset.mveMarkdownWorkerUri = workerUri;
@@ -470,22 +477,22 @@ async function openEditor(markdown, {
     window.__mveMessages = [];
     window.acquireVsCodeApi =
     /**
- * 指定時間の経過後に遅延処理を実行するコールバックです。
-     * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+     * WebviewからVS Codeのメッセージ送信・状態保存APIを取得する。
+     * @returns VS Codeのメッセージ送信・状態保存API。
      */
     () => ({
       /**
-       * 「postMessage」は、言語や通信契約に応じた表示文言または対応表を保持します。
-       * @param message 処理対象のメッセージです。
-       * @returns メッセージをHostまたはWebviewへ送信し、値は返しません。
+       * lazy・ランタイム・スモーク検証の変更または要求をHost・Webview間へ通知する。
+       * @param message - HostとWebviewの間で受け渡すメッセージ。
+       * @returns lazy・ランタイム・スモーク検証のpost・messageが生成する結果。
        */
       postMessage(message) {
         window.__mveMessages.push(message);
         if (message.type !== 'ready') return;
         setTimeout(
         /**
- * 指定時間の経過後に遅延処理を実行するコールバックです。
-         * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+         * 指定時間の経過後に後続処理を実行する。
+         * @returns 副作用を完了し、値は返さない。
          */
         () => window.dispatchEvent(new MessageEvent('message', {
           data: {
@@ -510,23 +517,17 @@ async function openEditor(markdown, {
         })), 0);
       },
 
-      /**
-       * 状態を取得または解決します。
-       * @returns Hostが保持する保存済み状態を返し、未保存の場合はundefinedを返します。
-       */
+      
       getState: /**
- * 「getState」は、要求された状態、値、または対象を読み取ります。
- * @returns Hostが保持する保存済み状態を返し、未保存の場合はundefinedを返します。
- */ () => undefined,
+       * lazy・ランタイム・スモーク検証から必要な値またはリソースを取得する。
+       * @returns 条件に一致する値。未検出時はundefinedまたはnull。
+       */ () => undefined,
 
-      /**
-       * 状態を更新または保存します。
-       * @returns 指定された状態をHostへ保存し、値は返しません。
-       */
+      
       setState: /**
- * 「setState」は、入力を検証して対象の状態または内容へ適用します。
- * @returns 指定された状態をHostへ保存し、値は返しません。
- */ () => undefined
+       * lazy・ランタイム・スモーク検証の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+       * @returns 副作用を完了し、値は返さない。
+       */ () => undefined
     });
   }, { markdown, mermaidHostRendering, workerUri, richWorkerUri, origin });
   await page.addStyleTag({ url: `${origin}/dist/styles.css` });
@@ -542,10 +543,10 @@ async function openEditor(markdown, {
 }
 
 /**
- * ファイルを取得または解決します。
- * @param root 処理対象のルートです。
- * @param name 対象を識別する名前で、表示または処理分岐に使用します。
- * @returns 「findFile」が読み取りまたは正規化した結果を返します。
+ * 指定した名前のファイルを検証用ディレクトリから再帰的に探す。
+ * @param root - lazy・ランタイム・スモーク検証へ渡す入力。
+ * @param name - lazy・ランタイム・スモーク検証の対象や分岐を識別する値。
+ * @returns lazy・ランタイム・スモーク検証のfind・fileが生成する結果。
  */
 async function findFile(root, name) {
   try {

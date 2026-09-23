@@ -1,10 +1,5 @@
 /**
- * @file markdownRenderer.ts
- * 実行境界: Webview。
- * 責務: 編集UI、プレビュー、ユーザー操作を処理する。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: DOM、Webviewメッセージ、ブラウザーAPI、編集状態を操作する。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview Markdown変換Workerとの通信、リクエストの世代管理、描画結果の受け渡しを管理する。
  */
 import { sanitizeRenderedMarkdown } from './markdownSanitizer';
 import { renderMarkdownUnsafe, type RenderOptions } from './markdownRendererCore';
@@ -15,10 +10,10 @@ export type { RenderOptions } from './markdownRendererCore';
 export { sanitizeRenderedMarkdown } from './markdownSanitizer';
 
 /**
- * MarkdownをHTML化し、Webviewへ挿入できる安全なHTMLへ無害化する。
- * @param markdown 解析・編集・変換の対象となる本文または生成済み内容です。
- * @param options 処理経路や表示方法を指定する設定値です。
- * @returns 「renderMarkdown」が生成または変換したMarkdownの文字列を返します。
+ * Markdownを表示用HTMLへ変換し、見出し・画像・表などの付加情報をまとめる。
+ * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
+ * @param options - 呼び出し側が指定する処理設定。
+ * @returns Markdown変換で利用する文字列。
  */
 export function renderMarkdown(markdown: string, options: RenderOptions): string {
     return sanitizeRenderedMarkdown(renderMarkdownUnsafe(markdown, options, highlightCode));

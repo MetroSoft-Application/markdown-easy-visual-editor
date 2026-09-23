@@ -1,10 +1,5 @@
 /**
- * @file pdf-preview-smoke.mjs
- * 実行境界: 開発・検証スクリプト。
- * 責務: ビルド、スモーク、統合検証または補助生成を実行する。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: プロセス、生成物、Webview、VS Code、Chromiumなどの外部環境を操作する。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview PDF・プレビュー・スモーク検証を開発・検証環境で実行する。前提条件や失敗条件を終了コードとログで示す。
  */
 import { chromium } from 'playwright-core';
 import { createServer } from 'node:http';
@@ -12,10 +7,10 @@ import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 
 /**
- * ファイルを取得または解決します。
- * @param root 処理対象のルートです。
- * @param name 対象を識別する名前で、表示または処理分岐に使用します。
- * @returns 「findFile」が読み取りまたは正規化した結果を返します。
+ * 指定した名前のファイルを検証用ディレクトリから再帰的に探す。
+ * @param root - PDF・プレビュー・スモーク検証へ渡す入力。
+ * @param name - PDF・プレビュー・スモーク検証の対象や分岐を識別する値。
+ * @returns PDF・プレビュー・スモーク検証のfind・fileが生成する結果。
  */
 async function findFile(root, name) {
   for (const entry of await readdir(root, { withFileTypes: true })) {
@@ -28,21 +23,29 @@ async function findFile(root, name) {
   }
 }
 
-/** 「executablePath」は、対象ファイルまたは実行環境の場所を表す値です。 */
+/**
+ * PDF・プレビュー・スモーク検証で読み書きするリソースの場所。
+ */
 const executablePath = await findFile(path.resolve('.chromium'), 'chrome-headless-shell.exe');
 if (!executablePath) throw new Error('Chromiumがありません。npm run pdf:install-browserを実行してください。');
 
-/** 「root」は、対象ファイルまたは実行環境の場所を表す値です。 */
+/**
+ * PDF・プレビュー・スモーク検証で一時生成物または検証対象を置くディレクトリ。
+ */
 const root = path.resolve('dist');
-/** 「largeSample」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * PDF・プレビュー・スモーク検証のlarge・sampleとして読み込んだ本文または設定。
+ */
 const largeSample = (await readFile('sample/09-large-document.md', 'utf8')).replace(/\r\n?/g, '\n');
-/** 「server」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * PDF・プレビュー・スモーク検証のserverとして読み込んだ本文または設定。
+ */
 const server = createServer(
 /**
- * 「async」として「request」「response」を受け取り、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param request 処理対象の要求です。
- * @param response 「response」は、「async」がPDFプレビュー・出力の処理対象を特定する入力です。
- * @returns 「slice」を実行し、値を返しません。
+ * requestをsliceへ渡し、PDF・プレビュー・スモーク検証の結果または副作用を処理する。
+ * @param request - PDF・プレビュー・スモーク検証へ渡す入力。
+ * @param response - PDF・プレビュー・スモーク検証へ渡す入力。
+ * @returns PDF・プレビュー・スモーク検証のコールバックが生成する結果。
  */
 async (request, response) => {
   const name = request.url === '/' ? 'index.html' : request.url?.slice(1) ?? '';
@@ -63,14 +66,18 @@ async (request, response) => {
 
 await new Promise(
 /**
- * Promiseの完了または失敗を通知し、非同期処理の状態を確定するコールバックです。
- * @param resolve Promiseの完了または失敗を通知する関数です。
- * @returns 「server.listen」を実行し、値を返しません。
+ * 非同期処理のlisten通知を待機側へ渡す。
+ * @param resolve - Promiseの成功を通知する関数。
+ * @returns 非同期処理の完了値。
  */
 (resolve) => server.listen(0, '127.0.0.1', resolve));
-/** 「port」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * PDF・プレビュー・スモーク検証のportとして利用する実行環境または外部資源。
+ */
 const port = server.address().port;
-/** 「browser」は、ブラウザー処理の共有状態または実行設定です。 */
+/**
+ * PDF・プレビュー・スモーク検証の位置・寸法・件数・時間を表す数値。
+ */
 const browser = await chromium.launch({ executablePath, headless: true });
 
 try {
@@ -84,36 +91,32 @@ try {
   const context = await browser.newContext();
   await context.addInitScript(
   /**
- * ブラウザーのWebviewテストで使用するグローバル状態を初期化するコールバックです。
-   * @param previewPdf previewPdfとして渡される、このコールバックの入力値です。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * preview・pdfを一覧追加へ渡し、PDF・プレビュー・スモーク検証の結果または副作用を処理する。
+   * @param previewPdf - PDF・プレビュー・スモーク検証へ渡す入力。
+   * @returns PDF・プレビュー・スモーク検証のコールバックが生成する結果。
    */
   (previewPdf) => {
     window.__mveDebugEnabled = true;
     window.__mveMessages = [];
     window.acquireVsCodeApi =
     /**
- * WebviewテストへVS Code API互換オブジェクトを提供するコールバックです。
-     * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+     * WebviewからVS Codeのメッセージ送信・状態保存APIを取得する。
+     * @returns VS Codeのメッセージ送信・状態保存API。
      */
     () => ({
 
-      /**
-       * 「postMessage」は、言語や通信契約に応じた表示文言または対応表を保持します。
-       * @param message 処理対象のメッセージです。
-       * @returns メッセージをHostまたはWebviewへ送信し、値は返しません。
-       */
+      
       postMessage: /**
- * 「postMessage」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param message 「message」は、「postMessage」がPDFで処理する対象を特定する入力です。
- * @returns メッセージをHostまたはWebviewへ送信し、値は返しません。
- */ (message) => {
+       * PDF・プレビュー・スモーク検証の変更または要求をHost・Webview間へ通知する。
+       * @param message - HostとWebviewの間で受け渡すメッセージ。
+       * @returns PDF・プレビュー・スモーク検証のpost・messageが生成する結果。
+       */ (message) => {
         window.__mveMessages.push(message);
         if (message.type === 'renderPdfPreview') {
           setTimeout(
           /**
- * 指定時間の経過後に遅延処理を実行するコールバックです。
-           * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+           * 指定時間の経過後に後続処理を実行する。
+           * @returns 副作用を完了し、値は返さない。
            */
           () => window.dispatchEvent(new MessageEvent('message', {
             data: { type: 'pdfPreviewReady', requestId: message.requestId, pdfBase64: previewPdf }
@@ -121,23 +124,17 @@ try {
         }
       },
 
-      /**
-       * 状態を取得または解決します。
-       * @returns Hostが保持する保存済み状態を返し、未保存の場合はundefinedを返します。
-       */
+      
       getState: /**
- * 「getState」は、要求された状態、値、または対象を読み取ります。
- * @returns Hostが保持する保存済み状態を返し、未保存の場合はundefinedを返します。
- */ () => undefined,
+       * PDF・プレビュー・スモーク検証から必要な値またはリソースを取得する。
+       * @returns 条件に一致する値。未検出時はundefinedまたはnull。
+       */ () => undefined,
 
-      /**
-       * 状態を更新または保存します。
-       * @returns 指定された状態をHostへ保存し、値は返しません。
-       */
+      
       setState: /**
- * 「setState」は、入力を検証して対象の状態または内容へ適用します。
- * @returns 指定された状態をHostへ保存し、値は返しません。
- */ () => undefined
+       * PDF・プレビュー・スモーク検証の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+       * @returns 副作用を完了し、値は返さない。
+       */ () => undefined
     });
   }, pdfBase64);
 
@@ -145,9 +142,9 @@ try {
   const pageErrors = [];
   page.on('pageerror',
   /**
- * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
-   * @param error 発生したエラーです。
-   * @returns 「pageErrors.push」を実行し、値を返しません。
+   * pageerrorイベントで一覧追加を実行する。
+   * @param error - ユーザー操作またはDOMから通知されたイベント。
+   * @returns 副作用を完了し、値は返さない。
    */
   (error) => pageErrors.push(error.message));
   await page.goto(`http://127.0.0.1:${port}/`);
@@ -157,14 +154,14 @@ try {
   await page.addScriptTag({ url: `http://127.0.0.1:${port}/webview.js` });
   await page.waitForFunction(
   /**
- * Webviewへメッセージイベントを発火する処理を実行するコールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * HostとWebviewのメッセージ状態が完了条件を満たすまで待機する。
+   * @returns PDF・プレビュー・スモーク検証のコールバックが生成する結果。
    */
   () => window.__mveMessages.some(
   /**
- * 「message」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
-   * @param message 処理対象のメッセージです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * PDF・プレビュー・スモーク検証のコールバックとしてメッセージを処理する。
+   * @param message - HostとWebviewの間で受け渡すメッセージ。
+   * @returns PDF・プレビュー・スモーク検証のコールバックが生成する結果。
    */
   (message) => message.type === 'ready'));
 
@@ -181,9 +178,9 @@ try {
   };
   await page.evaluate(
   /**
- * 「text」「initSettings」を受け取り、Webviewへメッセージイベントを発火する処理です。
-   * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはtext、initSettingsです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * Webviewの実行状態のdispatch・event結果を読み取り、検証用の値へ変換する。
+   * @param options - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   ({ text, initSettings }) => {
     window.dispatchEvent(new MessageEvent('message', {
@@ -215,15 +212,15 @@ try {
   }
   const savedPdfOptionMessages = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns Webviewの状態から取得した値を返します。
+   * HostとWebviewのメッセージ状態のfilter結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => window.__mveMessages
     .filter(
     /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns 要素を採用するかどうかの真偽値を返します。
+     * 種別「setPdfOptions」のメッセージだけを残す。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件を満たした要素だけを含む一覧。
      */
     (message) => message.type === 'setPdfOptions')
   );
@@ -242,9 +239,9 @@ try {
 
   const widthBeforeZoom = await page.locator('.pdf-page').first().evaluate(
   /**
- * 「element」を受け取り、登録された副作用または結果を生成する処理です。
-   * @param element 処理対象の要素です。
-   * @returns 「element」から生成した処理結果を返します。
+   * ブラウザー内の状態のget・bounding・client・rect結果を読み取り、検証用の値へ変換する。
+   * @param element - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => element.getBoundingClientRect().width);
   await page.locator('.pdf-page').first().hover();
@@ -255,9 +252,9 @@ try {
   await page.waitForTimeout(500);
   const widthAfterZoom = await page.locator('.pdf-page').first().evaluate(
   /**
- * 「element」を受け取り、登録された副作用または結果を生成する処理です。
-   * @param element 処理対象の要素です。
-   * @returns 「element」から生成した処理結果を返します。
+   * ブラウザー内の状態のget・bounding・client・rect結果を読み取り、検証用の値へ変換する。
+   * @param element - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => element.getBoundingClientRect().width);
   if (widthAfterZoom <= widthBeforeZoom) {
@@ -272,9 +269,9 @@ try {
   await page.waitForTimeout(500);
   const widthAfterShrink = await page.locator('.pdf-page').first().evaluate(
   /**
- * 「element」を受け取り、登録された副作用または結果を生成する処理です。
-   * @param element 処理対象の要素です。
-   * @returns 「element」から生成した処理結果を返します。
+   * ブラウザー内の状態のget・bounding・client・rect結果を読み取り、検証用の値へ変換する。
+   * @param element - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => element.getBoundingClientRect().width);
   if (widthAfterShrink >= widthAfterZoom) {
@@ -286,9 +283,9 @@ try {
   await page.waitForTimeout(500);
   const widthAfterButtonZoom = await page.locator('.pdf-page').first().evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @param element 処理対象の要素です。
-   * @returns 「element」から生成した処理結果を返します。
+   * ブラウザー内の状態のget・bounding・client・rect結果を読み取り、検証用の値へ変換する。
+   * @param element - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => element.getBoundingClientRect().width);
   if (widthAfterButtonZoom <= widthAfterShrink) {
@@ -297,16 +294,16 @@ try {
 
   const result = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはwidthBeforeZoom、widthAfterZoom、widthAfterShrink、widthAfterButtonZoomです。
-   * @returns 初期化したオブジェクト（previewMessages、pages、readyPages、visiblePdfLayers、layer）を返します。
+   * ブラウザー内の「.pdf-pages」を読み取り、検証用の値へ変換する。
+   * @param options - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   ({ widthBeforeZoom, widthAfterZoom, widthAfterShrink, widthAfterButtonZoom }) => ({
     previewMessages: window.__mveMessages.filter(
     /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns 要素を採用するかどうかの真偽値を返します。
+     * 種別「renderPdfPreview」のメッセージだけを残す。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件を満たした要素だけを含む一覧。
      */
     (message) => message.type === 'renderPdfPreview'),
     pages: Number(document.querySelector('.pdf-pages')?.getAttribute('data-page-count') ?? 0),
@@ -321,25 +318,25 @@ try {
     debugEvents: (window.__mveDebugLog ?? [])
       .filter(
       /**
- * 「entry」が条件に一致するか判定し、残す要素を決めるコールバックです。
-       * @param entry entryとして渡される、このコールバックの入力値です。
-       * @returns 要素を採用するかどうかの真偽値を返します。
+       * 種別「pdf.zoom-button」のエントリだけを残す。
+       * @param entry - エントリのイベントを参照する走査対象。
+       * @returns 条件を満たした要素だけを含む一覧。
        */
       (entry) => entry.event === 'pdf.zoom-button' || entry.event === 'zoom.changed')
       .map(
       /**
- * 「entry」を変換し、変換後の要素を返すコールバックです。
-       * @param entry entryとして渡される、このコールバックの入力値です。
-       * @returns 入力要素から生成した変換後の値を返します。
+       * 各エントリからイベントを取り出して一覧化する。
+       * @param entry - エントリのイベントを参照する走査対象。
+       * @returns イベントを取り出した変換結果の一覧。
        */
       (entry) => entry.event)
   }), { widthBeforeZoom, widthAfterZoom, widthAfterShrink, widthAfterButtonZoom });
   result.requests = result.previewMessages.length;
   result.previewCssChars = Math.max(...result.previewMessages.map(
   /**
- * 「message」を変換し、変換後の要素を返すコールバックです。
-   * @param message 処理対象のメッセージです。
-   * @returns 入力要素から生成した変換後の値を返します。
+   * 各メッセージからcssを取り出して一覧化する。
+   * @param message - メッセージのcssを参照する走査対象。
+   * @returns cssを取り出した変換結果の一覧。
    */
   (message) => message.css?.length ?? 0), 0);
   if (!result.previewMessages[0]?.css?.includes('body{font-family:Test Preview Font, "Noto Sans JP", "Yu Gothic UI", sans-serif;')) {
@@ -352,9 +349,9 @@ try {
   }
   if (!result.debugEvents.includes('pdf.zoom-button') || result.debugEvents.filter(
   /**
- * 「event」が条件に一致するか判定し、残す要素を決めるコールバックです。
-   * @param event 処理対象のイベントです。
-   * @returns 要素を採用するかどうかの真偽値を返します。
+   * 条件を満たすイベントだけを残す。
+   * @param event - ユーザー操作またはDOMから通知されたイベント。
+   * @returns 条件を満たした要素だけを含む一覧。
    */
   (event) => event === 'zoom.changed').length < 3) {
     throw new Error(`PDF zoom debug events missing: ${JSON.stringify(result.debugEvents)}`);
@@ -366,9 +363,9 @@ try {
   await browser.close();
   await new Promise(
   /**
- * Promiseの完了または失敗を通知し、非同期処理の状態を確定するコールバックです。
-   * @param resolve Promiseの完了または失敗を通知する関数です。
-   * @returns Promiseの完了または失敗を通知し、値を返しません。
+   * 非同期処理の閉じる通知を待機側へ渡す。
+   * @param resolve - Promiseの成功を通知する関数。
+   * @returns 非同期処理の完了値。
    */
   (resolve) => server.close(resolve));
 }

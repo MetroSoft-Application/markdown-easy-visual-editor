@@ -1,20 +1,21 @@
 /**
- * @file generate-icon-concepts.mjs
- * 実行境界: 開発・検証スクリプト。
- * 責務: ビルド、スモーク、統合検証または補助生成を実行する。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: プロセス、生成物、Webview、VS Code、Chromiumなどの外部環境を操作する。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview 生成・icon・コンセプトを開発・検証環境で実行する。前提条件や失敗条件を終了コードとログで示す。
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
-/** 「root」は、対象ファイルまたは実行環境の場所を表す値です。 */
+/**
+ * 生成・icon・コンセプトで一時生成物または検証対象を置くディレクトリ。
+ */
 const root = path.resolve('E:/source/markdown-easy-visual-editor');
-/** 「out」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * 生成・icon・コンセプトのoutに関する状態または設定。
+ */
 const out = path.join(root, 'resources');
 
-/** 「C」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * 生成・icon・コンセプトのcに関する状態または設定。
+ */
 const C = {
   ink: '#273444',
   source: '#2F6FEB',
@@ -27,325 +28,217 @@ const C = {
   white: '#FFFFFF',
 };
 
-/**
- * 「esc」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param value 「esc」で検証・変換する入力値です。
- * @returns 「esc」が関連処理の入力を処理して得た固有の結果を返します。
- */
+
 const esc = /**
- * SVG属性値のエスケープ処理を担当します。
- * @param value エスケープ対象の値です。
- * @returns XML属性内で安全に使用できる文字列を返します。
+ * 生成・icon・コンセプトのescを処理し、呼び出し側へ結果または副作用を返す。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @returns 生成・icon・コンセプトのescが生成する結果。
  */ (value) => String(value)
   .replaceAll('&', '&amp;')
   .replaceAll('"', '&quot;')
   .replaceAll('<', '&lt;')
   .replaceAll('>', '&gt;');
 
-/** 「nextId」は、関連する処理間で共有する設定値または状態です。 */
-let nextId = 2;
-/** 「cells」は、関連する処理間で共有する設定値または状態です。 */
-const cells = [];
 /**
- * 「cell」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param value 「cell」で検証・変換する入力値です。
- * @param style 「style」は、「cell」が関連処理の処理対象を特定する入力です。
- * @param geometry 「geometry」は、「cell」が関連処理の処理対象を特定する入力です。
- * @param vertex 「vertex」は、「cell」が関連処理の処理対象を特定する入力です。
- * @returns 「cell」が関連処理の入力を処理して得た固有の結果を返します。
+ * 生成・icon・コンセプトのnext・idに関する状態または設定。
  */
+let nextId = 2;
+/**
+ * 生成・icon・コンセプトで扱う一覧または対応表。
+ */
+const cells = [];
+
 const cell = /**
- * 「cell」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param value 「cell」で検証・変換する入力値です。
- * @param style 「style」は、「cell」が関連処理で処理する対象を特定する入力です。
- * @param geometry 「geometry」は、「cell」が関連処理で処理する対象を特定する入力です。
- * @param vertex 「vertex」は、「cell」が関連処理で処理する対象を特定する入力です。
- * @returns 「cell」が関連処理の入力を処理して得た固有の結果を返します。
+ * 生成・icon・コンセプトのcellを処理し、呼び出し側へ結果または副作用を返す。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @param style - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @param geometry - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @param vertex - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @returns 生成・icon・コンセプトのcellが生成する結果。
  */ (value, style, geometry, vertex = true) => {
   const id = String(nextId++);
   cells.push(`<mxCell id="${id}" value="${esc(value ?? '')}" style="${esc(style)}" vertex="${vertex ? 1 : 0}" parent="1">${geometry ? `<mxGeometry ${geometry}/>` : ''}</mxCell>`);
   return id;
 };
 
-/**
- * 「rect」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param x 「x」は、「rect」が関連処理の処理対象を特定する入力です。
- * @param y 「y」は、「rect」が関連処理の処理対象を特定する入力です。
- * @param w 「w」は、「rect」が関連処理の処理対象を特定する入力です。
- * @param h 「h」は、「rect」が関連処理の処理対象を特定する入力です。
- * @param style 「style」は、「rect」が関連処理の処理対象を特定する入力です。
- * @param value 「rect」で検証・変換する入力値です。
- * @returns 「rect」が関連処理の入力を処理して得た固有の結果を返します。
- */
+
 const rect = /**
- * 「rect」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param x 処理対象を特定する位置、範囲、または数量です。
- * @param y 処理対象を特定する位置、範囲、または数量です。
- * @param w 「w」は、「rect」が関連処理で処理する対象を特定する入力です。
- * @param h 「h」は、「rect」が関連処理で処理する対象を特定する入力です。
- * @param style 「style」は、「rect」が関連処理で処理する対象を特定する入力です。
- * @param value 「rect」で検証・変換する入力値です。
- * @returns 「rect」が関連処理の入力を処理して得た固有の結果を返します。
+ * 生成・icon・コンセプトのrectを処理し、呼び出し側へ結果または副作用を返す。
+ * @param x - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @param y - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @param w - 生成・icon・コンセプトへ渡す入力。
+ * @param h - 生成・icon・コンセプトへ渡す入力。
+ * @param style - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @returns 生成・icon・コンセプトのrectが生成する結果。
  */ (x, y, w, h, style, value = '') => cell(value, style, `x="${x}" y="${y}" width="${w}" height="${h}"`);
-/**
- * 「text」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param x 「x」は、「text」が関連処理の処理対象を特定する入力です。
- * @param y 「y」は、「text」が関連処理の処理対象を特定する入力です。
- * @param w 「w」は、「text」が関連処理の処理対象を特定する入力です。
- * @param h 「h」は、「text」が関連処理の処理対象を特定する入力です。
- * @param value 「text」で検証・変換する入力値です。
- * @param style 「style」は、「text」が関連処理の処理対象を特定する入力です。
- * @returns 「text」が生成または整形した関連処理の文字列を返します。
- */
+
 const text = /**
- * 「text」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param x 処理対象を特定する位置、範囲、または数量です。
- * @param y 処理対象を特定する位置、範囲、または数量です。
- * @param w 「w」は、「text」が関連処理で処理する対象を特定する入力です。
- * @param h 「h」は、「text」が関連処理で処理する対象を特定する入力です。
- * @param value 「text」で検証・変換する入力値です。
- * @param style 「style」は、「text」が関連処理で処理する対象を特定する入力です。
- * @returns 「text」が生成または整形した関連処理の文字列を返します。
+ * 生成・icon・コンセプトのtextを処理し、呼び出し側へ結果または副作用を返す。
+ * @param x - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @param y - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @param w - 生成・icon・コンセプトへ渡す入力。
+ * @param h - 生成・icon・コンセプトへ渡す入力。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @param style - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @returns 生成・icon・コンセプトのtextが生成する結果。
  */ (x, y, w, h, value, style = '') => rect(x, y, w, h, `text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;spacing=0;${style}`, value);
-/**
- * 「ellipse」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param x 「x」は、「ellipse」が関連処理の処理対象を特定する入力です。
- * @param y 「y」は、「ellipse」が関連処理の処理対象を特定する入力です。
- * @param w 「w」は、「ellipse」が関連処理の処理対象を特定する入力です。
- * @param h 「h」は、「ellipse」が関連処理の処理対象を特定する入力です。
- * @param style 「style」は、「ellipse」が関連処理の処理対象を特定する入力です。
- * @returns 「ellipse」が関連処理の入力を処理して得た固有の結果を返します。
- */
+
 const ellipse = /**
- * 「ellipse」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param x 処理対象を特定する位置、範囲、または数量です。
- * @param y 処理対象を特定する位置、範囲、または数量です。
- * @param w 「w」は、「ellipse」が関連処理で処理する対象を特定する入力です。
- * @param h 「h」は、「ellipse」が関連処理で処理する対象を特定する入力です。
- * @param style 「style」は、「ellipse」が関連処理で処理する対象を特定する入力です。
- * @returns 「ellipse」が関連処理の入力を処理して得た固有の結果を返します。
+ * 生成・icon・コンセプトのellipseを処理し、呼び出し側へ結果または副作用を返す。
+ * @param x - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @param y - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @param w - 生成・icon・コンセプトへ渡す入力。
+ * @param h - 生成・icon・コンセプトへ渡す入力。
+ * @param style - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @returns 生成・icon・コンセプトのellipseが生成する結果。
  */ (x, y, w, h, style) => rect(x, y, w, h, `ellipse;${style}`);
-/**
- * 「edge」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param x1 「x1」は、「edge」が関連処理の処理対象を特定する入力です。
- * @param y1 「y1」は、「edge」が関連処理の処理対象を特定する入力です。
- * @param x2 「x2」は、「edge」が関連処理の処理対象を特定する入力です。
- * @param y2 「y2」は、「edge」が関連処理の処理対象を特定する入力です。
- * @param style 「style」は、「edge」が関連処理の処理対象を特定する入力です。
- * @returns 「edge」が関連処理の入力を処理して得た固有の結果を返します。
- */
+
 const edge = /**
- * 「edge」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param x1 「x1」は、「edge」が関連処理で処理する対象を特定する入力です。
- * @param y1 「y1」は、「edge」が関連処理で処理する対象を特定する入力です。
- * @param x2 「x2」は、「edge」が関連処理で処理する対象を特定する入力です。
- * @param y2 「y2」は、「edge」が関連処理で処理する対象を特定する入力です。
- * @param style 「style」は、「edge」が関連処理で処理する対象を特定する入力です。
- * @returns 「edge」が関連処理の入力を処理して得た固有の結果を返します。
+ * 生成・icon・コンセプトのedgeを処理し、呼び出し側へ結果または副作用を返す。
+ * @param x1 - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @param y1 - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @param x2 - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @param y2 - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @param style - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @returns 生成・icon・コンセプトのedgeが生成する結果。
  */ (x1, y1, x2, y2, style = '') => {
   const id = String(nextId++);
   cells.push(`<mxCell id="${id}" value="" style="${esc(`edgeStyle=none;orthogonalLoop=1;rounded=0;${style}`)}" edge="1" parent="1"><mxGeometry relative="1"><mxPoint x="${x1}" y="${y1}" as="sourcePoint"/><mxPoint x="${x2}" y="${y2}" as="targetPoint"/></mxGeometry></mxCell>`);
   return id;
 };
 
-/**
- * 「pane」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param x 「x」は、「pane」が関連処理の処理対象を特定する入力です。
- * @param y 「y」は、「pane」が関連処理の処理対象を特定する入力です。
- * @param w 「w」は、「pane」が関連処理の処理対象を特定する入力です。
- * @param h 「h」は、「pane」が関連処理の処理対象を特定する入力です。
- * @param side 「side」は、「pane」が関連処理の処理対象を特定する入力です。
- * @param extra 「extra」は、「pane」が関連処理の処理対象を特定する入力です。
- * @returns 「pane」が関連処理の入力を処理して得た固有の結果を返します。
- */
+
 const pane = /**
- * 「pane」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param x 処理対象を特定する位置、範囲、または数量です。
- * @param y 処理対象を特定する位置、範囲、または数量です。
- * @param w 「w」は、「pane」が関連処理で処理する対象を特定する入力です。
- * @param h 「h」は、「pane」が関連処理で処理する対象を特定する入力です。
- * @param side 「side」は、「pane」が関連処理で処理する対象を特定する入力です。
- * @param extra 「extra」は、「pane」が関連処理で処理する対象を特定する入力です。
- * @returns 「pane」が関連処理の入力を処理して得た固有の結果を返します。
+ * 生成・icon・コンセプトのpaneを処理し、呼び出し側へ結果または副作用を返す。
+ * @param x - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @param y - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @param w - 生成・icon・コンセプトへ渡す入力。
+ * @param h - 生成・icon・コンセプトへ渡す入力。
+ * @param side - 生成・icon・コンセプトの対象や分岐を識別する値。
+ * @param extra - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @returns 生成・icon・コンセプトのpaneが生成する結果。
  */ (x, y, w, h, side, extra = '') => {
   const fill = side === 'source' ? C.sourceFill : C.previewFill;
   const stroke = side === 'source' ? C.source : C.preview;
   return rect(x, y, w, h, `rounded=1;arcSize=14;fillColor=${fill};strokeColor=${stroke};strokeWidth=2;${extra}`);
 };
-/**
- * 「paperPane」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param x 「x」は、「paperPane」が関連処理の処理対象を特定する入力です。
- * @param y 「y」は、「paperPane」が関連処理の処理対象を特定する入力です。
- * @param w 「w」は、「paperPane」が関連処理の処理対象を特定する入力です。
- * @param h 「h」は、「paperPane」が関連処理の処理対象を特定する入力です。
- * @param side 「side」は、「paperPane」が関連処理の処理対象を特定する入力です。
- * @param extra 「extra」は、「paperPane」が関連処理の処理対象を特定する入力です。
- * @returns 「paperPane」が関連処理の入力を処理して得た固有の結果を返します。
- */
+
 const paperPane = /**
- * 「paperPane」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param x 処理対象を特定する位置、範囲、または数量です。
- * @param y 処理対象を特定する位置、範囲、または数量です。
- * @param w 「w」は、「paperPane」が関連処理で処理する対象を特定する入力です。
- * @param h 「h」は、「paperPane」が関連処理で処理する対象を特定する入力です。
- * @param side 「side」は、「paperPane」が関連処理で処理する対象を特定する入力です。
- * @param extra 「extra」は、「paperPane」が関連処理で処理する対象を特定する入力です。
- * @returns 「paperPane」が関連処理の入力を処理して得た固有の結果を返します。
+ * 生成・icon・コンセプトのpaper・paneを処理し、呼び出し側へ結果または副作用を返す。
+ * @param x - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @param y - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @param w - 生成・icon・コンセプトへ渡す入力。
+ * @param h - 生成・icon・コンセプトへ渡す入力。
+ * @param side - 生成・icon・コンセプトの対象や分岐を識別する値。
+ * @param extra - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @returns 生成・icon・コンセプトのpaper・paneが生成する結果。
  */ (x, y, w, h, side, extra = '') => {
   const stroke = side === 'source' ? C.source : C.preview;
   return rect(x, y, w, h, `rounded=1;arcSize=12;fillColor=${C.paper};strokeColor=${stroke};strokeWidth=2;${extra}`);
 };
-/**
- * 「divider」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param x 「x」は、「divider」が関連処理の処理対象を特定する入力です。
- * @param y 「y」は、「divider」が関連処理の処理対象を特定する入力です。
- * @param h 「h」は、「divider」が関連処理の処理対象を特定する入力です。
- * @param style 「style」は、「divider」が関連処理の処理対象を特定する入力です。
- * @returns 「divider」が関連処理の入力を処理して得た固有の結果を返します。
- */
+
 const divider = /**
- * 「divider」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param x 処理対象を特定する位置、範囲、または数量です。
- * @param y 処理対象を特定する位置、範囲、または数量です。
- * @param h 「h」は、「divider」が関連処理で処理する対象を特定する入力です。
- * @param style 「style」は、「divider」が関連処理で処理する対象を特定する入力です。
- * @returns 「divider」が関連処理の入力を処理して得た固有の結果を返します。
+ * 生成・icon・コンセプトのdividerを処理し、呼び出し側へ結果または副作用を返す。
+ * @param x - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @param y - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @param h - 生成・icon・コンセプトへ渡す入力。
+ * @param style - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @returns 生成・icon・コンセプトのdividerが生成する結果。
  */ (x, y, h, style = '') => edge(x, y, x, y + h, `strokeColor=${C.ink};strokeWidth=3;${style}`);
-/**
- * 「sourceGlyph」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param x 「x」は、「sourceGlyph」が関連処理の処理対象を特定する入力です。
- * @param y 「y」は、「sourceGlyph」が関連処理の処理対象を特定する入力です。
- * @param scale 「scale」は、「sourceGlyph」が関連処理の処理対象を特定する入力です。
- * @param color 処理対象の色です。
- * @returns 「sourceGlyph」が関連処理の入力を処理して得た固有の結果を返します。
- */
+
 const sourceGlyph = /**
- * 「sourceGlyph」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param x 処理対象を特定する位置、範囲、または数量です。
- * @param y 処理対象を特定する位置、範囲、または数量です。
- * @param scale 「scale」は、「sourceGlyph」が関連処理で処理する対象を特定する入力です。
- * @param color 「color」は、「sourceGlyph」が関連処理で処理する対象を特定する入力です。
- * @returns 「sourceGlyph」が関連処理の入力を処理して得た固有の結果を返します。
+ * 生成・icon・コンセプトのsource・glyphを処理し、呼び出し側へ結果または副作用を返す。
+ * @param x - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @param y - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @param scale - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @param color - 生成・icon・コンセプトへ渡す入力。
+ * @returns 生成・icon・コンセプトのsource・glyphが生成する結果。
  */ (x, y, scale = 1, color = C.source) => {
   text(x, y, 18 * scale, 24 * scale, '#', `fontColor=${color};fontSize=${24 * scale};fontStyle=1;fontFamily=Segoe UI;`);
   edge(x + 23 * scale, y + 8 * scale, x + 38 * scale, y + 8 * scale, `strokeColor=${color};strokeWidth=2;`);
   edge(x + 23 * scale, y + 15 * scale, x + 45 * scale, y + 15 * scale, `strokeColor=${color};strokeWidth=2;`);
 };
-/**
- * 「sourceLines」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param x 「x」は、「sourceLines」が関連処理の処理対象を特定する入力です。
- * @param y 「y」は、「sourceLines」が関連処理の処理対象を特定する入力です。
- * @param scale 「scale」は、「sourceLines」が関連処理の処理対象を特定する入力です。
- * @param color 処理対象の色です。
- * @returns 「sourceLines」が関連処理の入力を処理して得た固有の結果を返します。
- */
+
 const sourceLines = /**
- * 「sourceLines」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param x 処理対象を特定する位置、範囲、または数量です。
- * @param y 処理対象を特定する位置、範囲、または数量です。
- * @param scale 「scale」は、「sourceLines」が関連処理で処理する対象を特定する入力です。
- * @param color 「color」は、「sourceLines」が関連処理で処理する対象を特定する入力です。
- * @returns 「sourceLines」が関連処理の入力を処理して得た固有の結果を返します。
+ * 生成・icon・コンセプトのsource・linesを処理し、呼び出し側へ結果または副作用を返す。
+ * @param x - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @param y - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @param scale - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @param color - 生成・icon・コンセプトへ渡す入力。
+ * @returns 生成・icon・コンセプトのsource・linesが生成する結果。
  */ (x, y, scale = 1, color = C.source) => {
   edge(x, y, x + 16 * scale, y, `strokeColor=${color};strokeWidth=2;`);
   edge(x, y + 8 * scale, x + 32 * scale, y + 8 * scale, `strokeColor=${color};strokeWidth=2;`);
   edge(x, y + 16 * scale, x + 24 * scale, y + 16 * scale, `strokeColor=${color};strokeWidth=2;`);
 };
-/**
- * プレビューを描画します。
- * @param x 「x」は、「previewLines」が関連処理の処理対象を特定する入力です。
- * @param y 「y」は、「previewLines」が関連処理の処理対象を特定する入力です。
- * @param scale 「scale」は、「previewLines」が関連処理の処理対象を特定する入力です。
- * @param color 処理対象の色です。
- * @returns 「previewLines」が関連処理の入力を処理して得た固有の結果を返します。
- */
+
 const previewLines = /**
- * 「previewLines」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param x 処理対象を特定する位置、範囲、または数量です。
- * @param y 処理対象を特定する位置、範囲、または数量です。
- * @param scale 「scale」は、「previewLines」が関連処理で処理する対象を特定する入力です。
- * @param color 「color」は、「previewLines」が関連処理で処理する対象を特定する入力です。
- * @returns 「previewLines」が関連処理の入力を処理して得た固有の結果を返します。
+ * 生成・icon・コンセプトのpreview・linesを処理し、呼び出し側へ結果または副作用を返す。
+ * @param x - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @param y - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @param scale - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @param color - 生成・icon・コンセプトへ渡す入力。
+ * @returns 生成・icon・コンセプトのpreview・linesが生成する結果。
  */ (x, y, scale = 1, color = C.preview) => {
   edge(x, y, x + 34 * scale, y, `strokeColor=${color};strokeWidth=3;`);
   edge(x, y + 9 * scale, x + 27 * scale, y + 9 * scale, `strokeColor=${color};strokeWidth=2;`);
   edge(x, y + 17 * scale, x + 18 * scale, y + 17 * scale, `strokeColor=${color};strokeWidth=2;`);
 };
-/**
- * 文書を描画します。
- * @param x 「x」は、「previewDocument」が関連処理の処理対象を特定する入力です。
- * @param y 「y」は、「previewDocument」が関連処理の処理対象を特定する入力です。
- * @param w 「w」は、「previewDocument」が関連処理の処理対象を特定する入力です。
- * @param h 「h」は、「previewDocument」が関連処理の処理対象を特定する入力です。
- * @param scale 「scale」は、「previewDocument」が関連処理の処理対象を特定する入力です。
- * @param color 処理対象の色です。
- * @returns 「previewDocument」が関連処理の入力を処理して得た固有の結果を返します。
- */
+
 const previewDocument = /**
- * 「previewDocument」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param x 処理対象を特定する位置、範囲、または数量です。
- * @param y 処理対象を特定する位置、範囲、または数量です。
- * @param w 「w」は、「previewDocument」が関連処理で処理する対象を特定する入力です。
- * @param h 「h」は、「previewDocument」が関連処理で処理する対象を特定する入力です。
- * @param scale 「scale」は、「previewDocument」が関連処理で処理する対象を特定する入力です。
- * @param color 「color」は、「previewDocument」が関連処理で処理する対象を特定する入力です。
- * @returns 「previewDocument」が関連処理の入力を処理して得た固有の結果を返します。
+ * 生成・icon・コンセプトのpreview・documentを処理し、呼び出し側へ結果または副作用を返す。
+ * @param x - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @param y - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @param w - 生成・icon・コンセプトへ渡す入力。
+ * @param h - 生成・icon・コンセプトへ渡す入力。
+ * @param scale - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @param color - 生成・icon・コンセプトへ渡す入力。
+ * @returns 生成・icon・コンセプトのpreview・documentが生成する結果。
  */ (x, y, w, h, scale = 1, color = C.preview) => {
   edge(x + 6 * scale, y + 10 * scale, x + w - 8 * scale, y + 10 * scale, `strokeColor=${color};strokeWidth=3;`);
   edge(x + 6 * scale, y + 20 * scale, x + w - 15 * scale, y + 20 * scale, `strokeColor=${color};strokeWidth=2;`);
   edge(x + 6 * scale, y + 28 * scale, x + w - 24 * scale, y + 28 * scale, `strokeColor=${color};strokeWidth=2;`);
 };
-/**
- * 「arrow」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param x1 「x1」は、「arrow」が関連処理の処理対象を特定する入力です。
- * @param y1 「y1」は、「arrow」が関連処理の処理対象を特定する入力です。
- * @param x2 「x2」は、「arrow」が関連処理の処理対象を特定する入力です。
- * @param y2 「y2」は、「arrow」が関連処理の処理対象を特定する入力です。
- * @param color 処理対象の色です。
- * @returns 「arrow」が関連処理の入力を処理して得た固有の結果を返します。
- */
+
 const arrow = /**
- * 「arrow」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param x1 「x1」は、「arrow」が関連処理で処理する対象を特定する入力です。
- * @param y1 「y1」は、「arrow」が関連処理で処理する対象を特定する入力です。
- * @param x2 「x2」は、「arrow」が関連処理で処理する対象を特定する入力です。
- * @param y2 「y2」は、「arrow」が関連処理で処理する対象を特定する入力です。
- * @param color 「color」は、「arrow」が関連処理で処理する対象を特定する入力です。
- * @returns 「arrow」が関連処理の入力を処理して得た固有の結果を返します。
+ * 生成・icon・コンセプトのarrowを処理し、呼び出し側へ結果または副作用を返す。
+ * @param x1 - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @param y1 - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @param x2 - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @param y2 - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @param color - 生成・icon・コンセプトへ渡す入力。
+ * @returns 生成・icon・コンセプトのarrowが生成する結果。
  */ (x1, y1, x2, y2, color = C.handle) => edge(x1, y1, x2, y2, `strokeColor=${color};strokeWidth=2;endArrow=block;endFill=1;`);
-/**
- * 「dots」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param x 「x」は、「dots」が関連処理の処理対象を特定する入力です。
- * @param y 「y」は、「dots」が関連処理の処理対象を特定する入力です。
- * @param color 処理対象の色です。
- * @returns 「dots」が関連処理の入力を処理して得た固有の結果を返します。
- */
+
 const dots = /**
- * 「dots」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param x 処理対象を特定する位置、範囲、または数量です。
- * @param y 処理対象を特定する位置、範囲、または数量です。
- * @param color 「color」は、「dots」が関連処理で処理する対象を特定する入力です。
- * @returns 「dots」が関連処理の入力を処理して得た固有の結果を返します。
+ * 生成・icon・コンセプトのdotsを処理し、呼び出し側へ結果または副作用を返す。
+ * @param x - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @param y - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * @param color - 生成・icon・コンセプトへ渡す入力。
+ * @returns 生成・icon・コンセプトのdotsが生成する結果。
  */ (x, y, color = C.handle) => { ellipse(x, y, 4, 4, `fillColor=${color};strokeColor=${color}`); ellipse(x, y + 9, 4, 4, `fillColor=${color};strokeColor=${color}`); ellipse(x, y + 18, 4, 4, `fillColor=${color};strokeColor=${color}`); };
 
 /**
- * 「commonCanvas」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @returns 「commonCanvas」が関連処理の入力を処理して得た固有の結果を返します。
+ * 生成・icon・コンセプトのcommon・canvasを処理し、呼び出し側へ結果または副作用を返す。
+ * @returns 生成・icon・コンセプトのcommon・canvasが生成する結果。
  */
 function commonCanvas() {
   // Invisible frame fixes the exported canvas to a square without adding visual pixels.
   rect(0, 0, 128, 128, 'fillColor=none;strokeColor=none;opacity=0;');
 }
 
-/** 「variants」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * 生成・icon・コンセプトで扱う一覧または対応表。
+ */
 const variants = [
   {
     id: '01-dual-sheet',
     title: 'Dual Sheet',
     purpose: '左右2枚の文書を均等に見せる王道型。最も説明不要。',
     /**
-     * buildを作成または組み立てます。
-     * @returns 「build」が生成したデータまたはオブジェクトを返します。
+     * 生成・icon・コンセプトで使う値または実行環境を組み立てる。
+     * @returns 生成・icon・コンセプトで生成または変換した値。
      */
     build() {
       commonCanvas();
@@ -361,8 +254,8 @@ const variants = [
     title: 'Markdown Flag',
     purpose: '左の大きな#を識別子にし、右の整形面を従属させる。',
     /**
-     * buildを作成または組み立てます。
-     * @returns 「build」が生成したデータまたはオブジェクトを返します。
+     * 生成・icon・コンセプトで使う値または実行環境を組み立てる。
+     * @returns 生成・icon・コンセプトで生成または変換した値。
      */
     build() {
       commonCanvas();
@@ -381,8 +274,8 @@ const variants = [
     title: 'Gutter Handle',
     purpose: 'ドラッグできる中央ガターを主役にして、この機能固有の操作性を出す。',
     /**
-     * buildを作成または組み立てます。
-     * @returns 「build」が生成したデータまたはオブジェクトを返します。
+     * 生成・icon・コンセプトで使う値または実行環境を組み立てる。
+     * @returns 生成・icon・コンセプトで生成または変換した値。
      */
     build() {
       commonCanvas();
@@ -400,8 +293,8 @@ const variants = [
     title: 'Render Flow',
     purpose: 'Markdown記法からプレビューへ変換される流れを、短い矢印で示す。',
     /**
-     * buildを作成または組み立てます。
-     * @returns 「build」が生成したデータまたはオブジェクトを返します。
+     * 生成・icon・コンセプトで使う値または実行環境を組み立てる。
+     * @returns 生成・icon・コンセプトで生成または変換した値。
      */
     build() {
       commonCanvas();
@@ -418,8 +311,8 @@ const variants = [
     title: 'Open Book',
     purpose: '編集と結果を本の見開きに寄せ、文書ツールらしい親和性を出す。',
     /**
-     * buildを作成または組み立てます。
-     * @returns 「build」が生成したデータまたはオブジェクトを返します。
+     * 生成・icon・コンセプトで使う値または実行環境を組み立てる。
+     * @returns 生成・icon・コンセプトで生成または変換した値。
      */
     build() {
       commonCanvas();
@@ -436,8 +329,8 @@ const variants = [
     title: 'Window Split',
     purpose: 'VS Codeのエディター領域に自然に見える、窓枠ベースの構成。',
     /**
-     * buildを作成または組み立てます。
-     * @returns 「build」が生成したデータまたはオブジェクトを返します。
+     * 生成・icon・コンセプトで使う値または実行環境を組み立てる。
+     * @returns 生成・icon・コンセプトで生成または変換した値。
      */
     build() {
       commonCanvas();
@@ -458,8 +351,8 @@ const variants = [
     title: 'Offset Cards',
     purpose: '2ペインの重なりを最小限に使い、画面分割とプレビューの奥行きを出す。',
     /**
-     * buildを作成または組み立てます。
-     * @returns 「build」が生成したデータまたはオブジェクトを返します。
+     * 生成・icon・コンセプトで使う値または実行環境を組み立てる。
+     * @returns 生成・icon・コンセプトで生成または変換した値。
      */
     build() {
       commonCanvas();
@@ -476,8 +369,8 @@ const variants = [
     title: 'Bracket Pair',
     purpose: '左右の面を角括弧のようなシルエットで包み、32pxで輪郭を優先する。',
     /**
-     * buildを作成または組み立てます。
-     * @returns 「build」が生成したデータまたはオブジェクトを返します。
+     * 生成・icon・コンセプトで使う値または実行環境を組み立てる。
+     * @returns 生成・icon・コンセプトで生成または変換した値。
      */
     build() {
       commonCanvas();
@@ -497,8 +390,8 @@ const variants = [
     title: 'Cursor to Page',
     purpose: '左の編集カーソルと右のページを対比し、編集→結果を直感化する。',
     /**
-     * buildを作成または組み立てます。
-     * @returns 「build」が生成したデータまたはオブジェクトを返します。
+     * 生成・icon・コンセプトで使う値または実行環境を組み立てる。
+     * @returns 生成・icon・コンセプトで生成または変換した値。
      */
     build() {
       commonCanvas();
@@ -518,8 +411,8 @@ const variants = [
     title: 'Core Split',
     purpose: '外形を1つにまとめ、内部の1本の分割線だけで左右2ペインを伝える最小構成。',
     /**
-     * buildを作成または組み立てます。
-     * @returns 「build」が生成したデータまたはオブジェクトを返します。
+     * 生成・icon・コンセプトで使う値または実行環境を組み立てる。
+     * @returns 生成・icon・コンセプトで生成または変換した値。
      */
     build() {
       commonCanvas();
@@ -535,9 +428,9 @@ const variants = [
 ];
 
 /**
- * 「xmlFor」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param variant 「variant」は、「xmlFor」が関連処理の処理対象を特定する入力です。
- * @returns 「xmlFor」が関連処理の入力を処理して得た固有の結果を返します。
+ * 生成・icon・コンセプトのxml・forを処理し、呼び出し側へ結果または副作用を返す。
+ * @param variant - リボン項目の表示種別。
+ * @returns 生成・icon・コンセプトのxml・forが生成する結果。
  */
 function xmlFor(variant) {
   nextId = 2;
@@ -547,20 +440,24 @@ function xmlFor(variant) {
   return `<mxfile host="Electron" modified="2026-08-13T00:00:00.000Z" agent="Codex" version="26.0.0"><diagram id="${variant.id}" name="${variant.title}">${graph}</diagram></mxfile>`;
 }
 
-/** 「reviewRows」は、後続処理で順序を保って参照する一覧です。 */
+/**
+ * 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ */
 const reviewRows = variants.map(
 /**
- * 「v」「index」を変換し、変換後の要素を返すコールバックです。
- * @param v vとして渡される、このコールバックの入力値です。
- * @param index 本文、表、配列内の対象位置を示すインデックスです。
- * @returns 入力要素から生成した変換後の値を返します。
+ * 各vからtitleを取り出して一覧化する。
+ * @param v - vのtitleを参照する走査対象。
+ * @param index - 配列・行列・文字列の要素位置を示す番号。
+ * @returns titleを取り出した変換結果の一覧。
  */
 (v, index) => {
   const no = String(index + 1).padStart(2, '0');
   return `| ${no} | ${v.title} | ${v.purpose} | ${['均等な2枚', '左記号を強調', '中央操作', '変換の流れ', '見開き', 'VS Code窓', '重なり', '輪郭', '編集カーソル', '最小分割'][index]} |`;
 }).join('\n');
 
-/** 「report」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * 生成・icon・コンセプトのreportに関する状態または設定。
+ */
 const report = `# Markdown Easy Visual Editor 左Markdown／右Preview アイコン案レビュー
 
 作成日: 2026-08-13  
@@ -626,17 +523,17 @@ ${reviewRows}
 await fs.mkdir(out, { recursive: true });
 await Promise.all(variants.map(
 /**
- * 「variant」を変換し、変換後の要素を返すコールバックです。
- * @param variant variantとして渡される、このコールバックの入力値です。
- * @returns 入力要素から生成した変換後の値を返します。
+ * 各variantから識別子を取り出して一覧化する。
+ * @param variant - variantの識別子を参照する走査対象。
+ * @returns 識別子を取り出した変換結果の一覧。
  */
 (variant) => fs.writeFile(path.join(out, `icon-${variant.id}.drawio`), xmlFor(variant), 'utf8')));
 await fs.writeFile(path.join(out, 'icon-concepts-review.md'), report, 'utf8');
 await fs.writeFile(path.join(out, 'icon-concepts.json'), JSON.stringify(variants.map(
 /**
- * 「build」「meta」を変換し、変換後の要素を返すコールバックです。
- * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはbuild、metaです。
- * @returns 入力要素から生成した変換後の値を返します。
+ * variantsの各要素を変換して一覧化する。
+ * @param options - 呼び出し側が指定する処理設定。
+ * @returns 入力要素から生成した変換結果の一覧。
  */
 ({ build, ...meta }) => meta), null, 2), 'utf8');
 console.log(`Generated ${variants.length} draw.io concepts in ${out}`);

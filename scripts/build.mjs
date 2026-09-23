@@ -1,25 +1,18 @@
 /**
- * @file build.mjs
- * 実行境界: 開発・検証スクリプト。
- * 責務: ビルド、スモーク、統合検証または補助生成を実行する。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: プロセス、生成物、Webview、VS Code、Chromiumなどの外部環境を操作する。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview ビルドを開発・検証環境で実行する。前提条件や失敗条件を終了コードとログで示す。
  */
 import * as esbuild from 'esbuild';
 import { copyFile, mkdir, rm } from 'node:fs/promises';
 
-/** 「watch」は、関連する処理間で共有する設定値または状態です。 */
+
 /**
- * 差分監視ビルドを選択するコマンドラインフラグ。
- * 監視時だけ開発用環境とesbuildのwatchコンテキストを有効にし、通常ビルドの出力条件を変えない。
+ * ビルドのwatchに関する状態または設定。
  */
 const watch = process.argv.includes('--watch');
 
-/** 「extensionOptions」は、呼び出し先へ渡す設定値の集合です。 */
+
 /**
- * Extension Host用バンドルの入力、実行環境、出力先を定義するesbuild設定。
- * vscode本体は実行時に提供されるためexternalに残し、それ以外の依存をNode向けCommonJSへまとめる。
+ * ビルドへ渡す設定または境界値。
  */
 const extensionOptions = {
   entryPoints: ['src/extension/extension.ts'],
@@ -33,15 +26,15 @@ const extensionOptions = {
   plugins: [{
     name: 'defer-playwright-runtime',
     /**
-     * 「setup」は、入力を検証して対象の状態または内容へ適用します。
-     * @param build 「build」は、「setup」が関連処理の処理対象を特定する入力です。
-     * @returns 初期化したオブジェクト（path、external、logLevel、entryPoints、bundle）を返します。
+     * ビルドの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+     * @param build - ビルドへ渡す入力。
+     * @returns ビルドのsetupが生成する結果。
      */
     setup(build) {
       build.onResolve({ filter: /^playwright-core$/ },
       /**
-       * esbuildのplaywright-core解決要求を処理し、外部化する解決結果を返すコールバックです。
-       * @returns pathとexternalを含むesbuildの解決結果を返します。
+       * ビルドのコールバックとして要素を処理する。
+       * @returns ビルドのコールバックが生成する結果。
        */
       () => ({
         path: './playwright.js',
@@ -52,10 +45,9 @@ const extensionOptions = {
   logLevel: 'info'
 };
 
-/** 「webviewOptions」は、呼び出し先へ渡す設定値の集合です。 */
+
 /**
- * Webview用ブラウザーバンドルとフォント資産の扱いを定義するesbuild設定。
- * 開発時は未圧縮、配布時は圧縮としてデバッグ可能性と配布容量を両立する。
+ * ビルドへ渡す設定または境界値。
  */
 const webviewOptions = {
   entryPoints: ['src/webview/index.tsx'],
@@ -72,10 +64,9 @@ const webviewOptions = {
   logLevel: 'info'
 };
 
-/** 「markdownWorkerOptions」は、呼び出し先へ渡す設定値の集合です。 */
+
 /**
- * 軽量Markdownワーカーの共通ビルド設定。
- * richワーカーとフォールバックが継承するため、対象ブラウザーと環境定義を一箇所で維持する。
+ * ビルドで解析・表示・保存する本文。
  */
 const markdownWorkerOptions = {
   entryPoints: ['src/webview/markdownRenderLight.worker.ts'],
@@ -89,10 +80,9 @@ const markdownWorkerOptions = {
   logLevel: 'info'
 };
 
-/** 「markdownRichWorkerOptions」は、呼び出し先へ渡す設定値の集合です。 */
+
 /**
- * 数式・図表などを含むリッチMarkdownワーカーの差分設定。
- * 共通設定を継承し、入力エントリと出力ファイルだけを専用名へ置き換える。
+ * ビルドで解析・表示・保存する本文。
  */
 const markdownRichWorkerOptions = {
   ...markdownWorkerOptions,
@@ -100,10 +90,9 @@ const markdownRichWorkerOptions = {
   outfile: 'dist/markdown-rich-worker.js'
 };
 
-/** 「markdownFallbackOptions」は、呼び出し先へ渡す設定値の集合です。 */
+
 /**
- * Workerを利用できない環境で読み込むMarkdownフォールバックの設定。
- * 固定したグローバル名によりWebviewから遅延ロードできるようにする。
+ * ビルドで解析・表示・保存する本文。
  */
 const markdownFallbackOptions = {
   ...markdownWorkerOptions,
@@ -112,10 +101,9 @@ const markdownFallbackOptions = {
   globalName: 'mveMarkdownFallback'
 };
 
-/** 「exportFontOptions」は、呼び出し先へ渡す設定値の集合です。 */
+
 /**
- * HTML/PDF出力用フォントCSSをdata URLへ埋め込むesbuild設定。
- * 外部フォント参照を残さず、出力物を単独で利用できる状態にする。
+ * ビルドへ渡す設定または境界値。
  */
 const exportFontOptions = {
   entryPoints: ['src/webview/exportFonts.css'],
@@ -126,10 +114,9 @@ const exportFontOptions = {
   logLevel: 'info'
 };
 
-/** 「playwrightOptions」は、呼び出し先へ渡す設定値の集合です。 */
+
 /**
- * Extension Hostから遅延利用するPlaywright実行コードのNode向けバンドル設定。
- * distへ固定配置し、Extension Host側の動的ロード先を安定させる。
+ * ビルドへ渡す設定または境界値。
  */
 const playwrightOptions = {
   entryPoints: ['playwright-core'],
@@ -143,8 +130,8 @@ const playwrightOptions = {
 };
 
 /**
- * copy・assetsを操作します。
- * @returns 「copyAssets」が関連処理の入力を処理して得た固有の結果を返します。
+ * ビルドの入力または状態を走査・複製する。
+ * @returns ビルドのcopy・assetsが生成する結果。
  */
 async function copyAssets() {
   await mkdir('dist', { recursive: true });

@@ -1,12 +1,6 @@
 /**
- * @file ribbonTypes.ts
- * 実行境界: Webview。
- * 責務: 編集UI、プレビュー、ユーザー操作を処理する。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: DOM、Webviewメッセージ、ブラウザーAPI、編集状態を操作する。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview リボンの項目、表示状態、コマンド通知に共有する型を定義する。
  */
-
 import type React from "react";
 import type { EditorMode, HtmlExportOptions } from "../shared/protocol";
 import type { MarkdownTableAction } from "../shared/markdown";
@@ -14,472 +8,478 @@ import type { Messages } from "../shared/messages";
 import type { TextColorId } from "../shared/textColor";
 import type { SourceAction } from "./SourceEditor";
 import type {
-  RibbonItemDefinition,
-  RibbonLabelSpec,
+    RibbonItemDefinition,
+    RibbonLabelSpec,
 } from "./ribbonDefinitionTypes";
 import type { RibbonHeaderItemId } from "./ribbonIds";
 
 /**
- * 「TableAction」として扱う値の型を定義します。
+ * リボン型で扱う値の種類と境界を表す型。
  */
 export type TableAction = "insert" | MarkdownTableAction;
 /**
- * 「RibbonHeaderImplementationId」として扱う値の型を定義します。
+ * リボン型で対象や分岐を識別する値の型。
  */
 export type RibbonHeaderImplementationId = RibbonHeaderItemId;
 
 /**
- * 「RibbonCommand」として扱う値の型を定義します。
+ * リボン型で扱う値の種類と境界を表す型。
  */
 export type RibbonCommand =
-  | {
-  /**
-   * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-   */
-  type: "sourceAction";
-  /**
-   * 「action」は、関連処理が共有する構造化データの一項目です。
-   */
-  action: SourceAction }
-  | {
-  /**
-   * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-   */
-  type: "historyCommand";
-  /**
-   * 「command」は、関連処理が共有する構造化データの一項目です。
-   */
-  command: "undo" | "redo" }
-  | {
-  /**
-   * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-   */
-  type: "heading";
-  /**
-   * 「level」は、位置・サイズ・件数などを表す数値です。
-   */
-  level: number }
-  | {
-  /**
-   * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-   */
-  type: "insert";
-  /**
-   * 「value」は、対象の内容または識別子を表す文字列です。
-   */
-  value: string }
-  | {
-  /**
-   * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-   */
-  type: "link" }
-  | {
-  /**
-   * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-   */
-  type: "image" }
-  | {
-  /**
-   * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-   */
-  type: "copyTableTsv" }
-  | {
-  /**
-   * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-   */
-  type: "table";
-  /**
-   * 「action」は、関連処理が共有する構造化データの一項目です。
-   */
-  action: TableAction;
-  /**
-   * 「headerName」は、対象の識別や処理分岐に使用する値を保持します。
-   */
-  headerName?: string }
-  | {
-  /**
-   * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-   */
-  type: "tableInsert";
-  /**
-   * 「rows」は、対象の位置、サイズ、件数、または範囲を保持します。
-   */
-  rows: number;
-  /**
-   * 「columns」は、対象の位置、サイズ、件数、または範囲を保持します。
-   */
-  columns: number }
-  | {
-  /**
-   * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-   */
-  type: "codeBlock";
-  /**
-   * 「language」は、対象の内容または識別子を表す文字列です。
-   */
-  language: string }
-  | {
-  /**
-   * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-   */
-  type: "splitView";
-  /**
-   * 「view」は、画面の表示モードまたは現在のUI状態を示します。
-   */
-  view: "both" | "text" | "preview" }
-  | {
+    | {
+        /**
+         * リボン型で対象や分岐を識別する値の型。
+         */
+        type: "sourceAction";
+        /**
+         * リボン型のactionに関する状態または設定。
+         */
+        action: SourceAction
+    }
+    | {
+        /**
+         * リボン型で対象や分岐を識別する値の型。
+         */
+        type: "historyCommand";
+        /**
+         * リボン型のcommandに関する状態または設定。
+         */
+        command: "undo" | "redo"
+    }
+    | {
+        /**
+         * リボン型で対象や分岐を識別する値の型。
+         */
+        type: "heading";
+        /**
+         * リボン型のlevelを表す数値。
+         */
+        level: number
+    }
+    | {
+        /**
+         * リボン型で対象や分岐を識別する値の型。
+         */
+        type: "insert";
+        /**
+         * 検証・変換・保存の対象となる値。
+         */
+        value: string
+    }
+    | {
+        /**
+         * リボン型で対象や分岐を識別する値の型。
+         */
+        type: "link"
+    }
+    | {
+        /**
+         * リボン型で対象や分岐を識別する値の型。
+         */
+        type: "image"
+    }
+    | {
+        /**
+         * リボン型で対象や分岐を識別する値の型。
+         */
+        type: "copyTableTsv"
+    }
+    | {
+        /**
+         * リボン型で対象や分岐を識別する値の型。
+         */
+        type: "table";
+        /**
+         * リボン型のactionに関する状態または設定。
+         */
+        action: TableAction;
+        /**
+         * リボン型で扱うheader・nameの文字列。
+         */
+        headerName?: string
+    }
+    | {
+        /**
+         * リボン型で対象や分岐を識別する値の型。
+         */
+        type: "tableInsert";
+        /**
+         * リボン型で扱うrowsの一覧。
+         */
+        rows: number;
+        /**
+         * リボン型で扱うcolumnsの一覧。
+         */
+        columns: number
+    }
+    | {
+        /**
+         * リボン型で対象や分岐を識別する値の型。
+         */
+        type: "codeBlock";
+        /**
+         * リボン型で扱うlanguageの文字列。
+         */
+        language: string
+    }
+    | {
+        /**
+         * リボン型で対象や分岐を識別する値の型。
+         */
+        type: "splitView";
+        /**
+         * リボン型のviewに関する状態または設定。
+         */
+        view: "both" | "text" | "preview"
+    }
+    | {
 
-      /**
-       * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-       */
-      type:
+        /**
+         * リボン型で対象や分岐を識別する値の型。
+         */
+        type:
         | "toggleOutline"
         | "toggleScrollSync"
         | "toggleInspector"
         | "togglePrintPreview"
         | "openPrintSettings";
     }
-  | {
-  /**
-   * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-   */
-  type: "runPreflightCheck" }
-  | {
-  /**
-   * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-   */
-  type: "showShortcuts" | "showFeatures" }
-  | {
-  /**
-   * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-   */
-  type: "openSource" | "exportPdf" | "find" }
-  | {
-  /**
-   * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-   */
-  type: "setImageDirectory";
-  /**
-   * 「directory」は、対象の内容または識別子を表す文字列です。
-   */
-  directory: string }
-  | {
-
-      /**
-       * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-       */
-      type: "setFontFamilies";
-
-      /**
-       * 「editorFontFamily」は、表示テーマまたはスタイル設定を保持します。
-       */
-      editorFontFamily: string;
-
-      /**
-       * 「previewFontFamily」は、表示テーマまたはスタイル設定を保持します。
-       */
-      previewFontFamily: string;
+    | {
+        /**
+         * リボン型で対象や分岐を識別する値の型。
+         */
+        type: "runPreflightCheck"
     }
-  | {
-  /**
-   * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-   */
-  type: "exportHtml";
-  /**
-   * 「options」は、利用側が共有する設定または現在状態を保持します。
-   */
-  options: HtmlExportOptions };
+    | {
+        /**
+         * リボン型で対象や分岐を識別する値の型。
+         */
+        type: "showShortcuts" | "showFeatures"
+    }
+    | {
+        /**
+         * リボン型で対象や分岐を識別する値の型。
+         */
+        type: "openSource" | "exportPdf" | "find"
+    }
+    | {
+        /**
+         * リボン型で対象や分岐を識別する値の型。
+         */
+        type: "setImageDirectory";
+        /**
+         * リボン型で読み書きするリソースの場所。
+         */
+        directory: string
+    }
+    | {
+
+        /**
+         * リボン型で対象や分岐を識別する値の型。
+         */
+        type: "setFontFamilies";
+
+        /**
+         * リボン型で共有するフォント設定または移行状態。
+         */
+        editorFontFamily: string;
+
+        /**
+         * リボン型で共有するフォント設定または移行状態。
+         */
+        previewFontFamily: string;
+    }
+    | {
+        /**
+         * リボン型で対象や分岐を識別する値の型。
+         */
+        type: "exportHtml";
+        /**
+         * 呼び出し側が指定する処理設定。
+         */
+        options: HtmlExportOptions
+    };
 
 /**
- * 「TextColorUiText」が満たすデータ契約を定義します。
+ * リボン型で共有するデータ形状を表すインターフェース。
  */
 export interface TextColorUiText {
 
-  /**
-   * 「label」は、画面または通知へ表示する文言を保持します。
-   */
-  label: string;
+    /**
+     * 画面または検証結果に表示する説明文。
+     */
+    label: string;
 
-  /**
-   * 「defaultColor」は、表示テーマまたはスタイル設定を保持します。
-   */
-  defaultColor: string;
+    /**
+     * リボン型で扱うdefault・colorの文字列。
+     */
+    defaultColor: string;
 
-  /**
-   * 「mixed」は、対象の内容または識別子を表す文字列です。
-   */
-  mixed: string;
+    /**
+     * リボン型で扱うmixedの文字列。
+     */
+    mixed: string;
 
-  /**
-   * 「colors」は、表示テーマまたはスタイル設定を保持します。
-   */
-  colors: Record<TextColorId, string>;
+    /**
+     * リボン型のcolorsに関する状態または設定。
+     */
+    colors: Record<TextColorId, string>;
 }
 
 /**
- * 「TextColorChoice」として扱う値の型を定義します。
+ * リボン型で扱う値の種類と境界を表す型。
  */
 export type TextColorChoice = TextColorId | "default" | "mixed";
 
 /**
- * 「RibbonButtonState」が満たすデータ契約を定義します。
+ * リボン型の現在状態または履歴を保持するデータ形状。
  */
 export interface RibbonButtonState {
 
-  /**
-   * 「mode」は、画面の表示モードまたは現在のUI状態を示します。
-   */
-  mode: EditorMode;
+    /**
+     * 編集面とプレビューの表示構成。
+     */
+    mode: EditorMode;
 
-  /**
-   * 「readOnly」は、処理条件または状態を表す真偽値です。
-   */
-  readOnly: boolean;
+    /**
+     * 編集操作を許可しない状態。
+     */
+    readOnly: boolean;
 
-  /**
-   * 「activeMarks」は、画面の表示モードまたは現在のUI状態を示します。
-   */
-  activeMarks: Record<string, boolean>;
+    /**
+     * 選択範囲で有効なMarkdown書式の対応表。
+     */
+    activeMarks: Record<string, boolean>;
 
-  /**
-   * 「outlineVisible」は、画面の表示モードまたは現在のUI状態を示します。
-   */
-  outlineVisible: boolean;
+    /**
+     * リボン型のoutline・visibleを示す状態フラグ。
+     */
+    outlineVisible: boolean;
 
-  /**
-   * 「scrollSyncEnabled」は、画面の表示モードまたは現在のUI状態を示します。
-   */
-  scrollSyncEnabled: boolean;
+    /**
+     * 本文とプレビューのスクロール同期を有効にする設定。
+     */
+    scrollSyncEnabled: boolean;
 
-  /**
-   * 「splitView」は、関連処理が共有する構造化データの一項目です。
-   */
-  splitView: "both" | "text" | "preview";
+    /**
+     * リボン型のsplit・viewに関する状態または設定。
+     */
+    splitView: "both" | "text" | "preview";
 
-  /**
-   * 「imageResizeControlsVisible」は、画面の表示モードまたは現在のUI状態を示します。
-   */
-  imageResizeControlsVisible: boolean;
+    /**
+     * リボン型のimage・resize・controls・visibleを示す状態フラグ。
+     */
+    imageResizeControlsVisible: boolean;
 }
 
 /**
- * 「RibbonImplementationContext」が満たすデータ契約を定義します。
+ * リボン型で共有するデータ形状を表すインターフェース。
  */
 export interface RibbonImplementationContext extends RibbonButtonState {
 
-  /**
-   * 「messages」は、画面または通知へ表示する文言を保持します。
-   */
-  messages: Messages;
+    /**
+     * リボン型で扱うmessagesの一覧。
+     */
+    messages: Messages;
 
-  /**
-   * 「japanese」は、処理条件または状態を表す真偽値です。
-   */
-  japanese: boolean;
+    /**
+     * 日本語表示で使う文言。
+     */
+    japanese: boolean;
 
-  /**
-   * 「collapsed」は、処理条件または状態を表す真偽値です。
-   */
-  collapsed: boolean;
-  /**
-   * 「setCollapsed」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-   * @param value 「setCollapsed」で検証・変換する入力値です。
-   * @returns 「setCollapsed」の副作用または状態更新を実行し、値は返しません。
-   */
-  setCollapsed: (value: boolean) => void;
+    /**
+     * リボン型の状態を示すフラグ。
+     */
+    collapsed: boolean;
+    /**
+     * リボン型の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+     * @param value - 検証・変換・保存の対象となる値。
+     * @returns 副作用を完了し、値は返さない。
+     */
+    setCollapsed: (value: boolean) => void;
 
-  /**
-   * 「textColorText」は、画面または通知へ表示する文言を保持します。
-   */
-  textColorText: TextColorUiText;
+    /**
+     * リボン型で解析・表示・保存する本文。
+     */
+    textColorText: TextColorUiText;
 
-  /**
-   * 「htmlOptions」は、利用側が共有する設定または現在状態を保持します。
-   */
-  htmlOptions: HtmlExportOptions;
+    /**
+     * リボン型へ渡す設定または境界値。
+     */
+    htmlOptions: HtmlExportOptions;
 
-  /**
-   * 「imageDirectory」は、対象の内容または識別子を表す文字列です。
-   */
-  imageDirectory: string;
+    /**
+     * リボン型で読み書きするリソースの場所。
+     */
+    imageDirectory: string;
 
-  /**
-   * 「editorFontFamily」は、表示テーマまたはスタイル設定を保持します。
-   */
-  editorFontFamily: string;
+    /**
+     * リボン型で共有するフォント設定または移行状態。
+     */
+    editorFontFamily: string;
 
-  /**
-   * 「previewFontFamily」は、表示テーマまたはスタイル設定を保持します。
-   */
-  previewFontFamily: string;
-  /**
-   * 「onHtmlOptionsChange」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-   * @param options 処理経路や表示方法を指定する設定値です。
-   * @returns イベントを処理し、状態更新または副作用だけを実行して値は返しません。
-   */
-  onHtmlOptionsChange: (options: HtmlExportOptions) => void;
-  /**
-   * 「onCommand」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-   * @param command 「command」は、「onCommand」がWebview UI状態の処理対象を特定する入力です。
-   * @returns イベントを処理し、状態更新または副作用だけを実行して値は返しません。
-   */
-  onCommand: (command: RibbonCommand) => void;
+    /**
+     * リボン型で共有するフォント設定または移行状態。
+     */
+    previewFontFamily: string;
+    /**
+     * リボン型のイベントまたはメッセージを受け取り、状態を更新する。
+     * @param options - 呼び出し側が指定する処理設定。
+     * @returns 副作用を完了し、値は返さない。
+     */
+    onHtmlOptionsChange: (options: HtmlExportOptions) => void;
+    /**
+     * リボン型のイベントまたはメッセージを受け取り、状態を更新する。
+     * @param command - リボン型へ渡す入力。
+     * @returns 副作用を完了し、値は返さない。
+     */
+    onCommand: (command: RibbonCommand) => void;
 
-  /**
-   * 「tableRows」は、対象の位置、サイズ、件数、または範囲を保持します。
-   */
-  tableRows: number;
-  /**
-   * 「setTableRows」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-   * @param value 「setTableRows」で検証・変換する入力値です。
-   * @returns 「setTableRows」の副作用または状態更新を実行し、値は返しません。
-   */
-  setTableRows: (value: number) => void;
+    /**
+     * リボン型で扱うtable・rowsの一覧。
+     */
+    tableRows: number;
+    /**
+     * リボン型の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+     * @param value - 検証・変換・保存の対象となる値。
+     * @returns 副作用を完了し、値は返さない。
+     */
+    setTableRows: (value: number) => void;
 
-  /**
-   * 「tableColumns」は、対象の位置、サイズ、件数、または範囲を保持します。
-   */
-  tableColumns: number;
-  /**
-   * 「setTableColumns」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-   * @param value 「setTableColumns」で検証・変換する入力値です。
-   * @returns 「setTableColumns」の副作用または状態更新を実行し、値は返しません。
-   */
-  setTableColumns: (value: number) => void;
+    /**
+     * リボン型で扱うtable・columnsの一覧。
+     */
+    tableColumns: number;
+    /**
+     * リボン型の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+     * @param value - 検証・変換・保存の対象となる値。
+     * @returns 副作用を完了し、値は返さない。
+     */
+    setTableColumns: (value: number) => void;
 
-  /**
-   * 「codeLanguage」は、対象の内容または識別子を表す文字列です。
-   */
-  codeLanguage: string;
-  /**
-   * 「setCodeLanguage」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-   * @param value 「setCodeLanguage」で検証・変換する入力値です。
-   * @returns 「setCodeLanguage」の副作用または状態更新を実行し、値は返しません。
-   */
-  setCodeLanguage: (value: string) => void;
+    /**
+     * リボン型で扱うcode・languageの文字列。
+     */
+    codeLanguage: string;
+    /**
+     * リボン型の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+     * @param value - 検証・変換・保存の対象となる値。
+     * @returns 副作用を完了し、値は返さない。
+     */
+    setCodeLanguage: (value: string) => void;
 
-  /**
-   * 「emoji」は、対象の内容または識別子を表す文字列です。
-   */
-  emoji: string;
-  /**
-   * 「setEmoji」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-   * @param value 「setEmoji」で検証・変換する入力値です。
-   * @returns 「setEmoji」の副作用または状態更新を実行し、値は返しません。
-   */
-  setEmoji: (value: string) => void;
+    /**
+     * リボン型で扱うemojiの文字列。
+     */
+    emoji: string;
+    /**
+     * リボン型の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+     * @param value - 検証・変換・保存の対象となる値。
+     * @returns 副作用を完了し、値は返さない。
+     */
+    setEmoji: (value: string) => void;
 
-  /**
-   * 「headerName」は、対象の識別や処理分岐に使用する値を保持します。
-   */
-  headerName: string;
-  /**
-   * 「setHeaderName」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-   * @param value 「setHeaderName」で検証・変換する入力値です。
-   * @returns 「setHeaderName」の副作用または状態更新を実行し、値は返しません。
-   */
-  setHeaderName: (value: string) => void;
+    /**
+     * リボン型で扱うheader・nameの文字列。
+     */
+    headerName: string;
+    /**
+     * リボン型の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+     * @param value - 検証・変換・保存の対象となる値。
+     * @returns 副作用を完了し、値は返さない。
+     */
+    setHeaderName: (value: string) => void;
 
-  /**
-   * 「textColorChoice」は、画面または通知へ表示する文言を保持します。
-   */
-  textColorChoice: TextColorChoice;
-  /**
-   * 「setTextColorChoice」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-   * @param value 「setTextColorChoice」で検証・変換する入力値です。
-   * @returns 「setTextColorChoice」の副作用または状態更新を実行し、値は返しません。
-   */
-  setTextColorChoice: (value: TextColorChoice) => void;
+    /**
+     * リボン型のtext・color・choiceに関する状態または設定。
+     */
+    textColorChoice: TextColorChoice;
+    /**
+     * リボン型の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+     * @param value - 検証・変換・保存の対象となる値。
+     * @returns 副作用を完了し、値は返さない。
+     */
+    setTextColorChoice: (value: TextColorChoice) => void;
 
-  /**
-   * 「imageDirectoryDraft」は、対象の内容または識別子を表す文字列です。
-   */
-  imageDirectoryDraft: string;
-  /**
-   * 「setImageDirectoryDraft」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-   * @param value 「setImageDirectoryDraft」で検証・変換する入力値です。
-   * @returns 「setImageDirectoryDraft」の副作用または状態更新を実行し、値は返しません。
-   */
-  setImageDirectoryDraft: (value: string) => void;
+    /**
+     * リボン型で扱うimage・directory・draftの文字列。
+     */
+    imageDirectoryDraft: string;
+    /**
+     * リボン型の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+     * @param value - 検証・変換・保存の対象となる値。
+     * @returns 副作用を完了し、値は返さない。
+     */
+    setImageDirectoryDraft: (value: string) => void;
 
-  /**
-   * 「editorFontFamilyDraft」は、表示テーマまたはスタイル設定を保持します。
-   */
-  editorFontFamilyDraft: string;
-  /**
-   * 「setEditorFontFamilyDraft」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-   * @param value 「setEditorFontFamilyDraft」で検証・変換する入力値です。
-   * @returns 「setEditorFontFamilyDraft」の副作用または状態更新を実行し、値は返しません。
-   */
-  setEditorFontFamilyDraft: (value: string) => void;
+    /**
+     * リボン型で共有するフォント設定または移行状態。
+     */
+    editorFontFamilyDraft: string;
+    /**
+     * リボン型の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+     * @param value - 検証・変換・保存の対象となる値。
+     * @returns 副作用を完了し、値は返さない。
+     */
+    setEditorFontFamilyDraft: (value: string) => void;
 
-  /**
-   * 「previewFontFamilyDraft」は、表示テーマまたはスタイル設定を保持します。
-   */
-  previewFontFamilyDraft: string;
-  /**
-   * 「setPreviewFontFamilyDraft」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-   * @param value 「setPreviewFontFamilyDraft」で検証・変換する入力値です。
-   * @returns 「setPreviewFontFamilyDraft」の副作用または状態更新を実行し、値は返しません。
-   */
-  setPreviewFontFamilyDraft: (value: string) => void;
+    /**
+     * リボン型で共有するフォント設定または移行状態。
+     */
+    previewFontFamilyDraft: string;
+    /**
+     * リボン型の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+     * @param value - 検証・変換・保存の対象となる値。
+     * @returns 副作用を完了し、値は返さない。
+     */
+    setPreviewFontFamilyDraft: (value: string) => void;
 }
 
 /**
- * 「RibbonButtonImplementation」が満たすデータ契約を定義します。
+ * リボン型で共有するデータ形状を表すインターフェース。
  */
 export interface RibbonButtonImplementation {
 
-  /**
-   * 「kind」は、対象の識別や処理分岐に使用する値を保持します。
-   */
-  readonly kind: "button";
-  /**
-   * 呼び出し側が入力を渡し、宣言された戻り値型で結果を受け取る契約です。
-   * @param state 処理対象の状態です。
-   * @returns 判定結果です。
-   */
-  readonly active?: (state: RibbonButtonState) => boolean;
-  /**
-   * 呼び出し側が入力を渡し、宣言された戻り値型で結果を受け取る契約です。
-   * @param state 処理対象の状態です。
-   * @returns 判定結果です。
-   */
-  readonly disabled?: (state: RibbonButtonState) => boolean;
-  /**
-   * 呼び出し側が入力を渡し、宣言された戻り値型で結果を受け取る契約です。
-   * @param context 「context」は、「onClick」がWebview UI状態の処理対象を特定する入力です。
-   * @returns 状態更新または副作用を実行し、値は返しません。
-   */
-  readonly onClick: (context: RibbonImplementationContext) => void;
+    /**
+     * メッセージ、項目、または処理の種類を識別する値。
+     */
+    readonly kind: "button";
+    /**
+     * リボン型の状態を示すフラグ。
+     */
+    readonly active?: (state: RibbonButtonState) => boolean;
+    /**
+     * リボン型の状態を示すフラグ。
+     */
+    readonly disabled?: (state: RibbonButtonState) => boolean;
+    /**
+     * ボタン操作をHostまたは編集面へ通知する関数。
+     */
+    readonly onClick: (context: RibbonImplementationContext) => void;
 }
 
 /**
- * 「RibbonControlImplementation」が満たすデータ契約を定義します。
+ * リボン型で共有するデータ形状を表すインターフェース。
  */
 export interface RibbonControlImplementation {
 
-  /**
-   * 「kind」は、対象の識別や処理分岐に使用する値を保持します。
-   */
-  readonly kind: "control";
-  /**
-   * 呼び出し側が入力を渡し、宣言された戻り値型で結果を受け取る契約です。
-   * @param context 「context」は、「render」がWebview UI状態の処理対象を特定する入力です。
-   * @param definition 「definition」は、「render」がWebview UI状態の処理対象を特定する入力です。
-   * @param resolveLabel 「resolveLabel」は、「render」がWebview UI状態の処理対象を特定する入力です。
-   * @returns 「render」が生成したWebview UI状態のデータを返します。
-   */
-  readonly render: (
-    context: RibbonImplementationContext,
-    definition: RibbonItemDefinition,
-    resolveLabel: (spec: RibbonLabelSpec) => string,
-  ) => React.JSX.Element;
+    /**
+     * メッセージ、項目、または処理の種類を識別する値。
+     */
+    readonly kind: "control";
+    /**
+     * リボン項目の表示要素を生成する関数。
+     */
+    readonly render: (
+        context: RibbonImplementationContext,
+        definition: RibbonItemDefinition,
+        resolveLabel: (spec: RibbonLabelSpec) => string,
+    ) => React.JSX.Element;
 }
 
 /**
- * 「RibbonItemImplementation」として扱う値の型を定義します。
+ * リボン型で扱う値の種類と境界を表す型。
  */
 export type RibbonItemImplementation =
-  | RibbonButtonImplementation
-  | RibbonControlImplementation;
+    | RibbonButtonImplementation
+    | RibbonControlImplementation;

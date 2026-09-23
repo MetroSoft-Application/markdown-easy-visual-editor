@@ -1,16 +1,10 @@
-/**
- * @file editorThemePolish.css
- * 実行境界: Webview。
- * 責務: 画面のスタイル、状態表示、テーマ適用を定義する。
- * 入出力: DOM要素、状態クラス、テーマ変数を入力として受け取り、視覚表現へ反映する。
- * 副作用: DOMの視覚表現だけを変更し、Markdown本文や編集状態を直接変更しない。
- * 不変条件: フォーカス表示、可読性、既存のレイアウト契約を維持する。
+/*
+ * @fileoverview テーマ適用後のリボン、プレビュー、ダイアログの色と細部を補正する。
+ * スタイルだけを変更し、本文データと編集状態を変更しない。
  */
-/* styles.css 後段の直書き色・個別UIを独自テーマへ揃える最終補正。 *//**
+/*
  * @style body[data-editor-theme="light"]
- * 対象UI: Webview本文とテーマ適用領域を整える。
- * 状態・テーマ: ライトテーマ選択時の色、境界線、背景を適用する。
- * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ * ライトテーマの背景、文字色、境界色を適用する。
  */
 
 body[data-editor-theme="light"] {
@@ -21,11 +15,11 @@ body[data-editor-theme="light"] {
     --vscode-notifications-border: #d0d7de !important;
     --vscode-notificationsWarningIcon-foreground: #9a6700 !important;
     --vscode-button-border: #d0d7de !important;
-}/**
+}
+
+/*
  * @style body[data-editor-theme="dark"]
- * 対象UI: Webview本文とテーマ適用領域を整える。
- * 状態・テーマ: ダークテーマ選択時の色、境界線、背景を適用する。
- * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ * ダークテーマの背景、文字色、境界色を適用する。
  */
 
 
@@ -37,11 +31,11 @@ body[data-editor-theme="dark"] {
     --vscode-notifications-border: #30363d !important;
     --vscode-notificationsWarningIcon-foreground: #d29922 !important;
     --vscode-button-border: #30363d !important;
-}/**
+}
+
+/*
  * @style body[data-editor-theme] .ribbon-checkbox, body[data-editor-theme] .link-dialog label, body[data-editor-theme] .pdf-margin-fields legend
- * 対象UI: リボンのHTML出力オプション、リンク設定ダイアログ、PDF余白設定のラベルを整える。
- * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
- * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ * リボンの操作項目と無効・選択状態を表示する。
  */
 
 
@@ -49,11 +43,11 @@ body[data-editor-theme] .ribbon-checkbox,
 body[data-editor-theme] .link-dialog label,
 body[data-editor-theme] .pdf-margin-fields legend {
     color: var(--mve-theme-muted) !important;
-}/**
+}
+
+/*
  * @style body[data-editor-theme] .feature-list section, body[data-editor-theme] .table-of-contents
- * 対象UI: 機能一覧のセクションとMarkdownプレビューの目次を整える。
- * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
- * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ * 表編集グリッドのセル、選択範囲、行列操作を表示する。
  */
 
 
@@ -62,53 +56,53 @@ body[data-editor-theme] .table-of-contents {
     color: var(--mve-theme-text) !important;
     background: var(--mve-theme-surface-alt) !important;
     border-color: var(--mve-theme-border) !important;
-}/**
+}
+
+/*
  * @style body[data-editor-theme] .feature-list li strong
- * 対象UI: 機能一覧のセクション、見出し、説明文を整える。
- * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
- * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ * 対象UIの配置、状態、テーマ色を整える。
  */
 
 
 body[data-editor-theme] .feature-list li strong {
     color: var(--mve-theme-text) !important;
-}/**
+}
+
+/*
  * @style body[data-editor-theme] .feature-list li span
- * 対象UI: 機能一覧のセクション、見出し、説明文を整える。
- * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
- * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ * 対象UIの配置、状態、テーマ色を整える。
  */
 
 
 body[data-editor-theme] .feature-list li span {
     color: var(--mve-theme-muted) !important;
-}/**
+}
+
+/*
  * @style body[data-editor-theme] .diagnostic
- * 対象UI: Markdown編集画面の診断表示と位置情報を整える。
- * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
- * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ * 対象UIの配置、状態、テーマ色を整える。
  */
 
 
 body[data-editor-theme] .diagnostic {
     color: var(--mve-theme-text) !important;
     background: var(--mve-theme-active) !important;
-}/**
+}
+
+/*
  * @style body[data-editor-theme] .diagnostic-location
- * 対象UI: Markdown編集画面の診断表示と位置情報を整える。
- * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
- * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ * 対象UIの配置、状態、テーマ色を整える。
  */
 
 
 body[data-editor-theme] .diagnostic-location {
     color: var(--mve-theme-accent) !important;
     background: transparent !important;
-}/**
+}
+
+/*
  * @style body[data-editor-theme] .mve-image-badge
- * 対象UI: Markdownプレビューの画像とリサイズ操作を整える。
- * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
- * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ * プレビュー画像とリサイズ操作を表示する。
  */
 
 
@@ -116,11 +110,11 @@ body[data-editor-theme] .mve-image-badge {
     color: var(--vscode-badge-foreground) !important;
     background: var(--vscode-badge-background) !important;
     border-color: var(--mve-theme-border) !important;
-}/**
+}
+
+/*
  * @style body[data-editor-theme] .mve-image-align-button, body[data-editor-theme] .mve-image-reset, body[data-editor-theme] .mve-image-handle
- * 対象UI: Markdownプレビューの画像とリサイズ操作を整える。
- * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
- * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ * プレビュー画像とリサイズ操作を表示する。
  */
 
 
@@ -130,22 +124,22 @@ body[data-editor-theme] .mve-image-handle {
     color: var(--vscode-button-foreground) !important;
     background: var(--vscode-button-background) !important;
     border-color: var(--mve-theme-accent) !important;
-}/**
+}
+
+/*
  * @style body[data-editor-theme] .page-break::after
- * 対象UI: Webview本文とテーマ適用領域を整える。
- * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
- * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ * 対象UIの配置、状態、テーマ色を整える。
  */
 
 
 body[data-editor-theme] .page-break::after {
     color: var(--mve-theme-muted) !important;
     background: var(--mve-theme-bg) !important;
-}/**
+}
+
+/*
  * @style body[data-editor-theme] .blocked-image
- * 対象UI: Webview本文とテーマ適用領域を整える。
- * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
- * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ * プレビュー画像とリサイズ操作を表示する。
  */
 
 
@@ -153,31 +147,31 @@ body[data-editor-theme] .blocked-image {
     color: var(--mve-theme-muted) !important;
     border-color: var(--mve-theme-border) !important;
     background: var(--mve-theme-surface-alt) !important;
-}/**
+}
+
+/*
  * @style body[data-editor-theme] .print-preview-mode .editor-area
- * 対象UI: Markdownプレビューの本文、見出し、リンク、ブロック要素を整える。
- * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
- * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ * Markdownプレビューの本文とブロック要素を整える。
  */
 
 
 body[data-editor-theme] .print-preview-mode .editor-area {
     background: var(--mve-theme-surface-alt) !important;
-}/**
+}
+
+/*
  * @style body[data-editor-theme] .pdf-preview-toolbar
- * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
- * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
- * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ * Markdownプレビューの本文とブロック要素を整える。
  */
 
 
 body[data-editor-theme] .pdf-preview-toolbar {
     background: var(--mve-theme-surface-alt) !important;
-}/**
+}
+
+/*
  * @style body[data-editor-theme] .pdf-preview-zoom-value, body[data-editor-theme] .pdf-preview-loading, body[data-editor-theme] .pdf-preview-error, body[data-editor-theme] .pdf-page-error
- * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
- * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
- * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ * Markdownプレビューの本文とブロック要素を整える。
  */
 
 
@@ -186,11 +180,11 @@ body[data-editor-theme] .pdf-preview-loading,
 body[data-editor-theme] .pdf-preview-error,
 body[data-editor-theme] .pdf-page-error {
     color: var(--mve-theme-text) !important;
-}/**
+}
+
+/*
  * @style body[data-editor-theme] .pdf-preview-toolbar button:hover
- * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
- * 状態・テーマ: ポインターが重なった状態の反応を適用する。
- * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ * Markdownプレビューの本文とブロック要素を整える。
  */
 
 
@@ -198,11 +192,9 @@ body[data-editor-theme] .pdf-preview-toolbar button:hover {
     background: var(--mve-theme-active) !important;
 }
 
-/* PDFの紙面だけはアプリテーマから切り離し、実際の印刷結果と同じ白背景を維持する。 *//**
- * @style body[data-editor-theme] .pdf-preview-live-content, body[data-editor-theme] .pdf-preview-live-content .rendered-markdown, body[data-editor-theme] .pdf-preview-content, body[data-edi
- * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
- * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
- * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+/*
+ * @style body[data-editor-theme] .pdf-preview-live-content, body[data-editor-theme] .pdf-preview-live-content .rendered-markdown, body[data-editor-theme] .pdf-preview-content, body[data-editor-theme] .pdf-page
+ * Markdownプレビューの本文とブロック要素を整える。
  */
 
 body[data-editor-theme] .pdf-preview-live-content,
@@ -212,21 +204,21 @@ body[data-editor-theme] .pdf-page {
     color: #202124 !important;
     background: #ffffff !important;
     color-scheme: light !important;
-}/**
+}
+
+/*
  * @style body[data-editor-theme] .pdf-preview-live-content .rendered-markdown a
- * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
- * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
- * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ * Markdownプレビューの本文とブロック要素を整える。
  */
 
 
 body[data-editor-theme] .pdf-preview-live-content .rendered-markdown a {
     color: #0969da !important;
-}/**
- * @style body[data-editor-theme] .pdf-preview-live-content .rendered-markdown pre, body[data-editor-theme] .pdf-preview-live-content .rendered-markdown code, body[data-editor-theme] .pdf-pr
- * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
- * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
- * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+}
+
+/*
+ * @style body[data-editor-theme] .pdf-preview-live-content .rendered-markdown pre, body[data-editor-theme] .pdf-preview-live-content .rendered-markdown code, body[data-editor-theme] .pdf-preview-live-content .rendered-markdown blockquote, body[data-editor-theme] .pdf-preview-live-content .rendered-markdown .markdown-alert
+ * Markdownプレビューの本文とブロック要素を整える。
  */
 
 
@@ -237,22 +229,22 @@ body[data-editor-theme] .pdf-preview-live-content .rendered-markdown .markdown-a
     color: #202124 !important;
     background: #f5f5f5 !important;
     border-color: #d0d7de !important;
-}/**
+}
+
+/*
  * @style body[data-editor-theme] .pdf-preview-live-content .rendered-markdown th
- * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
- * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
- * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ * Markdownプレビューの本文とブロック要素を整える。
  */
 
 
 body[data-editor-theme] .pdf-preview-live-content .rendered-markdown th {
     color: #202124 !important;
     background: #eaf1fb !important;
-}/**
+}
+
+/*
  * @style body[data-editor-theme] .pdf-preview-live-content .rendered-markdown th, body[data-editor-theme] .pdf-preview-live-content .rendered-markdown td
- * 対象UI: PDFプレビューまたは印刷設定のレイアウトを整える。
- * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
- * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ * Markdownプレビューの本文とブロック要素を整える。
  */
 
 
@@ -261,54 +253,52 @@ body[data-editor-theme] .pdf-preview-live-content .rendered-markdown td {
     border-color: #888 !important;
 }
 
-/* highlight.js の固定ダーク配色をライトテーマ時だけ読みやすい配色へ置き換える。 *//**
- * @style body[data-editor-theme="light"] .rendered-markdown .hljs-keyword, body[data-editor-theme="light"] .rendered-markdown .hljs-selector-tag, body[data-editor-theme="light"] .rendered-m
- * 対象UI: Markdownプレビューの本文、見出し、リンク、ブロック要素を整える。
- * 状態・テーマ: ライトテーマ選択時の色、境界線、背景を適用する。
- * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+/*
+ * @style body[data-editor-theme="light"] .rendered-markdown .hljs-keyword, body[data-editor-theme="light"] .rendered-markdown .hljs-selector-tag, body[data-editor-theme="light"] .rendered-markdown .hljs-literal
+ * Markdownプレビューの本文とブロック要素を整える。
  */
 
 body[data-editor-theme="light"] .rendered-markdown .hljs-keyword,
 body[data-editor-theme="light"] .rendered-markdown .hljs-selector-tag,
 body[data-editor-theme="light"] .rendered-markdown .hljs-literal {
     color: #8250df !important;
-}/**
+}
+
+/*
  * @style body[data-editor-theme="light"] .rendered-markdown .hljs-string, body[data-editor-theme="light"] .rendered-markdown .hljs-attr
- * 対象UI: Markdownプレビューの本文、見出し、リンク、ブロック要素を整える。
- * 状態・テーマ: ライトテーマ選択時の色、境界線、背景を適用する。
- * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ * Markdownプレビューの本文とブロック要素を整える。
  */
 
 
 body[data-editor-theme="light"] .rendered-markdown .hljs-string,
 body[data-editor-theme="light"] .rendered-markdown .hljs-attr {
     color: #0a3069 !important;
-}/**
+}
+
+/*
  * @style body[data-editor-theme="light"] .rendered-markdown .hljs-title, body[data-editor-theme="light"] .rendered-markdown .hljs-section
- * 対象UI: Markdownプレビューの本文、見出し、リンク、ブロック要素を整える。
- * 状態・テーマ: ライトテーマ選択時の色、境界線、背景を適用する。
- * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ * Markdownプレビューの本文とブロック要素を整える。
  */
 
 
 body[data-editor-theme="light"] .rendered-markdown .hljs-title,
 body[data-editor-theme="light"] .rendered-markdown .hljs-section {
     color: #953800 !important;
-}/**
+}
+
+/*
  * @style body[data-editor-theme="light"] .rendered-markdown .hljs-comment
- * 対象UI: Markdownプレビューの本文、見出し、リンク、ブロック要素を整える。
- * 状態・テーマ: ライトテーマ選択時の色、境界線、背景を適用する。
- * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ * Markdownプレビューの本文とブロック要素を整える。
  */
 
 
 body[data-editor-theme="light"] .rendered-markdown .hljs-comment {
     color: #6e7781 !important;
-}/**
+}
+
+/*
  * @style body[data-editor-theme="light"] .rendered-markdown .hljs-number
- * 対象UI: Markdownプレビューの本文、見出し、リンク、ブロック要素を整える。
- * 状態・テーマ: ライトテーマ選択時の色、境界線、背景を適用する。
- * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ * Markdownプレビューの本文とブロック要素を整える。
  */
 
 
@@ -316,11 +306,9 @@ body[data-editor-theme="light"] .rendered-markdown .hljs-number {
     color: #0550ae !important;
 }
 
-/* markは両テーマでコントラストを保証する。 *//**
+/*
  * @style body[data-editor-theme] .rendered-markdown mark
- * 対象UI: Markdownプレビューの本文、見出し、リンク、ブロック要素を整える。
- * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
- * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ * Markdownプレビューの本文とブロック要素を整える。
  */
 
 body[data-editor-theme] .rendered-markdown mark {
@@ -328,11 +316,9 @@ body[data-editor-theme] .rendered-markdown mark {
     background: #fff8c5 !important;
 }
 
-/* OSネイティブフォームにも選択テーマを伝える。 *//**
+/*
  * @style body[data-editor-theme] input, body[data-editor-theme] select, body[data-editor-theme] textarea, body[data-editor-theme] button
- * 対象UI: Webviewの操作ボタンと設定入力コントロールを整える。
- * 状態・テーマ: エディターテーマ属性に応じた色変数を適用する。
- * アクセシビリティ: テーマ間のコントラストと文字の可読性を保ち、既存のフォーカス表示を損なわないようにする。
+ * 設定ダイアログと操作コントロールの状態を整える。
  */
 
 body[data-editor-theme] input,

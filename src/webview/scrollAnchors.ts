@@ -1,95 +1,92 @@
 /**
- * @file scrollAnchors.ts
- * 実行境界: Webview。
- * 責務: 編集UI、プレビュー、ユーザー操作を処理する。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: DOM、Webviewメッセージ、ブラウザーAPI、編集状態を操作する。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview Webviewのスクロール位置復元を管理する。Hostとの通信、ユーザー操作、表示状態の契約を保つ。
  */
 import { getScrollRatio } from '../shared/scroll';
 
 /**
- * 「PreviewViewportAnchor」が満たすデータ契約を定義します。
+ * スクロール位置復元で共有するデータ形状を表すインターフェース。
  */
 export interface PreviewViewportAnchor {
 
     /**
-     * 「offset」は、本文または選択範囲の位置・長さを保持します。
+     * スクロール位置復元の位置・寸法・件数・時間を表す数値。
      */
     offset: number;
 
     /**
-     * 「topOffset」は、本文または選択範囲の位置・長さを保持します。
+     * スクロール位置復元の位置・寸法・件数・時間を表す数値。
      */
     topOffset: number;
     /**
-     * 復元対象Markdownブロックの開始オフセット。block内補間offsetとは分離して保持する。
+     * スクロール位置復元のblock・fromを表す数値。
      */
     blockFrom?: number;
 
     /**
-     * 「blockProgress」は、位置・サイズ・件数などを表す数値です。
+     * スクロール位置復元のblock・progressを表す数値。
      */
     blockProgress?: number;
     /**
-     * コンテナー全体の最大スクロール量に対する現在位置。
+     * スクロール位置復元のscroll・ratioを表す数値。
      */
     scrollRatio?: number;
 }
 
 /**
- * 「SourceRange」が満たすデータ契約を定義します。
+ * スクロール位置復元で共有するデータ形状を表すインターフェース。
  */
 interface SourceRange {
 
     /**
-     * 「from」は、本文または選択範囲の位置・長さを保持します。
+     * スクロール位置復元のfromを表す数値。
      */
     from: number;
 
     /**
-     * 「to」は、本文または選択範囲の位置・長さを保持します。
+     * スクロール位置復元のtoを表す数値。
      */
     to: number;
 }
 
-/** 「previewSourceElementCache」は、再利用する結果を保持し、同じ処理の重複を抑えるキャッシュです。 */
+/**
+ * スクロール位置復元の計算結果を再利用するキャッシュ。
+ */
 const previewSourceElementCache = new WeakMap<HTMLElement, {
 
     /**
-     * 「root」は、関連処理が共有する構造化データの一項目です。
+     * スクロール位置復元のrootに関する状態または設定。
      */
     root: HTMLElement;
 
     /**
-     * 「revision」は、対象の内容または識別子を表す文字列です。
+     * スクロール位置復元で扱うrevisionの文字列。
      */
     revision: string;
 
     /**
-     * 「elements」は、関連する複数の対象または識別子を保持します。
+     * スクロール位置復元のelementsに関する状態または設定。
      */
     elements: HTMLElement[];
 
     /**
-     * 「sourceElements」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
+     * スクロール位置復元のsource・elementsに関する状態または設定。
      */
     sourceElements: HTMLElement[];
 }>();
 
 /**
- * clamp・unitを正規化します。
- * @param value 「clampUnit」で検証・変換する入力値です。
- * @returns 計算結果の数値です。
+ * スクロール位置復元の寸法、容量、位置、または計測値を求める。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @returns スクロール位置復元で利用する数値。
  */
 function clampUnit(value: number): number {
     return Math.min(1, Math.max(0, value));
 }
 
 /**
- * 範囲を取得または解決します。
- * @param element 処理対象の要素です。
- * @returns 「readSourceRange」が対象を取得できない場合はundefinedを返します。
+ * スクロール位置復元から必要な値またはリソースを取得する。
+ * @param element - 寸法または属性を読み取るDOM要素。
+ * @returns 副作用を完了し、値は返さない。
  */
 function readSourceRange(element: HTMLElement): SourceRange | undefined {
     const from = Number(element.dataset.sourceFrom);
@@ -100,9 +97,9 @@ function readSourceRange(element: HTMLElement): SourceRange | undefined {
 }
 
 /**
- * get・preview・source・elementsを取得または解決します。
- * @param container 「container」は、「getPreviewSourceElements」がWebview UI状態の処理対象を特定する入力です。
- * @returns 「getPreviewSourceElements」が読み取りまたは正規化した結果を返します。
+ * スクロール位置復元から必要な値またはリソースを取得する。
+ * @param container - スクロール位置復元へ渡す入力。
+ * @returns スクロール位置復元に対応する要素の一覧。
  */
 function getPreviewSourceElements(container: HTMLElement): HTMLElement[] {
     const root = container.querySelector<HTMLElement>('.rendered-markdown') ?? container;
@@ -111,27 +108,27 @@ function getPreviewSourceElements(container: HTMLElement): HTMLElement[] {
     if (cached?.root === root && cached.revision === revision) return cached.elements;
     const elements = Array.from(root.querySelectorAll<HTMLElement>('[data-source-from]'));
     const sourceElements = [...elements].sort(
-    /**
- * 「left」「right」を比較し、並び順を示す数値を返すコールバックです。
-     * @param left 比較対象の左側の値です。
-     * @param right 比較対象の右側の値です。
-     * @returns 比較対象の順序を示す負数、0、または正数を返します。
-     */
-    (left, right) => {
-        const leftRange = readSourceRange(left);
-        const rightRange = readSourceRange(right);
-        if (!leftRange) return 1;
-        if (!rightRange) return -1;
-        return leftRange.from - rightRange.from || leftRange.to - rightRange.to;
-    });
+        /**
+         * 2つの値を比較して並び順を決める。
+         * @param left - 比較対象の左側の値。
+         * @param right - 比較対象の右側の値。
+         * @returns 2つの要素の順序を示す数値。
+         */
+        (left, right) => {
+            const leftRange = readSourceRange(left);
+            const rightRange = readSourceRange(right);
+            if (!leftRange) return 1;
+            if (!rightRange) return -1;
+            return leftRange.from - rightRange.from || leftRange.to - rightRange.to;
+        });
     previewSourceElementCache.set(container, { root, revision, elements, sourceElements });
     return elements;
 }
 
 /**
- * DOM順とは異なる脚注セクションを含め、本文オフセット順に整列済みの要素を返す。
- * @param container 「container」は、「getPreviewSourceElementsByOffset」がWebview UI状態の処理対象を特定する入力です。
- * @returns 「getPreviewSourceElementsByOffset」が読み取りまたは正規化した結果を返します。
+ * スクロール位置復元から必要な値またはリソースを取得する。
+ * @param container - スクロール位置復元へ渡す入力。
+ * @returns スクロール位置復元に対応する要素の一覧。
  */
 function getPreviewSourceElementsByOffset(container: HTMLElement): HTMLElement[] {
     getPreviewSourceElements(container);
@@ -139,10 +136,10 @@ function getPreviewSourceElementsByOffset(container: HTMLElement): HTMLElement[]
 }
 
 /**
- * 要素を取得または解決します。
- * @param elements 「elements」は、「findFirstVisibleSourceElement」がWebview UI状態の処理対象を特定する入力です。
- * @param viewportTop 「viewportTop」は、「findFirstVisibleSourceElement」がWebview UI状態の処理対象を特定する入力です。
- * @returns 「findFirstVisibleSourceElement」が対象を取得できない場合はundefinedを返します。
+ * スクロール位置復元から必要な値またはリソースを取得する。
+ * @param elements - スクロール位置復元で走査または更新する要素。
+ * @param viewportTop - スクロール位置復元で扱う数値。
+ * @returns 条件に一致する値。未検出時はundefinedまたはnull。
  */
 function findFirstVisibleSourceElement(
     elements: HTMLElement[],
@@ -165,10 +162,10 @@ function findFirstVisibleSourceElement(
 }
 
 /**
- * find・source・element・at・offsetを取得または解決します。
- * @param elements 「elements」は、「findSourceElementAtOffset」がWebview UI状態の処理対象を特定する入力です。
- * @param offset 本文または選択範囲を示すゼロ基準の位置です。範囲の開始・終了や写像の基準になります。
- * @returns 「findSourceElementAtOffset」が対象を取得できない場合はundefinedを返します。
+ * スクロール位置復元から必要な値またはリソースを取得する。
+ * @param elements - スクロール位置復元で走査または更新する要素。
+ * @param offset - スクロール位置復元の位置・寸法・件数・時間を表す数値。
+ * @returns 条件に一致する値。未検出時はundefinedまたはnull。
  */
 function findSourceElementAtOffset(elements: HTMLElement[], offset: number): HTMLElement | undefined {
     let low = 0;
@@ -195,11 +192,10 @@ function findSourceElementAtOffset(elements: HTMLElement[], offset: number): HTM
 }
 
 /**
- * コンテナーを指定された全体スクロール比率へ移動する。
- * 先頭・末尾など、本文アンカーだけでは表現できない境界位置の同期に使う。
- * @param container スクロール位置を変更するコンテナー。
- * @param ratio 0から1までのスクロール比率。
- * @returns スクロール位置が変化した場合はtrue。
+ * スクロール位置復元の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+ * @param container - スクロール位置復元へ渡す入力。
+ * @param ratio - スクロール位置復元で扱う数値。
+ * @returns 条件が成立したかを示す真偽値。
  */
 export function restoreScrollRatio(container: HTMLElement, ratio: number): boolean {
     if (container.clientHeight === 0 || !Number.isFinite(ratio)) return false;
@@ -211,10 +207,9 @@ export function restoreScrollRatio(container: HTMLElement, ratio: number): boole
 }
 
 /**
- * プレビューの表示位置を、Markdownブロック内の進捗を補間したソースオフセットとして取得する。
- * 大きな画像・表・図などで描画高さがソース行数と大きく異なっても、ブロック途中の位置を失わない。
- * @param container 表示位置を取得するプレビューコンテナー。
- * @returns 復元に必要なアンカー。対象ブロックがない場合はundefined。
+ * スクロール位置復元のcapture・preview・viewportを処理し、呼び出し側へ結果または副作用を返す。
+ * @param container - スクロール位置復元へ渡す入力。
+ * @returns 副作用を完了し、値は返さない。
  */
 export function capturePreviewViewport(container: HTMLElement): PreviewViewportAnchor | undefined {
     if (container.clientHeight === 0) return undefined;
@@ -250,11 +245,10 @@ export function capturePreviewViewport(container: HTMLElement): PreviewViewportA
 }
 
 /**
- * 保存したソースオフセットを対象Markdownブロック内の割合へ変換し、
- * その割合に対応するプレビュー上の点を同じ画面位置へ復元する。
- * @param container スクロール位置を変更するプレビューコンテナー。
- * @param anchor 復元対象のソースオフセットと画面上の位置。
- * @returns 対象ブロックを見つけてスクロールできた場合はtrue。
+ * スクロール位置復元の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+ * @param container - スクロール位置復元へ渡す入力。
+ * @param anchor - スクロール位置復元へ渡す入力。
+ * @returns 条件が成立したかを示す真偽値。
  */
 export function restorePreviewViewport(container: HTMLElement, anchor: PreviewViewportAnchor): boolean {
     if (container.clientHeight === 0) return false;

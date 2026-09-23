@@ -1,10 +1,5 @@
 /**
- * @file textChanges.ts
- * 実行境界: Extension HostとWebviewの共有層。
- * 責務: 両実行境界で共有する値、プロトコル、変換を扱う。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: 呼び出し元から渡された値を変換し、外部状態を直接変更しない。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview 本文変更の範囲と順序を検証し、改行正規化後の座標へ安全に写像して適用する。
  */
 import type { TextChange } from './protocol';
 import { getMessages } from './messages';
@@ -12,10 +7,10 @@ import { getMessages } from './messages';
 export type { TextChange } from './protocol';
 
 /**
- * 変更前後の本文から、共通部分を除いた単一のテキスト変更を計算する。
- * @param before 変更前の本文。
- * @param after 変更後の本文。
- * @returns 差分がない場合は空配列、それ以外は本文中央の置換を表す変更。
+ * textchangesの寸法、容量、位置、または計測値を求める。
+ * @param before - textchangesで受け渡す文字列。
+ * @param after - textchangesで受け渡す文字列。
+ * @returns textchangesに対応する要素の一覧。
  */
 export function computeTextChanges(before: string, after: string): TextChange[] {
     // 先頭と末尾の共通部分を除外し、中央の差分を1件の置換として返す。
@@ -44,38 +39,40 @@ export function computeTextChanges(before: string, after: string): TextChange[] 
 }
 
 /**
- * 「ComposedSegment」として扱う値の型を定義します。
+ * textchangesで扱う値の種類と境界を表す型。
  */
 type ComposedSegment =
     | {
-    /**
-     * 「kind」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    kind: 'original';
-    /**
-     * 「from」は、本文または選択範囲の位置・長さを保持します。
-     */
-    from: number;
-    /**
-     * 「to」は、本文または選択範囲の位置・長さを保持します。
-     */
-    to: number }
+        /**
+         * メッセージ、項目、または処理の種類を識別する値。
+         */
+        kind: 'original';
+        /**
+         * textchangesのfromを表す数値。
+         */
+        from: number;
+        /**
+         * textchangesのtoを表す数値。
+         */
+        to: number
+    }
     | {
-    /**
-     * 「kind」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    kind: 'inserted';
-    /**
-     * 「text」は、画面または通知へ表示する文言を保持します。
-     */
-    text: string };
+        /**
+         * メッセージ、項目、または処理の種類を識別する値。
+         */
+        kind: 'inserted';
+        /**
+         * 表示・解析・変換の対象となる本文。
+         */
+        text: string
+    };
 
 /**
- * 変更を作成または組み立てます。
- * @param first 「first」は、「composeTextChanges」が関連処理の処理対象を特定する入力です。
- * @param second 「second」は、「composeTextChanges」が関連処理の処理対象を特定する入力です。
- * @param baseLength 「baseLength」は、「composeTextChanges」が関連処理の処理対象を特定する入力です。
- * @returns 「composeTextChanges」が生成または整形した関連処理の文字列を返します。
+ * textchangesのcompose・text・changesを処理し、呼び出し側へ結果または副作用を返す。
+ * @param first - textchangesへ渡す要素の一覧。
+ * @param second - textchangesへ渡す要素の一覧。
+ * @param baseLength - textchangesの位置・寸法・件数・時間を表す数値。
+ * @returns textchangesに対応する要素の一覧。
  */
 export function composeTextChanges(
     first: readonly TextChange[],
@@ -86,40 +83,40 @@ export function composeTextChanges(
     const intermediateLength = baseLength + first.reduce(
 
         /**
-         * 累積値と入力を「length」「change」を受け取り、集約結果を更新するコールバックです。
-         * @param length lengthとして渡される、このコールバックの入力値です。
-         * @param change changeとして渡される、このコールバックの入力値です。
-         * @returns 更新後の累積値を返します。
+         * 要素を順に加算して累積値を求める。
+         * @param length - 累積値へ加算する要素。
+         * @param change - 累積値へ加算する要素。
+         * @returns 要素を集約した累積値。
          */
         (length, change) => length + change.text.length - change.rangeLength,
         0
     );
     validateTextChanges(second, intermediateLength);
     if (!first.length) return second.map(
-    /**
- * 「change」を変換し、変換後の要素を返すコールバックです。
-     * @param change changeとして渡される、このコールバックの入力値です。
-     * @returns 入力要素から生成した変換後の値を返します。
-     */
-    (change) => ({ ...change }));
+        /**
+         * secondの各要素を変換して一覧化する。
+         * @param change - 本文上の1件の変更範囲。
+         * @returns 入力要素から生成した変換結果の一覧。
+         */
+        (change) => ({ ...change }));
     if (!second.length) return first.map(
-    /**
- * 「change」を変換し、変換後の要素を返すコールバックです。
-     * @param change changeとして渡される、このコールバックの入力値です。
-     * @returns 入力要素から生成した変換後の値を返します。
-     */
-    (change) => ({ ...change }));
+        /**
+         * firstの各要素を変換して一覧化する。
+         * @param change - 本文上の1件の変更範囲。
+         * @returns 入力要素から生成した変換結果の一覧。
+         */
+        (change) => ({ ...change }));
 
     const segments: ComposedSegment[] = [];
     let cursor = 0;
     for (const change of [...first].sort(
-    /**
- * 「left」「right」を比較し、並び順を示す数値を返すコールバックです。
-     * @param left 比較対象の左側の値です。
-     * @param right 比較対象の右側の値です。
-     * @returns 比較対象の順序を示す負数、0、または正数を返します。
-     */
-    (left, right) => left.rangeOffset - right.rangeOffset)) {
+        /**
+         * 2つの値を比較して並び順を決める。
+         * @param left - 比較対象の左側の値。
+         * @param right - 比較対象の右側の値。
+         * @returns 2つの要素の順序を示す数値。
+         */
+        (left, right) => left.rangeOffset - right.rangeOffset)) {
         if (cursor < change.rangeOffset) {
             segments.push({ kind: 'original', from: cursor, to: change.rangeOffset });
         }
@@ -129,13 +126,13 @@ export function composeTextChanges(
     if (cursor < baseLength) segments.push({ kind: 'original', from: cursor, to: baseLength });
 
     for (const change of [...second].sort(
-    /**
- * 「left」「right」を比較し、並び順を示す数値を返すコールバックです。
-     * @param left 比較対象の左側の値です。
-     * @param right 比較対象の右側の値です。
-     * @returns 比較対象の順序を示す負数、0、または正数を返します。
-     */
-    (left, right) => right.rangeOffset - left.rangeOffset)) {
+        /**
+         * 2つの値を比較して並び順を決める。
+         * @param left - 比較対象の左側の値。
+         * @param right - 比較対象の右側の値。
+         * @returns 2つの要素の順序を示す数値。
+         */
+        (left, right) => right.rangeOffset - left.rangeOffset)) {
         const startIndex = splitComposedSegmentsAt(segments, change.rangeOffset);
         const endIndex = splitComposedSegmentsAt(segments, change.rangeOffset + change.rangeLength);
         segments.splice(
@@ -175,10 +172,10 @@ export function composeTextChanges(
 }
 
 /**
- * 「splitComposedSegmentsAt」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param segments 解析済み入力を分割した要素の集合です。
- * @param offset 本文または選択範囲を示すゼロ基準の位置です。範囲の開始・終了や写像の基準になります。
- * @returns 計算結果の数値です。
+ * textchangesのsplit・composed・segments・atを処理し、呼び出し側へ結果または副作用を返す。
+ * @param segments - textchangesへ渡す要素の一覧。
+ * @param offset - textchangesの位置・寸法・件数・時間を表す数値。
+ * @returns textchangesで利用する数値。
  */
 function splitComposedSegmentsAt(segments: ComposedSegment[], offset: number): number {
     let position = 0;
@@ -206,9 +203,9 @@ function splitComposedSegmentsAt(segments: ComposedSegment[], offset: number): n
 }
 
 /**
- * normalize・composed・segmentsを正規化します。
- * @param segments 解析済み入力を分割した要素の集合です。
- * @returns 「normalizeComposedSegments」の副作用または状態更新を実行し、値は返しません。
+ * textchangesの入力を許可された形式へ整える。
+ * @param segments - textchangesへ渡す要素の一覧。
+ * @returns 副作用を完了し、値は返さない。
  */
 function normalizeComposedSegments(segments: ComposedSegment[]): void {
     for (let index = segments.length - 1; index >= 0; index -= 1) {
@@ -230,10 +227,10 @@ function normalizeComposedSegments(segments: ComposedSegment[]): void {
 }
 
 /**
- * 本文へ複数のテキスト変更を適用し、変更後の本文を返す。
- * @param value 変更を適用する本文。
- * @param changes 本文上の変更一覧。
- * @returns 変更適用後の本文。
+ * 本文変更を元の座標と順序に従って適用し、競合する範囲を拒否する。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @param changes - 本文へ適用する変更範囲の一覧。
+ * @returns textchangesで利用する文字列。
  * @throws {RangeError} 変更範囲が本文に対して不正な場合。
  */
 export function applyTextChanges(value: string, changes: readonly TextChange[]): string {
@@ -241,13 +238,13 @@ export function applyTextChanges(value: string, changes: readonly TextChange[]):
     validateTextChanges(changes, value.length);
     let result = value;
     for (const change of [...changes].sort(
-    /**
- * 「left」「right」を比較し、並び順を示す数値を返すコールバックです。
-     * @param left 比較対象の左側の値です。
-     * @param right 比較対象の右側の値です。
-     * @returns 比較対象の順序を示す負数、0、または正数を返します。
-     */
-    (left, right) => right.rangeOffset - left.rangeOffset)) {
+        /**
+         * 2つの値を比較して並び順を決める。
+         * @param left - 比較対象の左側の値。
+         * @param right - 比較対象の右側の値。
+         * @returns 2つの要素の順序を示す数値。
+         */
+        (left, right) => right.rangeOffset - left.rangeOffset)) {
         result = result.slice(0, change.rangeOffset)
             + change.text
             + result.slice(change.rangeOffset + change.rangeLength);
@@ -256,12 +253,12 @@ export function applyTextChanges(value: string, changes: readonly TextChange[]):
 }
 
 /**
- * 別の変更が適用された後の本文位置へ、テキスト変更の範囲を写像する。
- * @param changes 写像対象の変更一覧。
- * @param over 先に適用された変更一覧。
- * @param baseLength 両方の変更が基準とする本文の長さ。
- * @param before 同一位置の挿入を写像前側へ寄せるかどうか。
- * @returns 変更後の本文に対応する変更一覧。
+ * textchangesのmap・text・changesを処理し、呼び出し側へ結果または副作用を返す。
+ * @param changes - 本文へ適用する変更範囲の一覧。
+ * @param over - textchangesへ渡す要素の一覧。
+ * @param baseLength - textchangesの位置・寸法・件数・時間を表す数値。
+ * @param before - textchangesへ渡す入力。
+ * @returns textchangesに対応する要素の一覧。
  * @throws {Error} 変更範囲が重なって安全に写像できない場合。
  * @throws {RangeError} 変更範囲が基準本文に対して不正な場合。
  */
@@ -274,95 +271,95 @@ export function mapTextChanges(
     // 同じ基準本文に対する変更を検証し、重なりを検出しながら別の変更後の位置へ写像する。
     if (!changes.length) return [];
     if (!over.length) return changes.map(
-    /**
- * 「change」を変換し、変換後の要素を返すコールバックです。
-     * @param change changeとして渡される、このコールバックの入力値です。
-     * @returns 入力要素から生成した変換後の値を返します。
-     */
-    (change) => ({ ...change }));
+        /**
+         * changesの各要素を変換して一覧化する。
+         * @param change - 本文上の1件の変更範囲。
+         * @returns 入力要素から生成した変換結果の一覧。
+         */
+        (change) => ({ ...change }));
     validateTextChanges(changes, baseLength);
     validateTextChanges(over, baseLength);
     const remote = [...over].sort(
-    /**
- * 「left」「right」を比較し、並び順を示す数値を返すコールバックです。
-     * @param left 比較対象の左側の値です。
-     * @param right 比較対象の右側の値です。
-     * @returns 比較対象の順序を示す負数、0、または正数を返します。
-     */
-    (left, right) => left.rangeOffset - right.rangeOffset);
+        /**
+         * 2つの値を比較して並び順を決める。
+         * @param left - 比較対象の左側の値。
+         * @param right - 比較対象の右側の値。
+         * @returns 2つの要素の順序を示す数値。
+         */
+        (left, right) => left.rangeOffset - right.rangeOffset);
     return [...changes]
         .sort(
-        /**
- * 「left」「right」を比較し、並び順を示す数値を返すコールバックです。
-         * @param left 比較対象の左側の値です。
-         * @param right 比較対象の右側の値です。
-         * @returns 比較対象の順序を示す負数、0、または正数を返します。
-         */
-        (left, right) => left.rangeOffset - right.rangeOffset)
+            /**
+             * 2つの値を比較して並び順を決める。
+             * @param left - 比較対象の左側の値。
+             * @param right - 比較対象の右側の値。
+             * @returns 2つの要素の順序を示す数値。
+             */
+            (left, right) => left.rangeOffset - right.rangeOffset)
         .map(
-        /**
- * 「change」を変換し、変換後の要素を返すコールバックです。
-         * @param change changeとして渡される、このコールバックの入力値です。
-         * @returns 入力要素から生成した変換後の値を返します。
-         */
-        (change) => {
-            // 現在の変更とリモート変更の範囲が重なる場合は、安全に統合できないため失敗させる。
-            const start = change.rangeOffset;
-            const end = start + change.rangeLength;
-            for (const other of remote) {
-                const otherStart = other.rangeOffset;
-                const otherEnd = otherStart + other.rangeLength;
-                if (change.rangeLength === 0 && other.rangeLength === 0) continue;
-                if (change.rangeLength === 0) {
-                    if (start > otherStart && start < otherEnd) throw new Error(getMessages('en').internal.concurrentEditsOverlap);
-                    continue;
-                }
-                if (other.rangeLength === 0) {
-                    if (otherStart > start && otherStart < end) throw new Error(getMessages('en').internal.concurrentEditsOverlap);
-                    continue;
-                }
-                if (Math.max(start, otherStart) < Math.min(end, otherEnd)) throw new Error(getMessages('en').internal.concurrentEditsOverlap);
-            }
-
-            if (change.rangeLength === 0) {
-                // 挿入位置は、前にある変更の長さを加算して新しい位置へ移す。
-                let mapped = start;
+            /**
+             * 各changeからrange・offsetを取り出して一覧化する。
+             * @param change - changeのrange・offsetを参照する走査対象。
+             * @returns range・offsetを取り出した変換結果の一覧。
+             */
+            (change) => {
+                // 現在の変更とリモート変更の範囲が重なる場合は、安全に統合できないため失敗させる。
+                const start = change.rangeOffset;
+                const end = start + change.rangeLength;
                 for (const other of remote) {
+                    const otherStart = other.rangeOffset;
+                    const otherEnd = otherStart + other.rangeLength;
+                    if (change.rangeLength === 0 && other.rangeLength === 0) continue;
+                    if (change.rangeLength === 0) {
+                        if (start > otherStart && start < otherEnd) throw new Error(getMessages('en').internal.concurrentEditsOverlap);
+                        continue;
+                    }
+                    if (other.rangeLength === 0) {
+                        if (otherStart > start && otherStart < end) throw new Error(getMessages('en').internal.concurrentEditsOverlap);
+                        continue;
+                    }
+                    if (Math.max(start, otherStart) < Math.min(end, otherEnd)) throw new Error(getMessages('en').internal.concurrentEditsOverlap);
+                }
+
+                if (change.rangeLength === 0) {
+                    // 挿入位置は、前にある変更の長さを加算して新しい位置へ移す。
+                    let mapped = start;
+                    for (const other of remote) {
+                        const otherEnd = other.rangeOffset + other.rangeLength;
+                        if (other.rangeLength === 0 && other.rangeOffset === start) {
+                            if (!before) mapped += other.text.length;
+                        } else if (otherEnd <= start) {
+                            mapped += other.text.length - other.rangeLength;
+                        }
+                    }
+                    return { ...change, rangeOffset: mapped };
+                }
+
+                let mappedStart = start;
+                let mappedEnd = end;
+                // 置換範囲の前後にある変更量を加算して、開始・終了位置をそれぞれ移動する。
+                for (const other of remote) {
+                    const delta = other.text.length - other.rangeLength;
                     const otherEnd = other.rangeOffset + other.rangeLength;
-                    if (other.rangeLength === 0 && other.rangeOffset === start) {
-                        if (!before) mapped += other.text.length;
-                    } else if (otherEnd <= start) {
-                        mapped += other.text.length - other.rangeLength;
+                    if (other.rangeLength === 0) {
+                        if (other.rangeOffset <= start) mappedStart += delta;
+                        if (other.rangeOffset < end) mappedEnd += delta;
+                    } else {
+                        if (otherEnd <= start) mappedStart += delta;
+                        if (otherEnd <= end) mappedEnd += delta;
                     }
                 }
-                return { ...change, rangeOffset: mapped };
-            }
-
-            let mappedStart = start;
-            let mappedEnd = end;
-            // 置換範囲の前後にある変更量を加算して、開始・終了位置をそれぞれ移動する。
-            for (const other of remote) {
-                const delta = other.text.length - other.rangeLength;
-                const otherEnd = other.rangeOffset + other.rangeLength;
-                if (other.rangeLength === 0) {
-                    if (other.rangeOffset <= start) mappedStart += delta;
-                    if (other.rangeOffset < end) mappedEnd += delta;
-                } else {
-                    if (otherEnd <= start) mappedStart += delta;
-                    if (otherEnd <= end) mappedEnd += delta;
-                }
-            }
-            return { ...change, rangeOffset: mappedStart, rangeLength: mappedEnd - mappedStart };
-        });
+                return { ...change, rangeOffset: mappedStart, rangeLength: mappedEnd - mappedStart };
+            });
 }
 
 /**
- * 変更一覧を通して、本文上の単一オフセットを変更後の位置へ写像する。
- * @param offset 変更前本文上のオフセット。
- * @param changes 適用済みまたは適用予定の変更一覧。
- * @param baseLength 変更前本文の長さ。
- * @param association 境界位置を前側または後側のどちらへ関連付けるか。
- * @returns 変更後本文上のオフセット。
+ * textchangesのmap・text・offsetを処理し、呼び出し側へ結果または副作用を返す。
+ * @param offset - textchangesの位置・寸法・件数・時間を表す数値。
+ * @param changes - 本文へ適用する変更範囲の一覧。
+ * @param baseLength - textchangesの位置・寸法・件数・時間を表す数値。
+ * @param association - textchangesへ渡す入力。
+ * @returns textchangesで利用する数値。
  * @throws {RangeError} オフセットまたは変更範囲が不正な場合。
  */
 export function mapTextOffset(
@@ -379,13 +376,13 @@ export function mapTextOffset(
     validateTextChanges(changes, baseLength);
     let mapped = offset;
     for (const change of [...changes].sort(
-    /**
- * 「left」「right」を比較し、並び順を示す数値を返すコールバックです。
-     * @param left 比較対象の左側の値です。
-     * @param right 比較対象の右側の値です。
-     * @returns 比較対象の順序を示す負数、0、または正数を返します。
-     */
-    (left, right) => left.rangeOffset - right.rangeOffset)) {
+        /**
+         * 2つの値を比較して並び順を決める。
+         * @param left - 比較対象の左側の値。
+         * @param right - 比較対象の右側の値。
+         * @returns 2つの要素の順序を示す数値。
+         */
+        (left, right) => left.rangeOffset - right.rangeOffset)) {
         // オフセットより前の変更量を反映し、変更範囲内なら対応する境界へ移す。
         const end = change.rangeOffset + change.rangeLength;
         if (offset < change.rangeOffset) break;
@@ -402,23 +399,23 @@ export function mapTextOffset(
 }
 
 /**
- * テキスト変更の範囲が整数・本文内・非重複になっていることを検証する。
- * @param changes 検証対象の変更一覧。
- * @param baseLength 変更の基準となる本文の長さ。
- * @returns 検証に成功した場合は何も返さない。
+ * textchangesの入力と不変条件を検証し、違反時に失敗を通知する。
+ * @param changes - 本文へ適用する変更範囲の一覧。
+ * @param baseLength - textchangesの位置・寸法・件数・時間を表す数値。
+ * @returns 条件が成立したかを示す真偽値。
  * @throws {RangeError} 位置・長さ・本文境界・重複のいずれかが不正な場合。
  */
 export function validateTextChanges(changes: readonly TextChange[], baseLength: number): void {
     // 変更の位置・長さ・基準本文からのはみ出し・相互の重なりを検証する。
     let previousEnd = 0;
     for (const [index, change] of [...changes].sort(
-    /**
- * 「left」「right」を比較し、並び順を示す数値を返すコールバックです。
-     * @param left 比較対象の左側の値です。
-     * @param right 比較対象の右側の値です。
-     * @returns 比較対象の順序を示す負数、0、または正数を返します。
-     */
-    (left, right) => left.rangeOffset - right.rangeOffset).entries()) {
+        /**
+         * 2つの値を比較して並び順を決める。
+         * @param left - 比較対象の左側の値。
+         * @param right - 比較対象の右側の値。
+         * @returns 2つの要素の順序を示す数値。
+         */
+        (left, right) => left.rangeOffset - right.rangeOffset).entries()) {
         if (
             !Number.isInteger(change.rangeOffset)
             || !Number.isInteger(change.rangeLength)

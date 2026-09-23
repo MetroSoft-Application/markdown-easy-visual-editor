@@ -1,10 +1,5 @@
 /**
- * @file test-extension-host.mjs
- * 実行境界: 開発・検証スクリプト。
- * 責務: ビルド、スモーク、統合検証または補助生成を実行する。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: プロセス、生成物、Webview、VS Code、Chromiumなどの外部環境を操作する。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview テスト・拡張機能・hostを開発・検証環境で実行する。前提条件や失敗条件を終了コードとログで示す。
  */
 import { runTests } from '@vscode/test-electron';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -14,7 +9,9 @@ import path from 'node:path';
 delete process.env.ELECTRON_RUN_AS_NODE;
 delete process.env.VSCODE_DEV;
 
-/** 「profileRoot」は、対象ファイルまたは実行環境の場所を表す値です。 */
+/**
+ * テスト・拡張機能・hostで読み書きするリソースの場所。
+ */
 const profileRoot = await mkdtemp(path.join(os.tmpdir(), 'markdown-easy-visual-editor-vscode-'));
 try {
   await runTests({
@@ -35,9 +32,9 @@ try {
 }
 
 /**
- * remove・profileを解除または削除します。
- * @param profileRoot 処理対象のルートです。
- * @returns 「removeProfile」がExtension Host処理の入力を処理して得た固有の結果を返します。
+ * 統合テスト用VS Codeプロファイルを削除し、失敗時も後始末を再試行する。
+ * @param profileRoot - 統合テスト用プロファイルの一時ディレクトリ。
+ * @returns テスト・拡張機能・hostのremove・profileが生成する結果。
  */
 async function removeProfile(profileRoot) {
   for (let attempt = 0; attempt < 8; attempt++) {
@@ -51,9 +48,9 @@ async function removeProfile(profileRoot) {
       }
       await new Promise(
       /**
-       * 予約されたタイミングで「resolve」を受け取り、遅延処理を実行するコールバックです。
-       * @param resolve Promiseの完了または失敗を通知する関数です。
-       * @returns エラー処理またはフォールバックの結果を返します。
+       * 遅延処理の完了または失敗を待機側へ通知する。
+       * @param resolve - Promiseの成功を通知する関数。
+       * @returns 非同期処理の完了値。
        */
       (resolve) => setTimeout(resolve, 250));
     }

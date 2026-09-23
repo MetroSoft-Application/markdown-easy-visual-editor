@@ -1,10 +1,5 @@
 /**
- * @file mermaidRenderer.ts
- * 実行境界: Webview。
- * 責務: 編集UI、プレビュー、ユーザー操作を処理する。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: DOM、Webviewメッセージ、ブラウザーAPI、編集状態を操作する。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview WebviewからMermaid描画を要求し、SVG結果・PNGフォールバック・クリック領域をプレビューへ反映する。
  */
 import { createClientId } from './id';
 import { getMessages, type SupportedLanguage } from '../shared/messages';
@@ -13,176 +8,191 @@ import { sharedVsCodeApi } from './vscodeApi';
 import { webviewAssetUrl, webviewScriptNonce } from './assets';
 
 /**
- * 「MermaidTheme」として扱う値の型を定義します。
+ * Mermaidの配色プリセットを表すリテラル型。
  */
 export type MermaidTheme = 'default' | 'dark' | 'neutral';
 
 /**
- * 「InlineRenderTask」が満たすデータ契約を定義します。
+ * mermaidrendererで共有するデータ形状を表すインターフェース。
  */
 interface InlineRenderTask {
 
     /**
-     * 「source」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
+     * 解析・描画・変換の起点となる本文。
      */
     source: string;
 
     /**
-     * 「theme」は、表示テーマまたはスタイル設定を保持します。
+     * 描画や表示に適用する配色テーマ。
      */
     theme: MermaidTheme;
 
     /**
-     * 「signal」は、関連処理が共有する構造化データの一項目です。
+     * 呼び出し側のキャンセルを通知するAbortSignal。
      */
     signal?: AbortSignal;
 
     /**
-     * 「started」は、処理条件または状態を表す真偽値です。
+     * 実行キューから取り出して処理を開始した状態。
      */
     started: boolean;
 
     /**
-     * 「settled」は、処理条件または状態を表す真偽値です。
+     * 完了または失敗を通知済みの状態。
      */
     settled: boolean;
 
     /**
-     * 「cancelled」は、処理条件または状態を表す真偽値です。
+     * キャンセル済みで後続処理を開始できない状態。
      */
     cancelled: boolean;
     /**
-     * 「resolve」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-     * @param result 処理対象の結果です。
-     * @returns 「resolve」の副作用または状態更新を実行し、値は返しません。
+     * mermaidrendererから必要な値またはリソースを取得する。
+     * @param result - mermaidrendererへ渡す入力。
+     * @returns 副作用を完了し、値は返さない。
      */
     resolve: (result: MermaidRenderResult) => void;
     /**
-     * 「reject」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-     * @param error 発生したエラーです。
-     * @returns 「reject」の副作用または状態更新を実行し、値は返しません。
+     * mermaidrendererのrejectを処理し、呼び出し側へ結果または副作用を返す。
+     * @param error - 処理に失敗した理由または例外。
+     * @returns 副作用を完了し、値は返さない。
      */
     reject: (error: unknown) => void;
     /**
-     * 「removeAbortListener」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-     * @returns イベントを処理し、状態更新または副作用だけを実行して値は返しません。
+     * mermaidrendererの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+     * @returns 副作用を完了し、値は返さない。
      */
     removeAbortListener: () => void;
 }
-/** 「inlineRenderQueue」は、関連する処理間で共有する設定値または状態です。 */
-/** Webview内で順番に処理するMermaid描画要求。描画中の競合を避けるためFIFOで保持する。 */
+
+/**
+ * mermaidrendererの要求を順序付ける待機列。
+ */
 const inlineRenderQueue: InlineRenderTask[] = [];
-/** 「activeInlineRender」は、関連する処理間で共有する設定値または状態です。 */
-/** 現在Webview内で実行しているMermaid描画要求。 */
+
+/**
+ * mermaidrendererの条件を示すフラグ。
+ */
 let activeInlineRender: InlineRenderTask | undefined;
 /**
- * 「MermaidRuntime」が満たすデータ契約を定義します。
+ * mermaidrendererで共有するデータ形状を表すインターフェース。
  */
 interface MermaidRuntime {
     /**
-     * 「initialize」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-     * @param config 保存済み設定または処理経路を選択するオプションです。未設定時の既定値や正規化対象を含みます。
-     * @returns 「initialize」の副作用または状態更新を実行し、値は返しません。
+     * mermaidrendererのinitializeを処理し、呼び出し側へ結果または副作用を返す。
+     * @param config - 処理全体に適用する設定。
+     * @returns 副作用を完了し、値は返さない。
      */
     initialize(config: Record<string, unknown>): void;
     /**
-     * 「parse」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-     * @param source 処理対象のソースです。
-     * @returns 非同期処理の完了を表すPromiseです。
+     * mermaidrendererの入力を構造化した値へ変換する。
+     * @param source - 解析・描画・変換の起点となる本文。
+     * @returns mermaidrendererで利用する文字列。
      */
     parse(source: string): Promise<unknown>;
     /**
-     * 「render」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-     * @param id 「id」は、「render」がMermaid描画の処理対象を特定する入力です。
-     * @param source 処理対象のソースです。
-     * @returns 非同期処理の完了を表すPromiseです。
+     * mermaidrendererを表示用の結果へ変換する。
+     * @param id - mermaidrendererの対象や分岐を識別する値。
+     * @param source - 解析・描画・変換の起点となる本文。
+     * @returns mermaidrendererの非同期処理で得られる結果。
      */
     render(id: string, source: string): Promise<{
-    /**
-     * 「svg」は、対象の内容または識別子を表す文字列です。
-     */
-    svg: string }>;
+        /**
+         * Mermaidが生成したSVG本文。
+         */
+        svg: string
+    }>;
 }
 /**
- * Mermaidの遅延ロード結果をWebviewの各描画要求から参照するグローバル宣言です。
+ * mermaidrendererで扱う一覧または対応表。
  */
 declare global {
-    /** 遅延ロード済みMermaidランタイム、または未初期化状態を表します。 */
+    /**
+     * mermaidrendererのmermaidに関する状態または設定。
+     */
     var mermaid: MermaidRuntime | undefined;
 }
-/** 「mermaidRuntimePromise」は、非同期初期化または処理の重複を防ぐ共有Promiseです。 */
-/** Mermaidランタイムの遅延ロードを共有するPromise。複数プレビューからの重複ロードを防ぐ。 */
+
+/**
+ * mermaidrendererの非同期処理を共有するPromise。
+ */
 let mermaidRuntimePromise: Promise<MermaidRuntime> | undefined;
-/** 「HOST_RENDER_TIMEOUT_MS」は、時間制限または遅延量を処理間で共有する値です。 */
-/** Extension Hostへ依頼したMermaid描画を待機する上限時間。 */
+
+/**
+ * mermaidrendererの待機時間または期限。
+ */
 const HOST_RENDER_TIMEOUT_MS = 35_000;
-/** 「COMPACT_PREVIEW_SVG_LIMIT」は、入力・表示・資源の上限または下限を表す値です。 */
-/** DOMへ直接配置しても過度に大きくならないSVGの目安。超過時は別表示経路へ切り替える。 */
+
+/**
+ * mermaidrendererに許可する上限値。
+ */
 const COMPACT_PREVIEW_SVG_LIMIT = 80_000;
 /**
- * 「MermaidRenderResult」が満たすデータ契約を定義します。
+ * mermaidrendererの処理結果と失敗時情報のデータ形状。
  */
 export interface MermaidRenderResult {
 
     /**
-     * 「svg」は、対象の内容または識別子を表す文字列です。
+     * Mermaidが生成したSVG本文。
      */
     svg: string;
 
     /**
-     * 「pngBase64」は、対象の内容または識別子を表す文字列です。
+     * 大きなMermaid図をPNG化したBase64本文。
      */
     pngBase64?: string;
 
     /**
-     * 「interactions」は、関連する複数の対象または識別子を保持します。
+     * 図中の文字・リンク操作領域の一覧。
      */
     interactions: MermaidInteraction[];
 
     /**
-     * 「ariaLabel」は、画面または通知へ表示する文言を保持します。
+     * 図の内容を補足するアクセシビリティ用ラベル。
      */
     ariaLabel: string;
 
     /**
-     * 「external」は、処理条件または状態を表す真偽値です。
+     * mermaidrendererの状態を示すフラグ。
      */
     external: boolean;
 }
-/** 「hostRequests」は、DOMまたは実行環境を保持する共有参照です。 */
-/** Hostへ依頼中のMermaid描画をrequestIdで追跡し、応答・キャンセルを対応付ける表。 */
+
+/**
+ * mermaidrendererで扱う一覧または対応表。
+ */
 const hostRequests = new Map<string, {
     /**
-     * 「resolve」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-     * @param result 処理対象の結果です。
-     * @returns 「resolve」の副作用または状態更新を実行し、値は返しません。
+     * mermaidrendererから必要な値またはリソースを取得する。
+     * @param result - mermaidrendererへ渡す入力。
+     * @returns 副作用を完了し、値は返さない。
      */
     resolve: (result: MermaidRenderResult) => void;
     /**
-     * 「reject」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-     * @param error 発生したエラーです。
-     * @returns 「reject」の副作用または状態更新を実行し、値は返しません。
+     * mermaidrendererのrejectを処理し、呼び出し側へ結果または副作用を返す。
+     * @param error - 処理に失敗した理由または例外。
+     * @returns 副作用を完了し、値は返さない。
      */
     reject: (error: Error) => void;
 
     /**
-     * 「timer」は、位置・サイズ・件数などを表す数値です。
+     * mermaidrendererの遅延処理を管理するタイマー。
      */
     timer: number;
     /**
-     * 「removeAbortListener」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-     * @returns イベントを処理し、状態更新または副作用だけを実行して値は返しません。
+     * mermaidrendererの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+     * @returns mermaidrendererの非同期処理で得られる結果。
      */
     removeAbortListener: () => void;
 }>();
 
 /**
- * 「MermaidRenderCancelledError」クラスの状態とライフサイクルを定義します。
+ * mermaidrendererで失敗理由を表すError派生クラス。
  */
 class MermaidRenderCancelledError extends Error {
     /**
-     * 処理に必要な状態を初期化します。
-     * @returns 「constructor」がMermaid描画の入力を処理して得た固有の結果を返します。
+     * mermaidrendererで使う値または実行環境を組み立てる。
+     * @returns 初期化したインスタンス。
      */
     constructor() {
         super('Mermaid rendering was cancelled.');
@@ -191,14 +201,14 @@ class MermaidRenderCancelledError extends Error {
 }
 
 /**
- * 「MermaidHostRenderError」クラスの状態とライフサイクルを定義します。
+ * mermaidrendererで失敗理由を表すError派生クラス。
  */
 export class MermaidHostRenderError extends Error {
     /**
-     * 処理に必要な状態を初期化します。
-     * @param message 処理対象のメッセージです。
-     * @param unavailable 「unavailable」は、「constructor」がMermaid描画の処理対象を特定する入力です。
-     * @returns 「constructor」がMermaid描画の入力を処理して得た固有の結果を返します。
+     * mermaidrendererで使う値または実行環境を組み立てる。
+     * @param message - HostとWebviewの間で受け渡すメッセージ。
+     * @param unavailable - mermaidrendererの条件を示すフラグ。
+     * @returns 初期化したインスタンス。
      */
     constructor(message: string, readonly unavailable: boolean) {
         super(message);
@@ -207,14 +217,14 @@ export class MermaidHostRenderError extends Error {
 }
 
 /**
- * Mermaidソースを指定テーマでSVGへ変換し、共有設定を壊さないよう直列実行する。
- * @param source Mermaid記法のソース。
- * @param theme Mermaidへ適用するテーマ。
- * @param signal 処理対象のシグナルです。
- * @param useHostRenderer 「useHostRenderer」は、「renderMermaidSvg」がMermaid描画の処理対象を特定する入力です。
- * @param allowInlineFallback 「allowInlineFallback」は、「renderMermaidSvg」がMermaid描画の処理対象を特定する入力です。
- * @param preferInlineIfCompact 「preferInlineIfCompact」は、「renderMermaidSvg」がMermaid描画の処理対象を特定する入力です。
- * @returns 生成されたSVG文字列を解決するPromise。
+ * mermaidrendererを表示用の結果へ変換する。
+ * @param source - 解析・描画・変換の起点となる本文。
+ * @param theme - 描画や表示に適用する配色テーマ。
+ * @param signal - 呼び出し側のキャンセルを通知するAbortSignal。
+ * @param useHostRenderer - mermaidrendererへ渡す入力。
+ * @param allowInlineFallback - mermaidrendererの位置・寸法・件数・時間を表す数値。
+ * @param preferInlineIfCompact - mermaidrendererの位置・寸法・件数・時間を表す数値。
+ * @returns mermaidrendererの非同期処理で得られる結果。
  * @throws Mermaidの構文解析または描画に失敗した場合。
  */
 export function renderMermaidSvg(
@@ -229,51 +239,52 @@ export function renderMermaidSvg(
         if (preferInlineIfCompact) {
             return renderMermaidInline(source, theme, signal)
                 .then(
-                /**
- * 非同期処理の完了値を受け取り、次の処理へ渡す結果を生成するコールバックです。
-                 * @param rendered renderedとして渡される、このコールバックの入力値です。
-                 * @returns 解決値を処理した結果を返します。
-                 */
-                (rendered) => rendered.svg.length < COMPACT_PREVIEW_SVG_LIMIT
-                    ? rendered
-                    : requestHostRender(source, theme, signal))
+                    /**
+                     * renderedをrequest・host・renderへ渡し、mermaidrendererの結果または副作用を処理する。
+                     * @param rendered - mermaidrendererへ渡す入力。
+                     * @returns mermaidrendererのコールバックが生成する結果。
+                     */
+                    (rendered) => rendered.svg.length < COMPACT_PREVIEW_SVG_LIMIT
+                        ? rendered
+                        : requestHostRender(source, theme, signal))
                 .catch(
-                /**
- * 非同期処理の完了値を受け取り、次の処理へ渡す結果を生成するコールバックです。
-                 * @param error 発生したエラーです。
-                 * @returns 解決値を処理した結果を返します。
-                 */
-                (error) => {
-                    if (error instanceof MermaidRenderCancelledError) throw error;
-                    return requestHostRender(source, theme, signal);
-                });
+                    /**
+                     * errorをifへ渡し、mermaidrendererの結果または副作用を処理する。
+                     * @param error - 処理に失敗した理由または例外。
+                     * @returns 副作用を完了し、値は返さない。
+                     */
+                    (error) => {
+                        if (error instanceof MermaidRenderCancelledError) throw error;
+                        return requestHostRender(source, theme, signal);
+                    });
         }
         return requestHostRender(source, theme, signal)
             .catch(
-            /**
- * 非同期処理の失敗理由を受け取り、回復処理または代替値を生成するコールバックです。
-             * @param error 発生したエラーです。
-             * @returns エラー処理またはフォールバックの結果を返します。
-             */
-            (error) => {
-                if (!(error instanceof MermaidHostRenderError) || !error.unavailable || !allowInlineFallback) throw error;
-                return renderMermaidInline(source, theme, signal);
-            });
+                /**
+                 * errorをifへ渡し、mermaidrendererの結果または副作用を処理する。
+                 * @param error - 処理に失敗した理由または例外。
+                 * @returns 副作用を完了し、値は返さない。
+                 */
+                (error) => {
+                    if (!(error instanceof MermaidHostRenderError) || !error.unavailable || !allowInlineFallback) throw error;
+                    return renderMermaidInline(source, theme, signal);
+                });
     }
     return renderMermaidInline(source, theme, signal);
 }
 
 /**
- * ホストから返ったMermaid描画結果を、対応する要求へ配送する。
- * @param message 処理対象のメッセージです。
- * @returns 「acceptMermaidRenderResult」の副作用または状態更新を実行し、値は返しません。
+ * mermaidrendererのaccept・mermaid・render・resultを処理し、呼び出し側へ結果または副作用を返す。
+ * @param message - HostとWebviewの間で受け渡すメッセージ。
+ * @returns 副作用を完了し、値は返さない。
  */
 export function acceptMermaidRenderResult(
     message: Extract<HostToWebviewMessage, {
-    /**
-     * 「type」は、対象の識別や処理分岐に使用する値を保持します。
-     */
-    type: 'mermaidRendered' }>
+        /**
+         * mermaidrendererで対象や分岐を識別する値の型。
+         */
+        type: 'mermaidRendered'
+    }>
 ): void {
     const pending = hostRequests.get(message.requestId);
     if (!pending) return;
@@ -297,11 +308,11 @@ export function acceptMermaidRenderResult(
 }
 
 /**
- * 「requestHostRender」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param source 処理対象のソースです。
- * @param theme 処理対象のテーマです。
- * @param signal 処理対象のシグナルです。
- * @returns 非同期処理の完了を表すPromiseです。
+ * mermaidrendererの変更または要求をHost・Webview間へ通知する。
+ * @param source - 解析・描画・変換の起点となる本文。
+ * @param theme - 描画や表示に適用する配色テーマ。
+ * @param signal - 呼び出し側のキャンセルを通知するAbortSignal。
+ * @returns mermaidrendererの非同期処理で得られる結果。
  */
 function requestHostRender(
     source: string,
@@ -310,83 +321,73 @@ function requestHostRender(
 ): Promise<MermaidRenderResult> {
     const requestId = createClientId();
     return new Promise<MermaidRenderResult>(
-    /**
- * 「resolve」「reject」を受け取り、処理結果を生成する処理です。
-     * @param resolve Promiseの完了または失敗を通知する関数です。
-     * @param reject Promiseの完了または失敗を通知する関数です。
-     * @returns 「if」を実行し、値を返しません。
-     */
-    (resolve, reject) => {
-        if (signal?.aborted) {
-            reject(new MermaidRenderCancelledError());
-            return;
-        }
-
         /**
-         * 「onAbort」は、イベント入力を受け取り、関連する状態またはUIを更新する処理です。
-         * @returns 「hostRequests.get」を実行し、値を返しません。
+         * 遅延処理の完了または失敗を待機側へ通知する。
+         * @param resolve - Promiseの成功を通知する関数。
+         * @param reject - Promiseの失敗を通知する関数。
+         * @returns 非同期処理の完了値。
          */
-        const onAbort = /**
- * 「onAbort」は、イベント入力を検証し、関連する状態またはUIを更新します。
- * @returns 「hostRequests.get」を実行し、値を返しません。
- */ () => {
-            const pending = hostRequests.get(requestId);
-            if (!pending) return;
-            hostRequests.delete(requestId);
-            window.clearTimeout(pending.timer);
-            pending.removeAbortListener();
-            sharedVsCodeApi.postMessage({ type: 'cancelMermaidRender', requestId });
-            reject(new MermaidRenderCancelledError());
-        };
-        const timer = window.setTimeout(
-        /**
- * 指定時間の経過後に遅延処理を実行するコールバックです。
-         * @returns 「hostRequests.delete」を実行し、値を返しません。
-         */
-        () => {
-            hostRequests.delete(requestId);
-            signal?.removeEventListener('abort', onAbort);
-            sharedVsCodeApi.postMessage({ type: 'cancelMermaidRender', requestId });
-            reject(new MermaidHostRenderError('Mermaid host rendering timed out.', true));
-        }, HOST_RENDER_TIMEOUT_MS);
-        hostRequests.set(requestId, {
-            timer,
+        (resolve, reject) => {
+            if (signal?.aborted) {
+                reject(new MermaidRenderCancelledError());
+                return;
+            }
 
-            /**
-             * resolveを取得または解決します。
-             * @param svg 「svg」は、「resolve」がMermaid描画の処理対象を特定する入力です。
-             * @returns 「resolve」がMermaid描画の入力を処理して得た固有の結果を返します。
-             */
-            resolve: /**
- * 「resolve」は、非同期処理の完了状態を通知します。
- * @param svg 「svg」は、「resolve」がMermaidで処理する対象を特定する入力です。
- * @returns 非同期処理の完了または失敗を通知します。
- */ (svg) => {
-                if (signal?.aborted) reject(new MermaidRenderCancelledError());
-                else resolve(svg);
-            },
-            reject,
 
-            /**
-             * remove・abort・listenerを解除または削除します。
-             * @returns 「removeAbortListener」がMermaid描画の入力を処理して得た固有の結果を返します。
-             */
-            removeAbortListener: /**
- * 「removeAbortListener」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @returns 「removeAbortListener」がMermaid描画の入力を処理して得た固有の結果を返します。
- */ () => signal?.removeEventListener('abort', onAbort)
+            const onAbort = /**
+         * mermaidrendererのイベントまたはメッセージを受け取り、状態を更新する。
+         * @returns mermaidrendererのon・abortが生成する結果。
+         */ () => {
+                    const pending = hostRequests.get(requestId);
+                    if (!pending) return;
+                    hostRequests.delete(requestId);
+                    window.clearTimeout(pending.timer);
+                    pending.removeAbortListener();
+                    sharedVsCodeApi.postMessage({ type: 'cancelMermaidRender', requestId });
+                    reject(new MermaidRenderCancelledError());
+                };
+            const timer = window.setTimeout(
+                /**
+                 * 指定時間の経過後に後続処理を実行する。
+                 * @returns 副作用を完了し、値は返さない。
+                 */
+                () => {
+                    hostRequests.delete(requestId);
+                    signal?.removeEventListener('abort', onAbort);
+                    sharedVsCodeApi.postMessage({ type: 'cancelMermaidRender', requestId });
+                    reject(new MermaidHostRenderError('Mermaid host rendering timed out.', true));
+                }, HOST_RENDER_TIMEOUT_MS);
+            hostRequests.set(requestId, {
+                timer,
+
+
+                resolve: /**
+             * mermaidrendererから必要な値またはリソースを取得する。
+             * @param svg - Mermaidが生成したSVG本文。
+             * @returns mermaidrendererの非同期処理で得られる結果。
+             */ (svg) => {
+                        if (signal?.aborted) reject(new MermaidRenderCancelledError());
+                        else resolve(svg);
+                    },
+                reject,
+
+
+                removeAbortListener: /**
+             * mermaidrendererの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+             * @returns mermaidrendererの非同期処理で得られる結果。
+             */ () => signal?.removeEventListener('abort', onAbort)
+            });
+            signal?.addEventListener('abort', onAbort, { once: true });
+            sharedVsCodeApi.postMessage({ type: 'renderMermaid', requestId, source, theme });
         });
-        signal?.addEventListener('abort', onAbort, { once: true });
-        sharedVsCodeApi.postMessage({ type: 'renderMermaid', requestId, source, theme });
-    });
 }
 
 /**
- * render・mermaid・inlineを描画します。
- * @param source 処理対象のソースです。
- * @param theme 処理対象のテーマです。
- * @param signal 処理対象のシグナルです。
- * @returns 非同期処理の完了を表すPromiseです。
+ * mermaidrendererを表示用の結果へ変換する。
+ * @param source - 解析・描画・変換の起点となる本文。
+ * @param theme - 描画や表示に適用する配色テーマ。
+ * @param signal - 呼び出し側のキャンセルを通知するAbortSignal。
+ * @returns mermaidrendererの非同期処理で得られる結果。
  */
 function renderMermaidInline(
     source: string,
@@ -396,51 +397,45 @@ function renderMermaidInline(
     if (signal?.aborted) return Promise.reject(new MermaidRenderCancelledError());
     let task!: InlineRenderTask;
     const result = new Promise<MermaidRenderResult>(
-    /**
- * 「resolve」「reject」を受け取り、登録された副作用または結果を生成する処理です。
-     * @param resolve Promiseの完了または失敗を通知する関数です。
-     * @param reject Promiseの完了または失敗を通知する関数です。
-     * @returns 「cancelInlineRender」を実行し、値を返しません。
-     */
-    (resolve, reject) => {
-
         /**
-         * 「onAbort」は、イベント入力を受け取り、関連する状態またはUIを更新する処理です。
-         * @returns 「cancelInlineRender」を実行し、値を返しません。
+         * 非同期処理のcancel・inline・render通知を待機側へ渡す。
+         * @param resolve - Promiseの成功を通知する関数。
+         * @param reject - Promiseの失敗を通知する関数。
+         * @returns 非同期処理の完了値。
          */
-        const onAbort = /**
- * 「onAbort」は、イベント入力を検証し、関連する状態またはUIを更新します。
- * @returns 「cancelInlineRender」を実行し、値を返しません。
- */ () => cancelInlineRender(task);
-        task = {
-            source,
-            theme,
-            signal,
-            started: false,
-            settled: false,
-            cancelled: false,
-            resolve,
-            reject,
+        (resolve, reject) => {
 
-            /**
-             * remove・abort・listenerを解除または削除します。
-             * @returns 「removeAbortListener」がMermaid描画の入力を処理して得た固有の結果を返します。
-             */
-            removeAbortListener: /**
- * 「removeAbortListener」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @returns 「removeAbortListener」がMermaid描画の入力を処理して得た固有の結果を返します。
- */ () => signal?.removeEventListener('abort', onAbort)
-        };
-        signal?.addEventListener('abort', onAbort, { once: true });
-    });
+
+            const onAbort = /**
+         * mermaidrendererのイベントまたはメッセージを受け取り、状態を更新する。
+         * @returns 副作用を完了し、値は返さない。
+         */ () => cancelInlineRender(task);
+            task = {
+                source,
+                theme,
+                signal,
+                started: false,
+                settled: false,
+                cancelled: false,
+                resolve,
+                reject,
+
+
+                removeAbortListener: /**
+             * mermaidrendererの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+             * @returns 副作用を完了し、値は返さない。
+             */ () => signal?.removeEventListener('abort', onAbort)
+            };
+            signal?.addEventListener('abort', onAbort, { once: true });
+        });
     inlineRenderQueue.push(task);
     void drainInlineRenderQueue();
     return result;
 }
 
 /**
- * 「drainInlineRenderQueue」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @returns 非同期処理の完了を表すPromiseです。
+ * mermaidrendererの処理順序と完了状態を管理する。
+ * @returns 副作用を完了し、値は返さない。
  */
 async function drainInlineRenderQueue(): Promise<void> {
     if (activeInlineRender) return;
@@ -476,60 +471,60 @@ async function drainInlineRenderQueue(): Promise<void> {
 }
 
 /**
- * Host 描画が利用できない場合だけ、Webview 内 Mermaid を別ファイルから読む。
- * @returns 非同期処理の完了を表すPromiseです。
+ * mermaidrendererから必要な値またはリソースを取得する。
+ * @returns mermaidrendererの非同期処理で得られる結果。
  */
 function loadMermaidRuntime(): Promise<MermaidRuntime> {
     if (typeof globalThis.mermaid?.initialize === 'function') {
         return Promise.resolve(globalThis.mermaid);
     }
     mermaidRuntimePromise ??= new Promise<MermaidRuntime>(
-    /**
- * 非同期処理の失敗理由を受け取り、回復処理または代替値を生成するコールバックです。
-     * @param resolve Promiseの完了または失敗を通知する関数です。
-     * @param reject Promiseの完了または失敗を通知する関数です。
-     * @returns 「document.createElement」を実行し、値を返しません。
-     */
-    (resolve, reject) => {
-        const script = document.createElement('script');
-        script.src = webviewAssetUrl(
-            'mermaid.min.js',
-            document.body.dataset.mveMermaidUri
-        );
-        script.async = true;
-        const nonce = webviewScriptNonce();
-        if (nonce) script.nonce = nonce;
-        script.addEventListener('load',
         /**
-         * イベント情報を受け取り、DOMまたは画面状態を更新するコールバックです。
-         * @returns 非同期処理へ渡す完了結果を返します。
+         * 非同期処理の成功結果と失敗理由を待機側へ通知する。
+         * @param resolve - Promiseの成功を通知する関数。
+         * @param reject - Promiseの失敗を通知する関数。
+         * @returns 非同期処理の完了値。
          */
-        () => {
-            if (typeof globalThis.mermaid?.initialize === 'function') {
-                resolve(globalThis.mermaid);
-                return;
-            }
-            mermaidRuntimePromise = undefined;
-            reject(new Error('Mermaid runtime did not initialize.'));
-        }, { once: true });
-        script.addEventListener('error',
-        /**
-         * イベント情報を受け取り、DOMまたは画面状態を更新するコールバックです。
-         * @returns 「reject」の呼び出し結果を返します。
-         */
-        () => {
-            mermaidRuntimePromise = undefined;
-            reject(new Error('Mermaid runtime could not be loaded.'));
-        }, { once: true });
-        document.head.append(script);
-    });
+        (resolve, reject) => {
+            const script = document.createElement('script');
+            script.src = webviewAssetUrl(
+                'mermaid.min.js',
+                document.body.dataset.mveMermaidUri
+            );
+            script.async = true;
+            const nonce = webviewScriptNonce();
+            if (nonce) script.nonce = nonce;
+            script.addEventListener('load',
+                /**
+                 * イベントでifを実行する。
+                 * @returns 副作用を完了し、値は返さない。
+                 */
+                () => {
+                    if (typeof globalThis.mermaid?.initialize === 'function') {
+                        resolve(globalThis.mermaid);
+                        return;
+                    }
+                    mermaidRuntimePromise = undefined;
+                    reject(new Error('Mermaid runtime did not initialize.'));
+                }, { once: true });
+            script.addEventListener('error',
+                /**
+                 * イベントで失敗通知を実行する。
+                 * @returns 副作用を完了し、値は返さない。
+                 */
+                () => {
+                    mermaidRuntimePromise = undefined;
+                    reject(new Error('Mermaid runtime could not be loaded.'));
+                }, { once: true });
+            document.head.append(script);
+        });
     return mermaidRuntimePromise;
 }
 
 /**
- * cancel・inline・renderを解除または削除します。
- * @param task 処理対象のタスクです。
- * @returns 購読解除、タイマー解除、またはリソース破棄を実行して値は返しません。
+ * mermaidrendererの条件を判定する。
+ * @param task - mermaidrendererへ渡す入力。
+ * @returns 条件が成立したかを示す真偽値。
  */
 function cancelInlineRender(task: InlineRenderTask): void {
     if (task.cancelled || task.settled) return;
@@ -542,11 +537,11 @@ function cancelInlineRender(task: InlineRenderTask): void {
 }
 
 /**
- * 「settleInlineRender」は、入力を検証して対象の状態または内容へ適用します。
- * @param task 処理対象のタスクです。
- * @param result 処理対象の結果です。
- * @param error 発生したエラーです。
- * @returns 「settleInlineRender」の副作用または状態更新を実行し、値は返しません。
+ * mermaidrendererの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+ * @param task - mermaidrendererへ渡す入力。
+ * @param result - mermaidrendererへ渡す入力。
+ * @param error - 処理に失敗した理由または例外。
+ * @returns 副作用を完了し、値は返さない。
  */
 function settleInlineRender(task: InlineRenderTask, result?: MermaidRenderResult, error?: unknown): void {
     if (task.settled) return;
@@ -557,10 +552,10 @@ function settleInlineRender(task: InlineRenderTask, result?: MermaidRenderResult
 }
 
 /**
- * Mermaidの例外を行・列情報付きの画面表示用エラーメッセージへ変換する。
- * @param error Mermaidから受け取った例外または任意のエラー値。
- * @param language 表示文言の解決に使用する言語コードまたはロケールです。
- * @returns 画面表示用に整形したエラーメッセージ。
+ * mermaidrendererのmermaid・error・messageを処理し、呼び出し側へ結果または副作用を返す。
+ * @param error - 処理に失敗した理由または例外。
+ * @param language - mermaidrendererの対象や分岐を識別する値。
+ * @returns mermaidrendererで利用する文字列。
  */
 export function mermaidErrorMessage(error: unknown, language: SupportedLanguage = 'ja'): string {
     // Mermaidのエラー文字列から行・列情報を抽出し、画面表示用の文面に整える。

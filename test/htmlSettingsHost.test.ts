@@ -1,356 +1,339 @@
 /**
- * @file htmlSettingsHost.test.ts
- * 実行境界: テスト実行環境。
- * 責務: 現行実装の仕様と回帰条件を検証する。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: テスト用のモック、ブラウザー、ファイルを必要に応じて操作する。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview HTML設定Host・テストの回帰の仕様と回帰条件を検証する。失敗時は期待値と実装差分を示す。
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-/** 「vscodeMock」は、関連する処理間で共有する設定値または状態です。 */
-const vscodeMock = vi.hoisted(
 /**
- * テスト対象が利用するAPIまたは依存モジュールのモックを生成するコールバックです。
- * @returns 「async」を実行し、値を返しません。
+ * HTML設定Host・テストの回帰のvscode・mockをキーで再利用する対応表。
  */
-() => {
-  const state = new Map<string, unknown>();
-
-  /**
-   * 「defaultUpdate」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-   * @param key メッセージまたは設定表から値を取得する識別キーです。
-   * @param value 「defaultUpdate」で検証・変換する入力値です。
-   * @returns 非同期処理の完了を表すPromiseです。
-   */
-  const defaultUpdate = /**
- * 「defaultUpdate」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param key メッセージまたは設定表から値を取得する識別キーです。
- * @param value 「defaultUpdate」で検証・変換する入力値です。
- * @returns 「defaultUpdate」がHTML出力の入力を処理して得た固有の結果を返します。
- */ async (key: string, value: unknown): Promise<void> => {
-    state.set(key, value);
-  };
-  const globalState = {
-    get: vi.fn(
+const vscodeMock = vi.hoisted(
     /**
- * 「key」「fallback」を受け取り、処理結果を生成する処理です。
-     * @param key メッセージまたは設定表から値を取得する識別キーです。
-     * @param fallback fallbackとして渡される、このコールバックの入力値です。
-     * @returns 「key」「fallback」から生成した処理結果を返します。
+     * 要素をasyncへ渡し、HTML設定Host・テストの回帰の結果または副作用を処理する。
+     * @returns 副作用を完了し、値は返さない。
      */
-    (key: string, fallback?: unknown) => state.has(key) ? state.get(key) : fallback),
-    update: vi.fn(defaultUpdate),
-  };
-  const event = vi.fn(
-  /**
- * （dispose、getConfiguration、get、_key、fallback）を持つオブジェクトを初期化して返すコールバックです。
-   * @returns 初期化したオブジェクト（dispose、getConfiguration、get、_key、fallback）を返します。
-   */
-  () => ({ dispose: vi.fn() }));
-  return {
-    state,
-    defaultUpdate,
-    globalState,
-    event,
-    getConfiguration: vi.fn(
-    /**
- * （get、_key、fallback、workspace、onDidChangeTextDocument）を持つオブジェクトを初期化して返すコールバックです。
-     * @returns 初期化したオブジェクト（get、_key、fallback、workspace、onDidChangeTextDocument）を返します。
-     */
-    () => ({
+    () => {
+        const state = new Map<string, unknown>();
 
-      /**
-       * getを取得または解決します。
-       * @param _key 処理対象を特定する_keyの入力値です。
-       * @param fallback 「fallback」は、「get」がHTML出力の処理対象を特定する入力です。
-       * @returns 「get」が読み取りまたは正規化した結果を返します。
-       */
-      get: /**
- * 「get」は、要求された状態、値、または対象を読み取ります。
- * @param _key 「_key」は、「get」がHTMLで処理する対象を特定する入力です。
- * @param fallback 「fallback」は、「get」がHTMLで処理する対象を特定する入力です。
- * @returns 「get」が読み取りまたは正規化した結果を返します。
- */ (_key: string, fallback: unknown) => fallback,
-    })),
-  };
-});
+
+        const defaultUpdate = /**
+   * HTML設定Host・テストの回帰のdefault・updateを処理し、呼び出し側へ結果または副作用を返す。
+   * @param key - HTML設定Host・テストの回帰の対象や分岐を識別する値。
+   * @param value - 検証・変換・保存の対象となる値。
+   * @returns 副作用を完了し、値は返さない。
+   */ async (key: string, value: unknown): Promise<void> => {
+                state.set(key, value);
+            };
+        const globalState = {
+            get: vi.fn(
+                /**
+                 * keyをhasへ渡し、HTML設定Host・テストの回帰の結果または副作用を処理する。
+                 * @param key - HTML設定Host・テストの回帰の対象や分岐を識別する値。
+                 * @param fallback - HTML設定Host・テストの回帰へ渡す入力。
+                 * @returns HTML設定Host・テストの回帰のコールバックが生成する結果。
+                 */
+                (key: string, fallback?: unknown) => state.has(key) ? state.get(key) : fallback),
+            update: vi.fn(defaultUpdate),
+        };
+        const event = vi.fn(
+            /**
+             * 要素をfnへ渡し、HTML設定Host・テストの回帰の結果または副作用を処理する。
+             * @returns HTML設定Host・テストの回帰のコールバックが生成する結果。
+             */
+            () => ({ dispose: vi.fn() }));
+        return {
+            state,
+            defaultUpdate,
+            globalState,
+            event,
+            getConfiguration: vi.fn(
+                /**
+                 * HTML設定Host・テストの回帰のコールバックとして要素を処理する。
+                 * @returns HTML設定Host・テストの回帰のコールバックが生成する結果。
+                 */
+                () => ({
+
+
+                    get: /**
+       * HTML設定Host・テストの回帰から必要な値またはリソースを取得する。
+       * @param _key - HTML設定Host・テストの回帰の対象や分岐を識別する値。
+       * @param fallback - HTML設定Host・テストの回帰へ渡す入力。
+       * @returns HTML設定Host・テストの回帰のgetが生成する結果。
+       */ (_key: string, fallback: unknown) => fallback,
+                })),
+        };
+    });
 
 vi.mock('vscode',
-/**
- * 登録された処理を受け取り、イベントに応じた状態更新または委譲処理を実行するコールバックです。
- * @returns 初期化したオブジェクト（workspace、onDidChangeTextDocument、onDidChangeConfiguration、onDidGrantWorkspaceTrust、getConfiguration）を返します。
- */
-() => ({
-  workspace: {
-    onDidChangeTextDocument: vscodeMock.event,
-    onDidChangeConfiguration: vscodeMock.event,
-    onDidGrantWorkspaceTrust: vscodeMock.event,
-    getConfiguration: vscodeMock.getConfiguration,
-    isTrusted: true,
-  },
-  env: { language: 'en' },
-}));
+    /**
+     * HTML設定Host・テストの回帰のコールバックとして要素を処理する。
+     * @returns HTML設定Host・テストの回帰のコールバックが生成する結果。
+     */
+    () => ({
+        workspace: {
+            onDidChangeTextDocument: vscodeMock.event,
+            onDidChangeConfiguration: vscodeMock.event,
+            onDidGrantWorkspaceTrust: vscodeMock.event,
+            getConfiguration: vscodeMock.getConfiguration,
+            isTrusted: true,
+        },
+        env: { language: 'en' },
+    }));
 
 import { MarkdownEasyVisualEditorProvider } from '../src/extension/extension';
 import type { HtmlExportSettings } from '../src/shared/protocol';
 
-/** 「HTML_OPTIONS_STATE_KEY」は、呼び出し先へ渡す設定値の集合です。 */
+/**
+ * globalStateでHTML出力設定を保存するキー。
+ */
 const HTML_OPTIONS_STATE_KEY = 'markdownEasyVisualEditor.htmlOptions';
 
 /**
- * create・contextを作成または組み立てます。
- * @returns 「createContext」が生成したデータまたはオブジェクトを返します。
+ * HTML設定Host・テストの回帰で使う値または実行環境を組み立てる。
+ * @returns HTML設定Host・テストの回帰で生成または変換した値。
  */
 function createContext(): any {
-  return {
-    subscriptions: [],
-    globalState: vscodeMock.globalState,
-    extensionUri: {},
-  };
+    return {
+        subscriptions: [],
+        globalState: vscodeMock.globalState,
+        extensionUri: {},
+    };
 }
 
 /**
- * 文書を作成または組み立てます。
- * @param uri 「uri」は、「createDocument」がHTML出力の処理対象を特定する入力です。
- * @returns 「createDocument」が生成したデータまたはオブジェクトを返します。
+ * HTML設定Host・テストの回帰で使う値または実行環境を組み立てる。
+ * @param uri - VS Codeまたはブラウザーが扱うリソースURI。
+ * @returns HTML設定Host・テストの回帰で生成または変換した値。
  */
 function createDocument(uri = 'file:///workspace/main.md'): any {
-  return {
-    uri: {
-      scheme: 'file',
-      fsPath: uri.replace(/^file:\/\//, ''),
+    return {
+        uri: {
+            scheme: 'file',
+            fsPath: uri.replace(/^file:\/\//, ''),
 
-      /**
-       * 「toString」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-       * @returns 「toString」が生成または整形したHTML出力の文字列を返します。
-       */
-      toString: /**
- * 「toString」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @returns 「toString」が生成または整形したHTML出力の文字列を返します。
- */ () => uri,
-    },
-    version: 1,
 
-    /**
-     * 本文を取得または解決します。
-     * @returns 「getText」が読み取りまたは正規化した結果を返します。
-     */
-    getText: /**
- * 「getText」は、要求された状態、値、または対象を読み取ります。
- * @returns 「getText」が読み取りまたは正規化した結果を返します。
- */ () => '',
-  };
+            toString: /**
+       * HTML設定Host・テストの回帰のto・stringを処理し、呼び出し側へ結果または副作用を返す。
+       * @returns HTML設定Host・テストの回帰のto・stringが生成する結果。
+       */ () => uri,
+        },
+        version: 1,
+
+
+        getText: /**
+     * HTML設定Host・テストの回帰から必要な値またはリソースを取得する。
+     * @returns HTML設定Host・テストの回帰のget・textが生成する結果。
+     */ () => '',
+    };
 }
 
 /**
- * 「addPanel」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param provider 「provider」は、「addPanel」がHTML出力の処理対象を特定する入力です。
- * @param document 処理対象の文書です。
- * @returns 「addPanel」がHTML出力の入力を処理して得た固有の結果を返します。
+ * HTML設定Host・テストの回帰のadd・panelを処理し、呼び出し側へ結果または副作用を返す。
+ * @param provider - HTML設定Host・テストの回帰の対象や分岐を識別する値。
+ * @param document - HTML設定Host・テストの回帰へ渡す入力。
+ * @returns HTML設定Host・テストの回帰のadd・panelが生成する結果。
  */
 function addPanel(provider: MarkdownEasyVisualEditorProvider, document: any): any {
-  return addPanels(provider, document, 1)[0];
+    return addPanels(provider, document, 1)[0];
 }
 
 /**
- * 「addPanels」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param provider 「provider」は、「addPanels」がHTML出力の処理対象を特定する入力です。
- * @param document 処理対象の文書です。
- * @param count 処理対象の件数、容量、または上限を表す数値です。
- * @returns 「addPanels」がHTML出力の入力を処理して得た固有の結果を返します。
+ * HTML設定Host・テストの回帰のadd・panelsを処理し、呼び出し側へ結果または副作用を返す。
+ * @param provider - HTML設定Host・テストの回帰の対象や分岐を識別する値。
+ * @param document - HTML設定Host・テストの回帰へ渡す入力。
+ * @param count - HTML設定Host・テストの回帰の位置・寸法・件数・時間を表す数値。
+ * @returns HTML設定Host・テストの回帰に対応する要素の一覧。
  */
 function addPanels(provider: MarkdownEasyVisualEditorProvider, document: any, count: number): any[] {
-  const panels = Array.from({ length: count },
-  /**
- * 登録された処理から配列要素を生成するコールバックです。
-   * @returns 配列要素または初期値を返します。
-   */
-  () => ({ webview: { postMessage: vi.fn() } }));
-  const instance = provider as any;
-  const key = document.uri.toString();
-  instance.panels.set(key, new Set(panels));
-  instance.documents.set(key, document);
-  return panels;
+    const panels = Array.from({ length: count },
+        /**
+         * 要素をfnへ渡し、HTML設定Host・テストの回帰の結果または副作用を処理する。
+         * @returns 副作用を完了し、値は返さない。
+         */
+        () => ({ webview: { postMessage: vi.fn() } }));
+    const instance = provider as any;
+    const key = document.uri.toString();
+    instance.panels.set(key, new Set(panels));
+    instance.documents.set(key, document);
+    return panels;
 }
 
 /**
- * 設定を更新または保存します。
- * @param provider 「provider」は、「setHtmlOptions」がHTML出力の処理対象を特定する入力です。
- * @param document 処理対象の文書です。
- * @param panel 「panel」は、「setHtmlOptions」がHTML出力の処理対象を特定する入力です。
- * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはpanel、optionsです。
- * @returns 非同期処理の完了を表すPromiseです。
+ * HTML設定Host・テストの回帰の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+ * @param provider - HTML設定Host・テストの回帰の対象や分岐を識別する値。
+ * @param document - HTML設定Host・テストの回帰へ渡す入力。
+ * @param panel - HTML設定Host・テストの回帰へ渡す入力。
+ * @param options - 呼び出し側が指定する処理設定。
+ * @returns 副作用を完了し、値は返さない。
  */
 async function setHtmlOptions(
-  provider: MarkdownEasyVisualEditorProvider,
-  document: any,
-  panel: any,
-  options: HtmlExportSettings,
+    provider: MarkdownEasyVisualEditorProvider,
+    document: any,
+    panel: any,
+    options: HtmlExportSettings,
 ): Promise<void> {
-  await (provider as any).handleMessage(document, panel, {
-    type: 'setHtmlOptions',
-    options,
-  });
+    await (provider as any).handleMessage(document, panel, {
+        type: 'setHtmlOptions',
+        options,
+    });
 }
 
 afterEach(
-/**
- * 登録された副作用または結果を生成する処理を実行するコールバックです。
- * @returns 「vscodeMock.state.clear」を実行し、値を返しません。
- */
-() => {
-  vscodeMock.state.clear();
-  vscodeMock.globalState.get.mockClear();
-  vscodeMock.globalState.update.mockReset();
-  vscodeMock.globalState.update.mockImplementation(vscodeMock.defaultUpdate);
-  vscodeMock.getConfiguration.mockClear();
-});
+    /**
+     * HTML設定Host・テストの回帰の前提条件を準備し、回帰条件を検証するテストケース。
+     * @returns テストケースを実行し、値は返さない。
+     */
+    () => {
+        vscodeMock.state.clear();
+        vscodeMock.globalState.get.mockClear();
+        vscodeMock.globalState.update.mockReset();
+        vscodeMock.globalState.update.mockImplementation(vscodeMock.defaultUpdate);
+        vscodeMock.getConfiguration.mockClear();
+    });
 
 describe('HTML export global settings in the extension host',
-/**
- * テスト「HTML export global settings in the extension host」の前提条件を設定し、期待結果を検証するコールバックです。
- * @returns テストの前提条件と期待結果を検証し、値を返しません。
- */
-() => {
-  it('persists, broadcasts, and reloads all three global choices',
-  /**
-   * 「async」として関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-   * @returns テストの前提条件と期待結果を検証し、値を返しません。
-   */
-  async () => {
-    const provider = new MarkdownEasyVisualEditorProvider(createContext());
-    const document = createDocument();
-    const panel = addPanel(provider, document);
-
-    await setHtmlOptions(provider, document, panel, {
-      embedImages: true,
-      convertLinkedMarkdown: true,
-      saveWithoutDialog: false,
-    });
-
-    expect(vscodeMock.state.get(HTML_OPTIONS_STATE_KEY)).toEqual({
-      embedImages: true,
-      convertLinkedMarkdown: true,
-      saveWithoutDialog: false,
-    });
-    const notification = panel.webview.postMessage.mock.calls.at(-1)?.[0];
-    expect(notification.settings.htmlOptions).toEqual({
-      embedImages: true,
-      convertLinkedMarkdown: true,
-      saveWithoutDialog: false,
-    });
-
-    const nextProvider = new MarkdownEasyVisualEditorProvider(createContext());
-    const nextSettings = (nextProvider as any).getSettings(createDocument('file:///workspace/other.md'));
-    expect(nextSettings.htmlOptions).toEqual({
-      embedImages: true,
-      convertLinkedMarkdown: true,
-      saveWithoutDialog: false,
-    });
-  });
-
-  it('serializes concurrent updates and leaves the last update visible everywhere',
-  /**
-   * 「async」として関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-   * @returns テストの前提条件と期待結果を検証し、値を返しません。
-   */
-  async () => {
-    const provider = new MarkdownEasyVisualEditorProvider(createContext());
-    const document = createDocument();
-    const panels = addPanels(provider, document, 2);
-    const panel = panels[0];
-    const releases: Array<() => void> = [];
-    const started: unknown[] = [];
-    vscodeMock.globalState.update.mockImplementation(
     /**
- * テスト「serializes concurrent updates and leaves the last update visible everywhere」の前提条件を設定し、期待結果を検証するコールバックです。
-     * @param key メッセージまたは設定表から値を取得する識別キーです。
-     * @param value 「key」で検証・変換する入力値です。
-     * @returns テストの前提条件と期待結果を検証し、値を返しません。
+     * 「HTML export global settings in the extension host」の仕様と回帰条件を検証するテストケース。
+     * @returns テストケースを実行し、値は返さない。
      */
-    (key: string, value: unknown) => new Promise<void>(
-    /**
- * テスト「serializes concurrent updates and leaves the last update visible everywhere」の前提条件を設定し、期待結果を検証するコールバックです。
-     * @param resolve Promiseの完了または失敗を通知する関数です。
-     * @returns テストの前提条件と期待結果を検証し、値を返しません。
-     */
-    (resolve) => {
-      started.push(value);
-      releases.push(
-      /**
- * 登録された副作用または結果を生成する処理を実行するコールバックです。
-       * @returns 「vscodeMock.state.set」を実行し、値を返しません。
-       */
-      () => {
-        vscodeMock.state.set(key, value);
-        resolve();
-      });
-    }));
+    () => {
+        it('persists, broadcasts, and reloads all three global choices',
+            /**
+             * 「persists, broadcasts, and reloads all three global choices」の仕様と回帰条件を検証するテストケース。
+             * @returns テストケースを実行し、値は返さない。
+             */
+            async () => {
+                const provider = new MarkdownEasyVisualEditorProvider(createContext());
+                const document = createDocument();
+                const panel = addPanel(provider, document);
 
-    const first = setHtmlOptions(provider, document, panel, {
-      embedImages: true,
-      convertLinkedMarkdown: false,
-      saveWithoutDialog: true,
-    });
-    await new Promise<void>(
-    /**
-     * 予約されたタイミングで「resolve」を受け取り、遅延処理を実行するコールバックです。
-     * @param resolve Promiseの完了または失敗を通知する関数です。
-     * @returns 「setTimeout」を実行し、値を返しません。
-     */
-    (resolve) => setTimeout(resolve, 0));
-    const second = setHtmlOptions(provider, document, panel, {
-      embedImages: false,
-      convertLinkedMarkdown: true,
-      saveWithoutDialog: false,
-    });
-    await new Promise<void>(
-    /**
-     * 予約されたタイミングで「resolve」を受け取り、遅延処理を実行するコールバックです。
-     * @param resolve Promiseの完了または失敗を通知する関数です。
-     * @returns 「setTimeout」を実行し、値を返しません。
-     */
-    (resolve) => setTimeout(resolve, 0));
+                await setHtmlOptions(provider, document, panel, {
+                    embedImages: true,
+                    convertLinkedMarkdown: true,
+                    saveWithoutDialog: false,
+                });
 
-    expect(started).toHaveLength(1);
-    releases.shift()?.();
-    await new Promise<void>(
-    /**
-     * 予約されたタイミングで「resolve」を受け取り、遅延処理を実行するコールバックです。
-     * @param resolve Promiseの完了または失敗を通知する関数です。
-     * @returns 「setTimeout」を実行し、値を返しません。
-     */
-    (resolve) => setTimeout(resolve, 0));
-    expect(started).toHaveLength(2);
-    releases.shift()?.();
-    await Promise.all([first, second]);
+                expect(vscodeMock.state.get(HTML_OPTIONS_STATE_KEY)).toEqual({
+                    embedImages: true,
+                    convertLinkedMarkdown: true,
+                    saveWithoutDialog: false,
+                });
+                const notification = panel.webview.postMessage.mock.calls.at(-1)?.[0];
+                expect(notification.settings.htmlOptions).toEqual({
+                    embedImages: true,
+                    convertLinkedMarkdown: true,
+                    saveWithoutDialog: false,
+                });
 
-    expect(vscodeMock.state.get(HTML_OPTIONS_STATE_KEY)).toEqual({
-      embedImages: false,
-      convertLinkedMarkdown: true,
-      saveWithoutDialog: false,
+                const nextProvider = new MarkdownEasyVisualEditorProvider(createContext());
+                const nextSettings = (nextProvider as any).getSettings(createDocument('file:///workspace/other.md'));
+                expect(nextSettings.htmlOptions).toEqual({
+                    embedImages: true,
+                    convertLinkedMarkdown: true,
+                    saveWithoutDialog: false,
+                });
+            });
+
+        it('serializes concurrent updates and leaves the last update visible everywhere',
+            /**
+             * 「serializes concurrent updates and leaves the last update visible everywhere」の仕様と回帰条件を検証するテストケース。
+             * @returns テストケースを実行し、値は返さない。
+             */
+            async () => {
+                const provider = new MarkdownEasyVisualEditorProvider(createContext());
+                const document = createDocument();
+                const panels = addPanels(provider, document, 2);
+                const panel = panels[0];
+                const releases: Array<() => void> = [];
+                const started: unknown[] = [];
+                vscodeMock.globalState.update.mockImplementation(
+                    /**
+                     * keyを一覧追加へ渡し、HTML設定Host・テストの回帰の結果または副作用を処理する。
+                     * @param key - HTML設定Host・テストの回帰の対象や分岐を識別する値。
+                     * @param value - 検証・変換・保存の対象となる値。
+                     * @returns 副作用を完了し、値は返さない。
+                     */
+                    (key: string, value: unknown) => new Promise<void>(
+                        /**
+                         * 非同期処理の成功結果を待機側へ通知する。
+                         * @param resolve - Promiseの成功を通知する関数。
+                         * @returns 非同期処理の完了値。
+                         */
+                        (resolve) => {
+                            started.push(value);
+                            releases.push(
+                                /**
+                                 * 要素を状態設定へ渡し、HTML設定Host・テストの回帰の結果または副作用を処理する。
+                                 * @returns HTML設定Host・テストの回帰のコールバックが生成する結果。
+                                 */
+                                () => {
+                                    vscodeMock.state.set(key, value);
+                                    resolve();
+                                });
+                        }));
+
+                const first = setHtmlOptions(provider, document, panel, {
+                    embedImages: true,
+                    convertLinkedMarkdown: false,
+                    saveWithoutDialog: true,
+                });
+                await new Promise<void>(
+                    /**
+                     * 遅延処理の完了または失敗を待機側へ通知する。
+                     * @param resolve - Promiseの成功を通知する関数。
+                     * @returns 非同期処理の完了値。
+                     */
+                    (resolve) => setTimeout(resolve, 0));
+                const second = setHtmlOptions(provider, document, panel, {
+                    embedImages: false,
+                    convertLinkedMarkdown: true,
+                    saveWithoutDialog: false,
+                });
+                await new Promise<void>(
+                    /**
+                     * 遅延処理の完了または失敗を待機側へ通知する。
+                     * @param resolve - Promiseの成功を通知する関数。
+                     * @returns 非同期処理の完了値。
+                     */
+                    (resolve) => setTimeout(resolve, 0));
+
+                expect(started).toHaveLength(1);
+                releases.shift()?.();
+                await new Promise<void>(
+                    /**
+                     * 遅延処理の完了または失敗を待機側へ通知する。
+                     * @param resolve - Promiseの成功を通知する関数。
+                     * @returns 非同期処理の完了値。
+                     */
+                    (resolve) => setTimeout(resolve, 0));
+                expect(started).toHaveLength(2);
+                releases.shift()?.();
+                await Promise.all([first, second]);
+
+                expect(vscodeMock.state.get(HTML_OPTIONS_STATE_KEY)).toEqual({
+                    embedImages: false,
+                    convertLinkedMarkdown: true,
+                    saveWithoutDialog: false,
+                });
+                const notifications = panel.webview.postMessage.mock.calls.map(
+                    /**
+                     * panel.webview.post・message.mock.callsの各要素を変換して一覧化する。
+                     * @param options - 呼び出し側が指定する処理設定。
+                     * @returns 入力要素から生成した変換結果の一覧。
+                     */
+                    ([message]: any[]) => message);
+                expect(notifications.at(-1).settings.htmlOptions).toEqual({
+                    embedImages: false,
+                    convertLinkedMarkdown: true,
+                    saveWithoutDialog: false,
+                });
+                for (const currentPanel of panels) {
+                    expect(currentPanel.webview.postMessage).toHaveBeenCalled();
+                    const lastNotification = currentPanel.webview.postMessage.mock.calls.at(-1)?.[0];
+                    expect(lastNotification.settings.htmlOptions).toEqual({
+                        embedImages: false,
+                        convertLinkedMarkdown: true,
+                        saveWithoutDialog: false,
+                    });
+                }
+            });
     });
-    const notifications = panel.webview.postMessage.mock.calls.map(
-    /**
- * 「message」を変換し、変換後の要素を返すコールバックです。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはmessageです。
-     * @returns 入力要素から生成した変換後の値を返します。
-     */
-    ([message]: any[]) => message);
-    expect(notifications.at(-1).settings.htmlOptions).toEqual({
-      embedImages: false,
-      convertLinkedMarkdown: true,
-      saveWithoutDialog: false,
-    });
-    for (const currentPanel of panels) {
-      expect(currentPanel.webview.postMessage).toHaveBeenCalled();
-      const lastNotification = currentPanel.webview.postMessage.mock.calls.at(-1)?.[0];
-      expect(lastNotification.settings.htmlOptions).toEqual({
-        embedImages: false,
-        convertLinkedMarkdown: true,
-        saveWithoutDialog: false,
-      });
-    }
-  });
-});

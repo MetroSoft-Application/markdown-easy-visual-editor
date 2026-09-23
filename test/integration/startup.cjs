@@ -1,21 +1,22 @@
 /**
- * @file startup.cjs
- * 実行境界: テスト実行環境。
- * 責務: 現行実装の仕様と回帰条件を検証する。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: テスト用のモック、ブラウザー、ファイルを必要に応じて操作する。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview 起動の回帰の仕様と回帰条件を検証する。失敗時は期待値と実装差分を示す。
  */
-/** 起動テストの期待値を検証するNode標準アサーション。 */
+/**
+ * 起動の回帰のassertに関する状態または設定。
+ */
 const assert = require('node:assert/strict');
-/** 「fs」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * 起動の回帰で扱う一覧または対応表。
+ */
 const fs = require('node:fs/promises');
-/** 「vscode」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * 起動の回帰のvscodeに関する状態または設定。
+ */
 const vscode = require('vscode');
 
 /**
- * 「run」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @returns 「run」が実行した検証シナリオ処理の結果を返します。
+ * 起動の回帰の処理順序と完了状態を管理する。
+ * @returns 起動の回帰のrunが生成する結果。
  */
 async function run() {
   const filePath = process.env.MVE_STARTUP_FILE;
@@ -48,14 +49,14 @@ async function run() {
 }
 
 /**
- * wait・for・timingを待機します。
- * @param uri 「uri」は、「waitForTiming」が検証シナリオの処理対象を特定する入力です。
- * @param resultPath 「resultPath」は、「waitForTiming」が検証シナリオで処理する対象を特定する入力です。
- * @param filePath 「filePath」は、「waitForTiming」が検証シナリオで処理する対象を特定する入力です。
- * @param editorOpenedMs 「editorOpenedMs」は、「waitForTiming」が検証シナリオの処理対象を特定する入力です。
- * @param expectsMermaid 「expectsMermaid」は、「waitForTiming」が検証シナリオの処理対象を特定する入力です。
- * @param expectsPreview 「expectsPreview」は、「waitForTiming」が検証シナリオの処理対象を特定する入力です。
- * @returns 「waitForTiming」が検証シナリオの入力を処理して得た固有の結果を返します。
+ * 起動の回帰が指定条件を満たすまで待機する。
+ * @param uri - VS Codeまたはブラウザーが扱うリソースURI。
+ * @param resultPath - 計測結果を書き出すJSONファイルのパス。
+ * @param filePath - 読み書きするファイルのパス。
+ * @param editorOpenedMs - 起動の回帰へ渡す入力。
+ * @param expectsMermaid - 起動の回帰の対象や分岐を識別する値。
+ * @param expectsPreview - 起動の回帰の位置・寸法・件数・時間を表す数値。
+ * @returns 起動の回帰のwait・for・timingが生成する結果。
  */
 async function waitForTiming(uri, resultPath, filePath, editorOpenedMs, expectsMermaid, expectsPreview) {
   const deadline = Date.now() + 30_000;
@@ -83,9 +84,9 @@ async function waitForTiming(uri, resultPath, filePath, editorOpenedMs, expectsM
     }
     await new Promise(
     /**
-     * 予約されたタイミングで「resolve」を受け取り、遅延処理を実行するコールバックです。
-     * @param resolve Promiseの完了または失敗を通知する関数です。
-     * @returns エラー処理またはフォールバックの結果を返します。
+     * 遅延処理の完了または失敗を待機側へ通知する。
+     * @param resolve - Promiseの成功を通知する関数。
+     * @returns 非同期処理の完了値。
      */
     (resolve) => setTimeout(resolve, 50));
   }
@@ -93,10 +94,10 @@ async function waitForTiming(uri, resultPath, filePath, editorOpenedMs, expectsM
 }
 
 /**
- * 「persist」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param resultPath 「resultPath」は、「persist」が検証シナリオで処理する対象を特定する入力です。
- * @param value 「persist」で検証・変換する入力値です。
- * @returns 「persist」が検証シナリオの入力を処理して得た固有の結果を返します。
+ * 起動の回帰の値を保存先または共有状態へ書き出す。
+ * @param resultPath - 計測結果を書き出すJSONファイルのパス。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @returns 起動の回帰のpersistが生成する結果。
  */
 async function persist(resultPath, value) {
   assert.ok(resultPath, 'MVE_STARTUP_RESULT is required.');

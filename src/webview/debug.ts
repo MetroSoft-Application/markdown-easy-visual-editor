@@ -1,79 +1,78 @@
 /**
- * @file debug.ts
- * 実行境界: Webview。
- * 責務: 編集UI、プレビュー、ユーザー操作を処理する。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: DOM、Webviewメッセージ、ブラウザーAPI、編集状態を操作する。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview Webviewのdebugを管理する。Hostとの通信、ユーザー操作、表示状態の契約を保つ。
  */
 /**
- * 「MveDebugEntry」が満たすデータ契約を定義します。
+ * debugで共有するデータ形状を表すインターフェース。
  */
 export interface MveDebugEntry {
 
     /**
-     * 「seq」は、位置・サイズ・件数などを表す数値です。
+     * debugのseqを表す数値。
      */
     seq: number;
 
     /**
-     * 「at」は、位置・サイズ・件数などを表す数値です。
+     * debugのatを表す数値。
      */
     at: number;
 
     /**
-     * 「event」は、対象の内容または識別子を表す文字列です。
+     * ユーザー操作またはDOMから通知されたイベント。
      */
     event: string;
 
     /**
-     * 「details」は、関連する複数の対象または識別子を保持します。
+     * debugで扱うdetailsの文字列。
      */
     details: Record<string, unknown>;
 }
 
 /**
- * 「MveDebugWindow」が満たすデータ契約を定義します。
+ * debugで共有するデータ形状を表すインターフェース。
  */
 interface MveDebugWindow extends Window {
 
     /**
-     * 「__mveDebugEnabled」は、画面の表示モードまたは現在のUI状態を示します。
+     * debugの・mve・debug・enabledを示す状態フラグ。
      */
     __mveDebugEnabled?: boolean;
 
     /**
-     * 「__mveDebugLog」は、関連する複数の対象または識別子を保持します。
+     * debugの・mve・debug・logに関する状態または設定。
      */
     __mveDebugLog?: MveDebugEntry[];
     /**
-     * 呼び出し側が入力を渡し、宣言された戻り値型で結果を受け取る契約です。
-     * @returns 処理が生成または変換したWebview UIの文字列を返します。
+     * debugの・mve・debug・dumpを処理し、呼び出し側へ結果または副作用を返す。
+     * @returns debugで利用する数値。
      */
     __mveDebugDump?: () => string;
     /**
-     * 呼び出し側が入力を渡し、宣言された戻り値型で結果を受け取る契約です。
-     * @returns 状態更新または副作用を実行し、値は返しません。
+     * debugの・mve・debug・clearを処理し、呼び出し側へ結果または副作用を返す。
+     * @returns debugで利用する数値。
      */
     __mveDebugClear?: () => void;
 }
 
-/** 「sequence」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * debugのsequenceに関する状態または設定。
+ */
 let sequence = 0;
-/** 「startedAt」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * debugのstarted・atに関する状態または設定。
+ */
 const startedAt = typeof performance === 'undefined' ? Date.now() : performance.now();
 
 /**
- * 「now」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @returns 計算結果の数値です。
+ * debugのnowを処理し、呼び出し側へ結果または副作用を返す。
+ * @returns debugで利用する数値。
  */
 function now(): number {
     return typeof performance === 'undefined' ? Date.now() - startedAt : performance.now() - startedAt;
 }
 
 /**
- * is・mve・debug・enabledかどうかを判定します。
- * @returns 判定結果です。
+ * debugの条件を判定する。
+ * @returns 条件が成立したかを示す真偽値。
  */
 export function isMveDebugEnabled(): boolean {
     return typeof window !== 'undefined'
@@ -81,10 +80,10 @@ export function isMveDebugEnabled(): boolean {
 }
 
 /**
- * 「mveDebug」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param event 処理対象のイベントです。
- * @param details 「details」は、「mveDebug」がWebview UI状態の処理対象を特定する入力です。
- * @returns 「mveDebug」の副作用または状態更新を実行し、値は返しません。
+ * debugのmve・debugを処理し、呼び出し側へ結果または副作用を返す。
+ * @param event - ユーザー操作またはDOMから通知されたイベント。
+ * @param details - debugで受け渡す文字列。
+ * @returns 副作用を完了し、値は返さない。
  */
 export function mveDebug(event: string, details: Record<string, unknown> = {}): void {
     if (!isMveDebugEnabled()) return;
@@ -103,16 +102,16 @@ export function mveDebug(event: string, details: Record<string, unknown> = {}): 
     if (log.length > 500) log.splice(0, log.length - 500);
     target.__mveDebugLog = log;
     target.__mveDebugDump =
-    /**
- * 検証対象のJSONペイロードを生成する処理を実行するコールバックです。
-     * @returns 「JSON.stringify」の呼び出し結果を返します。
-     */
-    () => JSON.stringify(target.__mveDebugLog ?? [], null, 2);
+        /**
+         * debugの・mve・debug・dumpを処理し、呼び出し側へ結果または副作用を返す。
+         * @returns debugで利用する文字列。
+         */
+        () => JSON.stringify(target.__mveDebugLog ?? [], null, 2);
     target.__mveDebugClear =
-    /**
- * 登録された副作用または結果を生成する処理を実行するコールバックです。
-     * @returns 「console.info」を実行し、値を返しません。
-     */
-    () => { target.__mveDebugLog = []; };
+        /**
+         * debugの・mve・debug・clearを処理し、呼び出し側へ結果または副作用を返す。
+         * @returns debugの・mve・debug・clearが生成する結果。
+         */
+        () => { target.__mveDebugLog = []; };
     console.info(`[MVE ${entry.seq}] ${event}`, details);
 }

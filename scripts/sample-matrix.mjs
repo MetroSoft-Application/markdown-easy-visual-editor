@@ -1,20 +1,15 @@
 /**
- * @file sample-matrix.mjs
- * 実行境界: 開発・検証スクリプト。
- * 責務: ビルド、スモーク、統合検証または補助生成を実行する。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: プロセス、生成物、Webview、VS Code、Chromiumなどの外部環境を操作する。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview サンプル検証・マトリクスを開発・検証環境で実行する。前提条件や失敗条件を終了コードとログで示す。
  */
 import { chromium } from 'playwright-core';
 import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 
 /**
- * ファイルを取得または解決します。
- * @param root 処理対象のルートです。
- * @param name 対象を識別する名前で、表示または処理分岐に使用します。
- * @returns 「findFile」が読み取りまたは正規化した結果を返します。
+ * 指定した名前のファイルを検証用ディレクトリから再帰的に探す。
+ * @param root - サンプル検証・マトリクスへ渡す入力。
+ * @param name - サンプル検証・マトリクスの対象や分岐を識別する値。
+ * @returns サンプル検証・マトリクスのfind・fileが生成する結果。
  */
 async function findFile(root, name) {
   for (const entry of await readdir(root, { withFileTypes: true })) {
@@ -27,39 +22,59 @@ async function findFile(root, name) {
   }
 }
 
-/** 「executablePath」は、対象ファイルまたは実行環境の場所を表す値です。 */
+/**
+ * サンプル検証・マトリクスで読み書きするリソースの場所。
+ */
 const executablePath = await findFile(path.resolve('.chromium'), 'chrome-headless-shell.exe');
 if (!executablePath) throw new Error('Chromium がありません。npm run pdf:install-browser を実行してください。');
-/** 「entries」は、後続処理で順序を保って参照する一覧です。 */
+/**
+ * サンプル検証・マトリクスで扱う一覧または対応表。
+ */
 const entries = await readdir(path.resolve('sample'));
-/** 「samples」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * サンプル検証・マトリクスで扱う一覧または対応表。
+ */
 const samples = {};
 for (
-  /** 収集対象サンプルの連番を示すループ変数です。 */
+  /**
+   * サンプル検証・マトリクスの位置・寸法・件数・時間を表す数値。
+   */
   const index of [1, 2, 3, 4, 5, 6, 7, 9, 11]
 ) {
   const prefix = String(index).padStart(2, '0');
   const file = entries.find(
   /**
- * 「entry」が検索条件に一致するか判定するコールバックです。
-   * @param entry entryとして渡される、このコールバックの入力値です。
-   * @returns 置換後の文字列を返します。
+   * starts・withが条件に一致する最初のエントリを取得する。
+   * @param entry - エントリのstarts・withを参照する走査対象。
+   * @returns 条件に一致した最初の要素。未検出時はundefined。
    */
   (entry) => entry.startsWith(`${prefix}-`) && entry.endsWith('.md'));
   if (!file) throw new Error(`sample/${prefix} がありません。`);
   samples[index] = (await readFile(path.resolve('sample', file), 'utf8')).replace(/\r\n?/g, '\n');
 }
-/** 「localSvg」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * サンプル検証・マトリクスで解析・表示・保存する本文。
+ */
 const localSvg = await readFile(path.resolve('sample/assets/local-sample.svg'));
-/** 「markdownWorkerScript」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * サンプル検証・マトリクスで解析・表示・保存する本文。
+ */
 const markdownWorkerScript = await readFile(path.resolve('dist/markdown-worker.js'));
-/** 「markdownRichWorkerScript」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * サンプル検証・マトリクスで解析・表示・保存する本文。
+ */
 const markdownRichWorkerScript = await readFile(path.resolve('dist/markdown-rich-worker.js'));
-/** 「mermaidPngPlaceholder」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * サンプル検証・マトリクスのmermaid・png・placeholderとして利用する実行環境または外部資源。
+ */
 const mermaidPngPlaceholder = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
-/** 「browser」は、ブラウザー処理の共有状態または実行設定です。 */
+/**
+ * サンプル検証・マトリクスの位置・寸法・件数・時間を表す数値。
+ */
 const browser = await chromium.launch({ executablePath, headless: true });
-/** 「rendererBrowser」は、ブラウザー処理の共有状態または実行設定です。 */
+/**
+ * サンプル検証・マトリクスの位置・寸法・件数・時間を表す数値。
+ */
 const rendererBrowser = await chromium.launch({ executablePath, headless: true });
 try {
   const context = await browser.newContext();
@@ -67,8 +82,8 @@ try {
   const pageErrors = [];
   await context.addInitScript(
   /**
- * ブラウザーのWebviewテストで使用するグローバル状態を初期化するコールバックです。
-   * @returns 「window.__mveMessages.push」を実行し、値を返しません。
+   * 要素を一覧追加へ渡し、サンプル検証・マトリクスの結果または副作用を処理する。
+   * @returns サンプル検証・マトリクスのコールバックが生成する結果。
    */
   () => {
     window.__mveMessages = [];
@@ -79,21 +94,17 @@ try {
     window.__mveMaximumOutstandingOperations = 0;
     window.acquireVsCodeApi =
     /**
- * WebviewテストへVS Code API互換オブジェクトを提供するコールバックです。
-     * @returns 初期化したオブジェクト（postMessage）を返します。
+     * WebviewからVS Codeのメッセージ送信・状態保存APIを取得する。
+     * @returns VS Codeのメッセージ送信・状態保存API。
      */
     () => ({
 
-      /**
-       * 「postMessage」は、言語や通信契約に応じた表示文言または対応表を保持します。
-       * @param message 処理対象のメッセージです。
-       * @returns メッセージをHostまたはWebviewへ送信し、値は返しません。
-       */
+      
       postMessage: /**
- * 「postMessage」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param message 「message」は、「postMessage」が関連処理で処理する対象を特定する入力です。
- * @returns メッセージをHostまたはWebviewへ送信し、値は返しません。
- */ (message) => {
+       * サンプル検証・マトリクスの変更または要求をHost・Webview間へ通知する。
+       * @param message - HostとWebviewの間で受け渡すメッセージ。
+       * @returns サンプル検証・マトリクスのpost・messageが生成する結果。
+       */ (message) => {
         window.__mveMessages.push(message);
         if (message.type === 'localChanges') {
           window.__mveOutstandingOperations += 1;
@@ -104,10 +115,10 @@ try {
           const baseVersion = window.__mveHostVersion;
           for (const change of [...message.changes].sort(
           /**
- * 「left」「right」を比較し、並び順を示す数値を返すコールバックです。
-           * @param left 比較対象の左側の値です。
-           * @param right 比較対象の右側の値です。
-           * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+           * 2つの値を比較して並び順を決める。
+           * @param left - 比較対象の左側の値。
+           * @param right - 比較対象の右側の値。
+           * @returns 2つの要素の順序を示す数値。
            */
           (left, right) => right.rangeOffset - left.rangeOffset)) {
             window.__mveHostText = window.__mveHostText.slice(0, change.rangeOffset)
@@ -117,8 +128,8 @@ try {
           window.__mveHostVersion += 1;
           setTimeout(
           /**
- * 指定時間の経過後に遅延処理を実行するコールバックです。
-           * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+           * 指定時間の経過後に後続処理を実行する。
+           * @returns 副作用を完了し、値は返さない。
            */
           () => {
             window.__mveOutstandingOperations = Math.max(0, window.__mveOutstandingOperations - 1);
@@ -137,23 +148,17 @@ try {
         void window.__mveHostPostMessage(message);
       },
 
-      /**
-       * 状態を取得または解決します。
-       * @returns Hostが保持する保存済み状態を返し、未保存の場合はundefinedを返します。
-       */
+      
       getState: /**
- * 「getState」は、要求された状態、値、または対象を読み取ります。
- * @returns Hostが保持する保存済み状態を返し、未保存の場合はundefinedを返します。
- */ () => undefined,
+       * サンプル検証・マトリクスから必要な値またはリソースを取得する。
+       * @returns 条件に一致する値。未検出時はundefinedまたはnull。
+       */ () => undefined,
 
-      /**
-       * 状態を更新または保存します。
-       * @returns 指定された状態をHostへ保存し、値は返しません。
-       */
+      
       setState: /**
- * 「setState」は、入力を検証して対象の状態または内容へ適用します。
- * @returns 指定された状態をHostへ保存し、値は返しません。
- */ () => undefined
+       * サンプル検証・マトリクスの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+       * @returns 副作用を完了し、値は返さない。
+       */ () => undefined
     });
   });
   const rendererPage = await rendererContext.newPage();
@@ -165,24 +170,24 @@ try {
   const page = await context.newPage();
   page.on('pageerror',
   /**
- * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
-   * @param error 発生したエラーです。
-   * @returns 「error」から生成した処理結果を返します。
+   * pageerrorイベントで一覧追加を実行する。
+   * @param error - ユーザー操作またはDOMから通知されたイベント。
+   * @returns 副作用を完了し、値は返さない。
    */
   (error) => pageErrors.push(error.message));
   page.on('console',
   /**
- * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
-   * @param message 処理対象のメッセージです。
-   * @returns 「if」を実行し、値を返しません。
+   * consoleイベントでifを実行する。
+   * @param message - ユーザー操作またはDOMから通知されたイベント。
+   * @returns 副作用を完了し、値は返さない。
    */
   (message) => { if (message.type() === 'error') pageErrors.push(message.text()); });
   let closingContext = false;
   await page.exposeFunction('__mveHostPostMessage',
   /**
- * 非同期処理の完了値を受け取り、次の処理へ渡す結果を生成するコールバックです。
-   * @param message 処理対象のメッセージです。
-   * @returns 「if」を実行し、値を返しません。
+   * メッセージをifへ渡し、サンプル検証・マトリクスの結果または副作用を処理する。
+   * @param message - HostとWebviewの間で受け渡すメッセージ。
+   * @returns サンプル検証・マトリクスのコールバックが生成する結果。
    */
   (message) => {
     if (closingContext) return;
@@ -193,8 +198,8 @@ try {
     if (message.type !== 'renderMermaid') return;
     rendererQueue = rendererQueue.then(
     /**
-     * 「async」として関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-     * @returns 解決値を処理した結果を返します。
+     * 要素をifへ渡し、サンプル検証・マトリクスの結果または副作用を処理する。
+     * @returns サンプル検証・マトリクスのコールバックが生成する結果。
      */
     async () => {
       if (cancelledRenderRequests.delete(message.requestId)) return;
@@ -202,14 +207,14 @@ try {
         const rendered = lightweightMermaidRendering
           ? await new Promise(
           /**
-           * 予約されたタイミングで「resolve」を受け取り、遅延処理を実行するコールバックです。
-           * @param resolve Promiseの完了または失敗を通知する関数です。
-           * @returns 解決値を処理した結果を返します。
+           * 遅延処理の完了または失敗を待機側へ通知する。
+           * @param resolve - Promiseの成功を通知する関数。
+           * @returns 非同期処理の完了値。
            */
           (resolve) => setTimeout(
           /**
- * 指定時間の経過後に遅延処理を実行するコールバックです。
-           * @returns 「resolve」を実行し、値を返しません。
+           * 指定時間の経過後に後続処理を実行する。
+           * @returns 副作用を完了し、値は返さない。
            */
           () => resolve({
               svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80"><text x="8" y="42">Mermaid host result</text></svg>',
@@ -218,9 +223,9 @@ try {
             }), 20))
           : await rendererPage.evaluate(
           /**
- * 「source」「theme」「requestId」を受け取り、登録された副作用または結果を生成する処理です。
-           * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはsource、theme、requestIdです。
-           * @returns 「window.mermaid.initialize」を実行し、値を返しません。
+           * ブラウザー内の「svg」を読み取り、検証用の値へ変換する。
+           * @param options - ブラウザー内で評価するコールバック。
+           * @returns ブラウザー内で読み取った値または変換結果。
            */
           async ({ source, theme, requestId }) => {
               window.mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme, suppressErrorRendering: true });
@@ -234,9 +239,9 @@ try {
               const rootRect = root.getBoundingClientRect();
               const interactions = [...root.querySelectorAll('text, foreignObject')].slice(0, 500).map(
               /**
- * 「element」を変換し、変換後の要素を返すコールバックです。
-               * @param element 処理対象の要素です。
-               * @returns 入力要素から生成した変換後の値を返します。
+               * 各要素からget・bounding・client・rectを取り出して一覧化する。
+               * @param element - 要素のget・bounding・client・rectを参照する走査対象。
+               * @returns get・bounding・client・rectを取り出した変換結果の一覧。
                */
               (element) => {
                 const rect = element.getBoundingClientRect();
@@ -250,17 +255,17 @@ try {
                 };
               }).filter(
               /**
- * 「item」が条件に一致するか判定し、残す要素を決めるコールバックです。
-               * @param item 変換または処理の対象となる値です。
-               * @returns 要素を採用するかどうかの真偽値を返します。
+               * 本文の条件を満たす項目だけを残す。
+               * @param item - 項目の本文を参照する走査対象。
+               * @returns 条件を満たした要素だけを含む一覧。
                */
               (item) => item.text && item.width > 0 && item.height > 0);
               container.remove();
               return { svg, interactions, ariaLabel: interactions.slice(0, 20).map(
               /**
- * 「item」を変換し、変換後の要素を返すコールバックです。
-               * @param item 変換または処理の対象となる値です。
-               * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+               * 各項目から本文を取り出して一覧化する。
+               * @param item - 項目の本文を参照する走査対象。
+               * @returns 本文を取り出した変換結果の一覧。
                */
               (item) => item.text).join(', ') };
             }, message);
@@ -269,9 +274,9 @@ try {
         if (closingContext || page.isClosed()) return;
         await page.evaluate(
         /**
- * 「requestId」「result」を受け取り、Webviewへメッセージイベントを発火する処理です。
-         * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはrequestId、resultです。
-         * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+         * Webviewの実行状態のdispatch・event結果を読み取り、検証用の値へ変換する。
+         * @param options - ブラウザー内で評価するコールバック。
+         * @returns ブラウザー内で読み取った値または変換結果。
          */
         ({ requestId, result }) => {
           window.dispatchEvent(new MessageEvent('message', {
@@ -282,9 +287,9 @@ try {
         if (closingContext || page.isClosed()) return;
         await page.evaluate(
         /**
- * 非同期処理の失敗理由を受け取り、回復処理または代替値を生成するコールバックです。
-         * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはrequestId、textです。
-         * @returns エラー処理またはフォールバックの結果を返します。
+         * Webviewの実行状態のdispatch・event結果を読み取り、検証用の値へ変換する。
+         * @param options - ブラウザー内で評価するコールバック。
+         * @returns ブラウザー内で読み取った値または変換結果。
          */
         ({ requestId, text }) => {
           window.dispatchEvent(new MessageEvent('message', {
@@ -295,11 +300,10 @@ try {
     });
   });
   page.setDefaultTimeout(7_000);
-  await page.route('https://mve.test/sample/assets/**',
-  /**
-   * 「async」として「route」を受け取り、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-   * @param route 「route」は、「async」が関連処理の処理対象を特定する入力です。
-   * @returns 「if」を実行し、値を返しません。
+  await page.route('https://mve.test/sample/assets/**
+   * routeをifへ渡し、サンプル検証・マトリクスの結果または副作用を処理する。
+   * @param route - サンプル検証・マトリクスへ渡す入力。
+   * @returns サンプル検証・マトリクスのコールバックが生成する結果。
    */
   async (route) => {
     if (route.request().url().endsWith('/local-sample.svg')) {
@@ -310,18 +314,18 @@ try {
   });
   await page.route('https://mve.test/dist/markdown-worker.js',
   /**
-   * 「async」として「route」を受け取り、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-   * @param route 「route」は、「async」が関連処理の処理対象を特定する入力です。
-   * @returns 「route.fulfill」を実行し、値を返しません。
+   * routeをfulfillへ渡し、サンプル検証・マトリクスの結果または副作用を処理する。
+   * @param route - サンプル検証・マトリクスへ渡す入力。
+   * @returns サンプル検証・マトリクスのコールバックが生成する結果。
    */
   async (route) => {
     await route.fulfill({ status: 200, contentType: 'text/javascript', body: markdownWorkerScript });
   });
   await page.route('https://mve.test/dist/markdown-rich-worker.js',
   /**
-   * 「async」として「route」を受け取り、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-   * @param route 「route」は、「async」が関連処理の処理対象を特定する入力です。
-   * @returns 「route.fulfill」を実行し、値を返しません。
+   * routeをfulfillへ渡し、サンプル検証・マトリクスの結果または副作用を処理する。
+   * @param route - サンプル検証・マトリクスへ渡す入力。
+   * @returns サンプル検証・マトリクスのコールバックが生成する結果。
    */
   async (route) => {
     await route.fulfill({
@@ -332,9 +336,9 @@ try {
   });
   await page.route('https://mve.test/sample/',
   /**
-   * 「async」として「route」を受け取り、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-   * @param route 「route」は、「async」が関連処理の処理対象を特定する入力です。
-   * @returns 「route.fulfill」を実行し、値を返しません。
+   * routeをfulfillへ渡し、サンプル検証・マトリクスの結果または副作用を処理する。
+   * @param route - サンプル検証・マトリクスへ渡す入力。
+   * @returns サンプル検証・マトリクスのコールバックが生成する結果。
    */
   async (route) => {
     await route.fulfill({
@@ -349,14 +353,14 @@ try {
   try {
     await page.waitForFunction(
     /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-     * @returns 期待条件の真偽値または条件に一致した要素を返します。
+     * HostとWebviewのメッセージ状態が完了条件を満たすまで待機する。
+     * @returns サンプル検証・マトリクスのコールバックが生成する結果。
      */
     () => window.__mveMessages.some(
     /**
- * 「message」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+     * サンプル検証・マトリクスのコールバックとしてメッセージを処理する。
+     * @param message - HostとWebviewの間で受け渡すメッセージ。
+     * @returns サンプル検証・マトリクスのコールバックが生成する結果。
      */
     (message) => message.type === 'ready'));
   } catch (error) {
@@ -365,33 +369,33 @@ try {
   const settings = { imageDirectory: 'assets/${documentBasename}', maxPasteSizeMb: 20, remoteImagesEnabled: false, mermaidTheme: 'default', mermaidHostRendering: true, workspaceTrusted: true };
   await page.evaluate(
   /**
- * 「value」を受け取り、Webviewへメッセージイベントを発火する処理です。
-   * @param value 「value」で検証・変換する入力値です。
-   * @returns エラー処理またはフォールバックの結果を返します。
+   * Host側の本文状態を読み取り、検証用の値へ変換する。
+   * @param value - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (value) => { window.__mveHostText = value; }, samples[1]);
   await page.evaluate(
   /**
- * 非同期処理の失敗理由を受け取り、回復処理または代替値を生成するコールバックです。
-   * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはvalue、settingsです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * Webviewの実行状態のdispatch・event結果を読み取り、検証用の値へ変換する。
+   * @param options - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   ({ value, settings: initSettings }) => window.dispatchEvent(new MessageEvent('message', { data: { type: 'init', text: value, version: 1, uri: 'file:///C:/sample.md', settings: initSettings } })), { value: samples[1], settings });
   await page.locator('.split-editor').waitFor();
 
   /**
-   * loadを取得または解決します。
-   * @param index 本文、表、配列内の対象位置を示すインデックスです。
-   * @returns 「load」が準備した関連処理の結果をPromiseで返します。
+   * サンプル検証・マトリクスから必要な値またはリソースを取得する。
+   * @param index - 配列・行列・文字列の要素位置を示す番号。
+   * @returns サンプル検証・マトリクスのloadが生成する結果。
    */
   async function load(index) {
     const value = samples[index];
     const heading = (/^#\s+(.+)$/m.exec(value)?.[1] ?? '').replace(/\s+\{#[^}]+\}\s*$/, '');
     await page.evaluate(
     /**
- * 「text」を受け取り、Webviewへメッセージイベントを発火する処理です。
-     * @param text 処理対象の本文です。
-     * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+     * Host側の本文状態のwhile結果を読み取り、検証用の値へ変換する。
+     * @param text - ブラウザー内で評価するコールバック。
+     * @returns ブラウザー内で読み取った値または変換結果。
      */
     (text) => {
       const before = window.__mveHostText;
@@ -413,17 +417,17 @@ try {
     }, value);
     await page.waitForFunction(
     /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-     * @param text 処理対象の本文です。
-     * @returns 「text」から生成した処理結果を返します。
+     * ブラウザー内に「.split-preview」が現れるまで待機する。
+     * @param text - ブラウザー内で評価するコールバック。
+     * @returns サンプル検証・マトリクスのコールバックが生成する結果。
      */
     (text) => document.querySelector('.split-preview')?.textContent?.includes(text), heading);
     try {
       await page.waitForFunction(
       /**
- * 非同期処理の失敗理由を受け取り、回復処理または代替値を生成するコールバックです。
-       * @param expectedLength expectedLengthとして渡される、このコールバックの入力値です。
-       * @returns 「expectedLength」から生成した処理結果を返します。
+       * ブラウザー内に「.source-editor」が現れるまで待機する。
+       * @param expectedLength - ブラウザー内で評価するコールバック。
+       * @returns サンプル検証・マトリクスのコールバックが生成する結果。
        */
       (expectedLength) => (
         Number(document.querySelector('.source-editor')?.getAttribute('data-document-length')) === expectedLength
@@ -442,8 +446,8 @@ try {
   await load(3);
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @returns 期待条件の真偽値または条件に一致した要素を返します。
+   * ブラウザー内に「.split-preview img[src*=」が現れるまで待機する。
+   * @returns サンプル検証・マトリクスのコールバックが生成する結果。
    */
   () => document.querySelector('.split-preview img[src*="local-sample.svg"]')?.naturalWidth > 0);
   if (!(await page.locator('.split-preview .blocked-image').count())) throw new Error('sample/03 のリモート画像制御を確認できません。');
@@ -453,8 +457,8 @@ try {
   if ((await page.locator('.split-preview .code-figure').count()) < 1) throw new Error('sample/05 のコードブロックを確認できません。');
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @returns 期待条件の真偽値または条件に一致した要素を返します。
+   * ブラウザーのDOM状態が完了条件を満たすまで待機する。
+   * @returns サンプル検証・マトリクスのコールバックが生成する結果。
    */
   () => document.body.dataset.mveMarkdownWorkerStatus === 'ready');
   if (!(await page.locator('.split-preview code .hljs-keyword, .split-preview code .hljs-built_in, .split-preview code .hljs-selector-tag').count())) {
@@ -463,16 +467,16 @@ try {
   await page.locator('.split-preview .mermaid').first().scrollIntoViewIfNeeded();
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @returns 期待条件の真偽値または条件に一致した要素を返します。
+   * ブラウザー内に「.split-preview .mermaid[data-mermaid-status=」が現れるまで待機する。
+   * @returns サンプル検証・マトリクスのコールバックが生成する結果。
    */
   () => document.querySelectorAll('.split-preview .mermaid[data-mermaid-status="ready"]').length >= 1);
   await load(6);
   await page.locator('.split-preview .mermaid').first().scrollIntoViewIfNeeded();
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @returns 期待条件の真偽値または条件に一致した要素を返します。
+   * ブラウザー内に「.split-preview .mermaid[data-mermaid-status=」が現れるまで待機する。
+   * @returns サンプル検証・マトリクスのコールバックが生成する結果。
    */
   () => document.querySelectorAll('.split-preview .mermaid[data-mermaid-status="ready"]').length >= 1);
   if (!(await page.locator('.split-preview .katex').count()) || !(await page.locator('.split-preview table').count())) throw new Error('sample/06 の数式・表を確認できません。');
@@ -483,14 +487,14 @@ try {
   if (!(await page.locator('.split-preview').textContent()).includes('verylongtoken_without_break_points_')) throw new Error('sample/07 の長いRaw文字列を確認できません。');
   const renderRequestStart = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * HostとWebviewのメッセージ状態のfilter結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => window.__mveMessages.filter(
   /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-   * @param message 処理対象のメッセージです。
-   * @returns 要素を採用するかどうかの真偽値を返します。
+   * 種別「renderMermaid」のメッセージだけを残す。
+   * @param message - メッセージのtypeを参照する走査対象。
+   * @returns 条件を満たした要素だけを含む一覧。
    */
   (message) => message.type === 'renderMermaid').length);
   await load(11);
@@ -498,8 +502,8 @@ try {
   await page.locator('.cm-content').press('Control+Home');
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * ブラウザー内に「.cm-scroller」が現れるまで待機する。
+   * @returns サンプル検証・マトリクスのコールバックが生成する結果。
    */
   () => (document.querySelector('.cm-scroller')?.scrollTop ?? 0) < 80);
   // scrollIntoViewだけでは直前のソース→プレビュー同期に上書きされ得る。
@@ -507,16 +511,16 @@ try {
   await page.locator('.split-preview').dispatchEvent('wheel', { deltaY: 1 });
   await page.locator('.split-preview .mermaid').first().evaluate(
   /**
- * 「node」を受け取り、検証対象のJSONペイロードを生成する処理です。
-   * @param node nodeとして渡される、このコールバックの入力値です。
-   * @returns 「node」から生成した処理結果を返します。
+   * ブラウザー内の状態のscroll・into・view結果を読み取り、検証用の値へ変換する。
+   * @param node - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (node) => node.scrollIntoView({ block: 'center' }));
   try {
     await page.waitForFunction(
     /**
- * 非同期処理の失敗理由を受け取り、回復処理または代替値を生成するコールバックです。
-     * @returns 期待条件の真偽値または条件に一致した要素を返します。
+     * ブラウザー内に「.split-preview」が現れるまで待機する。
+     * @returns サンプル検証・マトリクスのコールバックが生成する結果。
      */
     () => {
       const container = document.querySelector('.split-preview');
@@ -529,8 +533,8 @@ try {
   } catch (error) {
     const state = await page.evaluate(
     /**
-     * Promiseの失敗理由を受け取り、エラー表示またはフォールバックを実行するコールバックです。
-     * @returns エラー処理またはフォールバックの結果を返します。
+     * ブラウザー内の「.split-preview」を読み取り、検証用の値へ変換する。
+     * @returns ブラウザー内で読み取った値または変換結果。
      */
     () => ({
       previewScrollTop: document.querySelector('.split-preview')?.scrollTop,
@@ -540,32 +544,32 @@ try {
   }
   await page.evaluate(
   /**
- * 非同期処理の失敗理由を受け取り、回復処理または代替値を生成するコールバックです。
-   * @returns 「performance.now」を実行し、値を返しません。
+   * Webviewの実行状態のnow結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => {
     window.__mveResponsiveness = { startedAt: performance.now(), previous: performance.now(), maximumGap: 0, ticks: 0 };
     window.__mveLongTasks = [];
     window.__mveLongTaskObserver = new PerformanceObserver(
     /**
- * 「list」を受け取り、登録された副作用または結果を生成する処理です。
-     * @param list 処理対象となる複数要素の集合です。
-     * @returns 「window.__mveLongTasks.push」を実行し、値を返しません。
+     * listを一覧追加へ渡し、サンプル検証・マトリクスの結果または副作用を処理する。
+     * @param list - サンプル検証・マトリクスへ渡す入力。
+     * @returns サンプル検証・マトリクスのコールバックが生成する結果。
      */
     (list) => {
       window.__mveLongTasks.push(...list.getEntries().map(
       /**
- * 「entry」を変換し、変換後の要素を返すコールバックです。
-       * @param entry entryとして渡される、このコールバックの入力値です。
-       * @returns 入力要素から生成した変換後の値を返します。
+       * 各エントリからstart・timeを取り出して一覧化する。
+       * @param entry - エントリのstart・timeを参照する走査対象。
+       * @returns start・timeを取り出した変換結果の一覧。
        */
       (entry) => ({ startTime: entry.startTime, duration: entry.duration })));
     });
     window.__mveLongTaskObserver.observe({ type: 'longtask', buffered: false });
     window.__mveResponsivenessTimer = setInterval(
     /**
- * 一定間隔で状態を監視または更新するコールバックです。
-     * @returns 定期監視または状態更新を実行し、値を返しません。
+     * 要素をnowへ渡し、サンプル検証・マトリクスの結果または副作用を処理する。
+     * @returns サンプル検証・マトリクスのコールバックが生成する結果。
      */
     () => {
       const state = window.__mveResponsiveness;
@@ -578,29 +582,29 @@ try {
   try {
     await page.waitForFunction(
     /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-     * @param start startとして渡される、このコールバックの入力値です。
-     * @returns 「start」が開始した処理の結果または非同期Promiseを返します。
+     * HostとWebviewのメッセージ状態が完了条件を満たすまで待機する。
+     * @param start - ブラウザー内で評価するコールバック。
+     * @returns サンプル検証・マトリクスのコールバックが生成する結果。
      */
     (start) => window.__mveMessages.filter(
     /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns 要素を採用するかどうかの真偽値を返します。
+     * 種別「renderMermaid」のメッセージだけを残す。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件を満たした要素だけを含む一覧。
      */
     (message) => message.type === 'renderMermaid').length > start, renderRequestStart);
   } catch (error) {
     const mermaidWaitState = await page.evaluate(
     /**
-     * 配列要素を採用するか判定するコールバックです。
-     * @returns 要素を採用するかどうかの真偽値を返します。
+     * ブラウザー内の「.split-preview」を読み取り、検証用の値へ変換する。
+     * @returns ブラウザー内で読み取った値または変換結果。
      */
     () => ({
       inputActive: document.body.dataset.mveInputActive,
       preview: (
       /**
-       * Promiseの失敗理由を受け取り、エラー表示またはフォールバックを実行するコールバックです。
-       * @returns エラー処理またはフォールバックの結果を返します。
+       * 要素をquery・selectorへ渡し、サンプル検証・マトリクスの結果または副作用を処理する。
+       * @returns サンプル検証・マトリクスのコールバックが生成する結果。
        */
       () => {
         const element = document.querySelector('.split-preview');
@@ -608,9 +612,9 @@ try {
       })(),
       nodes: [...document.querySelectorAll('.split-preview .mermaid')].slice(0, 5).map(
       /**
- * 「node」を変換し、変換後の要素を返すコールバックです。
-       * @param node nodeとして渡される、このコールバックの入力値です。
-       * @returns 入力要素から生成した変換後の値を返します。
+       * 各DOMノードからis・connectedを取り出して一覧化する。
+       * @param node - DOMノードのis・connectedを参照する走査対象。
+       * @returns is・connectedを取り出した変換結果の一覧。
        */
       (node) => ({
         connected: node.isConnected,
@@ -620,16 +624,16 @@ try {
       })),
       requestCount: window.__mveMessages.filter(
       /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-       * @param message 処理対象のメッセージです。
-       * @returns 要素を採用するかどうかの真偽値を返します。
+       * 種別「renderMermaid」のメッセージだけを残す。
+       * @param message - メッセージのtypeを参照する走査対象。
+       * @returns 条件を満たした要素だけを含む一覧。
        */
       (message) => message.type === 'renderMermaid').length,
       lastMessages: window.__mveMessages.slice(-5).map(
       /**
- * 「message」を変換し、変換後の要素を返すコールバックです。
-       * @param message 処理対象のメッセージです。
-       * @returns 入力要素から生成した変換後の値を返します。
+       * 各メッセージからtypeを取り出して一覧化する。
+       * @param message - メッセージのtypeを参照する走査対象。
+       * @returns typeを取り出した変換結果の一覧。
        */
       (message) => message.type),
       documentLength: document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-document-length'),
@@ -641,8 +645,8 @@ try {
   await page.keyboard.press('x');
   const initialBlurDuration = await page.evaluate(
   /**
- * 処理結果を生成する処理を実行するコールバックです。
-   * @returns Webviewの状態から取得した値を返します。
+   * ブラウザーのDOM状態のnow結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => {
     const startedAt = performance.now();
@@ -652,8 +656,8 @@ try {
   await page.waitForTimeout(2_500);
   const responsiveness = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns Webviewの状態から取得した値を返します。
+   * Webviewの実行状態のclear・interval結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => {
     clearInterval(window.__mveResponsivenessTimer);
@@ -669,17 +673,17 @@ try {
       timingMarks: performance.getEntriesByType('mark')
         .filter(
         /**
- * 「entry」が条件に一致するか判定し、残す要素を決めるコールバックです。
-         * @param entry entryとして渡される、このコールバックの入力値です。
-         * @returns 要素を採用するかどうかの真偽値を返します。
+         * nameの条件を満たすエントリだけを残す。
+         * @param entry - エントリのnameを参照する走査対象。
+         * @returns 条件を満たした要素だけを含む一覧。
          */
         (entry) => entry.name.startsWith('mve-preview-'))
         .slice(-12)
         .map(
         /**
- * 「entry」を変換し、変換後の要素を返すコールバックです。
-         * @param entry entryとして渡される、このコールバックの入力値です。
-         * @returns 入力要素から生成した変換後の値を返します。
+         * 各エントリからnameを取り出して一覧化する。
+         * @param entry - エントリのnameを参照する走査対象。
+         * @returns nameを取り出した変換結果の一覧。
          */
         (entry) => ({ name: entry.name, startTime: entry.startTime }))
     };
@@ -690,45 +694,45 @@ try {
   try {
     await page.waitForFunction(
     /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-     * @returns 期待条件の真偽値または条件に一致した要素を返します。
+     * ブラウザー内に「.split-preview .mermaid-svg-image」が現れるまで待機する。
+     * @returns 副作用を完了し、値は返さない。
      */
     () => document.querySelectorAll('.split-preview .mermaid-svg-image').length >= 1, undefined, { timeout: 15_000 });
   } catch (error) {
     const mermaidFailure = await page.evaluate(
     /**
-     * Promiseの失敗理由を受け取り、エラー表示またはフォールバックを実行するコールバックです。
-     * @returns エラー処理またはフォールバックの結果を返します。
+     * ブラウザー内の「.split-preview .rendered-markdown」を読み取り、検証用の値へ変換する。
+     * @returns ブラウザー内で読み取った値または変換結果。
      */
     () => ({
       requests: window.__mveMessages.filter(
       /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-       * @param message 処理対象のメッセージです。
-       * @returns 要素を採用するかどうかの真偽値を返します。
+       * 種別「renderMermaid」のメッセージだけを残す。
+       * @param message - メッセージのtypeを参照する走査対象。
+       * @returns 条件を満たした要素だけを含む一覧。
        */
       (message) => message.type === 'renderMermaid'),
       cancellations: window.__mveMessages.filter(
       /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-       * @param message 処理対象のメッセージです。
-       * @returns 要素を採用するかどうかの真偽値を返します。
+       * 種別「cancelMermaidRender」のメッセージだけを残す。
+       * @param message - メッセージのtypeを参照する走査対象。
+       * @returns 条件を満たした要素だけを含む一覧。
        */
       (message) => message.type === 'cancelMermaidRender'),
       previewLength: document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-document-length'),
       nodes: [...document.querySelectorAll('.split-preview .mermaid')].map(
       /**
- * 「node」を変換し、変換後の要素を返すコールバックです。
-       * @param node nodeとして渡される、このコールバックの入力値です。
-       * @returns 入力要素から生成した変換後の値を返します。
+       * 各DOMノードからget・attributeを取り出して一覧化する。
+       * @param node - DOMノードのget・attributeを参照する走査対象。
+       * @returns get・attributeを取り出した変換結果の一覧。
        */
       (node) => ({
         status: node.getAttribute('data-mermaid-status'),
         children: [...node.children].map(
         /**
- * 「child」を変換し、変換後の要素を返すコールバックです。
-         * @param child childとして渡される、このコールバックの入力値です。
-         * @returns 入力要素から生成した変換後の値を返します。
+         * 各childからclass・nameを取り出して一覧化する。
+         * @param child - childのclass・nameを参照する走査対象。
+         * @returns class・nameを取り出した変換結果の一覧。
          */
         (child) => child.className || child.tagName),
         text: node.textContent?.slice(0, 120)
@@ -738,8 +742,8 @@ try {
   }
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @returns 期待条件の真偽値または条件に一致した要素を返します。
+   * ブラウザー内に「.split-preview .mermaid-svg-frame[data-mve-rasterized=」が現れるまで待機する。
+   * @returns サンプル検証・マトリクスのコールバックが生成する結果。
    */
   () => document.querySelector(
     '.split-preview .mermaid-svg-frame[data-mve-rasterized="true"]'
@@ -747,36 +751,36 @@ try {
   await page.locator('.split-preview .mermaid-svg-frame[data-mve-rasterized="true"]').first().scrollIntoViewIfNeeded();
   await page.waitForFunction(
   /**
- * 登録された処理が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
-   * @returns 期待条件の真偽値または条件に一致した要素を返します。
+   * ブラウザー内に「.split-preview .mermaid-interaction-text」が現れるまで待機する。
+   * @returns 副作用を完了し、値は返さない。
    */
   () => document.querySelectorAll('.split-preview .mermaid-interaction-text').length >= 1, undefined, { timeout: 15_000 });
   await page.waitForFunction(
   /**
- * 登録された処理が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
-   * @returns 期待条件の真偽値または条件に一致した要素を返します。
+   * ブラウザー内に「.split-preview .mermaid」が現れるまで待機する。
+   * @returns サンプル検証・マトリクスのコールバックが生成する結果。
    */
   () => {
     const diagrams = [...document.querySelectorAll('.split-preview .mermaid')];
     return diagrams.some(
     /**
- * 「node」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
-     * @param node nodeとして渡される、このコールバックの入力値です。
-     * @returns 条件判定の結果を示す真偽値を返します。
+     * DOMノードをincludesへ渡し、サンプル検証・マトリクスの結果または副作用を処理する。
+     * @param node - サンプル検証・マトリクスで走査または更新する要素。
+     * @returns サンプル検証・マトリクスのコールバックが生成する結果。
      */
     (node) => ['ready', 'error'].includes(node.getAttribute('data-mermaid-status')))
       && !diagrams.some(
       /**
- * 「node」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
-       * @param node nodeとして渡される、このコールバックの入力値です。
-       * @returns 条件判定の結果を示す真偽値を返します。
+       * DOMノードをget・attributeへ渡し、サンプル検証・マトリクスの結果または副作用を処理する。
+       * @param node - サンプル検証・マトリクスで走査または更新する要素。
+       * @returns サンプル検証・マトリクスのコールバックが生成する結果。
        */
       (node) => node.getAttribute('data-mermaid-status') === 'rendering');
   }, undefined, { timeout: 30_000 });
   const sustainedStart = await page.evaluate(
   /**
- * 登録された処理が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
-   * @returns 「performance.now」を実行し、値を返しません。
+   * Webviewの実行状態のnow結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => {
     window.__mveMaximumOutstandingOperations = window.__mveOutstandingOperations;
@@ -785,16 +789,16 @@ try {
     window.__mveSustainedLongTasks = [];
     window.__mveSustainedLongTaskObserver = new PerformanceObserver(
     /**
- * 「list」を受け取り、処理結果を生成する処理です。
-     * @param list 処理対象となる複数要素の集合です。
-     * @returns 「list」から生成した処理結果を返します。
+     * listを一覧追加へ渡し、サンプル検証・マトリクスの結果または副作用を処理する。
+     * @param list - サンプル検証・マトリクスへ渡す入力。
+     * @returns サンプル検証・マトリクスのコールバックが生成する結果。
      */
     (list) => {
       window.__mveSustainedLongTasks.push(...list.getEntries().map(
       /**
- * 「entry」を変換し、変換後の要素を返すコールバックです。
-       * @param entry entryとして渡される、このコールバックの入力値です。
-       * @returns 入力要素から生成した変換後の値を返します。
+       * 各エントリからstart・timeを取り出して一覧化する。
+       * @param entry - エントリのstart・timeを参照する走査対象。
+       * @returns start・timeを取り出した変換結果の一覧。
        */
       (entry) => ({
         startTime: entry.startTime,
@@ -804,8 +808,8 @@ try {
     window.__mveSustainedLongTaskObserver.observe({ type: 'longtask', buffered: false });
     window.__mveSustainedTimer = setInterval(
     /**
- * 一定間隔で状態を監視または更新するコールバックです。
-     * @returns DOM検索で得た要素または状態を返します。
+     * 要素をnowへ渡し、サンプル検証・マトリクスの結果または副作用を処理する。
+     * @returns サンプル検証・マトリクスのコールバックが生成する結果。
      */
     () => {
       const state = window.__mveSustainedResponsiveness;
@@ -818,9 +822,9 @@ try {
       messages: window.__mveMessages.length,
       mermaidRequests: window.__mveMessages.filter(
       /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-       * @param message 処理対象のメッセージです。
-       * @returns 要素を採用するかどうかの真偽値を返します。
+       * 種別「renderMermaid」のメッセージだけを残す。
+       * @param message - メッセージのtypeを参照する走査対象。
+       * @returns 条件を満たした要素だけを含む一覧。
        */
       (message) => message.type === 'renderMermaid').length,
       mermaidNodes: document.querySelectorAll('.split-preview .mermaid').length,
@@ -847,10 +851,10 @@ try {
     }
     waveAverages.push(durations.reduce(
     /**
-     * 累積値と入力を「total」「duration」を受け取り、集約結果を更新するコールバックです。
-     * @param total totalとして渡される、このコールバックの入力値です。
-     * @param duration 表示領域のサイズまたは倍率で、画面レイアウト計算に使用します。
-     * @returns 更新後の累積値を返します。
+     * 要素を順に加算して累積値を求める。
+     * @param total - 累積値へ加算する要素。
+     * @param duration - 累積値へ加算する要素。
+     * @returns 要素を集約した累積値。
      */
     (total, duration) => total + duration, 0) / durations.length);
     // 220ms settled + 120ms preview予約を越え、Worker開始直後に次の入力波を重ねる。
@@ -858,8 +862,8 @@ try {
   }
   const sustainedBlurDuration = await page.evaluate(
   /**
- * 累積値と登録された処理から更新後の累積値を計算するコールバックです。
-   * @returns DOM検索で得た要素または状態を返します。
+   * ブラウザーのDOM状態のnow結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => {
     const startedAt = performance.now();
@@ -868,9 +872,9 @@ try {
   });
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @param expectedLength expectedLengthとして渡される、このコールバックの入力値です。
-   * @returns 「expectedLength」から生成した処理結果を返します。
+   * ブラウザー内に「.split-preview .rendered-markdown」が現れるまで待機する。
+   * @param expectedLength - ブラウザー内で評価するコールバック。
+   * @returns サンプル検証・マトリクスのコールバックが生成する結果。
    */
   (expectedLength) => (
     Number(document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-document-length')) === expectedLength
@@ -878,39 +882,39 @@ try {
   try {
     await page.waitForFunction(
     /**
- * 登録された処理が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
-     * @returns 期待条件の真偽値または条件に一致した要素を返します。
+     * ブラウザー内に「.split-preview .mermaid」が現れるまで待機する。
+     * @returns サンプル検証・マトリクスのコールバックが生成する結果。
      */
     () => {
       const diagrams = [...document.querySelectorAll('.split-preview .mermaid')];
       return diagrams.some(
       /**
- * 「node」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
-       * @param node nodeとして渡される、このコールバックの入力値です。
-       * @returns 条件判定の結果を示す真偽値を返します。
+       * DOMノードをincludesへ渡し、サンプル検証・マトリクスの結果または副作用を処理する。
+       * @param node - サンプル検証・マトリクスで走査または更新する要素。
+       * @returns サンプル検証・マトリクスのコールバックが生成する結果。
        */
       (node) => ['ready', 'error'].includes(node.getAttribute('data-mermaid-status')))
         && !diagrams.some(
         /**
- * 「node」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
-         * @param node nodeとして渡される、このコールバックの入力値です。
-         * @returns 条件判定の結果を示す真偽値を返します。
+         * DOMノードをget・attributeへ渡し、サンプル検証・マトリクスの結果または副作用を処理する。
+         * @param node - サンプル検証・マトリクスで走査または更新する要素。
+         * @returns サンプル検証・マトリクスのコールバックが生成する結果。
          */
         (node) => node.getAttribute('data-mermaid-status') === 'rendering');
     }, undefined, { timeout: 30_000 });
   } catch (error) {
     const state = await page.evaluate(
     /**
-     * Promiseの失敗理由を受け取り、エラー表示またはフォールバックを実行するコールバックです。
-     * @returns エラー処理またはフォールバックの結果を返します。
+     * ブラウザー内の「.split-preview .mermaid」を読み取り、検証用の値へ変換する。
+     * @returns ブラウザー内で読み取った値または変換結果。
      */
     () => ({
       workerStatus: document.body.dataset.mveMarkdownWorkerStatus,
       diagrams: [...document.querySelectorAll('.split-preview .mermaid')].map(
       /**
- * 「node」を変換し、変換後の要素を返すコールバックです。
-       * @param node nodeとして渡される、このコールバックの入力値です。
-       * @returns 入力要素から生成した変換後の値を返します。
+       * 各DOMノードからget・attributeを取り出して一覧化する。
+       * @param node - DOMノードのget・attributeを参照する走査対象。
+       * @returns get・attributeを取り出した変換結果の一覧。
        */
       (node) => ({
         status: node.getAttribute('data-mermaid-status'),
@@ -919,9 +923,9 @@ try {
       outstandingOperations: window.__mveOutstandingOperations,
       recentMessages: window.__mveMessages.slice(-10).map(
       /**
- * 「message」を変換し、変換後の要素を返すコールバックです。
-       * @param message 処理対象のメッセージです。
-       * @returns 入力要素から生成した変換後の値を返します。
+       * 各メッセージからtypeを取り出して一覧化する。
+       * @param message - メッセージのtypeを参照する走査対象。
+       * @returns typeを取り出した変換結果の一覧。
        */
       (message) => ({
         type: message.type,
@@ -934,9 +938,9 @@ try {
   await page.waitForTimeout(500);
   const sustained = await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @param start startとして渡される、このコールバックの入力値です。
-   * @returns 「start」が開始した処理の結果または非同期Promiseを返します。
+   * ブラウザー内の「.split-preview .mermaid」を読み取り、検証用の値へ変換する。
+   * @param start - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (start) => {
     clearInterval(window.__mveSustainedTimer);
@@ -948,18 +952,18 @@ try {
       longTasks: window.__mveSustainedLongTasks,
       localOperations: messages.filter(
       /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-       * @param message 処理対象のメッセージです。
-       * @returns 要素を採用するかどうかの真偽値を返します。
+       * 種別「localChanges」のメッセージだけを残す。
+       * @param message - メッセージのtypeを参照する走査対象。
+       * @returns 条件を満たした要素だけを含む一覧。
        */
       (message) => message.type === 'localChanges').length,
       maximumOutstandingOperations: window.__mveMaximumOutstandingOperations,
       hostLength: window.__mveHostText.length,
       mermaidRequests: window.__mveMessages.filter(
       /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-       * @param message 処理対象のメッセージです。
-       * @returns 要素を採用するかどうかの真偽値を返します。
+       * 種別「renderMermaid」のメッセージだけを残す。
+       * @param message - メッセージのtypeを参照する走査対象。
+       * @returns 条件を満たした要素だけを含む一覧。
        */
       (message) => message.type === 'renderMermaid').length - start.mermaidRequests,
       mermaidNodes: document.querySelectorAll('.split-preview .mermaid').length,
@@ -967,32 +971,32 @@ try {
       previewPerformanceEntries: performance.getEntriesByType('mark')
         .filter(
         /**
- * 「entry」が条件に一致するか判定し、残す要素を決めるコールバックです。
-         * @param entry entryとして渡される、このコールバックの入力値です。
-         * @returns 要素を採用するかどうかの真偽値を返します。
+         * nameの条件を満たすエントリだけを残す。
+         * @param entry - エントリのnameを参照する走査対象。
+         * @returns 条件を満たした要素だけを含む一覧。
          */
         (entry) => entry.name.startsWith('mve-preview-')).length
         + performance.getEntriesByType('measure')
           .filter(
           /**
- * 「entry」が条件に一致するか判定し、残す要素を決めるコールバックです。
-           * @param entry entryとして渡される、このコールバックの入力値です。
-           * @returns 要素を採用するかどうかの真偽値を返します。
+           * nameの条件を満たすエントリだけを残す。
+           * @param entry - エントリのnameを参照する走査対象。
+           * @returns 条件を満たした要素だけを含む一覧。
            */
           (entry) => entry.name.startsWith('mve-preview-') || entry.name.startsWith('mve-source-')).length,
       mermaidStates: [...document.querySelectorAll('.split-preview .mermaid')].map(
       /**
- * 「node」を変換し、変換後の要素を返すコールバックです。
-       * @param node nodeとして渡される、このコールバックの入力値です。
-       * @returns 入力要素から生成した変換後の値を返します。
+       * 各DOMノードからget・attributeを取り出して一覧化する。
+       * @param node - DOMノードのget・attributeを参照する走査対象。
+       * @returns get・attributeを取り出した変換結果の一覧。
        */
       (node) => ({
         status: node.getAttribute('data-mermaid-status'),
         children: [...node.children].map(
         /**
- * 「child」を変換し、変換後の要素を返すコールバックです。
-         * @param child childとして渡される、このコールバックの入力値です。
-         * @returns 入力要素から生成した変換後の値を返します。
+         * 各childからclass・nameを取り出して一覧化する。
+         * @param child - childのclass・nameを参照する走査対象。
+         * @returns class・nameを取り出した変換結果の一覧。
          */
         (child) => child.className || child.tagName),
         text: node.textContent?.slice(0, 120)
@@ -1002,9 +1006,9 @@ try {
   try {
     await page.waitForFunction(
     /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはprefix、lengthです。
-     * @returns 「prefix」「length」から生成した処理結果を返します。
+     * Host側の本文状態が完了条件を満たすまで待機する。
+     * @param options - ブラウザー内で評価するコールバック。
+     * @returns サンプル検証・マトリクスのコールバックが生成する結果。
      */
     ({ prefix, length }) => (
       window.__mveHostText.length === length && window.__mveHostText.startsWith(prefix)
@@ -1012,9 +1016,9 @@ try {
   } catch (error) {
     const convergence = await page.evaluate(
     /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-     * @param prefix prefixとして渡される、このコールバックの入力値です。
-     * @returns エラー処理またはフォールバックの結果を返します。
+     * HostとWebviewのメッセージ状態のslice結果を読み取り、検証用の値へ変換する。
+     * @param prefix - ブラウザー内で評価するコールバック。
+     * @returns ブラウザー内で読み取った値または変換結果。
      */
     (prefix) => ({
       hostLength: window.__mveHostText.length,
@@ -1022,22 +1026,22 @@ try {
       actualPrefix: window.__mveHostText.slice(0, 80),
       resyncRequests: window.__mveMessages.filter(
       /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-       * @param message 処理対象のメッセージです。
-       * @returns 要素を採用するかどうかの真偽値を返します。
+       * 種別「requestResync」のメッセージだけを残す。
+       * @param message - メッセージのtypeを参照する走査対象。
+       * @returns 条件を満たした要素だけを含む一覧。
        */
       (message) => message.type === 'requestResync'),
       localOperations: window.__mveMessages.filter(
       /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-       * @param message 処理対象のメッセージです。
-       * @returns 要素を採用するかどうかの真偽値を返します。
+       * 種別「localChanges」のメッセージだけを残す。
+       * @param message - メッセージのtypeを参照する走査対象。
+       * @returns 条件を満たした要素だけを含む一覧。
        */
       (message) => message.type === 'localChanges').map(
       /**
- * 「message」を変換し、変換後の要素を返すコールバックです。
-       * @param message 処理対象のメッセージです。
-       * @returns 入力要素から生成した変換後の値を返します。
+       * 各メッセージからclient・idを取り出して一覧化する。
+       * @param message - メッセージのclient・idを参照する走査対象。
+       * @returns client・idを取り出した変換結果の一覧。
        */
       (message) => ({
         clientId: message.clientId,
@@ -1045,9 +1049,9 @@ try {
         baseVersion: message.baseVersion,
         changes: message.changes.map(
         /**
- * 「change」を変換し、変換後の要素を返すコールバックです。
-         * @param change changeとして渡される、このコールバックの入力値です。
-         * @returns 入力要素から生成した変換後の値を返します。
+         * 各changeからrange・offsetを取り出して一覧化する。
+         * @param change - changeのrange・offsetを参照する走査対象。
+         * @returns range・offsetを取り出した変換結果の一覧。
          */
         (change) => ({
           offset: change.rangeOffset,
@@ -1061,31 +1065,31 @@ try {
   }
   await page.waitForFunction(
   /**
- * ブラウザーのDOM状態が期待条件を満たすか確認する述語コールバックです。
-   * @returns 期待条件の真偽値または条件に一致した要素を返します。
+   * Webviewの実行状態が完了条件を満たすまで待機する。
+   * @returns 副作用を完了し、値は返さない。
    */
   () => window.__mveOutstandingOperations === 0, undefined, { timeout: 10_000 });
   const workerStatus = await page.evaluate(
   /**
- * 累積値と登録された処理から更新後の累積値を計算するコールバックです。
-   * @returns Webviewの状態から取得した値を返します。
+   * ブラウザーのDOM状態を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => document.body.dataset.mveMarkdownWorkerStatus);
   if (workerStatus !== 'ready') throw new Error(`Markdown Worker did not remain active: ${workerStatus}`);
   const firstWaveAverage = waveAverages.slice(0, 4).reduce(
   /**
-   * 累積値と入力を「total」「value」を受け取り、集約結果を更新するコールバックです。
-   * @param total totalとして渡される、このコールバックの入力値です。
-   * @param value 「total」で検証・変換する入力値です。
-   * @returns 更新後の累積値を返します。
+   * 要素を順に加算して累積値を求める。
+   * @param total - 累積値へ加算する要素。
+   * @param value - 累積値へ加算する要素。
+   * @returns 要素を集約した累積値。
    */
   (total, value) => total + value, 0) / 4;
   const lastWaveAverage = waveAverages.slice(-4).reduce(
   /**
-   * 累積値と入力を「total」「value」を受け取り、集約結果を更新するコールバックです。
-   * @param total totalとして渡される、このコールバックの入力値です。
-   * @param value 「total」で検証・変換する入力値です。
-   * @returns 更新後の累積値を返します。
+   * 要素を順に加算して累積値を求める。
+   * @param total - 累積値へ加算する要素。
+   * @param value - 累積値へ加算する要素。
+   * @returns 要素を集約した累積値。
    */
   (total, value) => total + value, 0) / 4;
   if (lastWaveAverage > firstWaveAverage * 1.2 + 2 || worstInput >= 50) {
@@ -1116,8 +1120,8 @@ try {
   await rendererPage.close();
   const scrollPerformance = await page.evaluate(
   /**
-   * 「async」として関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-   * @returns 「document.querySelector」を実行し、値を返しません。
+   * ブラウザー内の「.split-preview」を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   async () => {
     const preview = document.querySelector('.split-preview');
@@ -1128,16 +1132,16 @@ try {
     const longTasks = [];
     const longTaskObserver = new PerformanceObserver(
     /**
- * 「list」を受け取り、登録された副作用または結果を生成する処理です。
-     * @param list 処理対象となる複数要素の集合です。
-     * @returns 「longTasks.push」を実行し、値を返しません。
+     * listを一覧追加へ渡し、サンプル検証・マトリクスの結果または副作用を処理する。
+     * @param list - サンプル検証・マトリクスへ渡す入力。
+     * @returns サンプル検証・マトリクスのコールバックが生成する結果。
      */
     (list) => {
       longTasks.push(...list.getEntries().map(
       /**
- * 「entry」を変換し、変換後の要素を返すコールバックです。
-       * @param entry entryとして渡される、このコールバックの入力値です。
-       * @returns 入力要素から生成した変換後の値を返します。
+       * 各エントリからstart・timeを取り出して一覧化する。
+       * @param entry - エントリのstart・timeを参照する走査対象。
+       * @returns start・timeを取り出した変換結果の一覧。
        */
       (entry) => ({
         startTime: entry.startTime,
@@ -1151,15 +1155,15 @@ try {
       preview.scrollTop = maximumScrollTop * ((index % 60) / 59);
       await new Promise(
       /**
-       * 予約されたタイミングで「resolve」を受け取り、遅延処理を実行するコールバックです。
-       * @param resolve Promiseの完了または失敗を通知する関数です。
-       * @returns Promiseの完了または失敗を通知し、値を返しません。
+       * 非同期処理の成功結果を待機側へ通知する。
+       * @param resolve - Promiseの成功を通知する関数。
+       * @returns 非同期処理の完了値。
        */
       (resolve) => requestAnimationFrame(
       /**
-       * 予約されたタイミングで「now」を受け取り、遅延処理を実行するコールバックです。
-       * @param now nowとして渡される、このコールバックの入力値です。
-       * @returns 「frameIntervals.push」を実行し、値を返しません。
+       * 次の描画フレームで表示更新を実行する。
+       * @param now - 次の描画フレームで実行するコールバック。
+       * @returns サンプル検証・マトリクスのコールバックが生成する結果。
        */
       (now) => {
         frameIntervals.push(now - previousFrame);
@@ -1195,9 +1199,9 @@ try {
         sourceScrollTop: document.querySelector('.split-source-pane .cm-scroller')?.scrollTop ?? 0,
         mermaidRequests: window.__mveMessages.filter(
         /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-         * @param message 処理対象のメッセージです。
-         * @returns 要素を採用するかどうかの真偽値を返します。
+         * 種別「renderMermaid」のメッセージだけを残す。
+         * @param message - メッセージのtypeを参照する走査対象。
+         * @returns 条件を満たした要素だけを含む一覧。
          */
         (message) => message.type === 'renderMermaid').length
       });
@@ -1205,17 +1209,17 @@ try {
     longTaskObserver.disconnect();
     const sortedFrames = [...frameIntervals].sort(
     /**
- * 「left」「right」を比較し、並び順を示す数値を返すコールバックです。
-     * @param left 比較対象の左側の値です。
-     * @param right 比較対象の右側の値です。
-     * @returns 比較対象の順序を示す負数、0、または正数を返します。
+     * 2つの値を比較して並び順を決める。
+     * @param left - 比較対象の左側の値。
+     * @param right - 比較対象の右側の値。
+     * @returns 2つの要素の順序を示す数値。
      */
     (left, right) => left - right);
     const maximumHandlerDuration = Math.max(0, ...samples.map(
     /**
- * 「sample」を変換し、変換後の要素を返すコールバックです。
-     * @param sample sampleとして渡される、このコールバックの入力値です。
-     * @returns 入力要素から生成した変換後の値を返します。
+     * 各sampleからapp・scroll・durationを取り出して一覧化する。
+     * @param sample - sampleのapp・scroll・durationを参照する走査対象。
+     * @returns app・scroll・durationを取り出した変換結果の一覧。
      */
     (sample) => Math.max(
       sample.appScrollDuration,
@@ -1234,10 +1238,10 @@ try {
       slowest: samples
         .sort(
         /**
- * 「left」「right」を比較し、並び順を示す数値を返すコールバックです。
-         * @param left 比較対象の左側の値です。
-         * @param right 比較対象の右側の値です。
-         * @returns 比較対象の順序を示す負数、0、または正数を返します。
+         * 2つの値を比較して並び順を決める。
+         * @param left - 比較対象の左側の値。
+         * @param right - 比較対象の右側の値。
+         * @returns 2つの要素の順序を示す数値。
          */
         (left, right) => right.frameInterval - left.frameInterval)
         .slice(0, 8)
@@ -1253,15 +1257,15 @@ try {
   if (!sourceScroller) throw new Error('sample/11 source scroller is missing');
   await page.evaluate(
   /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-   * @returns 「performance.now」を実行し、値を返しません。
+   * Webviewの実行状態のnow結果を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => {
     window.__mveSelectionResponsiveness = { previous: performance.now(), maximumGap: 0, ticks: 0 };
     window.__mveSelectionTimer = setInterval(
     /**
- * 処理結果を生成する処理を実行するコールバックです。
-     * @returns DOM検索で得た要素または状態を返します。
+     * 要素をnowへ渡し、サンプル検証・マトリクスの結果または副作用を処理する。
+     * @returns サンプル検証・マトリクスのコールバックが生成する結果。
      */
     () => {
       const state = window.__mveSelectionResponsiveness;
@@ -1279,8 +1283,8 @@ try {
   await page.waitForTimeout(100);
   const selectionPerformance = await page.evaluate(
   /**
- * 検証対象のJSONペイロードを生成する処理を実行するコールバックです。
-   * @returns DOM検索で得た要素または状態を返します。
+   * ブラウザー内の「.source-editor」を読み取り、検証用の値へ変換する。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   () => {
     clearInterval(window.__mveSelectionTimer);
@@ -1308,9 +1312,9 @@ try {
   if (!rendererQueueSettled) throw new Error('Mermaid renderer queue did not settle after scrolling');
   console.log(`continuous waves=${waveAverages.map(
   /**
- * 「value」を変換し、変換後の要素を返すコールバックです。
-   * @param value 「value」で検証・変換する入力値です。
-   * @returns 入力要素から生成した変換後の値を返します。
+   * 各値からto・fixedを取り出して一覧化する。
+   * @param value - 値のto・fixedを参照する走査対象。
+   * @returns to・fixedを取り出した変換結果の一覧。
    */
   (value) => value.toFixed(1)).join('/')}ms; first4=${firstWaveAverage.toFixed(1)}ms; last4=${lastWaveAverage.toFixed(1)}ms; worst=${worstInput.toFixed(1)}ms; loop-gap=${sustained.responsiveness.maximumGap.toFixed(1)}ms; blur=${sustainedBlurDuration.toFixed(1)}ms; scroll-handler-max=${scrollPerformance.maximumHandlerDuration.toFixed(1)}ms; scroll-frame-p95=${scrollPerformance.p95FrameInterval.toFixed(1)}ms; scroll-frame-p99=${scrollPerformance.p99FrameInterval.toFixed(1)}ms; selection-gap=${selectionPerformance.maximumGap.toFixed(1)}ms; operations=${sustained.localOperations}; perf-entries=${sustained.previewPerformanceEntries}; Mermaid requests=${sustained.mermaidRequests}`);
   closingContext = true;

@@ -1,10 +1,5 @@
 /**
- * @file App.tsx
- * 実行境界: Webview。
- * 責務: 編集UI、プレビュー、ユーザー操作を処理する。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: DOM、Webviewメッセージ、ブラウザーAPI、編集状態を操作する。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview Webviewのルートコンポーネントとして、編集状態、Hostメッセージ、プレビュー、設定、保存操作を統合する。
  */
 import React, {
   useCallback,
@@ -103,208 +98,213 @@ import {
 } from "./scrollAnchors";
 
 /**
- * 「acquireVsCodeApi」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
- * @returns 条件判定または変換の結果を返します。
+ * Webviewルートのacquire・vs・code・apiに関する状態または設定。
  */
 declare const acquireVsCodeApi: <State = unknown>() => VsCodeApi<State>;
 
 /**
- * 「PersistedState」が満たすデータ契約を定義します。
+ * Webviewルートの現在状態または履歴を保持するデータ形状。
  */
 interface PersistedState {
 
   /**
-   * 「mode」は、画面の表示モードまたは現在のUI状態を示します。
+   * 編集面とプレビューの表示構成。
    */
   mode: EditorMode;
 
   /**
-   * 「splitRatio」は、表示領域のサイズまたは倍率を保持します。
+   * 本文ペインとプレビューペインの分割比率。
    */
   splitRatio?: number;
 
   /**
-   * 「outlineWidth」は、対象の位置、サイズ、件数、または範囲を保持します。
+   * 目次ペインの表示幅。
    */
   outlineWidth?: number;
 
   /**
-   * 「zoom」は、表示領域のサイズまたは倍率を保持します。
+   * プレビューに適用する表示倍率。
    */
   zoom?: number;
   /**
-   * 通常表示で選択したペイン構成。splitViewは旧バージョン互換用に残す。
+   * Webviewルートのview・modeに関する状態または設定。
    */
   viewMode?: ViewMode;
 
   /**
-   * 「splitView」は、関連処理が共有する構造化データの一項目です。
+   * Webviewルートのsplit・viewに関する状態または設定。
    */
   splitView?: "both" | "text" | "preview";
 
   /**
-   * 「sourceViewport」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
+   * Webviewルートのsource・viewportに関する状態または設定。
    */
   sourceViewport?: EditorViewportAnchor;
 
   /**
-   * 「splitPreviewViewport」は、関連処理が共有する構造化データの一項目です。
+   * Webviewルートのsplit・preview・viewportに関する状態または設定。
    */
   splitPreviewViewport?: PreviewViewportAnchor;
 
   /**
-   * 「previewOnlyViewport」は、関連処理が共有する構造化データの一項目です。
+   * Webviewルートのpreview・only・viewportに関する状態または設定。
    */
   previewOnlyViewport?: PreviewViewportAnchor;
 }
 
 /**
- * 「PendingLocalOperation」が満たすデータ契約を定義します。
+ * Webviewルートで共有するデータ形状を表すインターフェース。
  */
 interface PendingLocalOperation {
 
   /**
-   * 「opId」は、対象の識別や処理分岐に使用する値を保持します。
+   * Webviewルートで扱うop・idの文字列。
    */
   opId: string;
 
   /**
-   * 「baseVersion」は、位置・サイズ・件数などを表す数値です。
+   * Webviewルートのbase・versionを表す数値。
    */
   baseVersion: number;
 
   /**
-   * 「baseText」は、画面または通知へ表示する文言を保持します。
+   * Webviewルートで解析・表示・保存する本文。
    */
   baseText: string;
 
   /**
-   * 「resultText」は、画面または通知へ表示する文言を保持します。
+   * Webviewルートで解析・表示・保存する本文。
    */
   resultText: string;
 
   /**
-   * 「changes」は、関連する複数の対象または識別子を保持します。
+   * 本文へ適用する変更範囲の一覧。
    */
   changes: TextChange[];
 }
 
 /**
- * 「OutlineDragState」が満たすデータ契約を定義します。
+ * Webviewルートの現在状態または履歴を保持するデータ形状。
  */
 interface OutlineDragState {
 
   /**
-   * 「sourceIndex」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
+   * Webviewルートの位置・寸法・件数・時間を表す数値。
    */
   sourceIndex: number;
 
   /**
-   * 「pointerId」は、対象の識別や処理分岐に使用する値を保持します。
+   * Webviewルートのpointer・idを表す数値。
    */
   pointerId: number;
 
   /**
-   * 「startX」は、位置・サイズ・件数などを表す数値です。
+   * Webviewルートのstart・xを表す数値。
    */
   startX: number;
 
   /**
-   * 「startY」は、位置・サイズ・件数などを表す数値です。
+   * Webviewルートのstart・yを表す数値。
    */
   startY: number;
 
   /**
-   * 「markdown」は、解析・編集・変換の対象となる本文またはデータを保持します。
+   * 解析・編集・変換の対象となるMarkdown本文。
    */
   markdown: string;
 
   /**
-   * 「outline」は、関連する複数の対象または識別子を保持します。
+   * Webviewルートの位置・寸法・件数・時間を表す数値。
    */
   outline: OutlineItem[];
 
   /**
-   * 「dragging」は、画面の表示モードまたは現在のUI状態を示します。
+   * Webviewルートのdraggingを切り替えるフラグ。
    */
   dragging: boolean;
 
   /**
-   * 「targetIndex」は、対象の位置、サイズ、件数、または範囲を保持します。
+   * Webviewルートの位置・寸法・件数・時間を表す数値。
    */
   targetIndex?: number;
 
   /**
-   * 「position」は、操作対象または処理目的を示す値を保持します。
+   * Webviewルートの位置・寸法・件数・時間を表す数値。
    */
   position?: "before" | "after";
 }
 
 /**
- * 「LocalResourceCheckPurpose」として扱う値の型を定義します。
+ * Webviewルートで扱う値の種類と境界を表す型。
  */
 type LocalResourceCheckPurpose = "preflight" | "pdf";
 
 /**
- * 「LocalResourceCheckRequest」が満たすデータ契約を定義します。
+ * Webviewルートで送受信するメッセージまたは要求のデータ形状。
  */
 interface LocalResourceCheckRequest {
 
   /**
-   * 「markdown」は、解析・編集・変換の対象となる本文またはデータを保持します。
+   * 解析・編集・変換の対象となるMarkdown本文。
    */
   markdown: string;
 
   /**
-   * 「version」は、位置・サイズ・件数などを表す数値です。
+   * Webviewルートのversionを表す数値。
    */
   version: number;
 
   /**
-   * 「generation」は、表示領域のサイズまたは倍率を保持します。
+   * Webviewルートのgenerationを表す数値。
    */
   generation: number;
 
   /**
-   * 「purpose」は、操作対象または処理目的を示す値を保持します。
+   * Webviewルートのpurposeに関する状態または設定。
    */
   purpose: LocalResourceCheckPurpose;
 }
 
 /**
- * 「PdfPreviewState」が満たすデータ契約を定義します。
+ * Webviewルートの現在状態または履歴を保持するデータ形状。
  */
 interface PdfPreviewState {
 
   /**
-   * 「requestId」は、対象の識別や処理分岐に使用する値を保持します。
+   * 要求と応答を対応付ける識別子。
    */
   requestId: string;
 
   /**
-   * 「pdfBase64」は、対象の内容または識別子を表す文字列です。
+   * Webviewルートで扱うpdf・base64の文字列。
    */
   pdfBase64?: string;
 
   /**
-   * 「loading」は、処理条件または状態を表す真偽値です。
+   * Webviewルートのloadingを切り替えるフラグ。
    */
   loading: boolean;
 
   /**
-   * 「error」は、対象の内容または識別子を表す文字列です。
+   * 処理に失敗した理由または例外。
    */
   error?: string;
 }
 
-/** 「vscode」は、関連する処理間で共有する設定値または状態です。 */
-/** Webview状態をVS Code Hostへ保存・送信する唯一のAPIインスタンス。 */
+
+/**
+ * Webviewルートのvscodeに関する状態または設定。
+ */
 const vscode = acquireVsCodeApi<PersistedState>();
-/** 「CROSS_PANE_SCROLL_SYNC_MS」は、関連する処理間で共有する設定値または状態です。 */
-/** エディターとプレビューのスクロール同期をまとめるフレーム間隔。 */
+
+/**
+ * 本文ペインとプレビューペインのスクロール同期を再実行する間隔（ミリ秒）。
+ */
 const CROSS_PANE_SCROLL_SYNC_MS = 32;
-/** 「DEFAULT_SETTINGS」は、呼び出し先へ渡す設定値の集合です。 */
-/** Webview起動時に使う既定設定。Hostから未取得の間もUIを描画できる最小の一貫状態を保持する。 */
+
+/**
+ * Webviewルートで未指定時に使う既定値。
+ */
 const DEFAULT_SETTINGS: WebviewSettings = {
   ...DEFAULT_FONT_FAMILY_SETTINGS,
   language: "ja",
@@ -319,27 +319,33 @@ const DEFAULT_SETTINGS: WebviewSettings = {
   htmlOptions: DEFAULT_HTML_EXPORT_SETTINGS,
   workspaceTrusted: false,
 };
-/** 「PREVIEW_UPDATE_DELAY_MS」は、時間制限または遅延量を処理間で共有する値です。 */
-/** 入力中のMarkdownプレビュー更新をまとめる遅延時間。 */
+
+/**
+ * Webviewルートの位置・寸法・件数・時間を表す数値。
+ */
 const PREVIEW_UPDATE_DELAY_MS = 120;
-/** PDF印刷設定の連続入力をまとめてglobalStateへ保存する遅延。 */
-/** PDF設定の連続変更を一度のglobalState更新へまとめる遅延時間。 */
+
+/**
+ * Webviewルートへ渡す設定または境界値。
+ */
 const PDF_OPTIONS_PERSIST_DELAY_MS = 250;
-/** 「OUTLINE_DRAG_THRESHOLD_PX」は、入力・表示・資源の上限または下限を表す値です。 */
-/** アウトライン項目をクリックではなくドラッグと判定する移動量。 */
+
+/**
+ * Webviewルートの位置・寸法・件数・時間を表す数値。
+ */
 const OUTLINE_DRAG_THRESHOLD_PX = 6;
 
 /**
- * 「HelpTopic」として扱う値の型を定義します。
+ * Webviewルートで扱う値の種類と境界を表す型。
  */
 type HelpTopic = "shortcuts" | "features";
 
 /**
- * 「mergeDiagnostics」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param markdown 解析・編集・変換の対象となる本文または生成済み内容です。
- * @param localResourceDiagnostics 「localResourceDiagnostics」は、「mergeDiagnostics」がWebview UI状態の処理対象を特定する入力です。
- * @param language 表示文言の解決に使用する言語コードまたはロケールです。
- * @returns 「mergeDiagnostics」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ * Webviewルートのmerge・diagnosticsを処理し、呼び出し側へ結果または副作用を返す。
+ * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
+ * @param localResourceDiagnostics - Webviewルートで扱う文字列または本文。
+ * @param language - Webviewルートの対象や分岐を識別する値。
+ * @returns Webviewルートに対応する要素の一覧。
  */
 function mergeDiagnostics(
   markdown: string,
@@ -353,150 +359,150 @@ function mergeDiagnostics(
 }
 
 /**
- * 「MarkdownPreviewSnapshot」が満たすデータ契約を定義します。
+ * Webviewルートの現在状態または履歴を保持するデータ形状。
  */
 interface MarkdownPreviewSnapshot {
 
   /**
-   * 「markdown」は、解析・編集・変換の対象となる本文またはデータを保持します。
+   * 解析・編集・変換の対象となるMarkdown本文。
    */
   markdown: string;
 
   /**
-   * 「html」は、解析・編集・変換の対象となる本文またはデータを保持します。
+   * 表示または出力するHTML本文。
    */
   html: string;
 
   /**
-   * 「outline」は、関連する複数の対象または識別子を保持します。
+   * Webviewルートの位置・寸法・件数・時間を表す数値。
    */
   outline: OutlineItem[];
 
   /**
-   * 「diagnostics」は、関連する複数の対象または識別子を保持します。
+   * Webviewルートのdiagnosticsに関する状態または設定。
    */
   diagnostics: Diagnostic[];
 
   /**
-   * 「stats」は、処理時間や対象数などの計測結果を保持します。
+   * Webviewルートのstatsに関する状態または設定。
    */
   stats: {
   /**
-   * 「markdown」は、解析・編集・変換の対象となる本文またはデータを保持します。
+   * 解析・編集・変換の対象となるMarkdown本文。
    */
   markdown: number;
   /**
-   * 「text」は、画面または通知へ表示する文言を保持します。
+   * 表示・解析・変換の対象となる本文。
    */
   text: number;
   /**
-   * 「lines」は、位置・サイズ・件数などを表す数値です。
+   * Webviewルートで扱うlinesの一覧。
    */
   lines: number };
 }
 
 /**
- * 「MarkdownWorkerResponse」が満たすデータ契約を定義します。
+ * Webviewルートで送受信するメッセージまたは要求のデータ形状。
  */
 interface MarkdownWorkerResponse {
 
   /**
-   * 「id」は、対象の識別や処理分岐に使用する値を保持します。
+   * Webviewルートのidを表す数値。
    */
   id: number;
 
   /**
-   * 「preliminary」は、処理条件または状態を表す真偽値です。
+   * Webviewルートのpreliminaryを切り替えるフラグ。
    */
   preliminary?: boolean;
 
   /**
-   * 「markdown」は、解析・編集・変換の対象となる本文またはデータを保持します。
+   * 解析・編集・変換の対象となるMarkdown本文。
    */
   markdown?: string;
 
   /**
-   * 「unsafeBlocks」は、関連する複数の対象または識別子を保持します。
+   * Webviewルートのunsafe・blocksに関する状態または設定。
    */
   unsafeBlocks?: UnsafeMarkdownBlock[];
 
   /**
-   * 「outline」は、関連する複数の対象または識別子を保持します。
+   * Webviewルートの位置・寸法・件数・時間を表す数値。
    */
   outline?: OutlineItem[];
 
   /**
-   * 「diagnostics」は、関連する複数の対象または識別子を保持します。
+   * Webviewルートのdiagnosticsに関する状態または設定。
    */
   diagnostics?: Diagnostic[];
 
   /**
-   * 「stats」は、処理時間や対象数などの計測結果を保持します。
+   * Webviewルートのstatsに関する状態または設定。
    */
   stats?: {
   /**
-   * 「markdown」は、解析・編集・変換の対象となる本文またはデータを保持します。
+   * 解析・編集・変換の対象となるMarkdown本文。
    */
   markdown: number;
   /**
-   * 「text」は、画面または通知へ表示する文言を保持します。
+   * 表示・解析・変換の対象となる本文。
    */
   text: number;
   /**
-   * 「lines」は、位置・サイズ・件数などを表す数値です。
+   * Webviewルートで扱うlinesの一覧。
    */
   lines: number };
 
   /**
-   * 「error」は、対象の内容または識別子を表す文字列です。
+   * 処理に失敗した理由または例外。
    */
   error?: string;
 }
 
 /**
- * 「WebviewBootstrap」が満たすデータ契約を定義します。
+ * Webviewルートで共有するデータ形状を表すインターフェース。
  */
 interface WebviewBootstrap {
 
   /**
-   * 「text」は、画面または通知へ表示する文言を保持します。
+   * 表示・解析・変換の対象となる本文。
    */
   text: string;
 
   /**
-   * 「version」は、位置・サイズ・件数などを表す数値です。
+   * Webviewルートのversionを表す数値。
    */
   version: number;
 
   /**
-   * 「uri」は、対象の内容または識別子を表す文字列です。
+   * VS Codeまたはブラウザーが扱うリソースURI。
    */
   uri: string;
 
   /**
-   * 「settings」は、利用側が共有する設定または現在状態を保持します。
+   * Webviewルートへ渡す設定または境界値。
    */
   settings: WebviewSettings;
 }
 
 /**
- * read・webview・bootstrapを取得または解決します。
- * @returns 「readWebviewBootstrap」が対象を取得できない場合はundefinedを返します。
+ * Webviewルートから必要な値またはリソースを取得する。
+ * @returns 副作用を完了し、値は返さない。
  */
 function readWebviewBootstrap(): WebviewBootstrap | undefined {
   return (globalThis as typeof globalThis & {
   /**
-   * 「__mveBootstrap」は、関連処理が共有する構造化データの一項目です。
+   * Webviewルートの・mve・bootstrapに関する状態または設定。
    */
   __mveBootstrap?: WebviewBootstrap })
     .__mveBootstrap;
 }
 
 /**
- * 「mergeCollectedDiagnostics」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param staticDiagnostics 「staticDiagnostics」は、「mergeCollectedDiagnostics」がWebview UI状態の処理対象を特定する入力です。
- * @param localResourceDiagnostics 「localResourceDiagnostics」は、「mergeCollectedDiagnostics」がWebview UI状態の処理対象を特定する入力です。
- * @returns 「mergeCollectedDiagnostics」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ * Webviewルートのmerge・collected・diagnosticsを処理し、呼び出し側へ結果または副作用を返す。
+ * @param staticDiagnostics - Webviewルートへ渡す要素の一覧。
+ * @param localResourceDiagnostics - Webviewルートで扱う文字列または本文。
+ * @returns Webviewルートに対応する要素の一覧。
  */
 function mergeCollectedDiagnostics(
   staticDiagnostics: Diagnostic[],
@@ -506,25 +512,25 @@ function mergeCollectedDiagnostics(
     localResourceDiagnostics
       .filter(
       /**
- * 「item」が条件に一致するか判定し、残す要素を決めるコールバックです。
-       * @param item 変換または処理の対象となる値です。
-       * @returns 要素を採用するかどうかの真偽値を返します。
+       * 種別「missing-local-image」の項目だけを残す。
+       * @param item - 項目のコードを参照する走査対象。
+       * @returns 条件を満たした要素だけを含む一覧。
        */
       (item) => item.code === "missing-local-image" && item.source)
       .map(
       /**
- * 「item」を変換し、変換後の要素を返すコールバックです。
-       * @param item 変換または処理の対象となる値です。
-       * @returns 入力要素から生成した変換後の値を返します。
+       * 各項目からsourceを取り出して一覧化する。
+       * @param item - 項目のsourceを参照する走査対象。
+       * @returns sourceを取り出した変換結果の一覧。
        */
       (item) => item.source as string),
   );
   const filteredStaticDiagnostics = staticDiagnostics.filter(
 
     /**
- * 「item」が条件に一致するか判定し、残す要素を決めるコールバックです。
-     * @param item 変換または処理の対象となる値です。
-     * @returns 条件判定の結果を示す真偽値を返します。
+     * コードの条件を満たす項目だけを残す。
+     * @param item - 項目のコードを参照する走査対象。
+     * @returns 条件を満たした要素だけを含む一覧。
      */
     (item) =>
       item.code !== "local-image" ||
@@ -538,8 +544,8 @@ function mergeCollectedDiagnostics(
 }
 
 /**
- * Markdown編集画面全体を描画し、ホストとの同期・検索・プレビュー・各種ダイアログを管理する。
- * @returns Markdown Easy Visual EditorのアプリケーションUI。
+ * Webviewの編集状態と各表示ペインを統合するルートコンポーネント。
+ * @returns Webviewルートのappが生成する結果。
  */
 export function App(): React.JSX.Element {
   const restored = vscode.getState();
@@ -553,24 +559,24 @@ export function App(): React.JSX.Element {
   );
   const [outlineWidth, setOutlineWidth] = useState(
   /**
- * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
-   * @returns Reactが保持する初期状態またはメモ化値を返します。
+   * 要素をclamp・outline・widthへ渡し、Webviewルートの結果または副作用を処理する。
+   * @returns Webviewルートのコールバックが生成する結果。
    */
   () =>
     clampOutlineWidth(restored?.outlineWidth ?? 220),
   );
   const [splitRatio, setSplitRatio] = useState(
   /**
- * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
-   * @returns Reactが保持する初期状態またはメモ化値を返します。
+   * 要素をclamp・split・ratioへ渡し、Webviewルートの結果または副作用を処理する。
+   * @returns Webviewルートのコールバックが生成する結果。
    */
   () =>
     clampSplitRatio(restored?.splitRatio ?? 0.5),
   );
   const [zoom, setZoom] = useState(
   /**
- * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
-   * @returns Reactが保持する初期状態またはメモ化値を返します。
+   * 要素をclamp・zoomへ渡し、Webviewルートの結果または副作用を処理する。
+   * @returns Webviewルートのコールバックが生成する結果。
    */
   () => clampZoom(restored?.zoom ?? 1));
   const zoomRef = useRef(zoom);
@@ -603,8 +609,8 @@ export function App(): React.JSX.Element {
     );
   const cancelPreviewWork = useCallback(
   /**
-   * 呼び出し時にイベントまたは状態更新を処理する関数を生成するコールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * 要素をifへ渡し、Webviewルートの結果または副作用を処理する。
+   * @returns Webviewルートのコールバックが生成する結果。
    */
   () => {
     if (document.body.dataset.mveInputActive !== "true") {
@@ -618,24 +624,24 @@ export function App(): React.JSX.Element {
   const messages = useMemo(
 
     /**
-     * 依存状態から再利用可能な派生値を計算するコールバックです。
-     * @returns 依存状態から計算した派生値を返します。
+     * 要素をget・messagesへ渡し、Webviewルートの結果または副作用を処理する。
+     * @returns Webviewルートのコールバックが生成する結果。
      */
     () => getMessages(settings.language),
     [settings.language],
   );
   useEffect(
   /**
- * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
-   * @returns Reactが保持する初期状態またはメモ化値を返します。
+   * 依存状態の変化に応じて表示または購読を更新する。
+   * @returns Webviewルートのコールバックが生成する結果。
    */
   () => {
     if (settings.language) document.documentElement.lang = settings.language;
   }, [settings.language]);
   useEffect(
   /**
- * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
-   * @returns Reactが保持する初期状態またはメモ化値を返します。
+   * 依存状態の変化に応じて表示または購読を更新する。
+   * @returns Webviewルートのコールバックが生成する結果。
    */
   () => {
     const root = document.documentElement;
@@ -654,8 +660,8 @@ export function App(): React.JSX.Element {
   const exportSettings = useMemo(
 
     /**
-     * 依存状態から再利用可能な派生値を計算するコールバックです。
-     * @returns 依存状態から計算した派生値を返します。
+     * Webviewルートのコールバックとして要素を処理する。
+     * @returns Webviewルートのコールバックが生成する結果。
      */
     () => ({ ...settings, mermaidTheme: "default" as const }),
     [settings],
@@ -679,20 +685,24 @@ export function App(): React.JSX.Element {
   const [linkLabel, setLinkLabel] = useState("");
   const [pdfOptions, setPdfOptions] = useState<NormalizedPdfOptions>(
   /**
- * 登録された副作用または結果を生成する処理を実行するコールバックです。
-   * @returns 「normalizePdfOptions」の呼び出し結果を返します。
+   * 要素をnormalize・pdf・optionsへ渡し、Webviewルートの結果または副作用を処理する。
+   * @returns Webviewルートのコールバックが生成する結果。
    */
   () =>
     normalizePdfOptions(bootstrap?.settings.pdfOptions ?? DEFAULT_PDF_OPTIONS),
   );
-  /** 入力イベント間で最新のPDF設定を失わず参照するためのミラー。 */
+  /**
+   * WebviewルートのDOMまたは状態を保持する参照。
+   */
   const pdfOptionsRef = useRef(pdfOptions);
-  /** PDF設定の保存通知を連続入力中に集約するタイマー。 */
+  /**
+   * WebviewルートのDOMまたは状態を保持する参照。
+   */
   const pdfOptionsPersistTimerRef = useRef<number | undefined>(undefined);
   const [htmlOptions, setHtmlOptions] = useState<HtmlExportOptions>(
   /**
- * （requestId、loading、type）を持つオブジェクトを初期化して返すコールバックです。
-   * @returns 初期化したオブジェクト（requestId、loading、type）を返します。
+   * 要素をmerge・html・export・optionsへ渡し、Webviewルートの結果または副作用を処理する。
+   * @returns Webviewルートのコールバックが生成する結果。
    */
   () => ({
     ...mergeHtmlExportOptions(
@@ -700,7 +710,9 @@ export function App(): React.JSX.Element {
       bootstrap?.settings.htmlOptions ?? DEFAULT_HTML_EXPORT_SETTINGS,
     ),
   }));
-  /** HTML出力のグローバル設定を保存するまで、他の設定通知で古い値へ戻さないためのミラー。 */
+  /**
+   * WebviewルートのDOMまたは状態を保持する参照。
+   */
   const htmlOptionsRef = useRef(htmlOptions);
   const pendingHtmlOptionsRef = useRef<HtmlExportSettings | undefined>(
     undefined,
@@ -713,7 +725,7 @@ export function App(): React.JSX.Element {
   const [htmlRenderRequest, setHtmlRenderRequest] =
     useState<Extract<HostToWebviewMessage, {
     /**
-     * 「type」は、対象の識別や処理分岐に使用する値を保持します。
+     * Webviewルートで対象や分岐を識別する値の型。
      */
     type: "renderHtmlDocuments" }>>();
   const [exportStageRequested, setExportStageRequested] = useState(false);
@@ -741,8 +753,8 @@ export function App(): React.JSX.Element {
     ) => void
   >(
   /**
- * 登録された副作用または結果を生成する処理を実行するコールバックです。
-   * @returns 「useRef」の呼び出し結果を返します。
+   * Webviewルートのコールバックとして要素を処理する。
+   * @returns 副作用を完了し、値は返さない。
    */
   () => undefined);
   const versionRef = useRef(bootstrap?.version ?? 0);
@@ -753,7 +765,7 @@ export function App(): React.JSX.Element {
     bootstrap
       ? (globalThis as typeof globalThis & {
       /**
-       * 「__mveBundleExecutedAt」は、位置・サイズ・件数などを表す数値です。
+       * Webviewルートの・mve・bundle・executed・atを表す数値。
        */
       __mveBundleExecutedAt?: number })
           .__mveBundleExecutedAt
@@ -789,12 +801,12 @@ export function App(): React.JSX.Element {
   const pendingPreviewViewportRestoreRef = useRef<{
 
     /**
-     * 「splitPreview」は、関連処理が共有する構造化データの一項目です。
+     * Webviewルートのsplit・previewに関する状態または設定。
      */
     splitPreview?: PreviewViewportAnchor;
 
     /**
-     * 「previewOnly」は、関連処理が共有する構造化データの一項目です。
+     * Webviewルートのpreview・onlyに関する状態または設定。
      */
     previewOnly?: PreviewViewportAnchor;
   }>({});
@@ -816,12 +828,12 @@ export function App(): React.JSX.Element {
       {
 
         /**
-         * 「kind」は、対象の識別や処理分岐に使用する値を保持します。
+         * メッセージ、項目、または処理の種類を識別する値。
          */
         kind: "splitPreview" | "previewOnly";
 
         /**
-         * 「userInitiated」は、処理条件または状態を表す真偽値です。
+         * Webviewルートのuser・initiatedを切り替えるフラグ。
          */
         userInitiated: boolean;
       }
@@ -854,17 +866,17 @@ export function App(): React.JSX.Element {
     | {
 
         /**
-         * 「version」は、位置・サイズ・件数などを表す数値です。
+         * Webviewルートのversionを表す数値。
          */
         version: number;
 
         /**
-         * 「hostText」は、画面または通知へ表示する文言を保持します。
+         * Webviewルートで解析・表示・保存する本文。
          */
         hostText: string;
 
         /**
-         * 「localText」は、画面または通知へ表示する文言を保持します。
+         * Webviewルートで解析・表示・保存する本文。
          */
         localText: string;
       }
@@ -873,8 +885,8 @@ export function App(): React.JSX.Element {
   const persistViewStateRef = useRef<(viewModeOverride?: ViewMode) => void>(
 
     /**
- * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
-     * @returns 「getActiveEditor」の呼び出し結果を返します。
+     * Webviewルートのコールバックとして要素を処理する。
+     * @returns 副作用を完了し、値は返さない。
      */
     () => undefined,
   );
@@ -883,8 +895,8 @@ export function App(): React.JSX.Element {
   const hostMessageHandlerRef = useRef<(message: HostToWebviewMessage) => void>(
 
     /**
- * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
-     * @returns 「getActiveEditor」の呼び出し結果を返します。
+     * Webviewルートのコールバックとして要素を処理する。
+     * @returns 副作用を完了し、値は返さない。
      */
     () => undefined,
   );
@@ -894,8 +906,8 @@ export function App(): React.JSX.Element {
   hostMessageHandlerRef.current = handleHostMessage;
 
   /**
-   * 現在の表示モードで編集可能なSourceEditorを取得する。
-   * @returns 操作対象のエディター。プレビューのみの場合はundefined。
+   * Webviewルートから必要な値またはリソースを取得する。
+   * @returns 条件に一致する値。未検出時はundefinedまたはnull。
    */
   function getActiveEditor(): TextEditorHandle | undefined {
     if (mode === "split" && splitView !== "preview")
@@ -907,8 +919,8 @@ export function App(): React.JSX.Element {
   const diagnostics = useMemo(
 
     /**
-     * 依存状態から再利用可能な派生値を計算するコールバックです。
-     * @returns 依存状態から計算した派生値を返します。
+     * 要素をmerge・collected・diagnosticsへ渡し、Webviewルートの結果または副作用を処理する。
+     * @returns Webviewルートのコールバックが生成する結果。
      */
     () =>
       mergeCollectedDiagnostics(
@@ -920,8 +932,8 @@ export function App(): React.JSX.Element {
   const diagnosticSummary = useMemo(
 
     /**
-     * 依存状態から再利用可能な派生値を計算するコールバックです。
-     * @returns 依存状態から計算した派生値を返します。
+     * 要素をsummarize・diagnosticsへ渡し、Webviewルートの結果または副作用を処理する。
+     * @returns Webviewルートのコールバックが生成する結果。
      */
     () => summarizeDiagnostics(diagnostics),
     [diagnostics],
@@ -930,8 +942,8 @@ export function App(): React.JSX.Element {
   const searchHits = useMemo(
 
     /**
-     * 依存状態から再利用可能な派生値を計算するコールバックです。
-     * @returns 依存状態から計算した派生値を返します。
+     * 要素をfind・search・hitsへ渡し、Webviewルートの結果または副作用を処理する。
+     * @returns Webviewルートのコールバックが生成する結果。
      */
     () => findSearchHits(renderedPreviewMarkdown, searchQuery),
     [renderedPreviewMarkdown, searchQuery],
@@ -940,26 +952,26 @@ export function App(): React.JSX.Element {
 
   useEffect(
   /**
- * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
-   * @returns Reactが保持する初期状態またはメモ化値を返します。
+   * 依存状態の変化に応じて購読を更新し、解除処理を返す。
+   * @returns Webviewルートのコールバックが生成する結果。
    */
   () => {
     // ホストへWebviewの準備完了を通知し、以後のメッセージを現在のハンドラーへ渡す。
     mveDebug("webview.ready", { clientId: clientIdRef.current });
     vscode.postMessage({ type: "ready", clientId: clientIdRef.current });
-    /**
-     * ホストから受信したメッセージをアプリのメッセージ処理へ渡す。
-     * @param event 処理対象のイベントです。
-     * @returns 「hostMessageHandlerRef.current」を実行し、値を返しません。
-     */
+    
     const onMessage = /**
- * 「onMessage」は、イベント入力を検証し、関連する状態またはUIを更新します。
- * @param event DOMイベントまたは入力イベントの情報です。
- * @returns 「hostMessageHandlerRef.current」を実行し、値を返しません。
- */ (event: MessageEvent<HostToWebviewMessage>) =>
+     * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
+     * @param event - ユーザー操作またはDOMから通知されたイベント。
+     * @returns Webviewルートのon・messageが生成する結果。
+     */ (event: MessageEvent<HostToWebviewMessage>) =>
       hostMessageHandlerRef.current(event.data);
     window.addEventListener("message", onMessage);
-    return /** イベント情報を受け取り、DOMまたは画面状態を更新するコールバックです。 @returns 後片付けまたは登録解除を完了した結果を返します。 */ () => {
+    /**
+     * イベントでremove・event・listenerを実行する。
+     * @returns 副作用を完了し、値は返さない。
+     */
+    return () => {
       window.removeEventListener("message", onMessage);
       if (persistViewStateTimerRef.current !== undefined) {
         window.clearTimeout(persistViewStateTimerRef.current);
@@ -997,8 +1009,8 @@ export function App(): React.JSX.Element {
 
   useEffect(
   /**
- * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
-   * @returns Reactが保持する初期状態またはメモ化値を返します。
+   * 依存状態の変化に応じて表示または購読を更新する。
+   * @returns Webviewルートのコールバックが生成する結果。
    */
   () => {
     if (!initialized) return;
@@ -1008,25 +1020,25 @@ export function App(): React.JSX.Element {
 
   useEffect(
   /**
- * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
-   * @returns Reactが保持する初期状態またはメモ化値を返します。
+   * 依存状態の変化に応じて表示または購読を更新する。
+   * @returns Webviewルートのコールバックが生成する結果。
    */
   () => {
     if (previewSnapshot.markdown !== localTextRef.current) return;
     const waiters = previewSnapshotWaitersRef.current.splice(0);
     waiters.forEach(
     /**
- * 「resolve」を受け取り、登録された副作用または結果を生成する処理です。
-     * @param resolve Promiseの完了または失敗を通知する関数です。
-     * @returns 「resolve」から生成した処理結果を返します。
+     * 成功結果通知ごとに成功結果通知を実行する。
+     * @param resolve - Promiseの成功を通知する関数。
+     * @returns 副作用を完了し、値は返さない。
      */
     (resolve) => resolve());
   }, [previewSnapshot.markdown]);
 
   useEffect(
   /**
- * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
-   * @returns Reactが保持する初期状態またはメモ化値を返します。
+   * 依存状態の変化に応じて表示または購読を更新する。
+   * @returns Webviewルートのコールバックが生成する結果。
    */
   () => {
     // 表示モードやレイアウト設定をVS CodeのWebview状態へ保存する。
@@ -1035,17 +1047,17 @@ export function App(): React.JSX.Element {
 
   useEffect(
   /**
- * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
-   * @returns Reactが保持する初期状態またはメモ化値を返します。
+   * 依存状態の変化に応じて表示または購読を更新する。
+   * @returns Webviewルートのコールバックが生成する結果。
    */
   () => {
     // 本文が変わったら、前の本文に対するローカル参照診断を破棄する。
     resourceCheckGenerationRef.current += 1;
     setLocalResourceDiagnostics(
     /**
- * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
-     * @param previous previousとして渡される、このコールバックの入力値です。
-     * @returns 「useEffect」を実行し、値を返しません。
+     * Webviewルートのコールバックとしてpreviousを処理する。
+     * @param previous - Webviewルートへ渡す入力。
+     * @returns Webviewルートに対応する要素の一覧。
      */
     (previous) =>
       previous.length ? [] : previous,
@@ -1054,8 +1066,8 @@ export function App(): React.JSX.Element {
 
   useEffect(
   /**
- * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
-   * @returns Reactが保持する初期状態またはメモ化値を返します。
+   * 依存状態の変化に応じて表示または購読を更新する。
+   * @returns Webviewルートのコールバックが生成する結果。
    */
   () => {
     if (!printPreview) pdfPreviewSignatureRef.current = undefined;
@@ -1063,8 +1075,8 @@ export function App(): React.JSX.Element {
 
   useEffect(
   /**
- * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
-   * @returns Reactが保持する初期状態またはメモ化値を返します。
+   * 依存状態の変化に応じて購読を更新し、解除処理を返す。
+   * @returns Webviewルートのコールバックが生成する結果。
    */
   () => {
     if (!printPreview || !initialized || !settings.workspaceTrusted) return;
@@ -1072,14 +1084,18 @@ export function App(): React.JSX.Element {
       window.clearTimeout(pdfPreviewTimerRef.current);
     pdfPreviewTimerRef.current = window.setTimeout(
     /**
- * 指定時間の経過後に遅延処理を実行するコールバックです。
-     * @returns 「requestPdfPreview」の呼び出し結果を返します。
+     * 指定時間の経過後に後続処理を実行する。
+     * @returns 副作用を完了し、値は返さない。
      */
     () => {
       pdfPreviewTimerRef.current = undefined;
       requestPdfPreview();
     }, 350);
-    return /** 「if」として関連する入力を検証し、呼び出し元が利用する処理結果を生成します。 @returns 後片付けまたは登録解除を完了した結果を返します。 */ () => {
+    /**
+     * Webviewルートのreturnを処理し、呼び出し側へ結果または副作用を返す。
+     * @returns Webviewルートのreturnが生成する結果。
+     */
+    return () => {
       if (pdfPreviewTimerRef.current !== undefined) {
         window.clearTimeout(pdfPreviewTimerRef.current);
         pdfPreviewTimerRef.current = undefined;
@@ -1097,28 +1113,32 @@ export function App(): React.JSX.Element {
 
   useEffect(
   /**
- * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
-   * @returns Reactが保持する初期状態またはメモ化値を返します。
+   * 依存状態の変化に応じて購読を更新し、解除処理を返す。
+   * @returns Webviewルートのコールバックが生成する結果。
    */
   () => {
     // 検索パネルが開いた直後に入力欄へフォーカスし、既存文字列を選択する。
     if (!searchVisible) return;
     const frame = requestAnimationFrame(
     /**
- * 次の描画フレームでUI更新処理を実行するコールバックです。
-     * @returns Webviewの状態から取得した値を返します。
+     * 次の描画フレームで表示更新を実行する。
+     * @returns Webviewルートのコールバックが生成する結果。
      */
     () => {
       searchInputRef.current?.focus();
       searchInputRef.current?.select();
     });
-    return /** 検索入力用のホイール監視で予約したアニメーションフレームを取り消します。 @returns アニメーションフレームを取り消し、値は返しません。 */ () => cancelAnimationFrame(frame);
+    /**
+     * Webviewルートのreturnを処理し、呼び出し側へ結果または副作用を返す。
+     * @returns Webviewルートのreturnが生成する結果。
+     */
+    return () => cancelAnimationFrame(frame);
   }, [searchVisible]);
 
   useEffect(
   /**
- * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
-   * @returns Reactが保持する初期状態またはメモ化値を返します。
+   * 依存状態の変化に応じて表示または購読を更新する。
+   * @returns Webviewルートのコールバックが生成する結果。
    */
   () => {
     // 検索結果の現在位置をソースエディターへ選択・表示する。
@@ -1132,8 +1152,8 @@ export function App(): React.JSX.Element {
 
   useEffect(
   /**
- * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
-   * @returns Reactが保持する初期状態またはメモ化値を返します。
+   * 依存状態の変化に応じて表示または購読を更新する。
+   * @returns 副作用を完了し、値は返さない。
    */
   () => {
     // リモート画像設定をCSSから参照できるbody属性へ反映する。
@@ -1144,35 +1164,35 @@ export function App(): React.JSX.Element {
 
   useEffect(
   /**
- * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
-   * @returns Reactが保持する初期状態またはメモ化値を返します。
+   * 依存状態の変化に応じて購読を更新し、解除処理を返す。
+   * @returns 副作用を完了し、値は返さない。
    */
   () => {
     // CtrlまたはCmdを押しながらのホイール入力で表示倍率を変更する。
     const editorArea = editorAreaRef.current;
     if (!editorArea) return;
-    /**
-     * Ctrl/Cmdホイールをズーム操作へ変換する。
-     * @param event 処理対象のイベントです。
-     * @returns 「event」から生成した処理結果を返します。
-     */
+    
     const onWheel = /**
- * 「onWheel」は、イベント入力を検証し、関連する状態またはUIを更新します。
- * @param event DOMイベントまたは入力イベントの情報です。
- * @returns 「event」から生成した処理結果を返します。
- */ (event: WheelEvent) => {
+     * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
+     * @param event - ユーザー操作またはDOMから通知されたイベント。
+     * @returns 副作用を完了し、値は返さない。
+     */ (event: WheelEvent) => {
       if (!event.ctrlKey) return;
       event.preventDefault();
       adjustZoom(event.deltaY < 0 ? 0.1 : -0.1);
     };
     editorArea.addEventListener("wheel", onWheel, { passive: false });
-    return /** イベント情報を受け取り、DOMまたは画面状態を更新するコールバックです。 @returns 後片付けまたは登録解除を完了した結果を返します。 */ () => editorArea.removeEventListener("wheel", onWheel);
+    /**
+     * イベントでremove・event・listenerを実行する。
+     * @returns 副作用を完了し、値は返さない。
+     */
+    return () => editorArea.removeEventListener("wheel", onWheel);
   }, [initialized]);
 
   /**
-   * 現在の表示倍率を変更し、PDFを含む表示位置を維持する。
-   * @param delta 「delta」は、「adjustZoom」がWebview UI状態の処理対象を特定する入力です。
-   * @returns 「adjustZoom」の副作用または状態更新を実行し、値は返しません。
+   * Webviewルートのadjust・zoomを処理し、呼び出し側へ結果または副作用を返す。
+   * @param delta - Webviewルートで扱う数値。
+   * @returns 副作用を完了し、値は返さない。
    */
   function adjustZoom(delta: number): void {
     captureVisibleViewports();
@@ -1203,8 +1223,8 @@ export function App(): React.JSX.Element {
 
   useLayoutEffect(
   /**
- * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
-   * @returns 「if」を実行し、値を返しません。
+   * 要素をifへ渡し、Webviewルートの結果または副作用を処理する。
+   * @returns Webviewルートのコールバックが生成する結果。
    */
   () => {
     // 保留した選択移動または表示位置復元をレイアウト確定後に実行する。
@@ -1227,8 +1247,8 @@ export function App(): React.JSX.Element {
         // CodeMirrorのrevealRangeと同じ描画世代で、プレビューも選択位置へ揃える。
         requestAnimationFrame(
         /**
- * 次の描画フレームでUI更新処理を実行するコールバックです。
-         * @returns 「if」の呼び出し結果を返します。
+         * 次の描画フレームで表示更新を実行する。
+         * @returns Webviewルートのコールバックが生成する結果。
          */
         () => {
           if (splitPreviewRef.current === preview)
@@ -1245,14 +1265,18 @@ export function App(): React.JSX.Element {
     if (renderedPreviewMarkdown !== markdown) return;
     const frame = requestAnimationFrame(
     /**
- * 次の描画フレームでUI更新処理を実行するコールバックです。
-     * @returns 「restoreVisibleViewports」の呼び出し結果を返します。
+     * 次の描画フレームで表示更新を実行する。
+     * @returns Webviewルートのコールバックが生成する結果。
      */
     () => {
       restoreVisibleViewports();
       pendingViewportRestoreRef.current = false;
     });
-    return /** プレビュー位置復元で予約したアニメーションフレームを取り消します。 @returns アニメーションフレームを取り消し、値は返しません。 */ () => cancelAnimationFrame(frame);
+    /**
+     * Webviewルートのreturnを処理し、呼び出し側へ結果または副作用を返す。
+     * @returns Webviewルートのreturnが生成する結果。
+     */
+    return () => cancelAnimationFrame(frame);
   }, [
     mode,
     splitView,
@@ -1267,8 +1291,8 @@ export function App(): React.JSX.Element {
 
   useLayoutEffect(
   /**
- * 次の描画フレームでUI更新処理を実行するコールバックです。
-   * @returns 「if」の呼び出し結果を返します。
+   * 要素をifへ渡し、Webviewルートの結果または副作用を処理する。
+   * @returns Webviewルートのコールバックが生成する結果。
    */
   () => {
     const area = editorAreaRef.current;
@@ -1277,16 +1301,12 @@ export function App(): React.JSX.Element {
     const preview = area?.querySelector<HTMLElement>(".split-preview-pane");
     if (!area) return;
 
-    /**
-     * 「size」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-     * @param element 処理対象の要素です。
-     * @returns 「size」が計算した位置・サイズ・件数などの数値を返します。
-     */
+    
     const size = /**
- * 「size」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param element 処理対象のDOM要素、エディター、または実行コンテキストです。
- * @returns 「size」が計算した位置・サイズ・件数などの数値を返します。
- */ (element: HTMLElement | null) => {
+     * Webviewルートのsizeを処理し、呼び出し側へ結果または副作用を返す。
+     * @param element - 寸法または属性を読み取るDOM要素。
+     * @returns Webviewルートのsizeが生成する結果。
+     */ (element: HTMLElement | null) => {
       if (!element) return undefined;
       const rect = element.getBoundingClientRect();
       const style = getComputedStyle(element);
@@ -1318,8 +1338,8 @@ export function App(): React.JSX.Element {
 
   useEffect(
   /**
- * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
-   * @returns Reactが保持する初期状態またはメモ化値を返します。
+   * 依存状態の変化に応じて表示または購読を更新する。
+   * @returns Webviewルートのコールバックが生成する結果。
    */
   () => {
     // リサイズ中に各ペインの表示アンカーを保存し、リサイズ後に同じ位置へ戻す。
@@ -1329,34 +1349,31 @@ export function App(): React.JSX.Element {
       | {
 
           /**
-           * 「source」は、読み込みまたは出力対象を示すパス・URL・内容を保持します。
+           * 解析・描画・変換の起点となる本文。
            */
           source?: EditorViewportAnchor;
 
           /**
-           * 「splitPreview」は、関連処理が共有する構造化データの一項目です。
+           * Webviewルートのsplit・previewに関する状態または設定。
            */
           splitPreview?: PreviewViewportAnchor;
 
           /**
-           * 「previewOnly」は、関連処理が共有する構造化データの一項目です。
+           * Webviewルートのpreview・onlyに関する状態または設定。
            */
           previewOnly?: PreviewViewportAnchor;
 
           /**
-           * 「intentGeneration」は、表示領域のサイズまたは倍率を保持します。
+           * Webviewルートのintent・generationを表す数値。
            */
           intentGeneration: number;
         }
       | undefined;
-    /**
-     * ウィンドウサイズ変更時の表示スナップショットを作成または更新する。
-     * @returns 「if」を実行し、値を返しません。
-     */
+    
     const onResize = /**
- * 「onResize」は、イベント入力を検証し、関連する状態またはUIを更新します。
- * @returns 「if」を実行し、値を返しません。
- */ () => {
+     * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
+     * @returns Webviewルートのon・resizeが生成する結果。
+     */ () => {
       if (!resizeSnapshot) {
         resizeSnapshot = {
           source: viewportStateRef.current.source
@@ -1377,8 +1394,8 @@ export function App(): React.JSX.Element {
       cancelAnimationFrame(frame);
       frame = requestAnimationFrame(
       /**
- * 次の描画フレームでUI更新処理を実行するコールバックです。
-       * @returns 「if」を実行し、値を返しません。
+       * 次の描画フレームで表示更新を実行する。
+       * @returns Webviewルートのコールバックが生成する結果。
        */
       () => {
         const snapshot = resizeSnapshot;
@@ -1409,35 +1426,29 @@ export function App(): React.JSX.Element {
       window.clearTimeout(resetSnapshotTimer);
       resetSnapshotTimer = window.setTimeout(
       /**
- * 指定時間の経過後に遅延処理を実行するコールバックです。
-       * @returns 「if」を実行し、値を返しません。
+       * 指定時間の経過後に後続処理を実行する。
+       * @returns 副作用を完了し、値は返さない。
        */
       () => {
         resizeSnapshot = undefined;
       }, 120);
     };
-    /**
-     * プレビューのポインタースクロール状態を解除する。
-     * @returns 購読解除、タイマー解除、リソース破棄などの後片付けを実行し、値は返しません。
-     */
+    
     const endPreviewPointerScroll = /**
- * 「endPreviewPointerScroll」は、処理を終了し、保持していたリソースまたは状態を整理します。
- * @returns 購読解除、タイマー解除、リソース破棄などの後片付けを実行し、値は返しません。
- */ () => {
+     * Webviewルートのend・preview・pointer・scrollを処理し、呼び出し側へ結果または副作用を返す。
+     * @returns Webviewルートのend・preview・pointer・scrollが生成する結果。
+     */ () => {
       const splitPreview = splitPreviewRef.current;
       const editorArea = editorAreaRef.current;
       if (splitPreview)
         previewPointerScrollActiveRef.current.delete(splitPreview);
       if (editorArea) previewPointerScrollActiveRef.current.delete(editorArea);
     };
-    /**
-     * プレビューのタッチスクロール状態を解除する。
-     * @returns 購読解除、タイマー解除、リソース破棄などの後片付けを実行し、値は返しません。
-     */
+    
     const endPreviewTouchScroll = /**
- * 「endPreviewTouchScroll」は、処理を終了し、保持していたリソースまたは状態を整理します。
- * @returns 購読解除、タイマー解除、リソース破棄などの後片付けを実行し、値は返しません。
- */ () => {
+     * Webviewルートのend・preview・touch・scrollを処理し、呼び出し側へ結果または副作用を返す。
+     * @returns Webviewルートのend・preview・touch・scrollが生成する結果。
+     */ () => {
       const splitPreview = splitPreviewRef.current;
       const editorArea = editorAreaRef.current;
       if (splitPreview)
@@ -1449,7 +1460,11 @@ export function App(): React.JSX.Element {
     window.addEventListener("pointercancel", endPreviewPointerScroll);
     window.addEventListener("touchend", endPreviewTouchScroll);
     window.addEventListener("touchcancel", endPreviewTouchScroll);
-    return /** イベント情報を受け取り、DOMまたは画面状態を更新するコールバックです。 @returns 後片付けまたは登録解除を完了した結果を返します。 */ () => {
+    /**
+     * UIイベントを表示または編集状態へ反映する。
+     * @returns 副作用を完了し、値は返さない。
+     */
+    return () => {
       cancelAnimationFrame(frame);
       window.clearTimeout(resetSnapshotTimer);
       window.removeEventListener("resize", onResize);
@@ -1463,13 +1478,13 @@ export function App(): React.JSX.Element {
   useEffect(
 
     /**
- * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
-     * @returns Reactが保持する初期状態またはメモ化値を返します。
+     * 依存状態の変化に応じて表示または購読を更新する。
+     * @returns Webviewルートのコールバックが生成する結果。
      */
     () =>
     /**
- * 登録された副作用または結果を生成する処理を実行するコールバックです。
-     * @returns 「document.body.classList.remove」を実行し、値を返しません。
+     * 要素を削除へ渡し、Webviewルートの結果または副作用を処理する。
+     * @returns Webviewルートのコールバックが生成する結果。
      */
     () => {
       outlineDragRef.current = undefined;
@@ -1480,39 +1495,31 @@ export function App(): React.JSX.Element {
 
   useEffect(
   /**
- * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
-   * @returns Reactが保持する初期状態またはメモ化値を返します。
+   * 依存状態の変化に応じて表示または購読を更新する。
+   * @returns Webviewルートのコールバックが生成する結果。
    */
   () => {
     // 貼り付け・ドラッグ&ドロップ・キーボードショートカットを文書編集へ接続する。
-    /**
-     * 貼り付けイベントを画像またはHTML貼り付け処理へ渡す。
-     * @param event 処理対象のイベントです。
-     * @returns 「handlePaste」を実行し、値を返しません。
-     */
+    
     const onPaste = /**
- * 「onPaste」は、イベント入力を検証し、関連する状態またはUIを更新します。
- * @param event DOMイベントまたは入力イベントの情報です。
- * @returns 「handlePaste」を実行し、値を返しません。
- */ (event: ClipboardEvent) => void handlePaste(event);
-    /**
-     * 編集可能な場合だけ画像ファイルのドラッグを受け付ける。
-     * @param event 処理対象のイベントです。
-     * @returns 「if」を実行し、値を返しません。
-     */
+     * pasteイベントでhandle・pasteを実行する。
+     * @param event - ユーザー操作またはDOMから通知されたイベント。
+     * @returns 副作用を完了し、値は返さない。
+     */ (event: ClipboardEvent) => void handlePaste(event);
+    
     const onDragOver = /**
- * 「onDragOver」は、イベント入力を検証し、関連する状態またはUIを更新します。
- * @param event DOMイベントまたは入力イベントの情報です。
- * @returns 「if」を実行し、値を返しません。
- */ (event: DragEvent) => {
+     * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
+     * @param event - ユーザー操作またはDOMから通知されたイベント。
+     * @returns Webviewルートのon・drag・overが生成する結果。
+     */ (event: DragEvent) => {
       if (
         isEditingEnabled(mode, splitView) &&
         Array.from(event.dataTransfer?.items ?? []).some(
 
           /**
- * 「item」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
-           * @param item 条件判定の対象となる要素です。
-           * @returns 条件判定の結果を示す真偽値を返します。
+           * Webviewルートのコールバックとして項目を処理する。
+           * @param item - Webviewルートで走査または更新する要素。
+           * @returns Webviewルートのコールバックが生成する結果。
            */
           (item) => item.kind === "file",
         )
@@ -1521,16 +1528,12 @@ export function App(): React.JSX.Element {
         if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
       }
     };
-    /**
-     * ドロップされた画像ファイルをローカル保存して本文へ挿入する。
-     * @param event 処理対象のイベントです。
-     * @returns 「if」を実行し、値を返しません。
-     */
+    
     const onDrop = /**
- * 「onDrop」は、イベント入力を検証し、関連する状態またはUIを更新します。
- * @param event DOMイベントまたは入力イベントの情報です。
- * @returns 「if」を実行し、値を返しません。
- */ (event: DragEvent) => {
+     * dropイベントでifを実行する。
+     * @param event - ユーザー操作またはDOMから通知されたイベント。
+     * @returns 副作用を完了し、値は返さない。
+     */ (event: DragEvent) => {
       if (!isEditingEnabled(mode, splitView)) return;
       const files = Array.from(event.dataTransfer?.files ?? []).filter(
         isImageFile,
@@ -1540,16 +1543,12 @@ export function App(): React.JSX.Element {
       event.stopImmediatePropagation();
       void saveImageFiles(files);
     };
-    /**
-     * 検索ショートカットと表内改行ショートカットを処理する。
-     * @param event 処理対象のイベントです。
-     * @returns 「Boolean」を実行し、値を返しません。
-     */
+    
     const onKeyDown = /**
- * 「onKeyDown」は、イベント入力を検証し、関連する状態またはUIを更新します。
- * @param event DOMイベントまたは入力イベントの情報です。
- * @returns 「Boolean」を実行し、値を返しません。
- */ (event: KeyboardEvent) => {
+     * keydownイベントでbooleanを実行する。
+     * @param event - ユーザー操作またはDOMから通知されたイベント。
+     * @returns 副作用を完了し、値は返さない。
+     */ (event: KeyboardEvent) => {
       const target = event.target instanceof Element ? event.target : undefined;
       const inApp =
         Boolean(target?.closest(".app")) || target === document.body;
@@ -1598,7 +1597,11 @@ export function App(): React.JSX.Element {
     document.addEventListener("dragover", onDragOver, true);
     document.addEventListener("drop", onDrop, true);
     document.addEventListener("keydown", onKeyDown, true);
-    return /** イベント情報を受け取り、DOMまたは画面状態を更新するコールバックです。 @returns 後片付けまたは登録解除を完了した結果を返します。 */ () => {
+    /**
+     * イベントでremove・event・listenerを実行する。
+     * @returns 副作用を完了し、値は返さない。
+     */
+    return () => {
       document.removeEventListener("paste", onPaste, true);
       document.removeEventListener("dragover", onDragOver, true);
       document.removeEventListener("drop", onDrop, true);
@@ -1613,25 +1616,29 @@ export function App(): React.JSX.Element {
 
   useEffect(
   /**
- * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
-   * @returns Reactが保持する初期状態またはメモ化値を返します。
+   * 依存状態の変化に応じて購読を更新し、解除処理を返す。
+   * @returns 副作用を完了し、値は返さない。
    */
   () => {
     // 通知トーストを一定時間後に自動的に閉じる。
     if (!toast) return;
     const timer = window.setTimeout(
     /**
- * 指定時間の経過後に遅延処理を実行するコールバックです。
-     * @returns 「setToast」を実行し、値を返しません。
+     * 指定時間の経過後に後続処理を実行する。
+     * @returns 副作用を完了し、値は返さない。
      */
     () => setToast(""), 2600);
-    return /** 遅延処理の予約を受け、タイマーまたはアニメーションフレームを解除するコールバックです。 @returns 後片付けまたは登録解除を完了した結果を返します。 */ () => window.clearTimeout(timer);
+    /**
+     * Webviewルートのreturnを処理し、呼び出し側へ結果または副作用を返す。
+     * @returns 副作用を完了し、値は返さない。
+     */
+    return () => window.clearTimeout(timer);
   }, [toast]);
 
   /**
-   * ホストからのメッセージを初期化・ACK・外部変更・再同期・設定・コマンドへ振り分ける。
-   * @param message ホストから受信したメッセージ。
-   * @returns 何も返さない。
+   * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
+   * @param message - HostとWebviewの間で受け渡すメッセージ。
+   * @returns 副作用を完了し、値は返さない。
    */
   function handleHostMessage(message: HostToWebviewMessage): void {
     const record = message as unknown as Record<string, unknown>;
@@ -1773,9 +1780,9 @@ export function App(): React.JSX.Element {
             message.paths
               .map(
               /**
- * 「item」を変換し、変換後の要素を返すコールバックです。
-               * @param item 変換または処理の対象となる値です。
-               * @returns 入力要素から生成した変換後の値を返します。
+               * 各項目をimage・markdownへ渡し、変換結果を一覧化する。
+               * @param item - 走査中の要素。
+               * @returns 入力要素から生成した変換結果の一覧。
                */
               (item) =>
                 imageMarkdown(item, messages.editor.defaultImageAlt),
@@ -1805,9 +1812,9 @@ export function App(): React.JSX.Element {
               .map(
 
                 /**
- * 「item」を変換し、変換後の要素を返すコールバックです。
-                 * @param item 変換または処理の対象となる値です。
-                 * @returns 入力要素から生成した変換後の値を返します。
+                 * 各項目からlineを取り出して一覧化する。
+                 * @param item - 項目のlineを参照する走査対象。
+                 * @returns lineを取り出した変換結果の一覧。
                  */
                 (item) =>
                   `${item.line ? `行${item.line}: ` : ""}${item.message}`,
@@ -1846,9 +1853,9 @@ export function App(): React.JSX.Element {
           ) {
             setPdfPreview(
             /**
- * 「previous」から（loading、error）のオブジェクトを生成して返すコールバックです。
-             * @param previous previousとして渡される、このコールバックの入力値です。
-             * @returns 初期化したオブジェクト（loading、error）を返します。
+             * Webviewルートのコールバックとしてpreviousを処理する。
+             * @param previous - Webviewルートへ渡す入力。
+             * @returns Webviewルートのコールバックが生成する結果。
              */
             (previous) => ({
               ...previous,
@@ -1932,14 +1939,14 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * ホストから届いた外部差分を、送信中操作と最新ローカル本文へ再適用する。
-   * @param message 外部差分と新しい文書バージョンを含むメッセージ。
-   * @returns 何も返さない。
+   * Webviewルートの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+   * @param message - HostとWebviewの間で受け渡すメッセージ。
+   * @returns 副作用を完了し、値は返さない。
    */
   function applyExternalChanges(
     message: Extract<HostToWebviewMessage, {
     /**
-     * 「type」は、対象の識別や処理分岐に使用する値を保持します。
+     * Webviewルートで対象や分岐を識別する値の型。
      */
     type: "externalChanges" }>,
   ): void {
@@ -2024,13 +2031,13 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * ホストの最新本文へ最新ローカル本文だけを再適用し、同期状態を再構築する。
-   * @param nextHost ホストが保持する最新本文。
-   * @param nextVersion 最新本文のバージョン。
-   * @param reason 再同期が発生した理由。
-   * @param opId 再同期対象の操作ID。
-   * @param operationApplied 対象操作がホスト側で適用済みかどうか。
-   * @returns 何も返さない。
+   * Webviewルートの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+   * @param nextHost - Webviewルートの位置・寸法・件数・時間を表す数値。
+   * @param nextVersion - Webviewルートの位置・寸法・件数・時間を表す数値。
+   * @param reason - 処理を中断または失敗させた理由。
+   * @param opId - Webviewルートの対象や分岐を識別する値。
+   * @param operationApplied - Webviewルートの条件を示すフラグ。
+   * @returns 副作用を完了し、値は返さない。
    */
   function applyResyncSnapshot(
     nextHost: string,
@@ -2118,10 +2125,10 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * ホストへ最新本文の再同期を要求する。要求中は重複送信しない。
-   * @param reason 再同期を要求する理由。
-   * @param opId 再同期対象の保留操作ID。
-   * @returns 何も返さない。
+   * Webviewルートの変更または要求をHost・Webview間へ通知する。
+   * @param reason - 処理を中断または失敗させた理由。
+   * @param opId - Webviewルートの対象や分岐を識別する値。
+   * @returns 副作用を完了し、値は返さない。
    */
   function requestResync(
     reason: string,
@@ -2139,25 +2146,25 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * プレビュー・出力用stateを、即時同期済みの最新ローカル本文へ進める。
-   * @returns 「commitSourceSnapshot」が生成または変換したWebview UIの文字列を返します。
+   * Webviewルートの変更または要求をHost・Webview間へ通知する。
+   * @returns Webviewルートで利用する文字列。
    */
   function commitSourceSnapshot(): string {
     const current = localTextRef.current;
     setMarkdown(
     /**
- * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
-     * @param previous previousとして渡される、このコールバックの入力値です。
-     * @returns 「previous」から生成した処理結果を返します。
+     * Webviewルートのコールバックとしてpreviousを処理する。
+     * @param previous - Webviewルートへ渡す入力。
+     * @returns 副作用を完了し、値は返さない。
      */
     (previous) => (previous === current ? previous : current));
     return current;
   }
 
   /**
-   * UndoまたはRedoを保留履歴キューへ追加する。
-   * @param command 実行する履歴コマンド。
-   * @returns 何も返さない。
+   * Webviewルートの変更または要求をHost・Webview間へ通知する。
+   * @param command - Webviewルートへ渡す入力。
+   * @returns 副作用を完了し、値は返さない。
    */
   function requestHistoryCommand(command: "undo" | "redo"): void {
     commitSourceSnapshot();
@@ -2166,8 +2173,8 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * 同期中の操作がない場合に、保留中の履歴コマンドをホストへ送る。
-   * @returns 何も返さない。
+   * Webviewルートの処理順序と完了状態を管理する。
+   * @returns 副作用を完了し、値は返さない。
    */
   function flushHistoryCommands(): void {
     // 未同期のローカル編集は sourceEditorChange / 再同期処理が送信する。
@@ -2188,9 +2195,9 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * 完了済み操作IDを記録し、記録数が増えすぎないよう古いIDを削除する。
-   * @param opId 完了済みとして記録する操作ID。
-   * @returns 何も返さない。
+   * Webviewルートのremember・settled・operationを処理し、呼び出し側へ結果または副作用を返す。
+   * @param opId - Webviewルートの対象や分岐を識別する値。
+   * @returns 副作用を完了し、値は返さない。
    */
   function rememberSettledOperation(opId: string): void {
     const settled = settledOperationIdsRef.current;
@@ -2201,9 +2208,9 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * 表示モード・レイアウト・各ペインの表示位置をWebview状態へ保存する。
-   * @param viewModeOverride クリック直後に保存する表示モード。未指定時は現在値を使う。
-   * @returns 何も返さない。
+   * Webviewルートの値を保存先または共有状態へ書き出す。
+   * @param viewModeOverride - Webviewルートの対象や分岐を識別する値。
+   * @returns 副作用を完了し、値は返さない。
    */
   function persistViewState(viewModeOverride?: ViewMode): void {
     const savedViewMode = viewModeOverride ?? splitView;
@@ -2222,9 +2229,9 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * スクロール中の状態保存をフレームごとにVS Codeへ送らず、最新位置だけを保存する。
-   * @param viewModeOverride 「viewModeOverride」は、「schedulePersistViewState」がWebview UI状態の処理対象を特定する入力です。
-   * @returns 「schedulePersistViewState」の副作用または状態更新を実行し、値は返しません。
+   * Webviewルートの処理順序と完了状態を管理する。
+   * @param viewModeOverride - Webviewルートの対象や分岐を識別する値。
+   * @returns 副作用を完了し、値は返さない。
    */
   function schedulePersistViewState(viewModeOverride?: ViewMode): void {
     if (viewModeOverride !== undefined)
@@ -2232,8 +2239,8 @@ export function App(): React.JSX.Element {
     if (persistViewStateTimerRef.current !== undefined) return;
     persistViewStateTimerRef.current = window.setTimeout(
     /**
- * 指定時間の経過後に遅延処理を実行するコールバックです。
-     * @returns 「persistViewStateRef.current」を実行し、値を返しません。
+     * 指定時間の経過後に後続処理を実行する。
+     * @returns 副作用を完了し、値は返さない。
      */
     () => {
       persistViewStateTimerRef.current = undefined;
@@ -2246,9 +2253,9 @@ export function App(): React.JSX.Element {
   persistViewStateRef.current = persistViewState;
 
   /**
-   * アウトラインの表示状態を更新し、全ドキュメント共通の設定としてHostへ保存する。
-   * @param visible 「visible」は、「setOutlineVisibility」がWebview UI状態の処理対象を特定する入力です。
-   * @returns 「setOutlineVisibility」の副作用または状態更新を実行し、値は返しません。
+   * Webviewルートの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+   * @param visible - Webviewルートの条件を示すフラグ。
+   * @returns 副作用を完了し、値は返さない。
    */
   function setOutlineVisibility(visible: boolean): void {
     if (outlineVisible === visible) return;
@@ -2257,9 +2264,9 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * 表示モードを切り替え、切り替え前の選択範囲と表示位置を復元対象として保存する。
-   * @param nextMode 切り替え先の編集またはプレビューモード。
-   * @returns 何も返さない。
+   * Webviewルートの変更または利用者の操作意図を記録し、後続処理へ渡す。
+   * @param nextMode - Webviewルートの対象や分岐を識別する値。
+   * @returns 副作用を完了し、値は返さない。
    */
   function changeMode(nextMode: EditorMode): void {
     mveDebug("view.change-mode", { from: mode, to: nextMode, splitView });
@@ -2283,9 +2290,9 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * 分割表示のペイン構成を切り替え、変更前の表示位置を保存する。
-   * @param nextView 切り替え先のペイン構成。
-   * @returns 何も返さない。
+   * Webviewルートの変更または利用者の操作意図を記録し、後続処理へ渡す。
+   * @param nextView - Webviewルートの位置・寸法・件数・時間を表す数値。
+   * @returns 副作用を完了し、値は返さない。
    */
   function changeSplitView(nextView: "both" | "text" | "preview"): void {
     mveDebug("view.change-split", { from: splitView, to: nextView, mode });
@@ -2304,9 +2311,9 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * リボンから受け取ったコマンドをエディター操作・表示切替・ダイアログへ振り分ける。
-   * @param command リボンが生成したコマンド。
-   * @returns 何も返さない。
+   * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
+   * @param command - Webviewルートへ渡す入力。
+   * @returns 副作用を完了し、値は返さない。
    */
   function handleRibbon(command: RibbonCommand): void {
     commitSourceSnapshot();
@@ -2396,9 +2403,9 @@ export function App(): React.JSX.Element {
         if (!enabled) cancelPendingCrossPaneScrollSync();
         setSettings(
         /**
- * 「current」から（scrollSyncEnabled、type）のオブジェクトを生成して返すコールバックです。
-         * @param current currentとして渡される、このコールバックの入力値です。
-         * @returns 初期化したオブジェクト（scrollSyncEnabled、type）を返します。
+         * Webviewルートのコールバックとしてcurrentを処理する。
+         * @param current - Webviewルートへ渡す入力。
+         * @returns Webviewルートのコールバックが生成する結果。
          */
         (current) => ({
           ...current,
@@ -2447,9 +2454,9 @@ export function App(): React.JSX.Element {
       case "setImageDirectory":
         setSettings(
         /**
- * 「current」から（imageDirectory、type、directory、fontFamily）のオブジェクトを生成して返すコールバックです。
-         * @param current currentとして渡される、このコールバックの入力値です。
-         * @returns 初期化したオブジェクト（imageDirectory、type、directory、fontFamily）を返します。
+         * Webviewルートのコールバックとしてcurrentを処理する。
+         * @param current - Webviewルートへ渡す入力。
+         * @returns Webviewルートのコールバックが生成する結果。
          */
         (current) => ({
           ...current,
@@ -2471,9 +2478,9 @@ export function App(): React.JSX.Element {
         setPdfOptions(nextPdfOptions);
         setSettings(
         /**
- * 「current」から（pdfOptions、type）のオブジェクトを生成して返すコールバックです。
-         * @param current currentとして渡される、このコールバックの入力値です。
-         * @returns 初期化したオブジェクト（pdfOptions、type）を返します。
+         * Webviewルートのコールバックとしてcurrentを処理する。
+         * @param current - Webviewルートへ渡す入力。
+         * @returns 副作用を完了し、値は返さない。
          */
         (current) => ({
           ...current,
@@ -2502,8 +2509,8 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * Markdown診断件数を集計し、出力前チェックパネルを表示する。
-   * @returns 何も返さない。
+   * Webviewルートの処理順序と完了状態を管理する。
+   * @returns 副作用を完了し、値は返さない。
    */
   function runPreflightCheck(): void {
     prepareLayoutRestore();
@@ -2526,9 +2533,9 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * ローカル画像・リンクの実在確認をホストへ依頼する。
-   * @param purpose 「purpose」は、「requestLocalResourceCheck」がWebview UI状態の処理対象を特定する入力です。
-   * @returns 「requestLocalResourceCheck」の副作用または状態更新を実行し、値は返しません。
+   * Webviewルートの変更または要求をHost・Webview間へ通知する。
+   * @param purpose - Webviewルートへ渡す入力。
+   * @returns 副作用を完了し、値は返さない。
    */
   function requestLocalResourceCheck(purpose: LocalResourceCheckPurpose): void {
     const requestId = createClientId();
@@ -2548,8 +2555,8 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * 編集可能なテキストペインを表示して検索パネルを開く。
-   * @returns 何も返さない。
+   * Webviewルートの表示または操作を開始する。
+   * @returns 副作用を完了し、値は返さない。
    */
   function openSearch(): void {
     if (mode === "preview") changeMode("split");
@@ -2558,8 +2565,8 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * リンクダイアログの入力値を検証し、現在の選択範囲へリンクを挿入する。
-   * @returns 何も返さない。
+   * Webviewルートの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+   * @returns 副作用を完了し、値は返さない。
    */
   function applyLinkDialog(): void {
     const href = linkHref.trim();
@@ -2569,8 +2576,8 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * 検索パネルを閉じ、検索位置を先頭へ戻す。
-   * @returns 何も返さない。
+   * Webviewルートの処理またはリソースを終了し、後続利用可能な状態へ戻す。
+   * @returns 副作用を完了し、値は返さない。
    */
   function closeSearch(): void {
     setSearchVisible(false);
@@ -2578,9 +2585,9 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * 検索結果の選択位置を前後へ移動し、該当範囲へ移動する。
-   * @param direction 次へ進む場合は1、前へ戻る場合は-1。
-   * @returns 何も返さない。
+   * Webviewルートのjump・to・searchを処理し、呼び出し側へ結果または副作用を返す。
+   * @param direction - Webviewルートへ渡す入力。
+   * @returns 副作用を完了し、値は返さない。
    */
   function jumpToSearch(direction: 1 | -1): void {
     if (!searchHits.length) return;
@@ -2592,9 +2599,9 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * 現在の検索一致箇所またはすべての一致箇所を置換する。
-   * @param all すべての一致を置換するかどうか。
-   * @returns 何も返さない。
+   * Webviewルートの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+   * @param all - Webviewルートの条件を示すフラグ。
+   * @returns 副作用を完了し、値は返さない。
    */
   function replaceSearch(all: boolean): void {
     if (!searchQuery || !searchHits.length) return;
@@ -2615,9 +2622,9 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * 画像貼り付けを保存処理へ渡し、HTML貼り付けは安全化してMarkdownへ変換する。
-   * @param event クリップボード貼り付けイベント。
-   * @returns 貼り付け処理が完了するPromise。
+   * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
+   * @param event - ユーザー操作またはDOMから通知されたイベント。
+   * @returns 副作用を完了し、値は返さない。
    */
   async function handlePaste(event: ClipboardEvent): Promise<void> {
     if (!isEditingEnabled(mode, splitView)) return;
@@ -2627,23 +2634,23 @@ export function App(): React.JSX.Element {
     const imageFiles = items
       .filter(
       /**
- * 「item」が条件に一致するか判定し、残す要素を決めるコールバックです。
-       * @param item 変換または処理の対象となる値です。
-       * @returns 要素を採用するかどうかの真偽値を返します。
+       * 種別「file」の項目だけを残す。
+       * @param item - 項目のkindを参照する走査対象。
+       * @returns 条件を満たした要素だけを含む一覧。
        */
       (item) => item.kind === "file" && item.type.startsWith("image/"))
       .map(
       /**
- * 「item」を変換し、変換後の要素を返すコールバックです。
-       * @param item 変換または処理の対象となる値です。
-       * @returns 入力要素から生成した変換後の値を返します。
+       * 各項目からget・as・fileを取り出して一覧化する。
+       * @param item - 項目のget・as・fileを参照する走査対象。
+       * @returns get・as・fileを取り出した変換結果の一覧。
        */
       (item) => item.getAsFile())
       .filter(
       /**
- * 「file」が条件に一致するか判定し、残す要素を決めるコールバックです。
-       * @param file 処理対象のファイルです。
-       * @returns 条件判定の結果を示す真偽値を返します。
+       * 未定義または無効なfileを除外する。
+       * @param file - 有効性を判定するfile。
+       * @returns 条件を満たした要素だけを含む一覧。
        */
       (file): file is File => Boolean(file));
     if (imageFiles.length) {
@@ -2659,9 +2666,9 @@ export function App(): React.JSX.Element {
     const hasTsvMime = Array.from(event.clipboardData?.types ?? []).some(
 
       /**
- * 「type」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
-       * @param type 処理対象の種別です。
-       * @returns 条件判定の結果を示す真偽値を返します。
+       * Webviewルートのコールバックとしてtypeを処理する。
+       * @param type - 操作領域の種類を示す識別子。
+       * @returns Webviewルートのコールバックが生成する結果。
        */
       (type) => type === "text/tab-separated-values" || type === "text/tsv",
     );
@@ -2710,8 +2717,8 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * 現在の表をヘッダーとデータ行だけのTSVへ変換してクリップボードへコピーする。
-   * @returns コピー処理が完了するPromise。
+   * Webviewルートの入力または状態を走査・複製する。
+   * @returns 副作用を完了し、値は返さない。
    */
   async function copyTableTsv(): Promise<void> {
     const editor = getActiveEditor();
@@ -2735,9 +2742,9 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * Clipboard APIを優先し、Webview環境で利用できない場合は選択コピーへフォールバックする。
-   * @param text コピーするテキスト。
-   * @returns コピー処理が完了するPromise。
+   * Webviewルートの値を保存先または共有状態へ書き出す。
+   * @param text - 表示・解析・変換の対象となる本文。
+   * @returns 副作用を完了し、値は返さない。
    */
   async function writeClipboardText(text: string): Promise<void> {
     if (navigator.clipboard?.writeText) {
@@ -2757,9 +2764,9 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * 画像ファイルをペイロードへ変換し、ホストへ保存要求を送信する。
-   * @param files 保存対象の画像ファイル一覧。
-   * @returns 保存要求の送信が完了するPromise。
+   * Webviewルートの値を保存先または共有状態へ書き出す。
+   * @param files - Webviewルートで読み書きするリソースの場所。
+   * @returns 副作用を完了し、値は返さない。
    */
   async function saveImageFiles(files: File[]): Promise<void> {
     try {
@@ -2782,8 +2789,8 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * ホストへ画像ファイル選択ダイアログの表示を要求する。
-   * @returns 何も返さない。
+   * Webviewルートの変更または要求をHost・Webview間へ通知する。
+   * @returns 副作用を完了し、値は返さない。
    */
   function requestImagePicker(): void {
     const requestId = createClientId();
@@ -2796,23 +2803,23 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * プレビューWorkerが現在の本文を反映するまで待つ。
-   * @returns 非同期処理の完了を表すPromiseです。
+   * Webviewルートが指定条件を満たすまで待機する。
+   * @returns 条件が成立したかを示す真偽値。
    */
   async function waitForCurrentPreviewSnapshot(): Promise<boolean> {
     if (previewSnapshot.markdown === localTextRef.current) return true;
     return new Promise(
     /**
- * Promiseの完了または失敗を通知し、非同期処理の状態を確定するコールバックです。
-     * @param resolve Promiseの完了または失敗を通知する関数です。
-     * @returns 「window.setTimeout」を実行し、値を返しません。
+     * 遅延処理の完了または失敗を待機側へ通知する。
+     * @param resolve - Promiseの成功を通知する関数。
+     * @returns 非同期処理の完了値。
      */
     (resolve) => {
       let waiter: (() => void) | undefined;
       const timeout = window.setTimeout(
       /**
- * 指定時間の経過後に遅延処理を実行するコールバックです。
-       * @returns 「previewSnapshotWaitersRef.current.indexOf」を実行し、値を返しません。
+       * 指定時間の経過後に後続処理を実行する。
+       * @returns 副作用を完了し、値は返さない。
        */
       () => {
         const index = waiter
@@ -2823,8 +2830,8 @@ export function App(): React.JSX.Element {
       }, 15_000);
       waiter =
       /**
- * 指定時間の経過後に遅延処理を実行するコールバックです。
-       * @returns 非同期処理へ渡す完了結果を返します。
+       * Webviewルートが指定条件を満たすまで待機する。
+       * @returns 副作用を完了し、値は返さない。
        */
       () => {
         window.clearTimeout(timeout);
@@ -2839,24 +2846,24 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * PDF/HTML出力用の描画ステージをDOMへ用意し、描画完了を待つ。
-   * @returns 非同期処理の完了を表すPromiseです。
+   * Webviewルートのensure・export・rootを処理し、呼び出し側へ結果または副作用を返す。
+   * @returns 副作用を完了し、値は返さない。
    */
   async function ensureExportRoot(): Promise<HTMLDivElement | undefined> {
     if (exportRootRef.current && (printPreview || exportStageRequested))
       return exportRootRef.current;
     return new Promise(
     /**
- * Promiseの完了または失敗を通知し、非同期処理の状態を確定するコールバックです。
-     * @param resolve Promiseの完了または失敗を通知する関数です。
-     * @returns 「window.setTimeout」を実行し、値を返しません。
+     * 遅延処理の完了または失敗を待機側へ通知する。
+     * @param resolve - Promiseの成功を通知する関数。
+     * @returns 非同期処理の完了値。
      */
     (resolve) => {
       let waiter: ((root: HTMLDivElement | undefined) => void) | undefined;
       const timeout = window.setTimeout(
       /**
- * 指定時間の経過後に遅延処理を実行するコールバックです。
-       * @returns 「exportStageWaitersRef.current.indexOf」を実行し、値を返しません。
+       * 指定時間の経過後に後続処理を実行する。
+       * @returns 副作用を完了し、値は返さない。
        */
       () => {
         const index = waiter
@@ -2867,9 +2874,9 @@ export function App(): React.JSX.Element {
       }, 15_000);
       waiter =
       /**
- * 指定時間の経過後に遅延処理を実行するコールバックです。
-       * @param root 処理対象のルートです。
-       * @returns 「window.clearTimeout」を実行し、値を返しません。
+       * Webviewルートが指定条件を満たすまで待機する。
+       * @param root - Webviewルートへ渡す入力。
+       * @returns 副作用を完了し、値は返さない。
        */
       (root) => {
         window.clearTimeout(timeout);
@@ -2881,9 +2888,9 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * PDF印刷設定を画面へ即時反映し、永続化通知は連続入力をまとめて送る。
-   * @param update 現在の検証済み設定から次の設定を作る更新関数。
-   * @returns 「updatePdfOptions」の副作用または状態更新を実行し、値は返しません。
+   * Webviewルートの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+   * @param update - Webviewルートへ渡す入力。
+   * @returns 副作用を完了し、値は返さない。
    */
   function updatePdfOptions(
     update: (current: NormalizedPdfOptions) => PdfOptions,
@@ -2896,8 +2903,8 @@ export function App(): React.JSX.Element {
     }
     pdfOptionsPersistTimerRef.current = window.setTimeout(
     /**
- * 指定時間の経過後に遅延処理を実行するコールバックです。
-     * @returns 「vscode.postMessage」を実行し、値を返しません。
+     * 指定時間の経過後に後続処理を実行する。
+     * @returns 副作用を完了し、値は返さない。
      */
     () => {
       pdfOptionsPersistTimerRef.current = undefined;
@@ -2906,9 +2913,8 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * 保留中のPDF設定通知を即時送信する。
-   * PDF出力や設定パネル終了前に呼び、最後の入力値を失わないようにする。
-   * @returns 「flushPdfOptionsPersistence」の副作用または状態更新を実行し、値は返しません。
+   * Webviewルートの処理順序と完了状態を管理する。
+   * @returns 副作用を完了し、値は返さない。
    */
   function flushPdfOptionsPersistence(): void {
     if (pdfOptionsPersistTimerRef.current === undefined) return;
@@ -2918,8 +2924,8 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * 現在のプレビュー結果と印刷設定をホストへ渡し、PDFを保存する。
-   * @returns 非同期処理の完了を表すPromiseです。
+   * Webviewルートの変更または要求をHost・Webview間へ通知する。
+   * @returns 副作用を完了し、値は返さない。
    */
   async function requestPdfExport(): Promise<void> {
     if (!settings.workspaceTrusted) {
@@ -2949,9 +2955,9 @@ export function App(): React.JSX.Element {
           .map(
 
             /**
- * 「item」を変換し、変換後の要素を返すコールバックです。
-             * @param item 変換または処理の対象となる値です。
-             * @returns 入力要素から生成した変換後の値を返します。
+             * 各項目からlineを取り出して一覧化する。
+             * @param item - 項目のlineを参照する走査対象。
+             * @returns lineを取り出した変換結果の一覧。
              */
             (item) => `${item.line ? `行${item.line}: ` : ""}${item.message}`,
           )
@@ -2992,9 +2998,9 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * 現在のプレビューHTMLとHTML出力オプションをホストへ渡し、HTMLファイルとして保存する。
-   * @param options 処理経路や表示方法を指定する設定値です。
-   * @returns 非同期処理の完了を表すPromiseです。
+   * Webviewルートの変更または要求をHost・Webview間へ通知する。
+   * @param options - 呼び出し側が指定する処理設定。
+   * @returns 副作用を完了し、値は返さない。
    */
   async function requestHtmlExport(options: HtmlExportOptions): Promise<void> {
     if (!settings.workspaceTrusted) {
@@ -3035,9 +3041,9 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * HTML出力直前に、非同期のMermaid描画が完了するまで待つ。
-   * @param root 処理対象のルートです。
-   * @returns 非同期処理の完了を表すPromiseです。
+   * Webviewルートが指定条件を満たすまで待機する。
+   * @param root - Webviewルートへ渡す入力。
+   * @returns 条件が成立したかを示す真偽値。
    */
   async function waitForHtmlMermaidRendering(
     root: HTMLDivElement | null | undefined = exportRootRef.current,
@@ -3052,9 +3058,9 @@ export function App(): React.JSX.Element {
     ) {
       await new Promise<void>(
       /**
-       * 予約されたタイミングで「resolve」を受け取り、遅延処理を実行するコールバックです。
-       * @param resolve Promiseの完了または失敗を通知する関数です。
-       * @returns 「window.setTimeout」を実行し、値を返しません。
+       * 遅延処理の完了または失敗を待機側へ通知する。
+       * @param resolve - Promiseの成功を通知する関数。
+       * @returns 非同期処理の完了値。
        */
       (resolve) => window.setTimeout(resolve, 50));
     }
@@ -3064,9 +3070,8 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * 保存せずに同じHTML・CSSからPDFを生成し、印刷プレビューへ反映する。
-   * 要求IDで古い生成結果を破棄し、入力中の大規模文書でも表示を巻き戻さない。
-   * @returns 「requestPdfPreview」の副作用または状態更新を実行し、値は返しません。
+   * Webviewルートの変更または要求をHost・Webview間へ通知する。
+   * @returns 副作用を完了し、値は返さない。
    */
   function requestPdfPreview(): void {
     if (!printPreview || !settings.workspaceTrusted) return;
@@ -3090,9 +3095,9 @@ export function App(): React.JSX.Element {
     pdfPreviewRequestRef.current = requestId;
     setPdfPreview(
     /**
- * 「previous」から（loading、error、htmlChars、cssChars、type）のオブジェクトを生成して返すコールバックです。
-     * @param previous previousとして渡される、このコールバックの入力値です。
-     * @returns 初期化したオブジェクト（loading、error、htmlChars、cssChars、type）を返します。
+     * Webviewルートのコールバックとしてpreviousを処理する。
+     * @param previous - Webviewルートへ渡す入力。
+     * @returns 副作用を完了し、値は返さない。
      */
     (previous) => ({
       ...previous,
@@ -3116,18 +3121,18 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * PDF用の非表示描画領域を更新し、Mermaid等の非同期描画後にプレビューを再要求する。
-   * @param element 処理対象の要素です。
-   * @returns イベントを処理し、状態更新または副作用だけを実行して値は返しません。
+   * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
+   * @param element - 寸法または属性を読み取るDOM要素。
+   * @returns 通知処理を完了し、値は返さない。
    */
   function handleExportRendered(element: HTMLElement): void {
     exportRootRef.current = element as HTMLDivElement;
     const waiters = exportStageWaitersRef.current.splice(0);
     waiters.forEach(
     /**
- * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
-     * @param resolve Promiseの完了または失敗を通知する関数です。
-     * @returns 「resolve」を実行し、値を返しません。
+     * 成功結果通知ごとに成功結果通知を実行する。
+     * @param resolve - Promiseの成功を通知する関数。
+     * @returns 副作用を完了し、値は返さない。
      */
     (resolve) => resolve(exportRootRef.current ?? undefined));
     if (printPreview && settings.workspaceTrusted) {
@@ -3135,8 +3140,8 @@ export function App(): React.JSX.Element {
         window.clearTimeout(pdfPreviewTimerRef.current);
       pdfPreviewTimerRef.current = window.setTimeout(
       /**
- * 指定時間の経過後に遅延処理を実行するコールバックです。
-       * @returns 置換後の文字列を返します。
+       * 指定時間の経過後に後続処理を実行する。
+       * @returns 副作用を完了し、値は返さない。
        */
       () => {
         pdfPreviewTimerRef.current = undefined;
@@ -3146,10 +3151,10 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * Inspectorで編集したMermaid・数式・画像の内容をMarkdown本文へ反映する。
-   * @param nextSource 更新後のソースまたは画像参照先。
-   * @param alt 更新後の画像代替テキスト。
-   * @returns 何も返さない。
+   * Webviewルートの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+   * @param nextSource - Webviewルートで扱う文字列または本文。
+   * @param alt - Webviewルートで受け渡す文字列。
+   * @returns 副作用を完了し、値は返さない。
    */
   function updateInspector(nextSource: string, alt?: string): void {
     if (!inspector) return;
@@ -3192,10 +3197,10 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * プレビュー上で変更した画像幅をMarkdown本文へ反映します。
-   * @param imageIndex レンダリング順の画像インデックスです。
-   * @param width 新しい画像幅です。
-   * @returns 何も返しません。
+   * Webviewルートのresize・preview・imageを処理し、呼び出し側へ結果または副作用を返す。
+   * @param imageIndex - Webviewルートの位置・寸法・件数・時間を表す数値。
+   * @param width - 表示領域または列の幅。
+   * @returns 副作用を完了し、値は返さない。
    */
   function resizePreviewImage(imageIndex: number, width: number): void {
     if (!(mode === "split" && splitView !== "text")) return;
@@ -3205,9 +3210,9 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * HTML画像の幅指定を除去して自然サイズへ戻します。
-   * @param imageIndex レンダリング順の画像インデックスです。
-   * @returns 何も返しません。
+   * Webviewルートの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+   * @param imageIndex - Webviewルートの位置・寸法・件数・時間を表す数値。
+   * @returns 副作用を完了し、値は返さない。
    */
   function resetPreviewImage(imageIndex: number): void {
     if (!(mode === "split" && splitView !== "text")) return;
@@ -3215,10 +3220,10 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * プレビュー上で変更した画像の揃え位置をMarkdown本文へ反映します。
-   * @param imageIndex レンダリング順の画像インデックスです。
-   * @param alignment 新しい揃え位置です。
-   * @returns 何も返しません。
+   * Webviewルートのalign・preview・imageを処理し、呼び出し側へ結果または副作用を返す。
+   * @param imageIndex - Webviewルートの位置・寸法・件数・時間を表す数値。
+   * @param alignment - Webviewルートへ渡す入力。
+   * @returns 副作用を完了し、値は返さない。
    */
   function alignPreviewImage(
     imageIndex: number,
@@ -3231,9 +3236,9 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * Inspectorの対象を変更する前に表示位置を保存し、対象状態を更新する。
-   * @param next 次に表示するInspector対象。undefinedなら閉じる。
-   * @returns 何も返さない。
+   * Webviewルートの変更または利用者の操作意図を記録し、後続処理へ渡す。
+   * @param next - Webviewルートの位置・寸法・件数・時間を表す数値。
+   * @returns 副作用を完了し、値は返さない。
    */
   function changeInspector(next: InspectorTarget | undefined): void {
     prepareLayoutRestore();
@@ -3241,8 +3246,8 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * レイアウト変更後に各ペインの表示位置を復元できるよう現在位置を保存する。
-   * @returns 何も返さない。
+   * Webviewルートで使う値または実行環境を組み立てる。
+   * @returns 副作用を完了し、値は返さない。
    */
   function prepareLayoutRestore(): void {
     captureVisibleViewports();
@@ -3250,19 +3255,18 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * 指定された本文オフセットへ選択範囲とエディター表示位置を移動する。
-   * @param offset 移動先の本文オフセット。
-   * @returns 何も返さない。
+   * Webviewルートのgo・to・offsetを処理し、呼び出し側へ結果または副作用を返す。
+   * @param offset - Webviewルートの位置・寸法・件数・時間を表す数値。
+   * @returns 副作用を完了し、値は返さない。
    */
   function goToOffset(offset: number): void {
     navigateToSelection({ from: offset, to: offset });
   }
 
   /**
-   * アウトラインの見出しへ、現在のペイン構成を維持したまま移動する。
-   * プレビューのみでは非表示のソースを開かず、表示中のプレビューを直接スクロールする。
-   * @param offset 移動先の見出し本文オフセット。
-   * @returns 何も返さない。
+   * Webviewルートのgo・to・outline・offsetを処理し、呼び出し側へ結果または副作用を返す。
+   * @param offset - Webviewルートの位置・寸法・件数・時間を表す数値。
+   * @returns 副作用を完了し、値は返さない。
    */
   function goToOutlineOffset(offset: number): void {
     const nextSelection = { from: offset, to: offset };
@@ -3276,14 +3280,14 @@ export function App(): React.JSX.Element {
       // CodeMirrorの選択行とスクロール位置が確定してから、同じ高さへプレビューを揃える。
       window.requestAnimationFrame(
       /**
- * 次の描画フレームでUI更新処理を実行するコールバックです。
-       * @returns 「window.requestAnimationFrame」を実行し、値を返しません。
+       * 次の描画フレームで表示更新を実行する。
+       * @returns 副作用を完了し、値は返さない。
        */
       () => {
         window.requestAnimationFrame(
         /**
- * 次の描画フレームでUI更新処理を実行するコールバックです。
-         * @returns 「revealOutlineInSplitPreview」を実行し、値を返しません。
+         * 次の描画フレームで表示更新を実行する。
+         * @returns 副作用を完了し、値は返さない。
          */
         () =>
           revealOutlineInSplitPreview(offset, true),
@@ -3293,10 +3297,10 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * アウトライン対象を分割プレビューへ表示し、以後の復元処理でも維持するアンカーとして保存する。
-   * @param offset 移動先の見出し本文オフセット。
-   * @param alignWithSource ソースの選択行と同じ画面上の高さへ揃えるかどうか。
-   * @returns 何も返さない。
+   * Webviewルートの表示または操作を開始する。
+   * @param offset - Webviewルートの位置・寸法・件数・時間を表す数値。
+   * @param alignWithSource - Webviewルートで扱う文字列または本文。
+   * @returns 副作用を完了し、値は返さない。
    */
   function revealOutlineInSplitPreview(
     offset: number,
@@ -3324,9 +3328,9 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * 診断行番号を本文オフセットへ変換し、その行へ移動する。診断パネルは開いたままにする。
-   * @param line 1始まりの診断行番号。
-   * @returns 何も返さない。
+   * Webviewルートのgo・to・diagnostic・lineを処理し、呼び出し側へ結果または副作用を返す。
+   * @param line - Webviewルートの位置・寸法・件数・時間を表す数値。
+   * @returns 副作用を完了し、値は返さない。
    */
   function goToDiagnosticLine(line: number): void {
     let offset = 0;
@@ -3339,9 +3343,9 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * 選択範囲を保存し、現在の表示構成に応じてソースエディターまたは分割表示へ移動する。
-   * @param nextSelection 移動先の本文選択範囲。
-   * @returns 何も返さない。
+   * Webviewルートのnavigate・to・selectionを処理し、呼び出し側へ結果または副作用を返す。
+   * @param nextSelection - Webviewルートの位置・寸法・件数・時間を表す数値。
+   * @returns 副作用を完了し、値は返さない。
    */
   function navigateToSelection(nextSelection: TextSelection): void {
     selectionStateRef.current = nextSelection;
@@ -3355,12 +3359,12 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * ローカルまたは外部由来の本文を更新し、必要な差分同期と表示位置写像を行う。
-   * @param nextText 更新後のMarkdown本文。
-   * @param knownChanges 既に計算済みの本文差分。
-   * @param origin 更新元がローカル編集か外部同期か。
-   * @param updateRenderedState 処理対象の状態です。
-   * @returns 何も返さない。
+   * Webviewルートの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+   * @param nextText - Webviewルートで扱う文字列または本文。
+   * @param knownChanges - Webviewルートへ渡す要素の一覧。
+   * @param origin - Webviewルートへ渡す入力。
+   * @param updateRenderedState - Webviewルートへ渡す入力。
+   * @returns 副作用を完了し、値は返さない。
    */
   function updateMarkdown(
     nextText: string,
@@ -3434,9 +3438,8 @@ export function App(): React.JSX.Element {
   updateMarkdownRef.current = updateMarkdown;
 
   /**
-   * ACK待ちがなければ、ホスト本文と最新ローカル本文の差分を1件だけ送信する。
-   * ACK待ち中の入力はlocalTextRefへ上書きされるため、送信待ちキューは生成しない。
-   * @returns 何も返さない。
+   * Webviewルートの変更または要求をHost・Webview間へ通知する。
+   * @returns 副作用を完了し、値は返さない。
    */
   function sendNextLocalOperation(): void {
     if (resyncInFlightRef.current || inFlightOperationRef.current) return;
@@ -3471,10 +3474,10 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * 本文変更に合わせて保存済みの3種類の表示アンカーのオフセットを写像する。
-   * @param changes 本文へ適用された変更一覧。
-   * @param baseLength 変更前本文の長さ。
-   * @returns 何も返さない。
+   * Webviewルートのmap・stored・viewportsを処理し、呼び出し側へ結果または副作用を返す。
+   * @param changes - 本文へ適用する変更範囲の一覧。
+   * @param baseLength - Webviewルートの位置・寸法・件数・時間を表す数値。
+   * @returns 副作用を完了し、値は返さない。
    */
   function mapStoredViewports(changes: TextChange[], baseLength: number): void {
     if (!changes.length) return;
@@ -3507,8 +3510,8 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * 現在表示されているソース・分割プレビュー・プレビュー専用の位置を保存する。
-   * @returns 何も返さない。
+   * Webviewルートのcapture・visible・viewportsを処理し、呼び出し側へ結果または副作用を返す。
+   * @returns 副作用を完了し、値は返さない。
    */
   function captureVisibleViewports(): void {
     if (mode === "split" && splitView !== "preview") {
@@ -3528,8 +3531,8 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * 保存済みの各ペイン表示位置を現在のレイアウトへ復元する。
-   * @returns 何も返さない。
+   * Webviewルートの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+   * @returns 副作用を完了し、値は返さない。
    */
   function restoreVisibleViewports(): void {
     const sourceAnchor =
@@ -3549,8 +3552,8 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * 次回のDOM差分描画より前に、ブラウザの自動スクロールで失われてはならないプレビュー位置を固定する。
-   * @returns 「stagePreviewViewportRestore」の副作用または状態更新を実行し、値は返しません。
+   * Webviewルートのstage・preview・viewport・restoreを処理し、呼び出し側へ結果または副作用を返す。
+   * @returns 副作用を完了し、値は返さない。
    */
   function stagePreviewViewportRestore(): void {
     pendingPreviewViewportRestoreRef.current = {
@@ -3568,8 +3571,8 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * 軽量描画から完全描画へ差し替える直前の、DOM上の最新位置を固定する。
-   * @returns 「stagePreviewRefinementViewportRestore」の副作用または状態更新を実行し、値は返しません。
+   * Webviewルートのstage・preview・refinement・viewport・restoreを処理し、呼び出し側へ結果または副作用を返す。
+   * @returns 副作用を完了し、値は返さない。
    */
   function stagePreviewRefinementViewportRestore(): void {
     // scrollイベントのRAF通知より先に完全描画が返っても、古い保存アンカーで
@@ -3579,10 +3582,10 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * ソースエディターの表示位置を保存し、分割表示時はプレビュー位置にも同期する。
-   * @param anchor ソースエディターから通知された表示アンカー。
-   * @param userInitiated ユーザー操作によるスクロールかどうか。
-   * @returns 何も返さない。
+   * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
+   * @param anchor - Webviewルートへ渡す入力。
+   * @param userInitiated - Webviewルートの条件を示すフラグ。
+   * @returns 副作用を完了し、値は返さない。
    */
   function handleSourceViewport(
     anchor: EditorViewportAnchor,
@@ -3634,9 +3637,9 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * プレビュー上の入力をユーザースクロールとして記録する。
-   * @param event スクロール開始を示すDOMイベント。
-   * @returns 何も返さない。
+   * Webviewルートの変更または利用者の操作意図を記録し、後続処理へ渡す。
+   * @param event - ユーザー操作またはDOMから通知されたイベント。
+   * @returns 副作用を完了し、値は返さない。
    */
   function markPreviewScrollIntent(
     event: React.SyntheticEvent<HTMLElement>,
@@ -3662,10 +3665,10 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * プレビューのスクロール位置を保存し、分割表示時はソース位置へ反映する。
-   * @param kind スクロールしたプレビューの種類。
-   * @param container スクロールイベントを発生させたコンテナー。
-   * @returns 何も返さない。
+   * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
+   * @param kind - メッセージ、項目、または処理の種類を識別する値。
+   * @param container - Webviewルートへ渡す入力。
+   * @returns 副作用を完了し、値は返さない。
    */
   function handlePreviewScroll(
     kind: "splitPreview" | "previewOnly",
@@ -3707,8 +3710,8 @@ export function App(): React.JSX.Element {
     if (previewScrollFrameRef.current === undefined) {
       previewScrollFrameRef.current = window.requestAnimationFrame(
       /**
- * 次の描画フレームでUI更新処理を実行するコールバックです。
-       * @returns 「Array.from」を実行し、値を返しません。
+       * 次の描画フレームで表示更新を実行する。
+       * @returns 副作用を完了し、値は返さない。
        */
       () => {
         previewScrollFrameRef.current = undefined;
@@ -3716,9 +3719,9 @@ export function App(): React.JSX.Element {
         pendingPreviewScrollsRef.current.clear();
         scrolls.forEach(
         /**
- * 「pendingContainer」「next」を受け取り、処理結果を生成する処理です。
-         * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはpendingContainer、nextです。
-         * @returns 「processPreviewScroll」を実行し、値を返しません。
+         * 設定ごとにprocess・preview・scrollを実行する。
+         * @param options - 呼び出し側が指定する処理設定。
+         * @returns 副作用を完了し、値は返さない。
          */
         ([pendingContainer, next]) => {
           processPreviewScroll(next.kind, pendingContainer, next.userInitiated);
@@ -3733,11 +3736,11 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * 同一描画フレーム内で重複したプレビュースクロールを、最新位置に対して一度だけ反映する。
-   * @param kind 対象の種別または処理経路を選択する識別値です。
-   * @param container 「container」は、「processPreviewScroll」がWebview UI状態の処理対象を特定する入力です。
-   * @param userInitiated 「userInitiated」は、「processPreviewScroll」がWebview UI状態の処理対象を特定する入力です。
-   * @returns 「processPreviewScroll」の副作用または状態更新を実行し、値は返しません。
+   * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
+   * @param kind - メッセージ、項目、または処理の種類を識別する値。
+   * @param container - Webviewルートへ渡す入力。
+   * @param userInitiated - Webviewルートの条件を示すフラグ。
+   * @returns 副作用を完了し、値は返さない。
    */
   function processPreviewScroll(
     kind: "splitPreview" | "previewOnly",
@@ -3798,9 +3801,9 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * プレビューからソースへの追従描画を最新1件・最大約30Hzに制限する。
-   * @param anchor 「anchor」は、「schedulePreviewToSourceSync」がWebview UI状態の処理対象を特定する入力です。
-   * @returns 「schedulePreviewToSourceSync」の副作用または状態更新を実行し、値は返しません。
+   * Webviewルートの処理順序と完了状態を管理する。
+   * @param anchor - Webviewルートへ渡す入力。
+   * @returns 副作用を完了し、値は返さない。
    */
   function schedulePreviewToSourceSync(anchor: PreviewViewportAnchor): void {
     if (!scrollSyncEnabledRef.current) return;
@@ -3813,8 +3816,8 @@ export function App(): React.JSX.Element {
     );
     previewToSourceSyncTimerRef.current = window.setTimeout(
     /**
- * 指定時間の経過後に遅延処理を実行するコールバックです。
-     * @returns 「performance.now」を実行し、値を返しません。
+     * 指定時間の経過後に後続処理を実行する。
+     * @returns 副作用を完了し、値は返さない。
      */
     () => {
       previewToSourceSyncTimerRef.current = undefined;
@@ -3828,9 +3831,9 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * ソースからプレビューへの追従描画を最新1件・最大約30Hzに制限する。
-   * @param anchor 「anchor」は、「scheduleSourceToPreviewSync」がWebview UI状態の処理対象を特定する入力です。
-   * @returns 「scheduleSourceToPreviewSync」の副作用または状態更新を実行し、値は返しません。
+   * Webviewルートの処理順序と完了状態を管理する。
+   * @param anchor - Webviewルートへ渡す入力。
+   * @returns 副作用を完了し、値は返さない。
    */
   function scheduleSourceToPreviewSync(anchor: EditorViewportAnchor): void {
     if (!scrollSyncEnabledRef.current) return;
@@ -3843,8 +3846,8 @@ export function App(): React.JSX.Element {
     );
     sourceToPreviewSyncTimerRef.current = window.setTimeout(
     /**
- * 指定時間の経過後に遅延処理を実行するコールバックです。
-     * @returns 「performance.now」を実行し、値を返しません。
+     * 指定時間の経過後に後続処理を実行する。
+     * @returns 副作用を完了し、値は返さない。
      */
     () => {
       sourceToPreviewSyncTimerRef.current = undefined;
@@ -3862,8 +3865,8 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * OFFへ切り替えた直前に予約されていたペイン間スクロール同期を破棄する。
-   * @returns 購読解除、タイマー解除、またはリソース破棄を実行して値は返しません。
+   * Webviewルートの条件を判定する。
+   * @returns 条件が成立したかを示す真偽値。
    */
   function cancelPendingCrossPaneScrollSync(): void {
     if (previewToSourceSyncTimerRef.current !== undefined) {
@@ -3879,9 +3882,9 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * Hostから受け取った全体設定を反映し、スクロール同期OFFを即座に確定する。
-   * @param nextSettings 「nextSettings」は、「applyHostSettings」がWebview UI状態の処理対象を特定する入力です。
-   * @returns 「applyHostSettings」の副作用または状態更新を実行し、値は返しません。
+   * Webviewルートの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+   * @param nextSettings - Webviewルートへ渡す設定または境界値。
+   * @returns 副作用を完了し、値は返さない。
    */
   function applyHostSettings(nextSettings: WebviewSettings): void {
     const enabled = nextSettings.scrollSyncEnabled !== false;
@@ -3928,9 +3931,9 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * HTML出力のグローバル設定を即時反映し、Extension Hostへ保存を依頼する。
-   * @param nextOptions 「nextOptions」は、「handleHtmlOptionsChange」がWebview UIで処理する対象を特定する入力です。
-   * @returns イベントを処理し、状態更新または副作用だけを実行して値は返しません。
+   * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
+   * @param nextOptions - Webviewルートへ渡す設定または境界値。
+   * @returns 副作用を完了し、値は返さない。
    */
   function handleHtmlOptionsChange(nextOptions: HtmlExportOptions): void {
     const nextSettings = normalizeHtmlExportSettings(nextOptions);
@@ -3952,9 +3955,9 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * ソース表示を復元し、本文アンカーで表現できない先頭・末尾では境界比率を優先する。
-   * @param anchor 「anchor」は、「restoreSource」がWebview UI状態の処理対象を特定する入力です。
-   * @returns 「restoreSource」の副作用または状態更新を実行し、値は返しません。
+   * Webviewルートの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+   * @param anchor - Webviewルートへ渡す入力。
+   * @returns 副作用を完了し、値は返さない。
    */
   function restoreSource(anchor: EditorViewportAnchor): void {
     if (anchor.scrollRatio !== undefined) {
@@ -3965,10 +3968,10 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * プレビューのプログラムスクロールを記録し、指定された表示アンカーへ移動する。
-   * @param container スクロール位置を変更するプレビュー。
-   * @param anchor 復元対象のプレビューアンカー。
-   * @returns 何も返さない。
+   * Webviewルートの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+   * @param container - Webviewルートへ渡す入力。
+   * @param anchor - Webviewルートへ渡す入力。
+   * @returns 副作用を完了し、値は返さない。
    */
   function restorePreview(
     container: HTMLElement,
@@ -3993,10 +3996,10 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * プレビューを先頭または末尾へ移動し、同期スクロールを無限に発生させない。
-   * @param container 「container」は、「restorePreviewScrollRatio」がWebview UI状態の処理対象を特定する入力です。
-   * @param ratio 表示領域のサイズまたは倍率で、画面レイアウト計算に使用します。
-   * @returns 「restorePreviewScrollRatio」の副作用または状態更新を実行し、値は返しません。
+   * Webviewルートの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+   * @param container - Webviewルートへ渡す入力。
+   * @param ratio - Webviewルートで扱う数値。
+   * @returns 副作用を完了し、値は返さない。
    */
   function restorePreviewScrollRatio(
     container: HTMLElement,
@@ -4007,9 +4010,9 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * プレビューの描画完了後に、その種類に保存されている表示位置を復元する。
-   * @param kind 描画が完了したプレビューの種類。
-   * @returns 何も返さない。
+   * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
+   * @param kind - メッセージ、項目、または処理の種類を識別する値。
+   * @returns 副作用を完了し、値は返さない。
    */
   function handlePreviewRendered(kind: "splitPreview" | "previewOnly"): void {
     if (
@@ -4031,8 +4034,8 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * handle・startup・mermaid・renderedを処理します。
-   * @returns イベントを処理し、状態更新または副作用だけを実行して値は返しません。
+   * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
+   * @returns 副作用を完了し、値は返さない。
    */
   function handleStartupMermaidRendered(): void {
     if (!settings.startupProbe || startupMermaidReportedRef.current) return;
@@ -4044,8 +4047,8 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * レイアウト変化後の表示位置復元を集約し、ユーザースクロール中は完了後まで延期する。
-   * @returns 「scheduleRenderedPreviewRestore」の副作用または状態更新を実行し、値は返しません。
+   * Webviewルートの処理順序と完了状態を管理する。
+   * @returns 副作用を完了し、値は返さない。
    */
   function scheduleRenderedPreviewRestore(): void {
     if (
@@ -4060,8 +4063,8 @@ export function App(): React.JSX.Element {
     if (delay > 0) {
       renderedPreviewRestoreTimerRef.current = window.setTimeout(
       /**
- * 指定時間の経過後に遅延処理を実行するコールバックです。
-       * @returns 「scheduleRenderedPreviewRestore」を実行し、値を返しません。
+       * 指定時間の経過後に後続処理を実行する。
+       * @returns 副作用を完了し、値は返さない。
        */
       () => {
         renderedPreviewRestoreTimerRef.current = undefined;
@@ -4072,8 +4075,8 @@ export function App(): React.JSX.Element {
     renderedPreviewRestoreFrameRef.current = window.requestAnimationFrame(
 
       /**
- * 次の描画フレームでUI更新処理を実行するコールバックです。
-       * @returns 「Array.from」を実行し、値を返しません。
+       * 次の描画フレームで表示更新を実行する。
+       * @returns 副作用を完了し、値は返さない。
        */
       () => {
         renderedPreviewRestoreFrameRef.current = undefined;
@@ -4081,9 +4084,9 @@ export function App(): React.JSX.Element {
         pendingRenderedPreviewKindsRef.current.clear();
         kinds.forEach(
         /**
- * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
-         * @param pendingKind pendingKindとして渡される、このコールバックの入力値です。
-         * @returns 「if」を実行し、値を返しません。
+         * pending・kindごとにifを実行する。
+         * @param pendingKind - Webviewルートの対象や分岐を識別する値。
+         * @returns 副作用を完了し、値は返さない。
          */
         (pendingKind) => {
           const container =
@@ -4101,8 +4104,8 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * cancel・pending・rendered・preview・restoreを解除または削除します。
-   * @returns 購読解除、タイマー解除、またはリソース破棄を実行して値は返しません。
+   * Webviewルートの条件を判定する。
+   * @returns 条件が成立したかを示す真偽値。
    */
   function cancelPendingRenderedPreviewRestore(): void {
     if (renderedPreviewRestoreFrameRef.current !== undefined) {
@@ -4117,10 +4120,10 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * 固定済みアンカーを優先してプレビューを復元し、以後のscrollイベントを通常処理へ戻す。
-   * @param kind 対象の種別または処理経路を選択する識別値です。
-   * @param container 「container」は、「restorePendingPreview」がWebview UI状態の処理対象を特定する入力です。
-   * @returns 「restorePendingPreview」の副作用または状態更新を実行し、値は返しません。
+   * Webviewルートの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+   * @param kind - メッセージ、項目、または処理の種類を識別する値。
+   * @param container - Webviewルートへ渡す入力。
+   * @returns 副作用を完了し、値は返さない。
    */
   function restorePendingPreview(
     kind: "splitPreview" | "previewOnly",
@@ -4141,9 +4144,9 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * 分割境界のポインター操作を開始し、移動量から分割比率を更新する。
-   * @param event 分割境界のポインターダウンイベント。
-   * @returns 何も返さない。
+   * Webviewルートの表示または操作を開始する。
+   * @param event - ユーザー操作またはDOMから通知されたイベント。
+   * @returns 副作用を完了し、値は返さない。
    */
   function beginSplitResize(event: React.PointerEvent<HTMLDivElement>): void {
     event.preventDefault();
@@ -4151,16 +4154,12 @@ export function App(): React.JSX.Element {
     pendingViewportRestoreRef.current = true;
     const container = event.currentTarget.parentElement;
     if (!container) return;
-    /**
-     * 分割境界の移動量から左右ペインの比率を更新する。
-     * @param moveEvent DOMまたはHostから通知されたイベントで、入力内容と発生元を含みます。
-     * @returns 「move」がWebview UI状態の入力を処理して得た固有の結果を返します。
-     */
+    
     const move = /**
- * 「move」は、入力された位置またはサイズをUI状態へ反映します。
- * @param moveEvent DOMイベントまたは入力イベントの情報です。
- * @returns 「move」がWebview UI状態の入力を処理して得た固有の結果を返します。
- */ (moveEvent: PointerEvent) => {
+     * Webviewルートの要素を規則に従って並べ替える。
+     * @param moveEvent - Webviewルートへ届いたユーザー操作またはDOMイベント。
+     * @returns 副作用を完了し、値は返さない。
+     */ (moveEvent: PointerEvent) => {
       const bounds = container.getBoundingClientRect();
       if (bounds.width) {
         pendingViewportRestoreRef.current = true;
@@ -4169,14 +4168,11 @@ export function App(): React.JSX.Element {
         );
       }
     };
-    /**
-     * 分割リサイズを終了し、表示位置を復元して状態を保存する。
-     * @returns 購読解除、タイマー解除、リソース破棄などの後片付けを実行し、値は返しません。
-     */
+    
     const end = /**
- * 「end」は、処理を終了し、保持していたリソースまたは状態を整理します。
- * @returns 購読解除、タイマー解除、リソース破棄などの後片付けを実行し、値は返しません。
- */ () => {
+     * Webviewルートのendを処理し、呼び出し側へ結果または副作用を返す。
+     * @returns 副作用を完了し、値は返さない。
+     */ () => {
       window.removeEventListener("pointermove", move);
       document.body.classList.remove("mve-resizing-split");
       restoreVisibleViewports();
@@ -4189,9 +4185,9 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * 右クリックドラッグ中のポインター位置から、同階層のドロップ候補を更新する。
-   * @param event 処理対象のイベントです。
-   * @returns 「updateOutlineDrag」の副作用または状態更新を実行し、値は返しません。
+   * UIイベントを受け取り、必要な処理を実行する。
+   * @param event - ユーザー操作またはDOMから通知されたイベント。
+   * @returns 副作用を完了し、値は返さない。
    */
   function updateOutlineDrag(
     event: React.PointerEvent<HTMLButtonElement>,
@@ -4251,10 +4247,10 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * 右クリックドラッグを終了し、妥当な兄弟位置だけへセクションを移動する。
-   * @param event 処理対象のイベントです。
-   * @param cancelled 「cancelled」は、「finishOutlineDrag」がWebview UI状態の処理対象を特定する入力です。
-   * @returns 「finishOutlineDrag」の副作用または状態更新を実行し、値は返しません。
+   * Webviewルートのfinish・outline・dragを処理し、呼び出し側へ結果または副作用を返す。
+   * @param event - ユーザー操作またはDOMから通知されたイベント。
+   * @param cancelled - キャンセル済みで後続処理を開始できない状態。
+   * @returns 副作用を完了し、値は返さない。
    */
   function finishOutlineDrag(
     event: React.PointerEvent<HTMLButtonElement>,
@@ -4292,10 +4288,10 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * 右ボタン押下時だけ、アウトラインのセクション移動候補を保持する。
-   * @param event 処理対象のイベントです。
-   * @param sourceIndex 「sourceIndex」は、「beginOutlineDrag」がWebview UIで処理する対象を特定する入力です。
-   * @returns 「beginOutlineDrag」の副作用または状態更新を実行し、値は返しません。
+   * Webviewルートの表示または操作を開始する。
+   * @param event - ユーザー操作またはDOMから通知されたイベント。
+   * @param sourceIndex - Webviewルートで扱う文字列または本文。
+   * @returns 副作用を完了し、値は返さない。
    */
   function beginOutlineDrag(
     event: React.PointerEvent<HTMLButtonElement>,
@@ -4322,36 +4318,29 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * アウトライン境界のポインター操作を開始し、移動量から幅を更新する。
-   * @param event アウトライン境界のポインターダウンイベント。
-   * @returns 何も返さない。
+   * Webviewルートの表示または操作を開始する。
+   * @param event - ユーザー操作またはDOMから通知されたイベント。
+   * @returns 副作用を完了し、値は返さない。
    */
   function beginOutlineResize(event: React.PointerEvent<HTMLDivElement>): void {
     event.preventDefault();
     captureVisibleViewports();
     const workspace = event.currentTarget.parentElement;
     if (!workspace) return;
-    /**
-     * アウトライン境界の移動量からアウトライン幅を更新する。
-     * @param moveEvent DOMまたはHostから通知されたイベントで、入力内容と発生元を含みます。
-     * @returns 「move」がWebview UI状態の入力を処理して得た固有の結果を返します。
-     */
+    
     const move = /**
- * 「move」は、入力された位置またはサイズをUI状態へ反映します。
- * @param moveEvent DOMイベントまたは入力イベントの情報です。
- * @returns 「move」がWebview UI状態の入力を処理して得た固有の結果を返します。
- */ (moveEvent: PointerEvent) => {
+     * Webviewルートの要素を規則に従って並べ替える。
+     * @param moveEvent - Webviewルートへ届いたユーザー操作またはDOMイベント。
+     * @returns Webviewルートのmoveが生成する結果。
+     */ (moveEvent: PointerEvent) => {
       const bounds = workspace.getBoundingClientRect();
       setOutlineWidth(clampOutlineWidth(moveEvent.clientX - bounds.left));
     };
-    /**
-     * アウトラインリサイズを終了し、表示位置を復元して状態を保存する。
-     * @returns 購読解除、タイマー解除、リソース破棄などの後片付けを実行し、値は返しません。
-     */
+    
     const end = /**
- * 「end」は、処理を終了し、保持していたリソースまたは状態を整理します。
- * @returns 購読解除、タイマー解除、リソース破棄などの後片付けを実行し、値は返しません。
- */ () => {
+     * Webviewルートのendを処理し、呼び出し側へ結果または副作用を返す。
+     * @returns Webviewルートのendが生成する結果。
+     */ () => {
       window.removeEventListener("pointermove", move);
       document.body.classList.remove("mve-resizing-outline");
       restoreVisibleViewports();
@@ -4367,10 +4356,10 @@ export function App(): React.JSX.Element {
   const splitPreviewImageResize = useCallback(
 
     /**
-     * イベント情報を「imageIndex」「width」を受け取り、DOMまたは画面状態を更新するコールバックです。
-     * @param imageIndex 「imageIndex」は、「imageIndex」がWebview UIで処理する対象を特定する入力です。
-     * @param width 処理対象の幅です。
-     * @returns Reactが保持する初期状態またはメモ化値を返します。
+     * image・indexをifへ渡し、Webviewルートの結果または副作用を処理する。
+     * @param imageIndex - Webviewルートの位置・寸法・件数・時間を表す数値。
+     * @param width - 表示領域または列の幅。
+     * @returns Webviewルートのコールバックが生成する結果。
      */
     (imageIndex: number, width: number) => {
       if (imageResizeEnabled) resizePreviewImage(imageIndex, width);
@@ -4380,9 +4369,9 @@ export function App(): React.JSX.Element {
   const splitPreviewImageReset = useCallback(
 
     /**
-     * 呼び出し時に「imageIndex」を受け取り、イベントまたは状態更新を処理する関数を生成するコールバックです。
-     * @param imageIndex 「imageIndex」は、「imageIndex」がWebview UIで処理する対象を特定する入力です。
-     * @returns Reactが保持する初期状態またはメモ化値を返します。
+     * image・indexをifへ渡し、Webviewルートの結果または副作用を処理する。
+     * @param imageIndex - Webviewルートの位置・寸法・件数・時間を表す数値。
+     * @returns Webviewルートのコールバックが生成する結果。
      */
     (imageIndex: number) => {
       if (imageResizeEnabled) resetPreviewImage(imageIndex);
@@ -4392,10 +4381,10 @@ export function App(): React.JSX.Element {
   const splitPreviewImageAlign = useCallback(
 
     /**
-     * 呼び出し時に「imageIndex」「alignment」を受け取り、イベントまたは状態更新を処理する関数を生成するコールバックです。
-     * @param imageIndex 「imageIndex」は、「imageIndex」がWebview UIで処理する対象を特定する入力です。
-     * @param alignment alignmentとして渡される、このコールバックの入力値です。
-     * @returns Reactが保持する初期状態またはメモ化値を返します。
+     * image・indexをifへ渡し、Webviewルートの結果または副作用を処理する。
+     * @param imageIndex - Webviewルートの位置・寸法・件数・時間を表す数値。
+     * @param alignment - Webviewルートへ渡す入力。
+     * @returns Webviewルートのコールバックが生成する結果。
      */
     (imageIndex: number, alignment: ImageAlignment) => {
       if (imageResizeEnabled) alignPreviewImage(imageIndex, alignment);
@@ -4405,9 +4394,9 @@ export function App(): React.JSX.Element {
   const splitPreviewInspect = useCallback(
 
     /**
-     * 呼び出し時に「target」を受け取り、イベントまたは状態更新を処理する関数を生成するコールバックです。
-     * @param target 処理対象の対象です。
-     * @returns 「target」から生成した処理結果を返します。
+     * targetをchange・inspectorへ渡し、Webviewルートの結果または副作用を処理する。
+     * @param target - Webviewルートへ渡す入力。
+     * @returns Webviewルートのコールバックが生成する結果。
      */
     (target: InspectorTarget) => changeInspector(target),
     [mode, splitView],
@@ -4415,9 +4404,9 @@ export function App(): React.JSX.Element {
   const splitPreviewNavigate = useCallback(
 
     /**
-     * 呼び出し時に「href」を受け取り、イベントまたは状態更新を処理する関数を生成するコールバックです。
-     * @param href 画像またはリンクのURLです。
-     * @returns 「href」から生成した処理結果を返します。
+     * hrefをメッセージ送信へ渡し、Webviewルートの結果または副作用を処理する。
+     * @param href - リンク操作領域の遷移先URI。
+     * @returns Webviewルートのコールバックが生成する結果。
      */
     (href: string) => vscode.postMessage({ type: "openResource", href }),
     [],
@@ -4425,8 +4414,8 @@ export function App(): React.JSX.Element {
   const splitPreviewRendered = useCallback(
 
     /**
-     * 呼び出し時にイベントまたは状態更新を処理する関数を生成するコールバックです。
-     * @returns Reactが保持する初期状態またはメモ化値を返します。
+     * 要素をhandle・preview・renderedへ渡し、Webviewルートの結果または副作用を処理する。
+     * @returns Webviewルートのコールバックが生成する結果。
      */
     () => handlePreviewRendered("splitPreview"),
     [
@@ -4440,12 +4429,12 @@ export function App(): React.JSX.Element {
   const sourceEditorChange = useCallback(
 
     /**
-     * 呼び出し時に「beforeText」「nextText」「changes」「isCompositionCommit」を受け取り、イベントまたは状態更新を処理する関数を生成するコールバックです。
-     * @param beforeText 処理対象の本文です。
-     * @param nextText 処理対象の本文です。
-     * @param changes changesとして渡される、このコールバックの入力値です。
-     * @param isCompositionCommit isCompositionCommitとして渡される、このコールバックの入力値です。
-     * @returns Reactが保持する初期状態またはメモ化値を返します。
+     * before・textをifへ渡し、Webviewルートの結果または副作用を処理する。
+     * @param beforeText - Webviewルートで扱う文字列または本文。
+     * @param nextText - Webviewルートで扱う文字列または本文。
+     * @param changes - 本文へ適用する変更範囲の一覧。
+     * @param isCompositionCommit - Webviewルートの位置・寸法・件数・時間を表す数値。
+     * @returns Webviewルートのコールバックが生成する結果。
      */
     (
       beforeText: string,
@@ -4512,8 +4501,8 @@ export function App(): React.JSX.Element {
   );
   const sourceEditorSettled = useCallback(
   /**
-   * 呼び出し時にイベントまたは状態更新を処理する関数を生成するコールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * 要素をstage・preview・viewport・restoreへ渡し、Webviewルートの結果または副作用を処理する。
+   * @returns Webviewルートのコールバックが生成する結果。
    */
   () => {
     stagePreviewViewportRestore();
@@ -4525,9 +4514,9 @@ export function App(): React.JSX.Element {
   const sourceEditorSelectionChange = useCallback(
 
     /**
-     * 呼び出し時に「nextSelection」を受け取り、イベントまたは状態更新を処理する関数を生成するコールバックです。
-     * @param nextSelection nextSelectionとして渡される、このコールバックの入力値です。
-     * @returns Reactが保持する初期状態またはメモ化値を返します。
+     * UIイベントを表示または編集状態へ反映する。
+     * @param nextSelection - ユーザー操作またはDOMから通知されたイベント。
+     * @returns 副作用を完了し、値は返さない。
      */
     (nextSelection: TextSelection) => {
       selectionStateRef.current = nextSelection;
@@ -4543,9 +4532,9 @@ export function App(): React.JSX.Element {
         previousKeys.length === nextKeys.length &&
         nextKeys.every(
         /**
- * 「key」が条件を満たすか判定し、全要素の適合結果を返すコールバックです。
-         * @param key メッセージまたは設定表から値を取得する識別キーです。
-         * @returns 条件判定の結果を示す真偽値を返します。
+         * Webviewルートのコールバックとしてkeyを処理する。
+         * @param key - Webviewルートの対象や分岐を識別する値。
+         * @returns Webviewルートのコールバックが生成する結果。
          */
         (key) => previous[key] === nextMarks[key])
       )
@@ -4558,10 +4547,10 @@ export function App(): React.JSX.Element {
   const sourceEditorViewportChange = useCallback(
 
     /**
-     * 呼び出し時に「anchor」「userInitiated」を受け取り、イベントまたは状態更新を処理する関数を生成するコールバックです。
-     * @param anchor anchorとして渡される、このコールバックの入力値です。
-     * @param userInitiated userInitiatedとして渡される、このコールバックの入力値です。
-     * @returns 「anchor」「userInitiated」から生成した処理結果を返します。
+     * anchorをhandle・source・viewportへ渡し、Webviewルートの結果または副作用を処理する。
+     * @param anchor - Webviewルートへ渡す入力。
+     * @param userInitiated - Webviewルートの条件を示すフラグ。
+     * @returns Webviewルートのコールバックが生成する結果。
      */
     (anchor: EditorViewportAnchor, userInitiated: boolean) =>
       handleSourceViewport(anchor, userInitiated),
@@ -4569,8 +4558,8 @@ export function App(): React.JSX.Element {
   );
   const sourceEditorUserScrollIntent = useCallback(
   /**
-   * 呼び出し時にイベントまたは状態更新を処理する関数を生成するコールバックです。
-   * @returns Reactが保持する初期状態またはメモ化値を返します。
+   * 要素をcancel・pending・cross・pane・scroll・syncへ渡し、Webviewルートの結果または副作用を処理する。
+   * @returns Webviewルートのコールバックが生成する結果。
    */
   () => {
     cancelPendingCrossPaneScrollSync();
@@ -4625,8 +4614,8 @@ export function App(): React.JSX.Element {
                   aria-label={messages.app.hideOutline}
                   onClick={
                   /**
- * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
-                   * @returns 「prepareLayoutRestore」を実行し、値を返しません。
+                   * click操作を表示または編集状態へ反映する。
+                   * @returns 副作用を完了し、値は返さない。
                    */
                   () => {
                     prepareLayoutRestore();
@@ -4640,10 +4629,10 @@ export function App(): React.JSX.Element {
                 <nav>
                   {outline.map(
                   /**
- * 「item」「index」を変換し、変換後の要素を返すコールバックです。
-                   * @param item 変換または処理の対象となる値です。
-                   * @param index 本文、表、配列内の対象位置を示すインデックスです。
-                   * @returns 入力要素から生成した変換後の値を返します。
+                   * 各項目からoffsetを取り出して一覧化する。
+                   * @param item - 項目のoffsetを参照する走査対象。
+                   * @param index - 配列・行列・文字列の要素位置を示す番号。
+                   * @returns offsetを取り出した変換結果の一覧。
                    */
                   (item, index) => (
                     <button
@@ -4659,36 +4648,36 @@ export function App(): React.JSX.Element {
                       style={{ paddingLeft: `${8 + item.level * 10}px` }}
                       onClick={
                       /**
- * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
-                       * @param event 処理対象のイベントです。
-                       * @returns 「if」を実行し、値を返しません。
+                       * clickイベントでifを実行する。
+                       * @param event - ユーザー操作またはDOMから通知されたイベント。
+                       * @returns 副作用を完了し、値は返さない。
                        */
                       (event) => {
                         if (event.button === 0) goToOutlineOffset(item.offset);
                       }}
                       onPointerDown={
                       /**
- * 「event」を受け取り、登録された副作用または結果を生成する処理です。
-                       * @param event 処理対象のイベントです。
-                       * @returns 「beginOutlineDrag」を実行し、値を返しません。
+                       * イベントをbegin・outline・dragへ渡し、Webviewルートの結果または副作用を処理する。
+                       * @param event - ユーザー操作またはDOMから通知されたイベント。
+                       * @returns Webviewルートのコールバックが生成する結果。
                        */
                       (event) => beginOutlineDrag(event, index)}
                       onPointerMove={updateOutlineDrag}
                       onPointerUp={finishOutlineDrag}
                       onPointerCancel={
                       /**
- * 「event」を受け取り、登録された副作用または結果を生成する処理です。
-                       * @param event 処理対象のイベントです。
-                       * @returns 「finishOutlineDrag」を実行し、値を返しません。
+                       * イベントをfinish・outline・dragへ渡し、Webviewルートの結果または副作用を処理する。
+                       * @param event - ユーザー操作またはDOMから通知されたイベント。
+                       * @returns Webviewルートのコールバックが生成する結果。
                        */
                       (event) =>
                         finishOutlineDrag(event, true)
                       }
                       onContextMenu={
                       /**
- * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
-                       * @param event 処理対象のイベントです。
-                       * @returns 「event.preventDefault」を実行し、値を返しません。
+                       * イベントをprevent・defaultへ渡し、Webviewルートの結果または副作用を処理する。
+                       * @param event - ユーザー操作またはDOMから通知されたイベント。
+                       * @returns Webviewルートのコールバックが生成する結果。
                        */
                       (event) => event.preventDefault()}
                     >
@@ -4712,17 +4701,17 @@ export function App(): React.JSX.Element {
               onPointerDown={beginOutlineResize}
               onKeyDown={
               /**
- * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
-               * @param event 処理対象のイベントです。
-               * @returns 「if」を実行し、値を返しません。
+               * keydown操作を表示または編集状態へ反映する。
+               * @param event - ユーザー操作またはDOMから通知されたイベント。
+               * @returns 副作用を完了し、値は返さない。
                */
               (event) => {
                 if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
                   setOutlineWidth(
                   /**
- * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
-                   * @param value 「value」で検証・変換する入力値です。
-                   * @returns 「value」から生成した処理結果を返します。
+                   * 値をclamp・outline・widthへ渡し、Webviewルートの結果または副作用を処理する。
+                   * @param value - 検証・変換・保存の対象となる値。
+                   * @returns Webviewルートのコールバックが生成する結果。
                    */
                   (value) =>
                     clampOutlineWidth(
@@ -4741,8 +4730,8 @@ export function App(): React.JSX.Element {
             aria-label={messages.app.showOutline}
             onClick={
             /**
- * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
-             * @returns 「prepareLayoutRestore」を実行し、値を返しません。
+             * click操作を表示または編集状態へ反映する。
+             * @returns 副作用を完了し、値は返さない。
              */
             () => {
               prepareLayoutRestore();
@@ -4757,8 +4746,8 @@ export function App(): React.JSX.Element {
           className="editor-area"
           onMouseUp={
           /**
- * 登録された処理を受け取り、イベントに応じた状態更新または委譲処理を実行するコールバックです。
-           * @returns 「getActiveEditor」を実行し、値を返しません。
+           * 要素をget・active・editorへ渡し、Webviewルートの結果または副作用を処理する。
+           * @returns 副作用を完了し、値は返さない。
            */
           () => {
             selectionStateRef.current =
@@ -4781,9 +4770,9 @@ export function App(): React.JSX.Element {
             mode === "preview"
               ?
               /**
- * 「event」を受け取り、登録された副作用または結果を生成する処理です。
-               * @param event 処理対象のイベントです。
-               * @returns 「event」から生成した処理結果を返します。
+               * イベントをhandle・preview・scrollへ渡し、Webviewルートの結果または副作用を処理する。
+               * @param event - ユーザー操作またはDOMから通知されたイベント。
+               * @returns 副作用を完了し、値は返さない。
                */
               (event) =>
                   handlePreviewScroll("previewOnly", event.currentTarget)
@@ -4802,9 +4791,9 @@ export function App(): React.JSX.Element {
                 value={searchQuery}
                 onChange={
                 /**
- * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
-                 * @param event 処理対象のイベントです。
-                 * @returns 「setSearchQuery」を実行し、値を返しません。
+                 * change操作を表示または編集状態へ反映する。
+                 * @param event - ユーザー操作またはDOMから通知されたイベント。
+                 * @returns 副作用を完了し、値は返さない。
                  */
                 (event) => {
                   setSearchQuery(event.target.value);
@@ -4812,9 +4801,9 @@ export function App(): React.JSX.Element {
                 }}
                 onKeyDown={
                 /**
- * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
-                 * @param event 処理対象のイベントです。
-                 * @returns 「if」を実行し、値を返しません。
+                 * keydownイベントでifを実行する。
+                 * @param event - ユーザー操作またはDOMから通知されたイベント。
+                 * @returns 副作用を完了し、値は返さない。
                  */
                 (event) => {
                   if (event.key === "Escape") closeSearch();
@@ -4828,9 +4817,9 @@ export function App(): React.JSX.Element {
                 value={searchReplacement}
                 onChange={
                 /**
- * 「event」を受け取り、登録された副作用または結果を生成する処理です。
-                 * @param event 処理対象のイベントです。
-                 * @returns 「setSearchReplacement」を実行し、値を返しません。
+                 * change操作を表示または編集状態へ反映する。
+                 * @param event - ユーザー操作またはDOMから通知されたイベント。
+                 * @returns 副作用を完了し、値は返さない。
                  */
                 (event) => setSearchReplacement(event.target.value)}
               />
@@ -4843,8 +4832,8 @@ export function App(): React.JSX.Element {
                 type="button"
                 onClick={
                 /**
- * 登録された副作用または結果を生成する処理を実行するコールバックです。
-                 * @returns 「jumpToSearch」の呼び出し結果を返します。
+                 * clickイベントでjump・to・searchを実行する。
+                 * @returns 副作用を完了し、値は返さない。
                  */
                 () => jumpToSearch(-1)}
                 disabled={!searchHits.length}
@@ -4856,8 +4845,8 @@ export function App(): React.JSX.Element {
                 type="button"
                 onClick={
                 /**
- * 登録された副作用または結果を生成する処理を実行するコールバックです。
-                 * @returns 「jumpToSearch」の呼び出し結果を返します。
+                 * clickイベントでjump・to・searchを実行する。
+                 * @returns 副作用を完了し、値は返さない。
                  */
                 () => jumpToSearch(1)}
                 disabled={!searchHits.length}
@@ -4869,8 +4858,8 @@ export function App(): React.JSX.Element {
                 type="button"
                 onClick={
                 /**
- * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
-                 * @returns 「replaceSearch」の呼び出し結果を返します。
+                 * clickイベントでreplace・searchを実行する。
+                 * @returns 副作用を完了し、値は返さない。
                  */
                 () => replaceSearch(false)}
                 disabled={!searchQuery}
@@ -4881,8 +4870,8 @@ export function App(): React.JSX.Element {
                 type="button"
                 onClick={
                 /**
- * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
-                 * @returns 「replaceSearch」の呼び出し結果を返します。
+                 * clickイベントでreplace・searchを実行する。
+                 * @returns 副作用を完了し、値は返さない。
                  */
                 () => replaceSearch(true)}
                 disabled={!searchQuery}
@@ -4933,18 +4922,18 @@ export function App(): React.JSX.Element {
                 onPointerDown={beginSplitResize}
                 onKeyDown={
                 /**
- * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
-                 * @param event 処理対象のイベントです。
-                 * @returns 「if」を実行し、値を返しません。
+                 * keydown操作を表示または編集状態へ反映する。
+                 * @param event - ユーザー操作またはDOMから通知されたイベント。
+                 * @returns 副作用を完了し、値は返さない。
                  */
                 (event) => {
                   if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
                     prepareLayoutRestore();
                     setSplitRatio(
                     /**
- * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
-                     * @param value 「value」で検証・変換する入力値です。
-                     * @returns 「value」から生成した処理結果を返します。
+                     * 値をclamp・split・ratioへ渡し、Webviewルートの結果または副作用を処理する。
+                     * @param value - 検証・変換・保存の対象となる値。
+                     * @returns Webviewルートのコールバックが生成する結果。
                      */
                     (value) =>
                       clampSplitRatio(
@@ -4965,9 +4954,9 @@ export function App(): React.JSX.Element {
                 onKeyDown={markPreviewScrollIntent}
                 onScroll={
                 /**
- * 「event」を受け取り、登録された副作用または結果を生成する処理です。
-                 * @param event 処理対象のイベントです。
-                 * @returns 「event」から生成した処理結果を返します。
+                 * イベントをhandle・preview・scrollへ渡し、Webviewルートの結果または副作用を処理する。
+                 * @param event - ユーザー操作またはDOMから通知されたイベント。
+                 * @returns Webviewルートのコールバックが生成する結果。
                  */
                 (event) =>
                   handlePreviewScroll("splitPreview", event.currentTarget)
@@ -5009,16 +4998,16 @@ export function App(): React.JSX.Element {
               pdfError={pdfPreview.error}
               onInspect={
               /**
- * 「target」を受け取り、登録された副作用または結果を生成する処理です。
-               * @param target 処理対象の対象です。
-               * @returns 「target」から生成した処理結果を返します。
+               * targetをchange・inspectorへ渡し、Webviewルートの結果または副作用を処理する。
+               * @param target - Webviewルートへ渡す入力。
+               * @returns Webviewルートのコールバックが生成する結果。
                */
               (target) => changeInspector(target)}
               onNavigate={
               /**
- * 「href」を受け取り、登録された副作用または結果を生成する処理です。
-               * @param href 画像またはリンクのURLです。
-               * @returns 「href」から生成した処理結果を返します。
+               * hrefをメッセージ送信へ渡し、Webviewルートの結果または副作用を処理する。
+               * @param href - リンク操作領域の遷移先URI。
+               * @returns Webviewルートのコールバックが生成する結果。
                */
               (href) =>
                 vscode.postMessage({ type: "openResource", href })
@@ -5026,8 +5015,8 @@ export function App(): React.JSX.Element {
               onZoom={adjustZoom}
               onRendered={
               /**
- * 登録された副作用または結果を生成する処理を実行するコールバックです。
-               * @returns 「handlePreviewRendered」の呼び出し結果を返します。
+               * 要素をhandle・preview・renderedへ渡し、Webviewルートの結果または副作用を処理する。
+               * @returns Webviewルートのコールバックが生成する結果。
                */
               () => handlePreviewRendered("previewOnly")}
             />
@@ -5041,15 +5030,15 @@ export function App(): React.JSX.Element {
             onChange={updateInspector}
             onClose={
             /**
- * 登録された副作用または結果を生成する処理を実行するコールバックです。
-             * @returns 「changeInspector」の呼び出し結果を返します。
+             * UIイベントをHostまたはWebviewへ通知する。
+             * @returns 副作用を完了し、値は返さない。
              */
             () => changeInspector(undefined)}
             onOpenResource={
             /**
- * 「href」を受け取り、登録された副作用または結果を生成する処理です。
-             * @param href 画像またはリンクのURLです。
-             * @returns 「href」から生成した処理結果を返します。
+             * hrefをメッセージ送信へ渡し、Webviewルートの結果または副作用を処理する。
+             * @param href - リンク操作領域の遷移先URI。
+             * @returns Webviewルートのコールバックが生成する結果。
              */
             (href) =>
               vscode.postMessage({ type: "openResource", href })
@@ -5063,8 +5052,8 @@ export function App(): React.JSX.Element {
               <button
                 onClick={
                 /**
- * 登録された副作用または結果を生成する処理を実行するコールバックです。
-                 * @returns 「prepareLayoutRestore」を実行し、値を返しません。
+                 * click操作を表示または編集状態へ反映する。
+                 * @returns 副作用を完了し、値は返さない。
                  */
                 () => {
                   prepareLayoutRestore();
@@ -5084,10 +5073,10 @@ export function App(): React.JSX.Element {
             {diagnostics.length ? (
               diagnostics.map(
               /**
- * 「item」「index」を変換し、変換後の要素を返すコールバックです。
-               * @param item 変換または処理の対象となる値です。
-               * @param index 本文、表、配列内の対象位置を示すインデックスです。
-               * @returns 入力要素から生成した変換後の値を返します。
+               * 各項目からコードを取り出して一覧化する。
+               * @param item - 項目のコードを参照する走査対象。
+               * @param index - 配列・行列・文字列の要素位置を示す番号。
+               * @returns コードを取り出した変換結果の一覧。
                */
               (item, index) => (
                 <div
@@ -5101,8 +5090,8 @@ export function App(): React.JSX.Element {
                       className="diagnostic-location"
                       onClick={
                       /**
- * 登録された副作用または結果を生成する処理を実行するコールバックです。
-                       * @returns 「goToDiagnosticLine」の呼び出し結果を返します。
+                       * click操作を表示または編集状態へ反映する。
+                       * @returns 副作用を完了し、値は返さない。
                        */
                       () => goToDiagnosticLine(item.line as number)}
                     >
@@ -5125,8 +5114,8 @@ export function App(): React.JSX.Element {
                 type="button"
                 onClick={
                 /**
- * 登録された副作用または結果を生成する処理を実行するコールバックです。
-                 * @returns 「flushPdfOptionsPersistence」を実行し、値を返しません。
+                 * click操作を表示または編集状態へ反映する。
+                 * @returns 副作用を完了し、値は返さない。
                  */
                 () => {
                   flushPdfOptionsPersistence();
@@ -5143,16 +5132,16 @@ export function App(): React.JSX.Element {
                 value={pdfOptions.format}
                 onChange={
                 /**
- * 「event」を受け取り、登録された副作用または結果を生成する処理です。
-                 * @param event 処理対象のイベントです。
-                 * @returns 「event」から生成した処理結果を返します。
+                 * changeイベントでupdate・pdf・optionsを実行する。
+                 * @param event - ユーザー操作またはDOMから通知されたイベント。
+                 * @returns 副作用を完了し、値は返さない。
                  */
                 (event) =>
                   updatePdfOptions(
                   /**
- * 「current」から（format）のオブジェクトを生成して返すコールバックです。
-                   * @param current currentとして渡される、このコールバックの入力値です。
-                   * @returns 初期化したオブジェクト（format）を返します。
+                   * Webviewルートのコールバックとしてcurrentを処理する。
+                   * @param current - Webviewルートへ渡す入力。
+                   * @returns Webviewルートのコールバックが生成する結果。
                    */
                   (current) => ({
                     ...current,
@@ -5162,9 +5151,9 @@ export function App(): React.JSX.Element {
               >
                 {PDF_PAPER_FORMATS.map(
                 /**
- * 「format」を変換し、変換後の要素を返すコールバックです。
-                 * @param format formatとして渡される、このコールバックの入力値です。
-                 * @returns 入力要素から生成した変換後の値を返します。
+                 * pdf・paper・formatsの各要素を変換して一覧化する。
+                 * @param format - 本文または出力を解釈する形式。
+                 * @returns 入力要素から生成した変換結果の一覧。
                  */
                 (format) => (
                   <option key={format}>{format}</option>
@@ -5177,16 +5166,16 @@ export function App(): React.JSX.Element {
                 value={pdfOptions.orientation}
                 onChange={
                 /**
- * 「event」を受け取り、登録された副作用または結果を生成する処理です。
-                 * @param event 処理対象のイベントです。
-                 * @returns 「event」から生成した処理結果を返します。
+                 * changeイベントでupdate・pdf・optionsを実行する。
+                 * @param event - ユーザー操作またはDOMから通知されたイベント。
+                 * @returns 副作用を完了し、値は返さない。
                  */
                 (event) =>
                   updatePdfOptions(
                   /**
- * 「current」から（orientation）のオブジェクトを生成して返すコールバックです。
-                   * @param current currentとして渡される、このコールバックの入力値です。
-                   * @returns 初期化したオブジェクト（orientation）を返します。
+                   * Webviewルートのコールバックとしてcurrentを処理する。
+                   * @param current - Webviewルートへ渡す入力。
+                   * @returns Webviewルートのコールバックが生成する結果。
                    */
                   (current) => ({
                     ...current,
@@ -5205,16 +5194,16 @@ export function App(): React.JSX.Element {
                 value={pdfOptions.header}
                 onChange={
                 /**
- * 「event」を受け取り、登録された副作用または結果を生成する処理です。
-                 * @param event 処理対象のイベントです。
-                 * @returns 「event」から生成した処理結果を返します。
+                 * changeイベントでupdate・pdf・optionsを実行する。
+                 * @param event - ユーザー操作またはDOMから通知されたイベント。
+                 * @returns 副作用を完了し、値は返さない。
                  */
                 (event) =>
                   updatePdfOptions(
                   /**
- * 「current」から（header、footer）のオブジェクトを生成して返すコールバックです。
-                   * @param current currentとして渡される、このコールバックの入力値です。
-                   * @returns 初期化したオブジェクト（header、footer）を返します。
+                   * Webviewルートのコールバックとしてcurrentを処理する。
+                   * @param current - Webviewルートへ渡す入力。
+                   * @returns Webviewルートのコールバックが生成する結果。
                    */
                   (current) => ({
                     ...current,
@@ -5229,16 +5218,16 @@ export function App(): React.JSX.Element {
                 value={pdfOptions.footer}
                 onChange={
                 /**
- * 「event」を受け取り、登録された副作用または結果を生成する処理です。
-                 * @param event 処理対象のイベントです。
-                 * @returns 「event」から生成した処理結果を返します。
+                 * changeイベントでupdate・pdf・optionsを実行する。
+                 * @param event - ユーザー操作またはDOMから通知されたイベント。
+                 * @returns 副作用を完了し、値は返さない。
                  */
                 (event) =>
                   updatePdfOptions(
                   /**
- * 「current」から（footer、top、right、bottom、left）のオブジェクトを生成して返すコールバックです。
-                   * @param current currentとして渡される、このコールバックの入力値です。
-                   * @returns 初期化したオブジェクト（footer、top、right、bottom、left）を返します。
+                   * Webviewルートのコールバックとしてcurrentを処理する。
+                   * @param current - Webviewルートへ渡す入力。
+                   * @returns Webviewルートのコールバックが生成する結果。
                    */
                   (current) => ({
                     ...current,
@@ -5251,9 +5240,9 @@ export function App(): React.JSX.Element {
               <legend>{messages.app.margins}</legend>
               {(["top", "right", "bottom", "left"] as const).map(
               /**
- * 「side」を変換し、変換後の要素を返すコールバックです。
-               * @param side sideとして渡される、このコールバックの入力値です。
-               * @returns 入力要素から生成した変換後の値を返します。
+               * 各sideをupdate・pdf・optionsへ渡し、変換結果を一覧化する。
+               * @param side - Webviewルートの対象や分岐を識別する値。
+               * @returns 入力要素から生成した変換結果の一覧。
                */
               (side) => (
                 <label key={side}>
@@ -5275,16 +5264,16 @@ export function App(): React.JSX.Element {
                     defaultValue={pdfOptions.margins[side]}
                     onBlur={
                     /**
- * 「event」を受け取り、登録された副作用または結果を生成する処理です。
-                     * @param event 処理対象のイベントです。
-                     * @returns 「event」から生成した処理結果を返します。
+                     * イベントをupdate・pdf・optionsへ渡し、Webviewルートの結果または副作用を処理する。
+                     * @param event - ユーザー操作またはDOMから通知されたイベント。
+                     * @returns Webviewルートのコールバックが生成する結果。
                      */
                     (event) =>
                       updatePdfOptions(
                       /**
- * 「current」から（margins）のオブジェクトを生成して返すコールバックです。
-                       * @param current currentとして渡される、このコールバックの入力値です。
-                       * @returns 初期化したオブジェクト（margins）を返します。
+                       * currentをclamp・pdf・marginへ渡し、Webviewルートの結果または副作用を処理する。
+                       * @param current - Webviewルートへ渡す入力。
+                       * @returns Webviewルートのコールバックが生成する結果。
                        */
                       (current) => ({
                         ...current,
@@ -5312,16 +5301,16 @@ export function App(): React.JSX.Element {
                   defaultValue={pdfOptions.bodyFontSize}
                   onBlur={
                   /**
- * 「event」を受け取り、登録された副作用または結果を生成する処理です。
-                   * @param event 処理対象のイベントです。
-                   * @returns 「event」から生成した処理結果を返します。
+                   * イベントをupdate・pdf・optionsへ渡し、Webviewルートの結果または副作用を処理する。
+                   * @param event - ユーザー操作またはDOMから通知されたイベント。
+                   * @returns Webviewルートのコールバックが生成する結果。
                    */
                   (event) =>
                     updatePdfOptions(
                     /**
- * 「current」から（bodyFontSize）のオブジェクトを生成して返すコールバックです。
-                     * @param current currentとして渡される、このコールバックの入力値です。
-                     * @returns 初期化したオブジェクト（bodyFontSize）を返します。
+                     * currentをnumberへ渡し、Webviewルートの結果または副作用を処理する。
+                     * @param current - Webviewルートへ渡す入力。
+                     * @returns Webviewルートのコールバックが生成する結果。
                      */
                     (current) => ({
                       ...current,
@@ -5335,9 +5324,9 @@ export function App(): React.JSX.Element {
                 {(["h1", "h2", "h3", "h4", "h5", "h6"] as const).map(
 
                   /**
- * 「heading」を変換し、変換後の要素を返すコールバックです。
-                   * @param heading headingとして渡される、このコールバックの入力値です。
-                   * @returns 入力要素から生成した変換後の値を返します。
+                   * 各見出しからto・upper・caseを取り出して一覧化する。
+                   * @param heading - 見出しのto・upper・caseを参照する走査対象。
+                   * @returns to・upper・caseを取り出した変換結果の一覧。
                    */
                   (heading) => (
                     <label key={heading}>
@@ -5351,16 +5340,16 @@ export function App(): React.JSX.Element {
                         defaultValue={pdfOptions.headingFontSizes[heading]}
                         onBlur={
                         /**
- * 「event」を受け取り、登録された副作用または結果を生成する処理です。
-                         * @param event 処理対象のイベントです。
-                         * @returns 「event」から生成した処理結果を返します。
+                         * イベントをupdate・pdf・optionsへ渡し、Webviewルートの結果または副作用を処理する。
+                         * @param event - ユーザー操作またはDOMから通知されたイベント。
+                         * @returns Webviewルートのコールバックが生成する結果。
                          */
                         (event) =>
                           updatePdfOptions(
                           /**
- * 「current」から（headingFontSizes）のオブジェクトを生成して返すコールバックです。
-                           * @param current currentとして渡される、このコールバックの入力値です。
-                           * @returns 初期化したオブジェクト（headingFontSizes）を返します。
+                           * currentをnumberへ渡し、Webviewルートの結果または副作用を処理する。
+                           * @param current - Webviewルートへ渡す入力。
+                           * @returns Webviewルートのコールバックが生成する結果。
                            */
                           (current) => ({
                             ...current,
@@ -5386,16 +5375,16 @@ export function App(): React.JSX.Element {
                   defaultValue={pdfOptions.codeFontSize}
                   onBlur={
                   /**
- * 「event」を受け取り、登録された副作用または結果を生成する処理です。
-                   * @param event 処理対象のイベントです。
-                   * @returns 「event」から生成した処理結果を返します。
+                   * イベントをupdate・pdf・optionsへ渡し、Webviewルートの結果または副作用を処理する。
+                   * @param event - ユーザー操作またはDOMから通知されたイベント。
+                   * @returns Webviewルートのコールバックが生成する結果。
                    */
                   (event) =>
                     updatePdfOptions(
                     /**
- * 「current」から（codeFontSize）のオブジェクトを生成して返すコールバックです。
-                     * @param current currentとして渡される、このコールバックの入力値です。
-                     * @returns 初期化したオブジェクト（codeFontSize）を返します。
+                     * currentをnumberへ渡し、Webviewルートの結果または副作用を処理する。
+                     * @param current - Webviewルートへ渡す入力。
+                     * @returns Webviewルートのコールバックが生成する結果。
                      */
                     (current) => ({
                       ...current,
@@ -5415,16 +5404,16 @@ export function App(): React.JSX.Element {
                   defaultValue={pdfOptions.lineHeight}
                   onBlur={
                   /**
- * 「event」を受け取り、登録された副作用または結果を生成する処理です。
-                   * @param event 処理対象のイベントです。
-                   * @returns 「event」から生成した処理結果を返します。
+                   * イベントをupdate・pdf・optionsへ渡し、Webviewルートの結果または副作用を処理する。
+                   * @param event - ユーザー操作またはDOMから通知されたイベント。
+                   * @returns Webviewルートのコールバックが生成する結果。
                    */
                   (event) =>
                     updatePdfOptions(
                     /**
- * 「current」から（lineHeight）のオブジェクトを生成して返すコールバックです。
-                     * @param current currentとして渡される、このコールバックの入力値です。
-                     * @returns 初期化したオブジェクト（lineHeight）を返します。
+                     * currentをnumberへ渡し、Webviewルートの結果または副作用を処理する。
+                     * @param current - Webviewルートへ渡す入力。
+                     * @returns Webviewルートのコールバックが生成する結果。
                      */
                     (current) => ({
                       ...current,
@@ -5444,16 +5433,16 @@ export function App(): React.JSX.Element {
                   defaultValue={pdfOptions.paragraphSpacing}
                   onBlur={
                   /**
- * 「event」を受け取り、登録された副作用または結果を生成する処理です。
-                   * @param event 処理対象のイベントです。
-                   * @returns 「event」から生成した処理結果を返します。
+                   * イベントをupdate・pdf・optionsへ渡し、Webviewルートの結果または副作用を処理する。
+                   * @param event - ユーザー操作またはDOMから通知されたイベント。
+                   * @returns Webviewルートのコールバックが生成する結果。
                    */
                   (event) =>
                     updatePdfOptions(
                     /**
- * 「current」から（paragraphSpacing）のオブジェクトを生成して返すコールバックです。
-                     * @param current currentとして渡される、このコールバックの入力値です。
-                     * @returns 初期化したオブジェクト（paragraphSpacing）を返します。
+                     * currentをnumberへ渡し、Webviewルートの結果または副作用を処理する。
+                     * @param current - Webviewルートへ渡す入力。
+                     * @returns Webviewルートのコールバックが生成する結果。
                      */
                     (current) => ({
                       ...current,
@@ -5469,16 +5458,16 @@ export function App(): React.JSX.Element {
                 checked={pdfOptions.saveWithoutDialog}
                 onChange={
                 /**
- * 「event」を受け取り、登録された副作用または結果を生成する処理です。
-                 * @param event 処理対象のイベントです。
-                 * @returns 「event」から生成した処理結果を返します。
+                 * changeイベントでupdate・pdf・optionsを実行する。
+                 * @param event - ユーザー操作またはDOMから通知されたイベント。
+                 * @returns 副作用を完了し、値は返さない。
                  */
                 (event) =>
                   updatePdfOptions(
                   /**
- * 「current」から（saveWithoutDialog）のオブジェクトを生成して返すコールバックです。
-                   * @param current currentとして渡される、このコールバックの入力値です。
-                   * @returns 初期化したオブジェクト（saveWithoutDialog）を返します。
+                   * Webviewルートのコールバックとしてcurrentを処理する。
+                   * @param current - Webviewルートへ渡す入力。
+                   * @returns Webviewルートのコールバックが生成する結果。
                    */
                   (current) => ({
                     ...current,
@@ -5493,8 +5482,8 @@ export function App(): React.JSX.Element {
               className="primary"
               onClick={
               /**
- * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
-               * @returns 「requestPdfExport」の呼び出し結果を返します。
+               * clickイベントでrequest・pdf・exportを実行する。
+               * @returns 副作用を完了し、値は返さない。
                */
               () => void requestPdfExport()}
             >
@@ -5532,9 +5521,9 @@ export function App(): React.JSX.Element {
           settings={exportSettings}
           onRendered={
           /**
- * 「documents」を受け取り、登録された副作用または結果を生成する処理です。
-           * @param documents documentsとして渡される、このコールバックの入力値です。
-           * @returns 「vscode.postMessage」を実行し、値を返しません。
+           * documentsをメッセージ送信へ渡し、Webviewルートの結果または副作用を処理する。
+           * @param documents - 文書URIと開いている文書オブジェクトの対応表。
+           * @returns Webviewルートのコールバックが生成する結果。
            */
           (documents) => {
             vscode.postMessage({
@@ -5552,8 +5541,8 @@ export function App(): React.JSX.Element {
           messages={messages}
           onClose={
           /**
- * 登録された副作用または結果を生成する処理を実行するコールバックです。
-           * @returns 「setHelpTopic」を実行し、値を返しません。
+           * 要素をset・help・topicへ渡し、Webviewルートの結果または副作用を処理する。
+           * @returns 副作用を完了し、値は返さない。
            */
           () => setHelpTopic(undefined)}
         />
@@ -5568,8 +5557,8 @@ export function App(): React.JSX.Element {
           onApply={applyLinkDialog}
           onClose={
           /**
- * 登録された副作用または結果を生成する処理を実行するコールバックです。
-           * @returns 「setLinkDialogVisible」を実行し、値を返しません。
+           * 要素をset・link・dialog・visibleへ渡し、Webviewルートの結果または副作用を処理する。
+           * @returns Webviewルートのコールバックが生成する結果。
            */
           () => setLinkDialogVisible(false)}
         />
@@ -5584,9 +5573,9 @@ export function App(): React.JSX.Element {
 }
 
 /**
- * 選択した画像・数式・Mermaidの参照元と編集内容を表示するインスペクターを描画する。
- * @param props インスペクターの対象、表示設定、変更・終了・参照先操作のコールバック。
- * @returns インスペクターパネルのReact要素。
+ * Webviewルートのinspectorを処理し、呼び出し側へ結果または副作用を返す。
+ * @param options - 呼び出し側が指定する処理設定。
+ * @returns Webviewルートのinspectorが生成する結果。
  */
 function Inspector({
   target,
@@ -5598,35 +5587,35 @@ function Inspector({
 }: {
 
   /**
-   * 「target」は、操作対象または処理目的を示す値を保持します。
+   * Webviewルートのtargetに関する状態または設定。
    */
   target: InspectorTarget;
 
   /**
-   * 「settings」は、利用側が共有する設定または現在状態を保持します。
+   * Webviewルートへ渡す設定または境界値。
    */
   settings: WebviewSettings;
 
   /**
-   * 「messages」は、画面または通知へ表示する文言を保持します。
+   * Webviewルートで扱うmessagesの一覧。
    */
   messages: Messages;
   /**
-   * 「onChange」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-   * @param source 処理対象のソースです。
-   * @param alt 「alt」は、「onChange」がWebview UI状態の処理対象を特定する入力です。
-   * @returns イベントを処理し、状態更新または副作用だけを実行して値は返しません。
+   * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
+   * @param source - 解析・描画・変換の起点となる本文。
+   * @param alt - Webviewルートで受け渡す文字列。
+   * @returns Webviewルートのon・changeが生成する結果。
    */
   onChange: (source: string, alt?: string) => void;
   /**
-   * 「onClose」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-   * @returns イベントを処理し、状態更新または副作用だけを実行して値は返しません。
+   * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
+   * @returns Webviewルートのon・closeが生成する結果。
    */
   onClose: () => void;
   /**
-   * 「onOpenResource」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-   * @param href 「href」は、「onOpenResource」がWebview UI状態の処理対象を特定する入力です。
-   * @returns イベントを処理し、状態更新または副作用だけを実行して値は返しません。
+   * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
+   * @param href - リンク操作領域の遷移先URI。
+   * @returns Webviewルートのon・open・resourceが生成する結果。
    */
   onOpenResource: (href: string) => void;
 }): React.JSX.Element {
@@ -5634,8 +5623,8 @@ function Inspector({
   const [alt, setAlt] = useState(target.type === "image" ? target.alt : "");
   useEffect(
   /**
- * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
-   * @returns Reactが保持する初期状態またはメモ化値を返します。
+   * 依存状態の変化に応じて表示または購読を更新する。
+   * @returns Webviewルートのコールバックが生成する結果。
    */
   () => {
     setSource(target.source);
@@ -5662,9 +5651,9 @@ function Inspector({
               value={alt}
               onChange={
               /**
- * 「event」を受け取り、登録された副作用または結果を生成する処理です。
-               * @param event 処理対象のイベントです。
-               * @returns 「setAlt」を実行し、値を返しません。
+               * change操作を表示または編集状態へ反映する。
+               * @param event - ユーザー操作またはDOMから通知されたイベント。
+               * @returns 副作用を完了し、値は返さない。
                */
               (event) => setAlt(event.target.value)}
             />
@@ -5675,16 +5664,16 @@ function Inspector({
           </label>
           <button onClick={
           /**
- * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
-           * @returns 「onOpenResource」の呼び出し結果を返します。
+           * click操作を表示または編集状態へ反映する。
+           * @returns 副作用を完了し、値は返さない。
            */
           () => onOpenResource(source)}>
             {messages.app.inspector.openFile}
           </button>
           <button className="primary" onClick={
           /**
- * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
-           * @returns 「onChange」の呼び出し結果を返します。
+           * click操作を表示または編集状態へ反映する。
+           * @returns 副作用を完了し、値は返さない。
            */
           () => onChange(source, alt)}>
             {messages.app.inspector.apply}
@@ -5697,9 +5686,9 @@ function Inspector({
             spellCheck={false}
             onChange={
             /**
- * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
-             * @param event 処理対象のイベントです。
-             * @returns 「setSource」を実行し、値を返しません。
+             * change操作を表示または編集状態へ反映する。
+             * @param event - ユーザー操作またはDOMから通知されたイベント。
+             * @returns 副作用を完了し、値は返さない。
              */
             (event) => setSource(event.target.value)}
           />
@@ -5715,8 +5704,8 @@ function Inspector({
           </div>
           <button className="primary" onClick={
           /**
- * 登録された副作用または結果を生成する処理を実行するコールバックです。
-           * @returns 「onChange」の呼び出し結果を返します。
+           * click操作を表示または編集状態へ反映する。
+           * @returns 副作用を完了し、値は返さない。
            */
           () => onChange(source)}>
             {messages.app.inspector.apply}
@@ -5728,13 +5717,13 @@ function Inspector({
 }
 
 /**
- * 「useMarkdownPreviewSnapshot」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param markdown 解析・編集・変換の対象となる本文または生成済み内容です。
- * @param remoteImagesEnabled 「remoteImagesEnabled」は、「useMarkdownPreviewSnapshot」がWebview UI状態の処理対象を特定する入力です。
- * @param language 表示文言の解決に使用する言語コードまたはロケールです。
- * @param enabled 「enabled」は、「useMarkdownPreviewSnapshot」がWebview UI状態の処理対象を特定する入力です。
- * @param onBeforeRefinement 処理完了時に呼び出すコールバックです。
- * @returns 「useMarkdownPreviewSnapshot」の副作用または状態更新を実行し、値は返しません。
+ * Webviewルートのuse・markdown・preview・snapshotを処理し、呼び出し側へ結果または副作用を返す。
+ * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
+ * @param remoteImagesEnabled - Webviewルートの条件を示すフラグ。
+ * @param language - Webviewルートの対象や分岐を識別する値。
+ * @param enabled - Webviewルートの条件を示すフラグ。
+ * @param onBeforeRefinement - Webviewルートへ渡す入力。
+ * @returns Webviewルートのuse・markdown・preview・snapshotが生成する結果。
  */
 function useMarkdownPreviewSnapshot(
   markdown: string,
@@ -5754,8 +5743,8 @@ function useMarkdownPreviewSnapshot(
   const workerBusyRef = useRef(false);
   const cancelSanitizationRef = useRef<() => void>(
   /**
- * 処理結果を生成する処理を実行するコールバックです。
-   * @returns 「useRef」の呼び出し結果を返します。
+   * Webviewルートのコールバックとして要素を処理する。
+   * @returns 副作用を完了し、値は返さない。
    */
   () => undefined);
   const generationRef = useRef(0);
@@ -5764,8 +5753,8 @@ function useMarkdownPreviewSnapshot(
 
   const cancelActiveRender = useCallback(
   /**
-   * 呼び出し時にイベントまたは状態更新を処理する関数を生成するコールバックです。
-   * @returns Reactが保持する初期状態またはメモ化値を返します。
+   * 要素をifへ渡し、Webviewルートの結果または副作用を処理する。
+   * @returns Webviewルートのコールバックが生成する結果。
    */
   () => {
     generationRef.current += 1;
@@ -5777,16 +5766,16 @@ function useMarkdownPreviewSnapshot(
     cancelSanitizationRef.current();
     cancelSanitizationRef.current =
     /**
- * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
-     * @returns Webviewの状態から取得した値を返します。
+     * Webviewルートのcurrentを処理し、呼び出し側へ結果または副作用を返す。
+     * @returns 副作用を完了し、値は返さない。
      */
     () => undefined;
   }, []);
 
   useEffect(
   /**
- * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
-   * @returns Reactが保持する初期状態またはメモ化値を返します。
+   * 依存状態の変化に応じて表示または購読を更新する。
+   * @returns Webviewルートのコールバックが生成する結果。
    */
   () => {
     cancelActiveRender();
@@ -5794,16 +5783,12 @@ function useMarkdownPreviewSnapshot(
     const id = generationRef.current;
     const startedAt = performance.now();
 
-    /**
-     * apply・synchronous・fallbackを処理します。
-     * @param error 発生したエラーです。
-     * @returns 「if」を実行し、値を返しません。
-     */
+    
     const applySynchronousFallback = /**
- * 「applySynchronousFallback」は、入力を検証して対象の状態または内容へ適用します。
- * @param error 発生したエラーの情報です。
- * @returns 「if」を実行し、値を返しません。
- */ async (error: unknown) => {
+     * Webviewルートの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+     * @param error - 処理に失敗した理由または例外。
+     * @returns 副作用を完了し、値は返さない。
+     */ async (error: unknown) => {
       if (generationRef.current !== id) return;
       document.body.dataset.mveMarkdownWorkerStatus = "fallback";
       console.error(
@@ -5836,18 +5821,13 @@ function useMarkdownPreviewSnapshot(
       recordLatestPerformanceMeasure("mve-preview-markdown", fallbackStartedAt);
     };
 
-    /**
-     * Workerを開始します。
-     * @param rich 「rich」は、「startWorker」がWebview UI状態の処理対象を特定する入力です。
-     * @param refinement 「refinement」は、「startWorker」がWebview UI状態の処理対象を特定する入力です。
-     * @returns 「startWorker」が開始した処理の結果または非同期Promiseを返します。
-     */
+    
     const startWorker = /**
- * 「startWorker」は、処理を開始し、必要な実行状態を準備します。
- * @param rich 「rich」は、「startWorker」がWebview UIで処理する対象を特定する入力です。
- * @param refinement 「refinement」は、「startWorker」がWebview UIで処理する対象を特定する入力です。
- * @returns 「startWorker」が開始した処理の結果または非同期Promiseを返します。
- */ async (rich = false, refinement = false) => {
+     * Webviewルートの表示または操作を開始する。
+     * @param rich - Webviewルートへ渡す入力。
+     * @param refinement - Webviewルートへ渡す入力。
+     * @returns Webviewルートのstart・workerが生成する結果。
+     */ async (rich = false, refinement = false) => {
       try {
         let worker = workerRef.current;
         if (!worker) {
@@ -5864,9 +5844,9 @@ function useMarkdownPreviewSnapshot(
         document.body.dataset.mveMarkdownWorkerStatus = "running";
         worker.onmessage =
         /**
- * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
-         * @param event 処理対象のイベントです。
-         * @returns 「recordLatestPerformanceMark」を実行し、値を返しません。
+         * Webviewルートのonmessageを処理し、呼び出し側へ結果または副作用を返す。
+         * @param event - ユーザー操作またはDOMから通知されたイベント。
+         * @returns Webviewルートのonmessageが生成する結果。
          */
         (event: MessageEvent<MarkdownWorkerResponse>) => {
           recordLatestPerformanceMark("mve-preview-worker-response");
@@ -5905,23 +5885,23 @@ function useMarkdownPreviewSnapshot(
             response.unsafeBlocks,
 
             /**
- * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
-             * @returns 「recordLatestPerformanceMark」の呼び出し結果を返します。
+             * Webviewルートのコールバックとして要素を処理する。
+             * @returns Webviewルートのコールバックが生成する結果。
              */
             () => generationRef.current === id,
 
             /**
- * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
-             * @param html 解析・編集・変換の対象となる本文または生成済み内容です。
-             * @param maximumChunkDuration 表示領域のサイズまたは倍率で、画面レイアウト計算に使用します。
-             * @returns 「recordLatestPerformanceMark」を実行し、値を返しません。
+             * htmlをrecord・latest・performance・markへ渡し、Webviewルートの結果または副作用を処理する。
+             * @param html - 表示または出力するHTML本文。
+             * @param maximumChunkDuration - Webviewルートの位置・寸法・件数・時間を表す数値。
+             * @returns Webviewルートのコールバックが生成する結果。
              */
             (html, maximumChunkDuration) => {
               recordLatestPerformanceMark("mve-preview-sanitize-complete");
               cancelSanitizationRef.current =
               /**
- * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
-               * @returns 「recordPerformanceDuration」の呼び出し結果を返します。
+               * Webviewルートのcurrentを処理し、呼び出し側へ結果または副作用を返す。
+               * @returns 副作用を完了し、値は返さない。
                */
               () => undefined;
               recordPerformanceDuration(
@@ -5938,17 +5918,17 @@ function useMarkdownPreviewSnapshot(
                 stats: response.stats as {
 
                   /**
-                   * 「markdown」は、解析・編集・変換の対象となる本文またはデータを保持します。
+                   * 解析・編集・変換の対象となるMarkdown本文。
                    */
                   markdown: number;
 
                   /**
-                   * 「text」は、画面または通知へ表示する文言を保持します。
+                   * 表示・解析・変換の対象となる本文。
                    */
                   text: number;
 
                   /**
-                   * 「lines」は、位置・サイズ・件数などを表す数値です。
+                   * Webviewルートで扱うlinesの一覧。
                    */
                   lines: number;
                 },
@@ -5959,9 +5939,9 @@ function useMarkdownPreviewSnapshot(
         };
         worker.onerror =
         /**
- * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
-         * @param event 処理対象のイベントです。
-         * @returns 「event」から生成した処理結果を返します。
+         * Webviewルートのonerrorを処理し、呼び出し側へ結果または副作用を返す。
+         * @param event - ユーザー操作またはDOMから通知されたイベント。
+         * @returns Webviewルートのonerrorが生成する結果。
          */
         (event) => {
           if (generationRef.current !== id || workerRef.current !== worker)
@@ -5987,13 +5967,13 @@ function useMarkdownPreviewSnapshot(
   useEffect(
 
     /**
- * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
-     * @returns エラー処理またはフォールバックの結果を返します。
+     * 依存状態の変化に応じて表示または購読を更新する。
+     * @returns Webviewルートで利用する文字列。
      */
     () =>
     /**
- * 処理結果を生成する処理を実行するコールバックです。
-     * @returns 「terminate」の呼び出し結果を返します。
+     * 要素をterminateへ渡し、Webviewルートの結果または副作用を処理する。
+     * @returns Webviewルートで利用する文字列。
      */
     () => {
       workerRef.current?.terminate();
@@ -6006,36 +5986,40 @@ function useMarkdownPreviewSnapshot(
   return [snapshot, cancelActiveRender];
 }
 
-/** 「markdownWorkerBlobUrlPromises」は、非同期初期化または処理の重複を防ぐ共有Promiseです。 */
+/**
+ * Webviewルートの非同期処理を共有するPromise。
+ */
 const markdownWorkerBlobUrlPromises = new Map<string, Promise<string>>();
 /**
- * 「PreloadedMarkdownWorker」が満たすデータ契約を定義します。
+ * Webviewルートで共有するデータ形状を表すインターフェース。
  */
 interface PreloadedMarkdownWorker {
 
   /**
-   * 「worker」は、関連処理が共有する構造化データの一項目です。
+   * Webviewルートのworkerに関する状態または設定。
    */
   worker: Worker;
 
   /**
-   * 「error」は、処理失敗の原因または表示対象のエラーを保持します。
+   * 処理に失敗した理由または例外。
    */
   error?: unknown;
   /**
-   * 「errorListener」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-   * @param event 処理対象のイベントです。
-   * @returns イベントを処理し、状態更新または副作用だけを実行して値は返しません。
+   * Webviewルートのerror・listenerを処理し、呼び出し側へ結果または副作用を返す。
+   * @param event - ユーザー操作またはDOMから通知されたイベント。
+   * @returns Webviewルートで利用する文字列。
    */
   errorListener: (event: ErrorEvent) => void;
 }
-/** 「preloadedMarkdownWorkerPromise」は、非同期初期化または処理の重複を防ぐ共有Promiseです。 */
+/**
+ * Webviewルートの非同期処理を共有するPromise。
+ */
 let preloadedMarkdownWorkerPromise: Promise<PreloadedMarkdownWorker> | undefined;
 
 /**
- * URLを取得または解決します。
- * @param rich 「rich」は、「resolveMarkdownWorkerResourceUrl」がWebview UI状態の処理対象を特定する入力です。
- * @returns 「resolveMarkdownWorkerResourceUrl」が生成または変換したWebview UIの文字列を返します。
+ * Webviewルートから必要な値またはリソースを取得する。
+ * @param rich - Webviewルートへ渡す入力。
+ * @returns Webviewルートで利用する文字列。
  */
 function resolveMarkdownWorkerResourceUrl(rich = false): string {
   const configured = rich
@@ -6044,9 +6028,9 @@ function resolveMarkdownWorkerResourceUrl(rich = false): string {
   if (configured) return configured;
   const script = Array.from(document.scripts).find(
   /**
- * 「candidate」が検索条件に一致するか判定するコールバックです。
-   * @param candidate candidateとして渡される、このコールバックの入力値です。
-   * @returns 条件を満たすかどうかを示す真偽値を返します。
+   * srcが条件に一致する最初のcandidateを取得する。
+   * @param candidate - candidateのsrcを参照する走査対象。
+   * @returns 条件に一致した最初の要素。未検出時はundefined。
    */
   (candidate) =>
     /(?:^|\/)webview\.js(?:[?#]|$)/.test(candidate.src),
@@ -6058,9 +6042,9 @@ function resolveMarkdownWorkerResourceUrl(rich = false): string {
 }
 
 /**
- * URLを取得または解決します。
- * @param rich 「rich」は、「resolveMarkdownWorkerLaunchUrl」がWebview UI状態の処理対象を特定する入力です。
- * @returns 非同期処理の完了を表すPromiseです。
+ * Webviewルートから必要な値またはリソースを取得する。
+ * @param rich - Webviewルートへ渡す入力。
+ * @returns Webviewルートで利用する文字列。
  */
 async function resolveMarkdownWorkerLaunchUrl(rich = false): Promise<string> {
   const resourceUrl = resolveMarkdownWorkerResourceUrl(rich);
@@ -6069,9 +6053,9 @@ async function resolveMarkdownWorkerLaunchUrl(rich = false): Promise<string> {
   pending ??= fetch(resourceUrl)
     .then(
     /**
- * 非同期処理の完了値を受け取り、次の処理へ渡す結果を生成するコールバックです。
-     * @param response responseとして渡される、このコールバックの入力値です。
-     * @returns 解決値を処理した結果を返します。
+     * responseをifへ渡し、Webviewルートの結果または副作用を処理する。
+     * @param response - Webviewルートへ渡す入力。
+     * @returns 副作用を完了し、値は返さない。
      */
     (response) => {
       if (!response.ok)
@@ -6082,16 +6066,16 @@ async function resolveMarkdownWorkerLaunchUrl(rich = false): Promise<string> {
     })
     .then(
     /**
- * 非同期処理の完了値を受け取り、次の処理へ渡す結果を生成するコールバックです。
-     * @param blob blobとして渡される、このコールバックの入力値です。
-     * @returns 解決値を処理した結果を返します。
+     * blobをcreate・object・urlへ渡し、Webviewルートの結果または副作用を処理する。
+     * @param blob - Webviewルートへ渡す入力。
+     * @returns 副作用を完了し、値は返さない。
      */
     (blob) => URL.createObjectURL(blob))
     .catch(
     /**
- * 非同期処理の完了値を受け取り、次の処理へ渡す結果を生成するコールバックです。
-     * @param error 発生したエラーです。
-     * @returns 解決値を処理した結果を返します。
+     * errorを削除へ渡し、Webviewルートの結果または副作用を処理する。
+     * @param error - 処理に失敗した理由または例外。
+     * @returns 副作用を完了し、値は返さない。
      */
     (error) => {
       markdownWorkerBlobUrlPromises.delete(resourceUrl);
@@ -6102,15 +6086,15 @@ async function resolveMarkdownWorkerLaunchUrl(rich = false): Promise<string> {
 }
 
 /**
- * 初回文書到着を待たずWorker取得・評価を開始し、CodeMirror初期化と並列化する。
- * @returns 「preloadMarkdownWorker」の副作用または状態更新を実行し、値は返しません。
+ * Webviewルートのpreload・markdown・workerを処理し、呼び出し側へ結果または副作用を返す。
+ * @returns 副作用を完了し、値は返さない。
  */
 export function preloadMarkdownWorker(): void {
   preloadedMarkdownWorkerPromise ??= resolveMarkdownWorkerLaunchUrl().then(
   /**
- * 非同期処理の完了値を受け取り、次の処理へ渡す結果を生成するコールバックです。
-   * @param url 読み込みまたは出力するリソースの場所を示します。
-   * @returns 解決値を処理した結果を返します。
+   * urlをworkerへ渡し、Webviewルートの結果または副作用を処理する。
+   * @param url - Webviewルートで読み書きするリソースの場所。
+   * @returns Webviewルートの非同期処理で得られる結果。
    */
   (url) => {
     const state = {} as PreloadedMarkdownWorker;
@@ -6118,9 +6102,9 @@ export function preloadMarkdownWorker(): void {
     state.worker = worker;
     state.errorListener =
     /**
- * 非同期処理の完了値を受け取り、次の処理へ渡す結果を生成するコールバックです。
-     * @param event 処理対象のイベントです。
-     * @returns 「event」から生成した処理結果を返します。
+     * Webviewルートのerror・listenerを処理し、呼び出し側へ結果または副作用を返す。
+     * @param event - ユーザー操作またはDOMから通知されたイベント。
+     * @returns Webviewルートの非同期処理で得られる結果。
      */
     (event: ErrorEvent) => {
       state.error = event.message || event.error || "Markdown Worker preload failed";
@@ -6130,16 +6114,16 @@ export function preloadMarkdownWorker(): void {
   });
   void preloadedMarkdownWorkerPromise.catch(
   /**
-   * イベント情報を受け取り、DOMまたは画面状態を更新するコールバックです。
-   * @returns エラー処理またはフォールバックの結果を返します。
+   * Webviewルートのコールバックとして要素を処理する。
+   * @returns Webviewルートの非同期処理で得られる結果。
    */
   () => undefined);
 }
 
 /**
- * Workerを取得または解決します。
- * @param rich 「rich」は、「acquireMarkdownWorker」がWebview UI状態の処理対象を特定する入力です。
- * @returns 非同期処理の完了を表すPromiseです。
+ * Webviewルートのacquire・markdown・workerを処理し、呼び出し側へ結果または副作用を返す。
+ * @param rich - Webviewルートへ渡す入力。
+ * @returns Webviewルートの非同期処理で得られる結果。
  */
 async function acquireMarkdownWorker(rich = false): Promise<Worker> {
   if (rich) return new Worker(await resolveMarkdownWorkerLaunchUrl(true));
@@ -6157,11 +6141,11 @@ async function acquireMarkdownWorker(rich = false): Promise<Worker> {
 }
 
 /**
- * sanitize・markdown・blocksを安全な形式へ変換します。
- * @param unsafeBlocks 「unsafeBlocks」は、「sanitizeMarkdownBlocks」がWebview UI状態の処理対象を特定する入力です。
- * @param shouldContinue 「shouldContinue」は、「sanitizeMarkdownBlocks」がWebview UI状態の処理対象を特定する入力です。
- * @param onComplete 処理完了時に呼び出すコールバックです。
- * @returns 「sanitizeMarkdownBlocks」の副作用または状態更新を実行し、値は返しません。
+ * Webviewルートの入力を許可された形式へ整える。
+ * @param unsafeBlocks - Webviewルートへ渡す要素の一覧。
+ * @param shouldContinue - Webviewルートの条件を示すフラグ。
+ * @param onComplete - Webviewルートで受け渡す文字列。
+ * @returns Webviewルートのsanitize・markdown・blocksが生成する結果。
  */
 function sanitizeMarkdownBlocks(
   unsafeBlocks: UnsafeMarkdownBlock[],
@@ -6170,7 +6154,11 @@ function sanitizeMarkdownBlocks(
 ): () => void {
   if (!unsafeBlocks.length) {
     onComplete("", 0);
-    return /** 安全なフォールバック処理が不要な場合の完了通知です。 @returns 追加の副作用を実行せず、値は返しません。 */ () => undefined;
+    /**
+     * Webviewルートのreturnを処理し、呼び出し側へ結果または副作用を返す。
+     * @returns 副作用を完了し、値は返さない。
+     */
+    return () => undefined;
   }
   const sanitized: string[] = [];
   let index = 0;
@@ -6179,27 +6167,21 @@ function sanitizeMarkdownBlocks(
   let maximumChunkDuration = 0;
   let slowestBlock = { duration: 0, length: 0, prefix: "" };
 
-  /**
-   * closeを解除または削除します。
-   * @returns 購読解除、タイマー解除、リソース破棄などの後片付けを実行し、値は返しません。
-   */
+  
   const close = /**
- * 「close」は、処理を終了し、保持していたリソースまたは状態を整理します。
- * @returns 購読解除、タイマー解除、リソース破棄などの後片付けを実行し、値は返しません。
- */ () => {
+   * Webviewルートの処理またはリソースを終了し、後続利用可能な状態へ戻す。
+   * @returns 副作用を完了し、値は返さない。
+   */ () => {
     cancelled = true;
     if (timer !== undefined) window.clearTimeout(timer);
     timer = undefined;
   };
 
-  /**
-   * 「runChunk」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-   * @returns 「runChunk」が実行したWebview UI状態処理の結果を返します。
-   */
+  
   const runChunk = /**
- * 「runChunk」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @returns 「runChunk」が実行したWebview UI状態処理の結果を返します。
- */ () => {
+   * Webviewルートの処理順序と完了状態を管理する。
+   * @returns Webviewルートのrun・chunkが生成する結果。
+   */ () => {
     timer = undefined;
     if (cancelled || !shouldContinue()) {
       close();
@@ -6238,7 +6220,7 @@ function sanitizeMarkdownBlocks(
       globalThis as typeof globalThis & {
 
         /**
-         * 「__mveSlowestSanitizeBlock」は、関連処理が共有する構造化データの一項目です。
+         * Webviewルートの・mve・slowest・sanitize・blockに関する状態または設定。
          */
         __mveSlowestSanitizeBlock?: typeof slowestBlock;
       }
@@ -6250,10 +6232,10 @@ function sanitizeMarkdownBlocks(
 }
 
 /**
- * record・latest・performance・measureを更新または保存します。
- * @param name 対象を識別する名前で、表示または処理分岐に使用します。
- * @param startedAt 「startedAt」は、「recordLatestPerformanceMeasure」がWebview UI状態の処理対象を特定する入力です。
- * @returns 「recordLatestPerformanceMeasure」の副作用または状態更新を実行し、値は返しません。
+ * Webviewルートのrecord・latest・performance・measureを処理し、呼び出し側へ結果または副作用を返す。
+ * @param name - Webviewルートの対象や分岐を識別する値。
+ * @param startedAt - Webviewルートで扱う数値。
+ * @returns 副作用を完了し、値は返さない。
  */
 function recordLatestPerformanceMeasure(name: string, startedAt: number): void {
   performance.clearMeasures(name);
@@ -6261,9 +6243,9 @@ function recordLatestPerformanceMeasure(name: string, startedAt: number): void {
 }
 
 /**
- * record・latest・performance・markを更新または保存します。
- * @param name 対象を識別する名前で、表示または処理分岐に使用します。
- * @returns 「recordLatestPerformanceMark」の副作用または状態更新を実行し、値は返しません。
+ * Webviewルートのrecord・latest・performance・markを処理し、呼び出し側へ結果または副作用を返す。
+ * @param name - Webviewルートの対象や分岐を識別する値。
+ * @returns 副作用を完了し、値は返さない。
  */
 function recordLatestPerformanceMark(name: string): void {
   performance.clearMarks(name);
@@ -6271,10 +6253,10 @@ function recordLatestPerformanceMark(name: string): void {
 }
 
 /**
- * record・performance・durationを更新または保存します。
- * @param name 対象を識別する名前で、表示または処理分岐に使用します。
- * @param duration 表示領域のサイズまたは倍率で、画面レイアウト計算に使用します。
- * @returns 「recordPerformanceDuration」の副作用または状態更新を実行し、値は返しません。
+ * Webviewルートのrecord・performance・durationを処理し、呼び出し側へ結果または副作用を返す。
+ * @param name - Webviewルートの対象や分岐を識別する値。
+ * @param duration - Webviewルートの位置・寸法・件数・時間を表す数値。
+ * @returns 副作用を完了し、値は返さない。
  */
 function recordPerformanceDuration(name: string, duration: number): void {
   performance.clearMeasures(name);
@@ -6282,9 +6264,9 @@ function recordPerformanceDuration(name: string, duration: number): void {
 }
 
 /**
- * 実VS Code起動ベンチマークへ、Webview内の段階別時刻を返す。
- * @param initReceivedAt 「initReceivedAt」は、「collectStartupMetrics」がWebview UI状態の処理対象を特定する入力です。
- * @returns 「collectStartupMetrics」が生成または変換したWebview UIの文字列を返します。
+ * Webviewルートから必要な値またはリソースを取得する。
+ * @param initReceivedAt - Webviewルートで扱う数値。
+ * @returns Webviewルートで利用する文字列。
  */
 function collectStartupMetrics(
   initReceivedAt: number | undefined,
@@ -6293,7 +6275,7 @@ function collectStartupMetrics(
   const bundleExecutedAt = (
     globalThis as typeof globalThis & {
     /**
-     * 「__mveBundleExecutedAt」は、位置・サイズ・件数などを表す数値です。
+     * Webviewルートの・mve・bundle・executed・atを表す数値。
      */
     __mveBundleExecutedAt?: number }
   ).__mveBundleExecutedAt;
@@ -6324,10 +6306,10 @@ function collectStartupMetrics(
 }
 
 /**
- * 「useInterruptibleDebouncedValue」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param value 「useInterruptibleDebouncedValue」で検証・変換する入力値です。
- * @param delay 「delay」は、「useInterruptibleDebouncedValue」がWebview UI状態の処理対象を特定する入力です。
- * @returns 「useInterruptibleDebouncedValue」の副作用または状態更新を実行し、値は返しません。
+ * Webviewルートのuse・interruptible・debounced・valueを処理し、呼び出し側へ結果または副作用を返す。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @param delay - Webviewルートの位置・寸法・件数・時間を表す数値。
+ * @returns Webviewルートのuse・interruptible・debounced・valueが生成する結果。
  */
 function useInterruptibleDebouncedValue<T>(
   value: T,
@@ -6343,8 +6325,8 @@ function useInterruptibleDebouncedValue<T>(
 
   const cancelPending = useCallback(
   /**
-   * 呼び出し時にイベントまたは状態更新を処理する関数を生成するコールバックです。
-   * @returns Reactが保持する初期状態またはメモ化値を返します。
+   * 要素をifへ渡し、Webviewルートの結果または副作用を処理する。
+   * @returns Webviewルートのコールバックが生成する結果。
    */
   () => {
     generationRef.current += 1;
@@ -6355,9 +6337,9 @@ function useInterruptibleDebouncedValue<T>(
     if (idleHandleRef.current !== undefined) {
       const idleWindow = window as Window & {
         /**
-         * 呼び出し側が入力を渡し、宣言された戻り値型で結果を受け取る契約です。
-         * @param handle ブラウザーまたはタイマーが返したリソース識別子です。
-         * @returns 状態更新または副作用を実行し、値は返しません。
+         * Webviewルートの条件を判定する。
+         * @param handle - Webviewルートで扱う数値。
+         * @returns 条件が成立したかを示す真偽値。
          */
         cancelIdleCallback?: (handle: number) => void;
       };
@@ -6372,8 +6354,8 @@ function useInterruptibleDebouncedValue<T>(
 
   useEffect(
   /**
- * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
-   * @returns Reactが保持する初期状態またはメモ化値を返します。
+   * 依存状態の変化に応じて表示または購読を更新する。
+   * @returns Webviewルートのコールバックが生成する結果。
    */
   () => {
     if (!firstNonInitialValueRef.current && value === initialValueRef.current)
@@ -6388,36 +6370,35 @@ function useInterruptibleDebouncedValue<T>(
     const generation = generationRef.current;
     timerRef.current = window.setTimeout(
     /**
- * 指定時間の経過後に遅延処理を実行するコールバックです。
-     * @returns 「if」を実行し、値を返しません。
+     * 指定時間の経過後に後続処理を実行する。
+     * @returns 副作用を完了し、値は返さない。
      */
     () => {
       timerRef.current = undefined;
 
-      /**
-       * 「commit」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-       * @returns 「commit」がWebview UI状態の入力を処理して得た固有の結果を返します。
-       */
+      
       const commit = /**
- * 「commit」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @returns 「commit」がWebview UI状態の入力を処理して得た固有の結果を返します。
- */ () => {
+       * Webviewルートの変更または要求をHost・Webview間へ通知する。
+       * @returns Webviewルートで利用する文字列。
+       */ () => {
         idleHandleRef.current = undefined;
         if (generation !== generationRef.current) return;
         setDebounced(value);
       };
       const idleWindow = window as Window & {
         /**
-         * 呼び出し側が入力を渡し、宣言された戻り値型で結果を受け取る契約です。
-         * @param callback 処理完了時に呼び出すコールバックです。
-         * @param options 処理経路や表示方法を指定する設定値です。
-         * @returns 計算結果の数値です。
+         * Webviewルートの変更または要求をHost・Webview間へ通知する。
+         * @param callback - ストリーム処理の完了を通知する関数。
+         * @param options - 呼び出し側が指定する処理設定。
+         * @returns Webviewルートで利用する文字列。
          */
         requestIdleCallback?: (
           callback: () => void,
           options?: {
           /**
-           * 「timeout」は、位置・サイズ・件数などを表す数値です。
+           * Webviewルートのtimeoutを処理し、呼び出し側へ結果または副作用を返す。
+           * @param idleWindow.requestIdleCallback - Webviewルートの完了または結果を通知する関数。
+           * @returns Webviewルートで利用する文字列。
            */
           timeout: number },
         ) => number;
@@ -6439,18 +6420,18 @@ function useInterruptibleDebouncedValue<T>(
 }
 
 /**
- * 対話表示用の遅延画像を、PDF・HTML出力では確実に読み込む属性へ置換する。
- * @param element 処理対象の要素です。
- * @returns 「serializeExportHtml」が生成または変換したWebview UIの文字列を返します。
+ * Webviewルートを出力または保存できる文字列へ整える。
+ * @param element - 寸法または属性を読み取るDOM要素。
+ * @returns Webviewルートで利用する文字列。
  */
 function serializeExportHtml(element: HTMLElement): string {
   return prepareExportHtml(element.innerHTML);
 }
 
 /**
- * Markdownを印刷用紙サイズと余白に合わせたプレビューとして描画する。
- * @param props Markdown本文、表示設定、PDF設定、プレビュー内操作のコールバック。
- * @returns 印刷プレビューのReact要素。
+ * Webviewルートのhtml・document・render・stageを処理し、呼び出し側へ結果または副作用を返す。
+ * @param options - 呼び出し側が指定する処理設定。
+ * @returns Webviewルートのhtml・document・render・stageが生成する結果。
  */
 function HtmlDocumentRenderStage({
   request,
@@ -6459,30 +6440,31 @@ function HtmlDocumentRenderStage({
 }: {
 
   /**
-   * 「request」は、関連処理が共有する構造化データの一項目です。
+   * Webviewルートのrequestに関する状態または設定。
    */
   request: Extract<HostToWebviewMessage, {
   /**
-   * 「type」は、対象の識別や処理分岐に使用する値を保持します。
+   * Webviewルートで対象や分岐を識別する値の型。
    */
   type: "renderHtmlDocuments" }>;
 
   /**
-   * 「settings」は、利用側が共有する設定または現在状態を保持します。
+   * Webviewルートへ渡す設定または境界値。
    */
   settings: WebviewSettings;
   /**
-   * 「onRendered」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-   * @param documents 「documents」は、「onRendered」がWebview UI状態の処理対象を特定する入力です。
-   * @returns イベントを処理し、状態更新または副作用だけを実行して値は返しません。
+   * Webviewルートのon・renderedに関する状態または設定。
    */
   onRendered: (documents: Array<{
   /**
-   * 「id」は、対象の識別や処理分岐に使用する値を保持します。
+   * Webviewルートで扱うidの文字列。
    */
   id: string;
   /**
-   * 「html」は、解析・編集・変換の対象となる本文またはデータを保持します。
+   * Webviewルートのhtmlを処理し、呼び出し側へ結果または副作用を返す。
+   * @param id - Webviewルートの対象や分岐を識別する値。
+   * @param element - 寸法または属性を読み取るDOM要素。
+   * @returns Webviewルートのhtmlが生成する結果。
    */
   html: string }>) => void;
 }): React.JSX.Element {
@@ -6492,10 +6474,10 @@ function HtmlDocumentRenderStage({
   onRenderedRef.current = onRendered;
 
   /**
-   * handle・renderedを処理します。
-   * @param id 「id」は、「handleRendered」がWebview UI状態の処理対象を特定する入力です。
-   * @param element 処理対象の要素です。
-   * @returns イベントを処理し、状態更新または副作用だけを実行して値は返しません。
+   * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
+   * @param id - Webviewルートの対象や分岐を識別する値。
+   * @param element - 寸法または属性を読み取るDOM要素。
+   * @returns 副作用を完了し、値は返さない。
    */
   function handleRendered(id: string, element: HTMLElement): void {
     if (completedRef.current) return;
@@ -6505,9 +6487,9 @@ function HtmlDocumentRenderStage({
     onRenderedRef.current(
       request.documents.map(
       /**
- * 「document」を変換し、変換後の要素を返すコールバックです。
-       * @param document 処理対象の文書です。
-       * @returns 入力要素から生成した変換後の値を返します。
+       * 各documentから識別子を取り出して一覧化する。
+       * @param document - documentの識別子を参照する走査対象。
+       * @returns 識別子を取り出した変換結果の一覧。
        */
       (document) => ({
         id: document.id,
@@ -6520,9 +6502,9 @@ function HtmlDocumentRenderStage({
     <div className="export-stage html-document-render-stage" aria-hidden="true">
       {request.documents.map(
       /**
- * 「document」を変換し、変換後の要素を返すコールバックです。
-       * @param document 処理対象の文書です。
-       * @returns 入力要素から生成した変換後の値を返します。
+       * 各documentから識別子を取り出して一覧化する。
+       * @param document - documentの識別子を参照する走査対象。
+       * @returns 識別子を取り出した変換結果の一覧。
        */
       (document) => (
         <RenderedMarkdown
@@ -6531,9 +6513,9 @@ function HtmlDocumentRenderStage({
           settings={settings}
           onRendered={
           /**
- * 「element」を受け取り、登録された副作用または結果を生成する処理です。
-           * @param element 処理対象の要素です。
-           * @returns 「element」から生成した処理結果を返します。
+           * 要素をhandle・renderedへ渡し、Webviewルートの結果または副作用を処理する。
+           * @param element - 寸法または属性を読み取るDOM要素。
+           * @returns Webviewルートのコールバックが生成する結果。
            */
           (element) => handleRendered(document.id, element)}
         />
@@ -6543,13 +6525,9 @@ function HtmlDocumentRenderStage({
 }
 
 /**
- * PDF生成中はライブHTMLを表示し、PDF画像の準備後に同じ紙面をCanvasへ切り替える。
- * @param markdown 現在のMarkdown本文。
- * @param html サニタイズ済みのプレビューHTML。
- * @param settings Markdown描画とリンク解決に使うWebview設定。
- * @param options 紙面へ適用する検証済みPDF設定。
- * @param props 「props」は、「PdfPreview」がWebview UI状態の処理対象を特定する入力です。
- * @returns 「PdfPreview」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ * Webviewルートのpdf・previewを処理し、呼び出し側へ結果または副作用を返す。
+ * @param options - 呼び出し側が指定する処理設定。
+ * @returns 副作用を完了し、値は返さない。
  */
 function PdfPreview({
   markdown,
@@ -6568,70 +6546,70 @@ function PdfPreview({
 }: {
 
   /**
-   * 「markdown」は、解析・編集・変換の対象となる本文またはデータを保持します。
+   * 解析・編集・変換の対象となるMarkdown本文。
    */
   markdown: string;
 
   /**
-   * 「html」は、解析・編集・変換の対象となる本文またはデータを保持します。
+   * 表示または出力するHTML本文。
    */
   html: string;
 
   /**
-   * 「settings」は、利用側が共有する設定または現在状態を保持します。
+   * Webviewルートへ渡す設定または境界値。
    */
   settings: WebviewSettings;
 
   /**
-   * 「options」は、利用側が共有する設定または現在状態を保持します。
+   * 呼び出し側が指定する処理設定。
    */
   options: NormalizedPdfOptions;
 
   /**
-   * 「zoom」は、表示領域のサイズまたは倍率を保持します。
+   * プレビューに適用する表示倍率。
    */
   zoom: number;
 
   /**
-   * 「messages」は、画面または通知へ表示する文言を保持します。
+   * Webviewルートで扱うmessagesの一覧。
    */
   messages: Messages;
 
   /**
-   * 「pdfBase64」は、対象の内容または識別子を表す文字列です。
+   * Webviewルートで扱うpdf・base64の文字列。
    */
   pdfBase64?: string;
 
   /**
-   * 「pdfLoading」は、処理条件または状態を表す真偽値です。
+   * Webviewルートのpdf・loadingを切り替えるフラグ。
    */
   pdfLoading: boolean;
 
   /**
-   * 「pdfError」は、対象の内容または識別子を表す文字列です。
+   * Webviewルートで扱うpdf・errorの文字列。
    */
   pdfError?: string;
   /**
-   * 「onInspect」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-   * @param target 処理対象の対象です。
-   * @returns イベントを処理し、状態更新または副作用だけを実行して値は返しません。
+   * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
+   * @param target - Webviewルートへ渡す入力。
+   * @returns Webviewルートのon・inspectが生成する結果。
    */
   onInspect: (target: InspectorTarget) => void;
   /**
-   * 「onNavigate」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-   * @param href 「href」は、「onNavigate」がWebview UI状態の処理対象を特定する入力です。
-   * @returns イベントを処理し、状態更新または副作用だけを実行して値は返しません。
+   * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
+   * @param href - リンク操作領域の遷移先URI。
+   * @returns Webviewルートのon・navigateが生成する結果。
    */
   onNavigate: (href: string) => void;
   /**
-   * 「onZoom」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-   * @param delta 「delta」は、「onZoom」がWebview UI状態の処理対象を特定する入力です。
-   * @returns イベントを処理し、状態更新または副作用だけを実行して値は返しません。
+   * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
+   * @param delta - Webviewルートで扱う数値。
+   * @returns Webviewルートのon・zoomが生成する結果。
    */
   onZoom: (delta: number) => void;
   /**
-   * 「onRendered」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-   * @returns イベントを処理し、状態更新または副作用だけを実行して値は返しません。
+   * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
+   * @returns Webviewルートのon・renderedが生成する結果。
    */
   onRendered: () => void;
 }): React.JSX.Element {
@@ -6641,8 +6619,8 @@ function PdfPreview({
 
   useEffect(
   /**
- * Reactの初期状態またはメモ化値を遅延計算するコールバックです。
-   * @returns Reactが保持する初期状態またはメモ化値を返します。
+   * 依存状態の変化に応じて表示または購読を更新する。
+   * @returns Webviewルートのコールバックが生成する結果。
    */
   () => {
     setPdfCanvasReady(false);
@@ -6666,8 +6644,8 @@ function PdfPreview({
           title={messages.ribbon.hintZoom}
           onClick={
           /**
- * 登録された副作用または結果を生成する処理を実行するコールバックです。
-           * @returns 「mveDebug」を実行し、値を返しません。
+           * clickイベントでmve・debugを実行する。
+           * @returns 副作用を完了し、値は返さない。
            */
           () => {
             mveDebug("pdf.zoom-button", { delta: -0.1, zoom });
@@ -6685,8 +6663,8 @@ function PdfPreview({
           title={messages.ribbon.hintZoom}
           onClick={
           /**
- * 登録された副作用または結果を生成する処理を実行するコールバックです。
-           * @returns 「mveDebug」を実行し、値を返しません。
+           * clickイベントでmve・debugを実行する。
+           * @returns 副作用を完了し、値は返さない。
            */
           () => {
             mveDebug("pdf.zoom-button", { delta: 0.1, zoom });
@@ -6740,8 +6718,8 @@ function PdfPreview({
               onNavigate={onNavigate}
               onRendered={
               /**
- * 登録された副作用または結果を生成する処理を実行するコールバックです。
-               * @returns 「onRendered」の呼び出し結果を返します。
+               * 要素をon・renderedへ渡し、Webviewルートの結果または副作用を処理する。
+               * @returns Webviewルートのコールバックが生成する結果。
                */
               () => onRendered()}
               deferMermaid
@@ -6764,8 +6742,8 @@ function PdfPreview({
             zoom={zoom}
             onRendered={
             /**
- * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
-             * @returns 「mveDebug」を実行し、値を返しません。
+             * 要素をmve・debugへ渡し、Webviewルートの結果または副作用を処理する。
+             * @returns Webviewルートのコールバックが生成する結果。
              */
             () => {
               mveDebug("pdf.preview-layer-ready", {
@@ -6796,9 +6774,9 @@ function PdfPreview({
 }
 
 /**
- * リンクのURLと表示文字列を入力するダイアログを描画する。
- * @param props 現在の入力値と各入力・適用・終了操作のコールバック。
- * @returns リンク入力ダイアログのReact要素。
+ * Webviewルートのlink・dialogを処理し、呼び出し側へ結果または副作用を返す。
+ * @param options - 呼び出し側が指定する処理設定。
+ * @returns Webviewルートのlink・dialogが生成する結果。
  */
 function LinkDialog({
   href,
@@ -6811,39 +6789,39 @@ function LinkDialog({
 }: {
 
   /**
-   * 「href」は、対象の内容または識別子を表す文字列です。
+   * リンク操作領域の遷移先URI。
    */
   href: string;
 
   /**
-   * 「label」は、画面または通知へ表示する文言を保持します。
+   * 画面または検証結果に表示する説明文。
    */
   label: string;
 
   /**
-   * 「messages」は、画面または通知へ表示する文言を保持します。
+   * Webviewルートで扱うmessagesの一覧。
    */
   messages: Messages;
   /**
-   * 「onHrefChange」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-   * @param value 「onHrefChange」で検証・変換する入力値です。
-   * @returns イベントを処理し、状態更新または副作用だけを実行して値は返しません。
+   * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
+   * @param value - 検証・変換・保存の対象となる値。
+   * @returns Webviewルートのon・href・changeが生成する結果。
    */
   onHrefChange: (value: string) => void;
   /**
-   * 「onLabelChange」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-   * @param value 「onLabelChange」で検証・変換する入力値です。
-   * @returns イベントを処理し、状態更新または副作用だけを実行して値は返しません。
+   * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
+   * @param value - 検証・変換・保存の対象となる値。
+   * @returns Webviewルートのon・label・changeが生成する結果。
    */
   onLabelChange: (value: string) => void;
   /**
-   * 「onApply」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-   * @returns イベントを処理し、状態更新または副作用だけを実行して値は返しません。
+   * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
+   * @returns Webviewルートのon・applyが生成する結果。
    */
   onApply: () => void;
   /**
-   * 「onClose」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-   * @returns イベントを処理し、状態更新または副作用だけを実行して値は返しません。
+   * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
+   * @returns Webviewルートのon・closeが生成する結果。
    */
   onClose: () => void;
 }): React.JSX.Element {
@@ -6858,9 +6836,9 @@ function LinkDialog({
         className="help-dialog link-dialog"
         onSubmit={
         /**
- * 「event」を受け取り、登録された副作用または結果を生成する処理です。
-         * @param event 処理対象のイベントです。
-         * @returns 「event.preventDefault」を実行し、値を返しません。
+         * イベントをprevent・defaultへ渡し、Webviewルートの結果または副作用を処理する。
+         * @param event - ユーザー操作またはDOMから通知されたイベント。
+         * @returns Webviewルートのコールバックが生成する結果。
          */
         (event) => {
           event.preventDefault();
@@ -6881,9 +6859,9 @@ function LinkDialog({
             value={href}
             onChange={
             /**
- * 「event」を受け取り、登録された副作用または結果を生成する処理です。
-             * @param event 処理対象のイベントです。
-             * @returns 「event」から生成した処理結果を返します。
+             * changeイベントでon・href・changeを実行する。
+             * @param event - ユーザー操作またはDOMから通知されたイベント。
+             * @returns 副作用を完了し、値は返さない。
              */
             (event) => onHrefChange(event.target.value)}
             placeholder={messages.app.link.urlPlaceholder}
@@ -6895,9 +6873,9 @@ function LinkDialog({
             value={label}
             onChange={
             /**
- * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
-             * @param event 処理対象のイベントです。
-             * @returns 「event」から生成した処理結果を返します。
+             * changeイベントでon・label・changeを実行する。
+             * @param event - ユーザー操作またはDOMから通知されたイベント。
+             * @returns 副作用を完了し、値は返さない。
              */
             (event) => onLabelChange(event.target.value)}
           />
@@ -6916,9 +6894,9 @@ function LinkDialog({
 }
 
 /**
- * ショートカットとアプリの機能一覧を表示する。
- * @param props 表示するヘルプ種別とダイアログを閉じるコールバック。
- * @returns ヘルプダイアログのReact要素。
+ * Webviewルートのhelp・dialogを処理し、呼び出し側へ結果または副作用を返す。
+ * @param options - 呼び出し側が指定する処理設定。
+ * @returns Webviewルートのhelp・dialogが生成する結果。
  */
 function HelpDialog({
   topic,
@@ -6927,17 +6905,17 @@ function HelpDialog({
 }: {
 
   /**
-   * 「topic」は、関連処理が共有する構造化データの一項目です。
+   * Webviewルートのtopicに関する状態または設定。
    */
   topic: HelpTopic;
 
   /**
-   * 「messages」は、画面または通知へ表示する文言を保持します。
+   * Webviewルートで扱うmessagesの一覧。
    */
   messages: Messages;
   /**
-   * 「onClose」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-   * @returns イベントを処理し、状態更新または副作用だけを実行して値は返しません。
+   * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
+   * @returns Webviewルートのon・closeが生成する結果。
    */
   onClose: () => void;
 }): React.JSX.Element {
@@ -7103,9 +7081,9 @@ function HelpDialog({
           <div className="feature-list">
             {featureSections.map(
             /**
- * 「section」を変換し、変換後の要素を返すコールバックです。
-             * @param section sectionとして渡される、このコールバックの入力値です。
-             * @returns 入力要素から生成した変換後の値を返します。
+             * 各sectionからkeyを取り出して一覧化する。
+             * @param section - sectionのkeyを参照する走査対象。
+             * @returns keyを取り出した変換結果の一覧。
              */
             (section) => (
               <section key={section.title}>
@@ -7113,9 +7091,9 @@ function HelpDialog({
                 <ul>
                   {section.items.map(
                   /**
- * 「label」「description」を変換し、変換後の要素を返すコールバックです。
-                   * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはlabel、descriptionです。
-                   * @returns 入力要素から生成した変換後の値を返します。
+                   * section.itemsの各要素を変換して一覧化する。
+                   * @param options - 呼び出し側が指定する処理設定。
+                   * @returns 入力要素から生成した変換結果の一覧。
                    */
                   ([label, description]) => (
                     <li key={label}>
@@ -7134,11 +7112,11 @@ function HelpDialog({
 }
 
 /**
- * 選択された画像ファイルをホストへ送信できるBase64ペイロードへ変換する。
- * @param file 変換対象の画像ファイル。
- * @param maxSizeMb 許可するファイルサイズの上限（MB）。
- * @param messages 「messages」は、「fileToPayload」がWebview UI状態の処理対象を特定する入力です。
- * @returns ファイル名、MIMEタイプ、Base64本文を含むペイロード。
+ * Webviewルートのfile・to・payloadを処理し、呼び出し側へ結果または副作用を返す。
+ * @param file - Webviewルートで読み書きするリソースの場所。
+ * @param maxSizeMb - Webviewルートの位置・寸法・件数・時間を表す数値。
+ * @param messages - Webviewルートで扱う文字列または本文。
+ * @returns Webviewルートの非同期処理で得られる結果。
  * @throws Error ファイルがサイズ上限を超える場合、またはBMPのPNG変換に失敗した場合。
  */
 async function fileToPayload(
@@ -7156,18 +7134,18 @@ async function fileToPayload(
     canvas.getContext("2d")?.drawImage(bitmap, 0, 0);
     const blob = await new Promise<Blob>(
     /**
- * 「resolve」「reject」を受け取り、入力文字列を置換して変換する処理です。
-     * @param resolve Promiseの完了または失敗を通知する関数です。
-     * @param reject Promiseの完了または失敗を通知する関数です。
-     * @returns 置換後の文字列を返します。
+     * 非同期処理の成功結果と失敗理由を待機側へ通知する。
+     * @param resolve - Promiseの成功を通知する関数。
+     * @param reject - Promiseの失敗を通知する関数。
+     * @returns 非同期処理の完了値。
      */
     (resolve, reject) =>
       canvas.toBlob(
 
         /**
- * 「value」を受け取り、入力文字列を置換して変換する処理です。
-         * @param value 「value」で検証・変換する入力値です。
-         * @returns 置換後の文字列を返します。
+         * 値を成功結果通知へ渡し、Webviewルートの結果または副作用を処理する。
+         * @param value - 検証・変換・保存の対象となる値。
+         * @returns Webviewルートのコールバックが生成する結果。
          */
         (value) =>
           value
@@ -7190,9 +7168,9 @@ async function fileToPayload(
 }
 
 /**
- * ファイルのMIMEタイプまたは拡張子から画像ファイルかどうかを判定する。
- * @param file 判定対象のファイル。
- * @returns 画像として扱える場合はtrue。
+ * Webviewルートの条件を判定する。
+ * @param file - Webviewルートで読み書きするリソースの場所。
+ * @returns 条件が成立したかを示す真偽値。
  */
 function isImageFile(file: File): boolean {
   return (
@@ -7202,9 +7180,9 @@ function isImageFile(file: File): boolean {
 }
 
 /**
- * BlobのバイナリをWebviewから送信可能なBase64文字列へ変換する。
- * @param blob 変換対象のBlob。
- * @returns BlobのBase64表現。
+ * Webviewルートのblob・base64を処理し、呼び出し側へ結果または副作用を返す。
+ * @param blob - Webviewルートへ渡す入力。
+ * @returns Webviewルートで利用する文字列。
  */
 async function blobBase64(blob: Blob): Promise<string> {
   const buffer = await blob.arrayBuffer();
@@ -7216,9 +7194,9 @@ async function blobBase64(blob: Blob): Promise<string> {
 }
 
 /**
- * 選択文字列に含まれるMarkdown記法からツールバーの書式状態を推測する。
- * @param value 書式状態を調べる選択文字列。
- * @returns 各書式が含まれているかを示す真偽値の集合。
+ * Webviewルートのinfer・marksを処理し、呼び出し側へ結果または副作用を返す。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @returns 条件が成立したかを示す真偽値。
  */
 function inferMarks(value: string): Record<string, boolean> {
   return {
@@ -7233,31 +7211,31 @@ function inferMarks(value: string): Record<string, boolean> {
 }
 
 /**
- * 本文中の検索文字列の出現位置を、半開区間の配列として列挙する。
- * @param value 検索対象の本文。
- * @param query 検索する文字列。
- * @returns 一致箇所の開始位置と終了位置の配列。
+ * Webviewルートから必要な値またはリソースを取得する。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @param query - Webviewルートの位置・寸法・件数・時間を表す数値。
+ * @returns Webviewルートに対応する要素の一覧。
  */
 function findSearchHits(
   value: string,
   query: string,
 ): Array<{
 /**
- * 「from」は、本文または選択範囲の位置・長さを保持します。
+ * Webviewルートのfromを表す数値。
  */
 from: number;
 /**
- * 「to」は、本文または選択範囲の位置・長さを保持します。
+ * Webviewルートのtoを表す数値。
  */
 to: number }> {
   if (!query) return [];
   const hits: Array<{
   /**
-   * 「from」は、本文または選択範囲の位置・長さを保持します。
+   * Webviewルートのfromを表す数値。
    */
   from: number;
   /**
-   * 「to」は、本文または選択範囲の位置・長さを保持します。
+   * Webviewルートのtoを表す数値。
    */
   to: number }> = [];
   let offset = 0;
@@ -7271,38 +7249,38 @@ to: number }> {
 }
 
 /**
- * 分割ペイン比率を許容範囲へ丸める。
- * @param value 入力された分割比率。
- * @returns 0.2から0.8の範囲に収めた分割比率。
+ * Webviewルートの寸法、容量、位置、または計測値を求める。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @returns Webviewルートで利用する数値。
  */
 function clampSplitRatio(value: number): number {
   return Math.max(0.2, Math.min(0.8, Number.isFinite(value) ? value : 0.5));
 }
 
 /**
- * 用紙種別と向きから印刷プレビューのページ寸法をmm単位で求める。
- * @param options PDF出力設定。
- * @returns ページの幅と高さ。
+ * Webviewルートのpdf・page・dimensionsを処理し、呼び出し側へ結果または副作用を返す。
+ * @param options - 呼び出し側が指定する処理設定。
+ * @returns Webviewルートのpdf・page・dimensionsが生成する結果。
  */
 function pdfPageDimensions(options: NormalizedPdfOptions): {
 
   /**
-   * 「width」は、対象の位置、サイズ、件数、または範囲を保持します。
+   * 表示領域または列の幅。
    */
   width: number;
 
   /**
-   * 「height」は、対象の位置、サイズ、件数、または範囲を保持します。
+   * 表示領域または行の高さ。
    */
   height: number;
 } {
   const dimensions: {
   /**
-   * 「width」は、対象の位置、サイズ、件数、または範囲を保持します。
+   * 表示領域または列の幅。
    */
   width: number;
   /**
-   * 「height」は、対象の位置、サイズ、件数、または範囲を保持します。
+   * 表示領域または行の高さ。
    */
   height: number } = {
     A0: { width: 841, height: 1189 },
@@ -7321,18 +7299,18 @@ function pdfPageDimensions(options: NormalizedPdfOptions): {
 }
 
 /**
- * PDFヘッダー・フッターのページ置換記号をライブプレビュー用の値へ置き換える。
- * @param value ヘッダーまたはフッターのテンプレート。
- * @returns ライブプレビュー表示用に置換した文字列。
+ * Webviewルートを出力または保存できる文字列へ整える。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @returns Webviewルートで利用する文字列。
  */
 function formatPdfTemplate(value: string): string {
   return value.replace(/\{page\}/g, "1").replace(/\{pages\}/g, "1");
 }
 
 /**
- * PDF余白入力を数値化し、0から50mmの範囲へ丸める。
- * @param value 数値入力欄の文字列。
- * @returns 正規化した余白値（mm）。
+ * Webviewルートの寸法、容量、位置、または計測値を求める。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @returns Webviewルートで利用する数値。
  */
 function clampPdfMargin(value: string): number {
   const parsed = Number(value);
@@ -7342,9 +7320,9 @@ function clampPdfMargin(value: string): number {
 }
 
 /**
- * アウトラインペインの幅を許容範囲へ丸める。
- * @param value 入力された幅（px）。
- * @returns 160から420pxの範囲に収めた幅。
+ * Webviewルートの寸法、容量、位置、または計測値を求める。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @returns Webviewルートで利用する数値。
  */
 function clampOutlineWidth(value: number): number {
   return Math.max(
@@ -7354,20 +7332,20 @@ function clampOutlineWidth(value: number): number {
 }
 
 /**
- * プレビューの拡大率を0.1刻みの許容範囲へ丸める。
- * @param value 入力された拡大率。
- * @returns 0.7から1.6の範囲に収めた拡大率。
+ * Webviewルートの寸法、容量、位置、または計測値を求める。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @returns Webviewルートで利用する数値。
  */
 function clampZoom(value: number): number {
   return Math.max(0.7, Math.min(1.6, Math.round(value * 10) / 10));
 }
 
 /**
- * リモート変更を基準にローカル変更の位置を写像し、重複時はローカル範囲を優先する。
- * @param changes ローカル側へ適用する変更集合。
- * @param over 先に適用された変更集合。
- * @param baseLength 変更前本文の長さ。
- * @returns 写像後のローカル変更集合。
+ * Webviewルートのmap・changes・prefer・localを処理し、呼び出し側へ結果または副作用を返す。
+ * @param changes - 本文へ適用する変更範囲の一覧。
+ * @param over - Webviewルートへ渡す要素の一覧。
+ * @param baseLength - Webviewルートの位置・寸法・件数・時間を表す数値。
+ * @returns Webviewルートに対応する要素の一覧。
  */
 function mapChangesPreferLocal(
   changes: readonly TextChange[],
@@ -7377,17 +7355,17 @@ function mapChangesPreferLocal(
   return [...changes]
     .sort(
     /**
- * 「left」「right」を比較し、並び順を示す数値を返すコールバックです。
-     * @param left 比較対象の左側の値です。
-     * @param right 比較対象の右側の値です。
-     * @returns 比較対象の順序を示す負数、0、または正数を返します。
+     * 2つの値を比較して並び順を決める。
+     * @param left - 比較対象の左側の値。
+     * @param right - 比較対象の右側の値。
+     * @returns 2つの要素の順序を示す数値。
      */
     (left, right) => left.rangeOffset - right.rangeOffset)
     .map(
     /**
- * 「change」を変換し、変換後の要素を返すコールバックです。
-     * @param change changeとして渡される、このコールバックの入力値です。
-     * @returns 入力要素から生成した変換後の値を返します。
+     * 各changeからrange・offsetを取り出して一覧化する。
+     * @param change - changeのrange・offsetを参照する走査対象。
+     * @returns range・offsetを取り出した変換結果の一覧。
      */
     (change) => {
       const start = change.rangeOffset;
@@ -7413,10 +7391,10 @@ function mapChangesPreferLocal(
 }
 
 /**
- * 現在のモードと分割表示からテキスト編集を許可できるか判定する。
- * @param mode エディター全体の表示モード。
- * @param splitView 分割モード時に表示するペイン。
- * @returns テキスト編集を許可する場合はtrue。
+ * Webviewルートの条件を判定する。
+ * @param mode - 編集面とプレビューの表示構成。
+ * @param splitView - Webviewルートへ渡す入力。
+ * @returns 条件が成立したかを示す真偽値。
  */
 function isEditingEnabled(
   mode: EditorMode,
@@ -7426,19 +7404,19 @@ function isEditingEnabled(
 }
 
 /**
- * Webview状態から有効な通常表示モードを復元する。
- * @param value 「restoreViewMode」で検証・変換する入力値です。
- * @returns 「restoreViewMode」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ * Webviewルートの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @returns Webviewルートのrestore・view・modeが生成する結果。
  */
 function restoreViewMode(value: unknown): ViewMode {
   return value === "text" || value === "preview" ? value : "both";
 }
 
 /**
- * エディターモードをステータスバー用の日本語表示へ変換する。
- * @param mode エディター全体の表示モード。
- * @param messages 「messages」は、「modeLabel」がWebview UI状態の処理対象を特定する入力です。
- * @returns モードの表示名。
+ * Webviewルートのmode・labelを処理し、呼び出し側へ結果または副作用を返す。
+ * @param mode - 編集面とプレビューの表示構成。
+ * @param messages - Webviewルートで扱う文字列または本文。
+ * @returns Webviewルートで利用する文字列。
  */
 function modeLabel(mode: EditorMode, messages: Messages): string {
   return mode === "split"
@@ -7447,13 +7425,13 @@ function modeLabel(mode: EditorMode, messages: Messages): string {
 }
 
 /**
- * 指定された囲みブロックの本文が期待値と一致するときだけ新しい本文へ置換する。
- * @param markdown 置換対象のMarkdown本文。
- * @param opening ブロック開始記号。
- * @param closing ブロック終了記号。
- * @param previous 置換対象として期待する現在の本文。
- * @param next 置換後に挿入する本文。
- * @returns 条件に一致したブロックを置換したMarkdown本文。
+ * Webviewルートの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+ * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
+ * @param opening - Webviewルートで受け渡す文字列。
+ * @param closing - Webviewルートで受け渡す文字列。
+ * @param previous - Webviewルートで受け渡す文字列。
+ * @param next - Webviewルートの位置・寸法・件数・時間を表す数値。
+ * @returns Webviewルートで利用する文字列。
  */
 function replaceDelimitedBlock(
   markdown: string,
@@ -7471,13 +7449,13 @@ function replaceDelimitedBlock(
     pattern,
 
     /**
- * 「whole」「prefix」「openingEol」「body」「closingEol」を受け取り、入力文字列を置換して変換する処理です。
-     * @param whole wholeとして渡される、このコールバックの入力値です。
-     * @param prefix prefixとして渡される、このコールバックの入力値です。
-     * @param openingEol openingEolとして渡される、このコールバックの入力値です。
-     * @param body 解析・編集・変換の対象となる本文または生成済み内容です。
-     * @param closingEol closingEolとして渡される、このコールバックの入力値です。
-     * @returns 置換後の文字列を返します。
+     * wholeをifへ渡し、Webviewルートの結果または副作用を処理する。
+     * @param whole - Webviewルートへ渡す入力。
+     * @param prefix - Webviewルートの位置・寸法・件数・時間を表す数値。
+     * @param openingEol - Webviewルートで受け渡す文字列。
+     * @param body - Webviewルートの位置・寸法・件数・時間を表す数値。
+     * @param closingEol - Webviewルートで受け渡す文字列。
+     * @returns Webviewルートで利用する文字列。
      */
     (
       whole,
@@ -7496,18 +7474,18 @@ function replaceDelimitedBlock(
 }
 
 /**
- * 文字列を正規表現のリテラルとして扱えるようにメタ文字をエスケープする。
- * @param value エスケープ対象の文字列。
- * @returns 正規表現へ埋め込めるエスケープ済み文字列。
+ * Webviewルートの入力を許可された形式へ整える。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @returns Webviewルートで利用する文字列。
  */
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
 /**
- * 「printContentCss」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param fontFamily 「fontFamily」は、「printContentCss」がWebview UI状態の処理対象を特定する入力です。
- * @returns 「printContentCss」が生成または変換したWebview UIの文字列を返します。
+ * Webviewルートを出力または保存できる文字列へ整える。
+ * @param fontFamily - Webviewルートの位置・寸法・件数・時間を表す数値。
+ * @returns Webviewルートで利用する文字列。
  */
 function printContentCss(fontFamily: string): string {
   const safeFontFamily = fontFamilyForCss(
@@ -7526,10 +7504,10 @@ img,svg{max-width:100%;height:auto}.page-break{break-after:page}.code-figure fig
 }
 
 /**
- * 印刷用HTMLへ渡すCSSを組み立て、同一オリジンで読めるスタイルシートの規則を追加する。
- * @param fontFamily 「fontFamily」は、「collectPrintableCss」がWebview UI状態の処理対象を特定する入力です。
- * @param includeEmbeddedFonts 「includeEmbeddedFonts」は、「collectPrintableCss」がWebview UI状態の処理対象を特定する入力です。
- * @returns 印刷用の結合済みCSS文字列。
+ * Webviewルートから必要な値またはリソースを取得する。
+ * @param fontFamily - Webviewルートの位置・寸法・件数・時間を表す数値。
+ * @param includeEmbeddedFonts - Webviewルートへ渡す入力。
+ * @returns Webviewルートで利用する文字列。
  */
 function collectPrintableCss(
   fontFamily: string,
@@ -7557,14 +7535,16 @@ function collectPrintableCss(
   return rules.join("\n");
 }
 
-/** 「exportFontCssPromise」は、非同期初期化または処理の重複を防ぐ共有Promiseです。 */
-/** 出力用フォントCSSの取得を共有し、同一Webviewからの重複fetchを防ぐPromise。 */
+
+/**
+ * Webviewルートの非同期処理を共有するPromise。
+ */
 let exportFontCssPromise: Promise<string> | undefined;
 
 /**
- * 出力時だけ自己完結したフォント CSS を取得し、従来と同じ埋め込み出力を保つ。
- * @param fontFamily 「fontFamily」は、「collectEmbeddedPrintableCss」がWebview UI状態の処理対象を特定する入力です。
- * @returns 非同期処理の完了を表すPromiseです。
+ * Webviewルートから必要な値またはリソースを取得する。
+ * @param fontFamily - Webviewルートの位置・寸法・件数・時間を表す数値。
+ * @returns Webviewルートで利用する文字列。
  */
 async function collectEmbeddedPrintableCss(fontFamily: string): Promise<string> {
   exportFontCssPromise ??= fetch(
@@ -7575,9 +7555,9 @@ async function collectEmbeddedPrintableCss(fontFamily: string): Promise<string> 
   )
     .then(
     /**
- * 非同期処理の完了値を受け取り、次の処理へ渡す結果を生成するコールバックです。
-     * @param response responseとして渡される、このコールバックの入力値です。
-     * @returns 解決値を処理した結果を返します。
+     * responseをifへ渡し、Webviewルートの結果または副作用を処理する。
+     * @param response - Webviewルートへ渡す入力。
+     * @returns Webviewルートのコールバックが生成する結果。
      */
     (response) => {
       if (!response.ok) {
@@ -7587,9 +7567,9 @@ async function collectEmbeddedPrintableCss(fontFamily: string): Promise<string> 
     })
     .catch(
     /**
- * 非同期処理の完了値を受け取り、次の処理へ渡す結果を生成するコールバックです。
-     * @param error 発生したエラーです。
-     * @returns エラー処理またはフォールバックの結果を返します。
+     * Webviewルートのコールバックとしてerrorを処理する。
+     * @param error - 処理に失敗した理由または例外。
+     * @returns Webviewルートのコールバックが生成する結果。
      */
     (error) => {
       exportFontCssPromise = undefined;

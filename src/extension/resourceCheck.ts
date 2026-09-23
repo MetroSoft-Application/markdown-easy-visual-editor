@@ -1,15 +1,10 @@
 /**
- * @file resourceCheck.ts
- * 実行境界: Extension Host。
- * 責務: VS Code文書、Webview、外部リソースを連携する。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: 文書、ファイル、Webview、ブラウザーなどの外部状態を必要に応じて操作する。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview Webviewが要求したローカルリソースをワークスペースの許可範囲と照合する。
  */
 /**
- * ローカル参照からフラグメント・クエリ・URLエンコードを取り除く。
- * @param source 処理対象のソースです。
- * @returns 「decodeLocalResourceSource」が生成または変換したExtension Hostの文字列を返します。
+ * resourcecheckの入力を構造化した値へ変換する。
+ * @param source - 解析・描画・変換の起点となる本文。
+ * @returns resourcecheckで利用する文字列。
  */
 export function decodeLocalResourceSource(source: string): string {
     const withoutAnchor = source.split('#', 1)[0].trim();
@@ -23,9 +18,9 @@ export function decodeLocalResourceSource(source: string): string {
 }
 
 /**
- * ファイルが存在しないエラーか、検査自体に失敗したエラーかを判定する。
- * @param error 発生したエラーです。
- * @returns 判定結果です。
+ * resourcecheckの条件を判定する。
+ * @param error - 処理に失敗した理由または例外。
+ * @returns 条件が成立したかを示す真偽値。
  */
 export function isMissingResourceError(error: unknown): boolean {
     const errorCode = typeof error === 'object' && error !== null && 'code' in error

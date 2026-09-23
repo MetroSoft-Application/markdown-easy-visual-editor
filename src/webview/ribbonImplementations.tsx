@@ -1,22 +1,11 @@
 /**
- * @file ribbonImplementations.tsx
- * 実行境界: Webview。
- * 責務: 編集UI、プレビュー、ユーザー操作を処理する。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: DOM、Webviewメッセージ、ブラウザーAPI、編集状態を操作する。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview リボン項目の実装を定義し、ボタン・入力コントロール・状態表示をReact要素へ接続する。
  */
-
 import React, { useRef } from "react";
 import type { EditorTheme } from "../shared/protocol";
 import { normalizeFontFamily } from "../shared/fontFamily";
-import {
-  TEXT_COLOR_HEX,
-  TEXT_COLOR_IDS,
-} from "../shared/textColor";
-import {
-  setPreviewImageResizeControlsVisible,
-} from "./previewImageResizeControls";
+import { TEXT_COLOR_HEX, TEXT_COLOR_IDS } from "../shared/textColor";
+import { setPreviewImageResizeControlsVisible } from "./previewImageResizeControls";
 import {
   applyTextColorToActiveSource,
   clearInlineFormattingWithTextColor,
@@ -38,17 +27,11 @@ import type {
   TableAction,
 } from "./ribbonTypes";
 
-/**
- * 「button」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param onClick 処理完了時に呼び出すコールバックです。
- * @param options 処理経路や表示方法を指定する設定値です。
- * @returns 「button」がWebview UI状態の入力を処理して得た固有の結果を返します。
- */
 const button = /**
- * 「button」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param onClick 「onClick」は、「button」がWebview UIで処理する対象を特定する入力です。
- * @param options 処理経路や表示方法を指定する設定値です。
- * @returns 「button」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ * リボンボタンのコマンド処理と表示状態を定義する。
+ * @param onClick - ボタン操作をHostまたは編集面へ通知する関数。
+ * @param options - 呼び出し側が指定する処理設定。
+ * @returns クリック処理と表示状態を持つリボンボタン実装。
  */ (
   onClick: RibbonButtonImplementation["onClick"],
   options: Omit<RibbonButtonImplementation, "kind" | "onClick"> = {},
@@ -58,15 +41,10 @@ const button = /**
   ...options,
 });
 
-/**
- * 「control」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param render 「render」は、「control」がWebview UI状態の処理対象を特定する入力です。
- * @returns 「control」がWebview UI状態の入力を処理して得た固有の結果を返します。
- */
 const control = /**
- * 「control」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param render 「render」は、「control」がWebview UIで処理する対象を特定する入力です。
- * @returns 「control」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ * リボンの入力コントロールを定義する。
+ * @param render - リボン項目の表示要素を生成する関数。
+ * @returns 表示処理を持つリボン入力コントロール実装。
  */ (
   render: RibbonControlImplementation["render"],
 ): RibbonControlImplementation => ({
@@ -74,317 +52,297 @@ const control = /**
   render,
 });
 
-/**
- * 「editDisabled」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param state 処理対象の状態です。
- * @returns 判定結果です。
- */
 const editDisabled = /**
- * 「editDisabled」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param state 「state」は、「editDisabled」がWebview UIで処理する対象を特定する入力です。
- * @returns 「editDisabled」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ * 読み取り専用状態から編集操作の無効条件を求める。
+ * @param state - 現在の編集・表示状態。
+ * @returns 条件が成立したかを示す真偽値。
  */ (state: RibbonButtonState): boolean => state.readOnly;
 
-/**
- * 「activeMark」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param mark 「mark」は、「activeMark」がWebview UI状態の処理対象を特定する入力です。
- * @returns 「activeMark」がWebview UI状態の入力を処理して得た固有の結果を返します。
- */
 const activeMark = /**
- * 「activeMark」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param mark 「mark」は、「activeMark」がWebview UIで処理する対象を特定する入力です。
- * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+ * 指定したMarkdown書式が選択範囲で有効か判定する関数を作る。
+ * @param mark - リボン実装で受け渡す文字列。
+ * @returns 指定書式の有効状態を返す判定関数。
  */ (mark: string) =>
-/**
- * 「state」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
- * @param state 処理対象の状態です。
- * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
- */
-(state: RibbonButtonState) =>
-  Boolean(state.activeMarks[mark]);
+  /**
+   * 指定したMarkdown書式が選択範囲で有効か判定する。
+   * @param state - 現在の編集・表示状態。
+   * @returns 条件が成立したかを示す真偽値。
+   */
+  (state: RibbonButtonState) =>
+    Boolean(state.activeMarks[mark]);
 
-/** 「RIBBON_IMPLEMENTATIONS」は、関連する処理間で共有する設定値または状態です。 */
-/** リボン項目IDから、実際のボタン・入力UIと処理を解決する実装表。 */
+/**
+ * リボン項目IDと実行実装を対応付ける定義表。
+ */
 export const RIBBON_IMPLEMENTATIONS: Record<
   RibbonItemId,
   RibbonItemImplementation
 > = {
   undo: button(
-
     /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * クリック時にリボン操作「undo」を編集面へ通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "historyCommand", command: "undo" }),
   ),
   redo: button(
-
     /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * クリック時にリボン操作「redo」を編集面へ通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "historyCommand", command: "redo" }),
   ),
   style: control(
-  /**
- * 「context」「definition」「resolveLabel」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-   * @param context contextとして渡される、このコールバックの入力値です。
-   * @param definition definitionとして渡される、このコールバックの入力値です。
-   * @param resolveLabel resolveLabelとして渡される、このコールバックの入力値です。
-   * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
-   */
-  (context, definition, resolveLabel) => (
-    <label className="ribbon-select-label">
-      {resolveLabel(definition.label)}
-      <select
-        disabled={context.readOnly}
-        defaultValue="0"
-        onChange={
-        /**
- * 「event」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-         * @param event 処理対象のイベントです。
-         * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
-         */
-        (event) =>
-          context.onCommand({
-            type: "heading",
-            level: Number(event.target.value),
-          })
-        }
-      >
-        {(definition.options?.choices ?? []).map(
-        /**
- * 「choice」を変換し、変換後の要素を返すコールバックです。
-         * @param choice choiceとして渡される、このコールバックの入力値です。
-         * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
-         */
-        (choice) => (
-          <option key={choice.value} value={choice.value}>
-            {resolveLabel(choice.label)}
-          </option>
-        ))}
-      </select>
-    </label>
-  )),
-  quote: button(
-
     /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * リボンの設定値と文言から入力コントロールを生成する。
+     * @param context - 編集状態、表示文言、コマンド通知を含むリボン表示コンテキスト。
+     * @param definition - ラベルと選択肢を含むリボン項目定義。
+     * @param resolveLabel - ローカライズキーを表示文言へ変換する関数。
+     * @returns リボンに表示する入力コントロール。
+     */
+    (context, definition, resolveLabel) => (
+      <label className="ribbon-select-label">
+        {resolveLabel(definition.label)}
+        <select
+          disabled={context.readOnly}
+          defaultValue="0"
+          onChange={
+            /**
+             * changeイベントでon・commandを実行する。
+             * @param event - ユーザー操作またはDOMから通知されたイベント。
+             * @returns 副作用を完了し、値は返さない。
+             */
+            (event) =>
+              context.onCommand({
+                type: "heading",
+                level: Number(event.target.value),
+              })
+          }
+        >
+          {(definition.options?.choices ?? []).map(
+            /**
+             * 各choiceから値を取り出して一覧化する。
+             * @param choice - choiceの値を参照する走査対象。
+             * @returns 値を取り出した変換結果の一覧。
+             */
+            (choice) => (
+              <option key={choice.value} value={choice.value}>
+                {resolveLabel(choice.label)}
+              </option>
+            ),
+          )}
+        </select>
+      </label>
+    ),
+  ),
+  quote: button(
+    /**
+     * クリック時にリボン操作「quote」を編集面へ通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "sourceAction", action: "quote" }),
     { disabled: editDisabled },
   ),
   bulletList: button(
-
     /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * クリック時にリボン操作「bulletList」を編集面へ通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) =>
       onCommand({ type: "sourceAction", action: "bulletList" }),
     { disabled: editDisabled },
   ),
   orderedList: button(
-
     /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * クリック時にリボン操作「orderedList」を編集面へ通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) =>
       onCommand({ type: "sourceAction", action: "orderedList" }),
     { disabled: editDisabled },
   ),
   taskList: button(
-
     /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * クリック時にリボン操作「taskList」を編集面へ通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "sourceAction", action: "taskList" }),
     { disabled: editDisabled },
   ),
   indent: button(
-
     /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * クリック時にリボン操作「indent」を編集面へ通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "sourceAction", action: "indent" }),
     { disabled: editDisabled },
   ),
   outdent: button(
-
     /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * クリック時にリボン操作「outdent」を編集面へ通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "sourceAction", action: "outdent" }),
     { disabled: editDisabled },
   ),
   bold: button(
-
     /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * クリック時にリボン操作「bold」を編集面へ通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "sourceAction", action: "bold" }),
     { disabled: editDisabled, active: activeMark("bold") },
   ),
   italic: button(
-
     /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * クリック時にリボン操作「italic」を編集面へ通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "sourceAction", action: "italic" }),
     { disabled: editDisabled, active: activeMark("italic") },
   ),
   strike: button(
-
     /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * クリック時にリボン操作「strike」を編集面へ通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "sourceAction", action: "strike" }),
     { disabled: editDisabled, active: activeMark("strike") },
   ),
   underline: button(
-
     /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * クリック時にリボン操作「underline」を編集面へ通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
-    ({ onCommand }) =>
-      onCommand({ type: "sourceAction", action: "underline" }),
+    ({ onCommand }) => onCommand({ type: "sourceAction", action: "underline" }),
     { disabled: editDisabled, active: activeMark("underline") },
   ),
   highlight: button(
-
     /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * クリック時にリボン操作「highlight」を編集面へ通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
-    ({ onCommand }) =>
-      onCommand({ type: "sourceAction", action: "highlight" }),
+    ({ onCommand }) => onCommand({ type: "sourceAction", action: "highlight" }),
     { disabled: editDisabled, active: activeMark("highlight") },
   ),
   code: button(
-
     /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * クリック時にリボン操作「inlineCode」を編集面へ通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) =>
       onCommand({ type: "sourceAction", action: "inlineCode" }),
     { disabled: editDisabled, active: activeMark("inlineCode") },
   ),
   superscript: button(
-
     /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * クリック時にリボン操作「sup」を編集面へ通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "sourceAction", action: "sup" }),
     { disabled: editDisabled },
   ),
   subscript: button(
-
     /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * クリック時にリボン操作「sub」を編集面へ通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "sourceAction", action: "sub" }),
     { disabled: editDisabled },
   ),
   textColor: control(
-  /**
- * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
-   * @param context contextとして渡される、このコールバックの入力値です。
-   * @param definition definitionとして渡される、このコールバックの入力値です。
-   * @param resolveLabel resolveLabelとして渡される、このコールバックの入力値です。
-   * @returns 「context.setTextColorChoice」を実行し、値を返しません。
-   */
-  (context, definition, resolveLabel) => (
-    <label className="ribbon-select-label">
-      {context.textColorText.label}
-      <select
-        className="mve-text-color-select"
-        value={context.textColorChoice}
-        disabled={context.readOnly}
-        onFocus={
-        /**
- * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
-         * @returns 「context.setTextColorChoice」を実行し、値を返しません。
-         */
-        () =>
-          context.setTextColorChoice(readActiveSourceTextColor() ?? "default")
-        }
-        onChange={
-        /**
- * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
-         * @param event 処理対象のイベントです。
-         * @returns 「if」を実行し、値を返しません。
-         */
-        (event) => {
-          const value = event.target.value as typeof context.textColorChoice;
-          if (value === "mixed") return;
-          applyTextColorToActiveSource(
-            value === "default" ? undefined : value,
-          );
-          context.setTextColorChoice(value);
-        }}
-        style={
-          context.textColorChoice !== "default" &&
-          context.textColorChoice !== "mixed"
-            ? { color: TEXT_COLOR_HEX[context.textColorChoice] }
-            : undefined
-        }
-      >
-        <option value="mixed" disabled>
-          {context.textColorText.mixed}
-        </option>
-        <option value="default">{context.textColorText.defaultColor}</option>
-        {TEXT_COLOR_IDS.map(
-        /**
- * 「color」を変換し、変換後の要素を返すコールバックです。
-         * @param color 処理対象の色です。
-         * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
-         */
-        (color) => (
-          <option
-            key={color}
-            value={color}
-            style={{ color: TEXT_COLOR_HEX[color] }}
-          >
-            {`● ${context.textColorText.colors[color]}`}
-          </option>
-        ))}
-      </select>
-    </label>
-  )),
-  clearInline: button(
-
     /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * リボンの設定値と文言から入力コントロールを生成する。
+     * @param context - 編集状態、表示文言、コマンド通知を含むリボン表示コンテキスト。
+     * @param definition - ラベルと選択肢を含むリボン項目定義。
+     * @param resolveLabel - ローカライズキーを表示文言へ変換する関数。
+     * @returns リボンに表示する入力コントロール。
+     */
+    (context, definition, resolveLabel) => (
+      <label className="ribbon-select-label">
+        {context.textColorText.label}
+        <select
+          className="mve-text-color-select"
+          value={context.textColorChoice}
+          disabled={context.readOnly}
+          onFocus={
+            /**
+             * 要素をset・text・color・choiceへ渡し、リボン実装の結果または副作用を処理する。
+             * @returns リボン実装のコールバックが生成する結果。
+             */
+            () =>
+              context.setTextColorChoice(
+                readActiveSourceTextColor() ?? "default",
+              )
+          }
+          onChange={
+            /**
+             * change操作を表示または編集状態へ反映する。
+             * @param event - ユーザー操作またはDOMから通知されたイベント。
+             * @returns 副作用を完了し、値は返さない。
+             */
+            (event) => {
+              const value = event.target
+                .value as typeof context.textColorChoice;
+              if (value === "mixed") return;
+              applyTextColorToActiveSource(
+                value === "default" ? undefined : value,
+              );
+              context.setTextColorChoice(value);
+            }
+          }
+          style={
+            context.textColorChoice !== "default" &&
+            context.textColorChoice !== "mixed"
+              ? { color: TEXT_COLOR_HEX[context.textColorChoice] }
+              : undefined
+          }
+        >
+          <option value="mixed" disabled>
+            {context.textColorText.mixed}
+          </option>
+          <option value="default">{context.textColorText.defaultColor}</option>
+          {TEXT_COLOR_IDS.map(
+            /**
+             * 各colorからsを取り出して一覧化する。
+             * @param color - colorのsを参照する走査対象。
+             * @returns sを取り出した変換結果の一覧。
+             */
+            (color) => (
+              <option
+                key={color}
+                value={color}
+                style={{ color: TEXT_COLOR_HEX[color] }}
+              >
+                {`● ${context.textColorText.colors[color]}`}
+              </option>
+            ),
+          )}
+        </select>
+      </label>
+    ),
+  ),
+  clearInline: button(
+    /**
+     * クリック時にリボン操作「clearInline」を編集面へ通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => {
       if (!clearInlineFormattingWithTextColor()) {
@@ -394,296 +352,295 @@ export const RIBBON_IMPLEMENTATIONS: Record<
     { disabled: editDisabled },
   ),
   clearBlock: button(
-
     /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * クリック時にリボン操作「clearBlock」を編集面へ通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) =>
       onCommand({ type: "sourceAction", action: "clearBlock" }),
     { disabled: editDisabled },
   ),
   link: button(
-
     /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * リボンボタンのクリック時に編集コマンドを通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "link" }),
     { disabled: editDisabled },
   ),
   image: button(
-
     /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * リボンボタンのクリック時に編集コマンドを通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "image" }),
     { disabled: editDisabled },
   ),
   tableSize: control(
-  /**
- * 「context」「definition」「resolveLabel」を受け取り、処理結果を生成する処理です。
-   * @param context contextとして渡される、このコールバックの入力値です。
-   * @param definition definitionとして渡される、このコールバックの入力値です。
-   * @param resolveLabel resolveLabelとして渡される、このコールバックの入力値です。
-   * @returns 「context」「definition」「resolveLabel」から生成した処理結果を返します。
-   */
-  (context, definition, resolveLabel) => {
-    const rows = getControlField(definition, "rows");
-    const columns = getControlField(definition, "columns");
-    return (
-      <>
-        <label>
-          {resolveLabel(rows.label)}
-          <input
-            type="number"
-            min={rows.min}
-            max={rows.max}
-            disabled={context.readOnly}
-            value={context.tableRows}
-            onChange={
-            /**
- * 「event」を受け取り、登録された副作用または結果を生成する処理です。
-             * @param event 処理対象のイベントです。
-             * @returns 「context.setTableRows」を実行し、値を返しません。
-             */
-            (event) =>
-              context.setTableRows(
-                clampNumber(event.target.value, rows.min ?? 0, rows.max ?? 50),
-              )
-            }
-          />
-        </label>
-        <label>
-          {resolveLabel(columns.label)}
-          <input
-            type="number"
-            min={columns.min}
-            max={columns.max}
-            disabled={context.readOnly}
-            value={context.tableColumns}
-            onChange={
-            /**
- * 「event」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-             * @param event 処理対象のイベントです。
-             * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
-             */
-            (event) =>
-              context.setTableColumns(
-                clampNumber(
-                  event.target.value,
-                  columns.min ?? 0,
-                  columns.max ?? 50,
-                ),
-              )
-            }
-          />
-        </label>
-      </>
-    );
-  }),
-  insertTable: button(
-
     /**
- * 「onCommand」「tableRows」「tableColumns」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommand、tableRows、tableColumnsです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * リボンの設定値と文言から入力コントロールを生成する。
+     * @param context - 編集状態、表示文言、コマンド通知を含むリボン表示コンテキスト。
+     * @param definition - ラベルと選択肢を含むリボン項目定義。
+     * @param resolveLabel - ローカライズキーを表示文言へ変換する関数。
+     * @returns リボンに表示する入力コントロール。
+     */
+    (context, definition, resolveLabel) => {
+      const rows = getControlField(definition, "rows");
+      const columns = getControlField(definition, "columns");
+      return (
+        <>
+          <label>
+            {resolveLabel(rows.label)}
+            <input
+              type="number"
+              min={rows.min}
+              max={rows.max}
+              disabled={context.readOnly}
+              value={context.tableRows}
+              onChange={
+                /**
+                 * change操作を表示または編集状態へ反映する。
+                 * @param event - ユーザー操作またはDOMから通知されたイベント。
+                 * @returns 副作用を完了し、値は返さない。
+                 */
+                (event) =>
+                  context.setTableRows(
+                    clampNumber(
+                      event.target.value,
+                      rows.min ?? 0,
+                      rows.max ?? 50,
+                    ),
+                  )
+              }
+            />
+          </label>
+          <label>
+            {resolveLabel(columns.label)}
+            <input
+              type="number"
+              min={columns.min}
+              max={columns.max}
+              disabled={context.readOnly}
+              value={context.tableColumns}
+              onChange={
+                /**
+                 * change操作を表示または編集状態へ反映する。
+                 * @param event - ユーザー操作またはDOMから通知されたイベント。
+                 * @returns 副作用を完了し、値は返さない。
+                 */
+                (event) =>
+                  context.setTableColumns(
+                    clampNumber(
+                      event.target.value,
+                      columns.min ?? 0,
+                      columns.max ?? 50,
+                    ),
+                  )
+              }
+            />
+          </label>
+        </>
+      );
+    },
+  ),
+  insertTable: button(
+    /**
+     * リボンボタンのクリック時に編集コマンドを通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand, tableRows, tableColumns }) =>
-      onCommand({ type: "tableInsert", rows: tableRows, columns: tableColumns }),
+      onCommand({
+        type: "tableInsert",
+        rows: tableRows,
+        columns: tableColumns,
+      }),
     { disabled: editDisabled },
   ),
   horizontalRule: button(
-
     /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * クリック時にリボン操作「horizontalRule」を編集面へ通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) =>
       onCommand({ type: "sourceAction", action: "horizontalRule" }),
     { disabled: editDisabled },
   ),
   hardBreak: button(
-
     /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * クリック時にリボン操作「hardBreak」を編集面へ通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
-    ({ onCommand }) =>
-      onCommand({ type: "sourceAction", action: "hardBreak" }),
+    ({ onCommand }) => onCommand({ type: "sourceAction", action: "hardBreak" }),
     { disabled: editDisabled },
   ),
   codeLanguage: control(
-  /**
- * 「context」「definition」「resolveLabel」を受け取り、登録された副作用または結果を生成する処理です。
-   * @param context contextとして渡される、このコールバックの入力値です。
-   * @param definition definitionとして渡される、このコールバックの入力値です。
-   * @param resolveLabel resolveLabelとして渡される、このコールバックの入力値です。
-   * @returns 「resolveLabel」を実行し、値を返しません。
-   */
-  (context, definition, resolveLabel) => (
-    <label className="ribbon-select-label">
-      {resolveLabel(definition.label)}
-      <select
-        value={context.codeLanguage}
-        disabled={context.readOnly}
-        onChange={
-        /**
- * 「event」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-         * @param event 処理対象のイベントです。
-         * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
-         */
-        (event) => context.setCodeLanguage(event.target.value)}
-      >
-        {context.messages.ribbon.codeLanguages.map(
-        /**
- * 「language」を変換し、変換後の要素を返すコールバックです。
-         * @param language 表示文言の解決に使用する言語コードまたはロケールです。
-         * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
-         */
-        (language) => (
-          <option key={language.value} value={language.value}>
-            {language.label}
-          </option>
-        ))}
-      </select>
-    </label>
-  )),
-  codeBlock: button(
-
     /**
- * 「onCommand」「codeLanguage」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommand、codeLanguageです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * リボンの設定値と文言から入力コントロールを生成する。
+     * @param context - 編集状態、表示文言、コマンド通知を含むリボン表示コンテキスト。
+     * @param definition - ラベルと選択肢を含むリボン項目定義。
+     * @param resolveLabel - ローカライズキーを表示文言へ変換する関数。
+     * @returns リボンに表示する入力コントロール。
+     */
+    (context, definition, resolveLabel) => (
+      <label className="ribbon-select-label">
+        {resolveLabel(definition.label)}
+        <select
+          value={context.codeLanguage}
+          disabled={context.readOnly}
+          onChange={
+            /**
+             * change操作を表示または編集状態へ反映する。
+             * @param event - ユーザー操作またはDOMから通知されたイベント。
+             * @returns 副作用を完了し、値は返さない。
+             */
+            (event) => context.setCodeLanguage(event.target.value)
+          }
+        >
+          {context.messages.ribbon.codeLanguages.map(
+            /**
+             * 各languageから値を取り出して一覧化する。
+             * @param language - languageの値を参照する走査対象。
+             * @returns 値を取り出した変換結果の一覧。
+             */
+            (language) => (
+              <option key={language.value} value={language.value}>
+                {language.label}
+              </option>
+            ),
+          )}
+        </select>
+      </label>
+    ),
+  ),
+  codeBlock: button(
+    /**
+     * リボンボタンのクリック時に編集コマンドを通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand, codeLanguage }) =>
       onCommand({ type: "codeBlock", language: codeLanguage }),
     { disabled: editDisabled },
   ),
   mermaid: button(
-
     /**
- * 「onCommand」「messages」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommand、messagesです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * リボンボタンのクリック時に編集コマンドを通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand, messages }) =>
       onCommand({ type: "insert", value: messages.ribbon.snippets.mermaid }),
     { disabled: editDisabled },
   ),
   math: button(
-
     /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * リボンボタンのクリック時に編集コマンドを通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) =>
       onCommand({ type: "insert", value: "\n$$\nE = mc^2\n$$\n" }),
     { disabled: editDisabled },
   ),
   footnote: button(
-
     /**
- * 「onCommand」「messages」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommand、messagesです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * リボンボタンのクリック時に編集コマンドを通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand, messages }) =>
       onCommand({ type: "insert", value: messages.ribbon.snippets.footnote }),
     { disabled: editDisabled },
   ),
   toc: button(
-
     /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * リボンボタンのクリック時に編集コマンドを通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "insert", value: "\n[toc]\n" }),
     { disabled: editDisabled },
   ),
   pageBreak: button(
-
     /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * リボンボタンのクリック時に編集コマンドを通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) =>
       onCommand({ type: "insert", value: "\n<!-- pagebreak -->\n" }),
     { disabled: editDisabled },
   ),
   note: button(
-
     /**
- * 「onCommand」「messages」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommand、messagesです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * リボンボタンのクリック時に編集コマンドを通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand, messages }) =>
       onCommand({ type: "insert", value: messages.ribbon.snippets.note }),
     { disabled: editDisabled },
   ),
   warning: button(
-
     /**
- * 「onCommand」「messages」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommand、messagesです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * リボンボタンのクリック時に編集コマンドを通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand, messages }) =>
       onCommand({ type: "insert", value: messages.ribbon.snippets.warning }),
     { disabled: editDisabled },
   ),
   emoji: control(
-  /**
- * 「context」「definition」「resolveLabel」を受け取り、処理結果を生成する処理です。
-   * @param context contextとして渡される、このコールバックの入力値です。
-   * @param definition definitionとして渡される、このコールバックの入力値です。
-   * @param resolveLabel resolveLabelとして渡される、このコールバックの入力値です。
-   * @returns 「resolveLabel」を実行し、値を返しません。
-   */
-  (context, definition, resolveLabel) => (
-    <label className="ribbon-select-label">
-      {resolveLabel(definition.label)}
-      <select
-        value={context.emoji}
-        disabled={context.readOnly}
-        onChange={
-        /**
- * 「event」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-         * @param event 処理対象のイベントです。
-         * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
-         */
-        (event) => context.setEmoji(event.target.value)}
-      >
-        {(definition.options?.values ?? []).map(
-        /**
- * 「value」を変換し、変換後の要素を返すコールバックです。
-         * @param value 「value」で検証・変換する入力値です。
-         * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
-         */
-        (value) => (
-          <option key={value} value={value}>
-            {value}
-          </option>
-        ))}
-      </select>
-    </label>
-  )),
-  insertEmoji: button(
-
     /**
- * 「onCommand」「emoji」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommand、emojiです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * リボンの設定値と文言から入力コントロールを生成する。
+     * @param context - 編集状態、表示文言、コマンド通知を含むリボン表示コンテキスト。
+     * @param definition - ラベルと選択肢を含むリボン項目定義。
+     * @param resolveLabel - ローカライズキーを表示文言へ変換する関数。
+     * @returns リボンに表示する入力コントロール。
+     */
+    (context, definition, resolveLabel) => (
+      <label className="ribbon-select-label">
+        {resolveLabel(definition.label)}
+        <select
+          value={context.emoji}
+          disabled={context.readOnly}
+          onChange={
+            /**
+             * change操作を表示または編集状態へ反映する。
+             * @param event - ユーザー操作またはDOMから通知されたイベント。
+             * @returns 副作用を完了し、値は返さない。
+             */
+            (event) => context.setEmoji(event.target.value)
+          }
+        >
+          {(definition.options?.values ?? []).map(
+            /**
+             * 各値を変換して一覧化する。
+             * @param value - 走査中の要素。
+             * @returns 入力要素から生成した変換結果の一覧。
+             */
+            (value) => (
+              <option key={value} value={value}>
+                {value}
+              </option>
+            ),
+          )}
+        </select>
+      </label>
+    ),
+  ),
+  insertEmoji: button(
+    /**
+     * リボンボタンのクリック時に編集コマンドを通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand, emoji }) => onCommand({ type: "insert", value: emoji }),
     { disabled: editDisabled },
@@ -695,231 +652,210 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   colAfter: tableButton("colAfter"),
   deleteColumn: tableButton("deleteColumn"),
   tableHeader: control(
-  /**
- * 「context」「definition」「resolveLabel」を受け取り、処理結果を生成する処理です。
-   * @param context contextとして渡される、このコールバックの入力値です。
-   * @param definition definitionとして渡される、このコールバックの入力値です。
-   * @param resolveLabel resolveLabelとして渡される、このコールバックの入力値です。
-   * @returns 「context」「definition」「resolveLabel」から生成した処理結果を返します。
-   */
-  (context, definition, resolveLabel) => {
-    const field = getControlField(definition, "header");
-    return (
-      <label className="ribbon-select-label">
-        {resolveLabel(definition.label)}
-        <input
-          disabled={context.readOnly}
-          value={context.headerName}
-          placeholder={field.placeholder ? resolveLabel(field.placeholder) : undefined}
-          onChange={
-          /**
- * 「event」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-           * @param event 処理対象のイベントです。
-           * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
-           */
-          (event) => context.setHeaderName(event.target.value)}
-        />
-      </label>
-    );
-  }),
+    /**
+     * リボンの設定値と文言から入力コントロールを生成する。
+     * @param context - 編集状態、表示文言、コマンド通知を含むリボン表示コンテキスト。
+     * @param definition - ラベルと選択肢を含むリボン項目定義。
+     * @param resolveLabel - ローカライズキーを表示文言へ変換する関数。
+     * @returns リボンに表示する入力コントロール。
+     */
+    (context, definition, resolveLabel) => {
+      const field = getControlField(definition, "header");
+      return (
+        <label className="ribbon-select-label">
+          {resolveLabel(definition.label)}
+          <input
+            disabled={context.readOnly}
+            value={context.headerName}
+            placeholder={
+              field.placeholder ? resolveLabel(field.placeholder) : undefined
+            }
+            onChange={
+              /**
+               * change操作を表示または編集状態へ反映する。
+               * @param event - ユーザー操作またはDOMから通知されたイベント。
+               * @returns 副作用を完了し、値は返さない。
+               */
+              (event) => context.setHeaderName(event.target.value)
+            }
+          />
+        </label>
+      );
+    },
+  ),
   alignLeft: tableButton("alignLeft"),
   alignCenter: tableButton("alignCenter"),
   alignRight: tableButton("alignRight"),
   alignColumns: tableButton("alignColumns"),
   cellBreak: button(
-
     /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-     * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+     * クリック時にリボン操作「cellBreak」を編集面へ通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
-    ({ onCommand }) =>
-      onCommand({ type: "sourceAction", action: "cellBreak" }),
+    ({ onCommand }) => onCommand({ type: "sourceAction", action: "cellBreak" }),
     { disabled: editDisabled },
   ),
   openTableEditor: button(
-
     /**
- * 指定されたコマンドをホスト処理へ委譲する処理を実行するコールバックです。
-     * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+     * リボンボタンのクリック時に編集コマンドを通知する。
+     * @returns クリック処理を完了し、値は返さない。
      */
     () => window.dispatchEvent(new Event("mve-open-table-editor")),
     { disabled: editDisabled },
   ),
   copyTsv: button(
-
     /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * リボンボタンのクリック時に編集コマンドを通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "copyTableTsv" }),
     {
-
-      /**
-       * 「disabled」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-       * @param state 処理対象の状態です。
-       * @returns 「disabled」がWebview UI状態の入力を処理して得た固有の結果を返します。
-       */
       disabled: /**
- * 「disabled」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param state 「state」は、「disabled」がWebview UIで処理する対象を特定する入力です。
- * @returns 「disabled」がWebview UI状態の入力を処理して得た固有の結果を返します。
- */ (state) =>
+       * リボン実装の条件を判定する。
+       * @param state - 現在の編集・表示状態。
+       * @returns リボン実装のdisabledが生成する結果。
+       */ (state) =>
         state.mode === "preview" ||
         (state.mode === "split" && state.splitView === "preview"),
     },
   ),
   openSource: button(
-
     /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * リボンボタンのクリック時に編集コマンドを通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "openSource" }),
   ),
   outline: button(
-
     /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * リボンボタンのクリック時に編集コマンドを通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "toggleOutline" }),
     {
-    /**
-     * 「active」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-     * @param state 処理対象の状態です。
-     * @returns 「active」がWebview UI状態の入力を処理して得た固有の結果を返します。
-     */
-    active: /**
- * 「active」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param state 「state」は、「active」がWebview UIで処理する対象を特定する入力です。
- * @returns 「active」がWebview UI状態の入力を処理して得た固有の結果を返します。
- */ (state) => state.outlineVisible },
+      active: /**
+       * リボン実装のactiveを処理し、呼び出し側へ結果または副作用を返す。
+       * @param state - 現在の編集・表示状態。
+       * @returns リボン実装のactiveが生成する結果。
+       */ (state) => state.outlineVisible,
+    },
   ),
   scrollSync: button(
-
     /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * リボンボタンのクリック時に編集コマンドを通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "toggleScrollSync" }),
     {
-    /**
-     * 「active」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-     * @param state 処理対象の状態です。
-     * @returns 「active」がWebview UI状態の入力を処理して得た固有の結果を返します。
-     */
-    active: /**
- * 「active」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param state 「state」は、「active」がWebview UIで処理する対象を特定する入力です。
- * @returns 「active」がWebview UI状態の入力を処理して得た固有の結果を返します。
- */ (state) => state.scrollSyncEnabled },
+      active: /**
+       * リボン実装のactiveを処理し、呼び出し側へ結果または副作用を返す。
+       * @param state - 現在の編集・表示状態。
+       * @returns リボン実装のactiveが生成する結果。
+       */ (state) => state.scrollSyncEnabled,
+    },
   ),
   zoomHint: control(
-  /**
- * 「_context」「definition」「resolveLabel」を受け取り、登録された副作用または結果を生成する処理です。
-   * @param _context _contextとして渡される、このコールバックの入力値です。
-   * @param definition definitionとして渡される、このコールバックの入力値です。
-   * @param resolveLabel resolveLabelとして渡される、このコールバックの入力値です。
-   * @returns 「_context」「definition」「resolveLabel」から生成した処理結果を返します。
-   */
-  (_context, definition, resolveLabel) => (
-    <span className="ribbon-hint">{resolveLabel(definition.label)}</span>
-  )),
-  imageResize: button(
-
     /**
- * 「imageResizeControlsVisible」を受け取り、登録された副作用または結果を生成する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはimageResizeControlsVisibleです。
-     * @returns 「setPreviewImageResizeControlsVisible」を実行し、値を返しません。
+     * リボンの設定値と文言から入力コントロールを生成する。
+     * @param _context - リボン実装で扱う文字列または本文。
+     * @param definition - ラベルと選択肢を含むリボン項目定義。
+     * @param resolveLabel - ローカライズキーを表示文言へ変換する関数。
+     * @returns リボンに表示する入力コントロール。
+     */
+    (_context, definition, resolveLabel) => (
+      <span className="ribbon-hint">{resolveLabel(definition.label)}</span>
+    ),
+  ),
+  imageResize: button(
+    /**
+     * リボンボタンのクリック時に編集コマンドを通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ imageResizeControlsVisible }) =>
       setPreviewImageResizeControlsVisible(!imageResizeControlsVisible),
     {
-    /**
-     * 「active」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-     * @param state 処理対象の状態です。
-     * @returns 「active」がWebview UI状態の入力を処理して得た固有の結果を返します。
-     */
-    active: /**
- * 「active」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param state 「state」は、「active」がWebview UIで処理する対象を特定する入力です。
- * @returns 「active」がWebview UI状態の入力を処理して得た固有の結果を返します。
- */ (state) => state.imageResizeControlsVisible },
+      active: /**
+       * リボン実装のactiveを処理し、呼び出し側へ結果または副作用を返す。
+       * @param state - 現在の編集・表示状態。
+       * @returns リボン実装のactiveが生成する結果。
+       */ (state) => state.imageResizeControlsVisible,
+    },
   ),
   editorTheme: control(
-  /**
- * 「context」「definition」「resolveLabel」を受け取り、登録された副作用または結果を生成する処理です。
-   * @param context contextとして渡される、このコールバックの入力値です。
-   * @param definition definitionとして渡される、このコールバックの入力値です。
-   * @param resolveLabel resolveLabelとして渡される、このコールバックの入力値です。
-   * @returns 「context」「definition」「resolveLabel」から生成した処理結果を返します。
-   */
-  (context, definition, resolveLabel) => (
-    <label className="ribbon-select-label">
-      {resolveLabel(definition.label)}
-      <select
-        className="mve-editor-theme-select"
-        defaultValue={
-          (document.documentElement.dataset.editorTheme as
-            | EditorTheme
-            | undefined) ?? "dark"
-        }
-        onChange={
-        /**
- * 「event」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-         * @param event 処理対象のイベントです。
-         * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
-         */
-        (event) => {
-          const theme = event.target.value as EditorTheme;
-          document.documentElement.dataset.editorTheme = theme;
-          document.documentElement.style.colorScheme = theme;
-          sharedVsCodeApi.postMessage({ type: "setEditorTheme", theme });
-        }}
-      >
-        {(definition.options?.choices ?? []).map(
-        /**
- * 「choice」を変換し、変換後の要素を返すコールバックです。
-         * @param choice choiceとして渡される、このコールバックの入力値です。
-         * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
-         */
-        (choice) => (
-          <option key={choice.value} value={choice.value}>
-            {resolveLabel(choice.label)}
-          </option>
-        ))}
-      </select>
-    </label>
-  )),
-  openPrintSettings: button(
-
     /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * リボンの設定値と文言から入力コントロールを生成する。
+     * @param context - 編集状態、表示文言、コマンド通知を含むリボン表示コンテキスト。
+     * @param definition - ラベルと選択肢を含むリボン項目定義。
+     * @param resolveLabel - ローカライズキーを表示文言へ変換する関数。
+     * @returns リボンに表示する入力コントロール。
+     */
+    (context, definition, resolveLabel) => (
+      <label className="ribbon-select-label">
+        {resolveLabel(definition.label)}
+        <select
+          className="mve-editor-theme-select"
+          defaultValue={
+            (document.documentElement.dataset.editorTheme as
+              | EditorTheme
+              | undefined) ?? "dark"
+          }
+          onChange={
+            /**
+             * change操作をHostまたはWebviewへ通知する。
+             * @param event - ユーザー操作またはDOMから通知されたイベント。
+             * @returns 副作用を完了し、値は返さない。
+             */
+            (event) => {
+              const theme = event.target.value as EditorTheme;
+              document.documentElement.dataset.editorTheme = theme;
+              document.documentElement.style.colorScheme = theme;
+              sharedVsCodeApi.postMessage({ type: "setEditorTheme", theme });
+            }
+          }
+        >
+          {(definition.options?.choices ?? []).map(
+            /**
+             * 各choiceから値を取り出して一覧化する。
+             * @param choice - choiceの値を参照する走査対象。
+             * @returns 値を取り出した変換結果の一覧。
+             */
+            (choice) => (
+              <option key={choice.value} value={choice.value}>
+                {resolveLabel(choice.label)}
+              </option>
+            ),
+          )}
+        </select>
+      </label>
+    ),
+  ),
+  openPrintSettings: button(
+    /**
+     * リボンボタンのクリック時に編集コマンドを通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "openPrintSettings" }),
   ),
   printPreview: button(
-
     /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * リボンボタンのクリック時に編集コマンドを通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "togglePrintPreview" }),
   ),
   exportPdf: button(
-
     /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * リボンボタンのクリック時に編集コマンドを通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "exportPdf" }),
   ),
@@ -927,231 +863,248 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   convertLinkedMarkdown: htmlOption("convertLinkedMarkdown"),
   saveWithoutDialog: htmlOption("saveWithoutDialog"),
   exportHtml: button(
-
     /**
- * 「onCommand」「htmlOptions」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommand、htmlOptionsです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * リボンボタンのクリック時に編集コマンドを通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand, htmlOptions }) =>
       onCommand({ type: "exportHtml", options: htmlOptions }),
   ),
   preflight: button(
-
     /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * リボンボタンのクリック時に編集コマンドを通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "runPreflightCheck" }),
   ),
   imageDirectory: control(
-  /**
- * 「context」「definition」「resolveLabel」を受け取り、処理結果を生成する処理です。
-   * @param context contextとして渡される、このコールバックの入力値です。
-   * @param definition definitionとして渡される、このコールバックの入力値です。
-   * @param resolveLabel resolveLabelとして渡される、このコールバックの入力値です。
-   * @returns 「context」「definition」「resolveLabel」から生成した処理結果を返します。
-   */
-  (context, definition, resolveLabel) => {
-    const field = getControlField(definition, "directory");
-    return (
-      <>
-        <form
-          className="ribbon-setting-form"
-          onSubmit={
-          /**
- * 「event」を受け取り、登録された副作用または結果を生成する処理です。
-           * @param event 処理対象のイベントです。
-           * @returns 「event.preventDefault」を実行し、値を返しません。
-           */
-          (event) => {
-            event.preventDefault();
-            saveImageDirectory(context);
-          }}
-        >
-          <label>
-            <span>{resolveLabel(field.label)}</span>
-            <input
-              value={context.imageDirectoryDraft}
-              placeholder={field.placeholder ? resolveLabel(field.placeholder) : undefined}
-              spellCheck={false}
-              onChange={
-              /**
- * 「event」を受け取り、登録された副作用または結果を生成する処理です。
-               * @param event 処理対象のイベントです。
-               * @returns 「context.setImageDirectoryDraft」を実行し、値を返しません。
-               */
-              (event) => context.setImageDirectoryDraft(event.target.value)}
-              onBlur={
-              /**
- * 登録された副作用または結果を生成する処理を実行するコールバックです。
-               * @returns 「saveImageDirectory」の呼び出し結果を返します。
-               */
-              () => saveImageDirectory(context)}
-            />
-          </label>
-        </form>
-        {definition.options?.hint && (
-          <span className="ribbon-setting-hint">
-            {resolveLabel(definition.options.hint)}
-          </span>
-        )}
-      </>
-    );
-  }),
-  fontSettings: control(
-  /**
- * 「context」「definition」「resolveLabel」を受け取り、処理結果を生成する処理です。
-   * @param context contextとして渡される、このコールバックの入力値です。
-   * @param definition definitionとして渡される、このコールバックの入力値です。
-   * @param resolveLabel resolveLabelとして渡される、このコールバックの入力値です。
-   * @returns 「context」「definition」「resolveLabel」から生成した処理結果を返します。
-   */
-  (context, definition, resolveLabel) => {
-    const editorField = getControlField(definition, "editor");
-    const previewField = getControlField(definition, "preview");
-
     /**
-     * saveを更新または保存します。
-     * @returns 「save」がWebview UI状態の入力を処理して得た固有の結果を返します。
+     * リボンの設定値と文言から入力コントロールを生成する。
+     * @param context - 編集状態、表示文言、コマンド通知を含むリボン表示コンテキスト。
+     * @param definition - ラベルと選択肢を含むリボン項目定義。
+     * @param resolveLabel - ローカライズキーを表示文言へ変換する関数。
+     * @returns リボンに表示する入力コントロール。
      */
-    const save = /**
- * 「save」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @returns 「save」がWebview UI状態の入力を処理して得た固有の結果を返します。
- */ () => saveFontFamilies(context);
-    return (
-      <>
-        <form
-          className="ribbon-setting-form"
-          onSubmit={
-          /**
- * 「event」を受け取り、登録された副作用または結果を生成する処理です。
-           * @param event 処理対象のイベントです。
-           * @returns 「event.preventDefault」を実行し、値を返しません。
-           */
-          (event) => {
-            event.preventDefault();
-            save();
-          }}
-        >
-          <label>
-            <span>{resolveLabel(editorField.label)}</span>
-            <FontFamilyInput
-              id="mve-editor-font-family"
-              label={resolveLabel(editorField.label)}
-              value={context.editorFontFamilyDraft}
-              placeholder={editorField.placeholder ? resolveLabel(editorField.placeholder) : undefined}
-              onChange={
+    (context, definition, resolveLabel) => {
+      const field = getControlField(definition, "directory");
+      return (
+        <>
+          <form
+            className="ribbon-setting-form"
+            onSubmit={
               /**
- * 「value」を受け取り、登録された副作用または結果を生成する処理です。
-               * @param value 「value」で検証・変換する入力値です。
-               * @returns 「context.setEditorFontFamilyDraft」を実行し、値を返しません。
+               * イベントをprevent・defaultへ渡し、リボン実装の結果または副作用を処理する。
+               * @param event - ユーザー操作またはDOMから通知されたイベント。
+               * @returns リボン実装のコールバックが生成する結果。
                */
-              (value) => context.setEditorFontFamilyDraft(normalizeFontFamily(value))}
-              onCommit={
-              /**
- * 「value」を受け取り、登録された副作用または結果を生成する処理です。
-               * @param value 「value」で検証・変換する入力値です。
-               * @returns 「saveFontFamily」を実行し、値を返しません。
-               */
-              (value) => saveFontFamily(context, "editor", value)}
-            />
-          </label>
-          <label>
-            <span>{resolveLabel(previewField.label)}</span>
-            <FontFamilyInput
-              id="mve-preview-font-family"
-              label={resolveLabel(previewField.label)}
-              value={context.previewFontFamilyDraft}
-              placeholder={previewField.placeholder ? resolveLabel(previewField.placeholder) : undefined}
-              onChange={
-              /**
- * 「value」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-               * @param value 「value」で検証・変換する入力値です。
-               * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
-               */
-              (value) => context.setPreviewFontFamilyDraft(normalizeFontFamily(value))}
-              onCommit={
-              /**
- * 「value」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-               * @param value 「value」で検証・変換する入力値です。
-               * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
-               */
-              (value) => saveFontFamily(context, "preview", value)}
-            />
-          </label>
-        </form>
-        {definition.options?.hint && (
-          <span className="ribbon-setting-hint">
-            {resolveLabel(definition.options.hint)}
-          </span>
-        )}
-      </>
-    );
-  }),
-  shortcuts: button(
-
+              (event) => {
+                event.preventDefault();
+                saveImageDirectory(context);
+              }
+            }
+          >
+            <label>
+              <span>{resolveLabel(field.label)}</span>
+              <input
+                value={context.imageDirectoryDraft}
+                placeholder={
+                  field.placeholder
+                    ? resolveLabel(field.placeholder)
+                    : undefined
+                }
+                spellCheck={false}
+                onChange={
+                  /**
+                   * change操作を表示または編集状態へ反映する。
+                   * @param event - ユーザー操作またはDOMから通知されたイベント。
+                   * @returns 副作用を完了し、値は返さない。
+                   */
+                  (event) => context.setImageDirectoryDraft(event.target.value)
+                }
+                onBlur={
+                  /**
+                   * 要素をsave・image・directoryへ渡し、リボン実装の結果または副作用を処理する。
+                   * @returns リボン実装のコールバックが生成する結果。
+                   */
+                  () => saveImageDirectory(context)
+                }
+              />
+            </label>
+          </form>
+          {definition.options?.hint && (
+            <span className="ribbon-setting-hint">
+              {resolveLabel(definition.options.hint)}
+            </span>
+          )}
+        </>
+      );
+    },
+  ),
+  fontSettings: control(
     /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * リボンの設定値と文言から入力コントロールを生成する。
+     * @param context - 編集状態、表示文言、コマンド通知を含むリボン表示コンテキスト。
+     * @param definition - ラベルと選択肢を含むリボン項目定義。
+     * @param resolveLabel - ローカライズキーを表示文言へ変換する関数。
+     * @returns リボンに表示する入力コントロール。
+     */
+    (context, definition, resolveLabel) => {
+      const editorField = getControlField(definition, "editor");
+      const previewField = getControlField(definition, "preview");
+
+      const save = /**
+       * リボン実装の値を保存先または共有状態へ書き出す。
+       * @returns リボン実装のsaveが生成する結果。
+       */ () => saveFontFamilies(context);
+      return (
+        <>
+          <form
+            className="ribbon-setting-form"
+            onSubmit={
+              /**
+               * イベントをprevent・defaultへ渡し、リボン実装の結果または副作用を処理する。
+               * @param event - ユーザー操作またはDOMから通知されたイベント。
+               * @returns リボン実装のコールバックが生成する結果。
+               */
+              (event) => {
+                event.preventDefault();
+                save();
+              }
+            }
+          >
+            <label>
+              <span>{resolveLabel(editorField.label)}</span>
+              <FontFamilyInput
+                id="mve-editor-font-family"
+                label={resolveLabel(editorField.label)}
+                value={context.editorFontFamilyDraft}
+                placeholder={
+                  editorField.placeholder
+                    ? resolveLabel(editorField.placeholder)
+                    : undefined
+                }
+                onChange={
+                  /**
+                   * change操作を表示または編集状態へ反映する。
+                   * @param value - ユーザー操作またはDOMから通知されたイベント。
+                   * @returns 副作用を完了し、値は返さない。
+                   */
+                  (value) =>
+                    context.setEditorFontFamilyDraft(normalizeFontFamily(value))
+                }
+                onCommit={
+                  /**
+                   * 値をsave・font・familyへ渡し、リボン実装の結果または副作用を処理する。
+                   * @param value - 検証・変換・保存の対象となる値。
+                   * @returns リボン実装のコールバックが生成する結果。
+                   */
+                  (value) => saveFontFamily(context, "editor", value)
+                }
+              />
+            </label>
+            <label>
+              <span>{resolveLabel(previewField.label)}</span>
+              <FontFamilyInput
+                id="mve-preview-font-family"
+                label={resolveLabel(previewField.label)}
+                value={context.previewFontFamilyDraft}
+                placeholder={
+                  previewField.placeholder
+                    ? resolveLabel(previewField.placeholder)
+                    : undefined
+                }
+                onChange={
+                  /**
+                   * change操作を表示または編集状態へ反映する。
+                   * @param value - ユーザー操作またはDOMから通知されたイベント。
+                   * @returns 副作用を完了し、値は返さない。
+                   */
+                  (value) =>
+                    context.setPreviewFontFamilyDraft(
+                      normalizeFontFamily(value),
+                    )
+                }
+                onCommit={
+                  /**
+                   * 値をsave・font・familyへ渡し、リボン実装の結果または副作用を処理する。
+                   * @param value - 検証・変換・保存の対象となる値。
+                   * @returns リボン実装のコールバックが生成する結果。
+                   */
+                  (value) => saveFontFamily(context, "preview", value)
+                }
+              />
+            </label>
+          </form>
+          {definition.options?.hint && (
+            <span className="ribbon-setting-hint">
+              {resolveLabel(definition.options.hint)}
+            </span>
+          )}
+        </>
+      );
+    },
+  ),
+  shortcuts: button(
+    /**
+     * リボンボタンのクリック時に編集コマンドを通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "showShortcuts" }),
   ),
   features: button(
-
     /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * リボンボタンのクリック時に編集コマンドを通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "showFeatures" }),
   ),
 };
 
 /**
- * 「FontFamilyInputProps」が満たすデータ契約を定義します。
+ * リボン実装で共有するデータ形状を表すインターフェース。
  */
 interface FontFamilyInputProps {
-
   /**
-   * 「id」は、対象の識別や処理分岐に使用する値を保持します。
+   * リボン実装で扱うidの文字列。
    */
   id: string;
 
   /**
-   * 「label」は、画面または通知へ表示する文言を保持します。
+   * 画面または検証結果に表示する説明文。
    */
   label: string;
 
   /**
-   * 「placeholder」は、対象の内容または識別子を表す文字列です。
+   * 入力欄に値がないときに表示する案内文。
    */
   placeholder?: string;
 
   /**
-   * 「value」は、対象の内容または識別子を表す文字列です。
+   * 検証・変換・保存の対象となる値。
    */
   value: string;
   /**
-   * 「onChange」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-   * @param value 「onChange」で検証・変換する入力値です。
-   * @returns イベントを処理し、状態更新または副作用だけを実行して値は返しません。
+   * リボン実装のイベントまたはメッセージを受け取り、状態を更新する。
+   * @param value - 検証・変換・保存の対象となる値。
+   * @returns リボン実装のon・changeが生成する結果。
    */
   onChange: (value: string) => void;
   /**
-   * 「onCommit」を呼び出す側と実装側で、入力形式と結果の契約を共有します。
-   * @param value 「onCommit」で検証・変換する入力値です。
-   * @returns イベントを処理し、状態更新または副作用だけを実行して値は返しません。
+   * リボン実装のイベントまたはメッセージを受け取り、状態を更新する。
+   * @param value - 検証・変換・保存の対象となる値。
+   * @returns リボン実装のon・commitが生成する結果。
    */
   onCommit: (value: string) => void;
 }
 
 /**
- * 「FontFamilyInput」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param props 「props」は、「FontFamilyInput」がWebview UI状態の処理対象を特定する入力です。
- * @returns 「FontFamilyInput」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ * リボン実装のfont・family・inputを処理し、呼び出し側へ結果または副作用を返す。
+ * @param options - 呼び出し側が指定する処理設定。
+ * @returns リボン実装のfont・family・inputが生成する結果。
  */
 function FontFamilyInput({
   id,
@@ -1172,115 +1125,116 @@ function FontFamilyInput({
       spellCheck={false}
       autoComplete="off"
       onFocus={
-      /**
- * 受け取った入力または現在の状態を検証し、呼び出し元へ必要な処理結果を返すコールバックです。
-       * @returns 「onChange」を実行し、値を返しません。
-       */
-      () => {
-        valueBeforeEditRef.current = value;
-      }}
-      onChange={
-      /**
- * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
-       * @param event 処理対象のイベントです。
-       * @returns 「onChange」を実行し、値を返しません。
-       */
-      (event) => onChange(event.target.value)}
-      onKeyDown={
-      /**
- * 「event」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-       * @param event 処理対象のイベントです。
-       * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
-       */
-      (event) => {
-        if (event.key === "Enter") {
-          event.preventDefault();
-          onCommit(value);
+        /**
+         * リボン実装のコールバックとして要素を処理する。
+         * @returns リボン実装のコールバックが生成する結果。
+         */
+        () => {
           valueBeforeEditRef.current = value;
-        } else if (event.key === "Escape") {
-          event.preventDefault();
-          onChange(valueBeforeEditRef.current);
         }
-      }}
+      }
+      onChange={
+        /**
+         * change操作を表示または編集状態へ反映する。
+         * @param event - ユーザー操作またはDOMから通知されたイベント。
+         * @returns 副作用を完了し、値は返さない。
+         */
+        (event) => onChange(event.target.value)
+      }
+      onKeyDown={
+        /**
+         * keydownイベントでifを実行する。
+         * @param event - ユーザー操作またはDOMから通知されたイベント。
+         * @returns 副作用を完了し、値は返さない。
+         */
+        (event) => {
+          if (event.key === "Enter") {
+            event.preventDefault();
+            onCommit(value);
+            valueBeforeEditRef.current = value;
+          } else if (event.key === "Escape") {
+            event.preventDefault();
+            onChange(valueBeforeEditRef.current);
+          }
+        }
+      }
       onBlur={
-      /**
- * 指定されたコマンドをホスト処理へ委譲する処理を実行するコールバックです。
-       * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
-       */
-      () => onCommit(value)}
+        /**
+         * 要素をon・commitへ渡し、リボン実装の結果または副作用を処理する。
+         * @returns リボン実装のコールバックが生成する結果。
+         */
+        () => onCommit(value)
+      }
     />
   );
 }
 
-/** 「RIBBON_HEADER_IMPLEMENTATIONS」は、関連する処理間で共有する設定値または状態です。 */
-/** ヘッダー領域の固定操作IDからボタン実装を解決する表。 */
+/**
+ * リボン実装のribbon・header・implementationsに関する状態または設定。
+ */
 export const RIBBON_HEADER_IMPLEMENTATIONS: Record<
   RibbonHeaderImplementationId,
   RibbonButtonImplementation
 > = {
   search: button(
-  /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-   * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-   * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
-   */
-  ({ onCommand }) => onCommand({ type: "find" })),
+    /**
+     * リボンボタンのクリック時に編集コマンドを通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
+     */
+    ({ onCommand }) => onCommand({ type: "find" }),
+  ),
   splitView: viewModeButton("both"),
   textOnly: viewModeButton("text"),
   previewOnly: viewModeButton("preview"),
   collapse: button(
-  /**
- * 「collapsed」「setCollapsed」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-   * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはcollapsed、setCollapsedです。
-   * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
-   */
-  ({ collapsed, setCollapsed }) => setCollapsed(!collapsed)),
+    /**
+     * リボンボタンのクリック時に編集コマンドを通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
+     */
+    ({ collapsed, setCollapsed }) => setCollapsed(!collapsed),
+  ),
 };
 
 /**
- * 「viewModeButton」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param view 処理対象のviewです。
- * @returns 「viewModeButton」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ * リボン実装のview・mode・buttonを処理し、呼び出し側へ結果または副作用を返す。
+ * @param view - リボン実装へ渡す入力。
+ * @returns 通知処理を完了し、値は返さない。
  */
 function viewModeButton(
   view: "both" | "text" | "preview",
 ): RibbonButtonImplementation {
   return button(
-
     /**
- * 「onCommand」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommandです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * リボンボタンのクリック時に編集コマンドを通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "splitView", view }),
     {
-    /**
-     * 「active」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-     * @param state 処理対象の状態です。
-     * @returns 「active」がWebview UI状態の入力を処理して得た固有の結果を返します。
-     */
-    active: /**
- * 「active」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param state 「state」は、「active」がWebview UIで処理する対象を特定する入力です。
- * @returns 「active」がWebview UI状態の入力を処理して得た固有の結果を返します。
- */ (state) => state.mode === "split" && state.splitView === view },
+      active: /**
+       * リボン実装のactiveを処理し、呼び出し側へ結果または副作用を返す。
+       * @param state - 現在の編集・表示状態。
+       * @returns リボン実装のactiveが生成する結果。
+       */ (state) => state.mode === "split" && state.splitView === view,
+    },
   );
 }
 
 /**
- * 「tableButton」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param action 「action」は、「tableButton」がWebview UI状態の処理対象を特定する入力です。
- * @returns 「tableButton」がWebview UI状態の入力を処理して得た固有の結果を返します。
+ * リボン実装のtable・buttonを処理し、呼び出し側へ結果または副作用を返す。
+ * @param action - リボン実装へ渡す入力。
+ * @returns 通知処理を完了し、値は返さない。
  */
 function tableButton(
   action: Exclude<TableAction, "insert">,
 ): RibbonButtonImplementation {
   return button(
-
     /**
- * 「onCommand」「headerName」を受け取り、指定されたコマンドをホスト処理へ委譲する処理です。
-     * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはonCommand、headerNameです。
-     * @returns 指定されたコマンドをホスト処理へ委譲し、値を返しません。
+     * リボンボタンのクリック時に編集コマンドを通知する。
+     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
+     * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand, headerName }) =>
       onCommand({
@@ -1296,62 +1250,62 @@ function tableButton(
 }
 
 /**
- * 「htmlOption」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param option 「option」は、「htmlOption」がWebview UIで処理する対象を特定する入力です。
- * @returns 「htmlOption」が生成または整形したWebview UI状態の文字列を返します。
+ * HTML出力設定から指定した項目の現在値を取得する。
+ * @param option - リボン実装へ渡す設定または境界値。
+ * @returns リボン実装のhtml・optionが生成する結果。
  */
 function htmlOption(
   option: "embedImages" | "convertLinkedMarkdown" | "saveWithoutDialog",
 ): RibbonControlImplementation {
   return control(
-  /**
- * 「context」「definition」「resolveLabel」を受け取り、処理結果を生成する処理です。
-   * @param context contextとして渡される、このコールバックの入力値です。
-   * @param definition definitionとして渡される、このコールバックの入力値です。
-   * @param resolveLabel resolveLabelとして渡される、このコールバックの入力値です。
-   * @returns 「context」「definition」「resolveLabel」から生成した処理結果を返します。
-   */
-  (context, definition, resolveLabel) => {
-    return (
-      <label className="ribbon-checkbox">
-        <input
-          type="checkbox"
-          checked={context.htmlOptions[option]}
-          onChange={
-          /**
- * 受け取った値を検証し、呼び出し元が利用する処理結果を返すコールバックです。
-           * @param event 処理対象のイベントです。
-           * @returns 「event」から生成した処理結果を返します。
-           */
-          (event) =>
-            context.onHtmlOptionsChange({
-              ...context.htmlOptions,
-              [option]: event.target.checked,
-            })
-          }
-        />
-        <span>{resolveLabel(definition.label)}</span>
-      </label>
-    );
-  });
+    /**
+     * リボンの設定値と文言から入力コントロールを生成する。
+     * @param context - 編集状態、表示文言、コマンド通知を含むリボン表示コンテキスト。
+     * @param definition - ラベルと選択肢を含むリボン項目定義。
+     * @param resolveLabel - ローカライズキーを表示文言へ変換する関数。
+     * @returns リボンに表示する入力コントロール。
+     */
+    (context, definition, resolveLabel) => {
+      return (
+        <label className="ribbon-checkbox">
+          <input
+            type="checkbox"
+            checked={context.htmlOptions[option]}
+            onChange={
+              /**
+               * change操作を表示または編集状態へ反映する。
+               * @param event - ユーザー操作またはDOMから通知されたイベント。
+               * @returns 副作用を完了し、値は返さない。
+               */
+              (event) =>
+                context.onHtmlOptionsChange({
+                  ...context.htmlOptions,
+                  [option]: event.target.checked,
+                })
+            }
+          />
+          <span>{resolveLabel(definition.label)}</span>
+        </label>
+      );
+    },
+  );
 }
 
 /**
- * get・control・fieldを取得または解決します。
- * @param definition 「definition」は、「getControlField」がWebview UI状態の処理対象を特定する入力です。
- * @param id 「id」は、「getControlField」がWebview UI状態の処理対象を特定する入力です。
- * @returns 「getControlField」が読み取りまたは正規化した結果を返します。
+ * リボン項目定義から指定した入力フィールドを取得する。
+ * @param definition - リボン実装へ渡す入力。
+ * @param id - リボン実装の対象や分岐を識別する値。
+ * @returns リボン実装のget・control・fieldが生成する結果。
  */
 function getControlField(
   definition: RibbonItemDefinition,
   id: string,
 ): RibbonControlFieldDefinition {
   const field = definition.options?.fields?.find(
-
     /**
- * 「candidate」が検索条件に一致するか判定するコールバックです。
-     * @param candidate candidateとして渡される、このコールバックの入力値です。
-     * @returns 条件を満たすかどうかを示す真偽値を返します。
+     * 識別子が条件に一致する最初のcandidateを取得する。
+     * @param candidate - candidateの識別子を参照する走査対象。
+     * @returns 条件に一致した最初の要素。未検出時はundefined。
      */
     (candidate) => candidate.id === id,
   );
@@ -1362,9 +1316,9 @@ function getControlField(
 }
 
 /**
- * save・image・directoryを更新または保存します。
- * @param context 「context」は、「saveImageDirectory」がWebview UI状態の処理対象を特定する入力です。
- * @returns 「saveImageDirectory」の副作用または状態更新を実行し、値は返しません。
+ * リボン実装の値を保存先または共有状態へ書き出す。
+ * @param context - リボン実装で扱う文字列または本文。
+ * @returns 副作用を完了し、値は返さない。
  */
 function saveImageDirectory(context: RibbonImplementationContext): void {
   const directory = context.imageDirectoryDraft.trim();
@@ -1373,9 +1327,9 @@ function saveImageDirectory(context: RibbonImplementationContext): void {
 }
 
 /**
- * save・font・familiesを更新または保存します。
- * @param context 「context」は、「saveFontFamilies」がWebview UI状態の処理対象を特定する入力です。
- * @returns 「saveFontFamilies」の副作用または状態更新を実行し、値は返しません。
+ * リボン実装の値を保存先または共有状態へ書き出す。
+ * @param context - リボン実装で扱う文字列または本文。
+ * @returns 副作用を完了し、値は返さない。
  */
 function saveFontFamilies(context: RibbonImplementationContext): void {
   const editorFontFamily = normalizeFontFamily(context.editorFontFamilyDraft);
@@ -1384,32 +1338,34 @@ function saveFontFamilies(context: RibbonImplementationContext): void {
 }
 
 /**
- * save・font・familyを更新または保存します。
- * @param context 「context」は、「saveFontFamily」がWebview UI状態の処理対象を特定する入力です。
- * @param field 「field」は、「saveFontFamily」がWebview UI状態の処理対象を特定する入力です。
- * @param value 「saveFontFamily」で検証・変換する入力値です。
- * @returns 「saveFontFamily」の副作用または状態更新を実行し、値は返しません。
+ * リボン実装の値を保存先または共有状態へ書き出す。
+ * @param context - リボン実装で扱う文字列または本文。
+ * @param field - リボン実装へ渡す入力。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @returns 副作用を完了し、値は返さない。
  */
 function saveFontFamily(
   context: RibbonImplementationContext,
   field: "editor" | "preview",
   value: string,
 ): void {
-  const editorFontFamily = field === "editor"
-    ? normalizeFontFamily(value)
-    : normalizeFontFamily(context.editorFontFamilyDraft);
-  const previewFontFamily = field === "preview"
-    ? normalizeFontFamily(value)
-    : normalizeFontFamily(context.previewFontFamilyDraft);
+  const editorFontFamily =
+    field === "editor"
+      ? normalizeFontFamily(value)
+      : normalizeFontFamily(context.editorFontFamilyDraft);
+  const previewFontFamily =
+    field === "preview"
+      ? normalizeFontFamily(value)
+      : normalizeFontFamily(context.previewFontFamilyDraft);
   saveFontFamilyValues(context, editorFontFamily, previewFontFamily);
 }
 
 /**
- * 値を更新または保存します。
- * @param context 「context」は、「saveFontFamilyValues」がWebview UI状態の処理対象を特定する入力です。
- * @param editorFontFamily 「editorFontFamily」は、「saveFontFamilyValues」がWebview UI状態の処理対象を特定する入力です。
- * @param previewFontFamily 「previewFontFamily」は、「saveFontFamilyValues」がWebview UI状態の処理対象を特定する入力です。
- * @returns 「saveFontFamilyValues」の副作用または状態更新を実行し、値は返しません。
+ * リボン実装の値を保存先または共有状態へ書き出す。
+ * @param context - リボン実装で扱う文字列または本文。
+ * @param editorFontFamily - リボン実装の位置・寸法・件数・時間を表す数値。
+ * @param previewFontFamily - リボン実装の位置・寸法・件数・時間を表す数値。
+ * @returns 副作用を完了し、値は返さない。
  */
 function saveFontFamilyValues(
   context: RibbonImplementationContext,
@@ -1419,16 +1375,21 @@ function saveFontFamilyValues(
   if (
     editorFontFamily === context.editorFontFamily &&
     previewFontFamily === context.previewFontFamily
-  ) return;
-  context.onCommand({ type: "setFontFamilies", editorFontFamily, previewFontFamily });
+  )
+    return;
+  context.onCommand({
+    type: "setFontFamilies",
+    editorFontFamily,
+    previewFontFamily,
+  });
 }
 
 /**
- * clamp・numberを正規化します。
- * @param value 「clampNumber」で検証・変換する入力値です。
- * @param minimum 「minimum」は、「clampNumber」がWebview UI状態の処理対象を特定する入力です。
- * @param maximum 「maximum」は、「clampNumber」がWebview UI状態の処理対象を特定する入力です。
- * @returns 計算結果の数値です。
+ * リボン実装の寸法、容量、位置、または計測値を求める。
+ * @param value - 検証・変換・保存の対象となる値。
+ * @param minimum - リボン実装で扱う数値。
+ * @param maximum - リボン実装の位置・寸法・件数・時間を表す数値。
+ * @returns リボン実装で利用する数値。
  */
 function clampNumber(value: string, minimum: number, maximum: number): number {
   const parsed = Number(value);

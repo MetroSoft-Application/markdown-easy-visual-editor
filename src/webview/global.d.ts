@@ -1,17 +1,20 @@
 /**
- * @file global.d.ts
- * 実行境界: Webview。
- * 責務: 編集UI、プレビュー、ユーザー操作を処理する。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: DOM、Webviewメッセージ、ブラウザーAPI、編集状態を操作する。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview Webviewのglobal・dを管理する。Hostとの通信、ユーザー操作、表示状態の契約を保つ。
  */
-/** WebviewでCSS資産をTypeScriptから読み込むための宣言モジュール。 */
+/**
+ * global・dのコールバックとして要素を処理する。
+ * @returns global・dのコールバックが生成する結果。
+ */
 declare module '*.css';
 
-/** TurndownのGFM拡張が提供するプラグインの型宣言モジュール。 */
+/**
+ * global・dのコールバックとして要素を処理する。
+ * @returns global・dのコールバックが生成する結果。
+ */
 declare module 'turndown-plugin-gfm' {
     import type { Plugin } from 'turndown';
-    /** TurndownへGitHub Flavored Markdownの変換規則を追加するプラグイン。 */
+    /**
+     * global・dのgfmに関する状態または設定。
+     */
     export const gfm: Plugin;
 }

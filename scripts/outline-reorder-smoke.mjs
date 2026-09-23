@@ -1,20 +1,15 @@
 /**
- * @file outline-reorder-smoke.mjs
- * 実行境界: 開発・検証スクリプト。
- * 責務: ビルド、スモーク、統合検証または補助生成を実行する。
- * 入出力: 呼び出し側の入力を検証・変換し、型またはテストで定義された結果を返す。
- * 副作用: プロセス、生成物、Webview、VS Code、Chromiumなどの外部環境を操作する。
- * 不変条件: 既存のデータ形式と呼び出し側の契約を維持する。
+ * @fileoverview 目次・reorder・スモーク検証を開発・検証環境で実行する。前提条件や失敗条件を終了コードとログで示す。
  */
 import { chromium } from 'playwright-core';
 import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
 
 /**
- * ファイルを取得または解決します。
- * @param root 処理対象のルートです。
- * @param name 対象を識別する名前で、表示または処理分岐に使用します。
- * @returns 「findFile」が読み取りまたは正規化した結果を返します。
+ * 指定した名前のファイルを検証用ディレクトリから再帰的に探す。
+ * @param root - 目次・reorder・スモーク検証へ渡す入力。
+ * @param name - 目次・reorder・スモーク検証の対象や分岐を識別する値。
+ * @returns 目次・reorder・スモーク検証のfind・fileが生成する結果。
  */
 async function findFile(root, name) {
   for (const entry of await readdir(root, { withFileTypes: true })) {
@@ -28,21 +23,21 @@ async function findFile(root, name) {
 }
 
 /**
- * 「stripInstructions」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
- * @param markdown 解析・編集・変換の対象となる本文または生成済み内容です。
- * @returns 「stripInstructions」が検証シナリオの入力を処理して得た固有の結果を返します。
+ * 目次・reorder・スモーク検証から不要または危険な情報を除去する。
+ * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
+ * @returns 目次・reorder・スモーク検証のstrip・instructionsが生成する結果。
  */
 function stripInstructions(markdown) {
   return markdown.replace(/^<!--[\s\S]*?-->\s*/, '');
 }
 
 /**
- * move・heading・blockを移動または調整します。
- * @param markdown 解析・編集・変換の対象となる本文または生成済み内容です。
- * @param sourceHeading 「sourceHeading」は、「moveHeadingBlock」が検証シナリオの処理対象を特定する入力です。
- * @param targetHeading 「targetHeading」は、「moveHeadingBlock」が検証シナリオの処理対象を特定する入力です。
- * @param position 「position」は、「moveHeadingBlock」が検証シナリオの処理対象を特定する入力です。
- * @returns 「moveHeadingBlock」が検証シナリオの入力を処理して得た固有の結果を返します。
+ * 目次・reorder・スモーク検証の要素を規則に従って並べ替える。
+ * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
+ * @param sourceHeading - 目次・reorder・スモーク検証で扱う文字列または本文。
+ * @param targetHeading - 目次・reorder・スモーク検証へ渡す入力。
+ * @param position - 目次・reorder・スモーク検証の位置・寸法・件数・時間を表す数値。
+ * @returns 目次・reorder・スモーク検証のmove・heading・blockが生成する結果。
  */
 function moveHeadingBlock(markdown, sourceHeading, targetHeading, position) {
   const lines = markdown.split('\n');
@@ -50,20 +45,14 @@ function moveHeadingBlock(markdown, sourceHeading, targetHeading, position) {
   if (sourceStart < 0) throw new Error(`Missing source heading: ${sourceHeading}`);
   const sourceLevel = sourceHeading.match(/^#+/)?.[0].length ?? 0;
 
-  /**
-   * 「sectionEnd」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-   * @param sourceLines 「sourceLines」は、「sectionEnd」が検証シナリオの処理対象を特定する入力です。
-   * @param start 「start」は、「sectionEnd」が検証シナリオの処理対象を特定する入力です。
-   * @param level 「level」は、「sectionEnd」が検証シナリオの処理対象を特定する入力です。
-   * @returns 「sectionEnd」が検証シナリオの入力を処理して得た固有の結果を返します。
-   */
+  
   const sectionEnd = /**
- * 「sectionEnd」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param sourceLines 「sourceLines」は、「sectionEnd」が検証シナリオで処理する対象を特定する入力です。
- * @param start 「start」は、「sectionEnd」が検証シナリオで処理する対象を特定する入力です。
- * @param level 処理対象を特定する位置、範囲、または数量です。
- * @returns 「sectionEnd」が検証シナリオの入力を処理して得た固有の結果を返します。
- */ (sourceLines, start, level) => {
+   * 目次・reorder・スモーク検証のsection・endを処理し、呼び出し側へ結果または副作用を返す。
+   * @param sourceLines - 目次・reorder・スモーク検証で扱う文字列または本文。
+   * @param start - 目次・reorder・スモーク検証へ渡す入力。
+   * @param level - 目次・reorder・スモーク検証へ渡す入力。
+   * @returns 目次・reorder・スモーク検証のsection・endが生成する結果。
+   */ (sourceLines, start, level) => {
     for (let index = start + 1; index < sourceLines.length; index += 1) {
       const heading = /^(#+)\s+/.exec(sourceLines[index]);
       if (heading && heading[1].length <= level) return index;
@@ -80,52 +69,80 @@ function moveHeadingBlock(markdown, sourceHeading, targetHeading, position) {
   return withoutSource.slice(0, insertion).concat(block, withoutSource.slice(insertion)).join('\n');
 }
 
-/** 「executablePath」は、対象ファイルまたは実行環境の場所を表す値です。 */
+/**
+ * 目次・reorder・スモーク検証で読み書きするリソースの場所。
+ */
 const executablePath = await findFile(path.resolve('.chromium'), 'chrome-headless-shell.exe');
 if (!executablePath) throw new Error('Chromium is not installed.');
-/** 「webviewBundle」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * 目次・reorder・スモーク検証のwebview・bundleとして読み込んだ本文または設定。
+ */
 const webviewBundle = await readFile(path.resolve('dist/webview.js'), 'utf8');
-/** 「markdownWorkerBundle」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * 目次・reorder・スモーク検証で解析・表示・保存する本文。
+ */
 const markdownWorkerBundle = await readFile(path.resolve('dist/markdown-worker.js'), 'utf8');
-/** 「markdownRichWorkerBundle」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * 目次・reorder・スモーク検証で解析・表示・保存する本文。
+ */
 const markdownRichWorkerBundle = await readFile(path.resolve('dist/markdown-rich-worker.js'), 'utf8');
-/** 「fixture」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * 目次・reorder・スモーク検証のfixtureとして読み込んだ本文または設定。
+ */
 const fixture = (await readFile(path.resolve('test/fixtures/outline-reorder-undo.md'), 'utf8')).replace(/\r\n?/g, '\n');
-/** 「initialText」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * 目次・reorder・スモーク検証で解析・表示・保存する本文。
+ */
 const initialText = stripInstructions(fixture);
-/** 「initialLines」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * 目次・reorder・スモーク検証の位置・寸法・件数・時間を表す数値。
+ */
 const initialLines = initialText.split('\n');
-/** 「topLevelHeadings」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * 目次・reorder・スモーク検証で扱う一覧または対応表。
+ */
 const topLevelHeadings = initialLines.filter(
 /**
- * 「line」が条件に一致するか判定し、残す要素を決めるコールバックです。
- * @param line lineとして渡される、このコールバックの入力値です。
- * @returns 要素を採用するかどうかの真偽値を返します。
+ * 条件を満たすlineだけを残す。
+ * @param line - 目次・reorder・スモーク検証の位置・寸法・件数・時間を表す数値。
+ * @returns 条件を満たした要素だけを含む一覧。
  */
 (line) => /^#\s+/.test(line));
-/** 「childHeadings」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * 目次・reorder・スモーク検証で扱う一覧または対応表。
+ */
 const childHeadings = initialLines.filter(
 /**
- * 「line」が条件に一致するか判定し、残す要素を決めるコールバックです。
- * @param line lineとして渡される、このコールバックの入力値です。
- * @returns 要素を採用するかどうかの真偽値を返します。
+ * 条件を満たすlineだけを残す。
+ * @param line - 目次・reorder・スモーク検証の位置・寸法・件数・時間を表す数値。
+ * @returns 条件を満たした要素だけを含む一覧。
  */
 (line) => /^##\s+/.test(line));
-/** 「grandchildHeading」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * 目次・reorder・スモーク検証のgrandchild・headingに関する状態または設定。
+ */
 const grandchildHeading = initialLines.find(
 /**
- * 「line」が検索条件に一致するか判定するコールバックです。
- * @param line lineとして渡される、このコールバックの入力値です。
- * @returns 要素を採用するかどうかの真偽値を返します。
+ * 条件に一致する最初のlineを取得する。
+ * @param line - 目次・reorder・スモーク検証の位置・寸法・件数・時間を表す数値。
+ * @returns 条件に一致した最初の要素。未検出時はundefined。
  */
 (line) => /^###\s+/.test(line));
-/** 「parentMovedText」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * 目次・reorder・スモーク検証で解析・表示・保存する本文。
+ */
 const parentMovedText = moveHeadingBlock(initialText, topLevelHeadings[0], topLevelHeadings[1], 'after');
-/** 「childMovedText」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * 目次・reorder・スモーク検証で解析・表示・保存する本文。
+ */
 const childMovedText = moveHeadingBlock(parentMovedText, childHeadings[0], childHeadings[1], 'after');
-/** 「crossParentMovedText」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * 目次・reorder・スモーク検証で解析・表示・保存する本文。
+ */
 const crossParentMovedText = moveHeadingBlock(childMovedText, childHeadings[0], childHeadings[2], 'after');
-/** 「emptyParentMovedText」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * 目次・reorder・スモーク検証で解析・表示・保存する本文。
+ */
 const emptyParentMovedText = [
   '# Parent B',
   '',
@@ -156,25 +173,37 @@ const emptyParentMovedText = [
   'Grandchild A-1-a body.',
   ''
 ].join('\n');
-/** 「initialOutline」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * 目次・reorder・スモーク検証の位置・寸法・件数・時間を表す数値。
+ */
 const initialOutline = [topLevelHeadings[0], childHeadings[0], grandchildHeading, childHeadings[1], topLevelHeadings[1], childHeadings[2], topLevelHeadings[2], childHeadings[3], topLevelHeadings[3]];
-/** 「parentMovedOutline」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * 目次・reorder・スモーク検証の位置・寸法・件数・時間を表す数値。
+ */
 const parentMovedOutline = [topLevelHeadings[1], childHeadings[2], topLevelHeadings[0], childHeadings[0], grandchildHeading, childHeadings[1], topLevelHeadings[2], childHeadings[3], topLevelHeadings[3]];
-/** 「childMovedOutline」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * 目次・reorder・スモーク検証の位置・寸法・件数・時間を表す数値。
+ */
 const childMovedOutline = [topLevelHeadings[1], childHeadings[2], topLevelHeadings[0], childHeadings[1], childHeadings[0], grandchildHeading, topLevelHeadings[2], childHeadings[3], topLevelHeadings[3]];
-/** 「crossParentMovedOutline」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * 目次・reorder・スモーク検証の位置・寸法・件数・時間を表す数値。
+ */
 const crossParentMovedOutline = [topLevelHeadings[1], childHeadings[2], childHeadings[0], grandchildHeading, topLevelHeadings[0], childHeadings[1], topLevelHeadings[2], childHeadings[3], topLevelHeadings[3]];
-/** 「emptyParentMovedOutline」は、関連する処理間で共有する設定値または状態です。 */
+/**
+ * 目次・reorder・スモーク検証の位置・寸法・件数・時間を表す数値。
+ */
 const emptyParentMovedOutline = [topLevelHeadings[1], childHeadings[2], topLevelHeadings[0], childHeadings[1], topLevelHeadings[2], childHeadings[3], topLevelHeadings[3], childHeadings[0], grandchildHeading];
 
-/** 「browser」は、ブラウザー処理の共有状態または実行設定です。 */
+/**
+ * 目次・reorder・スモーク検証の位置・寸法・件数・時間を表す数値。
+ */
 const browser = await chromium.launch({ executablePath, headless: true });
 try {
   const context = await browser.newContext();
   await context.addInitScript(
   /**
- * ブラウザーのWebviewテストで使用するグローバル状態を初期化するコールバックです。
-   * @returns 「window.__mveMessages.push」を実行し、値を返しません。
+   * 要素を一覧追加へ渡し、目次・reorder・スモーク検証の結果または副作用を処理する。
+   * @returns 目次・reorder・スモーク検証のコールバックが生成する結果。
    */
   () => {
     window.__mveMessages = [];
@@ -184,21 +213,17 @@ try {
     window.__mveRedoStack = [];
     window.acquireVsCodeApi =
     /**
- * WebviewテストへVS Code API互換オブジェクトを提供するコールバックです。
-     * @returns 初期化したオブジェクト（postMessage）を返します。
+     * WebviewからVS Codeのメッセージ送信・状態保存APIを取得する。
+     * @returns VS Codeのメッセージ送信・状態保存API。
      */
     () => ({
 
-      /**
-       * 「postMessage」は、言語や通信契約に応じた表示文言または対応表を保持します。
-       * @param message 処理対象のメッセージです。
-       * @returns メッセージをHostまたはWebviewへ送信し、値は返しません。
-       */
+      
       postMessage: /**
- * 「postMessage」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param message 「message」は、「postMessage」が検証シナリオで処理する対象を特定する入力です。
- * @returns メッセージをHostまたはWebviewへ送信し、値は返しません。
- */ (message) => {
+       * 目次・reorder・スモーク検証の変更または要求をHost・Webview間へ通知する。
+       * @param message - HostとWebviewの間で受け渡すメッセージ。
+       * @returns 目次・reorder・スモーク検証のpost・messageが生成する結果。
+       */ (message) => {
         window.__mveMessages.push(message);
         if (message.type === 'localChanges') {
           window.__mveUndoStack.push(window.__mveHostText);
@@ -206,10 +231,10 @@ try {
           const baseVersion = window.__mveHostVersion;
           for (const change of [...message.changes].sort(
           /**
- * 「left」「right」を比較し、並び順を示す数値を返すコールバックです。
-           * @param left 比較対象の左側の値です。
-           * @param right 比較対象の右側の値です。
-           * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+           * 2つの値を比較して並び順を決める。
+           * @param left - 比較対象の左側の値。
+           * @param right - 比較対象の右側の値。
+           * @returns 2つの要素の順序を示す数値。
            */
           (left, right) => right.rangeOffset - left.rangeOffset)) {
             window.__mveHostText = window.__mveHostText.slice(0, change.rangeOffset)
@@ -219,8 +244,8 @@ try {
           window.__mveHostVersion += 1;
           setTimeout(
           /**
- * 指定時間の経過後に遅延処理を実行するコールバックです。
-           * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+           * 指定時間の経過後に後続処理を実行する。
+           * @returns 副作用を完了し、値は返さない。
            */
           () => window.dispatchEvent(new MessageEvent('message', {
             data: {
@@ -245,8 +270,8 @@ try {
           window.__mveHostVersion += 1;
           setTimeout(
           /**
- * 指定時間の経過後に遅延処理を実行するコールバックです。
-           * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+           * 指定時間の経過後に後続処理を実行する。
+           * @returns 副作用を完了し、値は返さない。
            */
           () => window.dispatchEvent(new MessageEvent('message', {
             data: {
@@ -259,23 +284,17 @@ try {
         }
       },
 
-      /**
-       * 状態を取得または解決します。
-       * @returns Hostが保持する保存済み状態を返し、未保存の場合はundefinedを返します。
-       */
+      
       getState: /**
- * 「getState」は、要求された状態、値、または対象を読み取ります。
- * @returns Hostが保持する保存済み状態を返し、未保存の場合はundefinedを返します。
- */ () => undefined,
+       * 目次・reorder・スモーク検証から必要な値またはリソースを取得する。
+       * @returns 条件に一致する値。未検出時はundefinedまたはnull。
+       */ () => undefined,
 
-      /**
-       * 状態を更新または保存します。
-       * @returns 指定された状態をHostへ保存し、値は返しません。
-       */
+      
       setState: /**
- * 「setState」は、入力を検証して対象の状態または内容へ適用します。
- * @returns 指定された状態をHostへ保存し、値は返しません。
- */ () => undefined
+       * 目次・reorder・スモーク検証の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+       * @returns 副作用を完了し、値は返さない。
+       */ () => undefined
     });
   });
 
@@ -284,25 +303,25 @@ try {
   const errors = [];
   page.on('pageerror',
   /**
- * 「error」を受け取り、テスト用のWorkerまたはBlob URLを登録する処理です。
-   * @param error 発生したエラーです。
-   * @returns 「errors.push」を実行し、値を返しません。
+   * pageerrorイベントで一覧追加を実行する。
+   * @param error - ユーザー操作またはDOMから通知されたイベント。
+   * @returns 副作用を完了し、値は返さない。
    */
   (error) => errors.push(error.message));
   page.on('console',
   /**
- * 「message」を受け取り、テスト用のWorkerまたはBlob URLを登録する処理です。
-   * @param message 処理対象のメッセージです。
-   * @returns 「if」を実行し、値を返しません。
+   * consoleイベントでifを実行する。
+   * @param message - ユーザー操作またはDOMから通知されたイベント。
+   * @returns 副作用を完了し、値は返さない。
    */
   (message) => { if (message.type() === 'error') errors.push(message.text()); });
   await page.goto('about:blank');
   await page.setContent('<!doctype html><html lang="ja"><head><meta charset="utf-8"></head><body><div id="root"></div></body></html>');
   await page.evaluate(
   /**
- * 「workerSource」「richWorkerSource」を受け取り、テスト用のWorkerまたはBlob URLを登録する処理です。
-   * @param options 分割代入で受け取る入力オブジェクトです。主なフィールドはworkerSource、richWorkerSourceです。
-   * @returns 「URL.createObjectURL」を実行し、値を返しません。
+   * ブラウザーのDOM状態のcreate・object・url結果を読み取り、検証用の値へ変換する。
+   * @param options - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   ({ workerSource, richWorkerSource }) => {
     document.body.dataset.mveMarkdownWorkerUri = URL.createObjectURL(new Blob([workerSource], { type: 'text/javascript' }));
@@ -313,28 +332,28 @@ try {
   await page.addScriptTag({ path: path.resolve('dist/webview.js') });
   await page.waitForFunction(
   /**
- * Webviewへメッセージイベントを発火する処理を実行するコールバックです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * HostとWebviewのメッセージ状態が完了条件を満たすまで待機する。
+   * @returns 目次・reorder・スモーク検証のコールバックが生成する結果。
    */
   () => window.__mveMessages.some(
   /**
- * 「message」が条件を満たすか判定し、該当する要素の有無を返すコールバックです。
-   * @param message 処理対象のメッセージです。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * 目次・reorder・スモーク検証のコールバックとしてメッセージを処理する。
+   * @param message - HostとWebviewの間で受け渡すメッセージ。
+   * @returns 目次・reorder・スモーク検証のコールバックが生成する結果。
    */
   (message) => message.type === 'ready'));
   await page.evaluate(
   /**
- * 「text」を受け取り、Webviewへメッセージイベントを発火する処理です。
-   * @param text 処理対象の本文です。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * Host側の本文状態を読み取り、検証用の値へ変換する。
+   * @param text - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (text) => { window.__mveHostText = text; }, initialText);
   await page.evaluate(
   /**
- * 「text」を受け取り、Webviewへメッセージイベントを発火する処理です。
-   * @param text 処理対象の本文です。
-   * @returns イベントを発火し、通知処理の成否を示す真偽値を返します。
+   * Webviewの実行状態のdispatch・event結果を読み取り、検証用の値へ変換する。
+   * @param text - ブラウザー内で評価するコールバック。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
   (text) => window.dispatchEvent(new MessageEvent('message', {
     data: {
@@ -355,45 +374,36 @@ try {
   await page.locator('.outline-item').first().waitFor();
 
 
-  /**
-   * 「outlineIndex」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-   * @param heading 「heading」は、「outlineIndex」が検証シナリオの処理対象を特定する入力です。
-   * @returns 「outlineIndex」が計算した位置・サイズ・件数などの数値を返します。
-   */
+  
   const outlineIndex = /**
- * 「outlineIndex」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param heading 「heading」は、「outlineIndex」が検証シナリオで処理する対象を特定する入力です。
- * @returns 置換後の文字列を返します。
- */ async (heading) => page.locator('.outline-item').evaluateAll(
+   * 目次・reorder・スモーク検証のoutline・indexを処理し、呼び出し側へ結果または副作用を返す。
+   * @param heading - 目次・reorder・スモーク検証へ渡す入力。
+   * @returns 目次・reorder・スモーク検証のoutline・indexが生成する結果。
+   */ async (heading) => page.locator('.outline-item').evaluateAll(
 
     /**
- * 「elements」「expected」を受け取り、入力文字列を置換して変換する処理です。
-     * @param elements elementsとして渡される、このコールバックの入力値です。
-     * @param expected expectedとして渡される、このコールバックの入力値です。
-     * @returns 置換後の文字列を返します。
+     * elementsをfind・indexへ渡し、目次・reorder・スモーク検証の結果または副作用を処理する。
+     * @param elements - 目次・reorder・スモーク検証で走査または更新する要素。
+     * @param expected - 目次・reorder・スモーク検証の位置・寸法・件数・時間を表す数値。
+     * @returns 目次・reorder・スモーク検証のコールバックが生成する結果。
      */
     (elements, expected) => elements.findIndex(
     /**
- * 「element」を受け取り、入力文字列を置換して変換する処理です。
-     * @param element 処理対象の要素です。
-     * @returns 置換後の文字列を返します。
+     * 要素をtrimへ渡し、目次・reorder・スモーク検証の結果または副作用を処理する。
+     * @param element - 寸法または属性を読み取るDOM要素。
+     * @returns 目次・reorder・スモーク検証のコールバックが生成する結果。
      */
     (element) => element.textContent?.trim() === expected.replace(/^#+\s+/, '')),
     heading
   );
 
-  /**
-   * 「drag」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-   * @param sourceHeading 「sourceHeading」は、「drag」が検証シナリオの処理対象を特定する入力です。
-   * @param targetHeading 「targetHeading」は、「drag」が検証シナリオの処理対象を特定する入力です。
-   * @returns 「drag」が検証シナリオの入力を処理して得た固有の結果を返します。
-   */
+  
   const drag = /**
- * 「drag」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param sourceHeading 「sourceHeading」は、「drag」が検証シナリオで処理する対象を特定する入力です。
- * @param targetHeading 「targetHeading」は、「drag」が検証シナリオで処理する対象を特定する入力です。
- * @returns 「drag」が検証シナリオの入力を処理して得た固有の結果を返します。
- */ async (sourceHeading, targetHeading) => {
+   * 目次・reorder・スモーク検証のdragを処理し、呼び出し側へ結果または副作用を返す。
+   * @param sourceHeading - 目次・reorder・スモーク検証で扱う文字列または本文。
+   * @param targetHeading - 目次・reorder・スモーク検証へ渡す入力。
+   * @returns 目次・reorder・スモーク検証のdragが生成する結果。
+   */ async (sourceHeading, targetHeading) => {
     const items = page.locator('.outline-item');
     const source = await items.nth(await outlineIndex(sourceHeading)).boundingBox();
     const target = await items.nth(await outlineIndex(targetHeading)).boundingBox();
@@ -404,52 +414,45 @@ try {
     await page.mouse.up({ button: 'right' });
   };
 
-  /**
-   * 「localChangeCount」は、関連する入力を検証し、呼び出し元が利用する処理結果を生成します。
-   * @returns 「localChangeCount」が計算した位置・サイズ・件数などの数値を返します。
-   */
+  
   const localChangeCount = /**
- * 「localChangeCount」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @returns Webviewの状態から取得した値を返します。
- */ () => page.evaluate(
+   * Webviewから収集した変更通知の件数を数える。
+   * @returns Webviewが送信した変更通知の件数。
+   */ () => page.evaluate(
 
     /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-     * @returns Webviewの状態から取得した値を返します。
+     * HostとWebviewのメッセージ状態のfilter結果を読み取り、検証用の値へ変換する。
+     * @returns ブラウザー内で読み取った値または変換結果。
      */
     () => window.__mveMessages.filter(
     /**
- * 「message」が条件に一致するか判定し、残す要素を決めるコールバックです。
-     * @param message 処理対象のメッセージです。
-     * @returns 要素を採用するかどうかの真偽値を返します。
+     * 種別「localChanges」のメッセージだけを残す。
+     * @param message - メッセージのtypeを参照する走査対象。
+     * @returns 条件を満たした要素だけを含む一覧。
      */
     (message) => message.type === 'localChanges').length
   );
 
-  /**
-   * wait・for・hostを待機します。
-   * @param expected 検証で期待する値または状態です。
-   * @returns 「waitForHost」が検証シナリオの入力を処理して得た固有の結果を返します。
-   */
+  
   const waitForHost = /**
- * 「waitForHost」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param expected 「expected」は、「waitForHost」が検証シナリオで処理する対象を特定する入力です。
- * @returns 「waitForHost」が検証シナリオの入力を処理して得た固有の結果を返します。
- */ async (expected) => {
+   * 目次・reorder・スモーク検証が指定条件を満たすまで待機する。
+   * @param expected - 目次・reorder・スモーク検証の位置・寸法・件数・時間を表す数値。
+   * @returns 目次・reorder・スモーク検証のwait・for・hostが生成する結果。
+   */ async (expected) => {
     try {
       await page.waitForFunction(
       /**
- * 非同期処理の失敗理由を受け取り、回復処理または代替値を生成するコールバックです。
-       * @param text 処理対象の本文です。
-       * @returns 「text」から生成した処理結果を返します。
+       * Host側の本文状態が完了条件を満たすまで待機する。
+       * @param text - ブラウザー内で評価するコールバック。
+       * @returns 目次・reorder・スモーク検証のコールバックが生成する結果。
        */
       (text) => window.__mveHostText === text, expected);
       await page.waitForTimeout(250);
     } catch (error) {
       const actual = await page.evaluate(
       /**
-       * Promiseの失敗理由を受け取り、エラー表示またはフォールバックを実行するコールバックです。
-       * @returns エラー処理またはフォールバックの結果を返します。
+       * HostとWebviewのメッセージ状態を読み取り、検証用の値へ変換する。
+       * @returns ブラウザー内で読み取った値または変換結果。
        */
       () => ({
         text: window.__mveHostText,
@@ -459,52 +462,42 @@ try {
     }
   };
 
-  /**
-   * wait・for・outlineを待機します。
-   * @param expected 検証で期待する値または状態です。
-   * @returns 「waitForOutline」が検証シナリオの入力を処理して得た固有の結果を返します。
-   */
+  
   const waitForOutline = /**
- * 「waitForOutline」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param expected 「expected」は、「waitForOutline」が検証シナリオで処理する対象を特定する入力です。
- * @returns 置換後の文字列を返します。
- */ (expected) => page.waitForFunction(
+   * 目次・reorder・スモーク検証が指定条件を満たすまで待機する。
+   * @param expected - 目次・reorder・スモーク検証の位置・寸法・件数・時間を表す数値。
+   * @returns 目次・reorder・スモーク検証のwait・for・outlineが生成する結果。
+   */ (expected) => page.waitForFunction(
   /**
- * 「items」を受け取り、入力文字列を置換して変換する処理です。
-   * @param items 処理対象となる複数要素の集合です。
-   * @returns 置換後の文字列を返します。
+   * ブラウザー内に「.outline-item」が現れるまで待機する。
+   * @param items - ブラウザー内で評価するコールバック。
+   * @returns 目次・reorder・スモーク検証のコールバックが生成する結果。
    */
   (items) => (
     [...document.querySelectorAll('.outline-item')].map(
     /**
- * 「element」を変換し、変換後の要素を返すコールバックです。
-     * @param element 処理対象の要素です。
-     * @returns 置換後の文字列を返します。
+     * 各要素からtext・contentを取り出して一覧化する。
+     * @param element - 要素のtext・contentを参照する走査対象。
+     * @returns text・contentを取り出した変換結果の一覧。
      */
     (element) => element.textContent?.trim()).join('\n')
       === items.map(
       /**
- * 「item」を変換し、変換後の要素を返すコールバックです。
-       * @param item 変換または処理の対象となる値です。
-       * @returns 置換後の文字列を返します。
+       * 各項目からreplaceを取り出して一覧化する。
+       * @param item - 項目のreplaceを参照する走査対象。
+       * @returns replaceを取り出した変換結果の一覧。
        */
       (item) => item.replace(/^#+\s+/, '')).join('\n')
   ), expected);
 
-  /**
-   * assert・no・opを検証します。
-   * @param sourceHeading 「sourceHeading」は、「assertNoOp」が検証シナリオの処理対象を特定する入力です。
-   * @param targetHeading 「targetHeading」は、「assertNoOp」が検証シナリオの処理対象を特定する入力です。
-   * @param expected 検証で期待する値または状態です。
-   * @returns 「assertNoOp」が判定した検証結果を返します。
-   */
+  
   const assertNoOp = /**
- * 「assertNoOp」は、登録先へ渡された入力を検証・変換し、必要な処理結果を生成します。
- * @param sourceHeading 「sourceHeading」は、「assertNoOp」が検証シナリオで処理する対象を特定する入力です。
- * @param targetHeading 「targetHeading」は、「assertNoOp」が検証シナリオで処理する対象を特定する入力です。
- * @param expected 「expected」は、「assertNoOp」が検証シナリオで処理する対象を特定する入力です。
- * @returns 「assertNoOp」が判定した検証結果を返します。
- */ async (sourceHeading, targetHeading, expected) => {
+   * 目次・reorder・スモーク検証の入力と不変条件を検証し、違反時に失敗を通知する。
+   * @param sourceHeading - 目次・reorder・スモーク検証で扱う文字列または本文。
+   * @param targetHeading - 目次・reorder・スモーク検証へ渡す入力。
+   * @param expected - 目次・reorder・スモーク検証の位置・寸法・件数・時間を表す数値。
+   * @returns 条件が成立したかを示す真偽値。
+   */ async (sourceHeading, targetHeading, expected) => {
     const before = await localChangeCount();
     await drag(sourceHeading, targetHeading);
     await page.waitForTimeout(150);
@@ -512,8 +505,8 @@ try {
     if (after !== before) throw new Error(`Forbidden move emitted localChanges: ${sourceHeading} -> ${targetHeading}`);
     if (await page.evaluate(
     /**
- * WebviewのDOMまたは状態を読み取り、検証側へ値を返すコールバックです。
-     * @returns Webviewの状態から取得した値を返します。
+     * Host側の本文状態を読み取り、検証用の値へ変換する。
+     * @returns ブラウザー内で読み取った値または変換結果。
      */
     () => window.__mveHostText) !== expected) {
       throw new Error(`Forbidden move changed text: ${sourceHeading} -> ${targetHeading}`);
