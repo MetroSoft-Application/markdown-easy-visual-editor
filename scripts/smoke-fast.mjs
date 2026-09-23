@@ -284,6 +284,7 @@ try {
     || emptyCrLfResult.local !== 1 || emptyCrLfResult.resync !== 0) {
     throw new Error(`first empty CRLF line did not converge once: ${JSON.stringify(emptyCrLfResult)}`);
   }
+  const zoomImageSource = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
   const source = ('# Smoke\n\nfirst\\\nsecond\n\nReference [link][target] and note[^note].\n\n<!-- ordinary comment -->\n\n<div>raw-one</div>\n<div>raw-two</div>\n\n[target]: https://example.com\n\n[^note]: footnote body\n\n```ts\nconst value = 1;\n```\n'
     + Array.from({ length: 220 }, (_, index) => `\n## Long section ${index}\n\n${'content '.repeat(16)}${index}\n`).join('')
     + '\n| H1 | H2 |\n| --- | --- |\n| old | old2 |\n');
@@ -328,6 +329,129 @@ try {
   if (anchorMarkup.footnoteFrom !== anchorMarkup.expectedFootnoteFrom || !anchorMarkup.linked || !anchorMarkup.noted) {
     throw new Error(`reference/footnote source anchors are invalid: ${JSON.stringify(anchorMarkup)}`);
   }
+  const runImageZoomSmoke = async () => {
+    const zoomImage = page.locator('.split-preview img[data-mve-image-kind="html"]').first();
+    await zoomImage.waitFor();
+    await zoomImage.scrollIntoViewIfNeeded();
+    await page.waitForFunction(() => {
+      const image = document.querySelector('.split-preview img[data-mve-image-kind="html"]');
+      return Boolean(image instanceof HTMLImageElement && image.complete && image.naturalWidth > 0
+        && image.closest('.mve-image-frame'));
+    });
+    const imageZoomBefore = await page.evaluate(() => {
+      const image = document.querySelector('.split-preview img[data-mve-image-kind="html"]');
+      const frame = image?.closest('.mve-image-frame');
+      return {
+        frameWidth: frame?.getBoundingClientRect().width ?? 0,
+        logicalWidth: Number.parseFloat((frame instanceof HTMLElement ? frame.style.width : '') || '0'),
+        sourceWidth: image?.getAttribute('width'),
+        zoom: document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-mve-image-zoom'),
+        sourceText: window.__mveHostText
+      };
+    });
+    if (Math.abs(imageZoomBefore.frameWidth - 160) > 2
+      || imageZoomBefore.logicalWidth !== 160
+      || imageZoomBefore.sourceWidth !== '160'
+      || imageZoomBefore.zoom !== '1') {
+      throw new Error(`image zoom baseline was invalid: ${JSON.stringify(imageZoomBefore)}`);
+    }
+    const imageZoomStatusBefore = await page.locator('.status-bar').textContent();
+    await page.locator('.editor-area').dispatchEvent('wheel', { deltaY: -100, ctrlKey: true });
+    await page.waitForFunction((value) => document.querySelector('.status-bar')?.textContent !== value, imageZoomStatusBefore);
+    await page.waitForFunction(() => document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-mve-image-zoom') === '1.1');
+    const imageZoomAfter = await page.evaluate(() => {
+      const image = document.querySelector('.split-preview img[data-mve-image-kind="html"]');
+      const frame = image?.closest('.mve-image-frame');
+      return {
+        frameWidth: frame?.getBoundingClientRect().width ?? 0,
+        logicalWidth: Number.parseFloat((frame instanceof HTMLElement ? frame.style.width : '') || '0'),
+        sourceWidth: image?.getAttribute('width'),
+        sourceText: window.__mveHostText
+      };
+    });
+    if (Math.abs(imageZoomAfter.frameWidth - 176) > 2
+      || imageZoomAfter.logicalWidth !== 160
+      || imageZoomAfter.sourceWidth !== '160'
+      || imageZoomAfter.sourceText !== imageZoomBefore.sourceText) {
+      throw new Error(`image did not follow preview zoom without changing Markdown: ${JSON.stringify(imageZoomBefore)} -> ${JSON.stringify(imageZoomAfter)}`);
+    }
+    const imageResizeSourceBefore = await page.evaluate(() => window.__mveHostText);
+    const imageResizeHandle = page.locator('.split-preview .mve-image-handle').first();
+    await imageResizeHandle.hover();
+    const imageResizeHandleBounds = await imageResizeHandle.boundingBox();
+    if (!imageResizeHandleBounds) throw new Error('image resize handle is not visible during zoom smoke');
+    await page.mouse.move(imageResizeHandleBounds.x + imageResizeHandleBounds.width / 2, imageResizeHandleBounds.y + imageResizeHandleBounds.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(imageResizeHandleBounds.x + imageResizeHandleBounds.width / 2 + 22, imageResizeHandleBounds.y + imageResizeHandleBounds.height / 2);
+    await page.mouse.up();
+    await page.waitForFunction((text) => window.__mveHostText !== text, imageResizeSourceBefore);
+    if (!(await page.evaluate(() => window.__mveHostText.includes('width="180"')))) {
+      throw new Error(`image resize while zoomed did not save a logical width: ${await page.evaluate(() => window.__mveHostText)}`);
+    }
+    await page.waitForFunction(() => {
+      const image = document.querySelector('.split-preview img[data-mve-image-kind="html"]');
+      const frame = image?.closest('.mve-image-frame');
+      return Boolean(image?.getAttribute('width') === '180'
+        && frame instanceof HTMLElement
+        && frame.style.width === '180px'
+        && Math.abs(frame.getBoundingClientRect().width - 198) <= 2);
+    });
+    const imageZoomStatusBeforeShrink = await page.locator('.status-bar').textContent();
+    await page.locator('.editor-area').dispatchEvent('wheel', { deltaY: 100, ctrlKey: true });
+    await page.waitForFunction((value) => document.querySelector('.status-bar')?.textContent !== value, imageZoomStatusBeforeShrink);
+    await page.waitForFunction(() => document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-mve-image-zoom') === '1');
+    const imageZoomAfterShrink = await page.evaluate(() => {
+      const image = document.querySelector('.split-preview img[data-mve-image-kind="html"]');
+      const frame = image?.closest('.mve-image-frame');
+      return {
+        frameWidth: frame?.getBoundingClientRect().width ?? 0,
+        logicalWidth: Number.parseFloat((frame instanceof HTMLElement ? frame.style.width : '') || '0'),
+        sourceWidth: image?.getAttribute('width')
+      };
+    });
+    if (Math.abs(imageZoomAfterShrink.frameWidth - 180) > 2
+      || imageZoomAfterShrink.logicalWidth !== 180
+      || imageZoomAfterShrink.sourceWidth !== '180') {
+      throw new Error(`image did not return to its logical display width after zoom out: ${JSON.stringify(imageZoomAfterShrink)}`);
+    }
+    const imageZoomStatusBeforeRegrow = await page.locator('.status-bar').textContent();
+    await page.locator('.editor-area').dispatchEvent('wheel', { deltaY: -100, ctrlKey: true });
+    await page.waitForFunction((value) => document.querySelector('.status-bar')?.textContent !== value, imageZoomStatusBeforeRegrow);
+    await page.waitForFunction(() => document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-mve-image-zoom') === '1.1');
+    const imageZoomAfterRegrow = await page.evaluate(() => {
+      const image = document.querySelector('.split-preview img[data-mve-image-kind="html"]');
+      const frame = image?.closest('.mve-image-frame');
+      return {
+        frameWidth: frame?.getBoundingClientRect().width ?? 0,
+        logicalWidth: Number.parseFloat((frame instanceof HTMLElement ? frame.style.width : '') || '0'),
+        sourceWidth: image?.getAttribute('width')
+      };
+    });
+    if (Math.abs(imageZoomAfterRegrow.frameWidth - 198) > 2
+      || imageZoomAfterRegrow.logicalWidth !== 180
+      || imageZoomAfterRegrow.sourceWidth !== '180') {
+      throw new Error(`image was double-scaled after preview redraw and zoom cycle: ${JSON.stringify(imageZoomAfterRegrow)}`);
+    }
+    const imageZoomStatusAfterRegrow = await page.locator('.status-bar').textContent();
+    await page.locator('.editor-area').dispatchEvent('wheel', { deltaY: 100, ctrlKey: true });
+    await page.waitForFunction((value) => document.querySelector('.status-bar')?.textContent !== value, imageZoomStatusAfterRegrow);
+    await page.waitForFunction(() => document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-mve-image-zoom') === '1');
+    const imageZoomRestored = await page.evaluate(() => {
+      const image = document.querySelector('.split-preview img[data-mve-image-kind="html"]');
+      const frame = image?.closest('.mve-image-frame');
+      return {
+        frameWidth: frame?.getBoundingClientRect().width ?? 0,
+        logicalWidth: Number.parseFloat((frame instanceof HTMLElement ? frame.style.width : '') || '0'),
+        sourceWidth: image?.getAttribute('width')
+      };
+    });
+    if (Math.abs(imageZoomRestored.frameWidth - 180) > 2
+      || imageZoomRestored.logicalWidth !== 180
+      || imageZoomRestored.sourceWidth !== '180') {
+      throw new Error(`image state was not restored to 100% after zoom smoke: ${JSON.stringify(imageZoomRestored)}`);
+    }
+    await page.locator('.split-preview').evaluate((element) => { element.scrollTop = 0; });
+  };
   // 表エディターの実UIと、変更なし適用時の同期抑止を確認する。
   const sourceEditor = page.locator('.split-editor .cm-content');
   const cutLine = page.locator('.split-editor .cm-line').filter({ hasText: 'Reference [link]' }).first();
@@ -1480,6 +1604,42 @@ try {
   await sourceEditor.type(' recovered');
   await page.waitForFunction(() => window.__mveHostText.includes('retry-loop-input recovered'));
   await page.evaluate(() => { window.__mveAckDelay = 0; });
+  await page.locator('.split-preview').waitFor();
+  for (let index = 0; index < 10; index += 1) {
+    const currentZoom = await page.evaluate(() => Number.parseFloat(
+      document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-mve-image-zoom') ?? '',
+    ));
+    if (!Number.isFinite(currentZoom)) throw new Error('normal preview zoom state was unavailable for image smoke');
+    if (currentZoom === 1) break;
+    const previousZoom = String(currentZoom);
+    await page.locator('.editor-area').dispatchEvent('wheel', {
+      deltaY: currentZoom > 1 ? 100 : -100,
+      ctrlKey: true,
+    });
+    await page.waitForFunction((value) => document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-mve-image-zoom') !== value, previousZoom);
+  }
+  await page.waitForFunction(() => document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-mve-image-zoom') === '1');
+  const imageSmokeSource = `# Image zoom smoke\n\n<img src="${zoomImageSource}" width="160" alt="zoom image">\n`;
+  await page.evaluate((text) => {
+    const previousText = window.__mveHostText;
+    const baseVersion = window.__mveHostVersion;
+    window.__mveHostText = text;
+    window.__mvePhysicalText = text.replace(/\n/g, '\r\n');
+    window.__mveHostVersion += 1;
+    window.dispatchEvent(new MessageEvent('message', {
+      data: {
+        type: 'externalChanges',
+        baseVersion,
+        version: window.__mveHostVersion,
+        changes: [{ rangeOffset: 0, rangeLength: previousText.length, text }]
+      }
+    }));
+  }, imageSmokeSource);
+  await page.waitForFunction((text) => window.__mveHostText === text, imageSmokeSource);
+  await page.waitForFunction((length) => Number(
+    document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-document-length'),
+  ) === length, imageSmokeSource.length);
+  await runImageZoomSmoke();
   await context.close();
   if (errors.length) throw new Error(errors.join('\n'));
   console.log('高速スモーク: 空CRLF文書の単一改行同期、LFプロトコル、画像保存先設定、表編集、フォーカス非介入、スクロール同期設定、スクロール保持、分割表示、ズーム、空白可視化、ハイライトを確認しました。');

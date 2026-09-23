@@ -3794,6 +3794,7 @@ export function App(): React.JSX.Element {
                   markdown={renderedPreviewMarkdown}
                   html={previewHtml}
                   settings={settings}
+                  imageZoom={zoom}
                   onImageResize={
                     imageResizeEnabled ? splitPreviewImageResize : undefined
                   }

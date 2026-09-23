@@ -708,6 +708,12 @@ body.mve-dragging-outline .outline-panel nav button {
     margin: 12px 0;
 }
 
+/* 通常プレビューの表示倍率を画像と画像フレームへ反映 PDFやインスペクターには適用しない。 */
+.rendered-markdown[data-mve-image-zoom] .mve-image-frame,
+.rendered-markdown[data-mve-image-zoom] img:not([data-mve-enhanced="true"]) {
+    zoom: var(--mve-preview-image-zoom, 1);
+}
+
 /* Markdownプレビューの本文・見出し・要素を整える。 */
 .rendered-markdown img[data-mve-image-align="left"] {
     margin-right: auto !important;

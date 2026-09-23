@@ -138,3 +138,7 @@
 ## 1.2.1
 
 - Added column and row copy functions to the table editing UI.
+
+## 1.2.2
+
+- Apply the zoom level to the preview image as well.

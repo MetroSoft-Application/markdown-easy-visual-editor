@@ -21,6 +21,7 @@ interface Props {
   html?: string;
   settings: WebviewSettings;
   className?: string;
+  imageZoom?: number;
   onInspect?: (target: InspectorTarget) => void;
   onImageResize?: (imageIndex: number, width: number) => void;
   onImageReset?: (imageIndex: number) => void;
@@ -41,6 +42,7 @@ function RenderedMarkdownView({
   html,
   settings,
   className = "",
+  imageZoom,
   onInspect,
   onImageResize,
   onImageReset,
@@ -674,6 +676,12 @@ function RenderedMarkdownView({
       ref={rootRef}
       className={`rendered-markdown ${className}`}
       data-document-length={markdown.length}
+      data-mve-image-zoom={imageZoom !== undefined ? String(imageZoom) : undefined}
+      style={
+        imageZoom !== undefined
+          ? ({ "--mve-preview-image-zoom": imageZoom } as React.CSSProperties)
+          : undefined
+      }
       onDoubleClick={onDoubleClick}
       onClick={onClick}
     />
@@ -1304,7 +1312,7 @@ function enhanceResizableImages(
     // ソースに保存されたwidthは、画像の自然幅や現在の未ロード状態より優先する。
     const preferredWidth =
       getExplicitImageWidth(image) ||
-      getRenderedImageWidth(image) ||
+      getRenderedImageWidth(image, root) ||
       image.naturalWidth ||
       320;
     frame.style.width = `${Math.max(1, Math.min(preferredWidth, getAvailableImageWidth(root)))}px`;
@@ -1318,7 +1326,7 @@ function enhanceResizableImages(
     image.style.height = "auto";
 
     const updateBadge = () => {
-      badge.textContent = `${Math.round(image.getBoundingClientRect().width || preferredWidth)}px`;
+      badge.textContent = `${getLogicalElementWidth(image, root) || preferredWidth}px`;
     };
     updateBadge();
 
@@ -1397,7 +1405,7 @@ function enhanceResizableImages(
         1,
         Math.min(
           getExplicitImageWidth(image) ||
-            getRenderedImageWidth(image) ||
+            getRenderedImageWidth(image, root) ||
             image.naturalWidth ||
             preferredWidth,
           getAvailableImageWidth(root),
@@ -1457,9 +1465,10 @@ function attachResizePointer(
     event.stopPropagation();
     const pointerId = event.pointerId;
     const startX = event.clientX;
+    const previewImageZoom = getPreviewImageZoom(root);
     const startWidth =
-      frame.getBoundingClientRect().width ||
-      image.getBoundingClientRect().width;
+      getLogicalElementWidth(frame, root) ||
+      getLogicalElementWidth(image, root);
     const minWidth = 48;
     const maxWidth = getAvailableImageWidth(root);
     const originalFrameWidth = frame.style.width;
@@ -1470,7 +1479,12 @@ function attachResizePointer(
       if (moveEvent.pointerId !== pointerId) return;
       const nextWidth = Math.min(
         maxWidth,
-        Math.max(minWidth, Math.round(startWidth + moveEvent.clientX - startX)),
+        Math.max(
+          minWidth,
+          Math.round(
+            startWidth + (moveEvent.clientX - startX) / previewImageZoom,
+          ),
+        ),
       );
       frame.style.width = `${nextWidth}px`;
       updateBadge();
@@ -1490,7 +1504,7 @@ function attachResizePointer(
       }
       const width = Math.min(
         maxWidth,
-        Math.max(minWidth, Math.round(frame.getBoundingClientRect().width)),
+        Math.max(minWidth, getLogicalElementWidth(frame, root)),
       );
       onResizeRef.current?.(imageIndex, width);
     };
@@ -1518,10 +1532,32 @@ function attachResizePointer(
 /**
  * 表示中の画像幅を取得します。
  * @param image 対象画像です。
- * @returns 表示幅です。
+ * @returns CSS zoomを除いた論理幅です。
  */
-function getRenderedImageWidth(image: HTMLImageElement): number {
-  return Math.round(image.getBoundingClientRect().width);
+function getRenderedImageWidth(image: HTMLImageElement, root: HTMLElement): number {
+  return getLogicalElementWidth(image, root);
+}
+
+/**
+ * 通常プレビューの画像表示倍率を取得します。
+ * @param root Markdownプレビューのルートです。
+ * @returns 画像表示倍率です。
+ */
+function getPreviewImageZoom(root: HTMLElement): number {
+  const value = Number.parseFloat(root.dataset.mveImageZoom ?? "");
+  return Number.isFinite(value) && value > 0 ? value : 1;
+}
+
+/**
+ * CSS zoom後の表示幅をMarkdownへ保存する論理幅へ戻します。
+ * @param element 表示幅を取得する要素です。
+ * @param root Markdownプレビューのルートです。
+ * @returns 表示倍率を除いた論理幅です。
+ */
+function getLogicalElementWidth(element: HTMLElement, root: HTMLElement): number {
+  const width = element.getBoundingClientRect().width;
+  if (!(width > 0)) return 0;
+  return Math.round(width / getPreviewImageZoom(root));
 }
 
 /**
