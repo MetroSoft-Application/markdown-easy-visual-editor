@@ -142,3 +142,7 @@
 ## 1.2.2
 
 - Apply the zoom level to the preview image as well.
+
+## 1.2.3
+
+- Minor bug fix.
