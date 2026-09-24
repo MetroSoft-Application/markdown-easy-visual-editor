@@ -307,13 +307,12 @@ body[data-editor-theme] .rendered-markdown a {
 }
 
 /*
- * @style body[data-editor-theme] .ribbon-group-label, body[data-editor-theme] .ribbon-hint, body[data-editor-theme] .ribbon-select-label, body[data-editor-theme] .ribbon-form label, body[data-editor-theme] .outline-panel p, body[data-editor-theme] .search-count, body[data-editor-theme] .diagnostic-help, body[data-editor-theme] .pdf-preview-status, body[data-editor-theme] .pdf-preview-note
+ * @style body[data-editor-theme] .ribbon-group-label, body[data-editor-theme] .ribbon-select-label, body[data-editor-theme] .ribbon-form label, body[data-editor-theme] .outline-panel p, body[data-editor-theme] .search-count, body[data-editor-theme] .diagnostic-help, body[data-editor-theme] .pdf-preview-status, body[data-editor-theme] .pdf-preview-note
  * リボンの操作項目と無効・選択状態を表示する。
  */
 
 
 body[data-editor-theme] .ribbon-group-label,
-body[data-editor-theme] .ribbon-hint,
 body[data-editor-theme] .ribbon-select-label,
 body[data-editor-theme] .ribbon-form label,
 body[data-editor-theme] .outline-panel p,

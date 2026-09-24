@@ -721,11 +721,6 @@ export interface Messages {
         };
 
         /**
-         * 操作部品のツールチップとして表示するローカライズ済み文言。
-         */
-        hintZoom: string;
-
-        /**
          * 表示文言のcode・languagesに関する状態または設定。
          */
         codeLanguages: ReadonlyArray<{
@@ -1905,7 +1900,6 @@ function createMessages(language: SupportedLanguage): Messages {
                 saveWithoutDialog: raw.ribbon.labels.saveWithoutDialog
             },
             featureDescriptions: raw.ribbon.labels.featureDescriptions,
-            hintZoom: raw.ribbon.hintZoom,
             codeLanguages: raw.ribbon.codeLanguages,
             snippets: raw.ribbon.snippets,
             settings: {

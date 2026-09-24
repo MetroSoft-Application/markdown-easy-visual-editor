@@ -117,7 +117,7 @@ export const RIBBON_LAYOUT: RibbonLayoutDefinition = {
             groups: [
                 {
                     id: "pane",
-                    itemIds: ["openSource", "outline", "scrollSync", "zoomHint"],
+                    itemIds: ["openSource", "outline", "scrollSync"],
                 },
                 {
                     id: "preview",

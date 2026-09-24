@@ -96,7 +96,6 @@ export type RibbonItemId =
     | "openSource"
     | "outline"
     | "scrollSync"
-    | "zoomHint"
     | "imageResize"
     | "editorTheme"
     | "openPrintSettings"

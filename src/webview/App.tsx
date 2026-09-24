@@ -2433,13 +2433,9 @@ export function App(): React.JSX.Element {
           changeMode("preview");
         }
         return;
-      // 印刷設定はPDFプレビューとは独立した操作として開く。
+      // PDFプレビューを維持したまま印刷設定を開く。
       case "openPrintSettings":
         flushPdfOptionsPersistence();
-        if (printPreview) {
-          setPrintPreview(false);
-          changeMode(previousModeBeforePrintRef.current);
-        }
         setPrintSettingsVisible(true);
         return;
       case "openSource":
@@ -4610,6 +4606,7 @@ export function App(): React.JSX.Element {
                 <h2>{messages.app.outline}</h2>
                 <button
                   type="button"
+                  className="panel-close-button"
                   title={messages.app.hideOutline}
                   aria-label={messages.app.hideOutline}
                   onClick={
@@ -5112,6 +5109,9 @@ export function App(): React.JSX.Element {
               <h2>{messages.app.printSettings}</h2>
               <button
                 type="button"
+                className="panel-close-button"
+                title={messages.app.close}
+                aria-label={messages.app.close}
                 onClick={
                 /**
                  * click操作を表示または編集状態へ反映する。
@@ -5122,7 +5122,7 @@ export function App(): React.JSX.Element {
                   setPrintSettingsVisible(false);
                 }}
               >
-                {messages.app.close}
+                ×
               </button>
             </div>
             <p>{messages.app.printSettingsHelp}</p>
@@ -6636,12 +6636,11 @@ function PdfPreview({
       <div
         className="pdf-preview-toolbar"
         role="toolbar"
-        aria-label={messages.ribbon.hintZoom}
+        aria-label={messages.app.status.zoom(Math.round(zoom * 100))}
       >
         <button
           type="button"
           aria-label="PDFズームアウト"
-          title={messages.ribbon.hintZoom}
           onClick={
           /**
            * clickイベントでmve・debugを実行する。
@@ -6660,7 +6659,6 @@ function PdfPreview({
         <button
           type="button"
           aria-label="PDFズームイン"
-          title={messages.ribbon.hintZoom}
           onClick={
           /**
            * clickイベントでmve・debugを実行する。

@@ -360,9 +360,6 @@ export const RIBBON_DEFINITIONS: RibbonDefinitions = {
                 title: { kind: "message", path: "ribbon.scrollSyncTitle" },
             },
         },
-        zoomHint: {
-            label: { kind: "message", path: "ribbon.hintZoom" },
-        },
         imageResize: {
             label: {
                 kind: "localized",

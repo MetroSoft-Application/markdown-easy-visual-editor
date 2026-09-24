@@ -307,20 +307,6 @@ button:disabled {
 }
 
 /*
- * @style .ribbon-hint
- * リボンの操作項目と無効・選択状態を表示する。
- */
-
-.ribbon-hint {
-    align-self: center;
-    max-width: 100px;
-    padding: 4px;
-    color: var(--vscode-descriptionForeground);
-    font-size: 10px;
-    white-space: normal;
-}
-
-/*
  * @style .ribbon-select-label
  * リボンの操作項目と無効・選択状態を表示する。
  */
@@ -583,11 +569,12 @@ button:disabled {
 }
 
 /*
- * @style .outline-header button
- * 設定ダイアログと操作コントロールの状態を整える。
+ * @style .outline-header .panel-close-button, .panel-title .panel-close-button
+ * パネルの閉じるボタンの配置、状態、テーマ色を整える。
  */
 
-.outline-header button {
+.outline-header .panel-close-button,
+.panel-title .panel-close-button {
     margin-right: 8px;
     padding: 2px 7px;
     border: 1px solid transparent;
@@ -596,11 +583,12 @@ button:disabled {
 }
 
 /*
- * @style .outline-header button:hover
- * 設定ダイアログと操作コントロールの状態を整える。
+ * @style .outline-header .panel-close-button:hover, .panel-title .panel-close-button:hover
+ * パネルの閉じるボタンの配置、状態、テーマ色を整える。
  */
 
-.outline-header button:hover {
+.outline-header .panel-close-button:hover,
+.panel-title .panel-close-button:hover {
     border-color: var(--mve-border);
     background: var(--mve-hover);
 }

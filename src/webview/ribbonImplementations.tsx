@@ -759,18 +759,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
        */ (state) => state.scrollSyncEnabled,
     },
   ),
-  zoomHint: control(
-    /**
-     * リボンの設定値と文言から入力コントロールを生成する。
-     * @param _context - リボン実装で扱う文字列または本文。
-     * @param definition - ラベルと選択肢を含むリボン項目定義。
-     * @param resolveLabel - ローカライズキーを表示文言へ変換する関数。
-     * @returns リボンに表示する入力コントロール。
-     */
-    (_context, definition, resolveLabel) => (
-      <span className="ribbon-hint">{resolveLabel(definition.label)}</span>
-    ),
-  ),
   imageResize: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。

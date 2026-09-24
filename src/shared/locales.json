@@ -144,7 +144,6 @@
         "header": "ヘッダー",
         "headerPlaceholder": "例: 合計"
       },
-      "hintZoom": "Ctrl+ホイール: 拡大縮小",
       "settings": {
         "images": "画像",
         "imageDirectory": "画像保存先のパスルール",
@@ -595,7 +594,6 @@
         "header": "Header",
         "headerPlaceholder": "e.g. Total"
       },
-      "hintZoom": "Ctrl+wheel: Zoom",
       "settings": {
         "images": "Images",
         "imageDirectory": "Image save path rule",
@@ -1046,7 +1044,6 @@
         "header": "表头",
         "headerPlaceholder": "例如：合计"
       },
-      "hintZoom": "Ctrl+滚轮：缩放",
       "settings": {
         "images": "图像",
         "imageDirectory": "图像保存路径规则",
@@ -1497,7 +1494,6 @@
         "header": "헤더",
         "headerPlaceholder": "예: 합계"
       },
-      "hintZoom": "Ctrl+휠: 확대/축소",
       "settings": {
         "images": "이미지",
         "imageDirectory": "이미지 저장 경로 규칙",
@@ -1948,7 +1944,6 @@
         "header": "En-tête",
         "headerPlaceholder": "Saisissez un en-tête"
       },
-      "hintZoom": "Ctrl+molette : zoomer/réduire",
       "settings": {
         "images": "Images",
         "imageDirectory": "Règle du chemin d’enregistrement",
@@ -2399,7 +2394,6 @@
         "header": "Kopfzeile",
         "headerPlaceholder": "Kopfzeile eingeben"
       },
-      "hintZoom": "Strg+Mausrad: vergrößern/verkleinern",
       "settings": {
         "images": "Bilder",
         "imageDirectory": "Pfadregel zum Speichern von Bildern",
@@ -2850,7 +2844,6 @@
         "header": "Encabezado",
         "headerPlaceholder": "Escribe un encabezado"
       },
-      "hintZoom": "Ctrl+rueda: acercar/alejar",
       "settings": {
         "images": "Imágenes",
         "imageDirectory": "Regla de ruta para guardar imágenes",
