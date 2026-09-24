@@ -1135,10 +1135,28 @@ body.mve-dragging-outline .outline-panel nav button {
  */
 
 .rendered-markdown table {
-    width: 100%;
     margin: 14px 0;
     border-collapse: collapse;
     table-layout: auto;
+}
+
+/*
+ * @style .rendered-markdown table:has(.mve-image-frame)
+ * リサイズ時に列幅の圧縮で隣接画像が縮むことを防ぐ。
+ */
+
+.rendered-markdown table:has(.mve-image-frame) {
+    width: max-content;
+    max-width: none;
+}
+
+/*
+ * @style .rendered-markdown table:has(.mve-image-frame) .mve-image-frame
+ * 表セルの幅に合わせた縮小を防ぎ、指定した画像幅を維持する。
+ */
+
+.rendered-markdown table:has(.mve-image-frame) .mve-image-frame {
+    max-width: none;
 }
 
 /*
