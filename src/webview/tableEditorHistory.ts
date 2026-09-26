@@ -1,7 +1,7 @@
 /**
  * @fileoverview Webviewの表編集履歴を管理する。Hostとの通信、ユーザー操作、表示状態の契約を保つ。
  */
-import type { TableEditorAlignment } from './tableEditorModel';
+import type { TableEditorAlignment, TableEditorSortState } from './tableEditorModel';
 import type { TableGridRange } from '../shared/tableGrid';
 
 /**
@@ -28,6 +28,11 @@ export interface TableEditorHistorySnapshot {
      * 表編集履歴の状態を示すフラグ。
      */
     activeColumn: number;
+
+    /**
+     * 表編集履歴のソート列と方向。
+     */
+    sortState: TableEditorSortState | null;
 
     /**
      * 表編集履歴のrow・heightsを表す数値。
@@ -93,6 +98,7 @@ export function cloneTableEditorHistorySnapshot(
         alignments: snapshot.alignments.slice(),
         activeRow: snapshot.activeRow,
         activeColumn: snapshot.activeColumn,
+        sortState: snapshot.sortState ? { ...snapshot.sortState } : null,
         rowHeights: snapshot.rowHeights.slice(),
         columnWidths: snapshot.columnWidths.slice(),
         gridSelection: { ...snapshot.gridSelection },

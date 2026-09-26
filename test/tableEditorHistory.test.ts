@@ -23,6 +23,7 @@ function snapshot(value: string, row = 0, column = 0): TableEditorHistorySnapsho
         alignments: ['none'],
         activeRow: row,
         activeColumn: column,
+        sortState: null,
         rowHeights: [undefined, 34],
         columnWidths: [160],
         gridSelection: {
@@ -49,18 +50,23 @@ describe('table editor draft history',
             () => {
                 const history = createTableEditorHistory();
                 const before = snapshot('before');
+                before.sortState = { column: 0, direction: 'ascending' };
                 recordTableEditorHistory(history, before);
+                before.sortState.direction = 'descending';
 
                 const undone = undoTableEditorHistory(history, snapshot('after'));
                 expect(undone?.rows[1][0]).toBe('before');
+                expect(undone?.sortState).toEqual({ column: 0, direction: 'ascending' });
 
                 if (!undone) throw new Error('missing undo snapshot');
                 undone.rows[1][0] = 'mutated outside history';
                 undone.gridSelection.anchorRow = 1;
+                undone.sortState!.direction = 'descending';
                 const redone = redoTableEditorHistory(history, undone);
                 expect(redone?.rows[1][0]).toBe('after');
                 expect(redone?.gridSelection.anchorRow).toBe(0);
                 expect(history.undo.at(-1)?.gridSelection.anchorRow).toBe(1);
+                expect(history.undo.at(-1)?.sortState).toEqual({ column: 0, direction: 'descending' });
             });
 
         it('restores layout and selection state with the table data',

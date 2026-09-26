@@ -1108,8 +1108,113 @@ try {
   await page.locator('th.mve-table-editor-row-selector').first().click();
   if (!(await page.getByRole('button', { name: '行コピー', exact: true }).isDisabled())) throw new Error('table editor header row copy should be disabled');
   await page.locator('[data-table-cell="1:0"]').click();
+  const sortButtons = page.locator('.mve-table-editor-sort-button');
+  if (await sortButtons.count() !== 2 || !(await sortButtons.nth(0).isDisabled()) || !(await sortButtons.nth(1).isDisabled())) {
+    throw new Error('table editor sort buttons should be disabled with one data row');
+  }
   await page.getByRole('button', { name: '＋行', exact: true }).click();
   if (await page.locator('.mve-table-editor-grid tbody tr').count() !== 3) throw new Error('table editor row draft action did not apply once');
+  const sortHeaderA = page.locator('th.mve-table-editor-column-selector').nth(0);
+  const sortHeaderB = page.locator('th.mve-table-editor-column-selector').nth(1);
+  const readSortRows = async () => page.locator('.mve-table-editor-grid tbody tr').evaluateAll((tableRows) =>
+    tableRows.map((row) => Array.from(row.querySelectorAll('textarea'), (cell) => cell.value)));
+  await page.locator('[data-table-cell="1:0"]').fill('item10');
+  await page.locator('[data-table-cell="1:1"]').fill('2');
+  await page.locator('[data-table-cell="2:0"]').fill('item2');
+  await page.locator('[data-table-cell="2:1"]').fill('10');
+  const columnLayoutBeforeSort = await page.locator('.mve-table-editor-grid col').evaluateAll((columns) =>
+    columns.map((column) => column.getAttribute('style')));
+  const firstDataRowResizer = page.locator('.mve-table-editor-row-resizer').nth(1);
+  const firstDataRowHeight = Number(await firstDataRowResizer.getAttribute('aria-valuenow'));
+  await firstDataRowResizer.press('ArrowDown');
+  await page.waitForFunction((height) =>
+    Number(document.querySelectorAll('.mve-table-editor-row-resizer')[1]?.getAttribute('aria-valuenow')) > height,
+  firstDataRowHeight);
+  const resizedFirstDataRowHeight = Number(await firstDataRowResizer.getAttribute('aria-valuenow'));
+  const initialSortRows = await readSortRows();
+  await sortHeaderA.locator('span').first().click();
+  if (await sortHeaderA.getAttribute('data-selected') !== 'true'
+    || await sortHeaderA.getAttribute('aria-sort') !== null
+    || JSON.stringify(await readSortRows()) !== JSON.stringify(initialSortRows)) {
+    throw new Error('table editor column header label should select without sorting');
+  }
+  await sortButtons.nth(0).click();
+  const ascendingRows = await readSortRows();
+  if (JSON.stringify(ascendingRows) !== JSON.stringify([['H1', 'H2'], ['item2', '10'], ['item10', '2']])
+    || await sortHeaderA.getAttribute('aria-sort') !== 'ascending'
+    || await sortHeaderA.getAttribute('aria-selected') !== 'true') {
+    throw new Error(`table editor ascending natural sort did not preserve whole rows: ${JSON.stringify(ascendingRows)}`);
+  }
+  const columnLayoutAfterSort = await page.locator('.mve-table-editor-grid col').evaluateAll((columns) =>
+    columns.map((column) => column.getAttribute('style')));
+  if (JSON.stringify(columnLayoutAfterSort) !== JSON.stringify(columnLayoutBeforeSort)) {
+    throw new Error(`table editor sort changed column layout: ${JSON.stringify(columnLayoutAfterSort)}`);
+  }
+  const sortedRowHeights = await page.locator('.mve-table-editor-row-resizer').evaluateAll((resizers) =>
+    resizers.map((resizer) => Number(resizer.getAttribute('aria-valuenow'))));
+  if (sortedRowHeights[1] !== firstDataRowHeight || sortedRowHeights[2] !== resizedFirstDataRowHeight) {
+    throw new Error(`table editor sort did not preserve row heights: ${JSON.stringify(sortedRowHeights)}`);
+  }
+  await sortButtons.nth(0).click();
+  const descendingRows = await readSortRows();
+  if (JSON.stringify(descendingRows) !== JSON.stringify([['H1', 'H2'], ['item10', '2'], ['item2', '10']])
+    || await sortHeaderA.getAttribute('aria-sort') !== 'descending') {
+    throw new Error(`table editor repeated column sort did not toggle descending: ${JSON.stringify(descendingRows)}`);
+  }
+  await sortButtons.nth(1).click();
+  const secondColumnAscendingRows = await readSortRows();
+  if (JSON.stringify(secondColumnAscendingRows) !== JSON.stringify([['H1', 'H2'], ['item10', '2'], ['item2', '10']])
+    || await sortHeaderB.getAttribute('aria-sort') !== 'ascending'
+    || await sortHeaderA.getAttribute('aria-sort') !== null) {
+    throw new Error(`table editor new column did not start ascending: ${JSON.stringify(secondColumnAscendingRows)}`);
+  }
+  await sortButtons.nth(1).press('Enter');
+  const keyboardDescendingRows = await readSortRows();
+  if (JSON.stringify(keyboardDescendingRows) !== JSON.stringify([['H1', 'H2'], ['item2', '10'], ['item10', '2']])
+    || await sortHeaderB.getAttribute('aria-sort') !== 'descending') {
+    throw new Error(`table editor sort button Enter did not sort descending: ${JSON.stringify(keyboardDescendingRows)}`);
+  }
+  await sortButtons.nth(1).press('Space');
+  const keyboardAscendingRows = await readSortRows();
+  if (JSON.stringify(keyboardAscendingRows) !== JSON.stringify([['H1', 'H2'], ['item10', '2'], ['item2', '10']])
+    || await sortHeaderB.getAttribute('aria-sort') !== 'ascending') {
+    throw new Error(`table editor sort button Space did not sort ascending: ${JSON.stringify(keyboardAscendingRows)}`);
+  }
+  await page.getByRole('group', { name: '履歴', exact: true }).getByRole('button', { name: '元に戻す', exact: true }).click();
+  const undoneSortRows = await readSortRows();
+  if (JSON.stringify(undoneSortRows) !== JSON.stringify(keyboardDescendingRows)
+    || await sortHeaderB.getAttribute('aria-sort') !== 'descending') {
+    throw new Error(`table editor sort undo did not restore row order and direction: ${JSON.stringify(undoneSortRows)}`);
+  }
+  await page.getByRole('group', { name: '履歴', exact: true }).getByRole('button', { name: 'やり直す', exact: true }).click();
+  const redoneSortRows = await readSortRows();
+  if (JSON.stringify(redoneSortRows) !== JSON.stringify(keyboardAscendingRows)
+    || await sortHeaderB.getAttribute('aria-sort') !== 'ascending') {
+    throw new Error(`table editor sort redo did not restore row order and direction: ${JSON.stringify(redoneSortRows)}`);
+  }
+  await page.locator('[data-table-cell="1:1"]').fill('20');
+  await page.locator('[data-table-cell="2:1"]').fill('10');
+  const manuallyEditedSortRows = await readSortRows();
+  if (JSON.stringify(manuallyEditedSortRows) !== JSON.stringify([['H1', 'H2'], ['item10', '20'], ['item2', '10']])
+    || await sortHeaderB.getAttribute('aria-sort') !== 'ascending') {
+    throw new Error(`table editor manual edit automatically changed sorted rows or direction: ${JSON.stringify(manuallyEditedSortRows)}`);
+  }
+  await sortButtons.nth(1).click();
+  if (JSON.stringify(await readSortRows()) !== JSON.stringify(manuallyEditedSortRows)
+    || await sortHeaderB.getAttribute('aria-sort') !== 'descending') {
+    throw new Error('table editor unchanged row order did not record the new sort direction');
+  }
+  await page.getByRole('group', { name: '履歴', exact: true }).getByRole('button', { name: '元に戻す', exact: true }).click();
+  if (JSON.stringify(await readSortRows()) !== JSON.stringify(manuallyEditedSortRows)
+    || await sortHeaderB.getAttribute('aria-sort') !== 'ascending') {
+    throw new Error('table editor undo did not restore direction when a sort kept the same row order');
+  }
+  await page.getByRole('group', { name: '履歴', exact: true }).getByRole('button', { name: 'やり直す', exact: true }).click();
+  if (JSON.stringify(await readSortRows()) !== JSON.stringify(manuallyEditedSortRows)
+    || await sortHeaderB.getAttribute('aria-sort') !== 'descending') {
+    throw new Error('table editor redo did not restore direction when a sort kept the same row order');
+  }
+  await page.locator('[data-table-cell="1:0"]').click();
   for (let index = 0; index < 4; index += 1) {
     await page.getByRole('button', { name: '＋列', exact: true }).click();
   }
@@ -1158,6 +1263,24 @@ try {
   if (autoFitColumnAfter <= autoFitColumnBefore) {
     throw new Error(`table editor column auto-fit did not apply: state=${autoFitColumnBefore}->${autoFitColumnAfter}`);
   }
+  const columnPointerStylesAfterAutoFit = await page.evaluate(() => ({
+    cursor: document.body.style.cursor,
+    userSelect: document.body.style.userSelect,
+  }));
+  if (columnPointerStylesAfterAutoFit.cursor !== '' || columnPointerStylesAfterAutoFit.userSelect !== '') {
+    throw new Error(`table editor pointer styles were not reset after column auto-fit: ${JSON.stringify(columnPointerStylesAfterAutoFit)}`);
+  }
+  const autoFitColumnBounds = await columnResizer.boundingBox();
+  if (!autoFitColumnBounds) throw new Error('table editor column resizer has no bounds after auto-fit');
+  await page.mouse.move(
+    autoFitColumnBounds.x + autoFitColumnBounds.width / 2 + 20,
+    autoFitColumnBounds.y + autoFitColumnBounds.height / 2,
+  );
+  await page.waitForTimeout(50);
+  const autoFitColumnAfterIdlePointerMove = Number(await columnResizer.getAttribute('aria-valuenow'));
+  if (autoFitColumnAfterIdlePointerMove !== autoFitColumnAfter) {
+    throw new Error(`table editor column width changed after auto-fit without a pressed pointer: ${autoFitColumnAfter}->${autoFitColumnAfterIdlePointerMove}`);
+  }
   const rowResizer = page.locator('.mve-table-editor-row-resizer').nth(1);
   const rowHeightBefore = Number(await rowResizer.getAttribute('aria-valuenow'));
   await autoFitCell.fill('line one<br>line two');
@@ -1173,6 +1296,24 @@ try {
   if (rowHeightAfter <= rowHeightBefore) {
     throw new Error(`table editor row auto-fit did not apply: state=${rowHeightBefore}->${rowHeightAfter}`);
   }
+  const pointerStylesAfterAutoFit = await page.evaluate(() => ({
+    cursor: document.body.style.cursor,
+    userSelect: document.body.style.userSelect,
+  }));
+  if (pointerStylesAfterAutoFit.cursor !== '' || pointerStylesAfterAutoFit.userSelect !== '') {
+    throw new Error(`table editor pointer styles were not reset after row auto-fit: ${JSON.stringify(pointerStylesAfterAutoFit)}`);
+  }
+  const autoFitResizerBounds = await rowResizer.boundingBox();
+  if (!autoFitResizerBounds) throw new Error('table editor row resizer has no bounds after auto-fit');
+  await page.mouse.move(
+    autoFitResizerBounds.x + autoFitResizerBounds.width / 2,
+    autoFitResizerBounds.y + autoFitResizerBounds.height / 2 + 16,
+  );
+  await page.waitForTimeout(50);
+  const rowHeightAfterIdlePointerMove = Number(await rowResizer.getAttribute('aria-valuenow'));
+  if (rowHeightAfterIdlePointerMove !== rowHeightAfter) {
+    throw new Error(`table editor row height changed after auto-fit without a pressed pointer: ${rowHeightAfter}->${rowHeightAfterIdlePointerMove}`);
+  }
   const autoFitRowMetrics = await autoFitCell.evaluate(
   /**
    * ブラウザー内の状態を読み取り、検証用の値へ変換する。
@@ -1187,6 +1328,49 @@ try {
   if (autoFitRowMetrics.scrollHeight > autoFitRowMetrics.clientHeight) {
     throw new Error(`table editor auto-fit row is clipped: ${JSON.stringify(autoFitRowMetrics)}`);
   }
+  for (let step = 0; step < 8; step += 1) {
+    await rowResizer.press('ArrowDown');
+  }
+  const expandedRowHeight = Number(await rowResizer.getAttribute('aria-valuenow'));
+  if (expandedRowHeight <= rowHeightAfter) {
+    throw new Error(`table editor row did not expand before auto-fit: ${rowHeightAfter}->${expandedRowHeight}`);
+  }
+  await rowResizer.click();
+  await page.waitForFunction((height) =>
+    Number(document.querySelectorAll('.mve-table-editor-row-resizer')[1]?.getAttribute('aria-valuenow')) < height,
+  expandedRowHeight);
+  const refitRowHeight = Number(await rowResizer.getAttribute('aria-valuenow'));
+  if (refitRowHeight >= expandedRowHeight) {
+    throw new Error(`table editor row click did not shrink to its content: ${expandedRowHeight}->${refitRowHeight}`);
+  }
+  for (let step = 0; step < 3; step += 1) {
+    await rowResizer.press('ArrowDown');
+  }
+  const jitterClickStartHeight = Number(await rowResizer.getAttribute('aria-valuenow'));
+  const rowResizerBounds = await rowResizer.boundingBox();
+  if (!rowResizerBounds) throw new Error('table editor row resizer has no visible bounds');
+  const resizerCenterX = rowResizerBounds.x + rowResizerBounds.width / 2;
+  const resizerCenterY = rowResizerBounds.y + rowResizerBounds.height / 2;
+  await page.mouse.move(resizerCenterX, resizerCenterY);
+  await page.mouse.down();
+  await page.mouse.move(resizerCenterX, resizerCenterY + 1);
+  await page.mouse.up();
+  await page.waitForFunction((height) =>
+    Number(document.querySelectorAll('.mve-table-editor-row-resizer')[1]?.getAttribute('aria-valuenow')) < height,
+  jitterClickStartHeight);
+  const jitterClickRefitHeight = Number(await rowResizer.getAttribute('aria-valuenow'));
+  const dragStartBounds = await rowResizer.boundingBox();
+  if (!dragStartBounds) throw new Error('table editor row resizer lost its bounds after auto-fit');
+  const dragStartHeight = jitterClickRefitHeight;
+  const dragX = dragStartBounds.x + dragStartBounds.width / 2;
+  const dragY = dragStartBounds.y + dragStartBounds.height / 2;
+  await page.mouse.move(dragX, dragY);
+  await page.mouse.down();
+  await page.mouse.move(dragX, dragY + 24);
+  await page.mouse.up();
+  await page.waitForFunction((height) =>
+    Number(document.querySelectorAll('.mve-table-editor-row-resizer')[1]?.getAttribute('aria-valuenow')) >= height + 20,
+  dragStartHeight);
   page.once('dialog',
   /**
    * dialogをacceptへ渡し、スモーク検証・高速の結果または副作用を処理する。

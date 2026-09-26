@@ -361,7 +361,9 @@
         "moveRowUp": "現在の行を上へ移動",
         "moveRowDown": "現在の行を下へ移動",
         "moveColumnLeft": "現在の列を左へ移動",
-        "moveColumnRight": "現在の列を右へ移動"
+        "moveColumnRight": "現在の列を右へ移動",
+        "sortAscending": "昇順で並べ替え",
+        "sortDescending": "降順で並べ替え"
       },
       "previewImageContextMenu": {
         "copy": "画像をコピー",
@@ -875,7 +877,9 @@
         "moveRowUp": "Move current row up",
         "moveRowDown": "Move current row down",
         "moveColumnLeft": "Move current column left",
-        "moveColumnRight": "Move current column right"
+        "moveColumnRight": "Move current column right",
+        "sortAscending": "Sort ascending",
+        "sortDescending": "Sort descending"
       },
       "previewImageContextMenu": {
         "copy": "Copy image",
@@ -1389,7 +1393,9 @@
         "moveRowUp": "上移当前行",
         "moveRowDown": "下移当前行",
         "moveColumnLeft": "左移当前列",
-        "moveColumnRight": "右移当前列"
+        "moveColumnRight": "右移当前列",
+        "sortAscending": "按升序排序",
+        "sortDescending": "按降序排序"
       },
       "previewImageContextMenu": {
         "copy": "复制图像",
@@ -1903,7 +1909,9 @@
         "moveRowUp": "현재 행 위로 이동",
         "moveRowDown": "현재 행 아래로 이동",
         "moveColumnLeft": "현재 열 왼쪽으로 이동",
-        "moveColumnRight": "현재 열 오른쪽으로 이동"
+        "moveColumnRight": "현재 열 오른쪽으로 이동",
+        "sortAscending": "오름차순 정렬",
+        "sortDescending": "내림차순 정렬"
       },
       "previewImageContextMenu": {
         "copy": "이미지 복사",
@@ -2417,7 +2425,9 @@
         "moveRowUp": "Déplacer la ligne actuelle vers le haut",
         "moveRowDown": "Déplacer la ligne actuelle vers le bas",
         "moveColumnLeft": "Déplacer la colonne actuelle vers la gauche",
-        "moveColumnRight": "Déplacer la colonne actuelle vers la droite"
+        "moveColumnRight": "Déplacer la colonne actuelle vers la droite",
+        "sortAscending": "Trier par ordre croissant",
+        "sortDescending": "Trier par ordre décroissant"
       },
       "previewImageContextMenu": {
         "copy": "Copier l’image",
@@ -2931,7 +2941,9 @@
         "moveRowUp": "Aktuelle Zeile nach oben verschieben",
         "moveRowDown": "Aktuelle Zeile nach unten verschieben",
         "moveColumnLeft": "Aktuelle Spalte nach links verschieben",
-        "moveColumnRight": "Aktuelle Spalte nach rechts verschieben"
+        "moveColumnRight": "Aktuelle Spalte nach rechts verschieben",
+        "sortAscending": "Aufsteigend sortieren",
+        "sortDescending": "Absteigend sortieren"
       },
       "previewImageContextMenu": {
         "copy": "Bild kopieren",
@@ -3445,7 +3457,9 @@
         "moveRowUp": "Mover la fila actual hacia arriba",
         "moveRowDown": "Mover la fila actual hacia abajo",
         "moveColumnLeft": "Mover la columna actual hacia la izquierda",
-        "moveColumnRight": "Mover la columna actual hacia la derecha"
+        "moveColumnRight": "Mover la columna actual hacia la derecha",
+        "sortAscending": "Ordenar en orden ascendente",
+        "sortDescending": "Ordenar en orden descendente"
       },
       "previewImageContextMenu": {
         "copy": "Copiar imagen",

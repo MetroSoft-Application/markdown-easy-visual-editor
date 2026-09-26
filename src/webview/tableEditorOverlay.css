@@ -419,6 +419,49 @@
 }
 
 /*
+ * @style .mve-table-editor-sort-button
+ * 列見出しから昇順・降順のソートを実行する。
+ */
+.mve-table-editor button.mve-table-editor-sort-button {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    min-width: 18px;
+    height: 20px;
+    margin-left: 2px;
+    padding: 0;
+    border: 0;
+    border-radius: 2px;
+    background: transparent;
+    color: inherit;
+    font-size: 12px;
+    line-height: 1;
+    vertical-align: middle;
+}
+
+/*
+ * @style .mve-table-editor-sort-button:hover, .mve-table-editor-sort-button:focus-visible
+ * ソートボタンのマウス・キーボード操作状態を表示する。
+ */
+.mve-table-editor button.mve-table-editor-sort-button:hover:not(:disabled),
+.mve-table-editor button.mve-table-editor-sort-button:focus-visible {
+    border: 0;
+    background: var(--vscode-toolbar-hoverBackground, var(--mve-hover));
+    outline: 1px solid var(--vscode-focusBorder, #007acc);
+    outline-offset: 1px;
+}
+
+/*
+ * @style .mve-table-editor-sort-button:disabled
+ * データ行が不足している状態を表示する。
+ */
+.mve-table-editor button.mve-table-editor-sort-button:disabled {
+    cursor: default;
+    opacity: 0.4;
+}
+
+/*
  * @style .mve-table-editor-column-selector[data-drop-target="true"]
  * 表編集グリッドのセル、選択範囲、行列操作を表示する。
  */

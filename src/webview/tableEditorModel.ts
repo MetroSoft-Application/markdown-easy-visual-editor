@@ -7,6 +7,35 @@
 export type TableEditorAlignment = 'none' | 'left' | 'center' | 'right';
 
 /**
+ * 表編集UIで選択中のソート方向。
+ */
+export type TableEditorSortDirection = 'ascending' | 'descending';
+
+/**
+ * 表編集UIで最後に実行したソート条件。
+ */
+export interface TableEditorSortState {
+    column: number;
+    direction: TableEditorSortDirection;
+}
+
+/**
+ * 表編集UIで列を変更したときのソート列位置の変更内容。
+ */
+export type TableEditorColumnChange =
+    | { kind: 'move'; from: number; to: number }
+    | { kind: 'insert'; index: number; count: number }
+    | { kind: 'delete'; index: number; count: number };
+
+/**
+ * ソート後の行一覧と、各行の変更前インデックスを表す。
+ */
+export interface TableEditorSortedRows {
+    rows: string[][];
+    sourceRowIndexes: number[];
+}
+
+/**
  * tableeditormodelで共有するデータ形状を表すインターフェース。
  */
 export interface TableEditorDraft {
@@ -526,6 +555,113 @@ export function prepareTableEditorApply(draft: TableEditorDraft, currentSource: 
     const rendered = renderTableEditorDraft(draft);
     if (rendered.text === currentSource.slice(draft.from, draft.to)) return { kind: 'noop' };
     return { kind: 'changed', text: rendered.text, caretOffset: rendered.caretOffset };
+}
+
+/**
+ * Markdown見出し行を固定し、指定列の値でデータ行を安定して並べ替える。
+ * @param rows - 見出し行を先頭に含む表の行。
+ * @param column - 比較に使う列番号。
+ * @param direction - 昇順または降順。
+ * @param locale - 文字列比較に使うロケール。
+ * @returns 並べ替え後の行と、元の行番号。
+ */
+export function sortTableEditorRows(
+    rows: readonly (readonly string[])[],
+    column: number,
+    direction: TableEditorSortDirection,
+    locale: string,
+): TableEditorSortedRows {
+    if (rows.length === 0) return { rows: [], sourceRowIndexes: [] };
+
+    const entries = rows.slice(1).map((row, index) => ({
+        row,
+        sourceRowIndex: index + 1,
+        key: (row[column] ?? '').trim(),
+    }));
+    const numericKeys = entries.map((entry) => parseSortableNumber(entry.key));
+    const isNumericColumn = entries.every(
+        (entry, index) => entry.key.length === 0 || numericKeys[index] !== undefined,
+    );
+    const collator = new Intl.Collator(locale, {
+        numeric: true,
+        sensitivity: 'base',
+    });
+    const directionFactor = direction === 'ascending' ? 1 : -1;
+
+    entries.sort((left, right) => {
+        const leftBlank = left.key.length === 0;
+        const rightBlank = right.key.length === 0;
+        if (leftBlank !== rightBlank) return leftBlank ? 1 : -1;
+
+        let comparison = 0;
+        if (!leftBlank) {
+            if (isNumericColumn) {
+                const leftNumber = numericKeys[left.sourceRowIndex - 1]!;
+                const rightNumber = numericKeys[right.sourceRowIndex - 1]!;
+                comparison = leftNumber < rightNumber ? -1 : leftNumber > rightNumber ? 1 : 0;
+            } else {
+                comparison = collator.compare(left.key, right.key);
+            }
+        }
+
+        return comparison === 0
+            ? left.sourceRowIndex - right.sourceRowIndex
+            : comparison * directionFactor;
+    });
+
+    const sourceRowIndexes = [0, ...entries.map((entry) => entry.sourceRowIndex)];
+    return {
+        rows: sourceRowIndexes.map((index) => [...rows[index]]),
+        sourceRowIndexes,
+    };
+}
+
+/**
+ * 列の移動・挿入・削除後もソート状態を同じ列データに結び付ける。
+ * @param state - 現在のソート状態。未ソートの場合はundefined。
+ * @param change - 列構成の変更内容。
+ * @returns 変更後のソート状態。
+ */
+export function remapTableEditorSortState(
+    state: TableEditorSortState | null,
+    change: TableEditorColumnChange,
+): TableEditorSortState | null {
+    if (!state) return null;
+
+    if (change.kind === 'move') {
+        const { from, to } = change;
+        let column = state.column;
+        if (column === from) column = to;
+        else if (from < to && column > from && column <= to) column -= 1;
+        else if (from > to && column >= to && column < from) column += 1;
+        return { ...state, column };
+    }
+
+    if (change.count <= 0) return { ...state };
+    if (change.kind === 'insert') {
+        return state.column >= change.index
+            ? { ...state, column: state.column + change.count }
+            : { ...state };
+    }
+
+    const deleteEnd = change.index + change.count;
+    if (state.column >= change.index && state.column < deleteEnd) return null;
+    return state.column >= deleteEnd
+        ? { ...state, column: state.column - change.count }
+        : { ...state };
+}
+
+const STANDARD_NUMBER_PATTERN = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?$/;
+
+/**
+ * 標準的な有限10進表記を数値へ変換する。
+ * @param value - trim済みのセル値。
+ * @returns 有限数値。空欄や規則外の値はundefined。
+ */
+function parseSortableNumber(value: string): number | undefined {
+    if (!STANDARD_NUMBER_PATTERN.test(value)) return undefined;
+    const number = Number(value);
+    return Number.isFinite(number) ? number : undefined;
 }
 
 /**

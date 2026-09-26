@@ -1517,6 +1517,14 @@ export interface Messages {
              * 現在の列を右へ移動する操作のラベル。
              */
             moveColumnRight: string;
+            /**
+             * 列を昇順に並べ替える操作のラベル。
+             */
+            sortAscending: string;
+            /**
+             * 列を降順に並べ替える操作のラベル。
+             */
+            sortDescending: string;
         };
 
         /**
@@ -2277,7 +2285,9 @@ function createMessages(language: SupportedLanguage): Messages {
                 moveRowUp: raw.app.tableEditor.moveRowUp,
                 moveRowDown: raw.app.tableEditor.moveRowDown,
                 moveColumnLeft: raw.app.tableEditor.moveColumnLeft,
-                moveColumnRight: raw.app.tableEditor.moveColumnRight
+                moveColumnRight: raw.app.tableEditor.moveColumnRight,
+                sortAscending: raw.app.tableEditor.sortAscending,
+                sortDescending: raw.app.tableEditor.sortDescending
             },
             help: raw.app.help,
             toast: {

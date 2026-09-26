@@ -11,7 +11,7 @@ import {
   markdownTableToTsv,
   type MarkdownTableAction,
 } from "../shared/markdown";
-import { getMessages, type Messages } from "../shared/messages";
+import { getMessages, resolveLanguage, type Messages } from "../shared/messages";
 import {
   clearTableGridRange,
   duplicateTableGridColumns,
@@ -38,13 +38,17 @@ import {
   insertTableEditorLineBreak,
   deleteTableEditorLineBreakBeforeDisplayOffset,
   prepareTableEditorApply,
+  remapTableEditorSortState,
   renderTableEditorDraft,
+  sortTableEditorRows,
   tableEditorCellDisplayOffsetFromStored,
   tableEditorCellDisplayValue,
   tableEditorCellStoredOffsetFromDisplay,
   tableEditorCellStoredValue,
   type TableEditorAlignment,
   type TableEditorDraft,
+  type TableEditorSortDirection,
+  type TableEditorSortState,
 } from "./tableEditorModel";
 import {
   calculateAutoFitColumnWidth,
@@ -123,6 +127,10 @@ const MIN_TEXTAREA_HEIGHT = 34;
  * 行高自動計算に加える上下の余白。
  */
 const AUTO_FIT_ROW_VERTICAL_BUFFER = 4;
+/**
+ * 行高ハンドルのクリックとドラッグを区別する移動量。
+ */
+const ROW_RESIZE_CLICK_MOVEMENT_THRESHOLD = 3;
 /**
  * 表編集オーバーレイで一時生成物または検証対象を置くディレクトリ。
  */
@@ -513,6 +521,7 @@ function TableEditorOverlay({
   );
   const [activeRow, setActiveRow] = useState(initial.activeRow);
   const [activeColumn, setActiveColumn] = useState(initial.activeColumn);
+  const [sortState, setSortState] = useState<TableEditorSortState | null>(null);
   const [gridSelection, setGridSelection] = useState<TableGridRange>(
     /**
      * 表編集オーバーレイのコールバックとして要素を処理する。
@@ -928,7 +937,12 @@ function TableEditorOverlay({
         }
         const rowResize = rowResizeRef.current;
         if (!rowResize || event.pointerId !== rowResize.pointerId) return;
-        if (event.clientY !== rowResize.startY) rowResize.moved = true;
+        if (
+          Math.abs(event.clientY - rowResize.startY) >
+          ROW_RESIZE_CLICK_MOVEMENT_THRESHOLD
+        ) {
+          rowResize.moved = true;
+        }
         const height = Math.max(
           MIN_ROW_HEIGHT,
           Math.round(rowResize.startHeight + event.clientY - rowResize.startY),
@@ -1061,6 +1075,7 @@ function TableEditorOverlay({
       ),
       activeRow,
       activeColumn,
+      sortState: sortState ? { ...sortState } : null,
       rowHeights: rowHeights.slice(),
       columnWidths: Array.from(
         { length: columnCount },
@@ -1226,6 +1241,7 @@ function TableEditorOverlay({
     );
     setActiveRow(safeActiveRow);
     setActiveColumn(safeActiveColumn);
+    setSortState(snapshot.sortState ? { ...snapshot.sortState } : null);
     setGridSelection({
       anchorRow: clampRow(snapshot.gridSelection.anchorRow),
       anchorColumn: clampColumn(snapshot.gridSelection.anchorColumn),
@@ -1889,7 +1905,6 @@ function TableEditorOverlay({
     const resize = columnResizeRef.current;
     if (!resize || resize.column !== column || resize.moved) return;
     event.preventDefault();
-    event.stopPropagation();
     autoFitColumn(column);
   }
 
@@ -1979,6 +1994,8 @@ function TableEditorOverlay({
        */
       (cell) => {
         const clone = cell.cloneNode(false) as HTMLTextAreaElement;
+        const parent = cell.parentElement;
+        if (!parent) return MIN_ROW_HEIGHT;
         const width = Math.max(1, cell.getBoundingClientRect().width);
         clone.value = cell.value;
         clone.style.position = "fixed";
@@ -1991,8 +2008,8 @@ function TableEditorOverlay({
         clone.style.overflow = "hidden";
         clone.style.visibility = "hidden";
         clone.style.pointerEvents = "none";
-        document.body.appendChild(clone);
-        const height = Math.max(clone.scrollHeight, cell.scrollHeight);
+        parent.appendChild(clone);
+        const height = clone.scrollHeight;
         clone.remove();
         return height + AUTO_FIT_ROW_VERTICAL_BUFFER;
       },
@@ -2035,7 +2052,6 @@ function TableEditorOverlay({
       return;
     }
     event.preventDefault();
-    event.stopPropagation();
     autoFitRow(row);
   }
 
@@ -2178,7 +2194,44 @@ function TableEditorOverlay({
     );
     if (!edit) return;
     const next = readTableEditorDraft(edit.text, edit.selection.from);
-    if (next) replaceDraft(next);
+    if (!next) return;
+
+    const nextColumnCount = Math.max(
+      1,
+      next.alignments.length,
+      ...next.rows.map((row) => row.length),
+    );
+    if (next.rows.length > MAX_ROWS || nextColumnCount > MAX_COLUMNS) {
+      replaceDraft(next);
+      return;
+    }
+
+    replaceDraft(next);
+    if (action === "colBefore") {
+      setSortState((current) =>
+        remapTableEditorSortState(current, {
+          kind: "insert",
+          index: activeColumn,
+          count: 1,
+        }),
+      );
+    } else if (action === "colAfter") {
+      setSortState((current) =>
+        remapTableEditorSortState(current, {
+          kind: "insert",
+          index: activeColumn + 1,
+          count: 1,
+        }),
+      );
+    } else if (action === "deleteColumn") {
+      setSortState((current) =>
+        remapTableEditorSortState(current, {
+          kind: "delete",
+          index: activeColumn,
+          count: 1,
+        }),
+      );
+    }
   }
 
   /**
@@ -2327,6 +2380,51 @@ function TableEditorOverlay({
   }
 
   /**
+   * 指定列を基準に全データ行を並べ替える。
+   * @param column - ソート対象の列番号。
+   * @returns 副作用を完了し、値は返さない。
+   */
+  function sortRowsByColumn(column: number): void {
+    if (rows.length <= 2 || column < 0 || column >= columnCount) return;
+
+    const direction: TableEditorSortDirection =
+      sortState?.column === column && sortState.direction === "ascending"
+        ? "descending"
+        : "ascending";
+    const sorted = sortTableEditorRows(
+      rows,
+      column,
+      direction,
+      resolveLanguage(document.documentElement.lang),
+    );
+
+    recordHistory();
+    setRows(sorted.rows);
+    setRowHeights(sorted.sourceRowIndexes.map((index) => rowHeights[index]));
+    setSortState({ column, direction });
+    selectColumn(column);
+    cellSelectionRef.current.clear();
+    setStatus("");
+  }
+
+  /**
+   * 次に実行する列ソート操作のラベルを取得する。
+   * @param column - ソート対象の列番号。
+   * @returns ボタンとツールチップで使うローカライズ済みラベル。
+   */
+  function sortButtonLabel(column: number): string {
+    const currentDirection =
+      sortState?.column === column ? sortState.direction : undefined;
+    const nextDirection =
+      currentDirection === "ascending" ? "descending" : "ascending";
+    const directionLabel =
+      nextDirection === "ascending"
+        ? messages.app.tableEditor.sortAscending
+        : messages.app.tableEditor.sortDescending;
+    return `${directionLabel} ${tableGridColumnLabel(column)}`;
+  }
+
+  /**
    * 表編集オーバーレイの要素を規則に従って並べ替える。
    * @param source - 解析・描画・変換の起点となる本文。
    * @param target - 表編集オーバーレイで扱う数値。
@@ -2337,6 +2435,13 @@ function TableEditorOverlay({
     if (source < 0 || source >= columnCount || source === safeTarget) return;
     const moved = moveTableGridColumn(rows, alignments, source, safeTarget);
     recordHistory();
+    setSortState((current) =>
+      remapTableEditorSortState(current, {
+        kind: "move",
+        from: source,
+        to: safeTarget,
+      }),
+    );
     setRows(moved.rows);
     setAlignments(moved.alignments as TableEditorAlignment[]);
     setColumnWidths(
@@ -2440,6 +2545,13 @@ function TableEditorOverlay({
       insertAt,
       0,
       ...nextWidths.slice(fromColumn, toColumn + 1),
+    );
+    setSortState((current) =>
+      remapTableEditorSortState(current, {
+        kind: "insert",
+        index: insertAt,
+        count: copyCount,
+      }),
     );
     const selectedRow = Math.min(activeRow, rows.length - 1);
     setRows(duplicated.rows);
@@ -3144,6 +3256,11 @@ function TableEditorOverlay({
                     className="mve-table-editor-column-selector"
                     scope="col"
                     tabIndex={0}
+                    aria-sort={
+                      sortState?.column === columnIndex
+                        ? sortState.direction
+                        : undefined
+                    }
                     aria-selected={columnIsSelected(columnIndex)}
                     data-selected={
                       columnIsSelected(columnIndex) ? "true" : "false"
@@ -3192,6 +3309,27 @@ function TableEditorOverlay({
                     }
                   >
                     <span>{tableGridColumnLabel(columnIndex)}</span>
+                    <button
+                      type="button"
+                      className="mve-table-editor-sort-button"
+                      data-column={columnIndex}
+                      title={sortButtonLabel(columnIndex)}
+                      aria-label={sortButtonLabel(columnIndex)}
+                      disabled={rows.length <= 2}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        sortRowsByColumn(columnIndex);
+                      }}
+                      onKeyDown={(event) => event.stopPropagation()}
+                    >
+                      <span aria-hidden="true">
+                        {sortState?.column === columnIndex
+                          ? sortState.direction === "ascending"
+                            ? "↑"
+                            : "↓"
+                          : "↕"}
+                      </span>
+                    </button>
                     <span
                       className="mve-table-editor-axis-drag-handle"
                       role="button"

@@ -16,7 +16,9 @@ import {
     tableEditorCellStoredOffsetFromDisplay,
     tableEditorCellStoredValue,
     deleteTableEditorLineBreakBeforeDisplayOffset,
-    insertTableEditorLineBreak
+    insertTableEditorLineBreak,
+    remapTableEditorSortState,
+    sortTableEditorRows
 } from '../src/webview/tableEditorModel';
 
 describe('table editor model',
@@ -233,6 +235,96 @@ describe('table editor model',
                 draft.rows[1][0] = 'changed';
 
                 expect(prepareTableEditorApply(draft, `${source}\n外部変更`)).toEqual({ kind: 'stale' });
+            });
+
+        it('sorts numeric columns, preserves blank placement, and keeps whole rows stable',
+            /**
+             * 数値列を昇順・降順に並べ替え、空欄と行データの対応を検証する。
+             * @returns テストケースを実行し、値は返さない。
+             */
+            () => {
+                const rows = [
+                    ['Name', 'Value', 'Id'],
+                    ['ten', '10', 'row-ten'],
+                    ['two', '2', 'row-two'],
+                    ['fraction', '.5', 'row-fraction'],
+                    ['one', '1.', 'row-one'],
+                    ['one-exp', '1e0', 'row-one-exp'],
+                    ['scientific', '1e2', 'row-scientific'],
+                    ['blank', '   ', 'row-blank'],
+                    ['negative', '-1', 'row-negative'],
+                ];
+
+                const ascending = sortTableEditorRows(rows, 1, 'ascending', 'en');
+                expect(ascending.rows.map((row) => row[1])).toEqual([
+                    'Value', '-1', '.5', '1.', '1e0', '2', '10', '1e2', '   ',
+                ]);
+                expect(ascending.rows.map((row) => row[2])).toEqual([
+                    'Id', 'row-negative', 'row-fraction', 'row-one', 'row-one-exp', 'row-two',
+                    'row-ten', 'row-scientific', 'row-blank',
+                ]);
+
+                const descending = sortTableEditorRows(rows, 1, 'descending', 'en');
+                expect(descending.rows.map((row) => row[1])).toEqual([
+                    'Value', '1e2', '10', '2', '1.', '1e0', '.5', '-1', '   ',
+                ]);
+                expect(descending.rows[0]).toEqual(rows[0]);
+                expect(rows[1]).toEqual(['ten', '10', 'row-ten']);
+            });
+
+        it('uses natural string order when a column mixes text and numbers',
+            /**
+             * 数値以外が混在する列をロケール対応の自然順で比較する。
+             * @returns テストケースを実行し、値は返さない。
+             */
+            () => {
+                const rows = [
+                    ['Item', 'Id'],
+                    ['item10', 'first'],
+                    ['item2', 'second'],
+                    ['item2', 'third'],
+                    ['label', 'text'],
+                    [' ', 'blank'],
+                ];
+
+                const ascending = sortTableEditorRows(rows, 0, 'ascending', 'en');
+                expect(ascending.rows.map((row) => row[1])).toEqual([
+                    'Id', 'second', 'third', 'first', 'text', 'blank',
+                ]);
+
+                const descending = sortTableEditorRows(rows, 0, 'descending', 'en');
+                expect(descending.rows.map((row) => row[1])).toEqual([
+                    'Id', 'text', 'first', 'second', 'third', 'blank',
+                ]);
+            });
+
+        it('uses natural order instead of parsing comma-separated values as numbers',
+            /**
+             * カンマを含む値を数値として解釈せず自然順で比較する。
+             * @returns テストケースを実行し、値は返さない。
+             */
+            () => {
+                const rows = [['Value'], ['2'], ['1,000']];
+
+                const sorted = sortTableEditorRows(rows, 0, 'ascending', 'en');
+                expect(sorted.rows.map((row) => row[0])).toEqual(['Value', '1,000', '2']);
+            });
+
+        it('remaps the active sort column when columns move, insert, or delete',
+            /**
+             * 列構成変更後もソート状態が同じ列データを参照することを検証する。
+             * @returns テストケースを実行し、値は返さない。
+             */
+            () => {
+                const state = { column: 2, direction: 'ascending' as const };
+                expect(remapTableEditorSortState(state, { kind: 'move', from: 1, to: 3 }))
+                    .toEqual({ column: 1, direction: 'ascending' });
+                expect(remapTableEditorSortState(state, { kind: 'insert', index: 1, count: 2 }))
+                    .toEqual({ column: 4, direction: 'ascending' });
+                expect(remapTableEditorSortState(state, { kind: 'delete', index: 1, count: 1 }))
+                    .toEqual({ column: 1, direction: 'ascending' });
+                expect(remapTableEditorSortState(state, { kind: 'delete', index: 2, count: 1 }))
+                    .toBeNull();
             });
 
         it('uses the shared table actions and TSV rules used by the ribbon',
