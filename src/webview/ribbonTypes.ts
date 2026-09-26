@@ -201,30 +201,9 @@ export type RibbonCommand =
     };
 
 /**
- * リボン型で共有するデータ形状を表すインターフェース。
+ * 文字色UIの文言を共有メッセージから参照する型。
  */
-export interface TextColorUiText {
-
-    /**
-     * 画面または検証結果に表示する説明文。
-     */
-    label: string;
-
-    /**
-     * リボン型で扱うdefault・colorの文字列。
-     */
-    defaultColor: string;
-
-    /**
-     * リボン型で扱うmixedの文字列。
-     */
-    mixed: string;
-
-    /**
-     * リボン型のcolorsに関する状態または設定。
-     */
-    colors: Record<TextColorId, string>;
-}
+export type TextColorUiText = Messages["app"]["textColor"];
 
 /**
  * リボン型で扱う値の種類と境界を表す型。
@@ -281,11 +260,6 @@ export interface RibbonImplementationContext extends RibbonButtonState {
      * リボン型で扱うmessagesの一覧。
      */
     messages: Messages;
-
-    /**
-     * 日本語表示で使う文言。
-     */
-    japanese: boolean;
 
     /**
      * リボン型の状態を示すフラグ。

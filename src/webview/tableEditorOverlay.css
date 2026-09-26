@@ -26,8 +26,8 @@
 .mve-table-editor {
     --mve-table-column-selector-height: 28px;
     position: relative;
-    width: min(960px, 94vw);
-    height: min(680px, 88vh);
+    width: min(1080px, 94vw);
+    height: min(760px, 88vh);
     max-width: calc(100vw - 32px);
     max-height: calc(100vh - 32px);
     display: grid;
@@ -255,6 +255,17 @@
 
 .mve-table-editor-toolbar button {
     padding: 4px 8px;
+}
+
+/*
+ * @style .mve-table-editor-toolbar .mve-table-editor-move-button
+ * 行・列を選択方向へ移動する。
+ */
+.mve-table-editor-toolbar .mve-table-editor-move-button {
+    min-width: 30px;
+    padding: 4px 6px;
+    font-size: 14px;
+    line-height: 1;
 }
 
 /*

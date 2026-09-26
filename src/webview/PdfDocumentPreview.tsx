@@ -3,6 +3,7 @@
  */
 import React, { useEffect, useRef, useState } from "react";
 import type { PDFDocumentProxy, PDFPageProxy } from "pdfjs-dist";
+import type { Messages } from "../shared/messages";
 
 /**
  * PDFプレビューで扱う値の種類と境界を表す型。
@@ -17,6 +18,11 @@ interface Props {
    * PDFプレビューで扱うdataの文字列。
    */
   data: string;
+
+  /**
+   * PDFプレビューで使うローカライズ済み文言。
+   */
+  messages: Messages["app"]["pdfPreview"];
 
   /**
    * PDFプレビューのpage・ratioを表す数値。
@@ -40,6 +46,11 @@ interface Props {
 let pdfJsPromise: Promise<PdfJsModule> | undefined;
 
 /**
+ * PDFプレビューで識別するスクリプトURI欠落エラー。
+ */
+const PDF_PREVIEW_SCRIPT_MISSING = "PDF_PREVIEW_SCRIPT_MISSING";
+
+/**
  * PDFプレビューから必要な値またはリソースを取得する。
  * @returns PDFプレビューの非同期処理で得られる結果。
  */
@@ -49,7 +60,7 @@ function loadPdfJs(): Promise<PdfJsModule> {
     'script[src*="webview.js"]',
   );
   if (!script?.src)
-    return Promise.reject(new Error("Webview script URI was not found."));
+    return Promise.reject(new Error(PDF_PREVIEW_SCRIPT_MISSING));
   const moduleUrl = new URL("pdfjs.mjs", script.src).toString();
   pdfJsPromise = import(/* @vite-ignore */ moduleUrl);
   return pdfJsPromise;
@@ -75,6 +86,7 @@ function decodeBase64(value: string): Uint8Array {
  */
 export function PdfDocumentPreview({
   data,
+  messages,
   pageRatio,
   zoom = 1,
   onRendered,
@@ -152,10 +164,10 @@ export function PdfDocumentPreview({
            * @returns PDFプレビューのコールバックが生成する結果。
            */
           (reason: unknown) => {
-            if (!cancelled)
-              setError(
-                reason instanceof Error ? reason.message : String(reason),
-              );
+            if (cancelled) return;
+            const detail =
+              reason instanceof Error ? reason.message : String(reason);
+            setError(detail);
           },
         );
 
@@ -185,11 +197,15 @@ export function PdfDocumentPreview({
   if (error)
     return (
       <p className="pdf-preview-error">
-        PDFプレビューを描画できませんでした: {error}
+        {messages.failed(
+          error === PDF_PREVIEW_SCRIPT_MISSING
+            ? messages.webviewUnavailable
+            : error,
+        )}
       </p>
     );
   if (!documentState)
-    return <p className="pdf-preview-loading">PDFを生成しています…</p>;
+    return <p className="pdf-preview-loading">{messages.loading}</p>;
 
   return (
     <div className="pdf-pages" data-page-count={pageCount}>
@@ -205,6 +221,7 @@ export function PdfDocumentPreview({
           <PdfPage
             key={`${data.length}-${index + 1}-${zoom}`}
             document={documentState}
+            messages={messages}
             pageNumber={index + 1}
             pageRatio={pageRatio}
             zoom={zoom}
@@ -233,6 +250,7 @@ export function PdfDocumentPreview({
  */
 function PdfPage({
   document,
+  messages,
   pageNumber,
   pageRatio,
   zoom,
@@ -242,6 +260,11 @@ function PdfPage({
    * PDFプレビューのdocumentに関する状態または設定。
    */
   document: PDFDocumentProxy;
+
+  /**
+   * PDFプレビューで使うローカライズ済み文言。
+   */
+  messages: Messages["app"]["pdfPreview"];
 
   /**
    * PDFプレビューのpage・numberを表す数値。
@@ -383,9 +406,9 @@ function PdfPage({
         width: `${794 * zoom}px`,
       }}
     >
-      <canvas ref={canvasRef} aria-label={`PDF ${pageNumber}ページ`} />
+      <canvas ref={canvasRef} aria-label={messages.pageLabel(pageNumber)} />
       {status === "error" && (
-        <span className="pdf-page-error">ページを描画できません</span>
+        <span className="pdf-page-error">{messages.pageError}</span>
       )}
     </div>
   );

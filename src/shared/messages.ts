@@ -2,6 +2,7 @@
  * @fileoverview HostとWebviewで使う表示文言とローカライズキーを対応付ける。未登録キーのフォールバックを一貫させる。
  */
 import localeCatalog from './locales.json';
+import type { TextColorId } from './textColor';
 
 
 /**
@@ -217,6 +218,16 @@ export interface Messages {
             inspection: string;
 
             /**
+             * プレビュー操作のグループ名。
+             */
+            preview: string;
+
+            /**
+             * テーマ操作のグループ名。
+             */
+            theme: string;
+
+            /**
              * ヘルプタブとして表示するローカライズ済み文言。
              */
             help: string;
@@ -407,6 +418,36 @@ export interface Messages {
              * 表示項目「toc」の文言として表示するローカライズ済み文言。
              */
             toc: string;
+
+            /**
+             * 文字色操作のラベル。
+             */
+            textColor: string;
+
+            /**
+             * 画像リサイズ操作のラベル。
+             */
+            imageResize: string;
+
+            /**
+             * プレビュー画像リサイズ操作の説明。
+             */
+            imageResizeControls: string;
+
+            /**
+             * エディターテーマ選択のラベル。
+             */
+            editorTheme: string;
+
+            /**
+             * 明るいテーマのラベル。
+             */
+            light: string;
+
+            /**
+             * 暗いテーマのラベル。
+             */
+            dark: string;
 
             /**
              * 表示項目「page・break」の文言として表示するローカライズ済み文言。
@@ -1165,6 +1206,142 @@ export interface Messages {
         };
 
         /**
+         * プレビュー画像のコピー操作に使う文言。
+         */
+        previewImageContextMenu: {
+            /**
+             * 画像コピー操作のラベル。
+             */
+            copy: string;
+            /**
+             * 画像の準備中に表示する状態。
+             */
+            preparing: string;
+            /**
+             * コピー成功時に表示する通知。
+             */
+            copied: string;
+            /**
+             * コピーできない画像に表示する説明。
+             */
+            unavailable: string;
+            /**
+             * コピー失敗時に表示する通知。
+             */
+            failed: string;
+        };
+
+        /**
+         * 文字色操作に使う文言。
+         */
+        textColor: {
+            /**
+             * 文字色操作のラベル。
+             */
+            label: string;
+            /**
+             * 既定色へ戻す選択肢のラベル。
+             */
+            defaultColor: string;
+            /**
+             * 複数の選択色が混在するときの表示。
+             */
+            mixed: string;
+            /**
+             * 文字色ごとのラベル。
+             */
+            colors: Record<TextColorId, string>;
+        };
+
+        /**
+         * プレビュー画像の操作に使う文言。
+         */
+        imageControls: {
+            /**
+             * 画像サイズ変更操作の説明。
+             */
+            resize: string;
+            /**
+             * 画像を左揃えにする操作の説明。
+             */
+            alignLeft: string;
+            /**
+             * 左揃え操作の短い表示。
+             */
+            alignLeftShort: string;
+            /**
+             * 画像を中央揃えにする操作の説明。
+             */
+            alignCenter: string;
+            /**
+             * 中央揃え操作の短い表示。
+             */
+            alignCenterShort: string;
+            /**
+             * 画像を右揃えにする操作の説明。
+             */
+            alignRight: string;
+            /**
+             * 右揃え操作の短い表示。
+             */
+            alignRightShort: string;
+            /**
+             * 画像サイズをリセットする操作の説明。
+             */
+            reset: string;
+        };
+
+        /**
+         * PDFプレビューに使う状態と操作の文言。
+         */
+        pdfPreview: {
+            /**
+             * PDFの縮小操作のラベル。
+             */
+            zoomOut: string;
+            /**
+             * PDFの拡大操作のラベル。
+             */
+            zoomIn: string;
+            /**
+             * PDFプレビューを表示できない状態。
+             */
+            unavailable: string;
+            /**
+             * PDF生成中の状態。
+             */
+            generating: string;
+            /**
+             * PDFページ描画中の状態。
+             */
+            drawing: string;
+            /**
+             * PDFプレビュー準備中の状態。
+             */
+            preparing: string;
+            /**
+             * ページコンポーネントでのPDF生成中の状態。
+             */
+            loading: string;
+            /**
+             * PDFプレビュー用スクリプトを読み込めない状態。
+             */
+            webviewUnavailable: string;
+            /**
+             * PDF描画失敗時に詳細を加える文。
+             */
+            failed: (detail: string) => string;
+            /**
+             * PDFページを描画できない状態。
+             */
+            pageError: string;
+            /**
+             * PDFページに付けるアクセシブル名。
+             */
+            pageLabel: (page: number) => string;
+        };
+
+        /**
          * 表示文言のtable・editorに関する状態または設定。
          */
         tableEditor: {
@@ -1295,6 +1472,51 @@ export interface Messages {
              * resize・editor設定の表示文言として表示するローカライズ済み文言。
              */
             resizeEditor: string;
+
+            /**
+             * 適用前の変更がある状態を示すラベル。
+             */
+            modified: string;
+            /**
+             * 適用前の変更を破棄する確認文。
+             */
+            discard: string;
+            /**
+             * 現在の選択範囲を示すラベル。
+             */
+            selection: string;
+            /**
+             * 選択範囲のセル数を表す語。
+             */
+            cells: string;
+            /**
+             * 表全体を選択する操作のラベル。
+             */
+            selectAll: string;
+            /**
+             * 行のドラッグ並べ替え操作の説明。
+             */
+            dragRow: string;
+            /**
+             * 列のドラッグ並べ替え操作の説明。
+             */
+            dragColumn: string;
+            /**
+             * 現在の行を上へ移動する操作のラベル。
+             */
+            moveRowUp: string;
+            /**
+             * 現在の行を下へ移動する操作のラベル。
+             */
+            moveRowDown: string;
+            /**
+             * 現在の列を左へ移動する操作のラベル。
+             */
+            moveColumnLeft: string;
+            /**
+             * 現在の列を右へ移動する操作のラベル。
+             */
+            moveColumnRight: string;
         };
 
         /**
@@ -1538,6 +1760,11 @@ export interface Messages {
          * 失敗または入力エラーの説明として表示するローカライズ済み文言。
          */
         mermaidError: string;
+
+        /**
+         * Mermaid図のアクセシブル名。
+         */
+        mermaidDiagramLabel: (description: string) => string;
 
         /**
          * 表示文言のalertsに関する状態または設定。
@@ -1991,6 +2218,22 @@ function createMessages(language: SupportedLanguage): Messages {
             },
             inspector: raw.app.inspector,
             link: raw.app.link,
+            previewImageContextMenu: raw.app.previewImageContextMenu,
+            textColor: raw.app.textColor,
+            imageControls: raw.app.imageControls,
+            pdfPreview: {
+                zoomOut: raw.app.pdfPreview.zoomOut,
+                zoomIn: raw.app.pdfPreview.zoomIn,
+                unavailable: raw.app.pdfPreview.unavailable,
+                generating: raw.app.pdfPreview.generating,
+                drawing: raw.app.pdfPreview.drawing,
+                preparing: raw.app.pdfPreview.preparing,
+                loading: raw.app.pdfPreview.loading,
+                webviewUnavailable: raw.app.pdfPreview.webviewUnavailable,
+                failed: (detail: string) => text('app.pdfPreview.failed', { detail }),
+                pageError: raw.app.pdfPreview.pageError,
+                pageLabel: (page: number) => text('app.pdfPreview.pageLabel', { page })
+            },
             tableEditor: {
                 title: raw.app.tableEditor.title,
                 close: raw.app.tableEditor.close,
@@ -2023,7 +2266,18 @@ function createMessages(language: SupportedLanguage): Messages {
                 documentChanged: raw.app.tableEditor.documentChanged,
                 resizeColumn: raw.app.tableEditor.resizeColumn,
                 resizeRow: raw.app.tableEditor.resizeRow,
-                resizeEditor: raw.app.tableEditor.resizeEditor
+                resizeEditor: raw.app.tableEditor.resizeEditor,
+                modified: raw.app.tableEditor.modified,
+                discard: raw.app.tableEditor.discard,
+                selection: raw.app.tableEditor.selection,
+                cells: raw.app.tableEditor.cells,
+                selectAll: raw.app.tableEditor.selectAll,
+                dragRow: raw.app.tableEditor.dragRow,
+                dragColumn: raw.app.tableEditor.dragColumn,
+                moveRowUp: raw.app.tableEditor.moveRowUp,
+                moveRowDown: raw.app.tableEditor.moveRowDown,
+                moveColumnLeft: raw.app.tableEditor.moveColumnLeft,
+                moveColumnRight: raw.app.tableEditor.moveColumnRight
             },
             help: raw.app.help,
             toast: {
@@ -2149,7 +2403,10 @@ function createMessages(language: SupportedLanguage): Messages {
                  */ (maxSizeMb: number) => text('app.errors.imageSize', { maxSizeMb })
             }
         },
-        renderer: raw.renderer,
+        renderer: {
+            ...raw.renderer,
+            mermaidDiagramLabel: (description: string) => text('renderer.mermaidDiagramLabel', { description })
+        },
         diagnostics: {
 
 

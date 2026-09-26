@@ -102,12 +102,12 @@ const MIN_EDITOR_HEIGHT = 320;
 /**
  * 編集面の幅が未指定のときに使う値。
  */
-const DEFAULT_EDITOR_WIDTH = 960;
+const DEFAULT_EDITOR_WIDTH = 1080;
 
 /**
  * 編集面の高さが未指定のときに使う値。
  */
-const DEFAULT_EDITOR_HEIGHT = 680;
+const DEFAULT_EDITOR_HEIGHT = 760;
 
 /**
  * 表編集行高の下限。
@@ -320,115 +320,6 @@ type GridDropTarget = {
   index: number;
 };
 /**
- * 表編集オーバーレイで扱う値の種類と境界を表す型。
- */
-type TableEditorPolishText = {
-  /**
-   * 表編集オーバーレイで扱うmodifiedの文字列。
-   */
-  modified: string;
-
-  /**
-   * 表編集オーバーレイで扱うdiscardの文字列。
-   */
-  discard: string;
-
-  /**
-   * 表編集オーバーレイで扱うselectionの文字列。
-   */
-  selection: string;
-
-  /**
-   * 表編集オーバーレイで扱うcellsの文字列。
-   */
-  cells: string;
-
-  /**
-   * 表編集オーバーレイで扱うselect・allの文字列。
-   */
-  selectAll: string;
-
-  /**
-   * 表編集オーバーレイの位置・寸法・件数・時間を表す数値。
-   */
-  dragRow: string;
-
-  /**
-   * 表編集オーバーレイの位置・寸法・件数・時間を表す数値。
-   */
-  dragColumn: string;
-};
-
-/**
- * 表編集オーバーレイで解析・表示・保存する本文。
- */
-const TABLE_EDITOR_POLISH_TEXT: Record<string, TableEditorPolishText> = {
-  ja: {
-    modified: "未適用の変更",
-    discard: "未適用の変更を破棄しますか？",
-    selection: "選択",
-    cells: "セル",
-    selectAll: "すべてのセルを選択",
-    dragRow: "行をドラッグして並べ替え",
-    dragColumn: "列をドラッグして並べ替え",
-  },
-  en: {
-    modified: "Unapplied changes",
-    discard: "Discard unapplied changes?",
-    selection: "Selection",
-    cells: "cells",
-    selectAll: "Select all cells",
-    dragRow: "Drag to reorder row",
-    dragColumn: "Drag to reorder column",
-  },
-  "zh-cn": {
-    modified: "有未应用的更改",
-    discard: "要放弃未应用的更改吗？",
-    selection: "选择",
-    cells: "个单元格",
-    selectAll: "选择所有单元格",
-    dragRow: "拖动以重新排列行",
-    dragColumn: "拖动以重新排列列",
-  },
-  ko: {
-    modified: "적용되지 않은 변경 사항",
-    discard: "적용되지 않은 변경 사항을 버리시겠습니까?",
-    selection: "선택",
-    cells: "셀",
-    selectAll: "모든 셀 선택",
-    dragRow: "드래그하여 행 순서 변경",
-    dragColumn: "드래그하여 열 순서 변경",
-  },
-  fr: {
-    modified: "Modifications non appliquées",
-    discard: "Abandonner les modifications non appliquées ?",
-    selection: "Sélection",
-    cells: "cellules",
-    selectAll: "Sélectionner toutes les cellules",
-    dragRow: "Faire glisser pour réordonner la ligne",
-    dragColumn: "Faire glisser pour réordonner la colonne",
-  },
-  de: {
-    modified: "Nicht angewendete Änderungen",
-    discard: "Nicht angewendete Änderungen verwerfen?",
-    selection: "Auswahl",
-    cells: "Zellen",
-    selectAll: "Alle Zellen auswählen",
-    dragRow: "Ziehen, um Zeile neu anzuordnen",
-    dragColumn: "Ziehen, um Spalte neu anzuordnen",
-  },
-  es: {
-    modified: "Cambios sin aplicar",
-    discard: "¿Descartar los cambios sin aplicar?",
-    selection: "Selección",
-    cells: "celdas",
-    selectAll: "Seleccionar todas las celdas",
-    dragRow: "Arrastrar para reordenar la fila",
-    dragColumn: "Arrastrar para reordenar la columna",
-  },
-};
-
-/**
  * 表編集オーバーレイのcell・keyを処理し、呼び出し側へ結果または副作用を返す。
  * @param row - 表編集オーバーレイで走査または更新する要素。
  * @param column - 表編集オーバーレイで走査または更新する要素。
@@ -471,20 +362,6 @@ function rowTextareaStyle(
   if (rowHeight === undefined) return undefined;
   const cellHeight = Math.max(MIN_TEXTAREA_HEIGHT, rowHeight - 2);
   return { height: `${cellHeight}px`, minHeight: `${cellHeight}px` };
-}
-
-/**
- * 表編集オーバーレイのtable・editor・polish・textを処理し、呼び出し側へ結果または副作用を返す。
- * @param language - 表編集オーバーレイの対象や分岐を識別する値。
- * @returns 表編集オーバーレイのtable・editor・polish・textが生成する結果。
- */
-function tableEditorPolishText(language: string): TableEditorPolishText {
-  const normalized = language.trim().toLowerCase().replace(/_/g, "-");
-  if (normalized === "zh" || normalized.startsWith("zh-cn")) {
-    return TABLE_EDITOR_POLISH_TEXT["zh-cn"];
-  }
-  const primary = normalized.split("-")[0];
-  return TABLE_EDITOR_POLISH_TEXT[primary] ?? TABLE_EDITOR_POLISH_TEXT.en;
 }
 
 /**
@@ -732,7 +609,6 @@ function TableEditorOverlay({
   const gridDragRef = useRef<GridDragState | undefined>(undefined);
   const historyRef = useRef(createTableEditorHistory());
   const initialRenderedTextRef = useRef(renderTableEditorDraft(initial).text);
-  const polishText = tableEditorPolishText(document.documentElement.lang);
   const columnCount = Math.max(
     1,
     alignments.length,
@@ -2883,7 +2759,7 @@ function TableEditorOverlay({
       normalizedSelection.toColumn,
     );
     const range = from === to ? from : `${from}–${to}`;
-    return `${polishText.selection}: ${range} / ${selectedCellCount} ${polishText.cells}`;
+    return `${messages.app.tableEditor.selection}: ${range} / ${selectedCellCount} ${messages.app.tableEditor.cells}`;
   }
 
   /**
@@ -2916,7 +2792,7 @@ function TableEditorOverlay({
    * @returns 副作用を完了し、値は返さない。
    */
   function requestClose(): void {
-    if (isDirty && !window.confirm(polishText.discard)) return;
+    if (isDirty && !window.confirm(messages.app.tableEditor.discard)) return;
     closeAndRestoreFocus();
   }
 
@@ -2974,10 +2850,10 @@ function TableEditorOverlay({
         {isDirty && (
           <span
             className="mve-table-editor-dirty"
-            title={polishText.modified}
-            aria-label={polishText.modified}
+            title={messages.app.tableEditor.modified}
+            aria-label={messages.app.tableEditor.modified}
           >
-            ● {polishText.modified}
+            ● {messages.app.tableEditor.modified}
           </span>
         )}
         <button
@@ -3050,6 +2926,26 @@ function TableEditorOverlay({
           >
             {messages.app.tableEditor.copyRow}
           </button>
+          <button
+            type="button"
+            className="mve-table-editor-move-button"
+            title={messages.app.tableEditor.moveRowUp}
+            aria-label={messages.app.tableEditor.moveRowUp}
+            onClick={() => moveRow(activeRow, activeRow - 1)}
+            disabled={activeRow <= 1}
+          >
+            ↑
+          </button>
+          <button
+            type="button"
+            className="mve-table-editor-move-button"
+            title={messages.app.tableEditor.moveRowDown}
+            aria-label={messages.app.tableEditor.moveRowDown}
+            onClick={() => moveRow(activeRow, activeRow + 1)}
+            disabled={activeRow <= 0 || activeRow >= rows.length - 1}
+          >
+            ↓
+          </button>
         </ToolbarGroup>
         <ToolbarGroup label={messages.ribbon.groups.columns}>
           <button
@@ -3090,6 +2986,26 @@ function TableEditorOverlay({
             }
           >
             {messages.app.tableEditor.copyColumn}
+          </button>
+          <button
+            type="button"
+            className="mve-table-editor-move-button"
+            title={messages.app.tableEditor.moveColumnLeft}
+            aria-label={messages.app.tableEditor.moveColumnLeft}
+            onClick={() => moveColumn(activeColumn, activeColumn - 1)}
+            disabled={activeColumn <= 0}
+          >
+            ←
+          </button>
+          <button
+            type="button"
+            className="mve-table-editor-move-button"
+            title={messages.app.tableEditor.moveColumnRight}
+            aria-label={messages.app.tableEditor.moveColumnRight}
+            onClick={() => moveColumn(activeColumn, activeColumn + 1)}
+            disabled={activeColumn >= columnCount - 1}
+          >
+            →
           </button>
         </ToolbarGroup>
         <ToolbarGroup label={messages.ribbon.groups.alignment}>
@@ -3193,8 +3109,8 @@ function TableEditorOverlay({
                 className="mve-table-editor-corner"
                 scope="col"
                 tabIndex={0}
-                title={polishText.selectAll}
-                aria-label={polishText.selectAll}
+                title={messages.app.tableEditor.selectAll}
+                aria-label={messages.app.tableEditor.selectAll}
                 aria-selected={selectionKind === "all"}
                 data-selected={selectionKind === "all" ? "true" : "false"}
                 onClick={selectAllCells}
@@ -3281,8 +3197,8 @@ function TableEditorOverlay({
                       role="button"
                       tabIndex={0}
                       draggable
-                      title={polishText.dragColumn}
-                      aria-label={`${polishText.dragColumn} ${tableGridColumnLabel(columnIndex)}`}
+                      title={messages.app.tableEditor.dragColumn}
+                      aria-label={`${messages.app.tableEditor.dragColumn} ${tableGridColumnLabel(columnIndex)}`}
                       onPointerDown={
                         /**
                          * イベントをstop・propagationへ渡し、表編集オーバーレイの結果または副作用を処理する。
@@ -3394,8 +3310,8 @@ function TableEditorOverlay({
                         role="button"
                         tabIndex={0}
                         draggable
-                        title={polishText.dragRow}
-                        aria-label={`${polishText.dragRow} ${rowIndex}`}
+                        title={messages.app.tableEditor.dragRow}
+                        aria-label={`${messages.app.tableEditor.dragRow} ${rowIndex}`}
                         onPointerDown={
                           /**
                            * イベントをstop・propagationへ渡し、表編集オーバーレイの結果または副作用を処理する。

@@ -6640,7 +6640,7 @@ function PdfPreview({
       >
         <button
           type="button"
-          aria-label="PDFズームアウト"
+          aria-label={messages.app.pdfPreview.zoomOut}
           onClick={
           /**
            * clickイベントでmve・debugを実行する。
@@ -6658,7 +6658,7 @@ function PdfPreview({
         </span>
         <button
           type="button"
-          aria-label="PDFズームイン"
+          aria-label={messages.app.pdfPreview.zoomIn}
           onClick={
           /**
            * clickイベントでmve・debugを実行する。
@@ -6675,12 +6675,12 @@ function PdfPreview({
       {!showPdfLayer && (
         <p className="pdf-preview-status" aria-live="polite">
           {pdfError
-            ? "PDFプレビューを表示できません。"
+            ? messages.app.pdfPreview.unavailable
             : pdfLoading
-              ? "PDFを生成しています。"
+              ? messages.app.pdfPreview.generating
               : pdfBase64
-                ? "PDFページを描画しています。"
-                : "PDFプレビューを準備しています。"}
+                ? messages.app.pdfPreview.drawing
+                : messages.app.pdfPreview.preparing}
         </p>
       )}
       {!showPdfLayer && (
@@ -6736,6 +6736,7 @@ function PdfPreview({
         >
           <PdfDocumentPreview
             data={pdfBase64}
+            messages={messages.app.pdfPreview}
             pageRatio={dimensions.width / dimensions.height}
             zoom={zoom}
             onRendered={

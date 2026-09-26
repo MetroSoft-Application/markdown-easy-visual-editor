@@ -25,7 +25,7 @@ import {
   RIBBON_HEADER_IMPLEMENTATIONS,
   RIBBON_IMPLEMENTATIONS,
 } from "./ribbonImplementations";
-import { getTextColorUiText, resolveRibbonLabel } from "./ribbonLabels";
+import { resolveRibbonLabel } from "./ribbonLabels";
 import { validateRibbonConfiguration } from "./ribbonValidation";
 import type {
   RibbonButtonImplementation,
@@ -156,7 +156,6 @@ export function Ribbon({
   const [imageResizeControlsVisible, setImageResizeControlsVisible] = useState(
     getPreviewImageResizeControlsVisible,
   );
-  const japanese = document.documentElement.lang.toLowerCase().startsWith("ja");
   const activeTab =
     RIBBON_LAYOUT.tabs.find(
       /**
@@ -168,10 +167,9 @@ export function Ribbon({
     ) ?? RIBBON_LAYOUT.tabs[0];
   const context: RibbonImplementationContext = {
     messages,
-    japanese,
     collapsed,
     setCollapsed,
-    textColorText: getTextColorUiText(document.documentElement.lang),
+    textColorText: messages.app.textColor,
     mode,
     readOnly,
     activeMarks,
@@ -253,11 +251,11 @@ export function Ribbon({
     options: RibbonButtonOptions,
     implementation: RibbonButtonImplementation,
   ): React.JSX.Element {
-    const label = resolveRibbonLabel(labelSpec, messages, japanese);
+    const label = resolveRibbonLabel(labelSpec, messages);
     const active = implementation.active?.(context) ?? false;
     const disabled = implementation.disabled?.(context) ?? false;
     const title = options.title
-      ? resolveRibbonLabel(options.title, messages, japanese)
+      ? resolveRibbonLabel(options.title, messages)
       : undefined;
     if (options.variant === "header") {
       return (
@@ -345,7 +343,7 @@ export function Ribbon({
            * @param spec - リボンへ渡す入力。
            * @returns リボンに対応する要素の一覧。
            */
-          (spec) => resolveRibbonLabel(spec, messages, japanese),
+          (spec) => resolveRibbonLabel(spec, messages),
         )}
       </React.Fragment>
     );
@@ -381,7 +379,6 @@ export function Ribbon({
             aria-label={resolveRibbonLabel(
               containerDefinition.ariaLabel,
               messages,
-              japanese,
             )}
           >
             {containerItemIds.map(renderItem)}
@@ -425,7 +422,6 @@ export function Ribbon({
             aria-label={resolveRibbonLabel(
               groupDefinition.ariaLabel,
               messages,
-              japanese,
             )}
           >
             {groupItemIds.map(renderHeaderButton)}
@@ -486,7 +482,6 @@ export function Ribbon({
         aria-label={resolveRibbonLabel(
           RIBBON_DEFINITIONS.tabListLabel,
           messages,
-          japanese,
         )}
       >
         {RIBBON_LAYOUT.tabs.map(
@@ -516,7 +511,6 @@ export function Ribbon({
               {resolveRibbonLabel(
                 RIBBON_DEFINITIONS.tabs[definition.id],
                 messages,
-                japanese,
               )}
             </button>
           ),
@@ -538,7 +532,6 @@ export function Ribbon({
                 label={resolveRibbonLabel(
                   RIBBON_DEFINITIONS.groups[group.id].label,
                   messages,
-                  japanese,
                 )}
                 className={RIBBON_DEFINITIONS.groups[group.id].className}
               >

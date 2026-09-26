@@ -4,6 +4,7 @@
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { ImageAlignment } from "../shared/imageResize";
 import type { MermaidInteraction, WebviewSettings } from "../shared/protocol";
+import type { Messages } from "../shared/messages";
 import { getMessages } from "../shared/messages";
 import { renderMarkdownFallback } from "./markdownFallback";
 import {
@@ -268,6 +269,7 @@ function RenderedMarkdownView({
       // HTMLの更新を監視し、未処理のMermaidや画像の読み込み後にレイアウトを通知する。
       const root = rootRef.current;
       if (!root) return;
+      const imageMessages = getMessages(settings.language).app.imageControls;
       // 表の短い項目名だけを改行禁止にし、長い先頭列の横溢れを防ぐ。
       root.querySelectorAll<HTMLTableElement>("table").forEach(
         /**
@@ -440,7 +442,10 @@ function RenderedMarkdownView({
         frame.setAttribute("role", "img");
         frame.setAttribute(
           "aria-label",
-          rendered.ariaLabel || `Mermaid: ${source.split(/\r?\n/, 1)[0] ?? ""}`,
+          rendered.ariaLabel ||
+            getMessages(settings.language).renderer.mermaidDiagramLabel(
+              source.split(/\r?\n/, 1)[0] ?? "",
+            ),
         );
         const image = document.createElement("img");
         image.className = "mermaid-svg-image";
@@ -708,6 +713,7 @@ function RenderedMarkdownView({
         if (onImageResizeRef.current || onImageAlignRef.current) {
           const cleanup = enhanceResizableImages(
             root,
+            imageMessages,
             onImageResizeRef,
             onImageResetRef,
             onImageAlignRef,
@@ -2006,6 +2012,7 @@ type AlignmentCallbackRef = React.MutableRefObject<
  */
 function enhanceResizableImages(
   root: HTMLElement,
+  messages: Messages["app"]["imageControls"],
   onResizeRef: ImageCallbackRef,
   onResetRef: ResetCallbackRef,
   onAlignRef: AlignmentCallbackRef,
@@ -2096,8 +2103,8 @@ function enhanceResizableImages(
       const handle = document.createElement("button");
       handle.type = "button";
       handle.className = "mve-image-handle";
-      handle.setAttribute("aria-label", "画像をリサイズ");
-      handle.title = "画像をリサイズ";
+      handle.setAttribute("aria-label", messages.resize);
+      handle.title = messages.resize;
       frame.appendChild(handle);
       const pointerCleanup = attachResizePointer(
         handle,
@@ -2112,9 +2119,9 @@ function enhanceResizableImages(
       const alignmentActions = document.createElement("span");
       alignmentActions.className = "mve-image-align-actions";
       const alignmentLabels: Array<[ImageAlignment, string, string]> = [
-        ["left", "左揃え", "左"],
-        ["center", "中央揃え", "中"],
-        ["right", "右揃え", "右"],
+        ["left", messages.alignLeft, messages.alignLeftShort],
+        ["center", messages.alignCenter, messages.alignCenterShort],
+        ["right", messages.alignRight, messages.alignRightShort],
       ];
       alignmentLabels.forEach(
         /**
@@ -2173,8 +2180,8 @@ function enhanceResizableImages(
         resetButton.type = "button";
         resetButton.className = "mve-image-reset";
         resetButton.textContent = "↺";
-        resetButton.setAttribute("aria-label", "画像サイズをリセット");
-        resetButton.title = "画像サイズをリセット";
+        resetButton.setAttribute("aria-label", messages.reset);
+        resetButton.title = messages.reset;
         resetButton.addEventListener(
           "click",
           /**

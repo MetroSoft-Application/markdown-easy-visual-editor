@@ -41,7 +41,9 @@
         "pdf": "PDF",
         "html": "HTML",
         "inspection": "検査",
-        "help": "ヘルプ"
+        "help": "ヘルプ",
+        "preview": "プレビュー",
+        "theme": "テーマ"
       },
       "labels": {
         "undo": "元に戻す",
@@ -105,6 +107,12 @@
         "preflight": "出力前チェック",
         "shortcuts": "ショートカット",
         "features": "機能一覧",
+        "textColor": "テキスト色",
+        "imageResize": "画像リサイズ",
+        "imageResizeControls": "プレビュー画像のリサイズ操作を表示または非表示にします",
+        "editorTheme": "エディター",
+        "light": "ライト",
+        "dark": "ダーク",
         "featureDescriptions": {
           "undo": "直前の編集を取り消します。",
           "redo": "取り消した編集をやり直します。",
@@ -342,7 +350,62 @@
         "documentChanged": "編集中に本文が変更されました。閉じて開き直してください。",
         "resizeColumn": "列幅を変更",
         "resizeRow": "行の高さを変更",
-        "resizeEditor": "表編集UIのサイズを変更"
+        "resizeEditor": "表編集UIのサイズを変更",
+        "modified": "未適用の変更",
+        "discard": "未適用の変更を破棄しますか？",
+        "selection": "選択",
+        "cells": "セル",
+        "selectAll": "すべてのセルを選択",
+        "dragRow": "行をドラッグして並べ替え",
+        "dragColumn": "列をドラッグして並べ替え",
+        "moveRowUp": "現在の行を上へ移動",
+        "moveRowDown": "現在の行を下へ移動",
+        "moveColumnLeft": "現在の列を左へ移動",
+        "moveColumnRight": "現在の列を右へ移動"
+      },
+      "previewImageContextMenu": {
+        "copy": "画像をコピー",
+        "preparing": "画像を準備中…",
+        "copied": "画像をクリップボードにコピーしました",
+        "unavailable": "この画像はコピーできません",
+        "failed": "画像のコピーに失敗しました"
+      },
+      "textColor": {
+        "label": "文字色",
+        "defaultColor": "既定（解除）",
+        "mixed": "混在",
+        "colors": {
+          "red": "赤",
+          "orange": "オレンジ",
+          "yellow": "黄",
+          "green": "緑",
+          "blue": "青",
+          "purple": "紫",
+          "gray": "グレー"
+        }
+      },
+      "imageControls": {
+        "resize": "画像をリサイズ",
+        "alignLeft": "画像を左揃え",
+        "alignLeftShort": "左",
+        "alignCenter": "画像を中央揃え",
+        "alignCenterShort": "中",
+        "alignRight": "画像を右揃え",
+        "alignRightShort": "右",
+        "reset": "画像サイズをリセット"
+      },
+      "pdfPreview": {
+        "zoomOut": "PDFズームアウト",
+        "zoomIn": "PDFズームイン",
+        "unavailable": "PDFプレビューを表示できません。",
+        "generating": "PDFを生成しています。",
+        "drawing": "PDFページを描画しています。",
+        "preparing": "PDFプレビューを準備しています。",
+        "loading": "PDFを生成しています…",
+        "webviewUnavailable": "PDFプレビューのスクリプトを読み込めませんでした。",
+        "failed": "PDFプレビューを描画できませんでした: {detail}",
+        "pageError": "ページを描画できません",
+        "pageLabel": "PDF {page}ページ"
       },
       "help": {
         "shortcuts": "ショートカット",
@@ -392,6 +455,7 @@
       "backToText": "本文へ戻る",
       "mathError": "数式の描画に失敗しました",
       "mermaidError": "Mermaid構文エラー",
+      "mermaidDiagramLabel": "Mermaid図: {description}",
       "alerts": {
         "note": "注記",
         "tip": "ヒント",
@@ -491,7 +555,9 @@
         "pdf": "PDF",
         "html": "HTML",
         "inspection": "Inspection",
-        "help": "Help"
+        "help": "Help",
+        "preview": "Preview",
+        "theme": "Theme"
       },
       "labels": {
         "undo": "Undo",
@@ -555,6 +621,12 @@
         "preflight": "Preflight check",
         "shortcuts": "Shortcuts",
         "features": "Features",
+        "textColor": "Text color",
+        "imageResize": "Image resize",
+        "imageResizeControls": "Show or hide image resize controls in the preview",
+        "editorTheme": "Editor",
+        "light": "Light",
+        "dark": "Dark",
         "featureDescriptions": {
           "undo": "Undo the most recent edit.",
           "redo": "Reapply an undone edit.",
@@ -792,7 +864,62 @@
         "documentChanged": "The document changed while this editor was open. Reopen it before applying.",
         "resizeColumn": "Resize column",
         "resizeRow": "Resize row",
-        "resizeEditor": "Resize table editor"
+        "resizeEditor": "Resize table editor",
+        "modified": "Unapplied changes",
+        "discard": "Discard unapplied changes?",
+        "selection": "Selection",
+        "cells": "cells",
+        "selectAll": "Select all cells",
+        "dragRow": "Drag to reorder row",
+        "dragColumn": "Drag to reorder column",
+        "moveRowUp": "Move current row up",
+        "moveRowDown": "Move current row down",
+        "moveColumnLeft": "Move current column left",
+        "moveColumnRight": "Move current column right"
+      },
+      "previewImageContextMenu": {
+        "copy": "Copy image",
+        "preparing": "Preparing image…",
+        "copied": "Image copied to clipboard",
+        "unavailable": "This image cannot be copied",
+        "failed": "Failed to copy image"
+      },
+      "textColor": {
+        "label": "Text color",
+        "defaultColor": "Default (clear)",
+        "mixed": "Mixed",
+        "colors": {
+          "red": "Red",
+          "orange": "Orange",
+          "yellow": "Yellow",
+          "green": "Green",
+          "blue": "Blue",
+          "purple": "Purple",
+          "gray": "Gray"
+        }
+      },
+      "imageControls": {
+        "resize": "Resize image",
+        "alignLeft": "Align image left",
+        "alignLeftShort": "Left",
+        "alignCenter": "Align image center",
+        "alignCenterShort": "Center",
+        "alignRight": "Align image right",
+        "alignRightShort": "Right",
+        "reset": "Reset image size"
+      },
+      "pdfPreview": {
+        "zoomOut": "Zoom out PDF",
+        "zoomIn": "Zoom in PDF",
+        "unavailable": "PDF preview is unavailable.",
+        "generating": "Generating PDF.",
+        "drawing": "Rendering PDF pages.",
+        "preparing": "Preparing PDF preview.",
+        "loading": "Generating PDF…",
+        "webviewUnavailable": "The PDF preview script could not be loaded.",
+        "failed": "Could not render PDF preview: {detail}",
+        "pageError": "Unable to render page",
+        "pageLabel": "PDF page {page}"
       },
       "help": {
         "shortcuts": "Shortcuts",
@@ -842,6 +969,7 @@
       "backToText": "Back to text",
       "mathError": "Could not render the formula",
       "mermaidError": "Mermaid syntax error",
+      "mermaidDiagramLabel": "Mermaid diagram: {description}",
       "alerts": {
         "note": "Note",
         "tip": "Tip",
@@ -941,7 +1069,9 @@
         "pdf": "PDF",
         "html": "HTML",
         "inspection": "检查",
-        "help": "帮助"
+        "help": "帮助",
+        "preview": "预览",
+        "theme": "主题"
       },
       "labels": {
         "undo": "撤销",
@@ -1005,6 +1135,12 @@
         "preflight": "导出前检查",
         "shortcuts": "快捷键",
         "features": "功能列表",
+        "textColor": "文字颜色",
+        "imageResize": "图像大小调整",
+        "imageResizeControls": "显示或隐藏预览中的图像大小调整控件",
+        "editorTheme": "编辑器",
+        "light": "浅色",
+        "dark": "深色",
         "featureDescriptions": {
           "undo": "撤销最近一次编辑。",
           "redo": "重做已撤销的编辑。",
@@ -1242,7 +1378,62 @@
         "documentChanged": "编辑器打开期间文档发生了变化。请关闭后重新打开。",
         "resizeColumn": "调整列宽",
         "resizeRow": "调整行高",
-        "resizeEditor": "调整表格编辑器大小"
+        "resizeEditor": "调整表格编辑器大小",
+        "modified": "有未应用的更改",
+        "discard": "要放弃未应用的更改吗？",
+        "selection": "选择",
+        "cells": "个单元格",
+        "selectAll": "选择所有单元格",
+        "dragRow": "拖动以重新排列行",
+        "dragColumn": "拖动以重新排列列",
+        "moveRowUp": "上移当前行",
+        "moveRowDown": "下移当前行",
+        "moveColumnLeft": "左移当前列",
+        "moveColumnRight": "右移当前列"
+      },
+      "previewImageContextMenu": {
+        "copy": "复制图像",
+        "preparing": "正在准备图像…",
+        "copied": "图像已复制到剪贴板",
+        "unavailable": "无法复制此图像",
+        "failed": "复制图像失败"
+      },
+      "textColor": {
+        "label": "文字颜色",
+        "defaultColor": "默认（清除）",
+        "mixed": "混合",
+        "colors": {
+          "red": "红色",
+          "orange": "橙色",
+          "yellow": "黄色",
+          "green": "绿色",
+          "blue": "蓝色",
+          "purple": "紫色",
+          "gray": "灰色"
+        }
+      },
+      "imageControls": {
+        "resize": "调整图像大小",
+        "alignLeft": "图像左对齐",
+        "alignLeftShort": "左",
+        "alignCenter": "图像居中对齐",
+        "alignCenterShort": "中",
+        "alignRight": "图像右对齐",
+        "alignRightShort": "右",
+        "reset": "重置图像大小"
+      },
+      "pdfPreview": {
+        "zoomOut": "缩小 PDF",
+        "zoomIn": "放大 PDF",
+        "unavailable": "无法显示 PDF 预览。",
+        "generating": "正在生成 PDF。",
+        "drawing": "正在渲染 PDF 页面。",
+        "preparing": "正在准备 PDF 预览。",
+        "loading": "正在生成 PDF…",
+        "webviewUnavailable": "无法加载 PDF 预览脚本。",
+        "failed": "无法渲染 PDF 预览：{detail}",
+        "pageError": "无法渲染页面",
+        "pageLabel": "PDF 第{page}页"
       },
       "help": {
         "shortcuts": "快捷键",
@@ -1292,6 +1483,7 @@
       "backToText": "返回正文",
       "mathError": "公式渲染失败",
       "mermaidError": "Mermaid语法错误",
+      "mermaidDiagramLabel": "Mermaid 图表：{description}",
       "alerts": {
         "note": "注记",
         "tip": "提示",
@@ -1391,7 +1583,9 @@
         "pdf": "PDF",
         "html": "HTML",
         "inspection": "검사",
-        "help": "도움말"
+        "help": "도움말",
+        "preview": "미리 보기",
+        "theme": "테마"
       },
       "labels": {
         "undo": "실행 취소",
@@ -1455,6 +1649,12 @@
         "preflight": "내보내기 전 검사",
         "shortcuts": "바로 가기",
         "features": "기능 목록",
+        "textColor": "텍스트 색상",
+        "imageResize": "이미지 크기 조정",
+        "imageResizeControls": "미리 보기에서 이미지 크기 조정 컨트롤 표시 또는 숨기기",
+        "editorTheme": "편집기",
+        "light": "라이트",
+        "dark": "다크",
         "featureDescriptions": {
           "undo": "최근 편집을 실행 취소합니다.",
           "redo": "실행 취소한 편집을 다시 적용합니다.",
@@ -1692,7 +1892,62 @@
         "documentChanged": "이 편집기를 여는 동안 문서가 변경되었습니다. 적용하기 전에 다시 여세요.",
         "resizeColumn": "열 너비 조정",
         "resizeRow": "행 높이 조정",
-        "resizeEditor": "표 편집기 크기 조정"
+        "resizeEditor": "표 편집기 크기 조정",
+        "modified": "적용되지 않은 변경 사항",
+        "discard": "적용되지 않은 변경 사항을 버리시겠습니까?",
+        "selection": "선택",
+        "cells": "셀",
+        "selectAll": "모든 셀 선택",
+        "dragRow": "드래그하여 행 순서 변경",
+        "dragColumn": "드래그하여 열 순서 변경",
+        "moveRowUp": "현재 행 위로 이동",
+        "moveRowDown": "현재 행 아래로 이동",
+        "moveColumnLeft": "현재 열 왼쪽으로 이동",
+        "moveColumnRight": "현재 열 오른쪽으로 이동"
+      },
+      "previewImageContextMenu": {
+        "copy": "이미지 복사",
+        "preparing": "이미지 준비 중…",
+        "copied": "이미지를 클립보드에 복사했습니다",
+        "unavailable": "이 이미지는 복사할 수 없습니다",
+        "failed": "이미지 복사에 실패했습니다"
+      },
+      "textColor": {
+        "label": "글자 색",
+        "defaultColor": "기본값(해제)",
+        "mixed": "혼합",
+        "colors": {
+          "red": "빨강",
+          "orange": "주황",
+          "yellow": "노랑",
+          "green": "초록",
+          "blue": "파랑",
+          "purple": "보라",
+          "gray": "회색"
+        }
+      },
+      "imageControls": {
+        "resize": "이미지 크기 조정",
+        "alignLeft": "이미지 왼쪽 정렬",
+        "alignLeftShort": "왼쪽",
+        "alignCenter": "이미지 가운데 정렬",
+        "alignCenterShort": "가운데",
+        "alignRight": "이미지 오른쪽 정렬",
+        "alignRightShort": "오른쪽",
+        "reset": "이미지 크기 재설정"
+      },
+      "pdfPreview": {
+        "zoomOut": "PDF 축소",
+        "zoomIn": "PDF 확대",
+        "unavailable": "PDF 미리 보기를 표시할 수 없습니다.",
+        "generating": "PDF를 생성하고 있습니다.",
+        "drawing": "PDF 페이지를 렌더링하고 있습니다.",
+        "preparing": "PDF 미리 보기를 준비하고 있습니다.",
+        "loading": "PDF를 생성하고 있습니다…",
+        "webviewUnavailable": "PDF 미리 보기 스크립트를 불러올 수 없습니다.",
+        "failed": "PDF 미리 보기를 렌더링할 수 없습니다: {detail}",
+        "pageError": "페이지를 렌더링할 수 없습니다",
+        "pageLabel": "PDF {page}페이지"
       },
       "help": {
         "shortcuts": "바로 가기",
@@ -1742,6 +1997,7 @@
       "backToText": "본문으로 돌아가기",
       "mathError": "수식을 렌더링할 수 없습니다",
       "mermaidError": "Mermaid 구문 오류",
+      "mermaidDiagramLabel": "Mermaid 다이어그램: {description}",
       "alerts": {
         "note": "참고",
         "tip": "팁",
@@ -1841,7 +2097,9 @@
         "pdf": "PDF",
         "html": "HTML",
         "inspection": "Inspection",
-        "help": "Aide"
+        "help": "Aide",
+        "preview": "Aperçu",
+        "theme": "Thème"
       },
       "labels": {
         "undo": "Annuler",
@@ -1905,6 +2163,12 @@
         "preflight": "Vérification avant export",
         "shortcuts": "Raccourcis",
         "features": "Fonctionnalités",
+        "textColor": "Couleur du texte",
+        "imageResize": "Redimensionnement de l’image",
+        "imageResizeControls": "Afficher ou masquer les commandes de redimensionnement des images dans l’aperçu",
+        "editorTheme": "Éditeur",
+        "light": "Clair",
+        "dark": "Sombre",
         "featureDescriptions": {
           "undo": "Annule la dernière modification.",
           "redo": "Rétablit une modification annulée.",
@@ -2142,7 +2406,62 @@
         "documentChanged": "Le document a changé pendant que cet éditeur était ouvert. Rouvrez-le avant d'appliquer.",
         "resizeColumn": "Redimensionner la colonne",
         "resizeRow": "Redimensionner la ligne",
-        "resizeEditor": "Redimensionner l’éditeur de tableau"
+        "resizeEditor": "Redimensionner l’éditeur de tableau",
+        "modified": "Modifications non appliquées",
+        "discard": "Abandonner les modifications non appliquées ?",
+        "selection": "Sélection",
+        "cells": "cellules",
+        "selectAll": "Sélectionner toutes les cellules",
+        "dragRow": "Faire glisser pour réordonner la ligne",
+        "dragColumn": "Faire glisser pour réordonner la colonne",
+        "moveRowUp": "Déplacer la ligne actuelle vers le haut",
+        "moveRowDown": "Déplacer la ligne actuelle vers le bas",
+        "moveColumnLeft": "Déplacer la colonne actuelle vers la gauche",
+        "moveColumnRight": "Déplacer la colonne actuelle vers la droite"
+      },
+      "previewImageContextMenu": {
+        "copy": "Copier l’image",
+        "preparing": "Préparation de l’image…",
+        "copied": "Image copiée dans le presse-papiers",
+        "unavailable": "Cette image ne peut pas être copiée",
+        "failed": "Impossible de copier l’image"
+      },
+      "textColor": {
+        "label": "Couleur du texte",
+        "defaultColor": "Par défaut (effacer)",
+        "mixed": "Mixte",
+        "colors": {
+          "red": "Rouge",
+          "orange": "Orange",
+          "yellow": "Jaune",
+          "green": "Vert",
+          "blue": "Bleu",
+          "purple": "Violet",
+          "gray": "Gris"
+        }
+      },
+      "imageControls": {
+        "resize": "Redimensionner l’image",
+        "alignLeft": "Aligner l’image à gauche",
+        "alignLeftShort": "Gauche",
+        "alignCenter": "Centrer l’image",
+        "alignCenterShort": "Centre",
+        "alignRight": "Aligner l’image à droite",
+        "alignRightShort": "Droite",
+        "reset": "Réinitialiser la taille de l’image"
+      },
+      "pdfPreview": {
+        "zoomOut": "Dézoomer le PDF",
+        "zoomIn": "Zoomer le PDF",
+        "unavailable": "L’aperçu PDF ne peut pas être affiché.",
+        "generating": "Génération du PDF.",
+        "drawing": "Rendu des pages PDF.",
+        "preparing": "Préparation de l’aperçu PDF.",
+        "loading": "Génération du PDF…",
+        "webviewUnavailable": "Impossible de charger le script d’aperçu PDF.",
+        "failed": "Impossible de générer l’aperçu PDF : {detail}",
+        "pageError": "Impossible d’afficher la page",
+        "pageLabel": "Page {page} du PDF"
       },
       "help": {
         "shortcuts": "Raccourcis",
@@ -2192,6 +2511,7 @@
       "backToText": "Retour au texte",
       "mathError": "Échec du rendu de la formule.",
       "mermaidError": "Échec du rendu Mermaid.",
+      "mermaidDiagramLabel": "Diagramme Mermaid : {description}",
       "alerts": {
         "note": "Note",
         "tip": "Conseil",
@@ -2291,7 +2611,9 @@
         "pdf": "PDF",
         "html": "HTML",
         "inspection": "Prüfung",
-        "help": "Hilfe"
+        "help": "Hilfe",
+        "preview": "Vorschau",
+        "theme": "Design"
       },
       "labels": {
         "undo": "Rückgängig",
@@ -2355,6 +2677,12 @@
         "preflight": "Exportprüfung",
         "shortcuts": "Tastenkürzel",
         "features": "Funktionen",
+        "textColor": "Textfarbe",
+        "imageResize": "Bildgröße ändern",
+        "imageResizeControls": "Steuerelemente zum Ändern der Bildgröße in der Vorschau ein- oder ausblenden",
+        "editorTheme": "Editor",
+        "light": "Hell",
+        "dark": "Dunkel",
         "featureDescriptions": {
           "undo": "Macht die letzte Bearbeitung rückgängig.",
           "redo": "Stellt eine rückgängig gemachte Bearbeitung wieder her.",
@@ -2592,7 +2920,62 @@
         "documentChanged": "Das Dokument wurde geändert, während dieser Editor geöffnet war. Öffnen Sie ihn vor dem Anwenden erneut.",
         "resizeColumn": "Spaltenbreite ändern",
         "resizeRow": "Zeilenhöhe ändern",
-        "resizeEditor": "Tabelleneditorgröße ändern"
+        "resizeEditor": "Tabelleneditorgröße ändern",
+        "modified": "Nicht angewendete Änderungen",
+        "discard": "Nicht angewendete Änderungen verwerfen?",
+        "selection": "Auswahl",
+        "cells": "Zellen",
+        "selectAll": "Alle Zellen auswählen",
+        "dragRow": "Ziehen, um Zeile neu anzuordnen",
+        "dragColumn": "Ziehen, um Spalte neu anzuordnen",
+        "moveRowUp": "Aktuelle Zeile nach oben verschieben",
+        "moveRowDown": "Aktuelle Zeile nach unten verschieben",
+        "moveColumnLeft": "Aktuelle Spalte nach links verschieben",
+        "moveColumnRight": "Aktuelle Spalte nach rechts verschieben"
+      },
+      "previewImageContextMenu": {
+        "copy": "Bild kopieren",
+        "preparing": "Bild wird vorbereitet…",
+        "copied": "Bild in die Zwischenablage kopiert",
+        "unavailable": "Dieses Bild kann nicht kopiert werden",
+        "failed": "Bild konnte nicht kopiert werden"
+      },
+      "textColor": {
+        "label": "Textfarbe",
+        "defaultColor": "Standard (entfernen)",
+        "mixed": "Gemischt",
+        "colors": {
+          "red": "Rot",
+          "orange": "Orange",
+          "yellow": "Gelb",
+          "green": "Grün",
+          "blue": "Blau",
+          "purple": "Violett",
+          "gray": "Grau"
+        }
+      },
+      "imageControls": {
+        "resize": "Bildgröße ändern",
+        "alignLeft": "Bild links ausrichten",
+        "alignLeftShort": "Links",
+        "alignCenter": "Bild zentrieren",
+        "alignCenterShort": "Mitte",
+        "alignRight": "Bild rechts ausrichten",
+        "alignRightShort": "Rechts",
+        "reset": "Bildgröße zurücksetzen"
+      },
+      "pdfPreview": {
+        "zoomOut": "PDF verkleinern",
+        "zoomIn": "PDF vergrößern",
+        "unavailable": "PDF-Vorschau kann nicht angezeigt werden.",
+        "generating": "PDF wird erstellt.",
+        "drawing": "PDF-Seiten werden gerendert.",
+        "preparing": "PDF-Vorschau wird vorbereitet.",
+        "loading": "PDF wird erstellt…",
+        "webviewUnavailable": "Das PDF-Vorschau-Skript konnte nicht geladen werden.",
+        "failed": "PDF-Vorschau konnte nicht gerendert werden: {detail}",
+        "pageError": "Seite kann nicht dargestellt werden",
+        "pageLabel": "PDF-Seite {page}"
       },
       "help": {
         "shortcuts": "Tastenkürzel",
@@ -2642,6 +3025,7 @@
       "backToText": "Zurück zum Text",
       "mathError": "Formel konnte nicht dargestellt werden.",
       "mermaidError": "Mermaid konnte nicht dargestellt werden.",
+      "mermaidDiagramLabel": "Mermaid-Diagramm: {description}",
       "alerts": {
         "note": "Hinweis",
         "tip": "Tipp",
@@ -2741,7 +3125,9 @@
         "pdf": "PDF",
         "html": "HTML",
         "inspection": "Inspección",
-        "help": "Ayuda"
+        "help": "Ayuda",
+        "preview": "Vista previa",
+        "theme": "Tema"
       },
       "labels": {
         "undo": "Deshacer",
@@ -2805,6 +3191,12 @@
         "preflight": "Comprobación de exportación",
         "shortcuts": "Atajos",
         "features": "Funciones",
+        "textColor": "Color del texto",
+        "imageResize": "Cambiar tamaño de imagen",
+        "imageResizeControls": "Mostrar u ocultar los controles para cambiar el tamaño de las imágenes en la vista previa",
+        "editorTheme": "Editor",
+        "light": "Claro",
+        "dark": "Oscuro",
         "featureDescriptions": {
           "undo": "Deshace la última edición.",
           "redo": "Rehace una edición deshecha.",
@@ -3042,7 +3434,62 @@
         "documentChanged": "El documento cambió mientras este editor estaba abierto. Vuelve a abrirlo antes de aplicar.",
         "resizeColumn": "Cambiar el ancho de la columna",
         "resizeRow": "Cambiar el alto de la fila",
-        "resizeEditor": "Cambiar el tamaño del editor de tablas"
+        "resizeEditor": "Cambiar el tamaño del editor de tablas",
+        "modified": "Cambios sin aplicar",
+        "discard": "¿Descartar los cambios sin aplicar?",
+        "selection": "Selección",
+        "cells": "celdas",
+        "selectAll": "Seleccionar todas las celdas",
+        "dragRow": "Arrastrar para reordenar la fila",
+        "dragColumn": "Arrastrar para reordenar la columna",
+        "moveRowUp": "Mover la fila actual hacia arriba",
+        "moveRowDown": "Mover la fila actual hacia abajo",
+        "moveColumnLeft": "Mover la columna actual hacia la izquierda",
+        "moveColumnRight": "Mover la columna actual hacia la derecha"
+      },
+      "previewImageContextMenu": {
+        "copy": "Copiar imagen",
+        "preparing": "Preparando imagen…",
+        "copied": "Imagen copiada al portapapeles",
+        "unavailable": "No se puede copiar esta imagen",
+        "failed": "No se pudo copiar la imagen"
+      },
+      "textColor": {
+        "label": "Color del texto",
+        "defaultColor": "Predeterminado (quitar)",
+        "mixed": "Mixto",
+        "colors": {
+          "red": "Rojo",
+          "orange": "Naranja",
+          "yellow": "Amarillo",
+          "green": "Verde",
+          "blue": "Azul",
+          "purple": "Morado",
+          "gray": "Gris"
+        }
+      },
+      "imageControls": {
+        "resize": "Cambiar tamaño de imagen",
+        "alignLeft": "Alinear imagen a la izquierda",
+        "alignLeftShort": "Izquierda",
+        "alignCenter": "Centrar imagen",
+        "alignCenterShort": "Centro",
+        "alignRight": "Alinear imagen a la derecha",
+        "alignRightShort": "Derecha",
+        "reset": "Restablecer tamaño de imagen"
+      },
+      "pdfPreview": {
+        "zoomOut": "Alejar PDF",
+        "zoomIn": "Acercar PDF",
+        "unavailable": "No se puede mostrar la vista previa del PDF.",
+        "generating": "Generando PDF.",
+        "drawing": "Renderizando páginas PDF.",
+        "preparing": "Preparando la vista previa del PDF.",
+        "loading": "Generando PDF…",
+        "webviewUnavailable": "No se pudo cargar el script de vista previa del PDF.",
+        "failed": "No se pudo renderizar la vista previa del PDF: {detail}",
+        "pageError": "No se puede renderizar la página",
+        "pageLabel": "Página {page} del PDF"
       },
       "help": {
         "shortcuts": "Atajos",
@@ -3092,6 +3539,7 @@
       "backToText": "Volver al texto",
       "mathError": "No se pudo representar la fórmula.",
       "mermaidError": "No se pudo representar Mermaid.",
+      "mermaidDiagramLabel": "Diagrama Mermaid: {description}",
       "alerts": {
         "note": "Nota",
         "tip": "Consejo",

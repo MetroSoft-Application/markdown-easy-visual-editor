@@ -127,10 +127,10 @@ export const RIBBON_DEFINITIONS: RibbonDefinitions = {
         excel: { label: { kind: "message", path: "ribbon.groups.excel" } },
         pane: { label: { kind: "message", path: "ribbon.groups.pane" } },
         preview: {
-            label: { kind: "localized", japanese: "プレビュー", english: "Preview" },
+            label: { kind: "message", path: "ribbon.groups.preview" },
         },
         theme: {
-            label: { kind: "localized", japanese: "テーマ", english: "Theme" },
+            label: { kind: "message", path: "ribbon.groups.theme" },
         },
         pdf: { label: { kind: "message", path: "ribbon.groups.pdf" } },
         html: { label: { kind: "message", path: "ribbon.groups.html" } },
@@ -205,9 +205,8 @@ export const RIBBON_DEFINITIONS: RibbonDefinitions = {
         },
         textColor: {
             label: {
-                kind: "localized",
-                japanese: "テキスト色",
-                english: "Text color",
+                kind: "message",
+                path: "ribbon.labels.textColor",
             },
         },
         clearInline: {
@@ -362,29 +361,27 @@ export const RIBBON_DEFINITIONS: RibbonDefinitions = {
         },
         imageResize: {
             label: {
-                kind: "localized",
-                japanese: "画像リサイズ",
-                english: "Image resize",
+                kind: "message",
+                path: "ribbon.labels.imageResize",
             },
             options: {
                 title: {
-                    kind: "localized",
-                    japanese: "プレビュー画像のリサイズ操作を表示または非表示にします",
-                    english: "Show or hide image resize controls in the preview",
+                    kind: "message",
+                    path: "ribbon.labels.imageResizeControls",
                 },
             },
         },
         editorTheme: {
-            label: { kind: "localized", japanese: "エディター", english: "Editor" },
+            label: { kind: "message", path: "ribbon.labels.editorTheme" },
             options: {
                 choices: [
                     {
                         value: "light",
-                        label: { kind: "localized", japanese: "ライト", english: "Light" },
+                        label: { kind: "message", path: "ribbon.labels.light" },
                     },
                     {
                         value: "dark",
-                        label: { kind: "localized", japanese: "ダーク", english: "Dark" },
+                        label: { kind: "message", path: "ribbon.labels.dark" },
                     },
                 ],
             },

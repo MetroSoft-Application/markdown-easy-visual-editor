@@ -13,7 +13,7 @@ import {
 /**
  * リボン検証・テストの回帰のlabelに関する状態または設定。
  */
-const label = { kind: "localized", japanese: "表示", english: "Label" } as const;
+const label = { kind: "message", path: "ribbon.groups.preview" } as const;
 
 /**
  * リボン検証・テストの回帰のconfigurationを処理し、呼び出し側へ結果または副作用を返す。

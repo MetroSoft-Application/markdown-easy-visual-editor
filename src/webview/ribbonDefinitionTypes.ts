@@ -11,7 +11,7 @@ import type {
 } from "./ribbonIds";
 
 /**
- * リボン表示文言をメッセージキーまたは固定文言で表す型。
+ * リボン表示文言を共有メッセージキーで表す型。
  */
 export type RibbonLabelSpec =
     | {
@@ -37,20 +37,6 @@ export type RibbonLabelSpec =
          * 検証・変換・保存の対象となる値。
          */
         value: number
-    }
-    | {
-        /**
-         * メッセージ、項目、または処理の種類を識別する値。
-         */
-        kind: "localized";
-        /**
-         * 日本語表示で使う文言。
-         */
-        japanese: string;
-        /**
-         * 英語表示で使う文言。
-         */
-        english: string
     };
 
 /**

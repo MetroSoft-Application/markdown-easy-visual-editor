@@ -1,6 +1,7 @@
 /**
  * @fileoverview Webviewのプレビュー画像メニューを管理する。Hostとの通信、ユーザー操作、表示状態の契約を保つ。
  */
+import { getMessages } from "../shared/messages";
 /**
  * プレビュー画像メニューのmenu・classに関する状態または設定。
  */
@@ -13,34 +14,6 @@ const TOAST_CLASS = "mve-preview-image-copy-toast";
 /**
  * プレビュー画像メニューで扱う値の種類と境界を表す型。
  */
-type CopyImageText = {
-
-    /**
-     * プレビュー画像メニューで扱うcopyの文字列。
-     */
-    copy: string;
-
-    /**
-     * プレビュー画像メニューで扱うpreparingの文字列。
-     */
-    preparing: string;
-
-    /**
-     * プレビュー画像メニューで扱うcopiedの文字列。
-     */
-    copied: string;
-
-    /**
-     * プレビュー画像メニューで扱うunavailableの文字列。
-     */
-    unavailable: string;
-
-    /**
-     * プレビュー画像メニューで扱うfailedの文字列。
-     */
-    failed: string;
-};
-
 /**
  * プレビュー画像メニューで共有するデータ形状を表すインターフェース。
  */
@@ -76,61 +49,6 @@ interface PreparedClipboardImage {
      */
     markdown: string;
 }
-
-/**
- * プレビュー画像メニューで解析・表示・保存する本文。
- */
-const COPY_IMAGE_TEXT: Record<string, CopyImageText> = {
-    ja: {
-        copy: "画像をコピー",
-        preparing: "画像を準備中…",
-        copied: "画像をクリップボードにコピーしました",
-        unavailable: "この画像はコピーできません",
-        failed: "画像のコピーに失敗しました",
-    },
-    en: {
-        copy: "Copy image",
-        preparing: "Preparing image…",
-        copied: "Image copied to clipboard",
-        unavailable: "This image cannot be copied",
-        failed: "Failed to copy image",
-    },
-    "zh-cn": {
-        copy: "复制图像",
-        preparing: "正在准备图像…",
-        copied: "图像已复制到剪贴板",
-        unavailable: "无法复制此图像",
-        failed: "复制图像失败",
-    },
-    ko: {
-        copy: "이미지 복사",
-        preparing: "이미지 준비 중…",
-        copied: "이미지를 클립보드에 복사했습니다",
-        unavailable: "이 이미지는 복사할 수 없습니다",
-        failed: "이미지 복사에 실패했습니다",
-    },
-    fr: {
-        copy: "Copier l’image",
-        preparing: "Préparation de l’image…",
-        copied: "Image copiée dans le presse-papiers",
-        unavailable: "Cette image ne peut pas être copiée",
-        failed: "Impossible de copier l’image",
-    },
-    de: {
-        copy: "Bild kopieren",
-        preparing: "Bild wird vorbereitet…",
-        copied: "Bild in die Zwischenablage kopiert",
-        unavailable: "Dieses Bild kann nicht kopiert werden",
-        failed: "Bild konnte nicht kopiert werden",
-    },
-    es: {
-        copy: "Copiar imagen",
-        preparing: "Preparando imagen…",
-        copied: "Imagen copiada al portapapeles",
-        unavailable: "No se puede copiar esta imagen",
-        failed: "No se pudo copiar la imagen",
-    },
-};
 
 /**
  * プレビュー画像メニューのinstall・preview・image・context・menuを処理し、呼び出し側へ結果または副作用を返す。
@@ -253,7 +171,7 @@ export function installPreviewImageContextMenu(): () => void {
     ): void {
         closeMenu();
         const currentGeneration = generation;
-        const text = copyImageText(document.documentElement.lang);
+        const text = getMessages(document.documentElement.lang).app.previewImageContextMenu;
         const nextMenu = document.createElement("div");
         nextMenu.className = MENU_CLASS;
         nextMenu.setAttribute("role", "menu");
@@ -729,17 +647,4 @@ function escapeHtmlAttribute(value: string): string {
  */
 function escapeMarkdownAlt(value: string): string {
     return value.replace(/\\/g, "\\\\").replace(/\]/g, "\\]");
-}
-
-/**
- * プレビュー画像メニューの入力または状態を走査・複製する。
- * @param language - プレビュー画像メニューの対象や分岐を識別する値。
- * @returns プレビュー画像メニューのcopy・image・textが生成する結果。
- */
-function copyImageText(language: string): CopyImageText {
-    const normalized = language.trim().toLowerCase().replace(/_/g, "-");
-    if (normalized === "zh" || normalized.startsWith("zh-cn")) {
-        return COPY_IMAGE_TEXT["zh-cn"];
-    }
-    return COPY_IMAGE_TEXT[normalized.split("-")[0]] ?? COPY_IMAGE_TEXT.en;
 }
