@@ -146,3 +146,8 @@
 ## 1.2.3
 
 - Minor bug fix.
+
+## 1.2.4
+
+- Added column and row movement feature.
+- Added column sorting feature.
