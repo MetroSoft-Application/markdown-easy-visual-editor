@@ -17,12 +17,7 @@ interface MarkdownFallbackRuntime {
     renderMarkdown(markdown: string, options: RenderOptions): string;
 }
 
-/**
- * markdownをcreate・elementへ渡し、markdownfallbackの結果または副作用を処理する。
- * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
- * @param options - 呼び出し側が指定する処理設定。
- * @returns markdownfallbackで利用する文字列。
- */
+/** WebviewのwindowへMarkdown fallback runtimeプロパティを宣言する。 */
 declare global {
     /**
      * markdownfallbackで解析・表示・保存する本文。

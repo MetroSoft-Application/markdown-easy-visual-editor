@@ -27,7 +27,7 @@ function codeBodies(html: string): string[] {
 
 /**
  * markdownrenderstages・テストの回帰の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
- * @param value - 検証・変換・保存の対象となる値。
+ * @param value - ハイライトspanを含むHTML文字列。
  * @returns markdownrenderstages・テストの回帰で利用する文字列。
  */
 function removeHighlightMarkup(value: string): string {

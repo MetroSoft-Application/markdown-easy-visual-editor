@@ -4,7 +4,7 @@
 /**
  * mermaidsvgのnamespace・mermaid・svgを処理し、呼び出し側へ結果または副作用を返す。
  * @param svg - Mermaidが生成したSVG本文。
- * @param namespace - mermaidsvgの対象や分岐を識別する値。
+ * @param namespace - 生成するSVG IDへ付ける固有の接頭辞。
  * @returns mermaidsvgで利用する文字列。
  */
 export function namespaceMermaidSvg(svg: string, namespace: string): string {
@@ -12,7 +12,7 @@ export function namespaceMermaidSvg(svg: string, namespace: string): string {
     const ids = [...svg.matchAll(/\bid=(['"])([^'"]+)\1/g)].map(
         /**
          * 各matchを変換して一覧化する。
-         * @param match - mermaidsvgへ渡す入力。
+         * @param match - SVGのid属性に一致した正規表現結果。match[2]がid値。
          * @returns 入力要素から生成した変換結果の一覧。
          */
         (match) => match[2]);
@@ -39,7 +39,7 @@ export function namespaceMermaidSvg(svg: string, namespace: string): string {
 
 /**
  * mermaidsvgの入力を許可された形式へ整える。
- * @param value - 検証・変換・保存の対象となる値。
+ * @param value - 正規表現へ埋め込むためにエスケープする文字列。
  * @returns mermaidsvgで利用する文字列。
  */
 function escapeRegExp(value: string): string {

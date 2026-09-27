@@ -81,16 +81,14 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   undo: button(
     /**
      * クリック時にリボン操作「undo」を編集面へ通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "historyCommand", command: "undo" }),
   ),
   redo: button(
     /**
      * クリック時にリボン操作「redo」を編集面へ通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "historyCommand", command: "redo" }),
   ),
@@ -111,7 +109,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
           onChange={
             /**
              * changeイベントでon・commandを実行する。
-             * @param event - ユーザー操作またはDOMから通知されたイベント。
+             * @param event - 見出しレベルselectの変更値を数値化してheading commandへ渡すchange event。
              * @returns 副作用を完了し、値は返さない。
              */
             (event) =>
@@ -140,8 +138,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   quote: button(
     /**
      * クリック時にリボン操作「quote」を編集面へ通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "sourceAction", action: "quote" }),
     { disabled: editDisabled },
@@ -149,8 +146,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   bulletList: button(
     /**
      * クリック時にリボン操作「bulletList」を編集面へ通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) =>
       onCommand({ type: "sourceAction", action: "bulletList" }),
@@ -159,8 +155,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   orderedList: button(
     /**
      * クリック時にリボン操作「orderedList」を編集面へ通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) =>
       onCommand({ type: "sourceAction", action: "orderedList" }),
@@ -169,8 +164,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   taskList: button(
     /**
      * クリック時にリボン操作「taskList」を編集面へ通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "sourceAction", action: "taskList" }),
     { disabled: editDisabled },
@@ -178,8 +172,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   indent: button(
     /**
      * クリック時にリボン操作「indent」を編集面へ通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "sourceAction", action: "indent" }),
     { disabled: editDisabled },
@@ -187,8 +180,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   outdent: button(
     /**
      * クリック時にリボン操作「outdent」を編集面へ通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "sourceAction", action: "outdent" }),
     { disabled: editDisabled },
@@ -196,8 +188,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   bold: button(
     /**
      * クリック時にリボン操作「bold」を編集面へ通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "sourceAction", action: "bold" }),
     { disabled: editDisabled, active: activeMark("bold") },
@@ -205,8 +196,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   italic: button(
     /**
      * クリック時にリボン操作「italic」を編集面へ通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "sourceAction", action: "italic" }),
     { disabled: editDisabled, active: activeMark("italic") },
@@ -214,8 +204,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   strike: button(
     /**
      * クリック時にリボン操作「strike」を編集面へ通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "sourceAction", action: "strike" }),
     { disabled: editDisabled, active: activeMark("strike") },
@@ -223,8 +212,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   underline: button(
     /**
      * クリック時にリボン操作「underline」を編集面へ通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "sourceAction", action: "underline" }),
     { disabled: editDisabled, active: activeMark("underline") },
@@ -232,8 +220,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   highlight: button(
     /**
      * クリック時にリボン操作「highlight」を編集面へ通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "sourceAction", action: "highlight" }),
     { disabled: editDisabled, active: activeMark("highlight") },
@@ -241,8 +228,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   code: button(
     /**
      * クリック時にリボン操作「inlineCode」を編集面へ通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) =>
       onCommand({ type: "sourceAction", action: "inlineCode" }),
@@ -251,8 +237,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   superscript: button(
     /**
      * クリック時にリボン操作「sup」を編集面へ通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "sourceAction", action: "sup" }),
     { disabled: editDisabled },
@@ -260,8 +245,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   subscript: button(
     /**
      * クリック時にリボン操作「sub」を編集面へ通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "sourceAction", action: "sub" }),
     { disabled: editDisabled },
@@ -294,7 +278,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
           onChange={
             /**
              * change操作を表示または編集状態へ反映する。
-             * @param event - ユーザー操作またはDOMから通知されたイベント。
+             * @param event - 文字色selectの選択値を本文へ適用するchange event。
              * @returns 副作用を完了し、値は返さない。
              */
             (event) => {
@@ -320,9 +304,9 @@ export const RIBBON_IMPLEMENTATIONS: Record<
           <option value="default">{context.textColorText.defaultColor}</option>
           {TEXT_COLOR_IDS.map(
             /**
-             * 各colorからsを取り出して一覧化する。
-             * @param color - colorのsを参照する走査対象。
-             * @returns sを取り出した変換結果の一覧。
+             * 各文字色プリセットを選択肢として表示する。
+             * @param color - 選択肢にする文字色プリセットID。
+             * @returns 色見本付きの選択肢。
              */
             (color) => (
               <option
@@ -341,8 +325,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   clearInline: button(
     /**
      * クリック時にリボン操作「clearInline」を編集面へ通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => {
       if (!clearInlineFormattingWithTextColor()) {
@@ -354,8 +337,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   clearBlock: button(
     /**
      * クリック時にリボン操作「clearBlock」を編集面へ通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) =>
       onCommand({ type: "sourceAction", action: "clearBlock" }),
@@ -364,8 +346,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   link: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "link" }),
     { disabled: editDisabled },
@@ -373,8 +354,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   image: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "image" }),
     { disabled: editDisabled },
@@ -403,7 +383,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
               onChange={
                 /**
                  * change操作を表示または編集状態へ反映する。
-                 * @param event - ユーザー操作またはDOMから通知されたイベント。
+                 * @param event - 表の行数入力を制限値内へ調整するchange event。
                  * @returns 副作用を完了し、値は返さない。
                  */
                 (event) =>
@@ -428,7 +408,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
               onChange={
                 /**
                  * change操作を表示または編集状態へ反映する。
-                 * @param event - ユーザー操作またはDOMから通知されたイベント。
+                 * @param event - 表の列数入力を制限値内へ調整するchange event。
                  * @returns 副作用を完了し、値は返さない。
                  */
                 (event) =>
@@ -449,8 +429,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   insertTable: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand, tableRows, tableColumns }) =>
       onCommand({
@@ -463,8 +442,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   horizontalRule: button(
     /**
      * クリック時にリボン操作「horizontalRule」を編集面へ通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) =>
       onCommand({ type: "sourceAction", action: "horizontalRule" }),
@@ -473,8 +451,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   hardBreak: button(
     /**
      * クリック時にリボン操作「hardBreak」を編集面へ通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "sourceAction", action: "hardBreak" }),
     { disabled: editDisabled },
@@ -496,7 +473,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
           onChange={
             /**
              * change操作を表示または編集状態へ反映する。
-             * @param event - ユーザー操作またはDOMから通知されたイベント。
+             * @param event - code language selectの選択値を更新するchange event。
              * @returns 副作用を完了し、値は返さない。
              */
             (event) => context.setCodeLanguage(event.target.value)
@@ -521,8 +498,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   codeBlock: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand, codeLanguage }) =>
       onCommand({ type: "codeBlock", language: codeLanguage }),
@@ -531,8 +507,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   mermaid: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand, messages }) =>
       onCommand({ type: "insert", value: messages.ribbon.snippets.mermaid }),
@@ -541,8 +516,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   math: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) =>
       onCommand({ type: "insert", value: "\n$$\nE = mc^2\n$$\n" }),
@@ -551,8 +525,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   footnote: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand, messages }) =>
       onCommand({ type: "insert", value: messages.ribbon.snippets.footnote }),
@@ -561,8 +534,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   toc: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "insert", value: "\n[toc]\n" }),
     { disabled: editDisabled },
@@ -570,8 +542,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   pageBreak: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) =>
       onCommand({ type: "insert", value: "\n<!-- pagebreak -->\n" }),
@@ -580,8 +551,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   note: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand, messages }) =>
       onCommand({ type: "insert", value: messages.ribbon.snippets.note }),
@@ -590,8 +560,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   warning: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand, messages }) =>
       onCommand({ type: "insert", value: messages.ribbon.snippets.warning }),
@@ -614,7 +583,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
           onChange={
             /**
              * change操作を表示または編集状態へ反映する。
-             * @param event - ユーザー操作またはDOMから通知されたイベント。
+             * @param event - emoji selectの選択値を更新するchange event。
              * @returns 副作用を完了し、値は返さない。
              */
             (event) => context.setEmoji(event.target.value)
@@ -639,8 +608,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   insertEmoji: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand, emoji }) => onCommand({ type: "insert", value: emoji }),
     { disabled: editDisabled },
@@ -673,7 +641,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
             onChange={
               /**
                * change操作を表示または編集状態へ反映する。
-               * @param event - ユーザー操作またはDOMから通知されたイベント。
+               * @param event - 新しい表のheader name入力を更新するchange event。
                * @returns 副作用を完了し、値は返さない。
                */
               (event) => context.setHeaderName(event.target.value)
@@ -690,8 +658,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   cellBreak: button(
     /**
      * クリック時にリボン操作「cellBreak」を編集面へ通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "sourceAction", action: "cellBreak" }),
     { disabled: editDisabled },
@@ -707,8 +674,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   copyTsv: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "copyTableTsv" }),
     {
@@ -724,16 +690,14 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   openSource: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "openSource" }),
   ),
   outline: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "toggleOutline" }),
     {
@@ -747,8 +711,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   scrollSync: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "toggleScrollSync" }),
     {
@@ -762,8 +725,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   imageResize: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ imageResizeControlsVisible }) =>
       setPreviewImageResizeControlsVisible(!imageResizeControlsVisible),
@@ -796,7 +758,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
           onChange={
             /**
              * change操作をHostまたはWebviewへ通知する。
-             * @param event - ユーザー操作またはDOMから通知されたイベント。
+             * @param event - theme選択を反映しHostへ設定を送るchange event。
              * @returns 副作用を完了し、値は返さない。
              */
             (event) => {
@@ -826,35 +788,32 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   openPrintSettings: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "openPrintSettings" }),
   ),
   printPreview: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "togglePrintPreview" }),
   ),
   exportPdf: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "exportPdf" }),
   ),
+  savePdfWithoutDialog: pdfOption(),
   embedImages: htmlOption("embedImages"),
   convertLinkedMarkdown: htmlOption("convertLinkedMarkdown"),
   saveWithoutDialog: htmlOption("saveWithoutDialog"),
   exportHtml: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand, htmlOptions }) =>
       onCommand({ type: "exportHtml", options: htmlOptions }),
@@ -862,8 +821,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   preflight: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "runPreflightCheck" }),
   ),
@@ -884,7 +842,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
             onSubmit={
               /**
                * イベントをprevent・defaultへ渡し、リボン実装の結果または副作用を処理する。
-               * @param event - ユーザー操作またはDOMから通知されたイベント。
+               * @param event - 画像保存先フォームを確定するsubmit event。
                * @returns リボン実装のコールバックが生成する結果。
                */
               (event) => {
@@ -906,7 +864,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
                 onChange={
                   /**
                    * change操作を表示または編集状態へ反映する。
-                   * @param event - ユーザー操作またはDOMから通知されたイベント。
+                   * @param event - 画像保存先入力をdraftへ反映するchange event。
                    * @returns 副作用を完了し、値は返さない。
                    */
                   (event) => context.setImageDirectoryDraft(event.target.value)
@@ -953,7 +911,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
             onSubmit={
               /**
                * イベントをprevent・defaultへ渡し、リボン実装の結果または副作用を処理する。
-               * @param event - ユーザー操作またはDOMから通知されたイベント。
+               * @param event - font familyフォームを確定するsubmit event。
                * @returns リボン実装のコールバックが生成する結果。
                */
               (event) => {
@@ -976,7 +934,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
                 onChange={
                   /**
                    * change操作を表示または編集状態へ反映する。
-                   * @param value - ユーザー操作またはDOMから通知されたイベント。
+                    * @param value - 入力欄で選択または入力されたエディター用フォント名。
                    * @returns 副作用を完了し、値は返さない。
                    */
                   (value) =>
@@ -985,7 +943,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
                 onCommit={
                   /**
                    * 値をsave・font・familyへ渡し、リボン実装の結果または副作用を処理する。
-                   * @param value - 検証・変換・保存の対象となる値。
+                    * @param value - 保存するエディター用フォント名。
                    * @returns リボン実装のコールバックが生成する結果。
                    */
                   (value) => saveFontFamily(context, "editor", value)
@@ -1006,7 +964,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
                 onChange={
                   /**
                    * change操作を表示または編集状態へ反映する。
-                   * @param value - ユーザー操作またはDOMから通知されたイベント。
+                    * @param value - 入力欄で選択または入力されたプレビュー用フォント名。
                    * @returns 副作用を完了し、値は返さない。
                    */
                   (value) =>
@@ -1017,7 +975,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
                 onCommit={
                   /**
                    * 値をsave・font・familyへ渡し、リボン実装の結果または副作用を処理する。
-                   * @param value - 検証・変換・保存の対象となる値。
+                    * @param value - 保存するプレビュー用フォント名。
                    * @returns リボン実装のコールバックが生成する結果。
                    */
                   (value) => saveFontFamily(context, "preview", value)
@@ -1037,16 +995,14 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   shortcuts: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "showShortcuts" }),
   ),
   features: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "showFeatures" }),
   ),
@@ -1072,26 +1028,25 @@ interface FontFamilyInputProps {
   placeholder?: string;
 
   /**
-   * 検証・変換・保存の対象となる値。
+   * エディターまたはプレビューのフォント入力欄に表示する現在値。
    */
   value: string;
   /**
-   * リボン実装のイベントまたはメッセージを受け取り、状態を更新する。
-   * @param value - 検証・変換・保存の対象となる値。
-   * @returns リボン実装のon・changeが生成する結果。
+   * 入力中のフォント名を対応するリボン設定の下書きへ反映する。
+   * @param value - 入力欄に入力されたフォント名。
+   * @returns 下書きのフォント名を更新した結果。
    */
   onChange: (value: string) => void;
   /**
-   * リボン実装のイベントまたはメッセージを受け取り、状態を更新する。
-   * @param value - 検証・変換・保存の対象となる値。
-   * @returns リボン実装のon・commitが生成する結果。
+   * 編集を確定したフォント名を設定へ保存する。
+   * @param value - 確定して保存するフォント名。
+   * @returns フォント名を保存した結果。
    */
   onCommit: (value: string) => void;
 }
 
 /**
  * リボン実装のfont・family・inputを処理し、呼び出し側へ結果または副作用を返す。
- * @param options - 呼び出し側が指定する処理設定。
  * @returns リボン実装のfont・family・inputが生成する結果。
  */
 function FontFamilyInput({
@@ -1124,7 +1079,7 @@ function FontFamilyInput({
       onChange={
         /**
          * change操作を表示または編集状態へ反映する。
-         * @param event - ユーザー操作またはDOMから通知されたイベント。
+         * @param event - フォント名入力の変更値を親へ渡すchange event。
          * @returns 副作用を完了し、値は返さない。
          */
         (event) => onChange(event.target.value)
@@ -1132,7 +1087,7 @@ function FontFamilyInput({
       onKeyDown={
         /**
          * keydownイベントでifを実行する。
-         * @param event - ユーザー操作またはDOMから通知されたイベント。
+         * @param event - Enterで編集を確定しEscapeで戻すkeydown event。
          * @returns 副作用を完了し、値は返さない。
          */
         (event) => {
@@ -1167,8 +1122,7 @@ export const RIBBON_HEADER_IMPLEMENTATIONS: Record<
   search: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "find" }),
   ),
@@ -1178,8 +1132,7 @@ export const RIBBON_HEADER_IMPLEMENTATIONS: Record<
   collapse: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ collapsed, setCollapsed }) => setCollapsed(!collapsed),
   ),
@@ -1196,8 +1149,7 @@ function viewModeButton(
   return button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "splitView", view }),
     {
@@ -1221,8 +1173,7 @@ function tableButton(
   return button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-     * @param options - クリック時のコマンド通知と表示状態を受け取るコンテキスト。
-     * @returns クリック処理を完了し、値は返さない。
+    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand, headerName }) =>
       onCommand({
@@ -1262,7 +1213,7 @@ function htmlOption(
             onChange={
               /**
                * change操作を表示または編集状態へ反映する。
-               * @param event - ユーザー操作またはDOMから通知されたイベント。
+               * @param event - HTML出力optionの変更を設定へ反映するchange event。
                * @returns 副作用を完了し、値は返さない。
                */
               (event) =>
@@ -1276,6 +1227,33 @@ function htmlOption(
         </label>
       );
     },
+  );
+}
+
+/** ExportタブのPDFグループに、保存ダイアログ省略を切り替えるチェック項目を作る。 */
+function pdfOption(): RibbonControlImplementation {
+  return control(
+    /** コンテキストのPDF保存値と定義ラベルから、アクセシブルな設定欄を組み立てる。
+     * @param context - 現在のPDF保存設定と変更通知処理を持つリボンコンテキスト。
+     * @param definition - この設定チェック項目のリボン定義。
+     * @param resolveLabel - ラベル定義を表示文字列へ解決する関数。
+     */
+    (context, definition, resolveLabel) => (
+      <label className="ribbon-checkbox">
+        <input
+          type="checkbox"
+          checked={context.pdfSaveWithoutDialog}
+          onChange={
+            /** 入力状態を親のPDF設定へ渡し、他のPDFオプションを維持する。
+             * @param event - チェックボックスの値が変わったReact入力イベント。
+             */
+            (event) =>
+              context.onPdfSaveWithoutDialogChange(event.currentTarget.checked)
+          }
+        />
+        <span>{resolveLabel(definition.label)}</span>
+      </label>
+    ),
   );
 }
 
@@ -1305,7 +1283,7 @@ function getControlField(
 
 /**
  * リボン実装の値を保存先または共有状態へ書き出す。
- * @param context - リボン実装で扱う文字列または本文。
+ * @param context フォント設定の現在値、ドラフト値、保存処理を提供するリボン実装コンテキスト。
  * @returns 副作用を完了し、値は返さない。
  */
 function saveImageDirectory(context: RibbonImplementationContext): void {
@@ -1315,8 +1293,8 @@ function saveImageDirectory(context: RibbonImplementationContext): void {
 }
 
 /**
- * リボン実装の値を保存先または共有状態へ書き出す。
- * @param context - リボン実装で扱う文字列または本文。
+ * 編集面とプレビュー面のドラフト値を、それぞれの設定保存処理へ渡す。
+ * @param context 現在値、ドラフト値、設定保存コマンドを提供するリボン実装コンテキスト。
  * @returns 副作用を完了し、値は返さない。
  */
 function saveFontFamilies(context: RibbonImplementationContext): void {
@@ -1326,10 +1304,10 @@ function saveFontFamilies(context: RibbonImplementationContext): void {
 }
 
 /**
- * リボン実装の値を保存先または共有状態へ書き出す。
- * @param context - リボン実装で扱う文字列または本文。
- * @param field - リボン実装へ渡す入力。
- * @param value - 検証・変換・保存の対象となる値。
+ * 指定された表示面のフォントファミリーを正規化し、ドラフト値とともに保存する。
+ * @param context 現在値、ドラフト値、設定保存コマンドを提供するリボン実装コンテキスト。
+ * @param field 更新するフォント設定の対象面。editorは編集面、previewはプレビュー面。
+ * @param value 対象面に保存するフォントファミリー。
  * @returns 副作用を完了し、値は返さない。
  */
 function saveFontFamily(
@@ -1349,10 +1327,10 @@ function saveFontFamily(
 }
 
 /**
- * リボン実装の値を保存先または共有状態へ書き出す。
- * @param context - リボン実装で扱う文字列または本文。
- * @param editorFontFamily - リボン実装の位置・寸法・件数・時間を表す数値。
- * @param previewFontFamily - リボン実装の位置・寸法・件数・時間を表す数値。
+ * 編集面とプレビュー面のフォントファミリーを一度の設定要求で保存する。
+ * @param context 現在値、ドラフト値、設定保存コマンドを提供するリボン実装コンテキスト。
+ * @param editorFontFamily 保存する編集面のフォントファミリー。
+ * @param previewFontFamily 保存するプレビュー面のフォントファミリー。
  * @returns 副作用を完了し、値は返さない。
  */
 function saveFontFamilyValues(
@@ -1374,9 +1352,9 @@ function saveFontFamilyValues(
 
 /**
  * リボン実装の寸法、容量、位置、または計測値を求める。
- * @param value - 検証・変換・保存の対象となる値。
- * @param minimum - リボン実装で扱う数値。
- * @param maximum - リボン実装の位置・寸法・件数・時間を表す数値。
+ * @param value - 数値入力欄から受け取った文字列。
+ * @param minimum - 戻り値に許可する下限。
+ * @param maximum - 戻り値に許可する上限。
  * @returns リボン実装で利用する数値。
  */
 function clampNumber(value: string, minimum: number, maximum: number): number {

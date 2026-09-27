@@ -195,9 +195,9 @@ const TICK = String.fromCharCode(96);
 
 /**
  * 文字色の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
- * @param source - 解析・描画・変換の起点となる本文。
- * @param selection - 文字色へ渡す入力。
- * @param color - 文字色へ渡す入力。
+ * @param source - 文字色span記法を含み、選択範囲の色を適用または解除するMarkdown本文。
+ * @param selection - 色付け対象を示す本文上のUTF-16開始・終了範囲。
+ * @param color - 選択範囲へ適用する文字色ID。undefinedなら色を解除する。
  * @returns 文字色のapply・text・color・formattingが生成する結果。
  */
 export function applyTextColorFormatting(
@@ -216,8 +216,8 @@ export function applyTextColorFormatting(
 
 /**
  * 文字色のdetect・text・color・formattingを処理し、呼び出し側へ結果または副作用を返す。
- * @param source - 解析・描画・変換の起点となる本文。
- * @param selection - 文字色へ渡す入力。
+ * @param source - 現在の文字色span記法を検出するMarkdown本文。
+ * @param selection - 現在の書式を判定する本文上のUTF-16選択範囲。
  * @returns 文字色のdetect・text・color・formattingが生成する結果。
  */
 export function detectTextColorFormatting(
@@ -255,7 +255,7 @@ export function detectTextColorFormatting(
 
 /**
  * 文字色のtext・color・open・tagを処理し、呼び出し側へ結果または副作用を返す。
- * @param color - 文字色へ渡す入力。
+ * @param color - span開始タグへ記録する文字色ID。
  * @returns 文字色で利用する文字列。
  */
 export function textColorOpenTag(color: TextColorId): string {
@@ -264,7 +264,7 @@ export function textColorOpenTag(color: TextColorId): string {
 
 /**
  * 文字色から不要または危険な情報を除去する。
- * @param value - 検証・変換・保存の対象となる値。
+ * @param value - MVE文字色spanを除去するHTMLまたはMarkdown本文。
  * @returns 文字色で利用する文字列。
  */
 export function stripMveTextColorMarkup(value: string): string {
@@ -282,8 +282,8 @@ export function stripMveTextColorMarkup(value: string): string {
 
     const isPreserved = /**
    * 文字色の条件を判定する。
-   * @param from - 文字色で扱う数値。
-   * @param to - 文字色で扱う数値。
+   * @param from - 判定するspanタグの開始UTF-16オフセット。
+   * @param to - 判定するspanタグの終了UTF-16オフセット（排他的）。
    * @returns 条件が成立したかを示す真偽値。
    */ (from: number, to: number) => {
             while (preservedIndex < preserved.length && preserved[preservedIndex].to <= from) preservedIndex += 1;
@@ -312,7 +312,7 @@ export function stripMveTextColorMarkup(value: string): string {
 
 /**
  * 文字色の入力を構造化した値へ変換する。
- * @param source - 解析・描画・変換の起点となる本文。
+ * @param source - data-mve-text-color span記法を含むMarkdown本文。
  * @returns 文字色で生成または変換した値。
  */
 function parseColorMarkup(source: string): ParsedMarkup {
@@ -329,7 +329,7 @@ function parseColorMarkup(source: string): ParsedMarkup {
 
     const append = /**
    * 文字色のappendを処理し、呼び出し側へ結果または副作用を返す。
-   * @param value - 検証・変換・保存の対象となる値。
+   * @param value - 出力へ追加する文字色マークアップ外の本文片。
    * @returns 文字色のappendが生成する結果。
    */ (value: string) => {
             if (!value) return;
@@ -340,8 +340,8 @@ function parseColorMarkup(source: string): ParsedMarkup {
 
     const isPreserved = /**
    * 文字色の条件を判定する。
-   * @param from - 文字色で扱う数値。
-   * @param to - 文字色で扱う数値。
+   * @param from - 判定するspanタグの開始UTF-16オフセット。
+   * @param to - 判定するspanタグの終了UTF-16オフセット（排他的）。
    * @returns 条件が成立したかを示す真偽値。
    */ (from: number, to: number) => {
             while (preservedIndex < preserved.length && preserved[preservedIndex].to <= from) preservedIndex += 1;
@@ -387,7 +387,7 @@ function parseColorMarkup(source: string): ParsedMarkup {
 
 /**
  * 文字色から必要な値またはリソースを取得する。
- * @param tag - 文字色で受け渡す文字列。
+ * @param tag - 文字色ID属性を読み取るspan開始タグ全体。
  * @returns 副作用を完了し、値は返さない。
  */
 function readTextColorId(tag: string): TextColorId | undefined {
@@ -400,7 +400,7 @@ function readTextColorId(tag: string): TextColorId | undefined {
 
 /**
  * 文字色の入力を走査し、該当する範囲または要素を順に返す。
- * @param value - 検証・変換・保存の対象となる値。
+ * @param value - MVE文字色spanタグを検索するHTMLまたはMarkdown本文。
  * @returns 文字色タグを走査するジェネレーター。
  */
 function* scanSpanTags(value: string): Generator<{
@@ -437,7 +437,7 @@ function* scanSpanTags(value: string): Generator<{
 
 /**
  * 文字色の条件を判定する。
- * @param value - 検証・変換・保存の対象となる値。
+ * @param value - 英字、数字、アンダースコアのいずれかかを調べる1文字。
  * @returns 条件が成立したかを示す真偽値。
  */
 function isWordCharacter(value: string | undefined): boolean {
@@ -446,10 +446,10 @@ function isWordCharacter(value: string | undefined): boolean {
 
 /**
  * 文字色のmap・selectionを処理し、呼び出し側へ結果または副作用を返す。
- * @param selection - 文字色へ渡す入力。
- * @param removed - 文字色へ渡す要素の一覧。
- * @param sourceLength - 文字色で扱う文字列または本文。
- * @param cleanLength - 文字色の位置・寸法・件数・時間を表す数値。
+ * @param selection - タグ除去前の本文上にある選択範囲。
+ * @param removed - 文字色マークアップ除去で本文から削除した区間一覧。
+ * @param sourceLength 元の本文のUTF-16文字数。
+ * @param cleanLength 色付け用マークアップを除いた本文のUTF-16文字数。
  * @returns 文字色で生成または変換した値。
  */
 function mapSelection(
@@ -459,12 +459,11 @@ function mapSelection(
     cleanLength: number,
 ): TextColorSelection {
 
-    /**
-     * 文字色のmapを処理し、呼び出し側へ結果または副作用を返す。
-     * @param offset - 文字色の位置・寸法・件数・時間を表す数値。
-     * @returns 文字色に対応する要素の一覧。
-     */
-    const map = (offset: number) => {
+    const map = /**
+     * 元本文の位置を、除去範囲を反映した本文位置へ写像する。
+     * @param offset - 元本文内の選択オフセット。
+     * @returns 除去範囲を補正した本文位置。
+     */ (offset: number) => {
         const safe = Math.max(0, Math.min(sourceLength, offset));
         let removedLength = 0;
         for (const range of removed) {
@@ -484,8 +483,8 @@ function mapSelection(
 
 /**
  * 文字色の入力を許可された形式へ整える。
- * @param parsed - 文字色へ渡す要素の一覧。
- * @param length - 文字色の位置・寸法・件数・時間を表す数値。
+ * @param parsed - 本文から解析した文字色span一覧。
+ * @param length - span端点を制限する正規化後本文のUTF-16長。
  * @returns 文字色に対応する要素の一覧。
  */
 function normalizeSpans(parsed: readonly ParsedSpan[], length: number): ColorSpan[] {
@@ -513,9 +512,9 @@ function normalizeSpans(parsed: readonly ParsedSpan[], length: number): ColorSpa
 
 /**
  * 文字色を表示用の結果へ変換する。
- * @param spans - 文字色へ渡す要素の一覧。
- * @param ranges - 文字色へ渡す要素の一覧。
- * @param color - 文字色へ渡す入力。
+ * @param spans - 既存本文から解析した文字色span一覧。
+ * @param ranges - 新しい色を重ねる本文上の選択範囲一覧。
+ * @param color - 選択範囲へ適用する文字色ID。undefinedなら色を解除する。
  * @returns 文字色に対応する要素の一覧。
  */
 function paintRangesOnSpans(
@@ -527,16 +526,16 @@ function paintRangesOnSpans(
         ...spans.map(
             /**
              * spansの各要素を変換して一覧化する。
-             * @param span - 文字色へ渡す入力。
-             * @param index - 配列・行列・文字列の要素位置を示す番号。
+             * @param span - 描画順を付け直す既存文字色span。
+             * @param index - spanの安定した描画順を与える0始まり番号。
              * @returns 入力要素から生成した変換結果の一覧。
              */
             (span, index) => ({ ...span, order: index })),
         ...ranges.map(
             /**
              * rangesの各要素を変換して一覧化する。
-             * @param range - 文字色へ渡す入力。
-             * @param index - 配列・行列・文字列の要素位置を示す番号。
+             * @param range - 色を追加する本文上の選択範囲。
+             * @param index - 既存span数の後に続く0始まり描画順番号。
              * @returns 入力要素から生成した変換結果の一覧。
              */
             (range, index) => ({ ...range, color, order: spans.length + index })),
@@ -545,7 +544,7 @@ function paintRangesOnSpans(
 
 /**
  * 文字色から必要な値またはリソースを取得する。
- * @param layers - 文字色の位置・寸法・件数・時間を表す数値。
+ * @param layers 重なり順を保って合成する文字色レイヤー一覧。
  * @returns 文字色に対応する要素の一覧。
  */
 function resolveLayers(layers: readonly Layer[]): ColorSpan[] {
@@ -602,8 +601,8 @@ function resolveLayers(layers: readonly Layer[]): ColorSpan[] {
 
 /**
  * 文字色のpeek・active・layerを処理し、呼び出し側へ結果または副作用を返す。
- * @param heap - 文字色へ渡す要素の一覧。
- * @param active - 文字色で扱う数値。
+ * @param heap - 描画優先度順に並んだ文字色レイヤーのヒープ。
+ * @param active - 現在有効な文字色レイヤーのID集合。ヒープ先頭レイヤーの有効性判定に使う。
  * @returns 副作用を完了し、値は返さない。
  */
 function peekActiveLayer(heap: ActiveLayer[], active: ReadonlySet<number>): ActiveLayer | undefined {
@@ -613,8 +612,8 @@ function peekActiveLayer(heap: ActiveLayer[], active: ReadonlySet<number>): Acti
 
 /**
  * 文字色のpush・active・layerを処理し、呼び出し側へ結果または副作用を返す。
- * @param heap - 文字色へ渡す要素の一覧。
- * @param value - 検証・変換・保存の対象となる値。
+ * @param heap - 文字色レイヤーを優先度順に管理するヒープ。
+ * @param value - ヒープへ挿入する文字色レイヤー。
  * @returns 副作用を完了し、値は返さない。
  */
 function pushActiveLayer(heap: ActiveLayer[], value: ActiveLayer): void {
@@ -631,7 +630,7 @@ function pushActiveLayer(heap: ActiveLayer[], value: ActiveLayer): void {
 
 /**
  * 文字色のpop・active・layerを処理し、呼び出し側へ結果または副作用を返す。
- * @param heap - 文字色へ渡す要素の一覧。
+ * @param heap - 優先度順に積んだ現在または旧active layerのmax-heap。
  * @returns 副作用を完了し、値は返さない。
  */
 function popActiveLayer(heap: ActiveLayer[]): ActiveLayer | undefined {
@@ -656,8 +655,8 @@ function popActiveLayer(heap: ActiveLayer[]): ActiveLayer | undefined {
 
 /**
  * 文字色の2つの値を比較する。
- * @param left - 親領域の左端を基準にした相対位置または比較値。
- * @param right - 文字色へ渡す入力。
+ * @param left - 描画順を比較する文字色レイヤー。orderが同じ場合はIDで順序を決める。
+ * @param right - 描画順を比較する文字色レイヤー。orderが同じ場合はIDで順序を決める。
  * @returns 文字色で利用する数値。
  */
 function compareActiveLayers(left: ActiveLayer, right: ActiveLayer): number {
@@ -666,7 +665,7 @@ function compareActiveLayers(left: ActiveLayer, right: ActiveLayer): number {
 
 /**
  * 文字色のmerge・color・spansを処理し、呼び出し側へ結果または副作用を返す。
- * @param spans - 文字色へ渡す要素の一覧。
+ * @param spans - 重複または隣接する色範囲を統合する入力span一覧。
  * @returns 文字色に対応する要素の一覧。
  */
 function mergeColorSpans(spans: readonly ColorSpan[]): ColorSpan[] {
@@ -699,8 +698,8 @@ function mergeColorSpans(spans: readonly ColorSpan[]): ColorSpan[] {
 
 /**
  * 文字色のrestrict・to・rangesを処理し、呼び出し側へ結果または副作用を返す。
- * @param spans - 文字色へ渡す要素の一覧。
- * @param ranges - 文字色へ渡す要素の一覧。
+ * @param spans - 本文内で許可範囲に切り取る色span一覧。
+ * @param ranges - 色付け可能とする本文範囲一覧。
  * @returns 文字色に対応する要素の一覧。
  */
 function restrictToRanges(
@@ -722,8 +721,8 @@ function restrictToRanges(
 
 /**
  * 文字色のintersect・rangesを処理し、呼び出し側へ結果または副作用を返す。
- * @param ranges - 文字色へ渡す要素の一覧。
- * @param selection - 文字色へ渡す入力。
+ * @param ranges - 選択範囲との共通部分を求める元範囲一覧。
+ * @param selection - 本文上で交差範囲を求める選択範囲。
  * @returns 文字色に対応する要素の一覧。
  */
 function intersectRanges(
@@ -743,7 +742,7 @@ function intersectRanges(
 
 /**
  * 文字色から必要な値またはリソースを取得する。
- * @param source - 解析・描画・変換の起点となる本文。
+ * @param source - 色付け可能な本文範囲を抽出するMarkdown本文。
  * @returns 文字色に対応する要素の一覧。
  */
 function collectColorableRanges(source: string): TextColorSelection[] {
@@ -791,7 +790,7 @@ function collectColorableRanges(source: string): TextColorSelection[] {
 
 /**
  * 文字色から必要な値またはリソースを取得する。
- * @param source - 解析・描画・変換の起点となる本文。
+ * @param source - 保護するfront matter、コードブロック、inline codeを含むMarkdown本文。
  * @returns 文字色に対応する要素の一覧。
  */
 function collectPreservedMarkupRanges(source: string): TextColorSelection[] {
@@ -832,7 +831,7 @@ function collectPreservedMarkupRanges(source: string): TextColorSelection[] {
 
 /**
  * 文字色から必要な値またはリソースを取得する。
- * @param source - 解析・描画・変換の起点となる本文。
+ * @param source - 先頭のYAML front matterの終了位置を検索するMarkdown本文。
  * @returns 文字色で利用する数値。
  */
 function findFrontMatterEnd(source: string): number {
@@ -850,7 +849,7 @@ function findFrontMatterEnd(source: string): number {
 
 /**
  * 文字色から必要な値またはリソースを取得する。
- * @param line - 文字色の位置・寸法・件数・時間を表す数値。
+ * @param line コードフェンスの記号・長さ・後続文字を読み取るMarkdown行。
  * @returns 文字色のread・fenceが生成する結果。
  */
 function readFence(line: string): {
@@ -878,7 +877,7 @@ function readFence(line: string): {
 
 /**
  * 文字色の条件を判定する。
- * @param line - 文字色の位置・寸法・件数・時間を表す数値。
+ * @param line 空行、インデントコード、罫線、表区切りなど行全体を色付けしないか判定するMarkdown行。
  * @returns 条件が成立したかを示す真偽値。
  */
 function isUncolorableWholeLine(line: string): boolean {
@@ -889,7 +888,7 @@ function isUncolorableWholeLine(line: string): boolean {
 
 /**
  * 文字色の条件を判定する。
- * @param line - 文字色の位置・寸法・件数・時間を表す数値。
+ * @param line インデントコード行か判定するMarkdown行。
  * @returns 条件が成立したかを示す真偽値。
  */
 function isIndentedCodeLine(line: string): boolean {
@@ -899,7 +898,7 @@ function isIndentedCodeLine(line: string): boolean {
 
 /**
  * 文字色から必要な値またはリソースを取得する。
- * @param line - 文字色の位置・寸法・件数・時間を表す数値。
+ * @param line Markdown構文として色付け対象外にする範囲を検出する行。
  * @returns 文字色に対応する要素の一覧。
  */
 function collectProtectedLineRanges(line: string): TextColorSelection[] {
@@ -921,7 +920,7 @@ function collectProtectedLineRanges(line: string): TextColorSelection[] {
 
 /**
  * 文字色から必要な値またはリソースを取得する。
- * @param source - 解析・描画・変換の起点となる本文。
+ * @param source - inline codeとMarkdown link構文の保護範囲を抽出するMarkdown本文。
  * @returns 文字色に対応する要素の一覧。
  */
 function collectInlineProtectedRanges(source: string): TextColorSelection[] {
@@ -932,10 +931,10 @@ function collectInlineProtectedRanges(source: string): TextColorSelection[] {
 
 /**
  * 文字色のproject・ranges・to・lineを処理し、呼び出し側へ結果または副作用を返す。
- * @param ranges - 文字色へ渡す要素の一覧。
- * @param lineStart - 文字色の位置・寸法・件数・時間を表す数値。
- * @param lineEnd - 文字色の位置・寸法・件数・時間を表す数値。
- * @param startIndex - 文字色の位置・寸法・件数・時間を表す数値。
+ * @param ranges - 現在行のUTF-16座標へ投影する本文上の選択範囲一覧。
+ * @param lineStart 色付け対象行の開始UTF-16オフセット。
+ * @param lineEnd 色付け対象行の終了UTF-16オフセット。
+ * @param startIndex 検査を再開するranges配列の0始まりインデックス。
  * @returns 文字色のproject・ranges・to・lineが生成する結果。
  */
 function projectRangesToLine(
@@ -967,7 +966,7 @@ function projectRangesToLine(
 
 /**
  * 文字色のhtml・tag・rangesを処理し、呼び出し側へ結果または副作用を返す。
- * @param line - 文字色の位置・寸法・件数・時間を表す数値。
+ * @param line HTMLタグの構文範囲を検出するMarkdown行。
  * @returns 文字色に対応する要素の一覧。
  */
 function htmlTagRanges(line: string): TextColorSelection[] {
@@ -995,7 +994,7 @@ function htmlTagRanges(line: string): TextColorSelection[] {
 
 /**
  * 文字色のfootnote・rangesを処理し、呼び出し側へ結果または副作用を返す。
- * @param line - 文字色の位置・寸法・件数・時間を表す数値。
+ * @param line 脚注参照・脚注定義の構文範囲を検出するMarkdown行。
  * @returns 文字色に対応する要素の一覧。
  */
 function footnoteRanges(line: string): TextColorSelection[] {
@@ -1015,8 +1014,8 @@ function footnoteRanges(line: string): TextColorSelection[] {
 
 /**
  * 文字色のadd・link・syntax・rangesを処理し、呼び出し側へ結果または副作用を返す。
- * @param line - 文字色の位置・寸法・件数・時間を表す数値。
- * @param ranges - 文字色へ渡す要素の一覧。
+ * @param line Markdownリンク・画像リンクの構文範囲を一覧へ追加する行。
+ * @param ranges - Markdownリンク構文を色付け対象外として追加する範囲一覧。
  * @returns 副作用を完了し、値は返さない。
  */
 function addLinkSyntaxRanges(line: string, ranges: TextColorSelection[]): void {
@@ -1049,7 +1048,7 @@ function addLinkSyntaxRanges(line: string, ranges: TextColorSelection[]): void {
 
 /**
  * 文字色から必要な値またはリソースを取得する。
- * @param value - 検証・変換・保存の対象となる値。
+ * @param value - Markdown内の角括弧の対応位置を検索するテキスト。
  * @returns 文字色で利用する数値。
  */
 function findBracketMatches(value: string): ReadonlyMap<number, number> {
@@ -1077,7 +1076,7 @@ function findBracketMatches(value: string): ReadonlyMap<number, number> {
 
 /**
  * 文字色から必要な値またはリソースを取得する。
- * @param value - 検証・変換・保存の対象となる値。
+ * @param value - Markdownリンク先にある丸括弧の対応位置を検索するテキスト。
  * @returns 文字色で利用する数値。
  */
 function findParenthesisMatches(value: string): ReadonlyMap<number, number> {
@@ -1123,7 +1122,7 @@ function findParenthesisMatches(value: string): ReadonlyMap<number, number> {
 
 /**
  * 文字色のblock・prefix・endを処理し、呼び出し側へ結果または副作用を返す。
- * @param line - 文字色の位置・寸法・件数・時間を表す数値。
+ * @param line blockquote・見出し・リスト接頭辞の終端位置を求めるMarkdown行。
  * @returns 文字色で利用する数値。
  */
 function blockPrefixEnd(line: string): number {
@@ -1143,7 +1142,7 @@ function blockPrefixEnd(line: string): number {
 
 /**
  * 文字色のblock・quote・content・startを処理し、呼び出し側へ結果または副作用を返す。
- * @param line - 文字色の位置・寸法・件数・時間を表す数値。
+ * @param line blockquote記号を除いた本文開始位置を求めるMarkdown行。
  * @returns 文字色で利用する数値。
  */
 function blockQuoteContentStart(line: string): number {
@@ -1158,7 +1157,7 @@ function blockQuoteContentStart(line: string): number {
 
 /**
  * 文字色のinline・code・rangesを処理し、呼び出し側へ結果または副作用を返す。
- * @param line - 文字色の位置・寸法・件数・時間を表す数値。
+ * @param line インラインコード範囲を検出するMarkdown行。
  * @returns 文字色に対応する要素の一覧。
  */
 function inlineCodeRanges(line: string): TextColorSelection[] {
@@ -1184,8 +1183,8 @@ function inlineCodeRanges(line: string): TextColorSelection[] {
 
 /**
  * 文字色のmatch・rangesを処理し、呼び出し側へ結果または副作用を返す。
- * @param line - 文字色の位置・寸法・件数・時間を表す数値。
- * @param pattern - 文字色へ渡す入力。
+ * @param line patternに一致する構文範囲を検出するMarkdown行。
+ * @param pattern 対象行内で範囲を検出する正規表現。
  * @returns 文字色に対応する要素の一覧。
  */
 function matchRanges(line: string, pattern: RegExp): TextColorSelection[] {
@@ -1197,8 +1196,8 @@ function matchRanges(line: string, pattern: RegExp): TextColorSelection[] {
 
 /**
  * 文字色の条件を判定する。
- * @param value - 検証・変換・保存の対象となる値。
- * @param index - 配列・行列・文字列の要素位置を示す番号。
+ * @param value - index直前のエスケープ状態を調べるMarkdown本文。
+ * @param index - エスケープ状態を調べる本文内のUTF-16位置。
  * @returns 条件が成立したかを示す真偽値。
  */
 function isEscaped(value: string, index: number): boolean {
@@ -1209,8 +1208,8 @@ function isEscaped(value: string, index: number): boolean {
 
 /**
  * 文字色のsubtract・rangesを処理し、呼び出し側へ結果または副作用を返す。
- * @param range - 文字色へ渡す入力。
- * @param protectedRanges - 文字色へ渡す要素の一覧。
+ * @param range 前後の空白を除去する色付け範囲。
+ * @param protectedRanges - 色付け可能領域から差し引くコード・リンク等の保護範囲一覧。
  * @returns 文字色に対応する要素の一覧。
  */
 function subtractRanges(range: TextColorSelection, protectedRanges: readonly TextColorSelection[]): TextColorSelection[] {
@@ -1229,7 +1228,7 @@ function subtractRanges(range: TextColorSelection, protectedRanges: readonly Tex
 
 /**
  * 文字色のmerge・rangesを処理し、呼び出し側へ結果または副作用を返す。
- * @param ranges - 文字色へ渡す要素の一覧。
+ * @param ranges - 重複または隣接する本文区間を統合する入力一覧。
  * @returns 文字色に対応する要素の一覧。
  */
 function mergeRanges(ranges: readonly TextColorSelection[]): TextColorSelection[] {
@@ -1259,8 +1258,8 @@ function mergeRanges(ranges: readonly TextColorSelection[]): TextColorSelection[
 
 /**
  * 文字色のtrim・whitespaceを処理し、呼び出し側へ結果または副作用を返す。
- * @param line - 文字色の位置・寸法・件数・時間を表す数値。
- * @param range - 文字色へ渡す入力。
+ * @param line 色付け範囲の前後空白を切り詰める元のMarkdown行。
+ * @param range - 前後の空白を切り詰める本文上の色付け範囲。
  * @returns 文字色のtrim・whitespaceが生成する結果。
  */
 function trimWhitespace(line: string, range: TextColorSelection): TextColorSelection {
@@ -1272,9 +1271,9 @@ function trimWhitespace(line: string, range: TextColorSelection): TextColorSelec
 
 /**
  * 文字色を出力または保存できる文字列へ整える。
- * @param source - 解析・描画・変換の起点となる本文。
- * @param spans - 文字色へ渡す要素の一覧。
- * @param selection - 文字色でselectionとして扱う入力。
+ * @param source - 色spanタグを挿入するタグなしMarkdown本文。
+ * @param spans - 本文へspanタグとして直列化する最終色範囲一覧。
+ * @param selection - spanタグ挿入後も返すタグなし本文内のUTF-16選択範囲。
  * @returns 文字色のserialize・color・markupが生成する結果。
  */
 function serializeColorMarkup(source: string, spans: readonly ColorSpan[], selection: TextColorSelection): TextColorEdit {
@@ -1292,7 +1291,7 @@ function serializeColorMarkup(source: string, spans: readonly ColorSpan[], selec
         .filter(
             /**
              * 内容のないpositionを除外する。
-             * @param position - 文字色の位置・寸法・件数・時間を表す数値。
+             * @param position - 直列化する本文内のUTF-16位置。
              * @returns 条件を満たした要素だけを含む一覧。
              */
             (position) => position >= 0 && position <= source.length)
@@ -1313,7 +1312,7 @@ function serializeColorMarkup(source: string, spans: readonly ColorSpan[], selec
 
     const append = /**
    * 文字色のappendを処理し、呼び出し側へ結果または副作用を返す。
-   * @param value - 検証・変換・保存の対象となる値。
+   * @param value - 出力へ保持する文字色span外の本文片。
    * @returns 文字色のappendが生成する結果。
    */ (value: string) => {
             if (value) {

@@ -55,7 +55,7 @@ async function run() {
  * @param filePath - 読み書きするファイルのパス。
  * @param editorOpenedMs - 起動の回帰へ渡す入力。
  * @param expectsMermaid - 起動の回帰の対象や分岐を識別する値。
- * @param expectsPreview - 起動の回帰の位置・寸法・件数・時間を表す数値。
+ * @param expectsPreview - previewReadyMsの取得も待つ場合true。
  * @returns 起動の回帰のwait・for・timingが生成する結果。
  */
 async function waitForTiming(uri, resultPath, filePath, editorOpenedMs, expectsMermaid, expectsPreview) {
@@ -96,7 +96,7 @@ async function waitForTiming(uri, resultPath, filePath, editorOpenedMs, expectsM
 /**
  * 起動の回帰の値を保存先または共有状態へ書き出す。
  * @param resultPath - 計測結果を書き出すJSONファイルのパス。
- * @param value - 検証・変換・保存の対象となる値。
+ * @param value - JSONへ直列化して書き出す起動計測結果。
  * @returns 起動の回帰のpersistが生成する結果。
  */
 async function persist(resultPath, value) {

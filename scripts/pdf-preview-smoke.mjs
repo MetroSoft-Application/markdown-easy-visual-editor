@@ -179,8 +179,7 @@ try {
   await page.evaluate(
   /**
    * Webviewの実行状態のdispatch・event結果を読み取り、検証用の値へ変換する。
-   * @param options - ブラウザー内で評価するコールバック。
-   * @returns ブラウザー内で読み取った値または変換結果。
+  * @returns ブラウザー内で読み取った値または変換結果。
    */
   ({ text, initSettings }) => {
     window.dispatchEvent(new MessageEvent('message', {
@@ -240,7 +239,7 @@ try {
   const widthBeforeZoom = await page.locator('.pdf-page').first().evaluate(
   /**
    * ブラウザー内の状態のget・bounding・client・rect結果を読み取り、検証用の値へ変換する。
-   * @param element - ブラウザー内で評価するコールバック。
+   * @param element - PDFプレビューのズーム前に画像幅を測定する要素。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => element.getBoundingClientRect().width);
@@ -253,7 +252,7 @@ try {
   const widthAfterZoom = await page.locator('.pdf-page').first().evaluate(
   /**
    * ブラウザー内の状態のget・bounding・client・rect結果を読み取り、検証用の値へ変換する。
-   * @param element - ブラウザー内で評価するコールバック。
+   * @param element - PDFプレビューを拡大した後に画像幅を測定する要素。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => element.getBoundingClientRect().width);
@@ -270,7 +269,7 @@ try {
   const widthAfterShrink = await page.locator('.pdf-page').first().evaluate(
   /**
    * ブラウザー内の状態のget・bounding・client・rect結果を読み取り、検証用の値へ変換する。
-   * @param element - ブラウザー内で評価するコールバック。
+   * @param element - PDFプレビューを縮小した後に画像幅を測定する要素。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => element.getBoundingClientRect().width);
@@ -284,7 +283,7 @@ try {
   const widthAfterButtonZoom = await page.locator('.pdf-page').first().evaluate(
   /**
    * ブラウザー内の状態のget・bounding・client・rect結果を読み取り、検証用の値へ変換する。
-   * @param element - ブラウザー内で評価するコールバック。
+   * @param element - PDFプレビューのボタン操作後に画像幅を測定する要素。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => element.getBoundingClientRect().width);
@@ -295,8 +294,7 @@ try {
   const result = await page.evaluate(
   /**
    * ブラウザー内の「.pdf-pages」を読み取り、検証用の値へ変換する。
-   * @param options - ブラウザー内で評価するコールバック。
-   * @returns ブラウザー内で読み取った値または変換結果。
+  * @returns ブラウザー内で読み取った値または変換結果。
    */
   ({ widthBeforeZoom, widthAfterZoom, widthAfterShrink, widthAfterButtonZoom }) => ({
     previewMessages: window.__mveMessages.filter(
@@ -350,7 +348,7 @@ try {
   if (!result.debugEvents.includes('pdf.zoom-button') || result.debugEvents.filter(
   /**
    * 条件を満たすイベントだけを残す。
-   * @param event - ユーザー操作またはDOMから通知されたイベント。
+   * @param event - zoom.changed debug eventを数える一覧要素。
    * @returns 条件を満たした要素だけを含む一覧。
    */
   (event) => event === 'zoom.changed').length < 3) {

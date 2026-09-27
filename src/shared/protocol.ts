@@ -256,7 +256,7 @@ export const DEFAULT_PDF_OPTIONS: NormalizedPdfOptions = {
 
 /**
  * PDF設定を許可値へ正規化し、範囲外の寸法や余白を境界値へ収める。
- * @param value - 検証・変換・保存の対象となる値。
+ * @param value - 用紙、余白、文字組版などを含むPDF設定候補。
  * @returns 共有プロトコルで生成または変換した値。
  */
 export function normalizePdfOptions(value: unknown): NormalizedPdfOptions {
@@ -270,10 +270,10 @@ export function normalizePdfOptions(value: unknown): NormalizedPdfOptions {
 
     const numberInRange = /**
      * 共有プロトコルのnumber・in・rangeを処理し、呼び出し側へ結果または副作用を返す。
-     * @param input - 共有プロトコルへ渡す入力。
-     * @param fallback - 共有プロトコルで扱う数値。
-     * @param min - 入力または寸法に許可する下限値。
-     * @param max - 入力または寸法に許可する上限値。
+     * @param input - 数値または数値文字列として変換する設定値候補。
+     * @param fallback - inputを有限数へ変換できない場合に返す既定値。
+     * @param min - 正規化後に許可する最小値。
+     * @param max - 正規化後に許可する最大値。
      * @returns 共有プロトコルで利用する数値。
      */ (input: unknown, fallback: number, min: number, max: number): number => {
             const parsed = typeof input === 'number' ? input : Number(input);
@@ -282,10 +282,10 @@ export function normalizePdfOptions(value: unknown): NormalizedPdfOptions {
 
     const integerInRange = /**
      * 共有プロトコルのinteger・in・rangeを処理し、呼び出し側へ結果または副作用を返す。
-     * @param input - 共有プロトコルへ渡す入力。
-     * @param fallback - 共有プロトコルで扱う数値。
-     * @param min - 入力または寸法に許可する下限値。
-     * @param max - 入力または寸法に許可する上限値。
+     * @param input - 数値または数値文字列として変換する設定値候補。
+     * @param fallback - inputを有限数へ変換できない場合に返す既定値。
+     * @param min - 正規化後に許可する最小値。
+     * @param max - 正規化後に許可する最大値。
      * @returns 共有プロトコルで利用する数値。
      */ (input: unknown, fallback: number, min: number, max: number): number =>
             Math.round(numberInRange(input, fallback, min, max));
@@ -343,7 +343,7 @@ export const DEFAULT_HTML_EXPORT_OPTIONS: HtmlExportOptions = {
 
 /**
  * HTML出力設定を許可値へ正規化し、未指定項目へ既定値を補う。
- * @param value - 検証・変換・保存の対象となる値。
+ * @param value - HTML出力用の見出し、画像、表などの設定候補。
  * @returns 共有プロトコルで生成または変換した値。
  */
 export function normalizeHtmlExportSettings(value: unknown): HtmlExportSettings {
@@ -365,8 +365,8 @@ export function normalizeHtmlExportSettings(value: unknown): HtmlExportSettings 
 
 /**
  * 共有プロトコルのmerge・html・export・optionsを処理し、呼び出し側へ結果または副作用を返す。
- * @param current - 共有プロトコルへ渡す入力。
- * @param next - 共有プロトコルの位置・寸法・件数・時間を表す数値。
+ * @param current - 更新後も保持する現在のHTML出力設定。
+ * @param next 現在のHTML出力設定へマージする新しい設定値。
  * @returns 共有プロトコルのmerge・html・export・optionsが生成する結果。
  */
 export function mergeHtmlExportOptions(
@@ -1238,7 +1238,7 @@ export interface VsCodeApi<State = unknown> {
     getState(): State | undefined;
     /**
      * 共有プロトコルの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-     * @param newState - 共有プロトコルへ渡す入力。
+     * @param newState - 永続化するVS Code Webviewの共有状態。
      * @returns 副作用を完了し、値は返さない。
      */
     setState(newState: State): void;

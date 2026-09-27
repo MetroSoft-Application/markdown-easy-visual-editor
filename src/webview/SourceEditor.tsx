@@ -117,31 +117,31 @@ export interface TextEditorHandle {
   /**
    * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
    * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
-   * @param inline - 本文編集面の位置・寸法・件数・時間を表す数値。
-   * @returns 本文編集面のinsertが生成する結果。
+   * @param inline 挿入するMarkdown内容をインライン形式として扱う場合はtrue。
+   * @returns なし。エディター文書を直接更新する。
    */
   insert(markdown: string, inline?: boolean): void;
   /**
    * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-   * @param edit - 本文編集面へ渡す入力。
+    * @param edit - 編集後の本文と適用後の選択範囲。
    * @returns 副作用を完了し、値は返さない。
    */
   applyEdit(edit: SourceEdit): void;
   /**
    * 本文編集面のactionを処理し、呼び出し側へ結果または副作用を返す。
-   * @param action - 本文編集面へ渡す入力。
+    * @param action - 適用する装飾、リスト、ブロック挿入などの操作種別。
    * @returns 本文編集面のactionが生成する結果。
    */
   action(action: SourceAction): void;
   /**
    * 本文編集面のcode・blockを処理し、呼び出し側へ結果または副作用を返す。
-   * @param language - 本文編集面の対象や分岐を識別する値。
+    * @param language - 挿入するコードブロックの言語識別子。
    * @returns 副作用を完了し、値は返さない。
    */
   codeBlock(language?: string): void;
   /**
    * 本文編集面のheadingを処理し、呼び出し側へ結果または副作用を返す。
-   * @param level - 本文編集面で扱う数値。
+    * @param level - 挿入する見出しのレベル（1から6）。
    * @returns 副作用を完了し、値は返さない。
    */
   heading(level: number): void;
@@ -159,13 +159,13 @@ export interface TextEditorHandle {
   getSelection(): TextSelection;
   /**
    * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-   * @param selection - 本文編集面へ渡す入力。
+    * @param selection - 本文上の開始・終了オフセットで指定する選択範囲。
    * @returns 副作用を完了し、値は返さない。
    */
   setSelection(selection: TextSelection): void;
   /**
    * 本文編集面の表示または操作を開始する。
-   * @param selection - 本文編集面へ渡す入力。
+    * @param selection - 表示位置へ移動する本文上の選択範囲。
    * @returns 副作用を完了し、値は返さない。
    */
   revealRange(selection: TextSelection): void;
@@ -176,13 +176,13 @@ export interface TextEditorHandle {
   getViewport(): EditorViewportAnchor | undefined;
   /**
    * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-   * @param anchor - 本文編集面へ渡す入力。
+    * @param anchor - 本文編集面で復元する可視位置アンカー。
    * @returns 副作用を完了し、値は返さない。
    */
   restoreViewport(anchor: EditorViewportAnchor): void;
   /**
-   * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-   * @param ratio - 本文編集面で扱う数値。
+   * 保存した縦スクロール位置の比率へ本文編集面を戻す。
+   * @param ratio - 復元先として正規化された縦スクロール位置（0から1）。
    * @returns 副作用を完了し、値は返さない。
    */
   restoreScrollRatio(ratio: number): void;
@@ -382,7 +382,7 @@ interface SearchHighlightData {
   hits: readonly TextSelection[];
 
   /**
-   * 本文編集面の状態を示すフラグ。
+   * 検索一致装飾の基準となる現在のCodeMirror選択範囲。
    */
   active?: TextSelection;
 }
@@ -412,8 +412,8 @@ const searchHighlightField = StateField.define<SearchHighlightState>({
    */ () => ({ hits: [], decorations: Decoration.none }),
   /**
    * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-   * @param value - 検証・変換・保存の対象となる値。
-   * @param transaction - 本文編集面へ渡す入力。
+   * @param value - 前回の検索一致範囲とデコレーション。
+   * @param transaction - 検索effectと文書変更を含むCodeMirrorトランザクション。
    * @returns 本文編集面のupdateが生成する結果。
    */
   update(value, transaction) {
@@ -433,15 +433,15 @@ const searchHighlightField = StateField.define<SearchHighlightState>({
 
   provide: /**
    * 本文編集面のprovideを処理し、呼び出し側へ結果または副作用を返す。
-   * @param field - 本文編集面へ渡す入力。
+    * @param field - 検索ハイライト状態とデコレーションを保持するStateField。
    * @returns 本文編集面のprovideが生成する結果。
    */ (field) =>
     EditorView.decorations.from(
       field,
       /**
-       * 本文編集面のコールバックとして値を処理する。
-       * @param value - 検証・変換・保存の対象となる値。
-       * @returns 本文編集面のコールバックが生成する結果。
+             * 検索一致の装飾を保持する状態からDecorationsを取り出す。
+             * @param value - 検索一致の装飾セットを保持する状態。
+             * @returns エディターへ適用する検索一致の装飾セット。
        */
       (value) => value.decorations,
     ),
@@ -450,7 +450,7 @@ const searchHighlightField = StateField.define<SearchHighlightState>({
 /**
  * 本文編集面で使う値または実行環境を組み立てる。
  * @param state - 現在の編集・表示状態。
- * @param data - 本文編集面へ渡す入力。
+ * @param data - 検索一致範囲と現在選択中の一致を含むハイライトデータ。
  * @returns 本文編集面で生成または変換した値。
  */
 function createSearchDecorations(
@@ -491,7 +491,7 @@ function createSearchDecorations(
 
 /**
  * 本文編集面のvisible・space・decorationsを処理し、呼び出し側へ結果または副作用を返す。
- * @param view - 本文編集面へ渡す入力。
+ * @param view - 文書と可視範囲を参照して空白装飾を作るCodeMirrorビュー。
  * @returns 本文編集面のvisible・space・decorationsが生成する結果。
  */
 function visibleSpaceDecorations(view: EditorView): DecorationSet {
@@ -517,7 +517,6 @@ function visibleSpaceDecorations(view: EditorView): DecorationSet {
     ranges.map(
       /**
        * 各設定をmarkへ渡し、変換結果を一覧化する。
-       * @param options - 呼び出し側が指定する処理設定。
        * @returns 入力要素から生成した変換結果の一覧。
        */
       ({ from, to }) =>
@@ -528,8 +527,8 @@ function visibleSpaceDecorations(view: EditorView): DecorationSet {
 
 /**
  * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
- * @param decorations - 本文編集面へ渡す入力。
- * @param update - 本文編集面へ渡す入力。
+ * @param decorations - 文書変更前の可視空白装飾セット。
+ * @param update - 可視範囲・文書変更・新しい文書状態を含むCodeMirror更新通知。
  * @returns 本文編集面のupdate・visible・space・decorationsが生成する結果。
  */
 function updateVisibleSpaceDecorations(
@@ -541,10 +540,10 @@ function updateVisibleSpaceDecorations(
   update.changes.iterChangedRanges(
     /**
      * ・from・aをifへ渡し、本文編集面の結果または副作用を処理する。
-     * @param _fromA - 本文編集面へ渡す入力。
-     * @param _toA - 本文編集面へ渡す入力。
-     * @param fromB - 本文編集面へ渡す入力。
-     * @param toB - 本文編集面へ渡す入力。
+      * @param _fromA - 変更前文書で置換される範囲の開始位置。
+      * @param _toA - 変更前文書で置換される範囲の終了位置。
+      * @param fromB - 変更後文書で置換された範囲の開始位置。
+      * @param toB - 変更後文書で置換された範囲の終了位置。
      * @returns 本文編集面のコールバックが生成する結果。
      */
     (_fromA, _toA, fromB, toB) => {
@@ -596,7 +595,7 @@ const visibleSpaces: Extension = ViewPlugin.fromClass(
 
     /**
      * 本文編集面で使う値または実行環境を組み立てる。
-     * @param view - 本文編集面へ渡す入力。
+     * @param view - 初期空白装飾を計算するCodeMirrorビュー。
      * @returns 初期化したインスタンス。
      */
     constructor(view: EditorView) {
@@ -605,7 +604,7 @@ const visibleSpaces: Extension = ViewPlugin.fromClass(
 
     /**
      * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-     * @param update - 本文編集面へ渡す入力。
+     * @param update - 文書または表示範囲の変更を知らせるCodeMirror更新通知。
      * @returns 副作用を完了し、値は返さない。
      */
     update(update: ViewUpdate): void {
@@ -622,7 +621,7 @@ const visibleSpaces: Extension = ViewPlugin.fromClass(
   {
     decorations: /**
      * 本文編集面のdecorationsを処理し、呼び出し側へ結果または副作用を返す。
-     * @param value - 検証・変換・保存の対象となる値。
+     * @param value - 検索一致範囲とデコレーションを持つ現在の状態。
      * @returns 本文編集面のdecorationsが生成する結果。
      */ (value) => value.decorations,
   },
@@ -638,7 +637,7 @@ interface Props {
   messages: Messages;
 
   /**
-   * 検証・変換・保存の対象となる値。
+   * CodeMirrorへ表示して編集するMarkdown本文。
    */
   value: string;
 
@@ -653,15 +652,15 @@ interface Props {
   searchHits?: readonly TextSelection[];
 
   /**
-   * 本文編集面の状態を示すフラグ。
+   * 検索結果一覧で現在選択中のTextSelection。
    */
   activeSearchHit?: TextSelection;
   /**
    * 本文編集面のイベントまたはメッセージを受け取り、状態を更新する。
-   * @param beforeValue - 本文編集面で受け渡す文字列。
-   * @param value - 検証・変換・保存の対象となる値。
-   * @param changes - 本文へ適用する変更範囲の一覧。
-   * @param isCompositionCommit - 本文編集面の位置・寸法・件数・時間を表す数値。
+    * @param beforeValue - 編集前のMarkdown本文。
+    * @param value - 編集後のMarkdown本文。
+    * @param changes - 編集前本文に対する変更範囲と挿入文字列の一覧。
+    * @param isCompositionCommit - IME変換を確定した変更ならtrue。
    * @returns 副作用を完了し、値は返さない。
    */
   onChange: (
@@ -682,7 +681,7 @@ interface Props {
   onSettled?: () => void;
   /**
    * 本文編集面のイベントまたはメッセージを受け取り、状態を更新する。
-   * @param selection - 本文編集面へ渡す入力。
+    * @param selection - 本文上の開始・終了オフセットで表す選択範囲。
    * @returns 副作用を完了し、値は返さない。
    */
   onSelectionChange?: (selection: TextSelection) => void;
@@ -698,8 +697,8 @@ interface Props {
   placeholder?: string;
   /**
    * 本文編集面のイベントまたはメッセージを受け取り、状態を更新する。
-   * @param anchor - 本文編集面へ渡す入力。
-   * @param userInitiated - 本文編集面の条件を示すフラグ。
+    * @param anchor - 本文エディターで取得した可視位置アンカー。
+    * @param userInitiated - スクロールがユーザー操作で始まった場合はtrue。
    * @returns 副作用を完了し、値は返さない。
    */
   onViewportChange?: (
@@ -719,8 +718,20 @@ interface Props {
 const SourceEditorView = forwardRef<TextEditorHandle, Props>(
   /**
    * CodeMirrorを使った本文編集面を表示し、入力と選択をHostへ通知するコンポーネント。
-   * @param options - 呼び出し側が指定する処理設定。
-   * @param ref - 本文編集面へ渡す入力。
+   * @param messages - エディター内で表示するローカライズ済み文言。
+   * @param value - エディターに表示するMarkdown本文。
+   * @param initialSelection - エディター初期表示時に選択する本文範囲。
+   * @param searchHits - 本文内で強調する検索一致範囲の一覧。
+   * @param activeSearchHit - 現在選択中の検索一致範囲。
+   * @param onChange - 本文変更と、その変更範囲およびIME確定状態を親へ通知する処理。
+   * @param onInputActivity - 本文入力が発生したことを親へ通知する処理。
+   * @param onSettled - 入力後の確定処理を親へ通知する処理。
+   * @param onSelectionChange - 選択範囲の変更を親へ通知する処理。
+   * @param className - エディーター要素に追加するCSSクラス名。
+   * @param placeholder - 本文が空のときに表示する案内文。
+   * @param onViewportChange - エディターの表示位置とユーザー操作状態を親へ通知する処理。
+   * @param onUserScrollIntent - ユーザー起点のスクロールを親へ通知する処理。
+   * @param ref - 親からエディターの公開メソッドを呼び出すRef。
    * @returns 本文編集面のsource・editorが生成する結果。
    */
   function SourceEditor(
@@ -822,8 +833,8 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
         let pendingSelection: TextSelection | undefined;
 
         const publishSelection = /**
-         * 本文編集面のpublish・selectionを処理し、呼び出し側へ結果または副作用を返す。
-         * @param nextSelection - 本文編集面の位置・寸法・件数・時間を表す数値。
+         * 選択範囲を一時保存し、次の描画フレームで親へ通知する。
+         * @param nextSelection 次の描画フレームで通知する選択範囲。
          * @returns 副作用を完了し、値は返さない。
          */ (nextSelection: TextSelection) => {
           pendingSelection = nextSelection;
@@ -866,14 +877,14 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
             EditorView.updateListener.of(
               /**
                * 状態更新をsomeへ渡し、本文編集面の結果または副作用を処理する。
-               * @param update - 本文編集面へ渡す入力。
+                * @param update - 文書・選択・トランザクション・変更範囲を含むCodeMirror更新通知。
                * @returns 本文編集面のコールバックが生成する結果。
                */
               (update) => {
                 const isExternalSync = update.transactions.some(
                   /**
                    * transactionをannotationへ渡し、本文編集面の結果または副作用を処理する。
-                   * @param transaction - 本文編集面へ渡す入力。
+                    * @param transaction - 外部同期annotationの有無を調べるトランザクション。
                    * @returns 本文編集面のコールバックが生成する結果。
                    */
                   (transaction) =>
@@ -941,11 +952,11 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
                   update.changes.iterChanges(
                     /**
                      * from・aを一覧追加へ渡し、本文編集面の結果または副作用を処理する。
-                     * @param fromA - 本文編集面へ渡す入力。
-                     * @param toA - 本文編集面へ渡す入力。
-                     * @param _fromB - 本文編集面へ渡す入力。
-                     * @param _toB - 本文編集面へ渡す入力。
-                     * @param inserted - 本文編集面へ渡す入力。
+                      * @param fromA - 変更前文書で置換される範囲の開始位置。
+                      * @param toA - 変更前文書で置換される範囲の終了位置。
+                      * @param _fromB - 変更後文書で挿入範囲の開始位置。
+                      * @param _toB - 変更後文書で挿入範囲の終了位置。
+                      * @param inserted - 変更範囲へ挿入されたCodeMirrorテキスト。
                      * @returns 本文編集面のコールバックが生成する結果。
                      */
                     (fromA, toA, _fromB, _toB, inserted) => {
@@ -1168,7 +1179,7 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
           setCompositionNonce(
             /**
              * 本文編集面のコールバックとして値を処理する。
-             * @param value - 検証・変換・保存の対象となる値。
+     * @param value - 検索一致範囲とデコレーションを持つ現在の状態。
              * @returns 本文編集面のコールバックが生成する結果。
              */
             (value) => value + 1,
@@ -1212,7 +1223,7 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
 
         const settleBeforeNextKey = /**
          * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-         * @param event - ユーザー操作またはDOMから通知されたイベント。
+         * @param event - 確定待ちIME compositionを次の非合成keydown前に確定するkeyboard event。
          * @returns 副作用を完了し、値は返さない。
          */ (event: KeyboardEvent) => {
           if (compositionEndTimerRef.current === undefined || event.isComposing)
@@ -1222,7 +1233,7 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
 
         const publishViewport = /**
          * 本文編集面のpublish・viewportを処理し、呼び出し側へ結果または副作用を返す。
-         * @param anchor - 本文編集面へ渡す入力。
+         * @param anchor - 復元後に上位へ通知する可視位置アンカー。
          * @returns 本文編集面のpublish・viewportが生成する結果。
          */ (anchor: EditorViewportAnchor) =>
           publishViewportData(hostRef.current, anchor);
@@ -1310,7 +1321,7 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
 
                 /**
                  * 本文編集面のコールバックとしてrestoredを処理する。
-                 * @param restored - 本文編集面へ渡す入力。
+                  * @param restored - 復元処理が確定した本文編集面の可視位置アンカー。
                  * @returns 本文編集面のコールバックが生成する結果。
                  */
                 (restored) => viewportRef.current?.(restored, false),
@@ -1333,7 +1344,7 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
 
               write: /**
                * 本文編集面の値を保存先または共有状態へ書き出す。
-               * @param anchor - 本文編集面へ渡す入力。
+                * @param anchor - read段階で計測した可視位置アンカー。未計測時はundefined。
                * @returns 副作用を完了し、値は返さない。
                */ (anchor) => {
                 if (anchor) publishViewport(anchor);
@@ -1352,7 +1363,7 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
 
           write: /**
            * 本文編集面の値を保存先または共有状態へ書き出す。
-           * @param anchor - 本文編集面へ渡す入力。
+           * @param anchor - 初回計測で得た可視位置アンカー。未計測時はundefined。
            * @returns 副作用を完了し、値は返さない。
            */ (anchor) => {
             if (anchor) publishViewport(anchor);
@@ -1505,7 +1516,7 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
 
           write: /**
            * 本文編集面の値を保存先または共有状態へ書き出す。
-           * @param anchor - 本文編集面へ渡す入力。
+           * @param anchor - 更新後に計測した可視位置アンカー。未計測時はundefined。
            * @returns 副作用を完了し、値は返さない。
            */ (anchor) => {
             if (anchor) publishViewportData(hostRef.current, anchor);
@@ -1555,13 +1566,13 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
 
         applyEdit: /**
          * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-         * @param edit - 本文編集面へ渡す入力。
+         * @param edit - 編集後の本文と適用後の選択範囲。
          * @returns 本文編集面のapply・editが生成する結果。
          */ (edit) => applyEdit(edit),
 
         action: /**
          * 本文編集面のactionを処理し、呼び出し側へ結果または副作用を返す。
-         * @param action - 本文編集面へ渡す入力。
+         * @param action - 適用する装飾、リスト、ブロック挿入などの操作種別。
          * @returns 本文編集面のactionが生成する結果。
          */ (action) => applyAction(action),
 
@@ -1573,7 +1584,7 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
 
         heading: /**
          * 本文編集面のheadingを処理し、呼び出し側へ結果または副作用を返す。
-         * @param level - 本文編集面へ渡す入力。
+         * @param level - 挿入する見出しのレベル（1から6）。
          * @returns 本文編集面のheadingが生成する結果。
          */ (level) => applyHeading(level),
 
@@ -1613,7 +1624,7 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
 
         setSelection: /**
          * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-         * @param selection - 本文編集面へ渡す入力。
+         * @param selection - 本文上の開始・終了オフセットで指定する選択範囲。
          * @returns 副作用を完了し、値は返さない。
          */ (selection) => {
           const view = viewRef.current;
@@ -1628,7 +1639,7 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
 
         revealRange: /**
          * 本文編集面の表示または操作を開始する。
-         * @param selection - 本文編集面へ渡す入力。
+         * @param selection - 表示位置へ移動する本文上の選択範囲。
          * @returns 副作用を完了し、値は返さない。
          */ (selection) => {
           const view = viewRef.current;
@@ -1659,7 +1670,7 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
 
         restoreViewport: /**
          * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-         * @param anchor - 本文編集面へ渡す入力。
+         * @param anchor - 本文編集面で復元する可視位置アンカー。
          * @returns 本文編集面のrestore・viewportが生成する結果。
          */ (anchor) => {
           const view = viewRef.current;
@@ -1681,7 +1692,7 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
 
             /**
              * 本文編集面のコールバックとしてrestoredを処理する。
-             * @param restored - 本文編集面へ渡す入力。
+             * @param restored - 復元処理が確定した本文編集面の可視位置アンカー。
              * @returns 本文編集面のコールバックが生成する結果。
              */
             (restored) => viewportRef.current?.(restored, false),
@@ -1698,7 +1709,7 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
 
         restoreScrollRatio: /**
          * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-         * @param ratio - 本文編集面へ渡す入力。
+         * @param ratio - 復元先として正規化された縦スクロール位置（0から1）。
          * @returns 本文編集面のrestore・scroll・ratioが生成する結果。
          */ (ratio) => {
           const view = viewRef.current;
@@ -1739,7 +1750,7 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
 
             /**
              * 本文編集面のコールバックとしてrestoredを処理する。
-             * @param restored - 本文編集面へ渡す入力。
+             * @param restored - 比率に基づく復元後に確定した可視位置アンカー。
              * @returns 副作用を完了し、値は返さない。
              */
             (restored) => viewportRef.current?.(restored, false),
@@ -1804,7 +1815,7 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
 
     /**
      * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-     * @param action - 本文編集面へ渡す入力。
+     * @param action - 適用する装飾、リスト、ブロック挿入などの操作種別。
      * @returns 副作用を完了し、値は返さない。
      */
     function applyAction(action: SourceAction): void {
@@ -1970,7 +1981,7 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
 
     /**
      * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-     * @param level - 本文編集面で扱う数値。
+     * @param level - 見出しに設定する#の数。0の場合は見出し記号を除去する。
      * @returns 副作用を完了し、値は返さない。
      */
     function applyHeading(level: number): void {
@@ -1994,7 +2005,7 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
 
     /**
      * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-     * @param edit - 本文編集面へ渡す入力。
+     * @param edit - 編集後の本文と適用後の選択範囲。
      * @returns 副作用を完了し、値は返さない。
      */
     function applyEdit(edit: SourceEdit): void {
@@ -2055,9 +2066,9 @@ export const SourceEditor = React.memo(
   SourceEditorView,
 
   /**
-   * 本文編集面のコールバックとしてpreviousを処理する。
-   * @param previous - 本文編集面へ渡す入力。
-   * @param next - 本文編集面の位置・寸法・件数・時間を表す数値。
+    * 前回と次回のpropsを比較し、エディターを再描画するか判定する。
+    * @param previous - 前回レンダーで使った本文エディターProps。
+    * @param next - 再描画の必要性を判定する新しい本文エディターProps。
    * @returns 本文編集面のコールバックが生成する結果。
    */
   (previous, next) =>
@@ -2077,8 +2088,8 @@ export const SourceEditor = React.memo(
 
 /**
  * 本文編集面のcurrent・line・selectionを処理し、呼び出し側へ結果または副作用を返す。
- * @param source - 解析・描画・変換の起点となる本文。
- * @param offset - 本文編集面の位置・寸法・件数・時間を表す数値。
+ * @param source - 現在行の範囲を求めるMarkdown本文。
+ * @param offset - 現在行を判定する本文文字オフセット。
  * @returns 本文編集面のcurrent・line・selectionが生成する結果。
  */
 function currentLineSelection(source: string, offset: number): TextSelection {
@@ -2091,8 +2102,8 @@ function currentLineSelection(source: string, offset: number): TextSelection {
 
 /**
  * 本文編集面のlink・selection・atを処理し、呼び出し側へ結果または副作用を返す。
- * @param source - 解析・描画・変換の起点となる本文。
- * @param offset - 本文編集面の位置・寸法・件数・時間を表す数値。
+ * @param source - Markdownリンクの範囲を検索する本文。
+ * @param offset - キャレット位置の本文文字オフセット。
  * @returns 副作用を完了し、値は返さない。
  */
 function linkSelectionAt(
@@ -2110,7 +2121,7 @@ function linkSelectionAt(
 
 /**
  * 本文編集面のdetect・line・separatorを処理し、呼び出し側へ結果または副作用を返す。
- * @param value - 検証・変換・保存の対象となる値。
+ * @param value - 改行コードを検出する本文。
  * @returns 本文編集面で利用する文字列。
  */
 function detectLineSeparator(value: string): string {
@@ -2119,8 +2130,8 @@ function detectLineSeparator(value: string): string {
 
 /**
  * 本文編集面のpublish・viewport・dataを処理し、呼び出し側へ結果または副作用を返す。
- * @param host - 本文編集面へ渡す入力。
- * @param anchor - 本文編集面へ渡す入力。
+ * @param host - 可視位置データを書き込むエディターのホスト要素。未マウント時はnull。
+ * @param anchor - ホスト要素へ保存する本文編集面の可視位置アンカー。
  * @returns 副作用を完了し、値は返さない。
  */
 function publishViewportData(
@@ -2136,7 +2147,7 @@ function publishViewportData(
 
 /**
  * 本文編集面のpublish・selection・dataを処理し、呼び出し側へ結果または副作用を返す。
- * @param host - 本文編集面へ渡す入力。
+ * @param host - 選択位置データを書き込むエディターのホスト要素。未マウント時はnull。
  * @param state - 現在の編集・表示状態。
  * @returns 副作用を完了し、値は返さない。
  */
@@ -2156,7 +2167,7 @@ function publishSelectionData(
 
 /**
  * 本文編集面の入力を許可された形式へ整える。
- * @param value - 検証・変換・保存の対象となる値。
+ * @param value - LFへ正規化する本文。
  * @returns 本文編集面で利用する文字列。
  */
 function normalizeLineEndings(value: string): string {
@@ -2166,7 +2177,7 @@ function normalizeLineEndings(value: string): string {
 /**
  * 本文編集面のto・editor・insertionを処理し、呼び出し側へ結果または副作用を返す。
  * @param state - 現在の編集・表示状態。
- * @param value - 検証・変換・保存の対象となる値。
+ * @param value - CodeMirrorへ挿入する本文。
  * @returns 本文編集面で利用する文字列。
  */
 function toEditorInsertion(state: EditorState, value: string): string {
@@ -2203,7 +2214,7 @@ function externalDocumentValue(state: EditorState): string {
 /**
  * 本文編集面のeditor・offset・to・externalを処理し、呼び出し側へ結果または副作用を返す。
  * @param state - 現在の編集・表示状態。
- * @param offset - 本文編集面の位置・寸法・件数・時間を表す数値。
+ * @param offset - CodeMirror本文内の文字オフセット。
  * @returns 本文編集面で利用する数値。
  */
 function editorOffsetToExternal(state: EditorState, offset: number): number {
@@ -2218,7 +2229,7 @@ function editorOffsetToExternal(state: EditorState, offset: number): number {
 /**
  * 本文編集面のexternal・offset・to・editorを処理し、呼び出し側へ結果または副作用を返す。
  * @param state - 現在の編集・表示状態。
- * @param offset - 本文編集面の位置・寸法・件数・時間を表す数値。
+ * @param offset - 改行を含む本文での外部文字オフセット。
  * @returns 本文編集面で利用する数値。
  */
 function externalOffsetToEditor(state: EditorState, offset: number): number {
@@ -2244,8 +2255,8 @@ function externalOffsetToEditor(state: EditorState, offset: number): number {
 
 /**
  * 本文編集面のexternal・offset・to・editor・valueを処理し、呼び出し側へ結果または副作用を返す。
- * @param value - 検証・変換・保存の対象となる値。
- * @param offset - 本文編集面の位置・寸法・件数・時間を表す数値。
+ * @param value - LF正規化前のMarkdown本文。
+ * @param offset - 元本文内の文字オフセット。
  * @returns 本文編集面で利用する数値。
  */
 function externalOffsetToEditorValue(value: string, offset: number): number {
@@ -2255,7 +2266,7 @@ function externalOffsetToEditorValue(value: string, offset: number): number {
 
 /**
  * 本文編集面から必要な値またはリソースを取得する。
- * @param view - 本文編集面へ渡す入力。
+ * @param view - スクロール位置と可視行を読み取るCodeMirrorビュー。
  * @returns 副作用を完了し、値は返さない。
  */
 function readViewport(view: EditorView): EditorViewportAnchor | undefined {
@@ -2286,15 +2297,15 @@ function readViewport(view: EditorView): EditorViewportAnchor | undefined {
 }
 
 /**
- * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
- * @param view - 本文編集面へ渡す入力。
- * @param anchor - 本文編集面へ渡す入力。
- * @param host - 本文編集面へ渡す入力。
- * @param programmaticScrollPendingRef - 本文編集面の条件を示すフラグ。
- * @param isCurrent - 本文編集面の条件を示すフラグ。
- * @param onRestored - 本文編集面へ渡す入力。
- * @param onSettled - 本文編集面へ渡す入力。
- * @param attempt - 本文編集面へ渡す入力。
+ * 保存したエディター位置を復元し、レイアウトが安定するまで再試行する。
+ * @param view スクロール位置を復元するCodeMirrorビュー。
+ * @param anchor 復元する縦スクロール位置とアンカー情報。
+ * @param host エディターを含むホスト要素。DOM接続状態を確認する。
+ * @param programmaticScrollPendingRef プログラムによるスクロール復元が進行中かを示すRef。
+ * @param isCurrent 復元要求が現在も有効かを判定する関数。
+ * @param onRestored 復元完了時にアンカーを通知するコールバック。
+ * @param onSettled 復元試行の終了時に呼び出すコールバック。
+ * @param attempt 現在の復元試行回数。
  * @returns 副作用を完了し、値は返さない。
  */
 function restoreViewportUntilSettled(

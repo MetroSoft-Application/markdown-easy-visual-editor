@@ -17,7 +17,7 @@ const label = { kind: "message", path: "ribbon.groups.preview" } as const;
 
 /**
  * リボン検証・テストの回帰のconfigurationを処理し、呼び出し側へ結果または副作用を返す。
- * @param itemIds - リボン検証・テストの回帰の対象や分岐を識別する値。
+ * @param itemIds - リボン項目として定義するID一覧。
  * @returns リボン検証・テストの回帰のconfigurationが生成する結果。
  */
 function configuration(
@@ -56,7 +56,7 @@ function configuration(
                 itemIds.map(
                     /**
                      * item・idsの各要素を変換して一覧化する。
-                     * @param id - リボン検証・テストの回帰の対象や分岐を識別する値。
+                     * @param id - テスト対象として定義するリボン項目ID。
                      * @returns 入力要素から生成した変換結果の一覧。
                      */
                     (id) => [id, { label }]),
@@ -70,7 +70,7 @@ function configuration(
             itemIds.map(
                 /**
                  * item・idsの各要素を変換して一覧化する。
-                 * @param id - リボン検証・テストの回帰の対象や分岐を識別する値。
+                 * @param id - テスト対象として定義するリボン項目ID。
                  * @returns 入力要素から生成した変換結果の一覧。
                  */
                 (id) => [id, {
@@ -326,7 +326,7 @@ describe("validateRibbonConfiguration",
                     headerIds.map(
                         /**
                          * header・idsの各要素を変換して一覧化する。
-                         * @param id - リボン検証・テストの回帰の対象や分岐を識別する値。
+                         * @param id - テスト対象として定義するリボンヘッダーID。
                          * @returns 入力要素から生成した変換結果の一覧。
                          */
                         (id) => [id, {

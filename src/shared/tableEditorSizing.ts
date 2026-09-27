@@ -22,13 +22,13 @@ export const TABLE_EDITOR_MIN_ROW_HEIGHT = 36;
 export const TABLE_EDITOR_MAX_AUTO_ROW_HEIGHT = 720;
 
 /**
- * tableeditorsizingの寸法、容量、位置、または計測値を求める。
- * @param values - tableeditorsizingで受け渡す文字列。
- * @param measureText - tableeditorsizingで扱う文字列または本文。
- * @param horizontalChrome - tableeditorsizingへ渡す入力。
- * @param minimum - tableeditorsizingへ渡す入力。
- * @param maximum - tableeditorsizingの位置・寸法・件数・時間を表す数値。
- * @returns tableeditorsizingで利用する数値。
+ * セル文字列の測定幅から、表列の自動調整幅を計算する。
+ * @param values 各セルの表示内容。
+ * @param measureText セル内の1行の表示幅を測る関数。
+ * @param horizontalChrome セル左右の余白や境界線に割り当てる合計幅。
+ * @param minimum 結果に許可する最小列幅。
+ * @param maximum 結果に許可する最大列幅。
+ * @returns 最小幅と最大幅の範囲に収めた列幅。
  */
 export function calculateAutoFitColumnWidth(
     values: readonly string[],
@@ -50,9 +50,9 @@ export function calculateAutoFitColumnWidth(
 
 /**
  * tableeditorsizingの寸法、容量、位置、または計測値を求める。
- * @param heights - tableeditorsizingの位置・寸法・件数・時間を表す数値。
- * @param minimum - tableeditorsizingへ渡す入力。
- * @param maximum - tableeditorsizingの位置・寸法・件数・時間を表す数値。
+ * @param heights - 同じ表行にある各セルの計測高さ一覧。
+ * @param minimum - 自動調整後に許可する行高の下限。
+ * @param maximum - 自動調整後に許可する行高の上限。
  * @returns tableeditorsizingで利用する数値。
  */
 export function calculateAutoFitRowHeight(

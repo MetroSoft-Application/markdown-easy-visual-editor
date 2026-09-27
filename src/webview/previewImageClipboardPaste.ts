@@ -26,7 +26,7 @@ export function installPreviewImageClipboardPaste(): () => void {
 
     const onPaste = /**
    * pasteイベントでifを実行する。
-   * @param event - ユーザー操作またはDOMから通知されたイベント。
+   * @param event - 保存済み画像clipboard payloadをCodeMirrorへのpasteへ復元するclipboard event。
    * @returns 副作用を完了し、値は返さない。
    */ (event: ClipboardEvent) => {
             if (!(event.target instanceof Element)) return;
@@ -92,7 +92,7 @@ export function installPreviewImageClipboardPaste(): () => void {
 
 /**
  * previewimageclipboardpasteから必要な値またはリソースを取得する。
- * @param clipboard - previewimageclipboardpasteへ渡す入力。
+ * @param clipboard - 貼り付けイベントから受け取ったDataTransfer。HTML画像がない場合は結果を作らない。
  * @returns 副作用を完了し、値は返さない。
  */
 export function readPreservedImagePaste(
@@ -135,7 +135,7 @@ export function readPreservedImagePaste(
 
 /**
  * previewimageclipboardpasteの入力を構造化した値へ変換する。
- * @param value - 検証・変換・保存の対象となる値。
+ * @param value - MIMEタイプとBase64ペイロードを含む画像Data URL。
  * @returns previewimageclipboardpasteのdecode・image・data・urlが生成する結果。
  */
 export function decodeImageDataUrl(
@@ -146,7 +146,7 @@ export function decodeImageDataUrl(
      */
     type: string;
     /**
-     * previewimageclipboardpasteの位置・寸法・件数・時間を表す数値。
+     * Clipboardから取得した画像データのバイト列。
      */
     bytes: Uint8Array
 } | undefined {
@@ -172,7 +172,7 @@ export function decodeImageDataUrl(
 
 /**
  * previewimageclipboardpasteの入力を検証し、表示または保存に使う形式へ変換する。
- * @param source - 解析・描画・変換の起点となる本文。
+ * @param source - 拡張子を判定する画像URLまたはファイルパス。
  * @returns 副作用を完了し、値は返さない。
  */
 function imageExtensionFromSource(source: string): string | undefined {
@@ -183,7 +183,7 @@ function imageExtensionFromSource(source: string): string | undefined {
 
 /**
  * previewimageclipboardpasteのextension・for・image・mimeを処理し、呼び出し側へ結果または副作用を返す。
- * @param type - 操作領域の種類を示す識別子。
+ * @param type - 拡張子へ対応付ける画像MIME type。
  * @returns previewimageclipboardpasteで利用する文字列。
  */
 function extensionForImageMime(type: string): string {
@@ -222,7 +222,7 @@ function extensionForImageMime(type: string): string {
 
 /**
  * previewimageclipboardpasteの入力を許可された形式へ整える。
- * @param type - 操作領域の種類を示す識別子。
+ * @param type - 正規化する画像MIME type。
  * @returns previewimageclipboardpasteで利用する文字列。
  */
 function normalizeMimeType(type: string): string {

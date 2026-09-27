@@ -59,7 +59,7 @@ export type ResourceLinkTarget =
 
 /**
  * resourcelinkのclassify・resource・linkを処理し、呼び出し側へ結果または副作用を返す。
- * @param href - リンク操作領域の遷移先URI。
+ * @param href - Markdown内のリンク先文字列。相対参照、ファイルパス、file URI、Webview URL、外部URLを受け取る。
  * @returns resourcelinkのclassify・resource・linkが生成する結果。
  */
 export function classifyResourceLink(href: string): ResourceLinkTarget {
@@ -75,7 +75,7 @@ export function classifyResourceLink(href: string): ResourceLinkTarget {
 
 /**
  * resourcelinkの条件を判定する。
- * @param href - リンク操作領域の遷移先URI。
+ * @param href - 検査するリンク先文字列。
  * @returns 条件が成立したかを示す真偽値。
  */
 function isWebviewResourceUrl(href: string): boolean {
@@ -89,7 +89,7 @@ function isWebviewResourceUrl(href: string): boolean {
 
 /**
  * resourcelinkから必要な値またはリソースを取得する。
- * @param href - リンク操作領域の遷移先URI。
+ * @param href - WebviewリソースURLかを調べる文字列。
  * @returns 条件に一致する値。未検出時はundefinedまたはnull。
  */
 export function resolveWebviewResourcePath(href: string): string | undefined {

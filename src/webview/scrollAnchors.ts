@@ -76,7 +76,7 @@ const previewSourceElementCache = new WeakMap<HTMLElement, {
 
 /**
  * スクロール位置復元の寸法、容量、位置、または計測値を求める。
- * @param value - 検証・変換・保存の対象となる値。
+ * @param value - 0から1の範囲へ制限するスクロール比率。
  * @returns スクロール位置復元で利用する数値。
  */
 function clampUnit(value: number): number {
@@ -98,7 +98,7 @@ function readSourceRange(element: HTMLElement): SourceRange | undefined {
 
 /**
  * スクロール位置復元から必要な値またはリソースを取得する。
- * @param container - スクロール位置復元へ渡す入力。
+ * @param container - 描画済みMarkdownとスクロール状態を持つプレビュー要素。
  * @returns スクロール位置復元に対応する要素の一覧。
  */
 function getPreviewSourceElements(container: HTMLElement): HTMLElement[] {
@@ -127,7 +127,7 @@ function getPreviewSourceElements(container: HTMLElement): HTMLElement[] {
 
 /**
  * スクロール位置復元から必要な値またはリソースを取得する。
- * @param container - スクロール位置復元へ渡す入力。
+ * @param container - 描画済みMarkdownとスクロール状態を持つプレビュー要素。
  * @returns スクロール位置復元に対応する要素の一覧。
  */
 function getPreviewSourceElementsByOffset(container: HTMLElement): HTMLElement[] {
@@ -138,7 +138,7 @@ function getPreviewSourceElementsByOffset(container: HTMLElement): HTMLElement[]
 /**
  * スクロール位置復元から必要な値またはリソースを取得する。
  * @param elements - スクロール位置復元で走査または更新する要素。
- * @param viewportTop - スクロール位置復元で扱う数値。
+ * @param viewportTop - 可視境界判定に使うviewport上端のY座標（client CSS px）。
  * @returns 条件に一致する値。未検出時はundefinedまたはnull。
  */
 function findFirstVisibleSourceElement(
@@ -164,7 +164,7 @@ function findFirstVisibleSourceElement(
 /**
  * スクロール位置復元から必要な値またはリソースを取得する。
  * @param elements - スクロール位置復元で走査または更新する要素。
- * @param offset - スクロール位置復元の位置・寸法・件数・時間を表す数値。
+ * @param offset - 表示要素に対応するMarkdown本文内のUTF-16オフセット。
  * @returns 条件に一致する値。未検出時はundefinedまたはnull。
  */
 function findSourceElementAtOffset(elements: HTMLElement[], offset: number): HTMLElement | undefined {
@@ -193,8 +193,8 @@ function findSourceElementAtOffset(elements: HTMLElement[], offset: number): HTM
 
 /**
  * スクロール位置復元の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
- * @param container - スクロール位置復元へ渡す入力。
- * @param ratio - スクロール位置復元で扱う数値。
+ * @param container - 描画済みMarkdownとスクロール状態を持つプレビュー要素。
+ * @param ratio - 復元先の縦スクロール比率（0から1）。
  * @returns 条件が成立したかを示す真偽値。
  */
 export function restoreScrollRatio(container: HTMLElement, ratio: number): boolean {
@@ -208,7 +208,7 @@ export function restoreScrollRatio(container: HTMLElement, ratio: number): boole
 
 /**
  * スクロール位置復元のcapture・preview・viewportを処理し、呼び出し側へ結果または副作用を返す。
- * @param container - スクロール位置復元へ渡す入力。
+ * @param container - 描画済みMarkdownとスクロール状態を持つプレビュー要素。
  * @returns 副作用を完了し、値は返さない。
  */
 export function capturePreviewViewport(container: HTMLElement): PreviewViewportAnchor | undefined {
@@ -246,8 +246,8 @@ export function capturePreviewViewport(container: HTMLElement): PreviewViewportA
 
 /**
  * スクロール位置復元の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
- * @param container - スクロール位置復元へ渡す入力。
- * @param anchor - スクロール位置復元へ渡す入力。
+ * @param container - 描画済みMarkdownとスクロール状態を持つプレビュー要素。
+ * @param anchor - capturePreviewViewportが保存した本文位置と表示位置の復元情報。
  * @returns 条件が成立したかを示す真偽値。
  */
 export function restorePreviewViewport(container: HTMLElement, anchor: PreviewViewportAnchor): boolean {

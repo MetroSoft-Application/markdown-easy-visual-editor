@@ -30,9 +30,9 @@ const C = {
 
 
 const esc = /**
- * 生成・icon・コンセプトのescを処理し、呼び出し側へ結果または副作用を返す。
- * @param value - 検証・変換・保存の対象となる値。
- * @returns 生成・icon・コンセプトのescが生成する結果。
+ * Draw.io XML属性に埋め込む値を文字列化し、XML特殊文字をエスケープする。
+ * @param value XML属性値として文字列化してからエスケープする値。
+ * @returns XML属性へ安全に埋め込める文字列。
  */ (value) => String(value)
   .replaceAll('&', '&amp;')
   .replaceAll('"', '&quot;')
@@ -49,12 +49,12 @@ let nextId = 2;
 const cells = [];
 
 const cell = /**
- * 生成・icon・コンセプトのcellを処理し、呼び出し側へ結果または副作用を返す。
- * @param value - 検証・変換・保存の対象となる値。
- * @param style - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @param geometry - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @param vertex - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @returns 生成・icon・コンセプトのcellが生成する結果。
+ * Draw.ioのmxCell要素を追加し、そのセルIDを返す。
+ * @param value mxCellに表示するラベル。nullまたはundefinedなら空文字列にする。
+ * @param style セルに適用するDraw.ioスタイル文字列。
+ * @param geometry mxGeometry要素へ挿入する属性文字列。空文字なら要素を省略する。
+ * @param vertex 頂点セルとして生成する場合はtrue、辺セルとして生成する場合はfalse。
+ * @returns 追加したmxCellの一意なID。
  */ (value, style, geometry, vertex = true) => {
   const id = String(nextId++);
   cells.push(`<mxCell id="${id}" value="${esc(value ?? '')}" style="${esc(style)}" vertex="${vertex ? 1 : 0}" parent="1">${geometry ? `<mxGeometry ${geometry}/>` : ''}</mxCell>`);
@@ -63,45 +63,45 @@ const cell = /**
 
 
 const rect = /**
- * 生成・icon・コンセプトのrectを処理し、呼び出し側へ結果または副作用を返す。
- * @param x - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @param y - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @param w - 生成・icon・コンセプトへ渡す入力。
- * @param h - 生成・icon・コンセプトへ渡す入力。
- * @param style - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @param value - 検証・変換・保存の対象となる値。
- * @returns 生成・icon・コンセプトのrectが生成する結果。
+ * Draw.ioキャンバスへ矩形セルを追加する。
+ * @param x 矩形左上のx座標。
+ * @param y 矩形左上のy座標。
+ * @param w 矩形の幅。
+ * @param h 矩形の高さ。
+ * @param style 矩形セルへ適用するDraw.ioスタイル文字列。
+ * @param value 矩形内に表示するラベル。省略時は空文字列。
+ * @returns 追加した矩形セルのID。
  */ (x, y, w, h, style, value = '') => cell(value, style, `x="${x}" y="${y}" width="${w}" height="${h}"`);
 
 const text = /**
- * 生成・icon・コンセプトのtextを処理し、呼び出し側へ結果または副作用を返す。
- * @param x - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @param y - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @param w - 生成・icon・コンセプトへ渡す入力。
- * @param h - 生成・icon・コンセプトへ渡す入力。
- * @param value - 検証・変換・保存の対象となる値。
- * @param style - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @returns 生成・icon・コンセプトのtextが生成する結果。
+ * 中央揃えのテキストセルをキャンバスへ追加する。
+ * @param x テキスト領域左上のx座標。
+ * @param y テキスト領域左上のy座標。
+ * @param w テキスト領域の幅。
+ * @param h テキスト領域の高さ。
+ * @param value セルに表示する文字列。
+ * @param style テキストセルへ追加するDraw.ioスタイル指定。
+ * @returns 追加したテキストセルのID。
  */ (x, y, w, h, value, style = '') => rect(x, y, w, h, `text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;spacing=0;${style}`, value);
 
 const ellipse = /**
- * 生成・icon・コンセプトのellipseを処理し、呼び出し側へ結果または副作用を返す。
- * @param x - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @param y - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @param w - 生成・icon・コンセプトへ渡す入力。
- * @param h - 生成・icon・コンセプトへ渡す入力。
- * @param style - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @returns 生成・icon・コンセプトのellipseが生成する結果。
+ * Draw.ioキャンバスへ楕円セルを追加する。
+ * @param x 楕円を囲む領域の左上のx座標。
+ * @param y 楕円を囲む領域の左上のy座標。
+ * @param w 楕円を囲む領域の幅。
+ * @param h 楕円を囲む領域の高さ。
+ * @param style 楕円セルへ適用するDraw.ioスタイル文字列。
+ * @returns 追加した楕円セルのID。
  */ (x, y, w, h, style) => rect(x, y, w, h, `ellipse;${style}`);
 
 const edge = /**
- * 生成・icon・コンセプトのedgeを処理し、呼び出し側へ結果または副作用を返す。
- * @param x1 - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @param y1 - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @param x2 - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @param y2 - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @param style - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @returns 生成・icon・コンセプトのedgeが生成する結果。
+ * Draw.ioキャンバスへ2点を結ぶ辺セルを追加する。
+ * @param x1 始点のx座標。
+ * @param y1 始点のy座標。
+ * @param x2 終点のx座標。
+ * @param y2 終点のy座標。
+ * @param style 辺セルへ追加するDraw.ioスタイル指定。
+ * @returns 追加した辺セルのID。
  */ (x1, y1, x2, y2, style = '') => {
   const id = String(nextId++);
   cells.push(`<mxCell id="${id}" value="" style="${esc(`edgeStyle=none;orthogonalLoop=1;rounded=0;${style}`)}" edge="1" parent="1"><mxGeometry relative="1"><mxPoint x="${x1}" y="${y1}" as="sourcePoint"/><mxPoint x="${x2}" y="${y2}" as="targetPoint"/></mxGeometry></mxCell>`);
@@ -110,14 +110,14 @@ const edge = /**
 
 
 const pane = /**
- * 生成・icon・コンセプトのpaneを処理し、呼び出し側へ結果または副作用を返す。
- * @param x - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @param y - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @param w - 生成・icon・コンセプトへ渡す入力。
- * @param h - 生成・icon・コンセプトへ渡す入力。
- * @param side - 生成・icon・コンセプトの対象や分岐を識別する値。
- * @param extra - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @returns 生成・icon・コンセプトのpaneが生成する結果。
+ * MarkdownまたはPreviewの色を使った角丸ペインを追加する。
+ * @param x ペイン左上のx座標。
+ * @param y ペイン左上のy座標。
+ * @param w ペインの幅。
+ * @param h ペインの高さ。
+ * @param side 色を選ぶペイン種別。sourceはMarkdown側、previewはPreview側。
+ * @param extra 基本スタイルへ追加するDraw.ioスタイル指定。
+ * @returns 追加したペインの矩形セルID。
  */ (x, y, w, h, side, extra = '') => {
   const fill = side === 'source' ? C.sourceFill : C.previewFill;
   const stroke = side === 'source' ? C.source : C.preview;
@@ -125,35 +125,34 @@ const pane = /**
 };
 
 const paperPane = /**
- * 生成・icon・コンセプトのpaper・paneを処理し、呼び出し側へ結果または副作用を返す。
- * @param x - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @param y - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @param w - 生成・icon・コンセプトへ渡す入力。
- * @param h - 生成・icon・コンセプトへ渡す入力。
- * @param side - 生成・icon・コンセプトの対象や分岐を識別する値。
- * @param extra - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @returns 生成・icon・コンセプトのpaper・paneが生成する結果。
+ * 白い紙面をMarkdown側またはPreview側の枠色で追加する。
+ * @param x 紙面左上のx座標。
+ * @param y 紙面左上のy座標。
+ * @param w 紙面の幅。
+ * @param h 紙面の高さ。
+ * @param side 枠色を選ぶペイン種別。sourceはMarkdown側、previewはPreview側。
+ * @param extra 基本スタイルへ追加するDraw.ioスタイル指定。
+ * @returns 追加した紙面の矩形セルID。
  */ (x, y, w, h, side, extra = '') => {
   const stroke = side === 'source' ? C.source : C.preview;
   return rect(x, y, w, h, `rounded=1;arcSize=12;fillColor=${C.paper};strokeColor=${stroke};strokeWidth=2;${extra}`);
 };
 
 const divider = /**
- * 生成・icon・コンセプトのdividerを処理し、呼び出し側へ結果または副作用を返す。
- * @param x - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @param y - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @param h - 生成・icon・コンセプトへ渡す入力。
- * @param style - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @returns 生成・icon・コンセプトのdividerが生成する結果。
+ * 2つのペイン間へ縦の区切り線を追加する。
+ * @param x 区切り線のx座標。
+ * @param y 区切り線の始点のy座標。
+ * @param h 区切り線の高さ。
+ * @param style 区切り線へ追加するDraw.ioスタイル指定。
+ * @returns 追加した区切り線の辺セルID。
  */ (x, y, h, style = '') => edge(x, y, x, y + h, `strokeColor=${C.ink};strokeWidth=3;${style}`);
 
 const sourceGlyph = /**
- * 生成・icon・コンセプトのsource・glyphを処理し、呼び出し側へ結果または副作用を返す。
- * @param x - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @param y - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @param scale - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @param color - 生成・icon・コンセプトへ渡す入力。
- * @returns 生成・icon・コンセプトのsource・glyphが生成する結果。
+ * Markdownペインを示す「#」と横線の記号を描画する。
+ * @param x 記号の左上のx座標。
+ * @param y 記号の左上のy座標。
+ * @param scale 記号全体へ適用する倍率。
+ * @param color 記号の文字と線に使う色。
  */ (x, y, scale = 1, color = C.source) => {
   text(x, y, 18 * scale, 24 * scale, '#', `fontColor=${color};fontSize=${24 * scale};fontStyle=1;fontFamily=Segoe UI;`);
   edge(x + 23 * scale, y + 8 * scale, x + 38 * scale, y + 8 * scale, `strokeColor=${color};strokeWidth=2;`);
@@ -161,12 +160,11 @@ const sourceGlyph = /**
 };
 
 const sourceLines = /**
- * 生成・icon・コンセプトのsource・linesを処理し、呼び出し側へ結果または副作用を返す。
- * @param x - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @param y - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @param scale - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @param color - 生成・icon・コンセプトへ渡す入力。
- * @returns 生成・icon・コンセプトのsource・linesが生成する結果。
+ * Markdown本文を表す長さの異なる3本線を描画する。
+ * @param x 先頭の線の始点x座標。
+ * @param y 先頭の線のy座標。
+ * @param scale 線の長さと太さへ適用する倍率。
+ * @param color 3本の線に使う色。
  */ (x, y, scale = 1, color = C.source) => {
   edge(x, y, x + 16 * scale, y, `strokeColor=${color};strokeWidth=2;`);
   edge(x, y + 8 * scale, x + 32 * scale, y + 8 * scale, `strokeColor=${color};strokeWidth=2;`);
@@ -174,12 +172,11 @@ const sourceLines = /**
 };
 
 const previewLines = /**
- * 生成・icon・コンセプトのpreview・linesを処理し、呼び出し側へ結果または副作用を返す。
- * @param x - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @param y - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @param scale - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @param color - 生成・icon・コンセプトへ渡す入力。
- * @returns 生成・icon・コンセプトのpreview・linesが生成する結果。
+ * Previewペインの本文を表す長さの異なる3本線を描画する。
+ * @param x 先頭の線の始点x座標。
+ * @param y 先頭の線のy座標。
+ * @param scale 線の長さと太さへ適用する倍率。
+ * @param color 3本の線に使う色。
  */ (x, y, scale = 1, color = C.preview) => {
   edge(x, y, x + 34 * scale, y, `strokeColor=${color};strokeWidth=3;`);
   edge(x, y + 9 * scale, x + 27 * scale, y + 9 * scale, `strokeColor=${color};strokeWidth=2;`);
@@ -187,42 +184,36 @@ const previewLines = /**
 };
 
 const previewDocument = /**
- * 生成・icon・コンセプトのpreview・documentを処理し、呼び出し側へ結果または副作用を返す。
- * @param x - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @param y - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @param w - 生成・icon・コンセプトへ渡す入力。
- * @param h - 生成・icon・コンセプトへ渡す入力。
- * @param scale - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @param color - 生成・icon・コンセプトへ渡す入力。
- * @returns 生成・icon・コンセプトのpreview・documentが生成する結果。
- */ (x, y, w, h, scale = 1, color = C.preview) => {
+ * 見出しと本文の線で整形済み文書を表す記号を描画する。
+ * @param x 記号領域の左上のx座標。
+ * @param y 記号領域の左上のy座標。
+ * @param w 記号領域の幅。右端から各本文線の長さを決める。
+ * @param scale 各線の位置と太さへ適用する倍率。
+ * @param color 見出し線と本文線に使う色。
+ */ (x, y, w, scale = 1, color = C.preview) => {
   edge(x + 6 * scale, y + 10 * scale, x + w - 8 * scale, y + 10 * scale, `strokeColor=${color};strokeWidth=3;`);
   edge(x + 6 * scale, y + 20 * scale, x + w - 15 * scale, y + 20 * scale, `strokeColor=${color};strokeWidth=2;`);
   edge(x + 6 * scale, y + 28 * scale, x + w - 24 * scale, y + 28 * scale, `strokeColor=${color};strokeWidth=2;`);
 };
 
 const arrow = /**
- * 生成・icon・コンセプトのarrowを処理し、呼び出し側へ結果または副作用を返す。
- * @param x1 - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @param y1 - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @param x2 - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @param y2 - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @param color - 生成・icon・コンセプトへ渡す入力。
- * @returns 生成・icon・コンセプトのarrowが生成する結果。
+ * 始点から終点へ向かう矢印を描画する。
+ * @param x1 矢印の始点x座標。
+ * @param y1 矢印の始点y座標。
+ * @param x2 矢印の終点x座標。
+ * @param y2 矢印の終点y座標。
+ * @param color 線と矢印の先端に使う色。
+ * @returns 追加した矢印辺セルのID。
  */ (x1, y1, x2, y2, color = C.handle) => edge(x1, y1, x2, y2, `strokeColor=${color};strokeWidth=2;endArrow=block;endFill=1;`);
 
 const dots = /**
- * 生成・icon・コンセプトのdotsを処理し、呼び出し側へ結果または副作用を返す。
- * @param x - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @param y - 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
- * @param color - 生成・icon・コンセプトへ渡す入力。
- * @returns 生成・icon・コンセプトのdotsが生成する結果。
+ * 同じx座標に縦並びの3点を描画する。
+ * @param x 各点の左上のx座標。
+ * @param y 最上部の点のy座標。
+ * @param color 3点の塗りと枠線に使う色。
  */ (x, y, color = C.handle) => { ellipse(x, y, 4, 4, `fillColor=${color};strokeColor=${color}`); ellipse(x, y + 9, 4, 4, `fillColor=${color};strokeColor=${color}`); ellipse(x, y + 18, 4, 4, `fillColor=${color};strokeColor=${color}`); };
 
-/**
- * 生成・icon・コンセプトのcommon・canvasを処理し、呼び出し側へ結果または副作用を返す。
- * @returns 生成・icon・コンセプトのcommon・canvasが生成する結果。
- */
+/** 透明な外枠を置き、書き出すDraw.ioキャンバスを128px四方に揃える。 */
 function commonCanvas() {
   // Invisible frame fixes the exported canvas to a square without adding visual pixels.
   rect(0, 0, 128, 128, 'fillColor=none;strokeColor=none;opacity=0;');
@@ -245,7 +236,7 @@ const variants = [
       paperPane(12, 28, 47, 72, 'source');
       paperPane(69, 28, 47, 72, 'preview');
       sourceGlyph(18, 46, 0.78); sourceLines(19, 77, 0.82);
-      previewDocument(76, 45, 34, 38, 0.78);
+      previewDocument(76, 45, 34, 0.78);
       divider(64, 30, 68);
     },
   },
@@ -301,7 +292,7 @@ const variants = [
       paperPane(10, 33, 43, 63, 'source');
       paperPane(75, 33, 43, 63, 'preview');
       sourceGlyph(15, 48, 0.7); sourceLines(16, 75, 0.68);
-      previewDocument(81, 47, 31, 33, 0.7);
+      previewDocument(81, 47, 31, 0.7);
       arrow(55, 63, 73, 63, C.handle);
       edge(64, 28, 64, 98, `strokeColor=${C.ink};strokeWidth=1;dashed=1;dashPattern=2 3;opacity=45;`);
     },
@@ -319,7 +310,7 @@ const variants = [
       paperPane(11, 34, 49, 61, 'source', 'rotation=-4;');
       paperPane(68, 34, 49, 61, 'preview', 'rotation=4;');
       sourceGlyph(20, 50, 0.68); sourceLines(20, 75, 0.68);
-      previewDocument(77, 50, 31, 32, 0.68);
+      previewDocument(77, 50, 31, 0.68);
       divider(64, 35, 61, 'strokeWidth=2;');
       ellipse(60, 60, 8, 8, `fillColor=${C.ink};strokeColor=${C.ink}`);
     },
@@ -342,7 +333,7 @@ const variants = [
       rect(13, 41, 49, 59, `fillColor=${C.sourceFill};strokeColor=none;`);
       rect(66, 41, 49, 59, `fillColor=${C.previewFill};strokeColor=none;`);
       sourceGlyph(19, 52, 0.68); sourceLines(19, 78, 0.68);
-      previewDocument(75, 52, 32, 31, 0.68);
+      previewDocument(75, 52, 32, 0.68);
       divider(64, 42, 57, 'strokeWidth=2;');
     },
   },
@@ -360,7 +351,7 @@ const variants = [
       paperPane(60, 28, 55, 64, 'preview');
       rect(60, 92, 55, 6, `fillColor=${C.previewFill};strokeColor=${C.preview};strokeWidth=2;`);
       sourceGlyph(21, 53, 0.7); sourceLines(21, 79, 0.7);
-      previewDocument(70, 47, 34, 35, 0.7);
+      previewDocument(70, 47, 34, 0.7);
       edge(58, 38, 58, 94, `strokeColor=${C.ink};strokeWidth=2;`);
     },
   },
@@ -401,7 +392,7 @@ const variants = [
       edge(31, 49, 51, 49, `strokeColor=${C.source};strokeWidth=3;`);
       edge(31, 59, 49, 59, `strokeColor=${C.source};strokeWidth=2;`);
       edge(31, 69, 53, 69, `strokeColor=${C.source};strokeWidth=2;`);
-      previewDocument(76, 46, 32, 37, 0.76);
+      previewDocument(76, 46, 32, 0.76);
       arrow(56, 85, 72, 85, C.handle);
       divider(64, 31, 66);
     },
@@ -420,7 +411,7 @@ const variants = [
       rect(15, 32, 48, 64, `rounded=1;arcSize=12;fillColor=${C.sourceFill};strokeColor=none;`);
       rect(65, 32, 48, 64, `rounded=1;arcSize=12;fillColor=${C.previewFill};strokeColor=none;`);
       sourceGlyph(22, 48, 0.76); sourceLines(22, 77, 0.76);
-      previewDocument(75, 48, 32, 35, 0.76);
+      previewDocument(75, 48, 32, 0.76);
       divider(64, 34, 60, 'strokeWidth=4;');
       ellipse(60, 59, 8, 8, `fillColor=${C.ink};strokeColor=${C.ink}`);
     },
@@ -428,9 +419,9 @@ const variants = [
 ];
 
 /**
- * 生成・icon・コンセプトのxml・forを処理し、呼び出し側へ結果または副作用を返す。
- * @param variant - リボン項目の表示種別。
- * @returns 生成・icon・コンセプトのxml・forが生成する結果。
+ * アイコン案を描画して、対応するmxfile XMLを組み立てる。
+ * @param variant 描画関数、ID、タイトルを持つアイコン案。
+ * @returns アイコン案のDraw.io mxfile XML。
  */
 function xmlFor(variant) {
   nextId = 2;
@@ -441,14 +432,13 @@ function xmlFor(variant) {
 }
 
 /**
- * 生成・icon・コンセプトの位置・寸法・件数・時間を表す数値。
+ * アイコン案のレビュー表に出力する行を生成する。
  */
 const reviewRows = variants.map(
 /**
- * 各vからtitleを取り出して一覧化する。
- * @param v - vのtitleを参照する走査対象。
- * @param index - 配列・行列・文字列の要素位置を示す番号。
- * @returns titleを取り出した変換結果の一覧。
+ * @param v レビュー表に出力するアイコン案のメタデータ。
+ * @param index アイコン案の配列内位置。1始まりの表示番号と説明ラベルを選ぶ。
+ * @returns アイコン案1件分のMarkdown表行。
  */
 (v, index) => {
   const no = String(index + 1).padStart(2, '0');
@@ -523,17 +513,20 @@ ${reviewRows}
 await fs.mkdir(out, { recursive: true });
 await Promise.all(variants.map(
 /**
- * 各variantから識別子を取り出して一覧化する。
- * @param variant - variantの識別子を参照する走査対象。
- * @returns 識別子を取り出した変換結果の一覧。
+ * 各アイコン案の編集可能なDraw.io XMLファイルを書き出す。
+ * @param variant 出力するアイコン案のID、タイトル、描画関数。
+ * @returns 対応するDraw.io XMLファイルへの書き込みPromise。
  */
 (variant) => fs.writeFile(path.join(out, `icon-${variant.id}.drawio`), xmlFor(variant), 'utf8')));
 await fs.writeFile(path.join(out, 'icon-concepts-review.md'), report, 'utf8');
 await fs.writeFile(path.join(out, 'icon-concepts.json'), JSON.stringify(variants.map(
 /**
- * variantsの各要素を変換して一覧化する。
- * @param options - 呼び出し側が指定する処理設定。
- * @returns 入力要素から生成した変換結果の一覧。
+ * build関数を除いたアイコン案メタデータへ変換する。
+ * @param variant build関数を含むアイコン案オブジェクト。
+ * @returns JSON出力用のアイコン案メタデータ。
  */
-({ build, ...meta }) => meta), null, 2), 'utf8');
+ (variant) => {
+  const { build, ...meta } = variant;
+  return meta;
+}), null, 2), 'utf8');
 console.log(`Generated ${variants.length} draw.io concepts in ${out}`);

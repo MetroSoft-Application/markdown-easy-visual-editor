@@ -3,7 +3,7 @@
  */
 /**
  * escapehtmlの入力を許可された形式へ整える。
- * @param value - 検証・変換・保存の対象となる値。
+ * @param value - HTML本文または属性値へ挿入する前にエスケープする文字列。
  * @returns escapehtmlで利用する文字列。
  */
 export function escapeHtml(value: string): string {
@@ -12,7 +12,7 @@ export function escapeHtml(value: string): string {
 
         /**
          * escapehtmlのコールバックとしてcharacterを処理する。
-         * @param character - escapehtmlへ渡す入力。
+         * @param character - HTMLエスケープ表でエンティティへ置換する1文字。
          * @returns escapehtmlのコールバックが生成する結果。
          */
         (character) =>

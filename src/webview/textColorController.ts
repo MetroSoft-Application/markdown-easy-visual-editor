@@ -15,7 +15,7 @@ import { computeTextChanges, mapTextOffset } from "../shared/textChanges";
 
 /**
  * 文字色操作の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
- * @param color - 文字色操作へ渡す入力。
+ * @param color - 本文へ適用するプリセット色ID。未定義なら文字色書式を解除する。
  * @returns 条件が成立したかを示す真偽値。
  */
 export function applyTextColorToActiveSource(
@@ -124,7 +124,7 @@ function findActiveSourceView(): EditorView | undefined {
 
 /**
  * 文字色操作のinternal・document・valueを処理し、呼び出し側へ結果または副作用を返す。
- * @param view - 文字色操作へ渡す入力。
+ * @param view - CodeMirror文書本文と選択状態を提供するエディタービュー。
  * @returns 文字色操作で利用する文字列。
  */
 function internalDocumentValue(view: EditorView): string {
@@ -133,8 +133,8 @@ function internalDocumentValue(view: EditorView): string {
 
 /**
  * 文字色操作の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
- * @param view - 文字色操作へ渡す入力。
- * @param edit - 文字色操作へ渡す入力。
+ * @param view - テキスト変更を適用するCodeMirrorエディタービュー。
+ * @param edit - 本文置換文字列と、置換後に設定する選択範囲。
  * @returns 副作用を完了し、値は返さない。
  */
 function applyEditorEdit(view: EditorView, edit: TextColorEdit): void {

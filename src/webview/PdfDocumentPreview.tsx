@@ -68,7 +68,7 @@ function loadPdfJs(): Promise<PdfJsModule> {
 
 /**
  * PDFプレビューの入力を構造化した値へ変換する。
- * @param value - 検証・変換・保存の対象となる値。
+ * @param value - PDF.jsへ渡すBase64形式のPDFバイト列。
  * @returns PDFプレビューに対応する要素の一覧。
  */
 function decodeBase64(value: string): Uint8Array {
@@ -81,8 +81,12 @@ function decodeBase64(value: string): Uint8Array {
 
 /**
  * PDF出力用の文書プレビューを表示するコンポーネント。
- * @param options - 呼び出し側が指定する処理設定。
- * @returns PDFプレビューのpdf・document・previewが生成する結果。
+ * @param data - PDF.jsへ渡すBase64形式のPDFデータ。
+ * @param messages - PDFプレビューで表示するローカライズ済み文言。
+ * @param pageRatio - ページ幅に対する高さの比率。
+ * @param zoom - 表示するページの倍率。省略時は1。
+ * @param onRendered - 最初のページ描画が完了したときに呼び出す通知。
+ * @returns PDFページと描画状態を表示するReact要素。
  */
 export function PdfDocumentPreview({
   data,
@@ -126,7 +130,7 @@ export function PdfDocumentPreview({
         .then(
           /**
            * pdfjsをifへ渡し、PDFプレビューの結果または副作用を処理する。
-           * @param pdfjs - PDFプレビューへ渡す入力。
+           * @param pdfjs - getDocumentとGlobalWorkerOptionsを提供するPDF.jsモジュール。
            * @returns PDFプレビューのコールバックが生成する結果。
            */
           (pdfjs) => {
@@ -143,7 +147,7 @@ export function PdfDocumentPreview({
             return loadingTask.promise.then(
               /**
                * pdfをifへ渡し、PDFプレビューの結果または副作用を処理する。
-               * @param pdf - PDFプレビューへ渡す入力。
+               * @param pdf - ページ取得と破棄に使う読み込み済みPDF文書。
                * @returns PDFプレビューのコールバックが生成する結果。
                */
               (pdf) => {
@@ -181,7 +185,7 @@ export function PdfDocumentPreview({
         setDocumentState(
           /**
            * previousをifへ渡し、PDFプレビューの結果または副作用を処理する。
-           * @param previous - PDFプレビューへ渡す入力。
+           * @param previous - effect再実行時に破棄する前回のPDF文書。初回は未定義。
            * @returns PDFプレビューのコールバックが生成する結果。
            */
           (previous) => {
@@ -244,9 +248,14 @@ export function PdfDocumentPreview({
 }
 
 /**
- * PDFプレビューのpdf・pageを処理し、呼び出し側へ結果または副作用を返す。
- * @param options - 呼び出し側が指定する処理設定。
- * @returns PDFプレビューのpdf・pageが生成する結果。
+ * PDFの1ページをCanvasへ描画し、待機・描画・完了状態を表示する。
+ * @param document - 表示するPDFを保持するPDF.jsのドキュメント。
+ * @param messages - ページの読み込み・描画状態に表示するローカライズ済み文言。
+ * @param pageNumber - PDF内で表示する1始まりのページ番号。
+ * @param pageRatio - ページ幅に対する高さの比率。
+ * @param zoom - ページに適用する表示倍率。
+ * @param onRendered - ページ描画が成功したときに呼び出す通知。
+ * @returns PDFページのCanvasと状態を含むReact要素。
  */
 function PdfPage({
   document,
@@ -361,7 +370,7 @@ function PdfPage({
       observer = new IntersectionObserver(
         /**
          * entriesをifへ渡し、PDFプレビューの結果または副作用を処理する。
-         * @param entries - PDFプレビューへ渡す入力。
+         * @param entries - PDF表示領域との交差状態を報告するobserver entry一覧。
          * @returns PDFプレビューのコールバックが生成する結果。
          */
         (entries) => {

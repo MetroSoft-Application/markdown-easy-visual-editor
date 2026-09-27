@@ -249,6 +249,206 @@
           "default": "",
           "scope": "machine",
           "description": "Edge or Chrome executable for PDF export. Leave empty to detect Edge, then Chrome."
+        },
+        "markdownEasyVisualEditor.editor.viewMode": {
+          "type": "string",
+          "enum": ["both", "preview", "text"],
+          "enumDescriptions": ["Show source and preview", "Show preview only", "Show source only"],
+          "default": "both",
+          "scope": "application",
+          "description": "Default editor panes shown when opening a Markdown file."
+        },
+        "markdownEasyVisualEditor.editor.outlineVisible": {
+          "type": "boolean",
+          "default": true,
+          "scope": "application",
+          "description": "Show the document outline panel by default."
+        },
+        "markdownEasyVisualEditor.editor.scrollSyncEnabled": {
+          "type": "boolean",
+          "default": true,
+          "scope": "application",
+          "description": "Synchronize scrolling between the source and preview panes."
+        },
+        "markdownEasyVisualEditor.preview.imageResizeControlsVisible": {
+          "type": "boolean",
+          "default": true,
+          "scope": "application",
+          "description": "Show image resize controls in the preview."
+        },
+        "markdownEasyVisualEditor.fonts.editorFamily": {
+          "type": "string",
+          "default": "",
+          "scope": "application",
+          "description": "Font family used by the Markdown source editor. Leave empty to use the default."
+        },
+        "markdownEasyVisualEditor.fonts.previewFamily": {
+          "type": "string",
+          "default": "",
+          "scope": "application",
+          "description": "Font family used by the Markdown preview and PDF output. Leave empty to use the default."
+        },
+        "markdownEasyVisualEditor.pdf.format": {
+          "type": "string",
+          "enum": ["A0", "A1", "A2", "A3", "A4", "A5", "A6", "B4", "B5"],
+          "default": "A4",
+          "scope": "application",
+          "description": "Paper size used for PDF export."
+        },
+        "markdownEasyVisualEditor.pdf.orientation": {
+          "type": "string",
+          "enum": ["portrait", "landscape"],
+          "default": "portrait",
+          "scope": "application",
+          "description": "Page orientation used for PDF export."
+        },
+        "markdownEasyVisualEditor.pdf.margins.top": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 50,
+          "default": 15,
+          "scope": "application",
+          "description": "Top PDF page margin in millimeters."
+        },
+        "markdownEasyVisualEditor.pdf.margins.right": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 50,
+          "default": 15,
+          "scope": "application",
+          "description": "Right PDF page margin in millimeters."
+        },
+        "markdownEasyVisualEditor.pdf.margins.bottom": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 50,
+          "default": 15,
+          "scope": "application",
+          "description": "Bottom PDF page margin in millimeters."
+        },
+        "markdownEasyVisualEditor.pdf.margins.left": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 50,
+          "default": 15,
+          "scope": "application",
+          "description": "Left PDF page margin in millimeters."
+        },
+        "markdownEasyVisualEditor.pdf.header": {
+          "type": "string",
+          "default": "",
+          "scope": "application",
+          "description": "Text printed in the PDF page header."
+        },
+        "markdownEasyVisualEditor.pdf.footer": {
+          "type": "string",
+          "default": "{page}/{pages}",
+          "scope": "application",
+          "description": "Text printed in the PDF page footer."
+        },
+        "markdownEasyVisualEditor.pdf.bodyFontSize": {
+          "type": "number",
+          "minimum": 6,
+          "maximum": 48,
+          "default": 11,
+          "scope": "application",
+          "description": "Body text size in PDF output."
+        },
+        "markdownEasyVisualEditor.pdf.headingFontSizes.h1": {
+          "type": "number",
+          "minimum": 6,
+          "maximum": 72,
+          "default": 24,
+          "scope": "application",
+          "description": "H1 heading size in PDF output."
+        },
+        "markdownEasyVisualEditor.pdf.headingFontSizes.h2": {
+          "type": "number",
+          "minimum": 6,
+          "maximum": 72,
+          "default": 20,
+          "scope": "application",
+          "description": "H2 heading size in PDF output."
+        },
+        "markdownEasyVisualEditor.pdf.headingFontSizes.h3": {
+          "type": "number",
+          "minimum": 6,
+          "maximum": 72,
+          "default": 16,
+          "scope": "application",
+          "description": "H3 heading size in PDF output."
+        },
+        "markdownEasyVisualEditor.pdf.headingFontSizes.h4": {
+          "type": "number",
+          "minimum": 6,
+          "maximum": 72,
+          "default": 14,
+          "scope": "application",
+          "description": "H4 heading size in PDF output."
+        },
+        "markdownEasyVisualEditor.pdf.headingFontSizes.h5": {
+          "type": "number",
+          "minimum": 6,
+          "maximum": 72,
+          "default": 12,
+          "scope": "application",
+          "description": "H5 heading size in PDF output."
+        },
+        "markdownEasyVisualEditor.pdf.headingFontSizes.h6": {
+          "type": "number",
+          "minimum": 6,
+          "maximum": 72,
+          "default": 11,
+          "scope": "application",
+          "description": "H6 heading size in PDF output."
+        },
+        "markdownEasyVisualEditor.pdf.codeFontSize": {
+          "type": "number",
+          "minimum": 6,
+          "maximum": 36,
+          "default": 9,
+          "scope": "application",
+          "description": "Code block text size in PDF output."
+        },
+        "markdownEasyVisualEditor.pdf.lineHeight": {
+          "type": "number",
+          "minimum": 0.8,
+          "maximum": 3,
+          "default": 1.6,
+          "scope": "application",
+          "description": "Line height used in PDF output."
+        },
+        "markdownEasyVisualEditor.pdf.paragraphSpacing": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 48,
+          "default": 6,
+          "scope": "application",
+          "description": "Space after paragraphs in PDF output, in points."
+        },
+        "markdownEasyVisualEditor.pdf.saveWithoutDialog": {
+          "type": "boolean",
+          "default": true,
+          "scope": "application",
+          "description": "Save PDF output beside the Markdown file without showing a save dialog."
+        },
+        "markdownEasyVisualEditor.html.embedImages": {
+          "type": "boolean",
+          "default": false,
+          "scope": "application",
+          "description": "Embed image files in exported HTML."
+        },
+        "markdownEasyVisualEditor.html.convertLinkedMarkdown": {
+          "type": "boolean",
+          "default": false,
+          "scope": "application",
+          "description": "Convert linked Markdown files to HTML during export."
+        },
+        "markdownEasyVisualEditor.html.saveWithoutDialog": {
+          "type": "boolean",
+          "default": true,
+          "scope": "application",
+          "description": "Save HTML output beside the Markdown file without showing a save dialog."
         }
       }
     }

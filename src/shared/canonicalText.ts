@@ -73,14 +73,14 @@ export interface CanonicalWorkspaceEditLike {
  */
 export interface CanonicalTextPositionIndex {
     /**
-     * canonicaltextのoffset・atを処理し、呼び出し側へ結果または副作用を返す。
-     * @param position - canonicaltextの位置・寸法・件数・時間を表す数値。
-     * @returns canonicaltextで利用する文字列。
+    * 行番号と行内文字位置を、正規化済み本文のオフセットへ変換する。
+    * @param position 正規化済み本文に対する行番号と行内文字位置。
+    * @returns 対応するUTF-16文字オフセット。
      */
     offsetAt(position: TextPositionLike): number;
     /**
      * canonicaltextのposition・atを処理し、呼び出し側へ結果または副作用を返す。
-     * @param offset - canonicaltextの位置・寸法・件数・時間を表す数値。
+     * @param offset - LF正規化本文内のUTF-16オフセット。
      * @returns canonicaltextで利用する文字列。
      */
     positionAt(offset: number): TextPositionLike;
@@ -88,7 +88,7 @@ export interface CanonicalTextPositionIndex {
 
 /**
  * canonicaltextのto・canonical・textを処理し、呼び出し側へ結果または副作用を返す。
- * @param value - 検証・変換・保存の対象となる値。
+ * @param value - 改行コードをLFへ統一する本文。
  * @returns canonicaltextで利用する文字列。
  */
 export function toCanonicalText(value: string): string {
@@ -97,8 +97,8 @@ export function toCanonicalText(value: string): string {
 
 /**
  * canonicaltextのfrom・canonical・textを処理し、呼び出し側へ結果または副作用を返す。
- * @param value - 検証・変換・保存の対象となる値。
- * @param eol - canonicaltextへ渡す入力。
+ * @param value - 改行コードをLFに統一した本文。
+ * @param eol - LFを変換する出力改行コード。
  * @returns canonicaltextで利用する文字列。
  */
 export function fromCanonicalText(value: string, eol: '\n' | '\r\n'): string {
@@ -120,8 +120,8 @@ export function indexCanonicalText(canonicalText: string): CanonicalTextPosition
 
     return {
         /**
-         * canonicaltextのoffset・atを処理し、呼び出し側へ結果または副作用を返す。
-         * @param position - canonicaltextの位置・寸法・件数・時間を表す数値。
+        * 行番号と行内文字位置を、正規化済み本文のオフセットへ変換する。
+        * @param position 正規化済み本文に対する行番号と行内文字位置。
          * @returns canonicaltextで利用する数値。
          */
         offsetAt(position: TextPositionLike): number {
@@ -142,7 +142,7 @@ export function indexCanonicalText(canonicalText: string): CanonicalTextPosition
         },
         /**
          * canonicaltextのposition・atを処理し、呼び出し側へ結果または副作用を返す。
-         * @param offset - canonicaltextの位置・寸法・件数・時間を表す数値。
+         * @param offset - LF正規化本文内のUTF-16オフセット。
          * @returns canonicaltextのposition・atが生成する結果。
          */
         positionAt(offset: number): TextPositionLike {
@@ -163,10 +163,10 @@ export function indexCanonicalText(canonicalText: string): CanonicalTextPosition
 }
 
 /**
- * canonicaltextの条件を判定する。
+ * 行番号と行内文字位置を、正規化済み本文のオフセットへ変換する。
  * @param canonicalText - canonicaltextで扱う文字列または本文。
- * @param position - canonicaltextの位置・寸法・件数・時間を表す数値。
- * @returns 条件が成立したかを示す真偽値。
+ * @param position 正規化済み本文に対する行番号と行内文字位置。
+ * @returns 対応するUTF-16文字オフセット。
  */
 export function canonicalOffsetAt(
     canonicalText: string,
@@ -178,7 +178,7 @@ export function canonicalOffsetAt(
 /**
  * canonicaltextの条件を判定する。
  * @param canonicalText - canonicaltextで扱う文字列または本文。
- * @param offset - canonicaltextの位置・寸法・件数・時間を表す数値。
+ * @param offset - LF正規化本文内のUTF-16オフセット。
  * @returns 条件が成立したかを示す真偽値。
  */
 export function canonicalPositionAt(
@@ -189,10 +189,10 @@ export function canonicalPositionAt(
 }
 
 /**
- * canonicaltextの入力を許可された形式へ整える。
+ * VS Codeの文書変更を正規化済み本文に適用できる変更範囲へ変換する。
  * @param previousCanonicalText - canonicaltextで扱う文字列または本文。
- * @param contentChanges - canonicaltextで扱う文字列または本文。
- * @returns 条件が成立したかを示す真偽値。
+ * @param contentChanges 元の文書位置と挿入テキストを含む変更一覧。
+ * @returns 正規化済み本文に対する変更範囲一覧。
  */
 export function canonicalizeContentChanges(
     previousCanonicalText: string,
@@ -222,7 +222,7 @@ export function canonicalizeContentChanges(
  * canonicaltextのmaterialize・canonical・changesを処理し、呼び出し側へ結果または副作用を返す。
  * @param canonicalBaseText - canonicaltextで扱う文字列または本文。
  * @param changes - 本文へ適用する変更範囲の一覧。
- * @param eol - canonicaltextへ渡す入力。
+ * @param eol - 生成する本文へ使う改行コード。
  * @returns canonicaltextに対応する要素の一覧。
  */
 export function materializeCanonicalChanges(

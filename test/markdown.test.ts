@@ -328,9 +328,9 @@ describe('Markdown structures',
 
 
                 const pipeColumns = /**
-     * Markdown・テストの回帰のpipe・columnsを処理し、呼び出し側へ結果または副作用を返す。
-     * @param line - Markdown・テストの回帰の位置・寸法・件数・時間を表す数値。
-     * @returns Markdown・テストの回帰で利用する数値。
+     * Markdown表の行に含まれる各セル区切りの文字位置を返す。
+     * @param line セル区切り位置を調べるMarkdown表の行。
+     * @returns 行頭から数えた縦棒の文字位置一覧。
      */ (line: string): number[] => {
                         let column = 0;
                         const positions: number[] = [];
@@ -343,14 +343,14 @@ describe('Markdown structures',
                 expect(new Set(lines.map(
                     /**
                      * 各lineをpipe・columnsへ渡し、変換結果を一覧化する。
-                     * @param line - Markdown・テストの回帰の位置・寸法・件数・時間を表す数値。
+                     * @param line セル区切り位置を調べるMarkdown表の行。
                      * @returns 入力要素から生成した変換結果の一覧。
                      */
                     (line) => pipeColumns(line)[1])).size).toBe(1);
                 expect(new Set(lines.map(
                     /**
                      * 各lineをpipe・columnsへ渡し、変換結果を一覧化する。
-                     * @param line - Markdown・テストの回帰の位置・寸法・件数・時間を表す数値。
+                     * @param line セル区切り位置を調べるMarkdown表の行。
                      * @returns 入力要素から生成した変換結果の一覧。
                      */
                     (line) => pipeColumns(line)[2])).size).toBe(1);
@@ -538,8 +538,7 @@ describe('Markdown structures',
                 expect(getOutline(source).map(
                     /**
                      * 各設定を変換して一覧化する。
-                     * @param options - 呼び出し側が指定する処理設定。
-                     * @returns 入力要素から生成した変換結果の一覧。
+                    * @returns 入力要素から生成した変換結果の一覧。
                      */
                     ({ text, level }) => ({ text, level }))).toEqual([
                         { text: 'Visible', level: 1 },
@@ -622,8 +621,7 @@ describe('Markdown structures',
                 expect(getOutline(source).map(
                     /**
                      * 各設定を変換して一覧化する。
-                     * @param options - 呼び出し側が指定する処理設定。
-                     * @returns 入力要素から生成した変換結果の一覧。
+                    * @returns 入力要素から生成した変換結果の一覧。
                      */
                     ({ line, offset }) => ({ line, offset }))).toEqual([
                         { line: 1, offset: 0 },

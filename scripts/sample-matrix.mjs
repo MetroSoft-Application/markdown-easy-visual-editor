@@ -224,8 +224,7 @@ try {
           : await rendererPage.evaluate(
           /**
            * ブラウザー内の「svg」を読み取り、検証用の値へ変換する。
-           * @param options - ブラウザー内で評価するコールバック。
-           * @returns ブラウザー内で読み取った値または変換結果。
+          * @returns ブラウザー内で読み取った値または変換結果。
            */
           async ({ source, theme, requestId }) => {
               window.mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme, suppressErrorRendering: true });
@@ -275,8 +274,7 @@ try {
         await page.evaluate(
         /**
          * Webviewの実行状態のdispatch・event結果を読み取り、検証用の値へ変換する。
-         * @param options - ブラウザー内で評価するコールバック。
-         * @returns ブラウザー内で読み取った値または変換結果。
+        * @returns ブラウザー内で読み取った値または変換結果。
          */
         ({ requestId, result }) => {
           window.dispatchEvent(new MessageEvent('message', {
@@ -288,8 +286,7 @@ try {
         await page.evaluate(
         /**
          * Webviewの実行状態のdispatch・event結果を読み取り、検証用の値へ変換する。
-         * @param options - ブラウザー内で評価するコールバック。
-         * @returns ブラウザー内で読み取った値または変換結果。
+        * @returns ブラウザー内で読み取った値または変換結果。
          */
         ({ requestId, text }) => {
           window.dispatchEvent(new MessageEvent('message', {
@@ -370,15 +367,14 @@ try {
   await page.evaluate(
   /**
    * Host側の本文状態を読み取り、検証用の値へ変換する。
-   * @param value - ブラウザー内で評価するコールバック。
+   * @param value - Host本文として設定するMarkdown文字列。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (value) => { window.__mveHostText = value; }, samples[1]);
   await page.evaluate(
   /**
    * Webviewの実行状態のdispatch・event結果を読み取り、検証用の値へ変換する。
-   * @param options - ブラウザー内で評価するコールバック。
-   * @returns ブラウザー内で読み取った値または変換結果。
+  * @returns ブラウザー内で読み取った値または変換結果。
    */
   ({ value, settings: initSettings }) => window.dispatchEvent(new MessageEvent('message', { data: { type: 'init', text: value, version: 1, uri: 'file:///C:/sample.md', settings: initSettings } })), { value: samples[1], settings });
   await page.locator('.split-editor').waitFor();
@@ -394,7 +390,7 @@ try {
     await page.evaluate(
     /**
      * Host側の本文状態のwhile結果を読み取り、検証用の値へ変換する。
-     * @param text - ブラウザー内で評価するコールバック。
+     * @param text - HostからWebviewへ通知する新しいMarkdown本文。
      * @returns ブラウザー内で読み取った値または変換結果。
      */
     (text) => {
@@ -418,7 +414,7 @@ try {
     await page.waitForFunction(
     /**
      * ブラウザー内に「.split-preview」が現れるまで待機する。
-     * @param text - ブラウザー内で評価するコールバック。
+     * @param text - プレビュー内に含まれるか調べる文字列。
      * @returns サンプル検証・マトリクスのコールバックが生成する結果。
      */
     (text) => document.querySelector('.split-preview')?.textContent?.includes(text), heading);
@@ -426,7 +422,7 @@ try {
       await page.waitForFunction(
       /**
        * ブラウザー内に「.source-editor」が現れるまで待機する。
-       * @param expectedLength - ブラウザー内で評価するコールバック。
+       * @param expectedLength - ソースエディターで期待する本文長。
        * @returns サンプル検証・マトリクスのコールバックが生成する結果。
        */
       (expectedLength) => (
@@ -512,7 +508,7 @@ try {
   await page.locator('.split-preview .mermaid').first().evaluate(
   /**
    * ブラウザー内の状態のscroll・into・view結果を読み取り、検証用の値へ変換する。
-   * @param node - ブラウザー内で評価するコールバック。
+   * @param node - 画面中央へスクロールする見出しDOM要素。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (node) => node.scrollIntoView({ block: 'center' }));
@@ -583,7 +579,7 @@ try {
     await page.waitForFunction(
     /**
      * HostとWebviewのメッセージ状態が完了条件を満たすまで待機する。
-     * @param start - ブラウザー内で評価するコールバック。
+     * @param start - 操作前のMermaid描画要求数のスナップショット。
      * @returns サンプル検証・マトリクスのコールバックが生成する結果。
      */
     (start) => window.__mveMessages.filter(
@@ -873,7 +869,7 @@ try {
   await page.waitForFunction(
   /**
    * ブラウザー内に「.split-preview .rendered-markdown」が現れるまで待機する。
-   * @param expectedLength - ブラウザー内で評価するコールバック。
+   * @param expectedLength - プレビューで期待するMarkdown本文長。
    * @returns サンプル検証・マトリクスのコールバックが生成する結果。
    */
   (expectedLength) => (
@@ -939,7 +935,7 @@ try {
   const sustained = await page.evaluate(
   /**
    * ブラウザー内の「.split-preview .mermaid」を読み取り、検証用の値へ変換する。
-   * @param start - ブラウザー内で評価するコールバック。
+   * @param start - 長時間テスト開始時のカウンターと本文長のスナップショット。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (start) => {
@@ -1007,8 +1003,7 @@ try {
     await page.waitForFunction(
     /**
      * Host側の本文状態が完了条件を満たすまで待機する。
-     * @param options - ブラウザー内で評価するコールバック。
-     * @returns サンプル検証・マトリクスのコールバックが生成する結果。
+    * @returns サンプル検証・マトリクスのコールバックが生成する結果。
      */
     ({ prefix, length }) => (
       window.__mveHostText.length === length && window.__mveHostText.startsWith(prefix)
@@ -1017,7 +1012,7 @@ try {
     const convergence = await page.evaluate(
     /**
      * HostとWebviewのメッセージ状態のslice結果を読み取り、検証用の値へ変換する。
-     * @param prefix - ブラウザー内で評価するコールバック。
+     * @param prefix - 収束後のHost本文先頭と照合する文字列。
      * @returns ブラウザー内で読み取った値または変換結果。
      */
     (prefix) => ({

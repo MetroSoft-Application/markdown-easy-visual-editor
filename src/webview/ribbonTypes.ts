@@ -62,7 +62,7 @@ export type RibbonCommand =
          */
         type: "insert";
         /**
-         * 検証・変換・保存の対象となる値。
+         * エディターへ挿入するMarkdown本文。
          */
         value: string
     }
@@ -104,11 +104,11 @@ export type RibbonCommand =
          */
         type: "tableInsert";
         /**
-         * リボン型で扱うrowsの一覧。
+         * 挿入するMarkdown表の行数。
          */
         rows: number;
         /**
-         * リボン型で扱うcolumnsの一覧。
+         * 挿入するMarkdown表の列数。
          */
         columns: number
     }
@@ -267,7 +267,7 @@ export interface RibbonImplementationContext extends RibbonButtonState {
     collapsed: boolean;
     /**
      * リボン型の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-     * @param value - 検証・変換・保存の対象となる値。
+     * @param value - リボンを折りたたむ場合はtrue、展開する場合はfalse。
      * @returns 副作用を完了し、値は返さない。
      */
     setCollapsed: (value: boolean) => void;
@@ -281,6 +281,9 @@ export interface RibbonImplementationContext extends RibbonButtonState {
      * リボン型へ渡す設定または境界値。
      */
     htmlOptions: HtmlExportOptions;
+
+    /** PDF出力時に保存先ダイアログを省略する設定。 */
+    pdfSaveWithoutDialog: boolean;
 
     /**
      * リボン型で読み書きするリソースの場所。
@@ -302,31 +305,38 @@ export interface RibbonImplementationContext extends RibbonButtonState {
      * @returns 副作用を完了し、値は返さない。
      */
     onHtmlOptionsChange: (options: HtmlExportOptions) => void;
+
+    /**
+     * PDFの保存先ダイアログ設定を変更し、設定を保持する所有者へ通知する。
+     * @param enabled 保存時にダイアログを省略するかどうか。
+     * @returns 副作用を完了し、値は返さない。
+     */
+    onPdfSaveWithoutDialogChange: (enabled: boolean) => void;
     /**
      * リボン型のイベントまたはメッセージを受け取り、状態を更新する。
-     * @param command - リボン型へ渡す入力。
+     * @param command - 実行するリボンコマンドとその引数。
      * @returns 副作用を完了し、値は返さない。
      */
     onCommand: (command: RibbonCommand) => void;
 
     /**
-     * リボン型で扱うtable・rowsの一覧。
+     * tableInsertコマンドへ渡す表の行数。
      */
     tableRows: number;
     /**
      * リボン型の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-     * @param value - 検証・変換・保存の対象となる値。
+     * @param value - 表挿入UIへ設定する行数。
      * @returns 副作用を完了し、値は返さない。
      */
     setTableRows: (value: number) => void;
 
     /**
-     * リボン型で扱うtable・columnsの一覧。
+     * tableInsertコマンドへ渡す表の列数。
      */
     tableColumns: number;
     /**
      * リボン型の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-     * @param value - 検証・変換・保存の対象となる値。
+     * @param value - 表挿入UIへ設定する列数。
      * @returns 副作用を完了し、値は返さない。
      */
     setTableColumns: (value: number) => void;
@@ -337,7 +347,7 @@ export interface RibbonImplementationContext extends RibbonButtonState {
     codeLanguage: string;
     /**
      * リボン型の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-     * @param value - 検証・変換・保存の対象となる値。
+     * @param value - コードブロックへ設定する言語識別子。
      * @returns 副作用を完了し、値は返さない。
      */
     setCodeLanguage: (value: string) => void;
@@ -348,7 +358,7 @@ export interface RibbonImplementationContext extends RibbonButtonState {
     emoji: string;
     /**
      * リボン型の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-     * @param value - 検証・変換・保存の対象となる値。
+     * @param value - Markdownへ挿入する絵文字。
      * @returns 副作用を完了し、値は返さない。
      */
     setEmoji: (value: string) => void;
@@ -359,7 +369,7 @@ export interface RibbonImplementationContext extends RibbonButtonState {
     headerName: string;
     /**
      * リボン型の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-     * @param value - 検証・変換・保存の対象となる値。
+     * @param value - 表へ挿入するヘッダー名。
      * @returns 副作用を完了し、値は返さない。
      */
     setHeaderName: (value: string) => void;
@@ -370,7 +380,7 @@ export interface RibbonImplementationContext extends RibbonButtonState {
     textColorChoice: TextColorChoice;
     /**
      * リボン型の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-     * @param value - 検証・変換・保存の対象となる値。
+     * @param value - 選択する文字色プリセット。
      * @returns 副作用を完了し、値は返さない。
      */
     setTextColorChoice: (value: TextColorChoice) => void;
@@ -381,7 +391,7 @@ export interface RibbonImplementationContext extends RibbonButtonState {
     imageDirectoryDraft: string;
     /**
      * リボン型の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-     * @param value - 検証・変換・保存の対象となる値。
+     * @param value - 画像保存先ルールの編集中ドラフト。
      * @returns 副作用を完了し、値は返さない。
      */
     setImageDirectoryDraft: (value: string) => void;
@@ -392,7 +402,7 @@ export interface RibbonImplementationContext extends RibbonButtonState {
     editorFontFamilyDraft: string;
     /**
      * リボン型の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-     * @param value - 検証・変換・保存の対象となる値。
+     * @param value - 編集面へ適用するフォント名の編集中ドラフト。
      * @returns 副作用を完了し、値は返さない。
      */
     setEditorFontFamilyDraft: (value: string) => void;
@@ -403,7 +413,7 @@ export interface RibbonImplementationContext extends RibbonButtonState {
     previewFontFamilyDraft: string;
     /**
      * リボン型の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-     * @param value - 検証・変換・保存の対象となる値。
+     * @param value - プレビューへ適用するフォント名の編集中ドラフト。
      * @returns 副作用を完了し、値は返さない。
      */
     setPreviewFontFamilyDraft: (value: string) => void;
@@ -419,11 +429,11 @@ export interface RibbonButtonImplementation {
      */
     readonly kind: "button";
     /**
-     * リボン型の状態を示すフラグ。
+     * ボタン状態からactive表示を判定するpredicate。
      */
     readonly active?: (state: RibbonButtonState) => boolean;
     /**
-     * リボン型の状態を示すフラグ。
+     * ボタン状態からdisabled表示を判定するpredicate。
      */
     readonly disabled?: (state: RibbonButtonState) => boolean;
     /**

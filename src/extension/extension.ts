@@ -88,9 +88,48 @@ const FONT_FAMILY_STATE_KEY = 'markdownEasyVisualEditor.fontFamilies';
  */
 const HTML_OPTIONS_STATE_KEY = 'markdownEasyVisualEditor.htmlOptions';
 
+/** 旧globalState形式の設定移行を一度だけ実行したか記録するキー。 */
+const GLOBAL_SETTINGS_MIGRATION_STATE_KEY = 'markdownEasyVisualEditor.globalSettingsMigrated';
+
+/** VS CodeのmarkdownEasyVisualEditor設定へ保存するキーを一元管理する。 */
+const GLOBAL_CONFIGURATION_KEYS = {
+    viewMode: 'editor.viewMode',
+    outlineVisible: 'editor.outlineVisible',
+    scrollSyncEnabled: 'editor.scrollSyncEnabled',
+    previewImageResizeControlsVisible: 'preview.imageResizeControlsVisible',
+    editorFontFamily: 'fonts.editorFamily',
+    previewFontFamily: 'fonts.previewFamily',
+    pdf: {
+        format: 'pdf.format',
+        orientation: 'pdf.orientation',
+        marginTop: 'pdf.margins.top',
+        marginRight: 'pdf.margins.right',
+        marginBottom: 'pdf.margins.bottom',
+        marginLeft: 'pdf.margins.left',
+        header: 'pdf.header',
+        footer: 'pdf.footer',
+        bodyFontSize: 'pdf.bodyFontSize',
+        headingFontSizeH1: 'pdf.headingFontSizes.h1',
+        headingFontSizeH2: 'pdf.headingFontSizes.h2',
+        headingFontSizeH3: 'pdf.headingFontSizes.h3',
+        headingFontSizeH4: 'pdf.headingFontSizes.h4',
+        headingFontSizeH5: 'pdf.headingFontSizes.h5',
+        headingFontSizeH6: 'pdf.headingFontSizes.h6',
+        codeFontSize: 'pdf.codeFontSize',
+        lineHeight: 'pdf.lineHeight',
+        paragraphSpacing: 'pdf.paragraphSpacing',
+        saveWithoutDialog: 'pdf.saveWithoutDialog'
+    },
+    html: {
+        embedImages: 'html.embedImages',
+        convertLinkedMarkdown: 'html.convertLinkedMarkdown',
+        saveWithoutDialog: 'html.saveWithoutDialog'
+    }
+} as const;
+
 /**
  * 拡張機能を出力または保存できる文字列へ整える。
- * @param value - 検証・変換・保存の対象となる値。
+ * @param value - Webviewへ埋め込むためJSON化する設定または初期化データ。
  * @returns 拡張機能で利用する文字列。
  */
 function serializeInlineJson(value: unknown): string {
@@ -179,14 +218,12 @@ interface ChangeHistoryEntry {
 type ExportCommand = 'exportPdf' | 'exportHtml';
 
 /**
- * 拡張機能のpanel・ready・waiterを処理し、呼び出し側へ結果または副作用を返す。
- * @param panel - 拡張機能へ渡す入力。
- * @returns 副作用を完了し、値は返さない。
+ * Webviewのready完了または失敗を通知するコールバックを保持する。
  */
 interface PanelReadyWaiter {
     /**
      * 拡張機能から必要な値またはリソースを取得する。
-     * @param panel - 拡張機能へ渡す入力。
+     * @param panel - ready状態になったWebviewPanelを待機側へ返す。
      * @returns 副作用を完了し、値は返さない。
      */
     resolve: (panel: vscode.WebviewPanel) => void;
@@ -224,7 +261,7 @@ interface StartupTiming {
     webviewReadyMs?: number;
 
     /**
-     * 拡張機能のinitialized・msを示す状態フラグ。
+     * 拡張機能初期化開始から完了までの経過時間（ミリ秒）。未計測ならundefined。
      */
     initializedMs?: number;
 
@@ -250,8 +287,8 @@ interface StartupTiming {
 }
 
 /**
- * 拡張機能のactivateを処理し、呼び出し側へ結果または副作用を返す。
- * @param context - 拡張機能で扱う文字列または本文。
+ * カスタムエディターと拡張機能コマンドをVS Codeへ登録する。
+ * @param context - VS Codeが拡張機能へ渡すExtensionContext。購読の登録や拡張リソース参照に使う。
  * @returns 副作用を完了し、値は返さない。
  */
 export function activate(context: vscode.ExtensionContext): void {
@@ -266,7 +303,7 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand('markdownEasyVisualEditor.openVisual',
             /**
              * uriをifへ渡し、拡張機能の結果または副作用を処理する。
-             * @param uri - VS Codeまたはブラウザーが扱うリソースURI。
+             * @param uri - VS Codeコマンドから渡された対象文書URI。未指定ならアクティブ文書を使う。
              * @returns 拡張機能のコールバックが生成する結果。
              */
             async (uri?: vscode.Uri) => {
@@ -288,14 +325,14 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand('markdownEasyVisualEditor.exportPdf',
             /**
              * uriをexport・from・uriへ渡し、拡張機能の結果または副作用を処理する。
-             * @param uri - VS Codeまたはブラウザーが扱うリソースURI。
+             * @param uri - 出力対象Markdown文書のURI。未指定時はアクティブWebviewへ転送する。
              * @returns 拡張機能のコールバックが生成する結果。
              */
             (uri?: vscode.Uri) => provider.exportFromUri('exportPdf', uri)),
         vscode.commands.registerCommand('markdownEasyVisualEditor.exportHtml',
             /**
              * uriをexport・from・uriへ渡し、拡張機能の結果または副作用を処理する。
-             * @param uri - VS Codeまたはブラウザーが扱うリソースURI。
+             * @param uri - 出力対象Markdown文書のURI。未指定時はアクティブWebviewへ転送する。
              * @returns 副作用を完了し、値は返さない。
              */
             (uri?: vscode.Uri) => provider.exportFromUri('exportHtml', uri)),
@@ -318,7 +355,7 @@ export function activate(context: vscode.ExtensionContext): void {
 
             /**
              * uriをget・startup・timingへ渡し、拡張機能の結果または副作用を処理する。
-             * @param uri - VS Codeまたはブラウザーが扱うリソースURI。
+             * @param uri - 計測対象文書のURIまたはURI文字列。省略時は最新の計測値を返す。
              * @returns 副作用を完了し、値は返さない。
              */
             (uri?: vscode.Uri | string) => provider.getStartupTiming(uri)
@@ -406,12 +443,12 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
     }>();
 
     /**
-     * 拡張機能の状態を示すフラグ。
+     * HTML描画要求IDをキーに、完了通知・拒否通知・timeoutを保持するMap。
      */
     private readonly pendingHtmlRenderRequests = new Map<string, {
         /**
          * 拡張機能から必要な値またはリソースを取得する。
-         * @param documents - 文書URIと開いている文書オブジェクトの対応表。
+         * @param documents - HTMLへ変換するリンク先文書のIDとMarkdown本文の一覧。
          * @returns 副作用を完了し、値は返さない。
          */
         resolve: (documents: HtmlRenderedDocument[]) => void;
@@ -458,30 +495,33 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
      */
     private readonly startupTimings = new Map<string, StartupTiming>();
 
-    /**
-     * HTML出力設定の更新を直列化するPromise。
-     */
-    private htmlOptionsUpdateChain: Promise<void> = Promise.resolve();
+    /** 移行・設定画面・HTML/PDF出力からのglobal設定書き込みを順序どおり実行するPromise。 */
+    private globalSettingsUpdateChain: Promise<void> = Promise.resolve();
 
     /**
-     * 旧フォント設定の移行処理を共有するPromise。
+     * 旧globalState設定からVS Code設定への移行処理を共有するPromise。
      */
-    private readonly legacyFontMigration: Promise<void>;
+    private readonly globalSettingsMigration: Promise<void>;
 
     /**
-     * 拡張機能の状態を示すフラグ。
+     * 拡張機能自身の複数設定更新中に設定変更通知が中間状態を送らないようにするカウンター。
+     */
+    private globalConfigurationUpdateDepth = 0;
+
+    /**
+     * 現在選択中のWebviewPanel。未選択ならundefined。
      */
     private activePanel?: vscode.WebviewPanel;
 
     /**
-     * 拡張機能の状態を示すフラグ。
+     * 現在選択中のTextDocument。未選択ならundefined。
      */
     private activeDocument?: vscode.TextDocument;
 
     /**
-     * 拡張機能で使う値または実行環境を組み立てる。
-     * @param context - 拡張機能で扱う文字列または本文。
-     * @param startupBenchmarkEnabled - 拡張機能へ渡す入力。
+     * VS Code連携と起動時計測の状態を初期化する。
+     * @param context - 購読の登録や拡張リソース参照に使うVS CodeのExtensionContext。
+     * @param startupBenchmarkEnabled - 起動計測を記録するかどうかを示すフラグ。
      * @returns 初期化したインスタンス。
      */
     constructor(
@@ -492,19 +532,22 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
         context.subscriptions.push(
             vscode.workspace.onDidChangeTextDocument(
                 /**
-                 * イベントをon・document・changedへ渡し、拡張機能の結果または副作用を処理する。
-                 * @param event - ユーザー操作またはDOMから通知されたイベント。
+                 * VS Codeから受け取った文書変更を各Webviewへ反映する。
+                 * @param event - 変更されたTextDocumentと、その文書への変更内容を含むVS Code通知。
                  * @returns 副作用を完了し、値は返さない。
                  */
                 (event) => this.onDocumentChanged(event)),
             vscode.workspace.onDidChangeConfiguration(
                 /**
-                 * イベントをifへ渡し、拡張機能の結果または副作用を処理する。
-                 * @param event - ユーザー操作またはDOMから通知されたイベント。
+                 * 外部設定の変更だけを即時通知し、拡張機能内の複数キー更新は完了後に一度通知する。
+                 * @param event - 変更対象の設定を照会できるVS CodeのConfigurationChangeEvent。
                  * @returns 副作用を完了し、値は返さない。
                  */
                 (event) => {
-                    if (event.affectsConfiguration('markdownEasyVisualEditor')) this.broadcastSettings();
+                    if (event.affectsConfiguration('markdownEasyVisualEditor') &&
+                        this.globalConfigurationUpdateDepth === 0) {
+                        this.broadcastSettings();
+                    }
                 }),
             vscode.workspace.onDidGrantWorkspaceTrust(
                 /**
@@ -513,26 +556,28 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                  */
                 () => this.broadcastSettings())
         );
-        this.legacyFontMigration = this.migrateLegacyFontFamily().catch(
+        this.globalSettingsMigration = this.migrateLegacyGlobalSettings().catch(
             /**
-             * 拡張機能のコールバックとして要素を処理する。
-             * @returns 副作用を完了し、値は返さない。
+             * 移行失敗を記録し、旧値の互換読み込みを維持したままHostの起動を続ける。
+             * @param error - 設定移行中に発生した例外。
              */
-            () => undefined);
+            (error: unknown) => {
+                console.error('Failed to migrate Markdown Easy Visual Editor settings.', error);
+            });
     }
 
     /**
      * 拡張機能から必要な値またはリソースを取得する。
-     * @param document - 拡張機能へ渡す入力。
-     * @param webviewPanel - 拡張機能へ渡す入力。
+     * @param document - このcustom editorで開くMarkdown文書。
+     * @param webviewPanel - この文書を表示するWebviewPanel。
      * @returns 副作用を完了し、値は返さない。
      */
     async resolveCustomTextEditor(
         document: vscode.TextDocument,
         webviewPanel: vscode.WebviewPanel
     ): Promise<void> {
-        // 旧PDFフォント設定の移行完了後に初期設定を送信し、新設定との競合を防ぐ。
-        await this.legacyFontMigration;
+        // 旧globalState設定の移行完了後に初期設定を送信し、新設定との競合を防ぐ。
+        await this.globalSettingsMigration;
         // 文書とWebviewパネルを登録し、HTML・メッセージ受信・破棄時の後処理を設定する。
         const key = document.uri.toString();
         if (this.startupBenchmarkEnabled) {
@@ -558,7 +603,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
         const workspaceRoots = (vscode.workspace.workspaceFolders ?? []).map(
             /**
              * 各folderからuriを取り出して一覧化する。
-             * @param folder - folderのuriを参照する走査対象。
+             * @param folder - WebviewのlocalResourceRootsへ加えるワークスペースフォルダー。
              * @returns uriを取り出した変換結果の一覧。
              */
             (folder) => folder.uri);
@@ -580,8 +625,8 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
         );
         webviewPanel.onDidChangeViewState(
             /**
-             * イベントをifへ渡し、拡張機能の結果または副作用を処理する。
-             * @param event - ユーザー操作またはDOMから通知されたイベント。
+             * パネルがアクティブになった通知に合わせて、現在の文書とパネルを更新する。
+             * @param event - 対象WebviewPanelと表示状態を含むVS Codeの状態変更通知。
              * @returns 拡張機能のコールバックが生成する結果。
              */
             (event) => {
@@ -624,7 +669,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
 
     /**
      * 拡張機能から必要な値またはリソースを取得する。
-     * @param uri - VS Codeまたはブラウザーが扱うリソースURI。
+     * @param uri - 計測対象文書のURIまたはURI文字列。省略時は最新の計測値を返す。
      * @returns 条件に一致する値。未検出時はundefinedまたはnull。
      */
     getStartupTiming(uri?: vscode.Uri | string): Omit<StartupTiming, 'resolveStartedAt'> | undefined {
@@ -652,7 +697,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
 
     /**
      * 拡張機能の変更または要求をHost・Webview間へ通知する。
-     * @param command - 拡張機能へ渡す入力。
+     * @param command - アクティブWebviewへ送信するHostコマンド。
      * @returns 副作用を完了し、値は返さない。
      */
     sendCommand(command: 'insertImage' | ExportCommand): void {
@@ -663,8 +708,8 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
 
     /**
      * 拡張機能のexport・from・uriを処理し、呼び出し側へ結果または副作用を返す。
-     * @param command - 拡張機能へ渡す入力。
-     * @param uri - VS Codeまたはブラウザーが扱うリソースURI。
+     * @param command - Webviewへ転送するPDFまたはHTMLの出力コマンド。
+     * @param uri - 出力対象Markdown文書のURI。未指定時はアクティブWebviewへ転送する。
      * @returns 副作用を完了し、値は返さない。
      */
     async exportFromUri(command: ExportCommand, uri?: vscode.Uri): Promise<void> {
@@ -686,7 +731,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
 
     /**
      * 拡張機能のensure・ready・panelを処理し、呼び出し側へ結果または副作用を返す。
-     * @param documentUri - 拡張機能で読み書きするリソースの場所。
+     * @param documentUri - ready状態のWebviewPanelを検索・待機する対象文書のURI。
      * @returns 拡張機能の非同期処理で得られる結果。
      */
     private async ensureReadyPanel(documentUri: vscode.Uri): Promise<vscode.WebviewPanel> {
@@ -721,7 +766,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
 
     /**
      * 拡張機能から必要な値またはリソースを取得する。
-     * @param documentUri - 拡張機能で読み書きするリソースの場所。
+     * @param documentUri - ready状態のWebviewPanelを検索・待機する対象文書のURI。
      * @returns 条件に一致する値。未検出時はundefinedまたはnull。
      */
     private findReadyPanel(documentUri: vscode.Uri): vscode.WebviewPanel | undefined {
@@ -729,7 +774,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
         return panels ? [...panels].find(
             /**
              * initializedが条件に一致する最初のpanelを取得する。
-             * @param panel - panelのinitializedを参照する走査対象。
+             * @param panel - 初期化済みとして登録されているか確認するWebviewPanel。
              * @returns 条件に一致した最初の要素。未検出時はundefined。
              */
             (panel) => this.panelInitialized.has(panel)) : undefined;
@@ -737,7 +782,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
 
     /**
      * 拡張機能が指定条件を満たすまで待機する。
-     * @param documentUri - 拡張機能で読み書きするリソースの場所。
+     * @param documentUri - ready状態のWebviewPanelを検索・待機する対象文書のURI。
      * @returns 拡張機能の非同期処理で得られる結果。
      */
     private waitForReadyPanel(documentUri: vscode.Uri): Promise<vscode.WebviewPanel> {
@@ -769,7 +814,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
 
                     resolve: /**
                      * 拡張機能から必要な値またはリソースを取得する。
-                     * @param panel - 拡張機能へ渡す入力。
+                     * @param panel - ready状態になり、待機側へ返すWebviewPanel。
                      * @returns 副作用を完了し、値は返さない。
                      */ (panel) => {
                             clearTimeout(timer);
@@ -797,8 +842,8 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
 
     /**
      * 拡張機能から必要な値またはリソースを取得する。
-     * @param documentKey - 拡張機能の対象や分岐を識別する値。
-     * @param panel - 拡張機能へ渡す入力。
+     * @param documentKey - 文書URI文字列をキーにしたready待機者集合を検索するキー。
+     * @param panel - ready状態になり、待機側へ返すWebviewPanel。
      * @returns 副作用を完了し、値は返さない。
      */
     private resolvePanelReady(documentKey: string, panel: vscode.WebviewPanel): void {
@@ -816,7 +861,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
 
     /**
      * 拡張機能のreject・panel・readyを処理し、呼び出し側へ結果または副作用を返す。
-     * @param documentKey - 拡張機能の対象や分岐を識別する値。
+     * @param documentKey - 文書URI文字列をキーにしたready待機者集合を検索するキー。
      * @returns 副作用を完了し、値は返さない。
      */
     private rejectPanelReady(documentKey: string): void {
@@ -835,7 +880,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
 
     /**
      * 拡張機能の処理順序と完了状態を管理する。
-     * @param command - 拡張機能へ渡す入力。
+     * @param command - アクティブWebviewへ送るundoまたはredoコマンド。
      * @returns 副作用を完了し、値は返さない。
      */
     executeHistoryCommand(command: 'undo' | 'redo'): void {
@@ -847,8 +892,8 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
 
     /**
      * HostまたはWebviewから届いたメッセージを検証し、対応する状態更新へ振り分ける。
-     * @param document - 拡張機能へ渡す入力。
-     * @param panel - 拡張機能へ渡す入力。
+     * @param document - メッセージを適用する対象TextDocument。
+     * @param panel - このメッセージを送信したWebviewPanel。
      * @param message - HostとWebviewの間で受け渡すメッセージ。
      * @returns 副作用を完了し、値は返さない。
      * @throws 要求の処理や外部リソース操作に失敗した場合。
@@ -997,31 +1042,29 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                         editorFontFamily: normalizeFontFamily(message.editorFontFamily),
                         previewFontFamily: normalizeFontFamily(message.previewFontFamily)
                     };
-                    await this.context.globalState.update(FONT_FAMILY_STATE_KEY, fontSettings);
-                    const pdfOptions = normalizePdfOptions(
-                        this.context.globalState.get<unknown>(PDF_OPTIONS_STATE_KEY, DEFAULT_PDF_OPTIONS)
-                    );
-                    await this.context.globalState.update(PDF_OPTIONS_STATE_KEY, {
-                        ...pdfOptions,
-                        fontFamily: fontSettings.previewFontFamily || DEFAULT_PDF_OPTIONS.fontFamily
-                    });
+                    await this.updateGlobalConfiguration([
+                        [GLOBAL_CONFIGURATION_KEYS.editorFontFamily, fontSettings.editorFontFamily],
+                        [GLOBAL_CONFIGURATION_KEYS.previewFontFamily, fontSettings.previewFontFamily]
+                    ]);
                     this.broadcastSettings();
                     return;
                 }
                 case 'setViewMode':
-                    await this.context.globalState.update(VIEW_MODE_STATE_KEY, message.viewMode);
+                    await this.updateGlobalConfiguration([[GLOBAL_CONFIGURATION_KEYS.viewMode, message.viewMode]]);
                     this.broadcastSettings();
                     return;
                 case 'setOutlineVisible':
-                    await this.context.globalState.update(OUTLINE_VISIBLE_STATE_KEY, message.visible);
+                    await this.updateGlobalConfiguration([[GLOBAL_CONFIGURATION_KEYS.outlineVisible, message.visible]]);
                     this.broadcastSettings();
                     return;
                 case 'setScrollSyncEnabled':
-                    await this.context.globalState.update(SCROLL_SYNC_STATE_KEY, message.enabled);
+                    await this.updateGlobalConfiguration([[GLOBAL_CONFIGURATION_KEYS.scrollSyncEnabled, message.enabled]]);
                     this.broadcastSettings();
                     return;
                 case 'setPreviewImageResizeControlsVisible':
-                    await this.context.globalState.update(PREVIEW_IMAGE_RESIZE_CONTROLS_STATE_KEY, message.visible);
+                    await this.updateGlobalConfiguration([
+                        [GLOBAL_CONFIGURATION_KEYS.previewImageResizeControlsVisible, message.visible]
+                    ]);
                     this.broadcastSettings();
                     return;
                 case 'setPdfOptions':
@@ -1029,32 +1072,20 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                     {
                         const fontSettings = this.getFontSettings();
                         const options = normalizePdfOptions(message.options);
-                        await this.context.globalState.update(PDF_OPTIONS_STATE_KEY, {
-                            ...options,
-                            fontFamily: fontSettings.previewFontFamily || DEFAULT_PDF_OPTIONS.fontFamily
-                        });
+                        options.fontFamily = fontSettings.previewFontFamily || DEFAULT_PDF_OPTIONS.fontFamily;
+                        await this.updateGlobalConfiguration(pdfConfigurationEntries(options));
                     }
                     this.broadcastSettings();
                     return;
                 case 'setHtmlOptions':
                     {
                         const options = normalizeHtmlExportSettings(message.options);
-                        const update = this.htmlOptionsUpdateChain.then(
-                            /**
-                             * 要素を状態更新へ渡し、拡張機能の結果または副作用を処理する。
-                             * @returns 拡張機能のコールバックが生成する結果。
-                             */
-                            async () => {
-                                await this.context.globalState.update(HTML_OPTIONS_STATE_KEY, options);
-                                this.broadcastSettings();
-                            });
-                        this.htmlOptionsUpdateChain = update.catch(
-                            /**
-                             * 拡張機能のコールバックとして要素を処理する。
-                             * @returns 副作用を完了し、値は返さない。
-                             */
-                            () => undefined);
-                        await update;
+                        await this.updateGlobalConfiguration([
+                            [GLOBAL_CONFIGURATION_KEYS.html.embedImages, options.embedImages],
+                            [GLOBAL_CONFIGURATION_KEYS.html.convertLinkedMarkdown, options.convertLinkedMarkdown],
+                            [GLOBAL_CONFIGURATION_KEYS.html.saveWithoutDialog, options.saveWithoutDialog]
+                        ]);
+                        this.broadcastSettings();
                     }
                     return;
                 case 'openSource':
@@ -1121,7 +1152,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                         void vscode.window.showInformationMessage(messages.host.pdfExported(target.fsPath), messages.host.open).then(
                             /**
                              * choiceをifへ渡し、拡張機能の結果または副作用を処理する。
-                             * @param choice - 拡張機能へ渡す入力。
+                             * @param choice - PDF出力後に選択されたOpenアクション。未選択時はundefined。
                              * @returns 拡張機能のコールバックが生成する結果。
                              */
                             (choice) => {
@@ -1163,7 +1194,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                                 ? preparation.documents.slice(1).map(
                                     /**
                                      * 各項目からsource・pathを取り出して一覧化する。
-                                     * @param item - 項目のsource・pathを参照する走査対象。
+                                     * @param item - リンク先Markdownのソースパスと本文を含むHtmlDocument。
                                      * @returns source・pathを取り出した変換結果の一覧。
                                      */
                                     (item) => ({ id: item.sourcePath, markdown: item.markdown }))
@@ -1181,7 +1212,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                             paths: result.paths.map(
                                 /**
                                  * 各項目からfs・pathを取り出して一覧化する。
-                                 * @param item - 項目のfs・pathを参照する走査対象。
+                                 * @param item - HTML出力先のファイルURI。fsPathを結果通知へ含める。
                                  * @returns fs・pathを取り出した変換結果の一覧。
                                  */
                                 (item) => item.fsPath)
@@ -1278,8 +1309,8 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
 
     /**
      * 拡張機能の変更または利用者の操作意図を記録し、後続処理へ渡す。
-     * @param document - 拡張機能へ渡す入力。
-     * @param panel - 拡張機能へ渡す入力。
+     * @param document - 編集またはUndo/Redo対象のTextDocument。
+     * @param panel - 編集またはUndo/Redo要求元のWebviewPanel。
      * @param message - HostとWebviewの間で受け渡すメッセージ。
      * @returns 副作用を完了し、値は返さない。
      */
@@ -1319,8 +1350,8 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
 
     /**
      * 拡張機能の変更または利用者の操作意図を記録し、後続処理へ渡す。
-     * @param document - 拡張機能へ渡す入力。
-     * @param panel - 拡張機能へ渡す入力。
+     * @param document - 編集またはUndo/Redo対象のTextDocument。
+     * @param panel - 編集またはUndo/Redo要求元のWebviewPanel。
      * @param message - HostとWebviewの間で受け渡すメッセージ。
      * @returns 副作用を完了し、値は返さない。
      */
@@ -1363,8 +1394,8 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
 
     /**
      * 拡張機能の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-     * @param document - 拡張機能へ渡す入力。
-     * @param panel - 拡張機能へ渡す入力。
+     * @param document - 編集またはUndo/Redo対象のTextDocument。
+     * @param panel - 編集またはUndo/Redo要求元のWebviewPanel。
      * @param message - HostとWebviewの間で受け渡すメッセージ。
      * @returns 副作用を完了し、値は返さない。
      * @throws クライアント不一致または差分範囲が不正な場合。
@@ -1397,7 +1428,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
         const previousApplication = (this.changeHistory.get(key) ?? []).find(
             /**
              * client・idが条件に一致する最初のエントリを取得する。
-             * @param entry - エントリのclient・idを参照する走査対象。
+             * @param entry - 同じWebview clientIdと操作IDの適用記録かを調べる変更履歴。
              * @returns 条件に一致した最初の要素。未検出時はundefined。
              */
             (entry) => (
@@ -1508,8 +1539,8 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
     }
 
     /**
-     * 拡張機能のイベントまたはメッセージを受け取り、状態を更新する。
-     * @param event - ユーザー操作またはDOMから通知されたイベント。
+     * VS Codeから受け取った文書変更を履歴と各Webviewの状態へ反映する。
+     * @param event - 変更された文書と変更範囲を含むVS CodeのTextDocumentChangeEvent。
      * @returns 副作用を完了し、値は返さない。
      */
     private onDocumentChanged(event: vscode.TextDocumentChangeEvent): void {
@@ -1614,9 +1645,9 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
 
     /**
      * 拡張機能のhistory・sinceを処理し、呼び出し側へ結果または副作用を返す。
-     * @param key - 拡張機能の対象や分岐を識別する値。
-     * @param fromVersion - 拡張機能で扱う数値。
-     * @param toVersion - 拡張機能で扱う数値。
+     * @param key - 文書URI文字列。変更履歴Mapの検索キーとして使う。
+     * @param fromVersion - 履歴を開始する文書バージョン。
+     * @param toVersion - 履歴を終える文書バージョン。
      * @returns 副作用を完了し、値は返さない。
      */
     private historySince(key: string, fromVersion: number, toVersion: number): ChangeHistoryEntry[] | undefined {
@@ -1625,15 +1656,15 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
             .filter(
                 /**
                  * base・versionの条件を満たすエントリだけを残す。
-                 * @param entry - エントリのbase・versionを参照する走査対象。
+                 * @param entry - 指定バージョン範囲に重なる変更履歴エントリー。
                  * @returns 条件を満たした要素だけを含む一覧。
                  */
                 (entry) => entry.baseVersion >= fromVersion && entry.version <= toVersion)
             .sort(
                 /**
                  * 2つの値を比較して並び順を決める。
-                 * @param left - 比較対象の左側の値。
-                 * @param right - 比較対象の右側の値。
+                 * @param left - baseVersionを比較する左側の変更履歴エントリー。
+                 * @param right - baseVersionを比較する右側の変更履歴エントリー。
                  * @returns 2つの要素の順序を示す数値。
                  */
                 (left, right) => left.baseVersion - right.baseVersion);
@@ -1647,17 +1678,17 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
 
     /**
      * 拡張機能のwas・operation・appliedを処理し、呼び出し側へ結果または副作用を返す。
-     * @param key - 拡張機能の対象や分岐を識別する値。
-     * @param clientId - 通信相手または編集状態を識別するID。
-     * @param opId - 拡張機能の対象や分岐を識別する値。
-     * @returns 条件が成立したかを示す真偽値。
+     * @param key - 文書URI文字列。変更履歴Mapの検索キーとして使う。
+     * @param clientId - Webviewクライアント登録を識別するID。
+     * @param opId - Webviewが編集要求ごとに付与した操作ID。
+     * @returns 指定クライアントの操作IDが変更履歴に記録されているか。
      */
     private wasOperationApplied(key: string, clientId: string, opId: string): boolean {
         // 履歴からクライアントIDと操作IDが一致する適用済み操作を検索する。
         return (this.changeHistory.get(key) ?? []).some(
             /**
              * 拡張機能のコールバックとしてエントリを処理する。
-             * @param entry - 拡張機能で走査または更新する要素。
+             * @param entry - 指定clientIdと操作IDが適用済みかを判定する変更履歴エントリー。
              * @returns 副作用を完了し、値は返さない。
              */
             (entry) => (
@@ -1667,11 +1698,11 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
 
     /**
      * 拡張機能の変更または要求をHost・Webview間へ通知する。
-     * @param panel - 拡張機能へ渡す入力。
-     * @param document - 拡張機能へ渡す入力。
-     * @param clientId - 通信相手または編集状態を識別するID。
-     * @param opId - 拡張機能の対象や分岐を識別する値。
-     * @param reason - 処理を中断または失敗させた理由。
+     * @param panel - 再同期要求を送るWebviewPanel。
+     * @param document - 再同期対象のTextDocument。
+     * @param clientId - Webviewクライアント登録を識別するID。
+     * @param opId - Webviewが編集要求ごとに付与した省略可能な操作ID。
+     * @param reason - Webviewへ再同期を求める理由の説明文。
      * @returns 副作用を完了し、値は返さない。
      */
     private sendResync(
@@ -1695,8 +1726,8 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
 
     /**
      * 拡張機能の条件を判定する。
-     * @param document - 拡張機能へ渡す入力。
-     * @returns 条件が成立したかを示す真偽値。
+     * @param document - LF正規化した本文を取得するTextDocument。
+     * @returns 文書の改行をLFに統一した本文。
      */
     private canonicalText(document: vscode.TextDocument): string {
         return toCanonicalText(document.getText());
@@ -1704,9 +1735,9 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
 
     /**
      * 拡張機能の値を保存先または共有状態へ書き出す。
-     * @param document - 拡張機能へ渡す入力。
-     * @param images - 拡張機能へ渡す要素の一覧。
-     * @param imageDirectory - 拡張機能で読み書きするリソースの場所。
+     * @param document - 貼付画像の参照先となるMarkdown文書。
+     * @param images - 文書へ保存する画像ペイロードの一覧。
+     * @param imageDirectory - 文書フォルダーを基準に展開する画像保存先ルール。
      * @returns 拡張機能で利用する文字列。
      * @throws 未保存文書、サイズ超過、未対応形式、または保存失敗の場合。
      */
@@ -1744,8 +1775,8 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
 
     /**
      * 拡張機能のpick・and・save・imagesを処理し、呼び出し側へ結果または副作用を返す。
-     * @param document - 拡張機能へ渡す入力。
-     * @param imageDirectory - 拡張機能で読み書きするリソースの場所。
+     * @param document - 画像ファイルを保存する対象Markdown文書。
+     * @param imageDirectory - 文書フォルダーを基準に展開する画像保存先ルール。
      * @returns 拡張機能で利用する文字列。
      */
     private async pickAndSaveImages(document: vscode.TextDocument, imageDirectory: string): Promise<string[]> {
@@ -1773,8 +1804,8 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
 
     /**
      * 拡張機能のensure・asset・directoryを処理し、呼び出し側へ結果または副作用を返す。
-     * @param document - 拡張機能へ渡す入力。
-     * @param imageDirectory - 拡張機能で読み書きするリソースの場所。
+     * @param document - 画像保存先を解決する対象文書。
+     * @param imageDirectory - 文書フォルダーを基準に展開する画像保存先ルール。
      * @returns 拡張機能の非同期処理で得られる結果。
      * @throws 絶対パスや親ディレクトリを含む安全でない設定の場合。
      */
@@ -1796,8 +1827,8 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
 
     /**
      * 拡張機能の表示または操作を開始する。
-     * @param document - 拡張機能へ渡す入力。
-     * @param href - リンク操作領域の遷移先URI。
+     * @param document - リンク参照を解決して開く基準Markdown文書。
+     * @param href - Markdown内のリンク先文字列。相対参照、ファイルパス、file URI、Webview URL、外部URLを受け取る。
      * @returns 副作用を完了し、値は返さない。
      */
     private async openResource(document: vscode.TextDocument, href: string): Promise<void> {
@@ -1822,7 +1853,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
 
     /**
      * 拡張機能の入力と不変条件を検証し、違反時に失敗を通知する。
-     * @param document - 拡張機能へ渡す入力。
+     * @param document - ローカルリソース診断を行うTextDocument。
      * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
      * @returns 条件が成立したかを示す真偽値。
      */
@@ -1831,7 +1862,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
         const diagnostics = await Promise.all(references.map(
             /**
              * 各referenceからsourceを取り出して一覧化する。
-             * @param reference - referenceのsourceを参照する走査対象。
+             * @param reference - 診断対象のsourceと種別を持つローカルリソース参照。
              * @returns sourceを取り出した変換結果の一覧。
              */
             async (reference): Promise<Diagnostic | undefined> => {
@@ -1857,22 +1888,23 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
         return sortDiagnostics(diagnostics.filter(
             /**
              * 条件を満たす項目だけを残す。
-             * @param item - 走査中の要素。
+             * @param item - リソース検査が返した診断。undefinedでなければ一覧に残す。
              * @returns 条件を満たした要素だけを含む一覧。
              */
             (item): item is Diagnostic => item !== undefined));
     }
 
     /**
-     * 拡張機能から必要な値またはリソースを取得する。
-     * @param document - 拡張機能へ渡す入力。
-     * @returns 拡張機能のget・settingsが生成する結果。
+     * VS Code設定とワークスペース信頼状態をWebviewへ渡す設定にまとめる。
+     * 文書URIは文書スコープの設定参照に使い、アプリ全体の表示・出力設定はglobal値を使う。
+     * @param document 設定の文書スコープを決める文書。省略時はglobalの値を参照する。
+     * @returns Webviewの初期化・設定更新に使う設定一式。
      */
     private getSettings(document?: vscode.TextDocument): WebviewSettings {
         // VS Code設定とワークスペース信頼状態をWebview用の設定オブジェクトへまとめる。
         const config = vscode.workspace.getConfiguration('markdownEasyVisualEditor', document?.uri);
         return {
-            ...this.getFontSettings(),
+            ...this.getFontSettings(config),
             language: this.getLanguage(),
             imageDirectory: config.get('images.directory', 'assets/${documentBasename}'),
             maxPasteSizeMb: config.get('images.maxPasteSizeMb', 20),
@@ -1880,26 +1912,80 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
             mermaidTheme: config.get('mermaid.theme', 'auto'),
             mermaidHostRendering: true,
             editorTheme: config.get<WebviewSettings['editorTheme']>('editor.theme', 'dark'),
-            viewMode: normalizeViewMode(this.context.globalState.get<unknown>(VIEW_MODE_STATE_KEY)),
-            outlineVisible: this.context.globalState.get<boolean>(OUTLINE_VISIBLE_STATE_KEY, true),
-            scrollSyncEnabled: this.context.globalState.get<boolean>(SCROLL_SYNC_STATE_KEY, true),
-            previewImageResizeControlsVisible: this.context.globalState.get<boolean>(PREVIEW_IMAGE_RESIZE_CONTROLS_STATE_KEY, true),
-            pdfOptions: this.getPdfOptions(),
-            htmlOptions: this.getHtmlOptions(),
+            viewMode: normalizeViewMode(this.getGlobalSetting(
+                config,
+                GLOBAL_CONFIGURATION_KEYS.viewMode,
+                this.context.globalState.get<unknown>(VIEW_MODE_STATE_KEY),
+                'both'
+            )),
+            outlineVisible: this.getGlobalSetting(
+                config,
+                GLOBAL_CONFIGURATION_KEYS.outlineVisible,
+                this.context.globalState.get<boolean>(OUTLINE_VISIBLE_STATE_KEY),
+                true
+            ),
+            scrollSyncEnabled: this.getGlobalSetting(
+                config,
+                GLOBAL_CONFIGURATION_KEYS.scrollSyncEnabled,
+                this.context.globalState.get<boolean>(SCROLL_SYNC_STATE_KEY),
+                true
+            ),
+            previewImageResizeControlsVisible: this.getGlobalSetting(
+                config,
+                GLOBAL_CONFIGURATION_KEYS.previewImageResizeControlsVisible,
+                this.context.globalState.get<boolean>(PREVIEW_IMAGE_RESIZE_CONTROLS_STATE_KEY),
+                true
+            ),
+            pdfOptions: this.getPdfOptions(config),
+            htmlOptions: this.getHtmlOptions(config),
             workspaceTrusted: vscode.workspace.isTrusted,
             startupProbe: this.startupBenchmarkEnabled || undefined
         };
     }
 
     /**
-     * 拡張機能から必要な値またはリソースを取得する。
-     * @returns 拡張機能のget・pdf・optionsが生成する結果。
+     * global設定、移行中の旧値、既定値を優先順に解決し、PDF設定を正規化する。
+     * @param config PDF設定を読むmarkdownEasyVisualEditor構成。省略時はglobal構成を使う。
+     * @returns 数値・余白・用紙値を正規化し、プレビュー用フォントを同期したPDF設定。
      */
-    private getPdfOptions(): NormalizedPdfOptions {
-        const options = normalizePdfOptions(
-            this.context.globalState.get<unknown>(PDF_OPTIONS_STATE_KEY, DEFAULT_PDF_OPTIONS)
-        );
-        const fontSettings = this.getFontSettings();
+    private getPdfOptions(
+        config = vscode.workspace.getConfiguration('markdownEasyVisualEditor')
+    ): NormalizedPdfOptions {
+        const legacy = this.getLegacyPdfOptions();
+        const read = /**
+         * global値、旧保存値、既定値の順に設定値を読み取る。
+         * @param key - VS Code設定のキー。
+         * @param legacyValue - global設定にない場合に使う旧保存値。
+         * @param defaultValue - global設定と旧保存値の両方がない場合に使う既定値。
+         * @returns 優先規則で選択した設定値。
+         */ <T>(key: string, legacyValue: T | undefined, defaultValue: T): T =>
+            this.getGlobalSetting(config, key, legacyValue, defaultValue);
+        const options = normalizePdfOptions({
+            format: read(GLOBAL_CONFIGURATION_KEYS.pdf.format, legacy?.format, DEFAULT_PDF_OPTIONS.format),
+            orientation: read(GLOBAL_CONFIGURATION_KEYS.pdf.orientation, legacy?.orientation, DEFAULT_PDF_OPTIONS.orientation),
+            margins: {
+                top: read(GLOBAL_CONFIGURATION_KEYS.pdf.marginTop, legacy?.margins.top, DEFAULT_PDF_OPTIONS.margins.top),
+                right: read(GLOBAL_CONFIGURATION_KEYS.pdf.marginRight, legacy?.margins.right, DEFAULT_PDF_OPTIONS.margins.right),
+                bottom: read(GLOBAL_CONFIGURATION_KEYS.pdf.marginBottom, legacy?.margins.bottom, DEFAULT_PDF_OPTIONS.margins.bottom),
+                left: read(GLOBAL_CONFIGURATION_KEYS.pdf.marginLeft, legacy?.margins.left, DEFAULT_PDF_OPTIONS.margins.left)
+            },
+            header: read(GLOBAL_CONFIGURATION_KEYS.pdf.header, legacy?.header, DEFAULT_PDF_OPTIONS.header),
+            footer: read(GLOBAL_CONFIGURATION_KEYS.pdf.footer, legacy?.footer, DEFAULT_PDF_OPTIONS.footer),
+            bodyFontSize: read(GLOBAL_CONFIGURATION_KEYS.pdf.bodyFontSize, legacy?.bodyFontSize, DEFAULT_PDF_OPTIONS.bodyFontSize),
+            headingFontSizes: {
+                h1: read(GLOBAL_CONFIGURATION_KEYS.pdf.headingFontSizeH1, legacy?.headingFontSizes.h1, DEFAULT_PDF_OPTIONS.headingFontSizes.h1),
+                h2: read(GLOBAL_CONFIGURATION_KEYS.pdf.headingFontSizeH2, legacy?.headingFontSizes.h2, DEFAULT_PDF_OPTIONS.headingFontSizes.h2),
+                h3: read(GLOBAL_CONFIGURATION_KEYS.pdf.headingFontSizeH3, legacy?.headingFontSizes.h3, DEFAULT_PDF_OPTIONS.headingFontSizes.h3),
+                h4: read(GLOBAL_CONFIGURATION_KEYS.pdf.headingFontSizeH4, legacy?.headingFontSizes.h4, DEFAULT_PDF_OPTIONS.headingFontSizes.h4),
+                h5: read(GLOBAL_CONFIGURATION_KEYS.pdf.headingFontSizeH5, legacy?.headingFontSizes.h5, DEFAULT_PDF_OPTIONS.headingFontSizes.h5),
+                h6: read(GLOBAL_CONFIGURATION_KEYS.pdf.headingFontSizeH6, legacy?.headingFontSizes.h6, DEFAULT_PDF_OPTIONS.headingFontSizes.h6)
+            },
+            codeFontSize: read(GLOBAL_CONFIGURATION_KEYS.pdf.codeFontSize, legacy?.codeFontSize, DEFAULT_PDF_OPTIONS.codeFontSize),
+            lineHeight: read(GLOBAL_CONFIGURATION_KEYS.pdf.lineHeight, legacy?.lineHeight, DEFAULT_PDF_OPTIONS.lineHeight),
+            paragraphSpacing: read(GLOBAL_CONFIGURATION_KEYS.pdf.paragraphSpacing, legacy?.paragraphSpacing, DEFAULT_PDF_OPTIONS.paragraphSpacing),
+            saveWithoutDialog: read(GLOBAL_CONFIGURATION_KEYS.pdf.saveWithoutDialog, legacy?.saveWithoutDialog, DEFAULT_PDF_OPTIONS.saveWithoutDialog)
+        });
+        const fontSettings = this.getFontSettings(config);
         return {
             ...options,
             fontFamily: fontSettings.previewFontFamily || DEFAULT_PDF_OPTIONS.fontFamily
@@ -1907,61 +1993,250 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
     }
 
     /**
-     * 拡張機能から必要な値またはリソースを取得する。
-     * @returns 拡張機能のget・html・optionsが生成する結果。
+     * global設定、移行中の旧値、既定値からHTML出力オプションを組み立てる。
+     * @param config HTML出力設定を読むmarkdownEasyVisualEditor構成。省略時はglobal構成を使う。
+     * @returns 画像埋め込み・リンク変換・保存ダイアログのHTML出力設定。
      */
-    private getHtmlOptions(): HtmlExportSettings {
-        return normalizeHtmlExportSettings(
-            this.context.globalState.get<unknown>(HTML_OPTIONS_STATE_KEY, DEFAULT_HTML_EXPORT_SETTINGS)
-        );
+    private getHtmlOptions(
+        config = vscode.workspace.getConfiguration('markdownEasyVisualEditor')
+    ): HtmlExportSettings {
+        const legacyValue = this.context.globalState.get<unknown>(HTML_OPTIONS_STATE_KEY);
+        const legacy = legacyValue === undefined ? undefined : normalizeHtmlExportSettings(legacyValue);
+        return {
+            embedImages: this.getGlobalSetting(
+                config,
+                GLOBAL_CONFIGURATION_KEYS.html.embedImages,
+                legacy?.embedImages,
+                DEFAULT_HTML_EXPORT_SETTINGS.embedImages
+            ),
+            convertLinkedMarkdown: this.getGlobalSetting(
+                config,
+                GLOBAL_CONFIGURATION_KEYS.html.convertLinkedMarkdown,
+                legacy?.convertLinkedMarkdown,
+                DEFAULT_HTML_EXPORT_SETTINGS.convertLinkedMarkdown
+            ),
+            saveWithoutDialog: this.getGlobalSetting(
+                config,
+                GLOBAL_CONFIGURATION_KEYS.html.saveWithoutDialog,
+                legacy?.saveWithoutDialog,
+                DEFAULT_HTML_EXPORT_SETTINGS.saveWithoutDialog
+            )
+        };
     }
 
     /**
-     * 拡張機能のmigrate・legacy・font・familyを処理し、呼び出し側へ結果または副作用を返す。
-     * @returns 副作用を完了し、値は返さない。
+     * 旧globalState設定をVS Code設定へ移し、既存のユーザー設定は上書きしない。
+     * 移行済み印は全設定の保存が成功した後にだけ記録し、失敗時は次回起動で再試行する。
      */
-    private async migrateLegacyFontFamily(): Promise<void> {
-        if (normalizeFontFamilySettings(this.context.globalState.get<unknown>(FONT_FAMILY_STATE_KEY))) return;
-        const legacy = normalizePdfOptions(
-            this.context.globalState.get<unknown>(PDF_OPTIONS_STATE_KEY, DEFAULT_PDF_OPTIONS)
+    private async migrateLegacyGlobalSettings(): Promise<void> {
+        if (this.context.globalState.get<boolean>(GLOBAL_SETTINGS_MIGRATION_STATE_KEY, false)) return;
+
+        const config = vscode.workspace.getConfiguration('markdownEasyVisualEditor');
+        const updates: Array<[string, unknown]> = [];
+        const add = /**
+         * 旧値があり、新しいglobal値が未設定の場合だけ移行対象へ追加する。
+         * @param key - 移行先のVS Code設定キー。
+         * @param value - 旧globalStateから読み取った設定値。
+         */ (key: string, value: unknown): void => {
+            if (value !== undefined && config.inspect(key)?.globalValue === undefined) {
+                updates.push([key, value]);
+            }
+        };
+        const asRecord = /**
+         * 旧保存値のオブジェクトだけを安全に各設定へ展開する。
+         * @param value - globalStateから読み取った未知の保存値。
+         * @returns nullと配列以外のobjectならRecordとして扱った値、それ以外ならundefined。
+         */ (value: unknown): Record<string, unknown> | undefined =>
+            value !== null && typeof value === 'object' && !Array.isArray(value)
+                ? value as Record<string, unknown>
+                : undefined;
+
+        const viewMode = this.context.globalState.get<unknown>(VIEW_MODE_STATE_KEY);
+        if (viewMode !== undefined) add(GLOBAL_CONFIGURATION_KEYS.viewMode, normalizeViewMode(viewMode));
+        const outlineVisible = this.context.globalState.get<boolean>(OUTLINE_VISIBLE_STATE_KEY);
+        if (outlineVisible !== undefined) add(GLOBAL_CONFIGURATION_KEYS.outlineVisible, outlineVisible);
+        const scrollSyncEnabled = this.context.globalState.get<boolean>(SCROLL_SYNC_STATE_KEY);
+        if (scrollSyncEnabled !== undefined) add(GLOBAL_CONFIGURATION_KEYS.scrollSyncEnabled, scrollSyncEnabled);
+        const resizeControlsVisible = this.context.globalState.get<boolean>(PREVIEW_IMAGE_RESIZE_CONTROLS_STATE_KEY);
+        if (resizeControlsVisible !== undefined) {
+            add(GLOBAL_CONFIGURATION_KEYS.previewImageResizeControlsVisible, resizeControlsVisible);
+        }
+
+        const legacyFontSettings = normalizeFontFamilySettings(
+            this.context.globalState.get<unknown>(FONT_FAMILY_STATE_KEY)
         );
-        const legacyFontFamily = normalizeFontFamily(legacy.fontFamily);
-        const defaultFontFamily = normalizeFontFamily(DEFAULT_PDF_OPTIONS.fontFamily);
-        if (!legacyFontFamily || legacyFontFamily === defaultFontFamily) return;
-        await this.context.globalState.update(FONT_FAMILY_STATE_KEY, {
-            ...DEFAULT_FONT_FAMILY_SETTINGS,
-            previewFontFamily: legacyFontFamily
-        });
+        if (legacyFontSettings) {
+            add(GLOBAL_CONFIGURATION_KEYS.editorFontFamily, legacyFontSettings.editorFontFamily);
+            add(GLOBAL_CONFIGURATION_KEYS.previewFontFamily, legacyFontSettings.previewFontFamily);
+        }
+
+        const legacyPdfRecord = asRecord(this.context.globalState.get<unknown>(PDF_OPTIONS_STATE_KEY));
+        if (legacyPdfRecord) {
+            const legacyPdf = normalizePdfOptions(legacyPdfRecord);
+            if ('format' in legacyPdfRecord) add(GLOBAL_CONFIGURATION_KEYS.pdf.format, legacyPdf.format);
+            if ('orientation' in legacyPdfRecord) add(GLOBAL_CONFIGURATION_KEYS.pdf.orientation, legacyPdf.orientation);
+            const margins = asRecord(legacyPdfRecord.margins);
+            if (margins && 'top' in margins) add(GLOBAL_CONFIGURATION_KEYS.pdf.marginTop, legacyPdf.margins.top);
+            if (margins && 'right' in margins) add(GLOBAL_CONFIGURATION_KEYS.pdf.marginRight, legacyPdf.margins.right);
+            if (margins && 'bottom' in margins) add(GLOBAL_CONFIGURATION_KEYS.pdf.marginBottom, legacyPdf.margins.bottom);
+            if (margins && 'left' in margins) add(GLOBAL_CONFIGURATION_KEYS.pdf.marginLeft, legacyPdf.margins.left);
+            if ('header' in legacyPdfRecord) add(GLOBAL_CONFIGURATION_KEYS.pdf.header, legacyPdf.header);
+            if ('footer' in legacyPdfRecord) add(GLOBAL_CONFIGURATION_KEYS.pdf.footer, legacyPdf.footer);
+            if ('bodyFontSize' in legacyPdfRecord) add(GLOBAL_CONFIGURATION_KEYS.pdf.bodyFontSize, legacyPdf.bodyFontSize);
+            const headingFontSizes = asRecord(legacyPdfRecord.headingFontSizes);
+            if (headingFontSizes && 'h1' in headingFontSizes) add(GLOBAL_CONFIGURATION_KEYS.pdf.headingFontSizeH1, legacyPdf.headingFontSizes.h1);
+            if (headingFontSizes && 'h2' in headingFontSizes) add(GLOBAL_CONFIGURATION_KEYS.pdf.headingFontSizeH2, legacyPdf.headingFontSizes.h2);
+            if (headingFontSizes && 'h3' in headingFontSizes) add(GLOBAL_CONFIGURATION_KEYS.pdf.headingFontSizeH3, legacyPdf.headingFontSizes.h3);
+            if (headingFontSizes && 'h4' in headingFontSizes) add(GLOBAL_CONFIGURATION_KEYS.pdf.headingFontSizeH4, legacyPdf.headingFontSizes.h4);
+            if (headingFontSizes && 'h5' in headingFontSizes) add(GLOBAL_CONFIGURATION_KEYS.pdf.headingFontSizeH5, legacyPdf.headingFontSizes.h5);
+            if (headingFontSizes && 'h6' in headingFontSizes) add(GLOBAL_CONFIGURATION_KEYS.pdf.headingFontSizeH6, legacyPdf.headingFontSizes.h6);
+            if ('codeFontSize' in legacyPdfRecord) add(GLOBAL_CONFIGURATION_KEYS.pdf.codeFontSize, legacyPdf.codeFontSize);
+            if ('lineHeight' in legacyPdfRecord) add(GLOBAL_CONFIGURATION_KEYS.pdf.lineHeight, legacyPdf.lineHeight);
+            if ('paragraphSpacing' in legacyPdfRecord) add(GLOBAL_CONFIGURATION_KEYS.pdf.paragraphSpacing, legacyPdf.paragraphSpacing);
+            if ('saveWithoutDialog' in legacyPdfRecord) {
+                add(GLOBAL_CONFIGURATION_KEYS.pdf.saveWithoutDialog, legacyPdf.saveWithoutDialog);
+            }
+
+            if (!legacyFontSettings && 'fontFamily' in legacyPdfRecord) {
+                const legacyFontFamily = normalizeFontFamily(legacyPdf.fontFamily);
+                const defaultFontFamily = normalizeFontFamily(DEFAULT_PDF_OPTIONS.fontFamily);
+                if (legacyFontFamily && legacyFontFamily !== defaultFontFamily) {
+                    add(GLOBAL_CONFIGURATION_KEYS.previewFontFamily, legacyFontFamily);
+                }
+            }
+        }
+
+        const legacyHtmlRecord = asRecord(this.context.globalState.get<unknown>(HTML_OPTIONS_STATE_KEY));
+        if (legacyHtmlRecord) {
+            const legacyHtml = normalizeHtmlExportSettings(legacyHtmlRecord);
+            if ('embedImages' in legacyHtmlRecord) add(GLOBAL_CONFIGURATION_KEYS.html.embedImages, legacyHtml.embedImages);
+            if ('convertLinkedMarkdown' in legacyHtmlRecord) {
+                add(GLOBAL_CONFIGURATION_KEYS.html.convertLinkedMarkdown, legacyHtml.convertLinkedMarkdown);
+            }
+            if ('saveWithoutDialog' in legacyHtmlRecord) {
+                add(GLOBAL_CONFIGURATION_KEYS.html.saveWithoutDialog, legacyHtml.saveWithoutDialog);
+            }
+        }
+
+        await this.updateGlobalConfiguration(updates, true);
+        await this.context.globalState.update(GLOBAL_SETTINGS_MIGRATION_STATE_KEY, true);
     }
 
     /**
-     * 拡張機能から必要な値またはリソースを取得する。
-     * @returns 拡張機能のget・font・settingsが生成する結果。
+     * global設定を優先し、移行中の旧フォント設定と既定値を使ってフォントを解決する。
+     * @param config フォント設定を読むmarkdownEasyVisualEditor構成。省略時はglobal構成を使う。
+     * @returns ソースエディターとプレビューで使う正規化済みフォント名。
      */
-    private getFontSettings(): FontFamilySettings {
+    private getFontSettings(
+        config = vscode.workspace.getConfiguration('markdownEasyVisualEditor')
+    ): FontFamilySettings {
         const stored = normalizeFontFamilySettings(
             this.context.globalState.get<unknown>(FONT_FAMILY_STATE_KEY)
         );
-        if (stored) return stored;
-
-        const legacy = normalizePdfOptions(
-            this.context.globalState.get<unknown>(PDF_OPTIONS_STATE_KEY, DEFAULT_PDF_OPTIONS)
-        );
-        const legacyFontFamily = normalizeFontFamily(legacy.fontFamily);
+        const legacyPdf = this.getLegacyPdfOptions();
+        const legacyFontFamily = normalizeFontFamily(legacyPdf?.fontFamily);
         const defaultFontFamily = normalizeFontFamily(DEFAULT_PDF_OPTIONS.fontFamily);
-        if (legacyFontFamily && legacyFontFamily !== defaultFontFamily) {
-            return {
-                ...DEFAULT_FONT_FAMILY_SETTINGS,
-                previewFontFamily: legacyFontFamily
-            };
+        const legacy = stored ?? {
+            ...DEFAULT_FONT_FAMILY_SETTINGS,
+            previewFontFamily: legacyFontFamily && legacyFontFamily !== defaultFontFamily
+                ? legacyFontFamily
+                : DEFAULT_FONT_FAMILY_SETTINGS.previewFontFamily
+        };
+        return {
+            editorFontFamily: normalizeFontFamily(this.getGlobalSetting(
+                config,
+                GLOBAL_CONFIGURATION_KEYS.editorFontFamily,
+                legacy.editorFontFamily,
+                DEFAULT_FONT_FAMILY_SETTINGS.editorFontFamily
+            )),
+            previewFontFamily: normalizeFontFamily(this.getGlobalSetting(
+                config,
+                GLOBAL_CONFIGURATION_KEYS.previewFontFamily,
+                legacy.previewFontFamily,
+                DEFAULT_FONT_FAMILY_SETTINGS.previewFontFamily
+            ))
+        };
+    }
+
+    /** 移行完了前だけ旧PDF設定を読み、設定画面を初期化する間の互換表示に使う。 */
+    private getLegacyPdfOptions(): NormalizedPdfOptions | undefined {
+        if (this.context.globalState.get<boolean>(GLOBAL_SETTINGS_MIGRATION_STATE_KEY, false)) return undefined;
+        const legacy = this.context.globalState.get<unknown>(PDF_OPTIONS_STATE_KEY);
+        return legacy === undefined ? undefined : normalizePdfOptions(legacy);
+    }
+
+    /**
+     * 明示されたglobal値、移行前の旧値、構成既定値の順で設定を解決する。
+     * 旧値を先に使うことで、非同期移行中にも既存設定が一時的に既定値へ戻るのを防ぐ。
+     * @param config 対象キーのglobal値と構成既定値を参照する設定。
+     * @param key markdownEasyVisualEditor内のドット区切り設定キー。
+     * @param legacyValue 移行前のglobalStateに保存されていた値。未保存ならundefined。
+     * @param defaultValue 新旧の保存値がない場合に使う既定値。
+     * @returns global値、移行前の値、既定値の順で選んだ設定値。
+     */
+    private getGlobalSetting<T>(
+        config: vscode.WorkspaceConfiguration,
+        key: string,
+        legacyValue: T | undefined,
+        defaultValue: T
+    ): T {
+        const configuredValue = config.inspect<T>(key)?.globalValue;
+        if (configuredValue !== undefined) return configuredValue;
+        if (!this.context.globalState.get<boolean>(GLOBAL_SETTINGS_MIGRATION_STATE_KEY, false) &&
+            legacyValue !== undefined) {
+            return legacyValue;
         }
-        return { ...DEFAULT_FONT_FAMILY_SETTINGS };
+        return config.get<T>(key, defaultValue);
+    }
+
+    /**
+     * 設定群の書き込みをExtension Host内で直列化し、中間状態の通知を抑える。
+     * 失敗した要求は呼び出し元へ返し、内部キューは後続要求を受け取れる状態へ戻す。
+     * @param entries 保存する構成キーと値。配列順を維持して更新する。
+     * @param onlyIfGlobalValueIsUnset trueの場合、既存のglobal値があるキーは維持する。
+     * @returns 要求したすべての書き込みが完了したPromise。書き込み失敗時はrejectする。
+     */
+    private updateGlobalConfiguration(
+        entries: ReadonlyArray<readonly [string, unknown]>,
+        onlyIfGlobalValueIsUnset = false
+    ): Promise<void> {
+        const update = this.globalSettingsUpdateChain.then(
+            /** 一連の書き込みを排他実行し、設定変更イベントの中間通知を抑える。 */
+            async () => {
+                const config = vscode.workspace.getConfiguration('markdownEasyVisualEditor');
+                this.globalConfigurationUpdateDepth += 1;
+                let writeAttempted = false;
+                let updateFailed = false;
+                try {
+                    for (const [key, value] of entries) {
+                        if (onlyIfGlobalValueIsUnset && config.inspect(key)?.globalValue !== undefined) continue;
+                        writeAttempted = true;
+                        await config.update(key, value, vscode.ConfigurationTarget.Global);
+                    }
+                } catch (error) {
+                    updateFailed = true;
+                    throw error;
+                } finally {
+                    this.globalConfigurationUpdateDepth -= 1;
+                    if (updateFailed && writeAttempted) {
+                        try {
+                            this.broadcastSettings();
+                        } catch (broadcastError) {
+                            console.error('Failed to broadcast partially updated Markdown Easy Visual Editor settings.', broadcastError);
+                        }
+                    }
+                }
+            });
+        this.globalSettingsUpdateChain = update.catch(
+            /** 要求元には失敗を返しつつ、内部キューを後続更新に再利用できる状態へ戻す。 */
+            () => undefined);
+        return update;
     }
 
     /**
      * 拡張機能の変更または利用者の操作意図を記録し、後続処理へ渡す。
-     * @param panel - 拡張機能へ渡す入力。
-     * @param field - 拡張機能へ渡す入力。
+     * @param panel - 起動時間を計測しているWebviewPanel。
+     * @param field - 記録する起動計測項目名。
      * @returns 副作用を完了し、値は返さない。
      */
     private markStartup(
@@ -1995,9 +2270,9 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
 
     /**
      * 拡張機能の変更または要求をHost・Webview間へ通知する。
-     * @param panel - 拡張機能へ渡す入力。
+     * @param panel - HTML描画要求を送り、描画結果を受け取るWebviewPanel。
      * @param requestId - 要求と応答を対応付ける識別子。
-     * @param documents - 文書URIと開いている文書オブジェクトの対応表。
+     * @param documents - Webviewで描画するリンク先の識別子とMarkdown本文の一覧。
      * @returns 拡張機能に対応する要素の一覧。
      */
     private requestHtmlDocumentRender(
@@ -2008,12 +2283,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
              * 拡張機能で扱うidの文字列。
              */
             id: string;
-            /**
-             * 拡張機能の変更または利用者の操作意図を記録し、後続処理へ渡す。
-             * @param resolve - Promiseの成功を通知する関数。
-             * @param reject - Promiseの失敗を通知する関数。
-             * @returns 拡張機能に対応する要素の一覧。
-             */
+            /** リンク先Markdown本文。 */
             markdown: string
         }>
     ): Promise<HtmlRenderedDocument[]> {
@@ -2058,8 +2328,8 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
 
     /**
      * 拡張機能から必要な値またはリソースを取得する。
-     * @param webview - 拡張機能へ渡す入力。
-     * @param document - 拡張機能へ渡す入力。
+     * @param webview - リソースURIとCSPを使ってHTMLを生成するWebview。
+     * @param document - 初期設定と本文をHTMLに含める対象TextDocument。
      * @returns 拡張機能で利用する文字列。
      */
     private getWebviewHtml(webview: vscode.Webview, document: vscode.TextDocument): string {
@@ -2108,7 +2378,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
 
     /**
      * 拡張機能の変更または要求をHost・Webview間へ通知する。
-     * @param panel - 拡張機能へ渡す入力。
+     * @param panel - Hostメッセージの宛先WebviewPanel。
      * @param message - HostとWebviewの間で受け渡すメッセージ。
      * @returns 副作用を完了し、値は返さない。
      */
@@ -2119,9 +2389,9 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
 }
 
 /**
- * 拡張機能のhost・debugを処理し、呼び出し側へ結果または副作用を返す。
- * @param message - HostとWebviewの間で受け渡すメッセージ。
- * @param details - 拡張機能で受け渡す文字列。
+ * デバッグが有効な場合に診断情報をコンソールへ記録する。
+ * @param message - ログ行の見出しとなる文字列。
+ * @param details - ログへ追加する構造化診断データ。
  * @returns 副作用を完了し、値は返さない。
  */
 function hostDebug(message: string, details: Record<string, unknown>): void {
@@ -2129,9 +2399,9 @@ function hostDebug(message: string, details: Record<string, unknown>): void {
 }
 
 /**
- * 拡張機能の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
- * @param document - 拡張機能へ渡す入力。
- * @param canonicalBaseText - 拡張機能で扱う文字列または本文。
+ * 基準本文と現在の文書が一致することを確認してから差分をWorkspaceEditとして適用する。
+ * @param document - canonical本文への変更を適用するTextDocument。
+ * @param canonicalBaseText 差分計算時点の改行を正規化した本文。
  * @param changes - 本文へ適用する変更範囲の一覧。
  * @returns 条件が成立したかを示す真偽値。
  */
@@ -2163,8 +2433,8 @@ async function applyChangeBatch(
 
 /**
  * 拡張機能のoperation・identityを処理し、呼び出し側へ結果または副作用を返す。
- * @param clientId - 通信相手または編集状態を識別するID。
- * @param opId - 拡張機能の対象や分岐を識別する値。
+ * @param clientId - Webviewクライアント登録を識別するID。
+ * @param opId - Webview編集要求の操作ID。
  * @returns 拡張機能で利用する文字列。
  */
 function operationIdentity(clientId: string, opId: string): string {
@@ -2174,7 +2444,7 @@ function operationIdentity(clientId: string, opId: string): string {
 
 /**
  * 拡張機能の条件を判定する。
- * @param filePath - 読み書きするファイルのパス。
+ * @param filePath - Markdown拡張子かを判定するファイルパス。
  * @returns 条件が成立したかを示す真偽値。
  */
 function isMarkdownDocumentPath(filePath: string): boolean {
@@ -2183,7 +2453,7 @@ function isMarkdownDocumentPath(filePath: string): boolean {
 
 /**
  * 拡張機能の入力を許可された形式へ整える。
- * @param value - 検証・変換・保存の対象となる値。
+ * @param value - VS Code設定、旧保存値または既定値から得た表示モード候補。'text'と'preview'以外は'both'へ正規化する。
  * @returns 拡張機能で生成または変換した値。
  */
 function normalizeViewMode(value: unknown): ViewMode {
@@ -2191,9 +2461,38 @@ function normalizeViewMode(value: unknown): ViewMode {
 }
 
 /**
+ * 正規化済みPDF設定を順序を保ったVS Code構成キーと保存値の組へ展開する。
+ * @param options global構成へ保存する正規化済みPDF設定。
+ * @returns VS Codeのglobal構成更新に渡すキーと値の組。
+ */
+function pdfConfigurationEntries(options: NormalizedPdfOptions): Array<[string, unknown]> {
+    return [
+        [GLOBAL_CONFIGURATION_KEYS.pdf.format, options.format],
+        [GLOBAL_CONFIGURATION_KEYS.pdf.orientation, options.orientation],
+        [GLOBAL_CONFIGURATION_KEYS.pdf.marginTop, options.margins.top],
+        [GLOBAL_CONFIGURATION_KEYS.pdf.marginRight, options.margins.right],
+        [GLOBAL_CONFIGURATION_KEYS.pdf.marginBottom, options.margins.bottom],
+        [GLOBAL_CONFIGURATION_KEYS.pdf.marginLeft, options.margins.left],
+        [GLOBAL_CONFIGURATION_KEYS.pdf.header, options.header],
+        [GLOBAL_CONFIGURATION_KEYS.pdf.footer, options.footer],
+        [GLOBAL_CONFIGURATION_KEYS.pdf.bodyFontSize, options.bodyFontSize],
+        [GLOBAL_CONFIGURATION_KEYS.pdf.headingFontSizeH1, options.headingFontSizes.h1],
+        [GLOBAL_CONFIGURATION_KEYS.pdf.headingFontSizeH2, options.headingFontSizes.h2],
+        [GLOBAL_CONFIGURATION_KEYS.pdf.headingFontSizeH3, options.headingFontSizes.h3],
+        [GLOBAL_CONFIGURATION_KEYS.pdf.headingFontSizeH4, options.headingFontSizes.h4],
+        [GLOBAL_CONFIGURATION_KEYS.pdf.headingFontSizeH5, options.headingFontSizes.h5],
+        [GLOBAL_CONFIGURATION_KEYS.pdf.headingFontSizeH6, options.headingFontSizes.h6],
+        [GLOBAL_CONFIGURATION_KEYS.pdf.codeFontSize, options.codeFontSize],
+        [GLOBAL_CONFIGURATION_KEYS.pdf.lineHeight, options.lineHeight],
+        [GLOBAL_CONFIGURATION_KEYS.pdf.paragraphSpacing, options.paragraphSpacing],
+        [GLOBAL_CONFIGURATION_KEYS.pdf.saveWithoutDialog, options.saveWithoutDialog]
+    ];
+}
+
+/**
  * 拡張機能のextension・for・mimeを処理し、呼び出し側へ結果または副作用を返す。
  * @param mime - 画像または出力データのMIMEタイプ。
- * @returns 副作用を完了し、値は返さない。
+ * @returns MIMEタイプに対応する安全なファイル拡張子。未対応タイプではundefined。
  */
 function extensionForMime(mime: string): string | undefined {
     // MIMEタイプを画像ファイルの拡張子へ変換し、未対応形式はundefinedを返す。
@@ -2230,9 +2529,9 @@ const SAFE_IMAGE_EXTENSIONS = new Set([
 
 /**
  * 拡張機能の入力を検証し、表示または保存に使う形式へ変換する。
- * @param name - 拡張機能の対象や分岐を識別する値。
+ * @param name - 画像ペイロードの元ファイル名。
  * @param mime - 画像または出力データのMIMEタイプ。
- * @returns 副作用を完了し、値は返さない。
+ * @returns MIMEタイプが画像で、ファイル名の拡張子が許可される場合はその拡張子。それ以外はundefined。
  */
 function imageExtensionFromName(name: string | undefined, mime: string): string | undefined {
     if (!mime.toLowerCase().startsWith('image/') || !name) return undefined;
@@ -2242,7 +2541,7 @@ function imageExtensionFromName(name: string | undefined, mime: string): string 
 
 /**
  * 拡張機能のmime・for・fileを処理し、呼び出し側へ結果または副作用を返す。
- * @param filePath - 読み書きするファイルのパス。
+ * @param filePath - 拡張子から画像MIMEタイプを判定するファイルパス。
  * @returns 拡張機能で利用する文字列。
  */
 function mimeForFile(filePath: string): string {
@@ -2271,8 +2570,8 @@ function mimeForFile(filePath: string): string {
 
 /**
  * 拡張機能のrelative・uri・pathを処理し、呼び出し側へ結果または副作用を返す。
- * @param documentUri - 拡張機能で読み書きするリソースの場所。
- * @param target - 拡張機能へ渡す入力。
+ * @param documentUri - 相対パスの基準となるMarkdown文書URI。
+ * @param target - Markdown文書からの相対パスを作る保存先URI。
  * @returns 拡張機能で利用する文字列。
  */
 function relativeUriPath(documentUri: vscode.Uri, target: vscode.Uri): string {
@@ -2285,9 +2584,9 @@ function relativeUriPath(documentUri: vscode.Uri, target: vscode.Uri): string {
 }
 
 /**
- * 拡張機能から必要な値またはリソースを取得する。
- * @param documentUri - 拡張機能で読み書きするリソースの場所。
- * @param source - 解析・描画・変換の起点となる本文。
+ * Markdown内のローカルリソース参照を、文書位置に基づくVS Code URIへ解決する。
+ * @param documentUri - 相対参照の基準となるMarkdown文書のURI。
+ * @param source - Markdownから取り出した画像などのローカルURIまたはファイルパス。
  * @returns 条件に一致する値。未検出時はundefinedまたはnull。
  */
 function resolveLocalResourceUri(documentUri: vscode.Uri, source: string): vscode.Uri | undefined {
@@ -2309,7 +2608,7 @@ function resolveLocalResourceUri(documentUri: vscode.Uri, source: string): vscod
 
 /**
  * 拡張機能のcompact・timestampを処理し、呼び出し側へ結果または副作用を返す。
- * @param date - 拡張機能へ渡す入力。
+ * @param date - 画像ファイル名へ含める日時。
  * @returns 拡張機能で利用する文字列。
  */
 function compactTimestamp(date: Date): string {
@@ -2328,7 +2627,7 @@ function compactTimestamp(date: Date): string {
 
 /**
  * 拡張機能の入力を許可された形式へ整える。
- * @param value - 検証・変換・保存の対象となる値。
+ * @param value - 危険な要素や属性を除去するSVGマークアップ文字列。
  * @returns 拡張機能で利用する文字列。
  */
 function sanitizeSvg(value: string): string {

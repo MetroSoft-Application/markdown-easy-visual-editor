@@ -34,7 +34,7 @@ preloadMarkdownWorker();
 
 /**
  * indexのイベントまたはメッセージを受け取り、状態を更新する。
- * @param event - ユーザー操作またはDOMから通知されたイベント。
+ * @param event - CodeMirror行番号gutterのclick event。
  * @returns 副作用を完了し、値は返さない。
  */
 function handleLineNumberClick(event: MouseEvent): void {
@@ -73,7 +73,7 @@ function installTableEditorToolbarActivationGuard(): () => void {
 
   const toolbarButton = /**
    * indexのtoolbar・buttonを処理し、呼び出し側へ結果または副作用を返す。
-   * @param target - indexへ渡す入力。
+   * @param target - クリック対象またはその子要素。要素内のtoolbar buttonを検索する。
    * @returns 副作用を完了し、値は返さない。
    */ (target: EventTarget | null): HTMLButtonElement | undefined => {
     if (!(target instanceof Element)) return undefined;
@@ -85,7 +85,7 @@ function installTableEditorToolbarActivationGuard(): () => void {
 
   const arm = /**
    * indexのarmを処理し、呼び出し側へ結果または副作用を返す。
-   * @param button - indexへ渡す入力。
+   * @param button - 重複clickを抑制するHTML button。
    * @returns indexのarmが生成する結果。
    */ (button: HTMLButtonElement) => {
     activationSerial += 1;
@@ -94,7 +94,7 @@ function installTableEditorToolbarActivationGuard(): () => void {
 
   const onPointerDown = /**
    * indexのイベントまたはメッセージを受け取り、状態を更新する。
-   * @param event - ユーザー操作またはDOMから通知されたイベント。
+   * @param event - toolbar buttonのpointer押下を記録するevent。
    * @returns indexのon・pointer・downが生成する結果。
    */ (event: PointerEvent) => {
     if (event.button !== 0) return;
@@ -104,7 +104,7 @@ function installTableEditorToolbarActivationGuard(): () => void {
 
   const onKeyDown = /**
    * keydownイベントでifを実行する。
-   * @param event - ユーザー操作またはDOMから通知されたイベント。
+   * @param event - EnterまたはSpaceによるtoolbar button操作を記録するkeydown event。
    * @returns 副作用を完了し、値は返さない。
    */ (event: KeyboardEvent) => {
     if (event.repeat || (event.key !== "Enter" && event.key !== " ")) return;
@@ -114,7 +114,7 @@ function installTableEditorToolbarActivationGuard(): () => void {
 
   const onClick = /**
    * clickイベントでtoolbar・buttonを実行する。
-   * @param event - ユーザー操作またはDOMから通知されたイベント。
+   * @param event - toolbar buttonのclick activation guardを実行するevent。
    * @returns 副作用を完了し、値は返さない。
    */ (event: MouseEvent) => {
     const button = toolbarButton(event.target);

@@ -1935,27 +1935,6 @@ body.mve-dragging-outline .outline-panel nav button {
 }
 
 /*
- * @style .pdf-checkbox
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
-.pdf-checkbox {
-    display: flex !important;
-    grid-template-columns: auto 1fr;
-    align-items: center;
-    gap: 7px !important;
-}
-
-/*
- * @style .pdf-checkbox input
- * 設定ダイアログと操作コントロールの状態を整える。
- */
-
-.pdf-checkbox input {
-    width: auto;
-}
-
-/*
  * @style .inspector-preview
  * Markdownプレビューの本文とブロック要素を整える。
  */

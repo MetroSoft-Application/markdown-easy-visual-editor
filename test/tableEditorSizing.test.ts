@@ -25,7 +25,7 @@ describe("table editor auto-fit sizing",
 
                         /**
                          * tableeditorsizing・テストの回帰の前提条件を準備し、回帰条件を検証するテストケース。
-                         * @param value - テスト本体を実行するコールバック。
+                         * @param value - Canvas計測を模擬するため幅を見積もるセル文字列。
                          * @returns テストケースを実行し、値は返さない。
                          */
                         (value) => value.length * 10,
@@ -44,7 +44,7 @@ describe("table editor auto-fit sizing",
                     calculateAutoFitColumnWidth(["", "a"],
                         /**
                          * tableeditorsizing・テストの回帰の前提条件を準備し、回帰条件を検証するテストケース。
-                         * @param value - テスト本体を実行するコールバック。
+                          * @param value - Canvas計測を模擬するため幅を見積もるセル文字列。
                          * @returns テストケースを実行し、値は返さない。
                          */
                         (value) => value.length * 8, 20),
@@ -61,7 +61,7 @@ describe("table editor auto-fit sizing",
                     calculateAutoFitColumnWidth(["x".repeat(500)],
                         /**
                          * tableeditorsizing・テストの回帰の前提条件を準備し、回帰条件を検証するテストケース。
-                         * @param value - テスト本体を実行するコールバック。
+                          * @param value - Canvas計測を模擬するため幅を見積もるセル文字列。
                          * @returns テストケースを実行し、値は返さない。
                          */
                         (value) => value.length * 10),

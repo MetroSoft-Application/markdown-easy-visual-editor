@@ -26,13 +26,13 @@ export interface SelectionMatchRange {
 const MAX_MATCHES = 5000;
 
 /**
- * cmselectionmatchhighlightから必要な値またはリソースを取得する。
- * @param source - 解析・描画・変換の起点となる本文。
- * @param query - cmselectionmatchhighlightの位置・寸法・件数・時間を表す数値。
- * @param selectionFrom - cmselectionmatchhighlightで扱う数値。
- * @param selectionTo - cmselectionmatchhighlightで扱う数値。
- * @param maxMatches - cmselectionmatchhighlightの位置・寸法・件数・時間を表す数値。
- * @returns cmselectionmatchhighlightに対応する要素の一覧。
+ * 文書内で選択範囲と完全一致する検索語の位置を返す。
+ * @param source 検索対象の文書本文。
+ * @param query 選択範囲内で検索する文字列。
+ * @param selectionFrom 検索対象選択範囲の開始オフセット。
+ * @param selectionTo 検索対象選択範囲の終了オフセット。
+ * @param maxMatches 返す一致箇所の最大数。
+ * @returns 選択範囲に完全に含まれる一致箇所の開始・終了オフセット一覧。
  */
 export function findExactSelectionMatches(
     source: string,
@@ -60,7 +60,7 @@ export function findExactSelectionMatches(
 
 /**
  * cmselectionmatchhighlightで使う値または実行環境を組み立てる。
- * @param view - cmselectionmatchhighlightへ渡す入力。
+ * @param view - 選択範囲・文書・表示範囲から一致装飾を作るCodeMirrorビュー。
  * @returns cmselectionmatchhighlightで生成または変換した値。
  */
 function createSelectionMatchDecorations(view: EditorView): DecorationSet {
@@ -93,7 +93,7 @@ function createSelectionMatchDecorations(view: EditorView): DecorationSet {
                 && !matches.some(
                     /**
                      * cmselectionmatchhighlightのコールバックとして項目を処理する。
-                     * @param item - cmselectionmatchhighlightで走査または更新する要素。
+                     * @param item - 選択範囲に一致する検索語の開始・終了位置。
                      * @returns 副作用を完了し、値は返さない。
                      */
                     (item) => item.from === absolute.from && item.to === absolute.to)) {
@@ -113,8 +113,7 @@ function createSelectionMatchDecorations(view: EditorView): DecorationSet {
         matches.map(
             /**
              * 各設定をmarkへ渡し、変換結果を一覧化する。
-             * @param options - 呼び出し側が指定する処理設定。
-             * @returns 入力要素から生成した変換結果の一覧。
+            * @returns 入力要素から生成した変換結果の一覧。
              */
             ({ from, to }) => Decoration.mark({ class: 'cm-exact-selection-match' }).range(from, to))
     );
@@ -132,7 +131,7 @@ const exactSelectionMatchPlugin = ViewPlugin.fromClass(class {
 
     /**
      * cmselectionmatchhighlightで使う値または実行環境を組み立てる。
-     * @param view - cmselectionmatchhighlightへ渡す入力。
+     * @param view - 初期の選択一致装飾を作るエディタービュー。
      * @returns 初期化したインスタンス。
      */
     constructor(view: EditorView) {
@@ -141,7 +140,7 @@ const exactSelectionMatchPlugin = ViewPlugin.fromClass(class {
 
     /**
      * cmselectionmatchhighlightの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-     * @param update - cmselectionmatchhighlightへ渡す入力。
+     * @param update - 文書・選択範囲・表示範囲の変更を含むCodeMirror更新通知。
      * @returns 副作用を完了し、値は返さない。
      */
     update(update: ViewUpdate): void {
@@ -154,7 +153,7 @@ const exactSelectionMatchPlugin = ViewPlugin.fromClass(class {
 
     decorations: /**
      * cmselectionmatchhighlightのdecorationsを処理し、呼び出し側へ結果または副作用を返す。
-     * @param plugin - cmselectionmatchhighlightへ渡す入力。
+     * @param plugin - 現在のCodeMirror状態から装飾範囲を返すViewPluginインスタンス。
      * @returns cmselectionmatchhighlightのdecorationsが生成する結果。
      */ (plugin) => plugin.decorations
 });

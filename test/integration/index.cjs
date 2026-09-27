@@ -97,7 +97,7 @@ async function run() {
     const emptyChangeDisposable = vscode.workspace.onDidChangeTextDocument(
     /**
      * イベントをifへ渡し、indexの回帰の結果または副作用を処理する。
-     * @param event - ユーザー操作またはDOMから通知されたイベント。
+     * @param event - 変更文書と内容変更を含むVS Codeの文書変更イベント。
      * @returns indexの回帰のコールバックが生成する結果。
      */
     (event) => {
@@ -264,7 +264,7 @@ async function run() {
  * indexの回帰が指定条件を満たすまで待機する。
  * @param predicate - indexの回帰へ渡す入力。
  * @param message - HostとWebviewの間で受け渡すメッセージ。
- * @param timeout - indexの回帰の位置・寸法・件数・時間を表す数値。
+ * @param timeout - 条件成立を待つ最大時間（ミリ秒）。
  * @returns indexの回帰のwait・forが生成する結果。
  */
 async function waitFor(predicate, message, timeout = 10_000) {

@@ -392,6 +392,9 @@ export const RIBBON_DEFINITIONS: RibbonDefinitions = {
         printPreview: {
             label: { kind: "message", path: "ribbon.labels.printPreview" },
         },
+        savePdfWithoutDialog: {
+            label: { kind: "message", path: "ribbon.labels.saveWithoutDialog" },
+        },
         exportPdf: {
             label: { kind: "message", path: "ribbon.labels.exportPdf" },
         },

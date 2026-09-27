@@ -51,8 +51,8 @@ describe('canonical text synchronization boundary',
                 const lines = Array.from({ length: 2_000 },
                     /**
                      * canonicaltext・テストの回帰の前提条件を準備し、回帰条件を検証するテストケース。
-                     * @param _ - テスト本体を実行するコールバック。
-                     * @param index - テスト本体を実行するコールバック。
+                      * @param _ - Array.fromの各反復で渡される未使用の値。
+                      * @param index - 生成する行番号（0始まり）。
                      * @returns テストケースを実行し、値は返さない。
                      */
                     (_, index) => `line-${index}`);

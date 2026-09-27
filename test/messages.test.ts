@@ -66,9 +66,9 @@ describe('message language resolution',
 
 
                 const walk = /**
-     * 表示文言・テストの回帰のwalkを処理し、呼び出し側へ結果または副作用を返す。
-     * @param value - 検証・変換・保存の対象となる値。
-     * @param prefix - 表示文言・テストの回帰の位置・寸法・件数・時間を表す数値。
+     * ロケールの値を再帰的にたどり、文字列でない葉のパスを集める。
+     * @param value - 再帰走査中の翻訳カタログ値。
+     * @param prefix 現在たどっているロケール項目のドット区切りパス。
      * @returns 表示文言・テストの回帰で利用する文字列。
      */ (value: unknown, prefix = ''): string[] => {
                         if (!value || typeof value !== 'object' || Array.isArray(value)) return [prefix];
@@ -128,7 +128,7 @@ describe('message language resolution',
 
                 const cjk = /**
      * 表示文言・テストの回帰のcjkを処理し、呼び出し側へ結果または副作用を返す。
-     * @param value - 検証・変換・保存の対象となる値。
+     * @param value - CJK文字の有無を判定するメッセージ文字列。
      * @returns 条件が成立したかを示す真偽値。
      */ (value: string): boolean => Array.from(value).some(
                     /**
@@ -144,9 +144,9 @@ describe('message language resolution',
 
 
                 const findCjk = /**
-     * 表示文言・テストの回帰から必要な値またはリソースを取得する。
-     * @param value - 検証・変換・保存の対象となる値。
-     * @param prefix - 表示文言・テストの回帰の位置・寸法・件数・時間を表す数値。
+     * ロケールの値を再帰的にたどり、未翻訳のCJK文字を含むパスを集める。
+     * @param value - CJK文字を検索する翻訳カタログの現在値。
+     * @param prefix 現在たどっているロケール項目のドット区切りパス。
      * @returns 表示文言・テストの回帰で利用する文字列。
      */ (value: unknown, prefix = ''): string[] => {
                         if (typeof value === 'string') return cjk(value) ? [prefix] : [];
@@ -154,7 +154,6 @@ describe('message language resolution',
                         return Object.entries(value).flatMap(
                             /**
                              * 設定をfind・cjkへ渡し、表示文言・テストの回帰の結果または副作用を処理する。
-                             * @param options - 呼び出し側が指定する処理設定。
                              * @returns 表示文言・テストの回帰のコールバックが生成する結果。
                              */
                             ([key, child]) => findCjk(child, prefix ? `${prefix}.${key}` : key));

@@ -163,9 +163,9 @@ async function verifyCompactMermaidAvoidsHostStartup() {
         (message) => message.type === 'renderMermaid').length,
         duplicateIds: ids.filter(
         /**
-         * sの条件を満たす識別子だけを残す。
-         * @param id - 識別子のsを参照する走査対象。
-         * @param index - 位置のofを参照する走査対象。
+         * 重複している識別子だけを抽出する。
+         * @param id - 重複判定する識別子。
+         * @param index - 先行同一値の検索に使う配列位置。
          * @returns 条件を満たした要素だけを含む一覧。
          */
         (id, index) => ids.indexOf(id) !== index),
@@ -393,7 +393,7 @@ async function verifyLazyExportFonts() {
     await page.waitForFunction(
     /**
      * ブラウザー内に「.split-preview .rendered-markdown」が現れるまで待機する。
-     * @param length - ブラウザー内で評価するコールバック。
+     * @param length - プレビューのdata-document-lengthと照合する期待本文長。
      * @returns lazy・ランタイム・スモーク検証のコールバックが生成する結果。
      */
     (length) => (
@@ -444,14 +444,18 @@ async function verifyLazyExportFonts() {
 /**
  * lazy・ランタイム・スモーク検証の表示または操作を開始する。
  * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
- * @param options - 呼び出し側が指定する処理設定。
+ * @param options - ブラウザー内Webviewの起動設定。
+ * @param options.workerUri - Markdown workerの読み込み先URI。
+ * @param options.richWorkerUri - リッチMarkdown workerの読み込み先URI。省略時は配布先の既定URIを使う。
+ * @param options.mermaidHostRendering - Mermaid図をHost側で描画するかを示す設定。
  * @returns lazy・ランタイム・スモーク検証のopen・editorが生成する結果。
  */
-async function openEditor(markdown, {
-  workerUri,
-  richWorkerUri = `${origin}/dist/markdown-rich-worker.js`,
-  mermaidHostRendering
-}) {
+async function openEditor(markdown, options) {
+  const {
+    workerUri,
+    richWorkerUri = `${origin}/dist/markdown-rich-worker.js`,
+    mermaidHostRendering,
+  } = options;
   const page = await browser.newPage();
   const errors = [];
   page.on('pageerror',
@@ -465,8 +469,7 @@ async function openEditor(markdown, {
   await page.evaluate(
   /**
    * HostとWebviewのメッセージ状態のメッセージ送信結果を読み取り、検証用の値へ変換する。
-   * @param options - ブラウザー内で評価するコールバック。
-   * @returns ブラウザー内で読み取った値または変換結果。
+  * @returns ブラウザー内で読み取った値または変換結果。
    */
   ({ markdown, mermaidHostRendering, workerUri, richWorkerUri, origin }) => {
     document.body.dataset.mveMarkdownWorkerUri = workerUri;

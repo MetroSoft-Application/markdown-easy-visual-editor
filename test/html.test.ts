@@ -58,7 +58,7 @@ vi.mock('vscode',
 
             parse: /**
      * HTML・テストの回帰の入力を構造化した値へ変換する。
-     * @param value - 検証・変換・保存の対象となる値。
+     * @param value - テスト用file URIへ変換するパス文字列。
      * @returns HTML・テストの回帰で生成または変換した値。
      */ (value: string) => new TestUri(value.replace(/^file:\/\//i, ''))
         },

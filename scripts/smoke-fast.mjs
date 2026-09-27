@@ -262,8 +262,7 @@ try {
   await page.evaluate(
   /**
    * ブラウザーのDOM状態のcreate・object・url結果を読み取り、検証用の値へ変換する。
-   * @param options - ブラウザー内で評価するコールバック。
-   * @returns ブラウザー内で読み取った値または変換結果。
+  * @returns ブラウザー内で読み取った値または変換結果。
    */
   ({ workerSource, richWorkerSource }) => {
     document.body.dataset.mveMarkdownWorkerUri = URL.createObjectURL(new Blob([workerSource], { type: 'text/javascript' }));
@@ -288,7 +287,7 @@ try {
   await page.evaluate(
   /**
    * Webviewの共有設定のdispatch・event結果を読み取り、検証用の値へ変換する。
-   * @param initSettings - ブラウザー内で評価するコールバック。
+   * @param initSettings - Webview初期化メッセージへ渡す設定一式。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (initSettings) => {
@@ -350,7 +349,7 @@ try {
   const editorMessagesWhileTyping = await page.evaluate(
   /**
    * HostとWebviewのメッセージ状態のslice結果を読み取り、検証用の値へ変換する。
-   * @param start - ブラウザー内で評価するコールバック。
+   * @param start - 操作前のHostメッセージ配列長。後続メッセージの走査開始位置に使う。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (start) => window.__mveMessages.slice(start).filter(
@@ -378,7 +377,7 @@ try {
   const previewMessagesWhileTyping = await page.evaluate(
   /**
    * HostとWebviewのメッセージ状態のslice結果を読み取り、検証用の値へ変換する。
-   * @param start - ブラウザー内で評価するコールバック。
+   * @param start - 操作前のHostメッセージ配列長。後続メッセージの走査開始位置に使う。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (start) => window.__mveMessages.slice(start).filter(
@@ -539,7 +538,7 @@ try {
   const emptyCrLfResult = await page.evaluate(
   /**
    * HostとWebviewのメッセージ状態のfilter結果を読み取り、検証用の値へ変換する。
-   * @param start - ブラウザー内で評価するコールバック。
+   * @param start - 操作前のlocalChanges件数とrequestResync件数のスナップショット。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (start) => ({
@@ -578,7 +577,7 @@ try {
   const sourceVersion = await page.evaluate(
   /**
    * Host側の本文状態のreplace結果を読み取り、検証用の値へ変換する。
-   * @param text - ブラウザー内で評価するコールバック。
+   * @param text - Host側の仮想本文と物理改行本文へ設定するMarkdown本文。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (text) => {
@@ -592,8 +591,7 @@ try {
   await page.evaluate(
   /**
    * Webviewの共有設定のdispatch・event結果を読み取り、検証用の値へ変換する。
-   * @param options - ブラウザー内で評価するコールバック。
-   * @returns ブラウザー内で読み取った値または変換結果。
+  * @returns ブラウザー内で読み取った値または変換結果。
    */
   ({ text, version }) => window.dispatchEvent(new MessageEvent('message', {
     data: { type: 'init', text, version, uri: 'file:///C:/smoke.md', settings: window.__mveGlobalSettings }
@@ -603,7 +601,7 @@ try {
     await page.waitForFunction(
     /**
      * ブラウザー内に「.split-preview .rendered-markdown」が現れるまで待機する。
-     * @param expectedLength - ブラウザー内で評価するコールバック。
+     * @param expectedLength - プレビューのdata-document-lengthと照合する期待本文長。
      * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     (expectedLength) => (
@@ -616,7 +614,7 @@ try {
   const anchorMarkup = await page.evaluate(
   /**
    * ブラウザー内の「.split-preview .markdown-source-block」を読み取り、検証用の値へ変換する。
-   * @param text - ブラウザー内で評価するコールバック。
+   * @param text - 参照リンクと脚注アンカーの期待位置を計算するMarkdown本文。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (text) => {
@@ -704,7 +702,7 @@ try {
     await page.waitForFunction(
     /**
      * ブラウザー内に「.status-bar」が現れるまで待機する。
-     * @param value - ブラウザー内で評価するコールバック。
+     * @param value - 画像ズーム操作前のステータス表示文字列。
      * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     (value) => document.querySelector('.status-bar')?.textContent !== value, imageZoomStatusBefore);
@@ -752,7 +750,7 @@ try {
     await page.waitForFunction(
     /**
      * Host側の本文状態が完了条件を満たすまで待機する。
-     * @param text - ブラウザー内で評価するコールバック。
+     * @param text - 画像リサイズ前のHost本文。変更検出の基準にする。
      * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     (text) => window.__mveHostText !== text, imageResizeSourceBefore);
@@ -787,7 +785,7 @@ try {
     await page.waitForFunction(
     /**
      * ブラウザー内に「.status-bar」が現れるまで待機する。
-     * @param value - ブラウザー内で評価するコールバック。
+     * @param value - 画像ズーム操作前のステータス表示文字列。
      * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     (value) => document.querySelector('.status-bar')?.textContent !== value, imageZoomStatusBeforeShrink);
@@ -821,7 +819,7 @@ try {
     await page.waitForFunction(
     /**
      * ブラウザー内に「.status-bar」が現れるまで待機する。
-     * @param value - ブラウザー内で評価するコールバック。
+     * @param value - 画像ズーム操作前のステータス表示文字列。
      * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     (value) => document.querySelector('.status-bar')?.textContent !== value, imageZoomStatusBeforeRegrow);
@@ -855,7 +853,7 @@ try {
     await page.waitForFunction(
     /**
      * ブラウザー内に「.status-bar」が現れるまで待機する。
-     * @param value - ブラウザー内で評価するコールバック。
+     * @param value - 画像ズーム操作前のステータス表示文字列。
      * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     (value) => document.querySelector('.status-bar')?.textContent !== value, imageZoomStatusAfterRegrow);
@@ -887,7 +885,7 @@ try {
     await page.locator('.split-preview').evaluate(
     /**
      * ブラウザー内の状態を読み取り、検証用の値へ変換する。
-     * @param element - ブラウザー内で評価するコールバック。
+     * @param element - スクロール位置を初期化するプレビュー要素。
      * @returns ブラウザー内で読み取った値または変換結果。
      */
     (element) => { element.scrollTop = 0; });
@@ -908,7 +906,7 @@ try {
   await page.waitForFunction(
   /**
    * Host側の本文状態が完了条件を満たすまで待機する。
-   * @param text - ブラウザー内で評価するコールバック。
+   * @param text - 切り取り操作前のHost本文。変更検出の基準にする。
    * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (text) => window.__mveHostText !== text, beforeCutText);
@@ -922,7 +920,7 @@ try {
   await page.waitForFunction(
   /**
    * Host側の本文状態が完了条件を満たすまで待機する。
-   * @param text - ブラウザー内で評価するコールバック。
+   * @param text - 切り取り取消後にHostへ戻ることを期待する本文。
    * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (text) => window.__mveHostText === text, beforeCutText);
@@ -947,7 +945,7 @@ try {
   const tableEditorSize = await page.locator('.mve-table-editor').evaluate(
   /**
    * ブラウザー内の状態のget・bounding・client・rect結果を読み取り、検証用の値へ変換する。
-   * @param element - ブラウザー内で評価するコールバック。
+   * @param element - 寸法を測定する表編集オーバーレイ要素。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => {
@@ -995,14 +993,14 @@ try {
   await page.waitForFunction(
   /**
    * ブラウザー内に「.mve-table-editor-row-resizer」が現れるまで待機する。
-   * @param before - ブラウザー内で評価するコールバック。
+   * @param before - Alt+Enter前に表示されている対象行の高さ（aria-valuenow）。
    * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (before) => Number(document.querySelectorAll('.mve-table-editor-row-resizer')[1]?.getAttribute('aria-valuenow')) > before, rowHeightBeforeAltEnter);
   const altEnterCellMetrics = await altEnterCell.evaluate(
   /**
    * ブラウザー内の「.mve-table-editor-row-resizer」を読み取り、検証用の値へ変換する。
-   * @param element - ブラウザー内で評価するコールバック。
+   * @param element - Alt+Enter後の入力値と表示寸法を読むセル入力要素。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => ({
@@ -1017,7 +1015,7 @@ try {
   if (await page.evaluate(
   /**
    * Host側の本文状態を読み取り、検証用の値へ変換する。
-   * @param text - ブラウザー内で評価するコールバック。
+   * @param text - Apply前のHost本文。未反映状態を確認する基準にする。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (text) => window.__mveHostText !== text, hostBeforeAltEnter)) throw new Error('table editor Alt+Enter changed the source document before Apply');
@@ -1035,7 +1033,7 @@ try {
   await page.waitForFunction(
   /**
    * Host側の本文状態が完了条件を満たすまで待機する。
-   * @param text - ブラウザー内で評価するコールバック。
+   * @param text - Apply取消後に戻ることを期待するHost本文。
    * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (text) => window.__mveHostText === text, hostBeforeAltEnter);
@@ -1221,7 +1219,7 @@ try {
   const tableColumnBefore = await page.locator('.mve-table-editor-grid col').nth(1).evaluate(
   /**
    * ブラウザー内の状態のget・bounding・client・rect結果を読み取り、検証用の値へ変換する。
-   * @param element - ブラウザー内で評価するコールバック。
+   * @param element - 列リサイズ前の描画幅を測定するcol要素。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => element.getBoundingClientRect().width);
@@ -1232,7 +1230,7 @@ try {
     await page.waitForFunction(
     /**
      * ブラウザー内に「.mve-table-editor-column-resizer」が現れるまで待機する。
-     * @param expected - ブラウザー内で評価するコールバック。
+     * @param expected - キー操作後に期待する列幅（px）。
      * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     (expected) => Number(document.querySelector('.mve-table-editor-column-resizer')?.getAttribute('aria-valuenow')) === expected, tableColumnStateBefore + step * 12);
@@ -1240,7 +1238,7 @@ try {
   const tableColumnAfter = await page.locator('.mve-table-editor-grid col').nth(1).evaluate(
   /**
    * ブラウザー内の状態のget・bounding・client・rect結果を読み取り、検証用の値へ変換する。
-   * @param element - ブラウザー内で評価するコールバック。
+   * @param element - 列リサイズ後の描画幅を測定するcol要素。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => element.getBoundingClientRect().width);
@@ -1255,7 +1253,7 @@ try {
   await page.waitForFunction(
   /**
    * ブラウザー内に「.mve-table-editor-column-resizer」が現れるまで待機する。
-   * @param before - ブラウザー内で評価するコールバック。
+   * @param before - Auto-fit前に設定されている列幅（aria-valuenow）。
    * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (before) => Number(document.querySelector('.mve-table-editor-column-resizer')?.getAttribute('aria-valuenow')) > before, autoFitColumnBefore);
@@ -1288,7 +1286,7 @@ try {
   await page.waitForFunction(
   /**
    * ブラウザー内に「.mve-table-editor-row-resizer」が現れるまで待機する。
-   * @param before - ブラウザー内で評価するコールバック。
+   * @param before - Auto-fit前に設定されている行高（aria-valuenow）。
    * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (before) => Number(document.querySelectorAll('.mve-table-editor-row-resizer')[1]?.getAttribute('aria-valuenow')) > before, rowHeightBefore);
@@ -1317,7 +1315,7 @@ try {
   const autoFitRowMetrics = await autoFitCell.evaluate(
   /**
    * ブラウザー内の状態を読み取り、検証用の値へ変換する。
-   * @param element - ブラウザー内で評価するコールバック。
+   * @param element - Auto-fit後の値、スクロール高、表示高を読むセル入力要素。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => ({
@@ -1392,7 +1390,7 @@ try {
   const noOpLocalChanges = await page.evaluate(
   /**
    * HostとWebviewのメッセージ状態のslice結果を読み取り、検証用の値へ変換する。
-   * @param start - ブラウザー内で評価するコールバック。
+   * @param start - Apply前のHostメッセージ配列長。no-op時に通信が増えないことを比較する。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (start) => window.__mveMessages
@@ -1417,7 +1415,7 @@ try {
   await editableCell.evaluate(
   /**
    * ブラウザー内の状態のindex・of結果を読み取り、検証用の値へ変換する。
-   * @param element - ブラウザー内で評価するコールバック。
+   * @param element - br境界のカーソルまたは選択範囲を設定するセル入力要素。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => {
@@ -1434,7 +1432,7 @@ try {
   await editableCell.evaluate(
   /**
    * ブラウザー内の状態のindex・of結果を読み取り、検証用の値へ変換する。
-   * @param element - ブラウザー内で評価するコールバック。
+   * @param element - br境界のカーソルまたは選択範囲を設定するセル入力要素。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => {
@@ -1453,7 +1451,7 @@ try {
   await editableCell.evaluate(
   /**
    * ブラウザー内の状態のindex・of結果を読み取り、検証用の値へ変換する。
-   * @param element - ブラウザー内で評価するコールバック。
+   * @param element - br境界のカーソルまたは選択範囲を設定するセル入力要素。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => {
@@ -1502,7 +1500,7 @@ try {
   const tableEditMessages = await page.evaluate(
   /**
    * HostとWebviewのメッセージ状態のslice結果を読み取り、検証用の値へ変換する。
-   * @param start - ブラウザー内で評価するコールバック。
+   * @param start - 表編集操作前のHostメッセージ配列長。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (start) => window.__mveMessages
@@ -1532,7 +1530,7 @@ try {
   const lineBreakMessages = await page.evaluate(
   /**
    * HostとWebviewのメッセージ状態のslice結果を読み取り、検証用の値へ変換する。
-   * @param start - ブラウザー内で評価するコールバック。
+   * @param start - 表編集操作前のHostメッセージ配列長。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (start) => window.__mveMessages
@@ -1595,7 +1593,7 @@ try {
   await page.waitForFunction(
   /**
    * Host側の本文状態が完了条件を満たすまで待機する。
-   * @param text - ブラウザー内で評価するコールバック。
+   * @param text - undo/redo後のHost本文長を比較する基準本文。
    * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (text) => window.__mveHostText.length === text.length + 1, beforeRibbonUndo);
@@ -1603,7 +1601,7 @@ try {
   await page.waitForFunction(
   /**
    * Host側の本文状態が完了条件を満たすまで待機する。
-   * @param text - ブラウザー内で評価するコールバック。
+   * @param text - undo後にHostで復元されることを期待する本文。
    * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (text) => window.__mveHostText === text, beforeRibbonUndo);
@@ -1611,7 +1609,7 @@ try {
   await page.waitForFunction(
   /**
    * Host側の本文状態が完了条件を満たすまで待機する。
-   * @param text - ブラウザー内で評価するコールバック。
+   * @param text - undo/redo後のHost本文長を比較する基準本文。
    * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (text) => window.__mveHostText.length === text.length + 1, beforeRibbonUndo);
@@ -1626,7 +1624,7 @@ try {
   await page.waitForFunction(
   /**
    * Host側の本文状態が完了条件を満たすまで待機する。
-   * @param text - ブラウザー内で評価するコールバック。
+   * @param text - undo/redo後のHost本文長を比較する基準本文。
    * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (text) => window.__mveHostText.length === text.length + 1, beforeKeyboardUndo);
@@ -1634,7 +1632,7 @@ try {
   await page.waitForFunction(
   /**
    * Host側の本文状態が完了条件を満たすまで待機する。
-   * @param text - ブラウザー内で評価するコールバック。
+   * @param text - undo後にHostで復元されることを期待する本文。
    * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (text) => window.__mveHostText === text, beforeKeyboardUndo);
@@ -1642,7 +1640,7 @@ try {
   await page.waitForFunction(
   /**
    * Host側の本文状態が完了条件を満たすまで待機する。
-   * @param text - ブラウザー内で評価するコールバック。
+   * @param text - undo/redo後のHost本文長を比較する基準本文。
    * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (text) => window.__mveHostText.length === text.length + 1, beforeKeyboardUndo);
@@ -1650,7 +1648,7 @@ try {
   await page.waitForFunction(
   /**
    * Host側の本文状態が完了条件を満たすまで待機する。
-   * @param text - ブラウザー内で評価するコールバック。
+   * @param text - undo後に本文長を比較する基準Host本文。
    * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (text) => window.__mveHostText.length === text.length, beforeKeyboardUndo);
@@ -1658,7 +1656,7 @@ try {
   await page.waitForFunction(
   /**
    * Host側の本文状態が完了条件を満たすまで待機する。
-   * @param text - ブラウザー内で評価するコールバック。
+   * @param text - undo後にHostで復元されることを期待する本文。
    * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (text) => window.__mveHostText === text, beforeRibbonUndo);
@@ -1681,7 +1679,7 @@ try {
   if (!(await page.evaluate(
   /**
    * ブラウザー内の「.split-editor .cm-editor」を読み取り、検証用の値へ変換する。
-   * @param node - ブラウザー内で評価するコールバック。
+   * @param node - 編集前後で同一インスタンスかを確認するCodeMirrorルート要素。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (node) => node === document.querySelector('.split-editor .cm-editor'), editorNode))) throw new Error('blank-line edit remounted the source editor');
@@ -1690,14 +1688,14 @@ try {
   await page.locator('.cm-scroller').evaluate(
   /**
    * ブラウザー内の状態を読み取り、検証用の値へ変換する。
-   * @param element - ブラウザー内で評価するコールバック。
+   * @param element - スクロール位置を変更するソースエディターのスクローラー。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => { element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.7; });
   await page.locator('.split-preview').evaluate(
   /**
    * ブラウザー内の状態を読み取り、検証用の値へ変換する。
-   * @param element - ブラウザー内で評価するコールバック。
+   * @param element - スクロール位置を変更するプレビュー領域。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => { element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.7; });
@@ -1748,7 +1746,7 @@ try {
   await page.waitForFunction(
   /**
    * ブラウザー内に「.split-preview .rendered-markdown」が現れるまで待機する。
-   * @param length - ブラウザー内で評価するコールバック。
+   * @param length - プレビューのdata-document-lengthと照合する期待本文長。
    * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (length) => (
@@ -1850,7 +1848,7 @@ try {
     await page.waitForFunction(
     /**
      * ブラウザー内に「.split-preview .rendered-markdown」が現れるまで待機する。
-     * @param expectedLength - ブラウザー内で評価するコールバック。
+     * @param expectedLength - プレビューのdata-document-lengthと照合する期待本文長。
      * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     (expectedLength) => (
@@ -1879,8 +1877,7 @@ try {
     await page.waitForFunction(
     /**
      * ブラウザー内に「.source-editor」が現れるまで待機する。
-     * @param options - ブラウザー内で評価するコールバック。
-     * @returns スモーク検証・高速のコールバックが生成する結果。
+    * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     ({ sourceOffset, previewOffset, insertedLength }) => {
       const currentSource = Number(document.querySelector('.source-editor')?.getAttribute('data-viewport-offset'));
@@ -2032,7 +2029,7 @@ try {
   const queuedOperations = await page.evaluate(
   /**
    * ブラウザー内の「.cm-content」を読み取り、検証用の値へ変換する。
-   * @param start - ブラウザー内で評価するコールバック。
+   * @param start - queued operationを実行する前のHostメッセージ配列長。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (start) => {
@@ -2117,7 +2114,7 @@ try {
   await page.waitForFunction(
   /**
    * HostとWebviewのメッセージ状態が完了条件を満たすまで待機する。
-   * @param start - ブラウザー内で評価するコールバック。
+   * @param start - ソースを開く操作前のHostメッセージ配列長。
    * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (start) => window.__mveMessages.slice(start).some(
@@ -2166,7 +2163,7 @@ try {
   const formatOperation = await page.evaluate(
   /**
    * HostとWebviewのメッセージ状態のslice結果を読み取り、検証用の値へ変換する。
-   * @param start - ブラウザー内で評価するコールバック。
+   * @param start - 設定切替操作前のHostメッセージ配列長。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (start) => window.__mveMessages
@@ -2227,7 +2224,7 @@ try {
   const previewBeforeDisabledSourceScroll = await page.locator('.split-preview').evaluate(
   /**
    * ブラウザー内の状態を読み取り、検証用の値へ変換する。
-   * @param element - ブラウザー内で評価するコールバック。
+   * @param element - スクロール同期前のプレビュー領域。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => element.scrollTop);
@@ -2235,7 +2232,7 @@ try {
   await page.locator('.cm-scroller').evaluate(
   /**
    * ブラウザー内の状態を読み取り、検証用の値へ変換する。
-   * @param element - ブラウザー内で評価するコールバック。
+   * @param element - スクロール同期確認のため位置を変えるソーススクローラー。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => {
@@ -2258,8 +2255,7 @@ try {
   await page.evaluate(
   /**
    * Webviewの共有設定のdispatch・event結果を読み取り、検証用の値へ変換する。
-   * @param options - ブラウザー内で評価するコールバック。
-   * @returns ブラウザー内で読み取った値または変換結果。
+  * @returns ブラウザー内で読み取った値または変換結果。
    */
   ({ text, version }) => window.dispatchEvent(new MessageEvent('message', {
     data: { type: 'init', text, version, uri: 'file:///C:/another-document.md', settings: window.__mveGlobalSettings }
@@ -2285,8 +2281,7 @@ try {
   await page.evaluate(
   /**
    * Webviewの共有設定のdispatch・event結果を読み取り、検証用の値へ変換する。
-   * @param options - ブラウザー内で評価するコールバック。
-   * @returns ブラウザー内で読み取った値または変換結果。
+  * @returns ブラウザー内で読み取った値または変換結果。
    */
   ({ text, version }) => window.dispatchEvent(new MessageEvent('message', {
     data: { type: 'init', text, version, uri: 'file:///C:/third-document.md', settings: window.__mveGlobalSettings }
@@ -2326,7 +2321,7 @@ try {
   await page.locator('.cm-scroller').evaluate(
   /**
    * ブラウザー内の状態を読み取り、検証用の値へ変換する。
-   * @param element - ブラウザー内で評価するコールバック。
+   * @param element - 先頭位置へ移動するソーススクローラー。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => { element.scrollTop = 0; });
@@ -2368,7 +2363,7 @@ try {
   await page.locator('.cm-scroller').evaluate(
   /**
    * ブラウザー内の状態を読み取り、検証用の値へ変換する。
-   * @param element - ブラウザー内で評価するコールバック。
+   * @param element - 末尾位置へ移動するソーススクローラー。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => { element.scrollTop = element.scrollHeight; });
@@ -2404,7 +2399,7 @@ try {
   await page.locator('.split-preview').evaluate(
   /**
    * ブラウザー内の状態を読み取り、検証用の値へ変換する。
-   * @param element - ブラウザー内で評価するコールバック。
+   * @param element - 先頭位置へ移動するプレビュー領域。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => { element.scrollTop = 0; });
@@ -2425,7 +2420,7 @@ try {
   await page.locator('.split-preview').evaluate(
   /**
    * ブラウザー内の状態を読み取り、検証用の値へ変換する。
-   * @param element - ブラウザー内で評価するコールバック。
+   * @param element - 末尾位置へ移動するプレビュー領域。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => { element.scrollTop = element.scrollHeight; });
@@ -2451,7 +2446,7 @@ try {
   const before = await page.locator('.split-editor').evaluate(
   /**
    * ブラウザー内の状態のget・computed・style結果を読み取り、検証用の値へ変換する。
-   * @param element - ブラウザー内で評価するコールバック。
+   * @param element - divider操作前の分割エディター領域。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => getComputedStyle(element).gridTemplateColumns);
@@ -2464,7 +2459,7 @@ try {
   const after = await page.locator('.split-editor').evaluate(
   /**
    * ブラウザー内の状態のget・computed・style結果を読み取り、検証用の値へ変換する。
-   * @param element - ブラウザー内で評価するコールバック。
+   * @param element - divider操作後の分割エディター領域。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => getComputedStyle(element).gridTemplateColumns);
@@ -2474,7 +2469,7 @@ try {
   await page.waitForFunction(
   /**
    * ブラウザー内に「.status-bar」が現れるまで待機する。
-   * @param value - ブラウザー内で評価するコールバック。
+   * @param value - ズーム操作前のステータス表示文字列。
    * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (value) => document.querySelector('.status-bar')?.textContent !== value, zoomBefore);
@@ -2501,7 +2496,7 @@ try {
   await page.locator('.cm-scroller').evaluate(
   /**
    * ブラウザー内の状態を読み取り、検証用の値へ変換する。
-   * @param element - ブラウザー内で評価するコールバック。
+   * @param element - スクロール比率を設定するソーススクローラー。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => { element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.55; });
@@ -2597,7 +2592,7 @@ try {
   await page.waitForFunction(
   /**
    * ブラウザー内に「.source-editor」が現れるまで待機する。
-   * @param target - ブラウザー内で評価するコールバック。
+   * @param target - ソースビューポートに含まれるか確認する見出しの本文オフセット。
    * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (target) => {
@@ -2681,7 +2676,7 @@ try {
   await page.waitForFunction(
   /**
    * ブラウザー内に「.split-preview」が現れるまで待機する。
-   * @param target - ブラウザー内で評価するコールバック。
+   * @param target - プレビュービューポート内に表示されるか確認する見出しの本文オフセット。
    * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (target) => {
@@ -2716,7 +2711,7 @@ try {
   await page.waitForFunction(
   /**
    * ブラウザー内に「.source-editor」が現れるまで待機する。
-   * @param target - ブラウザー内で評価するコールバック。
+   * @param target - ソースビューポートに含まれるか確認する見出しの本文オフセット。
    * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (target) => {
@@ -2727,7 +2722,7 @@ try {
   await page.waitForFunction(
   /**
    * ブラウザー内に「.split-preview」が現れるまで待機する。
-   * @param target - ブラウザー内で評価するコールバック。
+   * @param target - プレビュービューポート内に表示されるか確認するキャレットの本文オフセット。
    * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (target) => {
@@ -2753,7 +2748,7 @@ try {
   const outlineSplitState = await page.evaluate(
   /**
    * ブラウザー内の「.split-preview」を読み取り、検証用の値へ変換する。
-   * @param target - ブラウザー内で評価するコールバック。
+   * @param target - プレビュービューポート内に表示されるか確認する見出しの本文オフセット。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (target) => {
@@ -2838,8 +2833,7 @@ try {
   const selectionRestored = await page.evaluate(
   /**
    * Host側の本文状態のslice結果を読み取り、検証用の値へ変換する。
-   * @param options - ブラウザー内で評価するコールバック。
-   * @returns ブラウザー内で読み取った値または変換結果。
+  * @returns ブラウザー内で読み取った値または変換結果。
    */
   ({ offset, prefixLength }) =>
     window.__mveHostText.slice(offset + prefixLength, offset + prefixLength + 1) === '!',
@@ -2856,7 +2850,7 @@ try {
       document.addEventListener(type,
       /**
        * イベントで一覧追加を実行する。
-       * @param event - ユーザー操作またはDOMから通知されたイベント。
+       * @param event - IME compositionと入力の詳細を記録するDOM event。
        * @returns 副作用を完了し、値は返さない。
        */
       (event) => window.__mveImeEvents.push({ type, data: event.data, inputType: event.inputType }), true);
@@ -3020,7 +3014,7 @@ try {
   const unackedResult = await page.evaluate(
   /**
    * HostとWebviewのメッセージ状態のfilter結果を読み取り、検証用の値へ変換する。
-   * @param resyncStart - ブラウザー内で評価するコールバック。
+   * @param resyncStart - 操作前のrequestResyncメッセージ数。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (resyncStart) => ({
@@ -3082,7 +3076,7 @@ try {
     await page.waitForFunction(
     /**
      * HostとWebviewのメッセージ状態が完了条件を満たすまで待機する。
-     * @param count - ブラウザー内で評価するコールバック。
+     * @param count - 操作前のlocalChangesメッセージ数。
      * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     (count) => window.__mveMessages.filter(
@@ -3095,7 +3089,7 @@ try {
     const localOperation = await page.evaluate(
     /**
      * HostとWebviewのメッセージ状態のfilter結果を読み取り、検証用の値へ変換する。
-     * @param count - ブラウザー内で評価するコールバック。
+     * @param count - localChanges配列から操作を取り出す0始まりの添字。
      * @returns ブラウザー内で読み取った値または変換結果。
      */
     (count) => window.__mveMessages
@@ -3113,7 +3107,7 @@ try {
     await page.waitForFunction(
     /**
      * Webviewの実行状態が完了条件を満たすまで待機する。
-     * @param opId - ブラウザー内で評価するコールバック。
+     * @param opId - ACKメッセージ内で照合するローカル操作ID。
      * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     (opId) => window.__mveAcks.some(
@@ -3126,7 +3120,7 @@ try {
     await page.evaluate(
     /**
      * Host側の本文状態のdispatch・event結果を読み取り、検証用の値へ変換する。
-     * @param iteration - ブラウザー内で評価するコールバック。
+     * @param iteration - 外部変更テキストへ含める反復番号。
      * @returns ブラウザー内で読み取った値または変換結果。
      */
     (iteration) => {
@@ -3144,7 +3138,7 @@ try {
   const mixedResult = await page.evaluate(
   /**
    * HostとWebviewのメッセージ状態のfilter結果を読み取り、検証用の値へ変換する。
-   * @param start - ブラウザー内で評価するコールバック。
+   * @param start - 操作前のlocalChanges件数とrequestResync件数のスナップショット。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (start) => ({
@@ -3308,7 +3302,7 @@ try {
   await page.evaluate(
   /**
    * Host側の本文状態のdispatch・event結果を読み取り、検証用の値へ変換する。
-   * @param operation - ブラウザー内で評価するコールバック。
+   * @param operation - Hostの再同期通知後に再送するローカル操作メッセージ。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (operation) => {
@@ -3340,7 +3334,7 @@ try {
   await page.evaluate(
   /**
    * Host側の本文状態のdispatch・event結果を読み取り、検証用の値へ変換する。
-   * @param operation - ブラウザー内で評価するコールバック。
+   * @param operation - Hostの再同期通知後に再送するローカル操作メッセージ。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (operation) => {
@@ -3360,7 +3354,7 @@ try {
   const retryLoopResult = await page.evaluate(
   /**
    * ブラウザー内の「.cm-content」を読み取り、検証用の値へ変換する。
-   * @param start - ブラウザー内で評価するコールバック。
+   * @param start - 操作前のlocalChanges件数とrequestResync件数のスナップショット。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (start) => ({
@@ -3423,7 +3417,7 @@ try {
     await page.waitForFunction(
     /**
      * ブラウザー内に「.split-preview .rendered-markdown」が現れるまで待機する。
-     * @param value - ブラウザー内で評価するコールバック。
+     * @param value - 操作前に設定されている画像ズーム属性値。
      * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     (value) => document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-mve-image-zoom') !== value, previousZoom);
@@ -3438,7 +3432,7 @@ try {
   await page.evaluate(
   /**
    * Host側の本文状態のreplace結果を読み取り、検証用の値へ変換する。
-   * @param text - ブラウザー内で評価するコールバック。
+   * @param text - HostからWebviewへ通知する置換後Markdown本文。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (text) => {
@@ -3459,14 +3453,14 @@ try {
   await page.waitForFunction(
   /**
    * Host側の本文状態が完了条件を満たすまで待機する。
-   * @param text - ブラウザー内で評価するコールバック。
+   * @param text - Hostへ反映されることを期待するMarkdown本文。
    * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (text) => window.__mveHostText === text, imageSmokeSource);
   await page.waitForFunction(
   /**
    * ブラウザー内に「.split-preview .rendered-markdown」が現れるまで待機する。
-   * @param length - ブラウザー内で評価するコールバック。
+   * @param length - プレビューのdata-document-lengthと照合する期待本文長。
    * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (length) => Number(

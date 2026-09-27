@@ -30,11 +30,7 @@ vi.mock('vscode',
                  * 読み書きするファイルまたはリソースの場所。
                  */
                 path: string;
-                /**
-                 * textcolorpdf・テストの回帰のfs・pathを処理し、呼び出し側へ結果または副作用を返す。
-                 * @param value - 検証・変換・保存の対象となる値。
-                 * @returns textcolorpdf・テストの回帰のfs・pathが生成する結果。
-                 */
+                /** URIを参照するモックのファイルシステムパス。 */
                 fsPath: string
             }, ...segments: string[]) => ({
                 scheme: base.scheme,
@@ -45,7 +41,7 @@ vi.mock('vscode',
 
             parse: /**
      * textcolorpdf・テストの回帰の入力を構造化した値へ変換する。
-     * @param value - 検証・変換・保存の対象となる値。
+     * @param value - file URIのパス部へ変換する入力パス文字列。
      * @returns textcolorpdf・テストの回帰で生成または変換した値。
      */ (value: string) => ({ scheme: 'file', path: value, fsPath: value }),
         },

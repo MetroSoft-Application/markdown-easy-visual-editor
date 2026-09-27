@@ -134,7 +134,12 @@ export const RIBBON_LAYOUT: RibbonLayoutDefinition = {
             groups: [
                 {
                     id: "pdf",
-                    itemIds: ["openPrintSettings", "printPreview", "exportPdf"],
+                    itemIds: [
+                        "openPrintSettings",
+                        "printPreview",
+                        "savePdfWithoutDialog",
+                        "exportPdf",
+                    ],
                 },
                 {
                     id: "html",

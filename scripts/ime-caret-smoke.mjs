@@ -148,8 +148,7 @@ try {
   await page.evaluate(
   /**
    * ブラウザーのDOM状態のcreate・object・url結果を読み取り、検証用の値へ変換する。
-   * @param options - ブラウザー内で評価するコールバック。
-   * @returns ブラウザー内で読み取った値または変換結果。
+  * @returns ブラウザー内で読み取った値または変換結果。
    */
   ({ workerSource, richWorkerSource }) => {
     document.body.dataset.mveMarkdownWorkerUri = URL.createObjectURL(new Blob([workerSource], { type: 'text/javascript' }));
@@ -175,7 +174,7 @@ try {
   await page.evaluate(
   /**
    * Host側の本文状態のdispatch・event結果を読み取り、検証用の値へ変換する。
-   * @param text - ブラウザー内で評価するコールバック。
+   * @param text - Webview初期化に渡すMarkdown本文。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (text) => {
@@ -213,7 +212,7 @@ try {
       document.addEventListener(type,
       /**
        * イベントで一覧追加を実行する。
-       * @param event - ユーザー操作またはDOMから通知されたイベント。
+       * @param event - IME compositionと入力の詳細を記録するDOM event。
        * @returns 副作用を完了し、値は返さない。
        */
       (event) => window.__mveImeEvents.push({
@@ -392,7 +391,7 @@ try {
   const marker = await page.evaluate(
   /**
    * Host側の本文状態のslice結果を読み取り、検証用の値へ変換する。
-   * @param offset - ブラウザー内で評価するコールバック。
+   * @param offset - Host本文から読み取る0始まりUTF-16オフセット。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (offset) => window.__mveHostText.slice(offset, offset + 1), expected);

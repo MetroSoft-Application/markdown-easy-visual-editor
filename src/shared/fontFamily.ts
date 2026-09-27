@@ -34,7 +34,7 @@ export const DEFAULT_FONT_FAMILY_SETTINGS: FontFamilySettings = {
 
 /**
  * フォント入力をCSSで扱える形式へ整え、空値・不正値を既定スタックへ戻す。
- * @param value - 検証・変換・保存の対象となる値。
+ * @param value - CSSへ設定する候補フォント名またはフォントスタック。
  * @returns fontfamilyで利用する文字列。
  */
 export function normalizeFontFamily(value: unknown): string {
@@ -46,8 +46,8 @@ export function normalizeFontFamily(value: unknown): string {
 
 /**
  * fontfamilyのfont・family・for・cssを処理し、呼び出し側へ結果または副作用を返す。
- * @param value - 検証・変換・保存の対象となる値。
- * @param fallback - fontfamilyで受け渡す文字列。
+ * @param value - CSSフォント指定からフォールバック込みで抽出した候補名。
+ * @param fallback - valueをCSS用に正規化できない場合に使う予備フォント指定。
  * @returns fontfamilyで利用する文字列。
  */
 export function fontFamilyForCss(value: unknown, fallback: string): string {
@@ -66,7 +66,7 @@ export function fontFamilyForCss(value: unknown, fallback: string): string {
 
 /**
  * fontfamilyの入力を許可された形式へ整える。
- * @param value - 検証・変換・保存の対象となる値。
+ * @param value - 永続化済みフォント設定の候補オブジェクト。
  * @returns 副作用を完了し、値は返さない。
  */
 export function normalizeFontFamilySettings(value: unknown): FontFamilySettings | undefined {

@@ -91,8 +91,8 @@ const PDF_CONTEXT_CLOSE_TIMEOUT_MS = 2_000;
 
 /**
  * PDFのexport・pdfを処理し、呼び出し側へ結果または副作用を返す。
- * @param request - PDFへ渡す入力。
- * @returns 副作用を完了し、値は返さない。
+ * @param request - PDF化するHTML・CSS、PDF設定、元Markdown URI、言語、出力用途、キャンセルSignalをまとめた要求。
+ * @returns 保存したPDFのURI。保存をキャンセルした場合はundefined。
  * @throws ブラウザ起動、HTML設定、またはPDF出力に失敗した場合。
  */
 export async function exportPdf(request: PdfExportRequest): Promise<vscode.Uri | undefined> {
@@ -117,7 +117,7 @@ export async function exportPdf(request: PdfExportRequest): Promise<vscode.Uri |
 
 /**
  * PDFを表示用の結果へ変換する。
- * @param request - PDFへ渡す入力。
+ * @param request - PDF化するHTML・CSS、PDF設定、元Markdown URI、言語、出力用途、キャンセルSignalをまとめた要求。
  * @returns PDFの非同期処理で得られる結果。
  */
 export async function renderPdf(request: PdfExportRequest): Promise<Buffer> {
@@ -129,7 +129,7 @@ export async function renderPdf(request: PdfExportRequest): Promise<Buffer> {
         ?
         /**
          * stageをinfoへ渡し、PDFの結果または副作用を処理する。
-         * @param stage - PDFで受け渡す文字列。
+         * @param stage - PDFプレビュー処理の段階名。経過時間とともに計測ログへ記録する。
          * @returns 副作用を完了し、値は返さない。
          */
         (stage: string) => console.info(`[Markdown Easy Visual Editor] PDF preview ${stage} (${Date.now() - startedAt}ms)`)
@@ -191,9 +191,9 @@ export async function renderPdf(request: PdfExportRequest): Promise<Buffer> {
             abortContext,
 
             /**
-             * late・contextをclose・pdf・contextへ渡し、PDFの結果または副作用を処理する。
-             * @param lateContext - PDFで扱う文字列または本文。
-             * @returns PDFのコールバックが生成する結果。
+             * 取り消し後に生成が完了したPDF用ブラウザーコンテキストを閉じる。
+             * @param lateContext - 要求の取消し後に生成が完了したPlaywright BrowserContext。
+             * @returns コンテキストの終了を待つPromise。
              */
             (lateContext) => closePdfContext(lateContext)
         );
@@ -226,8 +226,8 @@ export async function renderPdf(request: PdfExportRequest): Promise<Buffer> {
              */
             () => page.route('**/*',
                 /**
-                 * routeをrequestへ渡し、PDFの結果または副作用を処理する。
-                 * @param route - PDFへ渡す入力。
+                 * PDF読込中の外部画像要求を有限時間で完了させる。
+                 * @param route - 継続、取得、応答を制御するPlaywright Route。
                  * @returns PDFのコールバックが生成する結果。
                  */
                 async (route) => {
@@ -339,13 +339,13 @@ export async function renderPdf(request: PdfExportRequest): Promise<Buffer> {
 }
 
 /**
- * PDFのwith・render・controlを処理し、呼び出し側へ結果または副作用を返す。
- * @param operationFactory - PDFの位置・寸法・件数・時間を表す数値。
+ * PDF描画処理をキャンセルと期限で制御し、遅れて完了した処理の資源も解放する。
+ * @param operationFactory - 各制御区間で実行する非同期処理を開始する関数。
  * @param signal - 呼び出し側のキャンセルを通知するAbortSignal。
- * @param deadlineAt - PDFの位置・寸法・件数・時間を表す数値。
- * @param stage - PDFで受け渡す文字列。
- * @param onCancel - PDFへ渡す入力。
- * @param lateCleanup - PDFへ渡す入力。
+ * @param deadlineAt - 処理全体の期限を表すUnix時刻のミリ秒値。
+ * @param stage - 期限切れエラーと診断ログに含める処理段階名。
+ * @param onCancel - 中断時に実行する任意の後始末処理。
+ * @param lateCleanup - 中断後に処理が完了した場合、その結果が保持する資源を解放する処理。
  * @returns PDFの非同期処理で得られる結果。
  */
 async function withRenderControl<T>(
@@ -368,7 +368,7 @@ async function withRenderControl<T>(
     const cancellation = new Promise<never>(
         /**
          * 非同期処理の完了条件と失敗条件を待機側へ通知する。
-         * @param _ - 引数位置を維持するための未使用値。
+         * @param _ - reject専用Promiseの第1引数として渡される未使用のresolve関数。
          * @param reject - Promiseの失敗を通知する関数。
          * @returns 非同期処理の完了値。
          */
@@ -388,7 +388,7 @@ async function withRenderControl<T>(
             void operation.then(
                 /**
                  * PDFのコールバックとして値を処理する。
-                 * @param value - 検証・変換・保存の対象となる値。
+                 * @param value - 取消し後に完了し、遅延後始末へ渡す処理結果。
                  * @returns 副作用を完了し、値は返さない。
                  */
                 (value) => lateCleanup?.(value),
@@ -433,9 +433,9 @@ async function withRenderControl<T>(
 }
 
 /**
- * PDFの処理またはリソースを終了し、後続利用可能な状態へ戻す。
- * @param context - PDFで扱う文字列または本文。
- * @returns 副作用を完了し、値は返さない。
+ * PlaywrightのPDF用ブラウザーコンテキストを閉じ、終了または上限時間まで待つ。
+ * @param context - 閉じるPDF用Playwright BrowserContext。
+ * @returns HTMLエンティティとURLエンコードを戻した画像参照。入力がなければundefined。
  */
 async function closePdfContext(context: BrowserContext): Promise<void> {
     const close = context.close().catch(
@@ -468,7 +468,7 @@ export async function closePdfBrowser(): Promise<void> {
 
 /**
  * PDFのacquire・pdf・browserを処理し、呼び出し側へ結果または副作用を返す。
- * @param language - PDFの対象や分岐を識別する値。
+ * @param language - ブラウザー起動失敗時のメッセージに使う表示言語。
  * @returns PDFの非同期処理で得られる結果。
  */
 export async function acquirePdfBrowser(language: SupportedLanguage): Promise<Browser> {
@@ -476,9 +476,9 @@ export async function acquirePdfBrowser(language: SupportedLanguage): Promise<Br
     if (!sharedBrowserPromise) {
         sharedBrowserPromise = launchPdfBrowser(language).then(
             /**
-             * browserをonへ渡し、PDFの結果または副作用を処理する。
-             * @param browser - PDFで走査または更新する要素。
-             * @returns PDFで利用する文字列。
+             * PDF用ブラウザーを共有状態へ登録し、切断時の状態更新を設定する。
+             * @param browser - 起動済みのPlaywright Browser。
+             * @returns 登録したBrowser。
              */
             (browser) => {
                 sharedBrowser = browser;
@@ -505,7 +505,7 @@ export async function acquirePdfBrowser(language: SupportedLanguage): Promise<Br
 
 /**
  * PDFで使う値または実行環境を組み立てる。
- * @param request - PDFへ渡す入力。
+ * @param request - PDF化するHTML・CSS、PDF設定、元Markdown URI、言語、出力用途、キャンセルSignalをまとめた要求。
  * @returns PDFで利用する文字列。
  */
 export async function buildStandaloneHtml(request: PdfExportRequest): Promise<string> {
@@ -519,8 +519,8 @@ export async function buildStandaloneHtml(request: PdfExportRequest): Promise<st
 
 /**
  * PDFの外部参照を出力へ埋め込む。
- * @param html - 表示または出力するHTML本文。
- * @param documentUri - PDFで読み書きするリソースの場所。
+ * @param html - 画像参照を書き換えるPDF本文のHTML。
+ * @param documentUri - 画像の相対参照を解決する基準Markdown文書URI。
  * @returns PDFで利用する文字列。
  */
 async function embedLocalImages(html: string, documentUri: vscode.Uri): Promise<string> {
@@ -558,8 +558,8 @@ async function embedLocalImages(html: string, documentUri: vscode.Uri): Promise<
 
 /**
  * PDFから必要な値またはリソースを取得する。
- * @param tag - PDFで受け渡す文字列。
- * @param name - PDFの対象や分岐を識別する値。
+ * @param tag - 画像属性を読み取るHTML要素タグ全体。
+ * @param name - 読み取るHTML属性名。
  * @returns 副作用を完了し、値は返さない。
  */
 function readHtmlAttribute(tag: string, name: string): string | undefined {
@@ -569,13 +569,13 @@ function readHtmlAttribute(tag: string, name: string): string | undefined {
 
 /**
  * PDFから必要な値またはリソースを取得する。
- * @param tag - PDFで受け渡す文字列。
- * @param name - PDFの対象や分岐を識別する値。
+ * @param tag - 画像属性の位置を探すHTML要素タグ全体。
+ * @param name - 読み取るHTML属性名。
  * @returns PDFのfind・html・attributeが生成する結果。
  */
 function findHtmlAttribute(tag: string, name: string): {
     /**
-     * 検証・変換・保存の対象となる値。
+     * HTMLタグから抽出した属性値。
      */
     value: string;
     /**
@@ -602,8 +602,8 @@ function findHtmlAttribute(tag: string, name: string): {
 
 /**
  * PDFの入力を構造化した値へ変換する。
- * @param value - 検証・変換・保存の対象となる値。
- * @returns 副作用を完了し、値は返さない。
+ * @param value - 画像のsrcから読み取ったHTMLエンティティまたはURLエンコード済み参照。
+ * @returns HTMLエンティティとURLエンコードを戻した画像参照。入力がなければundefined。
  */
 function decodeImageSource(value: string | undefined): string | undefined {
     // HTMLエンティティとURLエンコードを順に戻し、画像参照元を復元する。
@@ -617,9 +617,9 @@ function decodeImageSource(value: string | undefined): string | undefined {
 }
 
 /**
- * PDFから必要な値またはリソースを取得する。
- * @param documentUri - PDFで読み書きするリソースの場所。
- * @param source - 解析・描画・変換の起点となる本文。
+ * Markdown内のローカル画像参照を、文書位置に基づくVS Code URIへ解決する。
+ * @param documentUri - 相対画像参照の基準となるMarkdown文書のURI。
+ * @param source - Markdownから取り出したローカル画像URIまたはファイルパス。
  * @returns 条件に一致する値。未検出時はundefinedまたはnull。
  */
 function resolveLocalImageUri(documentUri: vscode.Uri, source: string): vscode.Uri | undefined {
@@ -645,7 +645,7 @@ function resolveLocalImageUri(documentUri: vscode.Uri, source: string): vscode.U
 
 /**
  * PDFのlaunch・pdf・browserを処理し、呼び出し側へ結果または副作用を返す。
- * @param language - PDFの対象や分岐を識別する値。
+ * @param language - ブラウザー起動失敗時のメッセージに使う表示言語。
  * @returns PDFの非同期処理で得られる結果。
  * @throws 利用可能なブラウザを起動できない場合。
  */
@@ -669,7 +669,7 @@ async function launchPdfBrowser(language: SupportedLanguage): Promise<Browser> {
 
 /**
  * PDFから不要または危険な情報を除去する。
- * @param value - 検証・変換・保存の対象となる値。
+ * @param value - PDF出力前に危険な要素や属性を除去するHTML本文。
  * @returns PDFで利用する文字列。
  */
 function stripUnsafeMarkup(value: string): string {
@@ -682,8 +682,8 @@ function stripUnsafeMarkup(value: string): string {
 
 /**
  * PDFのtemplateを処理し、呼び出し側へ結果または副作用を返す。
- * @param value - 検証・変換・保存の対象となる値。
- * @param footer - PDFへ渡す入力。
+ * @param value - ページ番号プレースホルダーを含むヘッダーまたはフッター文字列。
+ * @param footer - trueならフッター用に中央揃えし、falseならヘッダー用に左揃えする。
  * @returns PDFで利用する文字列。
  */
 function template(value: string, footer = false): string {
@@ -697,7 +697,7 @@ function template(value: string, footer = false): string {
 
 /**
  * PDFの入力を許可された形式へ整える。
- * @param value - 検証・変換・保存の対象となる値。
+ * @param value - HTMLテキストへ挿入する前にエスケープする文字列。
  * @returns PDFで利用する文字列。
  */
 function escapeHtml(value: string): string {
@@ -705,7 +705,7 @@ function escapeHtml(value: string): string {
     return value.replace(/[&<>"']/g,
         /**
          * PDFのコールバックとしてcharacterを処理する。
-         * @param character - PDFへ渡す入力。
+         * @param character - HTMLの特殊文字から選ばれ、文字参照へ置換する1文字。
          * @returns PDFで利用する文字列。
          */
         (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]!);
@@ -713,7 +713,7 @@ function escapeHtml(value: string): string {
 
 /**
  * PDFの入力を構造化した値へ変換する。
- * @param value - 検証・変換・保存の対象となる値。
+ * @param value - 画像属性から読み取ったHTMLエンティティを含む文字列。
  * @returns PDFで利用する文字列。
  */
 function decodeHtml(value: string): string {
@@ -723,7 +723,7 @@ function decodeHtml(value: string): string {
 
 /**
  * PDFのmime・from・pathを処理し、呼び出し側へ結果または副作用を返す。
- * @param filePath - 読み書きするファイルのパス。
+ * @param filePath - 拡張子から画像MIMEタイプを判定するファイルパス。
  * @returns PDFで利用する文字列。
  */
 function mimeFromPath(filePath: string): string {
@@ -753,7 +753,7 @@ const PRINT_CSS = `
 
 /**
  * PDFを出力または保存できる文字列へ整える。
- * @param options - 呼び出し側が指定する処理設定。
+ * @param options - PDF本文のフォント、文字サイズ、行高、段落間隔を指定する正規化済み設定。
  * @returns PDFで利用する文字列。
  */
 function printOptionsCss(options: NormalizedPdfOptions): string {
@@ -775,7 +775,7 @@ function printOptionsCss(options: NormalizedPdfOptions): string {
 
 /**
  * PDFの入力を許可された形式へ整える。
- * @param value - 検証・変換・保存の対象となる値。
+ * @param value - CSS出力前に検査するフォントファミリー文字列。
  * @returns PDFで利用する文字列。
  */
 function sanitizeCssFontFamily(value: string): string {
@@ -784,7 +784,7 @@ function sanitizeCssFontFamily(value: string): string {
 
 /**
  * PDFのpdf・paper・optionsを処理し、呼び出し側へ結果または副作用を返す。
- * @param format - 本文または出力を解釈する形式。
+ * @param format - PDFへ指定する用紙サイズ。
  * @param orientation - PDFの用紙方向。
  * @returns PDFのpdf・paper・optionsが生成する結果。
  */

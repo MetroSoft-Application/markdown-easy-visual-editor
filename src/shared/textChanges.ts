@@ -8,8 +8,8 @@ export type { TextChange } from './protocol';
 
 /**
  * textchangesの寸法、容量、位置、または計測値を求める。
- * @param before - textchangesで受け渡す文字列。
- * @param after - textchangesで受け渡す文字列。
+ * @param before - 差分計算前の本文文字列。
+ * @param after - 差分計算後の本文文字列。
  * @returns textchangesに対応する要素の一覧。
  */
 export function computeTextChanges(before: string, after: string): TextChange[] {
@@ -69,9 +69,9 @@ type ComposedSegment =
 
 /**
  * textchangesのcompose・text・changesを処理し、呼び出し側へ結果または副作用を返す。
- * @param first - textchangesへ渡す要素の一覧。
- * @param second - textchangesへ渡す要素の一覧。
- * @param baseLength - textchangesの位置・寸法・件数・時間を表す数値。
+ * @param first - 合成変更へ変換する先行テキスト変更一覧。
+ * @param second - 先行変更の後に適用するテキスト変更一覧。
+ * @param baseLength - 変更範囲を制限する基準本文のUTF-16長。
  * @returns textchangesに対応する要素の一覧。
  */
 export function composeTextChanges(
@@ -173,8 +173,8 @@ export function composeTextChanges(
 
 /**
  * textchangesのsplit・composed・segments・atを処理し、呼び出し側へ結果または副作用を返す。
- * @param segments - textchangesへ渡す要素の一覧。
- * @param offset - textchangesの位置・寸法・件数・時間を表す数値。
+ * @param segments - UTF-16オフセットで分割する合成変更セグメント一覧。
+ * @param offset - 合成後の本文内で分割するUTF-16オフセット。
  * @returns textchangesで利用する数値。
  */
 function splitComposedSegmentsAt(segments: ComposedSegment[], offset: number): number {
@@ -204,7 +204,7 @@ function splitComposedSegmentsAt(segments: ComposedSegment[], offset: number): n
 
 /**
  * textchangesの入力を許可された形式へ整える。
- * @param segments - textchangesへ渡す要素の一覧。
+ * @param segments - 隣接区間を結合して正規化する合成変更セグメント一覧。
  * @returns 副作用を完了し、値は返さない。
  */
 function normalizeComposedSegments(segments: ComposedSegment[]): void {
@@ -228,7 +228,7 @@ function normalizeComposedSegments(segments: ComposedSegment[]): void {
 
 /**
  * 本文変更を元の座標と順序に従って適用し、競合する範囲を拒否する。
- * @param value - 検証・変換・保存の対象となる値。
+ * @param value - 変更範囲を適用する基準本文。
  * @param changes - 本文へ適用する変更範囲の一覧。
  * @returns textchangesで利用する文字列。
  * @throws {RangeError} 変更範囲が本文に対して不正な場合。
@@ -254,10 +254,10 @@ export function applyTextChanges(value: string, changes: readonly TextChange[]):
 
 /**
  * textchangesのmap・text・changesを処理し、呼び出し側へ結果または副作用を返す。
- * @param changes - 本文へ適用する変更範囲の一覧。
- * @param over - textchangesへ渡す要素の一覧。
- * @param baseLength - textchangesの位置・寸法・件数・時間を表す数値。
- * @param before - textchangesへ渡す入力。
+ * @param changes - 他方の変更後へ位置を写像する変更範囲。
+ * @param over - 同じ基準本文に対して計算した、位置写像に使う他方の変更範囲。
+ * @param baseLength - 両方の変更範囲を計算した基準本文のUTF-16文字数。
+ * @param before - 同じ位置にある他方の挿入より前へ配置する場合はtrue。
  * @returns textchangesに対応する要素の一覧。
  * @throws {Error} 変更範囲が重なって安全に写像できない場合。
  * @throws {RangeError} 変更範囲が基準本文に対して不正な場合。
@@ -355,10 +355,10 @@ export function mapTextChanges(
 
 /**
  * textchangesのmap・text・offsetを処理し、呼び出し側へ結果または副作用を返す。
- * @param offset - textchangesの位置・寸法・件数・時間を表す数値。
- * @param changes - 本文へ適用する変更範囲の一覧。
- * @param baseLength - textchangesの位置・寸法・件数・時間を表す数値。
- * @param association - textchangesへ渡す入力。
+ * @param offset - 変更前本文内で対応位置を求めるUTF-16オフセット。
+ * @param changes - オフセットを変更後本文へ移す変更範囲。
+ * @param baseLength - 変更範囲を計算した元本文のUTF-16文字数。
+ * @param association - 変更境界上の位置を前側へ寄せる場合は-1、後側へ寄せる場合は1。
  * @returns textchangesで利用する数値。
  * @throws {RangeError} オフセットまたは変更範囲が不正な場合。
  */
@@ -401,7 +401,7 @@ export function mapTextOffset(
 /**
  * textchangesの入力と不変条件を検証し、違反時に失敗を通知する。
  * @param changes - 本文へ適用する変更範囲の一覧。
- * @param baseLength - textchangesの位置・寸法・件数・時間を表す数値。
+ * @param baseLength - 変更範囲を制限する基準本文のUTF-16長。
  * @returns 条件が成立したかを示す真偽値。
  * @throws {RangeError} 位置・長さ・本文境界・重複のいずれかが不正な場合。
  */

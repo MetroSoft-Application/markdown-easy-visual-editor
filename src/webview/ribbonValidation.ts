@@ -28,10 +28,10 @@ export interface RibbonValidationHeaderImplementation {
 
 /**
  * リボンの入力と不変条件を検証し、違反時に失敗を通知する。
- * @param layout - リボンの位置・寸法・件数・時間を表す数値。
- * @param definitions - リボンへ渡す入力。
- * @param implementations - リボンで受け渡す文字列。
- * @param headerImplementations - リボンで受け渡す文字列。
+ * @param layout 検証するタブ、グループ、項目、ヘッダーの配置定義。
+ * @param definitions - IDをキーにしたリボン項目定義の一覧。
+ * @param implementations IDをキーにした通常リボン項目の実装定義。
+ * @param headerImplementations IDをキーにしたヘッダー項目の実装定義。
  * @returns 条件が成立したかを示す真偽値。
  */
 export function validateRibbonConfiguration(
@@ -141,7 +141,7 @@ export function validateRibbonConfiguration(
 
         /**
          * リボンのコールバックとしてdefinitionを処理する。
-         * @param definition - リボンへ渡す入力。
+         * @param definition - 配置対象タブに属するリボン項目定義。
          * @returns 副作用を完了し、値は返さない。
          */
         (definition) => (definition.container ? [definition.container] : []),
@@ -156,7 +156,7 @@ export function validateRibbonConfiguration(
 
         /**
          * リボンのコールバックとしてdefinitionを処理する。
-         * @param definition - リボンへ渡す入力。
+         * @param definition - 配置対象ヘッダーグループに属する項目定義。
          * @returns 副作用を完了し、値は返さない。
          */
         (definition) => (definition.group ? [definition.group] : []),
@@ -169,9 +169,9 @@ export function validateRibbonConfiguration(
 }
 
 /**
- * リボンの入力と不変条件を検証し、違反時に失敗を通知する。
- * @param layout - リボンの位置・寸法・件数・時間を表す数値。
- * @param definitions - リボンへ渡す入力。
+ * 各項目コンテナがタブ内で連続して配置されているか検証する。
+ * @param layout 項目コンテナの連続配置を検証するリボン配置定義。
+ * @param definitions - IDからリボン項目定義を引く辞書。
  * @returns 条件が成立したかを示す真偽値。
  */
 function validateContiguousItemContainers(
@@ -222,9 +222,9 @@ function validateContiguousItemContainers(
 }
 
 /**
- * リボンの入力と不変条件を検証し、違反時に失敗を通知する。
- * @param layout - リボンの位置・寸法・件数・時間を表す数値。
- * @param definitions - リボンへ渡す入力。
+ * ヘッダーグループがヘッダー内で連続して配置されているか検証する。
+ * @param layout ヘッダーグループの連続配置を検証するリボン配置定義。
+ * @param definitions - IDからヘッダー項目定義を引く辞書。
  * @returns 条件が成立したかを示す真偽値。
  */
 function validateContiguousHeaderGroups(
@@ -245,8 +245,8 @@ function validateContiguousHeaderGroups(
 
 /**
  * リボンの入力と不変条件を検証し、違反時に失敗を通知する。
- * @param ids - リボンの対象や分岐を識別する値。
- * @param name - リボンの対象や分岐を識別する値。
+ * @param ids - 重複がないことを検証するタブ・グループ・項目ID一覧。
+ * @param name - 重複IDを示すエラーに含める配置種別名。
  * @returns 条件が成立したかを示す真偽値。
  */
 function assertUnique(ids: readonly string[], name: string): void {
@@ -257,9 +257,9 @@ function assertUnique(ids: readonly string[], name: string): void {
 
 /**
  * リボンの入力と不変条件を検証し、違反時に失敗を通知する。
- * @param actual - リボンで受け渡す文字列。
- * @param expected - リボンの位置・寸法・件数・時間を表す数値。
- * @param name - リボンの対象や分岐を識別する値。
+ * @param actual 実際に並んでいるIDの一覧。
+ * @param expected 実際のID列と順序を照合する期待ID一覧。
+ * @param name - 順序不一致を示すエラーに含める配置種別名。
  * @returns 条件が成立したかを示す真偽値。
  */
 function assertSameIds(

@@ -36,7 +36,7 @@ export function installSelectedTextSearchTransfer(): void {
 
     const handleKeyDown = /**
      * searchselectedtextのイベントまたはメッセージを受け取り、状態を更新する。
-     * @param event - ユーザー操作またはDOMから通知されたイベント。
+     * @param event - Ctrl/Cmd+Fで選択文字列を検索欄へ送るkeydown event。
      * @returns 副作用を完了し、値は返さない。
      */ (event: KeyboardEvent): void => {
             if (event.altKey || (!event.ctrlKey && !event.metaKey) || event.key.toLowerCase() !== 'f') return;
@@ -46,7 +46,7 @@ export function installSelectedTextSearchTransfer(): void {
 
     const handleClick = /**
      * searchselectedtextのイベントまたはメッセージを受け取り、状態を更新する。
-     * @param event - ユーザー操作またはDOMから通知されたイベント。
+     * @param event - 選択文字列を検索欄へ移すsource button click event。
      * @returns 副作用を完了し、値は返さない。
      */ (event: MouseEvent): void => {
             const target = event.target instanceof Element
@@ -61,8 +61,8 @@ export function installSelectedTextSearchTransfer(): void {
 }
 
 /**
- * UIイベントを受け取り、必要な処理を実行する。
- * @param panel - ユーザー操作またはDOMから通知されたイベント。
+ * 選択中の文字列を指定した検索欄へ転送する。
+ * @param panel 検索文字列を書き込む入力要素。
  * @returns 副作用を完了し、値は返さない。
  */
 function transferSelectionToSearch(panel: HTMLElement): void {
@@ -106,7 +106,7 @@ function transferSelectionToSearch(panel: HTMLElement): void {
 
 /**
  * searchselectedtextの表示または操作を開始する。
- * @param panel - searchselectedtextへ渡す入力。
+ * @param panel - 検索欄を含む検索パネル要素。
  * @returns 副作用を完了し、値は返さない。
  */
 function focusSearchInput(panel: HTMLElement): void {

@@ -19,7 +19,7 @@ import { renderMarkdownUnsafe } from '../src/webview/markdownRendererCore';
 
 /**
  * 文字色・テストの回帰のspan・countを処理し、呼び出し側へ結果または副作用を返す。
- * @param value - 検証・変換・保存の対象となる値。
+ * @param value - span要素数を数えるHTML文字列。
  * @returns 文字色・テストの回帰で利用する数値。
  */
 function spanCount(value: string): number {
@@ -464,8 +464,8 @@ describe('text color formatting',
 
                     /**
                      * 文字色・テストの回帰の前提条件を準備し、回帰条件を検証するテストケース。
-                     * @param _ - テスト本体を実行するコールバック。
-                     * @param index - テスト本体を実行するコールバック。
+                      * @param _ - Array.fromの各反復で渡される未使用の値。
+                      * @param index - 生成するMarkdownリンク番号（0始まり）。
                      * @returns テストケースを実行し、値は返さない。
                      */
                     (_, index) => '[label ' + index + '](https://example.com/' + index + ')',

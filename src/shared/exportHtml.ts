@@ -13,10 +13,10 @@ export function prepareExportHtml(html: string): string {
 
         /**
          * ・matchをdecode・uricomponentへ渡し、exporthtmlの結果または副作用を処理する。
-         * @param _match - exporthtmlへ渡す入力。
-         * @param before - exporthtmlで受け渡す文字列。
-         * @param encoded - exporthtmlで受け渡す文字列。
-         * @param after - exporthtmlで受け渡す文字列。
+         * @param _match - 対象divタグ全体の一致文字列。callbackでは未使用。
+         * @param before - data-mve-export-svg属性より前のdiv属性文字列。
+         * @param encoded - data-mve-export-svg属性のURIエンコード済みSVG値。
+         * @param after - 同属性より後ろのdiv属性文字列。
          * @returns exporthtmlのコールバックが生成する結果。
          */
         (_match, before: string, encoded: string, after: string) => {

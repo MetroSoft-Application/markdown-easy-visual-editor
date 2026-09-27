@@ -31,7 +31,7 @@ interface RenderRequest {
 self.addEventListener("message",
     /**
      * UIイベントをHostまたはWebviewへ通知する。
-     * @param event - ユーザー操作またはDOMから通知されたイベント。
+     * @param event - Markdown本文の描画要求を受信するworker message event。
      * @returns 副作用を完了し、値は返さない。
      */
     (event: MessageEvent<RenderRequest>) => {

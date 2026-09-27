@@ -74,7 +74,7 @@ export function installPreviewImageContextMenu(): () => void {
 
     const onContextMenu = /**
    * プレビュー画像メニューのイベントまたはメッセージを受け取り、状態を更新する。
-   * @param event - ユーザー操作またはDOMから通知されたイベント。
+   * @param event - 描画画像のcontext menuを開くmouse event。
    * @returns プレビュー画像メニューのon・context・menuが生成する結果。
    */ (event: MouseEvent) => {
             if (!(event.target instanceof Element)) return;
@@ -95,7 +95,7 @@ export function installPreviewImageContextMenu(): () => void {
 
     const onPointerDown = /**
    * プレビュー画像メニューのイベントまたはメッセージを受け取り、状態を更新する。
-   * @param event - ユーザー操作またはDOMから通知されたイベント。
+   * @param event - 画像メニュー外の押下でメニューを閉じるpointer event。
    * @returns プレビュー画像メニューのon・pointer・downが生成する結果。
    */ (event: PointerEvent) => {
             if (
@@ -111,7 +111,7 @@ export function installPreviewImageContextMenu(): () => void {
 
     const onKeyDown = /**
    * keydownイベントでifを実行する。
-   * @param event - ユーザー操作またはDOMから通知されたイベント。
+   * @param event - 表示中の画像メニューをEscapeで閉じるkeydown event。
    * @returns 副作用を完了し、値は返さない。
    */ (event: KeyboardEvent) => {
             if (event.key !== "Escape" || !menu) return;
@@ -159,9 +159,9 @@ export function installPreviewImageContextMenu(): () => void {
 
     /**
      * プレビュー画像メニューの表示または操作を開始する。
-     * @param image - プレビュー画像メニューへ渡す入力。
-     * @param clientX - プレビュー画像メニューの位置・寸法・件数・時間を表す数値。
-     * @param clientY - プレビュー画像メニューの位置・寸法・件数・時間を表す数値。
+     * @param image - コンテキストメニューの対象となるプレビュー画像。
+     * @param clientX - クリック位置のviewport相対X座標（CSS px）。
+     * @param clientY - クリック位置のviewport相対Y座標（CSS px）。
      * @returns 副作用を完了し、値は返さない。
      */
     function openMenu(
@@ -192,7 +192,7 @@ export function installPreviewImageContextMenu(): () => void {
             .then(
                 /**
                  * 値をifへ渡し、プレビュー画像メニューの結果または副作用を処理する。
-                 * @param value - 検証・変換・保存の対象となる値。
+                 * @param value - クリップボード書き込み用に準備した画像データ一式。
                  * @returns プレビュー画像メニューのコールバックが生成する結果。
                  */
                 (value) => {
@@ -232,7 +232,7 @@ export function installPreviewImageContextMenu(): () => void {
                     .then(
                         /**
                          * copiedをshow・toastへ渡し、プレビュー画像メニューの結果または副作用を処理する。
-                         * @param copied - プレビュー画像メニューへ渡す入力。
+                         * @param copied - 画像をクリップボードへ書き込めた場合true。
                          * @returns 副作用を完了し、値は返さない。
                          */
                         (copied) => {
@@ -257,7 +257,7 @@ export function installPreviewImageContextMenu(): () => void {
     /**
      * プレビュー画像メニューの表示または操作を開始する。
      * @param message - HostとWebviewの間で受け渡すメッセージ。
-     * @param error - 処理に失敗した理由または例外。
+     * @param error - 失敗toastとして表示する場合はtrue。
      * @returns 副作用を完了し、値は返さない。
      */
     function showToast(message: string, error: boolean): void {
@@ -291,10 +291,10 @@ export function installPreviewImageContextMenu(): () => void {
 
 /**
  * プレビュー画像メニューのposition・menuを処理し、呼び出し側へ結果または副作用を返す。
- * @param menu - プレビュー画像メニューへ渡す入力。
- * @param image - プレビュー画像メニューへ渡す入力。
- * @param clientX - プレビュー画像メニューの位置・寸法・件数・時間を表す数値。
- * @param clientY - プレビュー画像メニューの位置・寸法・件数・時間を表す数値。
+ * @param menu - 位置を設定するコンテキストメニュー要素。
+ * @param image - メニュー位置の基準となるプレビュー画像。
+ * @param clientX - クリック位置のviewport相対X座標（CSS px）。
+ * @param clientY - クリック位置のviewport相対Y座標（CSS px）。
  * @returns 副作用を完了し、値は返さない。
  */
 function positionMenu(
@@ -322,7 +322,7 @@ function positionMenu(
 
 /**
  * プレビュー画像メニューで使う値または実行環境を組み立てる。
- * @param image - プレビュー画像メニューへ渡す入力。
+ * @param image - コピー用データを作るプレビュー画像。
  * @returns プレビュー画像メニューの非同期処理で得られる結果。
  */
 async function prepareClipboardImage(
@@ -361,7 +361,7 @@ async function prepareClipboardImage(
 
 /**
  * プレビュー画像メニューの入力または状態を走査・複製する。
- * @param prepared - プレビュー画像メニューへ渡す入力。
+ * @param prepared - Blob・HTML・Markdownを含むコピー用画像データ。
  * @returns 条件が成立したかを示す真偽値。
  */
 async function copyPreparedImage(
@@ -426,9 +426,9 @@ async function copyPreparedImage(
 
 /**
  * プレビュー画像メニューの値を保存先または共有状態へ書き出す。
- * @param clipboard - プレビュー画像メニューへ渡す入力。
- * @param item - プレビュー画像メニューで走査または更新する要素。
- * @param retries - プレビュー画像メニューへ渡す入力。
+ * @param clipboard - コピー項目を書き込むClipboard API。
+ * @param item - Clipboard APIで画像ファイルとして書き込むDataTransferItem。
+ * @param retries - フォーカス回復を待つ残り試行回数。
  * @returns 副作用を完了し、値は返さない。
  */
 async function writeClipboardWithFocusRetry(
@@ -451,7 +451,7 @@ async function writeClipboardWithFocusRetry(
 
 /**
  * プレビュー画像メニューの入力または状態を走査・複製する。
- * @param prepared - プレビュー画像メニューへ渡す入力。
+ * @param prepared - 一時DOMへ埋め込んでコピーする準備済み画像データ。
  * @returns 条件が成立したかを示す真偽値。
  */
 function copyEmbeddedImageBySelection(
@@ -502,7 +502,7 @@ function copyEmbeddedImageBySelection(
 
 /**
  * プレビュー画像メニューのclipboard・supports・typeを処理し、呼び出し側へ結果または副作用を返す。
- * @param type - 操作領域の種類を示す識別子。
+ * @param type - 生成するData URLに設定する画像MIMEタイプ。
  * @returns 条件が成立したかを示す真偽値。
  */
 export function clipboardSupportsType(type: string): boolean {
@@ -530,8 +530,8 @@ export function clipboardSupportsType(type: string): boolean {
 
 /**
  * プレビュー画像メニューから必要な値またはリソースを取得する。
- * @param type - 操作領域の種類を示す識別子。
- * @param source - 解析・描画・変換の起点となる本文。
+ * @param type - 推定の補助に使う画像MIME type。
+ * @param source - MIMEタイプを推定する画像参照URLまたはファイルパス。
  * @returns プレビュー画像メニューで利用する文字列。
  */
 function resolveImageMimeType(type: string, source: string): string {
@@ -542,7 +542,7 @@ function resolveImageMimeType(type: string, source: string): string {
 
 /**
  * プレビュー画像メニューの入力を許可された形式へ整える。
- * @param type - 操作領域の種類を示す識別子。
+ * @param type - 正規化する画像MIME type。
  * @returns プレビュー画像メニューで利用する文字列。
  */
 function normalizeMimeType(type: string): string {
@@ -557,7 +557,7 @@ function normalizeMimeType(type: string): string {
 
 /**
  * プレビュー画像メニューの入力を検証し、表示または保存に使う形式へ変換する。
- * @param source - 解析・描画・変換の起点となる本文。
+ * @param source - 拡張子からMIMEタイプを推定する画像参照。
  * @returns プレビュー画像メニューで利用する文字列。
  */
 function imageMimeTypeFromSource(source: string): string {
@@ -574,7 +574,7 @@ function imageMimeTypeFromSource(source: string): string {
 
 /**
  * プレビュー画像メニューから必要な値またはリソースを取得する。
- * @param source - 解析・描画・変換の起点となる本文。
+ * @param source - fetchでBlobを取得する画像URL。
  * @returns プレビュー画像メニューの非同期処理で得られる結果。
  */
 async function fetchImageBlob(source: string): Promise<Blob> {
@@ -592,7 +592,7 @@ async function fetchImageBlob(source: string): Promise<Blob> {
 
 /**
  * プレビュー画像メニューの入力を検証し、表示または保存に使う形式へ変換する。
- * @param source - 解析・描画・変換の起点となる本文。
+ * @param source - Blobへ変換する画像Data URL。
  * @returns プレビュー画像メニューのdata・url・to・blobが生成する結果。
  */
 function dataUrlToBlob(source: string): Blob {
@@ -614,8 +614,8 @@ function dataUrlToBlob(source: string): Blob {
 
 /**
  * Blobを画像Data URLへ変換する。
- * @param blob - プレビュー画像メニューへ渡す入力。
- * @param type - 操作領域の種類を示す識別子。
+ * @param blob - Base64 Data URLへ変換する画像Blob。
+ * @param type - 出力Data URLへ設定する画像MIME type。
  * @returns 画像を表すData URL文字列。
  */
 async function blobToDataUrl(blob: Blob, type: string): Promise<string> {
@@ -629,7 +629,7 @@ async function blobToDataUrl(blob: Blob, type: string): Promise<string> {
 
 /**
  * プレビュー画像メニューの入力を許可された形式へ整える。
- * @param value - 検証・変換・保存の対象となる値。
+ * @param value - HTML属性へ出力する画像参照文字列。
  * @returns プレビュー画像メニューで利用する文字列。
  */
 function escapeHtmlAttribute(value: string): string {
@@ -642,7 +642,7 @@ function escapeHtmlAttribute(value: string): string {
 
 /**
  * プレビュー画像メニューの入力を許可された形式へ整える。
- * @param value - 検証・変換・保存の対象となる値。
+ * @param value - Markdown画像のaltへ出力する文字列。
  * @returns プレビュー画像メニューで利用する文字列。
  */
 function escapeMarkdownAlt(value: string): string {

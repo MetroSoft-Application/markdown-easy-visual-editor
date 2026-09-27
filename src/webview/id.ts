@@ -16,7 +16,7 @@ export function createClientId(): string {
     return `${Date.now().toString(36)}-${Array.from(bytes,
         /**
          * 値をfunction toString() { [native code] }へ渡し、idの結果または副作用を処理する。
-         * @param value - 検証・変換・保存の対象となる値。
+         * @param value - 16バイトID配列から取り出した0〜255の値。
          * @returns idのコールバックが生成する結果。
          */
         (value) => value.toString(16).padStart(2, '0')).join('')}`;

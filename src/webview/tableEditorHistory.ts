@@ -20,12 +20,12 @@ export interface TableEditorHistorySnapshot {
     alignments: TableEditorAlignment[];
 
     /**
-     * 表編集履歴の状態を示すフラグ。
+     * 履歴snapshotで選択中の行の0始まりインデックス。
      */
     activeRow: number;
 
     /**
-     * 表編集履歴の状態を示すフラグ。
+     * 履歴snapshotで選択中の列の0始まりインデックス。
      */
     activeColumn: number;
 
@@ -35,12 +35,12 @@ export interface TableEditorHistorySnapshot {
     sortState: TableEditorSortState | null;
 
     /**
-     * 表編集履歴のrow・heightsを表す数値。
+     * 各表行に対応する行高の一覧。未計測の行はundefined。
      */
     rowHeights: Array<number | undefined>;
 
     /**
-     * 表編集履歴のcolumn・widthsを表す数値。
+     * 各表列に対応する列幅の一覧。
      */
     columnWidths: number[];
 
@@ -81,7 +81,7 @@ export function createTableEditorHistory(): TableEditorHistoryState {
 
 /**
  * 表編集履歴の入力または状態を走査・複製する。
- * @param snapshot - 表編集履歴へ渡す入力。
+ * @param snapshot - 複製する表編集状態スナップショット。
  * @returns 表編集履歴のclone・table・editor・history・snapshotが生成する結果。
  */
 export function cloneTableEditorHistorySnapshot(
@@ -109,7 +109,7 @@ export function cloneTableEditorHistorySnapshot(
 /**
  * 表編集履歴のrecord・table・editor・historyを処理し、呼び出し側へ結果または副作用を返す。
  * @param state - 現在の編集・表示状態。
- * @param current - 表編集履歴へ渡す入力。
+ * @param current - 新しい操作前の現在状態。undoへ追加してredoを消去する。
  * @param limit - 表編集履歴へ渡す設定または境界値。
  * @returns 副作用を完了し、値は返さない。
  */
@@ -127,7 +127,7 @@ export function recordTableEditorHistory(
 /**
  * 表編集履歴のundo・table・editor・historyを処理し、呼び出し側へ結果または副作用を返す。
  * @param state - 現在の編集・表示状態。
- * @param current - 表編集履歴へ渡す入力。
+ * @param current - undo適用前の現在状態。redo履歴へ退避する。
  * @returns 副作用を完了し、値は返さない。
  */
 export function undoTableEditorHistory(
@@ -143,7 +143,7 @@ export function undoTableEditorHistory(
 /**
  * 表編集履歴のredo・table・editor・historyを処理し、呼び出し側へ結果または副作用を返す。
  * @param state - 現在の編集・表示状態。
- * @param current - 表編集履歴へ渡す入力。
+ * @param current - redo適用前の現在状態。undo履歴へ退避する。
  * @returns 副作用を完了し、値は返さない。
  */
 export function redoTableEditorHistory(

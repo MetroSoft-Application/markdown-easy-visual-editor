@@ -34,9 +34,9 @@ function stripInstructions(markdown) {
 /**
  * 目次・reorder・スモーク検証の要素を規則に従って並べ替える。
  * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
- * @param sourceHeading - 目次・reorder・スモーク検証で扱う文字列または本文。
- * @param targetHeading - 目次・reorder・スモーク検証へ渡す入力。
- * @param position - 目次・reorder・スモーク検証の位置・寸法・件数・時間を表す数値。
+ * @param sourceHeading - 移動するアウトライン見出しの表示文字列。
+ * @param targetHeading - 移動先となる見出しの表示文字列。
+ * @param position - 移動先見出しの前後を指定する値（before/after）。
  * @returns 目次・reorder・スモーク検証のmove・heading・blockが生成する結果。
  */
 function moveHeadingBlock(markdown, sourceHeading, targetHeading, position) {
@@ -104,7 +104,7 @@ const initialLines = initialText.split('\n');
 const topLevelHeadings = initialLines.filter(
 /**
  * 条件を満たすlineだけを残す。
- * @param line - 目次・reorder・スモーク検証の位置・寸法・件数・時間を表す数値。
+ * @param line - 正規表現で見出しレベルを判定するMarkdown本文行。
  * @returns 条件を満たした要素だけを含む一覧。
  */
 (line) => /^#\s+/.test(line));
@@ -114,7 +114,7 @@ const topLevelHeadings = initialLines.filter(
 const childHeadings = initialLines.filter(
 /**
  * 条件を満たすlineだけを残す。
- * @param line - 目次・reorder・スモーク検証の位置・寸法・件数・時間を表す数値。
+ * @param line - 正規表現で見出しレベルを判定するMarkdown本文行。
  * @returns 条件を満たした要素だけを含む一覧。
  */
 (line) => /^##\s+/.test(line));
@@ -124,7 +124,7 @@ const childHeadings = initialLines.filter(
 const grandchildHeading = initialLines.find(
 /**
  * 条件に一致する最初のlineを取得する。
- * @param line - 目次・reorder・スモーク検証の位置・寸法・件数・時間を表す数値。
+ * @param line - 正規表現で見出しレベルを判定するMarkdown本文行。
  * @returns 条件に一致した最初の要素。未検出時はundefined。
  */
 (line) => /^###\s+/.test(line));
@@ -320,8 +320,7 @@ try {
   await page.evaluate(
   /**
    * ブラウザーのDOM状態のcreate・object・url結果を読み取り、検証用の値へ変換する。
-   * @param options - ブラウザー内で評価するコールバック。
-   * @returns ブラウザー内で読み取った値または変換結果。
+  * @returns ブラウザー内で読み取った値または変換結果。
    */
   ({ workerSource, richWorkerSource }) => {
     document.body.dataset.mveMarkdownWorkerUri = URL.createObjectURL(new Blob([workerSource], { type: 'text/javascript' }));
@@ -345,14 +344,14 @@ try {
   await page.evaluate(
   /**
    * Host側の本文状態を読み取り、検証用の値へ変換する。
-   * @param text - ブラウザー内で評価するコールバック。
+   * @param text - Host本文として設定するMarkdown文字列。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (text) => { window.__mveHostText = text; }, initialText);
   await page.evaluate(
   /**
    * Webviewの実行状態のdispatch・event結果を読み取り、検証用の値へ変換する。
-   * @param text - ブラウザー内で評価するコールバック。
+   * @param text - Webview初期化へ渡すMarkdown本文。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (text) => window.dispatchEvent(new MessageEvent('message', {
@@ -384,7 +383,7 @@ try {
     /**
      * elementsをfind・indexへ渡し、目次・reorder・スモーク検証の結果または副作用を処理する。
      * @param elements - 目次・reorder・スモーク検証で走査または更新する要素。
-     * @param expected - 目次・reorder・スモーク検証の位置・寸法・件数・時間を表す数値。
+     * @param expected - 検索する見出し文字列。
      * @returns 目次・reorder・スモーク検証のコールバックが生成する結果。
      */
     (elements, expected) => elements.findIndex(
@@ -436,14 +435,14 @@ try {
   
   const waitForHost = /**
    * 目次・reorder・スモーク検証が指定条件を満たすまで待機する。
-   * @param expected - 目次・reorder・スモーク検証の位置・寸法・件数・時間を表す数値。
+   * @param expected - Extension Hostへ反映される期待Markdown本文。
    * @returns 目次・reorder・スモーク検証のwait・for・hostが生成する結果。
    */ async (expected) => {
     try {
       await page.waitForFunction(
       /**
        * Host側の本文状態が完了条件を満たすまで待機する。
-       * @param text - ブラウザー内で評価するコールバック。
+       * @param text - Hostへ反映されることを期待するMarkdown本文。
        * @returns 目次・reorder・スモーク検証のコールバックが生成する結果。
        */
       (text) => window.__mveHostText === text, expected);
@@ -465,12 +464,12 @@ try {
   
   const waitForOutline = /**
    * 目次・reorder・スモーク検証が指定条件を満たすまで待機する。
-   * @param expected - 目次・reorder・スモーク検証の位置・寸法・件数・時間を表す数値。
+   * @param expected - 表示を待つ見出し文字列一覧。
    * @returns 目次・reorder・スモーク検証のwait・for・outlineが生成する結果。
    */ (expected) => page.waitForFunction(
   /**
    * ブラウザー内に「.outline-item」が現れるまで待機する。
-   * @param items - ブラウザー内で評価するコールバック。
+   * @param items - Webviewに表示される目次見出し文字列の期待一覧。
    * @returns 目次・reorder・スモーク検証のコールバックが生成する結果。
    */
   (items) => (
@@ -495,7 +494,7 @@ try {
    * 目次・reorder・スモーク検証の入力と不変条件を検証し、違反時に失敗を通知する。
    * @param sourceHeading - 目次・reorder・スモーク検証で扱う文字列または本文。
    * @param targetHeading - 目次・reorder・スモーク検証へ渡す入力。
-   * @param expected - 目次・reorder・スモーク検証の位置・寸法・件数・時間を表す数値。
+   * @param expected - 移動前後のHost本文と比較するMarkdown文字列。
    * @returns 条件が成立したかを示す真偽値。
    */ async (sourceHeading, targetHeading, expected) => {
     const before = await localChangeCount();

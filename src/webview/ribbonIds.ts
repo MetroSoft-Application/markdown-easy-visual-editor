@@ -100,6 +100,7 @@ export type RibbonItemId =
     | "editorTheme"
     | "openPrintSettings"
     | "printPreview"
+    | "savePdfWithoutDialog"
     | "exportPdf"
     | "embedImages"
     | "convertLinkedMarkdown"

@@ -80,30 +80,26 @@ const fontEntries = await readdir(path.join('dist', 'fonts'), { withFileTypes: t
  */
 const fontFiles = fontEntries.filter(
 /**
- * is・fileの条件を満たすエントリだけを残す。
- * @param entry - エントリのis・fileを参照する走査対象。
+ * dist/fonts内の通常ファイルだけを残す。
+ * @param entry - ファイルかどうかを判定するfontsディレクトリエントリ。
  * @returns 条件を満たした要素だけを含む一覧。
  */
 (entry) => entry.isFile());
-/**
- * 起動・regressionのfont・bytesを処理し、呼び出し側へ結果または副作用を返す。
- * @param entry - 起動・regressionで走査または更新する要素。
- * @returns 起動・regressionのfont・bytesが生成する結果。
- */
+/** dist/fonts内のフォントファイルの合計サイズをバイト数で保持する。 */
 const fontBytes = (await Promise.all(fontFiles.map(
 /**
- * 各エントリからnameを取り出して一覧化する。
- * @param entry - エントリのnameを参照する走査対象。
- * @returns nameを取り出した変換結果の一覧。
+ * フォントファイルのサイズを取得する。
+ * @param entry - サイズを測るfontsディレクトリエントリ。
+ * @returns フォントファイルのサイズ（バイト）。
  */
 async (entry) =>
   (await stat(path.join('dist', 'fonts', entry.name))).size
 ))).reduce(
 /**
- * 要素を順に加算して累積値を求める。
- * @param sum - 累積値へ加算する要素。
- * @param size - 累積値へ加算する要素。
- * @returns 要素を集約した累積値。
+ * フォントファイルのサイズを累積する。
+ * @param sum - ここまでに合計したフォントサイズ（バイト）。
+ * @param size - 次に加算するフォントファイルのサイズ（バイト）。
+ * @returns フォントファイルの累積サイズ（バイト）。
  */
 (sum, size) => sum + size, 0);
 /**
@@ -157,8 +153,8 @@ console.log([
 /**
  * 起動・regressionの入力と不変条件を検証し、違反時に失敗を通知する。
  * @param label - 画面または検証結果に表示する説明文。
- * @param actual - 起動・regressionへ渡す入力。
- * @param maximum - 起動・regressionの位置・寸法・件数・時間を表す数値。
+ * @param actual - 上限と比較する実測byte数。
+ * @param maximum - 許容する最大byte数。
  * @returns 条件が成立したかを示す真偽値。
  */
 function assertAtMost(label, actual, maximum) {
@@ -169,8 +165,8 @@ function assertAtMost(label, actual, maximum) {
 
 /**
  * 起動・regressionの入力と不変条件を検証し、違反時に失敗を通知する。
- * @param actual - 起動・regressionへ渡す入力。
- * @param expected - 起動・regressionの位置・寸法・件数・時間を表す数値。
+ * @param actual - 期待値と照合する実測結果一覧。
+ * @param expected - actualと同じ順序で照合する期待結果一覧。
  * @param label - 画面または検証結果に表示する説明文。
  * @returns 条件が成立したかを示す真偽値。
  */
@@ -183,7 +179,7 @@ function assertEqualList(actual, expected, label) {
 
 /**
  * バイト数を読みやすい単位へ変換し、計測ログへ表示する。
- * @param bytes - 起動・regressionの位置・寸法・件数・時間を表す数値。
+ * @param bytes - MiB単位の表示へ変換するbyte数。
  * @returns 起動・regressionのformat・bytesが生成する結果。
  */
 function formatBytes(bytes) {

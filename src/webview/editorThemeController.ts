@@ -22,7 +22,7 @@ export function installEditorThemeController(): () => void {
 
     const onMessage = /**
      * 編集テーマ制御のイベントまたはメッセージを受け取り、状態を更新する。
-     * @param event - ユーザー操作またはDOMから通知されたイベント。
+     * @param event - hostからeditor theme設定を受け取るmessage event。
      * @returns 副作用を完了し、値は返さない。
      */ (event: MessageEvent<HostToWebviewMessage>) => {
             const message = event.data;
@@ -33,7 +33,7 @@ export function installEditorThemeController(): () => void {
 
     const onChange = /**
      * change操作を表示または編集状態へ反映する。
-     * @param event - ユーザー操作またはDOMから通知されたイベント。
+     * @param event - theme選択欄のchange event。
      * @returns 副作用を完了し、値は返さない。
      */ (event: Event) => {
             const select = event.target instanceof HTMLSelectElement ? event.target : undefined;

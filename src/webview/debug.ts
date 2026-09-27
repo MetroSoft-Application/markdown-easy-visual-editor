@@ -43,12 +43,12 @@ interface MveDebugWindow extends Window {
     __mveDebugLog?: MveDebugEntry[];
     /**
      * debugの・mve・debug・dumpを処理し、呼び出し側へ結果または副作用を返す。
-     * @returns debugで利用する数値。
+     * デバッグ記録をJSON文字列で返す関数。
      */
     __mveDebugDump?: () => string;
     /**
      * debugの・mve・debug・clearを処理し、呼び出し側へ結果または副作用を返す。
-     * @returns debugで利用する数値。
+     * デバッグ記録を消去する関数。
      */
     __mveDebugClear?: () => void;
 }
@@ -80,9 +80,9 @@ export function isMveDebugEnabled(): boolean {
 }
 
 /**
- * debugのmve・debugを処理し、呼び出し側へ結果または副作用を返す。
- * @param event - ユーザー操作またはDOMから通知されたイベント。
- * @param details - debugで受け渡す文字列。
+ * デバッグが有効な場合に、イベント名と構造化情報を診断ログへ記録する。
+ * @param event ログ行を識別するイベント名。
+ * @param details ログへ添える構造化診断データ。
  * @returns 副作用を完了し、値は返さない。
  */
 export function mveDebug(event: string, details: Record<string, unknown> = {}): void {

@@ -3,7 +3,7 @@
  */
 /**
  * imagedirectoryの入力を許可された形式へ整える。
- * @param value - 検証・変換・保存の対象となる値。
+ * @param value - 画像保存先として正規化するユーザー指定のディレクトリ規則。
  * @returns 副作用を完了し、値は返さない。
  */
 export function normalizeImageDirectoryRule(value: string): string | undefined {
@@ -18,14 +18,14 @@ export function normalizeImageDirectoryRule(value: string): string | undefined {
     const segments = forwardSlash.split('/').filter(
         /**
          * 条件を満たすsegmentだけを残す。
-         * @param segment - imagedirectoryへ渡す入力。
+         * @param segment - 画像保存先規則を分割したパス要素（空文字と`.`を除外）。
          * @returns 条件を満たした要素だけを含む一覧。
          */
         (segment) => segment !== '' && segment !== '.');
     if (segments.some(
         /**
          * imagedirectoryのコールバックとしてsegmentを処理する。
-         * @param segment - imagedirectoryへ渡す入力。
+         * @param segment - 親ディレクトリへ遡る`..`パス要素かを検査する文字列。
          * @returns 副作用を完了し、値は返さない。
          */
         (segment) => segment === '..')) return undefined;
@@ -35,8 +35,8 @@ export function normalizeImageDirectoryRule(value: string): string | undefined {
 
 /**
  * imagedirectoryから必要な値またはリソースを取得する。
- * @param value - 検証・変換・保存の対象となる値。
- * @param documentBasename - imagedirectoryの対象や分岐を識別する値。
+ * @param value - 文書名置換を含む画像保存先ディレクトリ規則。
+ * @param documentBasename - 画像保存先規則の`${documentBasename}`へ挿入する文書名。
  * @returns 条件に一致する値。未検出時はundefinedまたはnull。
  */
 export function resolveImageDirectoryRule(value: string, documentBasename: string): string | undefined {

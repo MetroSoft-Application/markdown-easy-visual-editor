@@ -22,8 +22,8 @@ export function getPreviewImageResizeControlsVisible(): boolean {
 }
 
 /**
- * 画像リサイズ操作の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
- * @param next - 画像リサイズ操作の位置・寸法・件数・時間を表す数値。
+ * 画像プレビュー上にリサイズ操作を表示するか設定する。
+ * @param next リサイズ操作を表示する場合はtrue。
  * @returns 副作用を完了し、値は返さない。
  */
 export function setPreviewImageResizeControlsVisible(next: boolean): void {
@@ -32,9 +32,9 @@ export function setPreviewImageResizeControlsVisible(next: boolean): void {
 }
 
 /**
- * 画像リサイズ操作のsubscribe・preview・image・resize・controls・visibleを処理し、呼び出し側へ結果または副作用を返す。
- * @param listener - 画像リサイズ操作の条件を示すフラグ。
- * @returns 画像リサイズ操作のsubscribe・preview・image・resize・controls・visibleが生成する結果。
+ * 画像リサイズ操作の表示状態を購読し、購読解除関数を返す。
+ * @param listener 現在と以後の表示状態を受け取るコールバック。
+ * @returns 表示状態の購読を解除する関数。
  */
 export function subscribePreviewImageResizeControlsVisible(listener: (value: boolean) => void): () => void {
     listeners.add(listener);
@@ -56,8 +56,8 @@ export function installPreviewImageResizeControls(): void {
 }
 
 /**
- * 画像リサイズ操作のイベントまたはメッセージを受け取り、状態を更新する。
- * @param event - ユーザー操作またはDOMから通知されたイベント。
+ * Extension Hostから画像リサイズ操作の表示設定を受信して適用する。
+ * @param event windowへ送られたHostメッセージを含むMessageEvent。
  * @returns 副作用を完了し、値は返さない。
  */
 function handleHostSettings(event: MessageEvent): void {
@@ -67,8 +67,8 @@ function handleHostSettings(event: MessageEvent): void {
 }
 
 /**
- * 画像リサイズ操作の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
- * @param next - 画像リサイズ操作の位置・寸法・件数・時間を表す数値。
+ * 画像リサイズ操作の表示状態をDOMへ反映し、状態が変わった場合は購読者へ通知する。
+ * @param next リサイズ操作を表示する場合はtrue。
  * @returns 副作用を完了し、値は返さない。
  */
 function applyPreviewImageResizeControlsVisibility(next: boolean): void {

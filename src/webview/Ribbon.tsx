@@ -90,6 +90,9 @@ interface Props {
    */
   htmlOptions: HtmlExportOptions;
 
+  /** PDF出力時に保存先ダイアログを省略する設定。 */
+  pdfSaveWithoutDialog: boolean;
+
   /**
    * リボンで読み書きするリソースの場所。
    */
@@ -110,6 +113,13 @@ interface Props {
    * @returns リボンのon・html・options・changeが生成する結果。
    */
   onHtmlOptionsChange: (options: HtmlExportOptions) => void;
+
+  /**
+   * PDFの保存先ダイアログ設定を変更し、親コンポーネントへ反映する。
+   * @param enabled 保存時にダイアログを省略するかどうか。
+   * @returns 副作用を完了し、値は返さない。
+   */
+  onPdfSaveWithoutDialogChange: (enabled: boolean) => void;
   /**
    * リボンのイベントまたはメッセージを受け取り、状態を更新する。
    * @param command - リボンへ渡す入力。
@@ -119,9 +129,9 @@ interface Props {
 }
 
 /**
- * 編集コマンドと設定項目をまとめたリボンを表示するコンポーネント。
- * @param options - 呼び出し側が指定する処理設定。
- * @returns リボンのribbonが生成する結果。
+ * 編集コマンドと設定項目をまとめて表示し、操作を親の文書・設定状態へ委譲する。
+ * PDFの保存ダイアログ設定もこのコンテキストを通じて更新し、他のPDF値を保持する。
+ * @returns タブ・設定欄・コマンドボタンを含むリボン。
  */
 export function Ribbon({
   messages,
@@ -132,10 +142,12 @@ export function Ribbon({
   scrollSyncEnabled,
   splitView,
   htmlOptions,
+  pdfSaveWithoutDialog,
   imageDirectory,
   editorFontFamily,
   previewFontFamily,
   onHtmlOptionsChange,
+  onPdfSaveWithoutDialogChange,
   onCommand,
 }: Props): React.JSX.Element {
   const [tab, setTab] = useState<RibbonTabId>(RIBBON_LAYOUT.tabs[0].id);
@@ -178,10 +190,12 @@ export function Ribbon({
     splitView,
     imageResizeControlsVisible,
     htmlOptions,
+    pdfSaveWithoutDialog,
     imageDirectory,
     editorFontFamily,
     previewFontFamily,
     onHtmlOptionsChange,
+    onPdfSaveWithoutDialogChange,
     onCommand,
     tableRows,
     setTableRows,
@@ -238,12 +252,12 @@ export function Ribbon({
     [previewFontFamily],
   );
   /**
-   * リボンを表示用の結果へ変換する。
-   * @param id - リボンの対象や分岐を識別する値。
-   * @param labelSpec - リボンで扱う文字列または本文。
-   * @param options - 呼び出し側が指定する処理設定。
-   * @param implementation - リボンへ渡す入力。
-   * @returns リボンで生成または変換した値。
+   * リボン項目の定義と実装から、適切なボタン表示を作る。
+   * @param id Reactの一覧描画で使うリボン項目ID。
+   * @param labelSpec 共有メッセージキーのパスと、必要に応じて数値を持つラベル定義。
+   * @param options 見た目、ショートカット、ツールチップを決めるボタン設定。
+   * @param implementation 有効状態、使用可否、クリック処理を持つ項目実装。
+   * @returns リボン項目のReactボタン要素。
    */
   function renderButton(
     id: string,
@@ -340,7 +354,7 @@ export function Ribbon({
 
           /**
            * specをresolve・ribbon・labelへ渡し、リボンの結果または副作用を処理する。
-           * @param spec - リボンへ渡す入力。
+           * @param spec - ローカライズ済み表示文字列へ解決するラベル定義。
            * @returns リボンに対応する要素の一覧。
            */
           (spec) => resolveRibbonLabel(spec, messages),
@@ -351,7 +365,7 @@ export function Ribbon({
 
   /**
    * リボンを表示用の結果へ変換する。
-   * @param itemIds - リボンの対象や分岐を識別する値。
+    * @param itemIds - 表示するグループ内リボン項目のID一覧。
    * @returns リボンに対応する要素の一覧。
    */
   function renderGroupItems(
@@ -393,7 +407,7 @@ export function Ribbon({
 
   /**
    * リボンを表示用の結果へ変換する。
-   * @param itemIds - リボンの対象や分岐を識別する値。
+    * @param itemIds - 表示するリボンヘッダー項目のID一覧。
    * @returns リボンに対応する要素の一覧。
    */
   function renderHeaderItems(
@@ -458,7 +472,7 @@ export function Ribbon({
       onClickCapture={
         /**
          * イベントをclosestへ渡し、リボンの結果または副作用を処理する。
-         * @param event - ユーザー操作またはDOMから通知されたイベント。
+         * @param event - リボン内buttonのcapture-phase click event。
          * @returns リボンのコールバックが生成する結果。
          */
         (event) => {
@@ -588,7 +602,6 @@ function getHeaderImplementation(
 
 /**
  * リボンのgroupを処理し、呼び出し側へ結果または副作用を返す。
- * @param options - 呼び出し側が指定する処理設定。
  * @returns リボンのgroupが生成する結果。
  */
 function Group({
@@ -621,7 +634,6 @@ function Group({
 
 /**
  * リボンのtoolを処理し、呼び出し側へ結果または副作用を返す。
- * @param options - 呼び出し側が指定する処理設定。
  * @returns リボンのtoolが生成する結果。
  */
 function Tool({

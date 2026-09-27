@@ -43,9 +43,9 @@ function optionsForTrigger(trigger: string): readonly Completion[] {
 }
 
 /**
- * cmmarkdownautocompleteの変更または利用者の操作意図を記録し、後続処理へ渡す。
- * @param context - cmmarkdownautocompleteで扱う文字列または本文。
- * @returns cmmarkdownautocompleteのmarkdown・completion・sourceが生成する結果。
+ * 文書とカーソル位置からMarkdown補完候補を選ぶ。
+ * @param context カーソル位置、文書状態、明示補完の有無を含むCodeMirror補完コンテキスト。
+ * @returns 表示する補完候補と置換範囲。候補を出せない場合はnull。
  */
 function markdownCompletionSource(context: CompletionContext): CompletionResult | null {
     const line = context.state.doc.lineAt(context.pos);
@@ -61,8 +61,8 @@ function markdownCompletionSource(context: CompletionContext): CompletionResult 
 }
 
 /**
- * cmmarkdownautocompleteのattach・extensionを処理し、呼び出し側へ結果または副作用を返す。
- * @param extension - cmmarkdownautocompleteの位置・寸法・件数・時間を表す数値。
+ * CodeMirror拡張機能をMarkdown補完用ビューへ追加する。
+ * @param extension エディターへ追加するCodeMirror拡張機能。
  * @returns 副作用を完了し、値は返さない。
  */
 function attachExtension(extension: Extension): void {

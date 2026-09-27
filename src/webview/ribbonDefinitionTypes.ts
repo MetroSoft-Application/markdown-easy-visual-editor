@@ -34,7 +34,7 @@ export type RibbonLabelSpec =
          */
         path: string;
         /**
-         * 検証・変換・保存の対象となる値。
+         * メッセージ内の数値プレースホルダーへ渡す値。
          */
         value: number
     };
@@ -97,7 +97,7 @@ export interface RibbonControlFieldDefinition {
 export interface RibbonControlChoiceDefinition {
 
     /**
-     * 検証・変換・保存の対象となる値。
+     * 選択時にコントロールから返す選択肢ID文字列。
      */
     readonly value: string;
 
@@ -213,7 +213,7 @@ export interface RibbonHeaderItemDefinition {
     readonly label: RibbonLabelSpec;
 
     /**
-     * リボン定義型の状態を示すフラグ。
+     * リボン折り畳み時に表示する任意のラベル定義。
      */
     readonly collapsedLabel?: RibbonLabelSpec;
 
@@ -249,7 +249,7 @@ export interface RibbonDefinitions {
     readonly groups: Record<RibbonGroupId, RibbonGroupDefinition>;
 
     /**
-     * リボン定義型で扱うitemsの一覧。
+     * リボン項目IDをキーにした項目定義Record。
      */
     readonly items: Record<RibbonItemId, RibbonItemDefinition>;
 
@@ -259,7 +259,7 @@ export interface RibbonDefinitions {
     readonly containers: Record<RibbonContainerId, RibbonContainerDefinition>;
 
     /**
-     * リボン定義型で扱うheader・itemsの一覧。
+     * ヘッダー項目IDをキーにした項目定義Record。
      */
     readonly headerItems: Record<RibbonHeaderItemId, RibbonHeaderItemDefinition>;
 

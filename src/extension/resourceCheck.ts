@@ -2,9 +2,9 @@
  * @fileoverview Webviewが要求したローカルリソースをワークスペースの許可範囲と照合する。
  */
 /**
- * resourcecheckの入力を構造化した値へ変換する。
- * @param source - 解析・描画・変換の起点となる本文。
- * @returns resourcecheckで利用する文字列。
+ * ローカルリソース参照からフラグメントとクエリを除き、URIエスケープを復号する。
+ * @param source - デコードするローカルリソースのURIまたはパス参照。
+ * @returns 復号したローカルリソース参照。
  */
 export function decodeLocalResourceSource(source: string): string {
     const withoutAnchor = source.split('#', 1)[0].trim();

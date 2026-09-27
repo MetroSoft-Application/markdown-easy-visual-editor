@@ -3,9 +3,9 @@
  */
 /**
  * スクロールから必要な値またはリソースを取得する。
- * @param scrollTop - スクロールで扱う数値。
- * @param scrollHeight - スクロールの位置・寸法・件数・時間を表す数値。
- * @param clientHeight - スクロールの位置・寸法・件数・時間を表す数値。
+ * @param scrollTop - スクロールコンテナの現在の縦位置（scrollTop、CSS px）。
+ * @param scrollHeight - スクロール対象全体の高さ（CSS px）。
+ * @param clientHeight - スクロール表示領域の高さ（CSS px）。
  * @returns 条件に一致する値。未検出時はundefinedまたはnull。
  */
 export function getScrollRatio(scrollTop: number, scrollHeight: number, clientHeight: number): number | undefined {
@@ -19,9 +19,9 @@ export function getScrollRatio(scrollTop: number, scrollHeight: number, clientHe
 
 /**
  * スクロールから必要な値またはリソースを取得する。
- * @param ratio - スクロールで扱う数値。
- * @param scrollHeight - スクロールの位置・寸法・件数・時間を表す数値。
- * @param clientHeight - スクロールの位置・寸法・件数・時間を表す数値。
+ * @param ratio - 最大スクロール量に対するスクロール位置比（0から1）。
+ * @param scrollHeight - スクロール対象全体の高さ（CSS px）。
+ * @param clientHeight - スクロール表示領域の高さ（CSS px）。
  * @returns スクロールで利用する数値。
  */
 export function getScrollTopForRatio(ratio: number, scrollHeight: number, clientHeight: number): number {

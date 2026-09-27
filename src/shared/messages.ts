@@ -259,7 +259,7 @@ export interface Messages {
             body: string;
             /**
              * 表示文言のheadingを処理し、呼び出し側へ結果または副作用を返す。
-             * @param level - 表示文言で扱う数値。
+             * @param level - 見出しレベル1から6。
              * @returns 表示文言で利用する文字列。
              */
             heading: (level: number) => string;
@@ -978,7 +978,7 @@ export interface Messages {
         };
         /**
          * 表示文言のlineを処理し、呼び出し側へ結果または副作用を返す。
-         * @param line - 表示文言の位置・寸法・件数・時間を表す数値。
+         * @param line - 表示する行番号（1始まり）。
          * @returns 表示文言で利用する文字列。
          */
         line: (line: number) => string;
@@ -1103,25 +1103,25 @@ export interface Messages {
             modePreview: string;
             /**
              * 表示文言のlinesを処理し、呼び出し側へ結果または副作用を返す。
-             * @param count - 表示文言の位置・寸法・件数・時間を表す数値。
+             * @param count - 文書内の行数。
              * @returns 表示文言で利用する文字列。
              */
             lines: (count: number) => string;
             /**
              * 表示文言のtext・charactersを処理し、呼び出し側へ結果または副作用を返す。
-             * @param count - 表示文言の位置・寸法・件数・時間を表す数値。
+             * @param count - 編集本文の文字数。
              * @returns 表示文言で利用する文字列。
              */
             textCharacters: (count: number) => string;
             /**
              * 表示文言の変更または利用者の操作意図を記録し、後続処理へ渡す。
-             * @param count - 表示文言の位置・寸法・件数・時間を表す数値。
+             * @param count - Markdown本文の文字数。
              * @returns 表示文言で利用する文字列。
              */
             markdownCharacters: (count: number) => string;
             /**
              * 表示文言のzoomを処理し、呼び出し側へ結果または副作用を返す。
-             * @param percent - 表示文言で扱う数値。
+             * @param percent - 表示するズーム倍率（パーセント）。
              * @returns 表示文言で利用する文字列。
              */
             zoom: (percent: number) => string;
@@ -1329,6 +1329,7 @@ export interface Messages {
             webviewUnavailable: string;
             /**
              * PDF描画失敗時に詳細を加える文。
+             * @param detail - PDF描画エラーに付け加えて表示する詳細。
              */
             failed: (detail: string) => string;
             /**
@@ -1337,6 +1338,7 @@ export interface Messages {
             pageError: string;
             /**
              * PDFページに付けるアクセシブル名。
+             * @param page - 1始まりのPDFページ番号。
              */
             pageLabel: (page: number) => string;
         };
@@ -1437,8 +1439,8 @@ export interface Messages {
             tableRequired: string;
             /**
              * 表示文言のrow・column・limitを処理し、呼び出し側へ結果または副作用を返す。
-             * @param rows - 表示文言で走査または更新する要素。
-             * @param columns - 表示文言で走査または更新する要素。
+             * @param rows - 表編集で許可する最大行数。
+             * @param columns - 表編集で許可する最大列数。
              * @returns 表示文言で利用する文字列。
              */
             rowColumnLimit: (rows: number, columns: number) => string;
@@ -1578,55 +1580,51 @@ export interface Messages {
             aboutFeatures: string;
         };
 
-        /**
-         * 表示文言のtoastを処理し、呼び出し側へ結果または副作用を返す。
-         * @param count - 表示文言の位置・寸法・件数・時間を表す数値。
-         * @returns 表示文言で利用する文字列。
-         */
+        /** トースト通知で使うローカライズ済み文言。 */
         toast: {
             /**
              * 表示文言の入力を検証し、表示または保存に使う形式へ変換する。
-             * @param count - 表示文言の位置・寸法・件数・時間を表す数値。
+             * @param count - 保存した画像ファイル数。
              * @returns 表示文言で利用する文字列。
              */
             imagesSaved: (count: number) => string;
             /**
              * 表示文言のpdf・resource・warningsを処理し、呼び出し側へ結果または副作用を返す。
-             * @param count - 表示文言の位置・寸法・件数・時間を表す数値。
-             * @param detail - 表示文言で受け渡す文字列。
+             * @param count - PDF出力前に検出したローカルリソース警告数。
+             * @param detail - 警告の概要として通知に追加する文字列。
              * @returns 表示文言で利用する文字列。
              */
             pdfResourceWarnings: (count: number, detail: string) => string;
             /**
              * 表示文言のpreflight・summaryを処理し、呼び出し側へ結果または副作用を返す。
-             * @param errors - 表示文言で発生した例外または失敗理由。
-             * @param warnings - 表示文言で扱う数値。
-             * @param infos - 表示文言で扱う数値。
+             * @param errors - PDF事前確認で見つかったエラー数。
+             * @param warnings - PDF事前確認で見つかった警告数。
+             * @param infos - PDF事前確認で見つかった情報項目数。
              * @returns 表示文言で利用する文字列。
              */
             preflightSummary: (errors: number, warnings: number, infos: number) => string;
             /**
              * 表示文言の入力を検証し、表示または保存に使う形式へ変換する。
-             * @param detail - 表示文言で受け渡す文字列。
+             * @param detail - 画像保存失敗の理由として通知に追加する詳細。
              * @returns 表示文言で利用する文字列。
              */
             imageSaveFailed: (detail: string) => string;
             /**
              * 表示文言のpdf・export・failedを処理し、呼び出し側へ結果または副作用を返す。
-             * @param detail - 表示文言で受け渡す文字列。
+             * @param detail - PDF出力失敗の理由として通知に追加する詳細。
              * @returns 表示文言で利用する文字列。
              */
             pdfExportFailed: (detail: string) => string;
             /**
              * 表示文言のresource・check・failedを処理し、呼び出し側へ結果または副作用を返す。
-             * @param detail - 表示文言で受け渡す文字列。
-             * @param duringPdf - 表示文言で読み書きするリソースの場所。
+             * @param detail - ローカルリソース検査失敗の理由として通知に追加する詳細。
+             * @param duringPdf - PDF出力中の検査ならtrue。
              * @returns 表示文言で利用する文字列。
              */
             resourceCheckFailed: (detail: string, duringPdf: boolean) => string;
             /**
              * 表示文言のoperation・failedを処理し、呼び出し側へ結果または副作用を返す。
-             * @param detail - 表示文言で受け渡す文字列。
+             * @param detail - 操作失敗の理由として通知に追加する詳細。
              * @returns 表示文言で利用する文字列。
              */
             operationFailed: (detail: string) => string;
@@ -1639,13 +1637,13 @@ export interface Messages {
             /**
              * 表示文言のhtml・exportedを処理し、呼び出し側へ結果または副作用を返す。
              * @param path - 読み書きするファイルまたはリソースの場所。
-             * @param count - 表示文言の位置・寸法・件数・時間を表す数値。
+             * @param count - 書き出したHTML文書数。
              * @returns 表示文言で利用する文字列。
              */
             htmlExported: (path: string, count: number) => string;
             /**
              * 表示文言のhtml・export・failedを処理し、呼び出し側へ結果または副作用を返す。
-             * @param detail - 表示文言で受け渡す文字列。
+             * @param detail - HTML出力失敗の理由として通知に追加する詳細。
              * @returns 表示文言で利用する文字列。
              */
             htmlExportFailed: (detail: string) => string;
@@ -1666,8 +1664,8 @@ export interface Messages {
             tableCopied: string;
             /**
              * 表示文言の条件を判定する。
-             * @param detail - 表示文言で受け渡す文字列。
-             * @returns 条件が成立したかを示す真偽値。
+             * @param detail - TSVをコピーできなかった理由の補足。未指定なら空選択用の文言を使う。
+             * @returns TSVをコピーできなかった理由を示すローカライズ済みメッセージ。
              */
             cannotCopyTsv: (detail?: string) => string;
 
@@ -1677,14 +1675,14 @@ export interface Messages {
             workspaceTrustRequired: string;
             /**
              * 表示文言のpdf・started・with・diagnosticsを処理し、呼び出し側へ結果または副作用を返す。
-             * @param count - 表示文言の位置・寸法・件数・時間を表す数値。
-             * @param detail - 表示文言で受け渡す文字列。
+             * @param count - PDF出力前に検出した警告数。
+             * @param detail - 診断内容の概要として通知に追加する文字列。
              * @returns 表示文言で利用する文字列。
              */
             pdfStartedWithDiagnostics: (count: number, detail: string) => string;
             /**
              * 表示文言のpdf・fallback・to・markdownを処理し、呼び出し側へ結果または副作用を返す。
-             * @param detail - 表示文言で受け渡す文字列。
+             * @param detail - Markdownへのフォールバック理由。指定時は進捗文言の前へ付ける。
              * @returns 表示文言で利用する文字列。
              */
             pdfFallbackToMarkdown: (detail?: string) => string;
@@ -1701,7 +1699,7 @@ export interface Messages {
             ackMismatch: string;
             /**
              * 表示文言のpending・operation・chainを処理し、呼び出し側へ結果または副作用を返す。
-             * @param opId - 表示文言の対象や分岐を識別する値。
+             * @param opId - 完了を待っている操作の識別子。
              * @returns 表示文言で利用する文字列。
              */
             pendingOperationChain: (opId: string) => string;
@@ -1717,7 +1715,7 @@ export interface Messages {
             bmpConversion: string;
             /**
              * 表示文言の入力を検証し、表示または保存に使う形式へ変換する。
-             * @param maxSizeMb - 表示文言の位置・寸法・件数・時間を表す数値。
+             * @param maxSizeMb - 許可する画像ファイルの最大サイズ（MB）。
              * @returns 表示文言で利用する文字列。
              */
             imageSize: (maxSizeMb: number) => string;
@@ -1771,6 +1769,7 @@ export interface Messages {
 
         /**
          * Mermaid図のアクセシブル名。
+         * @param description - Mermaid図を説明するアクセシブル名の補足。
          */
         mermaidDiagramLabel: (description: string) => string;
 
@@ -1801,11 +1800,7 @@ export interface Messages {
         };
     };
 
-    /**
-     * 表示文言のdiagnosticsを処理し、呼び出し側へ結果または副作用を返す。
-     * @param marker - 表示文言で受け渡す文字列。
-     * @returns 表示文言で利用する文字列。
-     */
+    /** 診断項目の説明に使うローカライズ済み文言。 */
     diagnostics: {
         /**
          * 表示文言のunclosed・fenceを処理し、呼び出し側へ結果または副作用を返す。
@@ -1815,7 +1810,7 @@ export interface Messages {
         unclosedFence: (marker: string) => string;
         /**
          * 表示文言のduplicate・headingを処理し、呼び出し側へ結果または副作用を返す。
-         * @param id - 表示文言の対象や分岐を識別する値。
+         * @param id - 重複が検出された見出しanchor ID。
          * @returns 表示文言で利用する文字列。
          */
         duplicateHeading: (id: string) => string;
@@ -1831,7 +1826,7 @@ export interface Messages {
         emptyImageAlt: string;
         /**
          * 表示文言のlocal・image・checkを処理し、呼び出し側へ結果または副作用を返す。
-         * @param source - 解析・描画・変換の起点となる本文。
+         * @param source - ローカル画像として検査する参照文字列。
          * @returns 表示文言で利用する文字列。
          */
         localImageCheck: (source: string) => string;
@@ -1842,24 +1837,24 @@ export interface Messages {
         emptyTableHeader: string;
         /**
          * 表示文言のtable・column・mismatchを処理し、呼び出し側へ結果または副作用を返す。
-         * @param header - 表示文言で扱う数値。
-         * @param separator - 表示文言で扱う数値。
-         * @param kind - メッセージ、項目、または処理の種類を識別する値。
+         * @param header - Markdown表ヘッダー行の列数。
+         * @param separator - 区切り行または本文行で見つかった列数。
+         * @param kind - 列数が一致しない行の種別。
          * @returns 表示文言で利用する文字列。
          */
         tableColumnMismatch: (header: number, separator: number, kind: 'separator' | 'body') => string;
         /**
          * 表示文言のmissing・referenceを処理し、呼び出し側へ結果または副作用を返す。
-         * @param label - 画面または検証結果に表示する説明文。
+         * @param label - エラーメッセージに埋め込む未定義参照ラベル。
          * @returns 表示文言で利用する文字列。
          */
         missingReference: (label: string) => string;
         /**
          * 表示文言のlocal・resourceを処理し、呼び出し側へ結果または副作用を返す。
-         * @param kind - メッセージ、項目、または処理の種類を識別する値。
-         * @param missing - 表示文言の条件を示すフラグ。
-         * @param source - 解析・描画・変換の起点となる本文。
-         * @param detail - 表示文言で受け渡す文字列。
+         * @param kind - 検査対象が画像参照かリンク参照かを示す種別。
+         * @param missing - 参照先が存在しない場合true。
+         * @param source - 検査する画像またはリンクの参照文字列。
+         * @param detail - 参照先検査の結果または失敗理由を補う詳細文。
          * @returns 表示文言で利用する文字列。
          */
         localResource: (kind: 'image' | 'link', missing: boolean, source: string, detail: string) => string;
@@ -1923,7 +1918,7 @@ export interface Messages {
         imageDocumentMustBeSaved: string;
         /**
          * 表示文言のunsupported・imageを処理し、呼び出し側へ結果または副作用を返す。
-         * @param mime - 画像または出力データのMIMEタイプ。
+         * @param mime - 未対応と判定された貼り付け画像のMIMEタイプ。
          * @returns 表示文言で利用する文字列。
          */
         unsupportedImage: (mime: string) => string;
@@ -2011,7 +2006,7 @@ const rawLocales = localeCatalog as RawLocales;
 
 /**
  * 表示文言の入力を許可された形式へ整える。
- * @param value - 検証・変換・保存の対象となる値。
+ * @param value - 言語コードへ整形するロケール文字列。
  * @returns 表示文言で利用する文字列。
  */
 function normalizeLanguage(value: string | undefined): string {
@@ -2020,7 +2015,7 @@ function normalizeLanguage(value: string | undefined): string {
 
 /**
  * 表示文言のlanguage・from・localeを処理し、呼び出し側へ結果または副作用を返す。
- * @param value - 検証・変換・保存の対象となる値。
+ * @param value - 対応するUI言語を判定するロケール文字列。
  * @returns 副作用を完了し、値は返さない。
  */
 function languageFromLocale(value: string | undefined): SupportedLanguage | undefined {
@@ -2033,8 +2028,8 @@ function languageFromLocale(value: string | undefined): SupportedLanguage | unde
 
 /**
  * 設定値と利用可能な辞書から表示言語を決める。
- * @param setting - 表示文言へ渡す設定または境界値。
- * @param vscodeLanguage - 表示文言の対象や分岐を識別する値。
+ * @param setting - ユーザーが選択した表示言語設定。
+ * @param vscodeLanguage - 設定がautoまたは未指定の場合に使うVS Code表示言語。
  * @returns 表示文言のresolve・languageが生成する結果。
  */
 export function resolveLanguage(setting: string | undefined, vscodeLanguage?: string): SupportedLanguage {
@@ -2045,7 +2040,7 @@ export function resolveLanguage(setting: string | undefined, vscodeLanguage?: st
 
 /**
  * 表示文言から必要な値またはリソースを取得する。
- * @param language - 表示文言の対象や分岐を識別する値。
+ * @param language - 読み込むロケールコード。
  * @returns 表示文言のresolve・catalogが生成する結果。
  */
 function resolveCatalog(language: SupportedLanguage): RawCatalog {
@@ -2054,8 +2049,8 @@ function resolveCatalog(language: SupportedLanguage): RawCatalog {
 
 /**
  * 表示文言から必要な値またはリソースを取得する。
- * @param catalog - 表示文言へ渡す入力。
- * @param key - 表示文言の対象や分岐を識別する値。
+ * @param catalog - dot区切りメッセージキーから文字列を取得するロケールカタログ。
+ * @param key - ロケールカタログ内のdot区切りメッセージキー。
  * @returns 表示文言で利用する文字列。
  */
 function read(catalog: RawCatalog, key: string): string {
@@ -2069,16 +2064,16 @@ function read(catalog: RawCatalog, key: string): string {
 
 /**
  * 表示文言のinterpolateを処理し、呼び出し側へ結果または副作用を返す。
- * @param template - 表示文言で受け渡す文字列。
- * @param values - 表示文言へ渡す入力。
+ * @param template - {name}形式のプレースホルダーを含むメッセージテンプレート。
+ * @param values - テンプレート内placeholder名に対応する補間値辞書。
  * @returns 表示文言で利用する文字列。
  */
 function interpolate(template: string, values: Values = {}): string {
     return template.replace(/\{([A-Za-z][A-Za-z0-9]*)\}/g,
         /**
          * matchをcallへ渡し、表示文言の結果または副作用を処理する。
-         * @param match - 表示文言へ渡す入力。
-         * @param key - 表示文言の対象や分岐を識別する値。
+         * @param match - {name}形式で正規表現に一致したplaceholder全体。
+         * @param key - 波括弧内から取り出した補間値キー。
          * @returns 表示文言のコールバックが生成する結果。
          */
         (match, key: string) => (
@@ -2088,7 +2083,7 @@ function interpolate(template: string, values: Values = {}): string {
 
 /**
  * 表示文言で使う値または実行環境を組み立てる。
- * @param language - 表示文言の対象や分岐を識別する値。
+ * @param language - メッセージを生成する対象ロケールコード。
  * @returns 表示文言で生成または変換した値。
  */
 function createMessages(language: SupportedLanguage): Messages {
@@ -2097,8 +2092,8 @@ function createMessages(language: SupportedLanguage): Messages {
 
     const text = /**
      * 表示文言のtextを処理し、呼び出し側へ結果または副作用を返す。
-     * @param key - 表示文言の対象や分岐を識別する値。
-     * @param values - 表示文言へ渡す入力。
+     * @param key - ロケールカタログから取得するdot区切りメッセージキー。
+     * @param values - 読み取ったメッセージ内placeholderへ埋め込む値辞書。
      * @returns 表示文言で利用する文字列。
      */ (key: string, values?: Values): string => interpolate(read(raw, key), values);
     return {
@@ -2126,7 +2121,7 @@ function createMessages(language: SupportedLanguage): Messages {
 
                 heading: /**
                  * 表示文言のheadingを処理し、呼び出し側へ結果または副作用を返す。
-                 * @param level - 表示文言で扱う数値。
+                 * @param level - 表示する見出しレベル1から6。
                  * @returns 表示文言のheadingが生成する結果。
                  */ (level: number) => text('ribbon.labels.heading', { level }),
                 exportHtml: raw.ribbon.labels.exportHtml,
@@ -2166,7 +2161,7 @@ function createMessages(language: SupportedLanguage): Messages {
 
             line: /**
              * 表示文言のlineを処理し、呼び出し側へ結果または副作用を返す。
-             * @param line - 表示文言の位置・寸法・件数・時間を表す数値。
+             * @param line - 表示する行番号（1始まり）。
              * @returns 表示文言のlineが生成する結果。
              */ (line: number) => text('app.line', { line }),
             printSettings: raw.app.printSettings,
@@ -2197,28 +2192,28 @@ function createMessages(language: SupportedLanguage): Messages {
 
                 lines: /**
                  * 表示文言のlinesを処理し、呼び出し側へ結果または副作用を返す。
-                 * @param count - 表示文言の位置・寸法・件数・時間を表す数値。
+                 * @param count - 文書内の行数。
                  * @returns 表示文言のlinesが生成する結果。
                  */ (count: number) => text('app.status.lines', { count }),
 
 
                 textCharacters: /**
                  * 表示文言のtext・charactersを処理し、呼び出し側へ結果または副作用を返す。
-                 * @param count - 表示文言の位置・寸法・件数・時間を表す数値。
+                 * @param count - 編集本文の文字数。
                  * @returns 表示文言のtext・charactersが生成する結果。
                  */ (count: number) => text('app.status.textCharacters', { count }),
 
 
                 markdownCharacters: /**
                  * 表示文言の変更または利用者の操作意図を記録し、後続処理へ渡す。
-                 * @param count - 表示文言の位置・寸法・件数・時間を表す数値。
+                 * @param count - Markdown本文の文字数。
                  * @returns 表示文言のmarkdown・charactersが生成する結果。
                  */ (count: number) => text('app.status.markdownCharacters', { count }),
 
 
                 zoom: /**
                  * 表示文言のzoomを処理し、呼び出し側へ結果または副作用を返す。
-                 * @param percent - 表示文言で扱う数値。
+                 * @param percent - ステータスに表示するズーム倍率（百分率）。
                  * @returns 表示文言のzoomが生成する結果。
                  */ (percent: number) => text('app.status.zoom', { percent }),
                 syncing: raw.app.status.syncing,
@@ -2265,8 +2260,8 @@ function createMessages(language: SupportedLanguage): Messages {
 
                 rowColumnLimit: /**
                  * 表示文言のrow・column・limitを処理し、呼び出し側へ結果または副作用を返す。
-                 * @param rows - 表示文言で走査または更新する要素。
-                 * @param columns - 表示文言で走査または更新する要素。
+                 * @param rows - 表編集で許可する最大行数。
+                 * @param columns - 表編集で許可する最大列数。
                  * @returns 表示文言のrow・column・limitが生成する結果。
                  */ (rows: number, columns: number) => text('app.tableEditor.rowColumnLimit', { rows, columns }),
                 copied: raw.app.tableEditor.copied,
@@ -2295,53 +2290,53 @@ function createMessages(language: SupportedLanguage): Messages {
 
                 imagesSaved: /**
                  * 表示文言の入力を検証し、表示または保存に使う形式へ変換する。
-                 * @param count - 表示文言の位置・寸法・件数・時間を表す数値。
+                 * @param count - 保存した画像ファイル数。
                  * @returns 表示文言のimages・savedが生成する結果。
                  */ (count: number) => text('app.toast.imagesSaved', { count }),
 
 
                 pdfResourceWarnings: /**
                  * 表示文言のpdf・resource・warningsを処理し、呼び出し側へ結果または副作用を返す。
-                 * @param count - 表示文言の位置・寸法・件数・時間を表す数値。
-                 * @param detail - 表示文言で受け渡す文字列。
+                 * @param count - PDF出力前に検出したローカルリソース警告数。
+                 * @param detail - 警告の概要として通知に追加する文字列。
                  * @returns 表示文言のpdf・resource・warningsが生成する結果。
                  */ (count: number, detail: string) => text('app.toast.pdfResourceWarnings', { count, detail }),
 
 
                 preflightSummary: /**
                  * 表示文言のpreflight・summaryを処理し、呼び出し側へ結果または副作用を返す。
-                 * @param errors - 表示文言で発生した例外または失敗理由。
-                 * @param warnings - 表示文言で扱う数値。
-                 * @param infos - 表示文言で扱う数値。
+                 * @param errors - 事前検査で検出したエラーの件数。
+                 * @param warnings - 事前検査で検出した警告の件数。
+                 * @param infos - 事前検査で検出した情報項目の件数。
                  * @returns 表示文言のpreflight・summaryが生成する結果。
                  */ (errors: number, warnings: number, infos: number) => text('app.toast.preflightSummary', { errors, warnings, infos }),
 
 
                 imageSaveFailed: /**
                  * 表示文言の入力を検証し、表示または保存に使う形式へ変換する。
-                 * @param detail - 表示文言で受け渡す文字列。
+                 * @param detail - 画像保存失敗の理由として通知に追加する詳細。
                  * @returns 表示文言のimage・save・failedが生成する結果。
                  */ (detail: string) => text('app.toast.imageSaveFailed', { detail }),
 
 
                 pdfExportFailed: /**
                  * 表示文言のpdf・export・failedを処理し、呼び出し側へ結果または副作用を返す。
-                 * @param detail - 表示文言で受け渡す文字列。
+                 * @param detail - PDF出力失敗の理由として通知に追加する詳細。
                  * @returns 表示文言のpdf・export・failedが生成する結果。
                  */ (detail: string) => text('app.toast.pdfExportFailed', { detail }),
 
 
                 resourceCheckFailed: /**
                  * 表示文言のresource・check・failedを処理し、呼び出し側へ結果または副作用を返す。
-                 * @param detail - 表示文言で受け渡す文字列。
-                 * @param duringPdf - 表示文言で読み書きするリソースの場所。
+                 * @param detail - ローカルリソース検査失敗の理由として通知に追加する詳細。
+                 * @param duringPdf - PDF出力中の検査ならtrue。
                  * @returns 表示文言のresource・check・failedが生成する結果。
                  */ (detail: string, duringPdf: boolean) => text('app.toast.resourceCheckFailed', { prefix: duringPdf ? `${raw.host.pdfProgress} ` : '', detail }),
 
 
                 operationFailed: /**
                  * 表示文言のoperation・failedを処理し、呼び出し側へ結果または副作用を返す。
-                 * @param detail - 表示文言で受け渡す文字列。
+                 * @param detail - 操作失敗の理由として通知に追加する詳細。
                  * @returns 表示文言のoperation・failedが生成する結果。
                  */ (detail: string) => text('app.toast.operationFailed', { detail }),
 
@@ -2356,14 +2351,14 @@ function createMessages(language: SupportedLanguage): Messages {
                 htmlExported: /**
                  * 表示文言のhtml・exportedを処理し、呼び出し側へ結果または副作用を返す。
                  * @param path - 読み書きするファイルまたはリソースの場所。
-                 * @param count - 表示文言の位置・寸法・件数・時間を表す数値。
+                 * @param count - 書き出したHTML文書数。
                  * @returns 表示文言で利用する文字列。
                  */ (path: string, count: number) => text('app.toast.htmlExported', { path, count }),
 
 
                 htmlExportFailed: /**
                  * 表示文言のhtml・export・failedを処理し、呼び出し側へ結果または副作用を返す。
-                 * @param detail - 表示文言で受け渡す文字列。
+                 * @param detail - HTML出力失敗の理由として通知に追加する詳細。
                  * @returns 表示文言で利用する文字列。
                  */ (detail: string) => text('app.toast.htmlExportFailed', { detail }),
                 tableCellRequired: raw.app.toast.tableCellRequired,
@@ -2373,23 +2368,23 @@ function createMessages(language: SupportedLanguage): Messages {
 
                 cannotCopyTsv: /**
                  * 表示文言の条件を判定する。
-                 * @param detail - 表示文言で受け渡す文字列。
-                 * @returns 条件が成立したかを示す真偽値。
+                 * @param detail - TSVをコピーできなかった理由の補足。未指定なら空選択用の文言を使う。
+                 * @returns TSVをコピーできなかった理由を示すローカライズ済みメッセージ。
                  */ (detail?: string) => detail ? text('app.toast.cannotCopyTsv', { detail }) : raw.app.toast.cannotCopyTsvEmpty,
                 workspaceTrustRequired: raw.app.toast.workspaceTrustRequired,
 
 
                 pdfStartedWithDiagnostics: /**
                  * 表示文言のpdf・started・with・diagnosticsを処理し、呼び出し側へ結果または副作用を返す。
-                 * @param count - 表示文言の位置・寸法・件数・時間を表す数値。
-                 * @param detail - 表示文言で受け渡す文字列。
+                 * @param count - PDF出力前に検出した警告数。
+                 * @param detail - 診断内容の概要として通知に追加する文字列。
                  * @returns 表示文言のpdf・started・with・diagnosticsが生成する結果。
                  */ (count: number, detail: string) => text('app.toast.pdfStartedWithDiagnostics', { count, detail }),
 
 
                 pdfFallbackToMarkdown: /**
                  * 表示文言のpdf・fallback・to・markdownを処理し、呼び出し側へ結果または副作用を返す。
-                 * @param detail - 表示文言で受け渡す文字列。
+                 * @param detail - Markdownへのフォールバック理由。指定時は進捗文言の前へ付ける。
                  * @returns 表示文言のpdf・fallback・to・markdownが生成する結果。
                  */ (detail?: string) => text('app.toast.pdfFallbackToMarkdown', { prefix: detail ? `${detail} ` : '' })
             },
@@ -2399,7 +2394,7 @@ function createMessages(language: SupportedLanguage): Messages {
 
                 pendingOperationChain: /**
                  * 表示文言のpending・operation・chainを処理し、呼び出し側へ結果または副作用を返す。
-                 * @param opId - 表示文言の対象や分岐を識別する値。
+                 * @param opId - 完了を待っている操作の識別子。
                  * @returns 表示文言のpending・operation・chainが生成する結果。
                  */ (opId: string) => text('app.errors.pendingOperationChain', { opId }),
                 clipboardUnavailable: raw.app.errors.clipboardUnavailable,
@@ -2408,7 +2403,7 @@ function createMessages(language: SupportedLanguage): Messages {
 
                 imageSize: /**
                  * 表示文言の入力を検証し、表示または保存に使う形式へ変換する。
-                 * @param maxSizeMb - 表示文言の位置・寸法・件数・時間を表す数値。
+                 * @param maxSizeMb - 許可する画像ファイルの最大サイズ（MB）。
                  * @returns 表示文言のimage・sizeが生成する結果。
                  */ (maxSizeMb: number) => text('app.errors.imageSize', { maxSizeMb })
             }
@@ -2429,7 +2424,7 @@ function createMessages(language: SupportedLanguage): Messages {
 
             duplicateHeading: /**
              * 表示文言のduplicate・headingを処理し、呼び出し側へ結果または副作用を返す。
-             * @param id - 表示文言の対象や分岐を識別する値。
+             * @param id - 重複が検出された見出しanchor ID。
              * @returns 表示文言のduplicate・headingが生成する結果。
              */ (id: string) => text('diagnostics.duplicateHeading', { id }),
             invalidTableSeparator: raw.diagnostics.invalidTableSeparator,
@@ -2438,7 +2433,7 @@ function createMessages(language: SupportedLanguage): Messages {
 
             localImageCheck: /**
              * 表示文言のlocal・image・checkを処理し、呼び出し側へ結果または副作用を返す。
-             * @param source - 解析・描画・変換の起点となる本文。
+             * @param source - ローカル画像として検査する参照文字列。
              * @returns 表示文言のlocal・image・checkが生成する結果。
              */ (source: string) => text('diagnostics.localImageCheck', { source }),
             emptyTableHeader: raw.diagnostics.emptyTableHeader,
@@ -2446,26 +2441,26 @@ function createMessages(language: SupportedLanguage): Messages {
 
             tableColumnMismatch: /**
              * 表示文言のtable・column・mismatchを処理し、呼び出し側へ結果または副作用を返す。
-             * @param header - 表示文言で扱う数値。
-             * @param count - 表示文言の位置・寸法・件数・時間を表す数値。
-             * @param kind - メッセージ、項目、または処理の種類を識別する値。
+             * @param header - Markdown表ヘッダー行の列数。
+             * @param count - 区切り行または本文行で見つかった列数。
+             * @param kind - 列数が一致しない行の種別。
              * @returns 表示文言のtable・column・mismatchが生成する結果。
              */ (header: number, count: number, kind: 'separator' | 'body') => text('diagnostics.tableColumnMismatch', { header, count, kind: raw.diagnostics.tableKind[kind] }),
 
 
             missingReference: /**
              * 表示文言のmissing・referenceを処理し、呼び出し側へ結果または副作用を返す。
-             * @param label - 画面または検証結果に表示する説明文。
+             * @param label - エラーメッセージに埋め込む未定義参照ラベル。
              * @returns 表示文言のmissing・referenceが生成する結果。
              */ (label: string) => text('diagnostics.missingReference', { label }),
 
 
             localResource: /**
              * 表示文言のlocal・resourceを処理し、呼び出し側へ結果または副作用を返す。
-             * @param kind - メッセージ、項目、または処理の種類を識別する値。
-             * @param missing - 表示文言の条件を示すフラグ。
-             * @param source - 解析・描画・変換の起点となる本文。
-             * @param detail - 表示文言で受け渡す文字列。
+             * @param kind - 検査対象が画像参照かリンク参照かを示す種別。
+             * @param missing - 参照先が存在しない場合true。
+             * @param source - 診断対象のローカルリソース参照。
+             * @param detail - 参照先検査の結果または失敗理由を補う詳細文。
              * @returns 表示文言のlocal・resourceが生成する結果。
              */ (kind: 'image' | 'link', missing: boolean, source: string, detail: string) => {
                     const suffix = kind === 'image' ? (missing ? 'imageMissing' : 'imageCheckFailed') : (missing ? 'linkMissing' : 'linkCheckFailed');
@@ -2499,7 +2494,7 @@ function createMessages(language: SupportedLanguage): Messages {
 
             unsupportedImage: /**
              * 表示文言のunsupported・imageを処理し、呼び出し側へ結果または副作用を返す。
-             * @param mime - 画像または出力データのMIMEタイプ。
+             * @param mime - 未対応と判定された貼り付け画像のMIMEタイプ。
              * @returns 表示文言のunsupported・imageが生成する結果。
              */ (mime: string) => text('host.unsupportedImage', { mime }),
             invalidImageDirectory: raw.host.invalidImageDirectory,
