@@ -67,6 +67,7 @@ import { getScrollRatio } from "../shared/scroll";
 import type { Messages } from "../shared/messages";
 import { isMveDebugEnabled, mveDebug } from "./debug";
 import { exactSelectionMatchExtension } from "./cmSelectionMatchHighlight";
+import { htmlUrlAttributeHighlightExtension } from "./cmHtmlUrlHighlight";
 
 /**
  * 本文編集面で扱う値の種類と境界を表す型。
@@ -302,6 +303,10 @@ const vscodeSyntaxHighlightStyle = HighlightStyle.define([
     textDecoration: "underline",
   },
   { tag: tags.url, color: "#4ec9b0" },
+  // Markdown内の生HTMLもタグ・属性・値を明示的に区別する。
+  { tag: tags.tagName, color: "#569cd6" },
+  { tag: tags.attributeName, color: "#9cdcfe" },
+  { tag: tags.attributeValue, color: "#ce9178" },
   { tag: tags.processingInstruction, color: "#d7ba7d" },
   {
     tag: tags.monospace,
@@ -868,6 +873,7 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
             markdownLanguage({ codeLanguages: sourceCodeLanguages }),
             // 標準スタイルは濃い青を含むため使わず、明るいテーマ配色を1つだけ適用する。
             syntaxHighlighting(vscodeSyntaxHighlightStyle),
+            htmlUrlAttributeHighlightExtension,
             visibleSpaces,
             exactSelectionMatchExtension,
             searchHighlightField,
