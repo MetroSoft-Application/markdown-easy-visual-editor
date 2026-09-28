@@ -32,11 +32,12 @@ export interface HtmlUrlAttributeRange {
 /**
  * URL属性値がMarkdown本文中の生HTMLとして解析された位置かを判定する。
  *
- * resolve() はmounted languageへ入らないため、```html のコードフェンス内でHTMLとして
- * 解析されたAttributeと、Markdown本体のHTMLTag/HTMLBlockを区別できる。
+ * resolveInner() の親リンクはmounted languageのホストMarkdownノードまで辿れる。
+ * そのため、HTMLとして構文解析される ```html のコードフェンスと、
+ * Markdown本体のHTMLTag/HTMLBlockを区別できる。
  */
 function isMarkdownHtmlPosition(state: EditorState, position: number): boolean {
-  let node = syntaxTree(state).resolve(position, -1);
+  let node = syntaxTree(state).resolveInner(position, 1);
   while (node) {
     if (node.name === "HTMLTag" || node.name === "HTMLBlock") return true;
     if (
