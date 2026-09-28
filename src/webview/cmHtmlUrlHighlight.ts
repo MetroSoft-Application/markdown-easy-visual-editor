@@ -131,7 +131,7 @@ function collectHtmlUrlAttributeRanges(
     scanTo: number,
     ranges: HtmlUrlAttributeRange[]
 ): void {
-    if (node.to < scanFrom || node.from > scanTo) return;
+    if (node.to <= scanFrom || node.from >= scanTo) return;
 
     if (node.name === 'Attribute') {
         const attributeNameNode = node.getChild('AttributeName');
@@ -209,12 +209,18 @@ export function findHtmlUrlAttributeRanges(
 }
 
 /**
+ * HTML URL属性へ適用する再利用可能なDecoration。
+ */
+const htmlUrlAttributeMark = Decoration.mark({
+    class: 'cm-html-url-attribute'
+});
+
+/**
  * 現在表示中の範囲だけからHTML URL属性の装飾を生成する。
  * @param view - CodeMirrorの現在ビュー。
  * @returns 可視URL属性に対応する装飾セット。
  */
 function createHtmlUrlAttributeDecorations(view: EditorView): DecorationSet {
-    const mark = Decoration.mark({ class: 'cm-html-url-attribute' });
     const ranges: Range<Decoration>[] = [];
     for (const visible of view.visibleRanges) {
         for (const match of findHtmlUrlAttributeRanges(
@@ -222,10 +228,10 @@ function createHtmlUrlAttributeDecorations(view: EditorView): DecorationSet {
             visible.from,
             visible.to
         )) {
-            ranges.push(mark.range(match.from, match.to));
+            ranges.push(htmlUrlAttributeMark.range(match.from, match.to));
         }
     }
-    return ranges.length > 0 ? Decoration.set(ranges, true) : Decoration.none;
+    return ranges.length > 0 ? Decoration.set(ranges) : Decoration.none;
 }
 
 /**
