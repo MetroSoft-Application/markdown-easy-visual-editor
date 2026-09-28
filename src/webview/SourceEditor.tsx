@@ -67,6 +67,7 @@ import { getScrollRatio } from "../shared/scroll";
 import type { Messages } from "../shared/messages";
 import { isMveDebugEnabled, mveDebug } from "./debug";
 import { exactSelectionMatchExtension } from "./cmSelectionMatchHighlight";
+import { htmlUrlAttributeHighlightExtension } from "./cmHtmlSyntaxHighlight";
 
 /**
  * 本文編集面で扱う値の種類と境界を表す型。
@@ -303,6 +304,11 @@ const vscodeSyntaxHighlightStyle = HighlightStyle.define([
   },
   { tag: tags.url, color: "#4ec9b0" },
   { tag: tags.processingInstruction, color: "#d7ba7d" },
+  // Markdown内の生HTMLを、タグ・属性・属性値・山括弧で明確に色分けする。
+  { tag: tags.tagName, color: "#569cd6" },
+  { tag: tags.attributeName, color: "#9cdcfe" },
+  { tag: tags.attributeValue, color: "#ce9178" },
+  { tag: tags.angleBracket, color: "#808080" },
   {
     tag: tags.monospace,
     color: "#ce9178",
@@ -865,9 +871,18 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
               EditorState.lineSeparator.of(detectLineSeparator(value)),
             ),
             lineNumbers(),
-            markdownLanguage({ codeLanguages: sourceCodeLanguages }),
+            markdownLanguage({
+              codeLanguages: sourceCodeLanguages,
+              htmlTagLanguage: html({
+                // Markdownでは断片HTMLを許容し、閉じタグ一致は強制しない。
+                matchClosingTags: false,
+                selfClosingTags: true,
+                autoCloseTags: false,
+              }),
+            }),
             // 標準スタイルは濃い青を含むため使わず、明るいテーマ配色を1つだけ適用する。
             syntaxHighlighting(vscodeSyntaxHighlightStyle),
+            htmlUrlAttributeHighlightExtension,
             visibleSpaces,
             exactSelectionMatchExtension,
             searchHighlightField,
@@ -1028,6 +1043,12 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
               },
               ".cm-activeLineGutter": {
                 backgroundColor: "var(--vscode-editor-lineHighlightBackground)",
+              },
+              ".cm-html-url-attribute-value": {
+                textDecorationLine: "underline",
+                textDecorationStyle: "dotted",
+                textDecorationColor: "#4ec9b0",
+                textUnderlineOffset: "2px",
               },
               "&.cm-focused": { outline: "none" },
               ".cm-selectionBackground, ::selection": {
