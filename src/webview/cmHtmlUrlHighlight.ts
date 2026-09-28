@@ -252,7 +252,11 @@ const htmlUrlAttributeHighlightPlugin = ViewPlugin.fromClass(class {
      * @returns 値は返さない。
      */
     update(update: ViewUpdate): void {
-        if (update.docChanged || update.viewportChanged) {
+        if (
+            update.docChanged
+            || update.viewportChanged
+            || syntaxTree(update.startState) !== syntaxTree(update.state)
+        ) {
             this.decorations = createHtmlUrlAttributeDecorations(update.view);
         }
     }
