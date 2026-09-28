@@ -279,7 +279,7 @@ const htmlUrlAttributeHighlightPlugin = ViewPlugin.fromClass(class {
  */
 const htmlUrlAttributeHighlightTheme = EditorView.baseTheme({
     '.cm-html-url-attribute': {
-        color: '#4ec9b0'
+        color: 'var(--mve-syntax-html-url, #4ec9b0)'
     }
 });
 
