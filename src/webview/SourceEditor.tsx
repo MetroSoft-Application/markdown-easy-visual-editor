@@ -304,9 +304,9 @@ const vscodeSyntaxHighlightStyle = HighlightStyle.define([
   },
   { tag: tags.url, color: "#4ec9b0" },
   // Markdown内の生HTMLもタグ・属性・値を明示的に区別する。
-  { tag: tags.tagName, color: "#569cd6" },
-  { tag: tags.attributeName, color: "#9cdcfe" },
-  { tag: tags.attributeValue, color: "#ce9178" },
+  { tag: tags.tagName, color: "var(--mve-syntax-html-tag, #569cd6)" },
+  { tag: tags.attributeName, color: "var(--mve-syntax-html-attribute, #9cdcfe)" },
+  { tag: tags.attributeValue, color: "var(--mve-syntax-html-value, #ce9178)" },
   { tag: tags.processingInstruction, color: "#d7ba7d" },
   {
     tag: tags.monospace,
