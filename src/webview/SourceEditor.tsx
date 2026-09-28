@@ -302,6 +302,11 @@ const vscodeSyntaxHighlightStyle = HighlightStyle.define([
     textDecoration: "underline",
   },
   { tag: tags.url, color: "#4ec9b0" },
+  // Markdown内の生HTMLをタグ・属性・値・括弧で明確に区別する。
+  { tag: tags.tagName, color: "#569cd6" },
+  { tag: tags.attributeName, color: "#9cdcfe" },
+  { tag: tags.attributeValue, color: "#ce9178" },
+  { tag: tags.angleBracket, color: "#808080" },
   { tag: tags.processingInstruction, color: "#d7ba7d" },
   {
     tag: tags.monospace,
@@ -865,7 +870,15 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
               EditorState.lineSeparator.of(detectLineSeparator(value)),
             ),
             lineNumbers(),
-            markdownLanguage({ codeLanguages: sourceCodeLanguages }),
+            markdownLanguage({
+              codeLanguages: sourceCodeLanguages,
+              // Markdown本文中のHTML断片をHTMLとして解析する。画像等で一般的な
+              // <img ... /> 形式も正しく認識し、閉じタグ不一致は断片HTMLでは警告しない。
+              htmlTagLanguage: html({
+                matchClosingTags: false,
+                selfClosingTags: true,
+              }),
+            }),
             // 標準スタイルは濃い青を含むため使わず、明るいテーマ配色を1つだけ適用する。
             syntaxHighlighting(vscodeSyntaxHighlightStyle),
             visibleSpaces,
