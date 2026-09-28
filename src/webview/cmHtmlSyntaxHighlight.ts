@@ -30,6 +30,28 @@ export interface HtmlUrlAttributeRange {
 }
 
 /**
+ * URL属性値がMarkdown本文中の生HTMLとして解析された位置かを判定する。
+ *
+ * resolve() はmounted languageへ入らないため、```html のコードフェンス内でHTMLとして
+ * 解析されたAttributeと、Markdown本体のHTMLTag/HTMLBlockを区別できる。
+ */
+function isMarkdownHtmlPosition(state: EditorState, position: number): boolean {
+  let node = syntaxTree(state).resolve(position, -1);
+  while (node) {
+    if (node.name === "HTMLTag" || node.name === "HTMLBlock") return true;
+    if (
+      node.name === "FencedCode" ||
+      node.name === "CodeBlock" ||
+      node.name === "InlineCode"
+    ) {
+      return false;
+    }
+    node = node.parent;
+  }
+  return false;
+}
+
+/**
  * Markdown/HTMLの構文木からURL属性値だけを抽出する。
  *
  * HTMLとして解析されたAttributeノードだけを見るため、コードフェンスやインラインコードに
@@ -60,6 +82,7 @@ export function collectHtmlUrlAttributeRanges(
         .sliceString(nameNode.from, nameNode.to)
         .toLowerCase();
       if (!HTML_URL_ATTRIBUTE_NAMES.has(attribute)) return false;
+      if (!isMarkdownHtmlPosition(state, valueNode.from)) return false;
 
       let valueFrom = valueNode.from;
       let valueTo = valueNode.to;
