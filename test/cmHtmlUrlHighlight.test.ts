@@ -64,6 +64,21 @@ describe('findHtmlUrlAttributeRanges',
                 ]);
             });
 
+        it('highlights inline HTML URL attributes inside Markdown paragraphs',
+            /**
+             * @returns テストケースを実行し、値は返さない。
+             */
+            () => {
+                const state = createState(
+                    'Before <img src="./inline.png" alt="inline"> '
+                    + '<a href="./inline.md">link</a> after'
+                );
+                expect(values(state, findHtmlUrlAttributeRanges(state))).toEqual([
+                    { attribute: 'src', value: './inline.png' },
+                    { attribute: 'href', value: './inline.md' }
+                ]);
+            });
+
         it('supports srcset, poster and unquoted URL attributes',
             /**
              * @returns テストケースを実行し、値は返さない。
