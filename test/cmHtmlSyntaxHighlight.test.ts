@@ -4,19 +4,28 @@
 import { EditorState } from "@codemirror/state";
 import { html } from "@codemirror/lang-html";
 import { markdown } from "@codemirror/lang-markdown";
+import { LanguageDescription } from "@codemirror/language";
 import { describe, expect, it } from "vitest";
-import { collectHtmlUrlAttributeRanges } from "../src/webview/cmHtmlSyntaxHighlight";
+import {
+  collectHtmlUrlAttributeRanges,
+  markdownHtmlLanguageSupport,
+} from "../src/webview/cmHtmlSyntaxHighlight";
+
+const htmlCodeLanguages = [
+  LanguageDescription.of({
+    name: "HTML",
+    alias: ["html", "xhtml"],
+    support: html(),
+  }),
+];
 
 function createMarkdownState(source: string): EditorState {
   return EditorState.create({
     doc: source,
     extensions: [
       markdown({
-        htmlTagLanguage: html({
-          matchClosingTags: false,
-          selfClosingTags: true,
-          autoCloseTags: false,
-        }),
+        codeLanguages: htmlCodeLanguages,
+        htmlTagLanguage: markdownHtmlLanguageSupport,
       }),
     ],
   });
