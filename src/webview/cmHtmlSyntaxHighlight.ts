@@ -1,6 +1,7 @@
 /**
  * @fileoverview Markdown本文に埋め込まれたHTMLのURL属性を、構文木を使って追加強調する。
  */
+import { html } from "@codemirror/lang-html";
 import { syntaxTree } from "@codemirror/language";
 import type { EditorState, Range } from "@codemirror/state";
 import {
@@ -10,6 +11,18 @@ import {
   ViewPlugin,
   type ViewUpdate,
 } from "@codemirror/view";
+
+/**
+ * Markdown本文へ埋め込むHTML断片用の言語設定。
+ *
+ * Markdownでは断片HTMLを許容するため閉じタグ一致を強制せず、
+ * XML風の自己終了タグも画像記法などで扱えるようにする。
+ */
+export const markdownHtmlLanguageSupport = html({
+  matchClosingTags: false,
+  selfClosingTags: true,
+  autoCloseTags: false,
+});
 
 /** URLやローカルリソース参照として扱うHTML属性名。 */
 const HTML_URL_ATTRIBUTE_NAMES = new Set([
@@ -30,45 +43,18 @@ export interface HtmlUrlAttributeRange {
 }
 
 /**
- * URL属性値がMarkdown本文中の生HTMLとして解析された位置かを判定する。
- *
- * resolveInner() の親リンクはmounted languageのホストMarkdownノードまで辿れる。
- * そのため、HTMLとして構文解析される ```html のコードフェンスと、
- * Markdown本体のHTMLTag/HTMLBlockを区別できる。
+ * 1つのMarkdown HTMLTag/HTMLBlockをHTMLとして解析し、URL属性値を抽出する。
  */
-function isMarkdownHtmlPosition(state: EditorState, position: number): boolean {
-  let node = syntaxTree(state).resolveInner(position, 1);
-  while (node) {
-    if (node.name === "HTMLTag" || node.name === "HTMLBlock") return true;
-    if (
-      node.name === "FencedCode" ||
-      node.name === "CodeBlock" ||
-      node.name === "InlineCode"
-    ) {
-      return false;
-    }
-    node = node.parent;
-  }
-  return false;
-}
-
-/**
- * Markdown/HTMLの構文木からURL属性値だけを抽出する。
- *
- * HTMLとして解析されたAttributeノードだけを見るため、コードフェンスやインラインコードに
- * 記述された `<img src="...">` は対象にならない。
- */
-export function collectHtmlUrlAttributeRanges(
+function collectUrlRangesFromHtmlNode(
   state: EditorState,
-  from = 0,
-  to = state.doc.length,
+  nodeFrom: number,
+  nodeTo: number,
 ): HtmlUrlAttributeRange[] {
+  const source = state.doc.sliceString(nodeFrom, nodeTo);
+  const tree = markdownHtmlLanguageSupport.language.parser.parse(source);
   const ranges: HtmlUrlAttributeRange[] = [];
-  const seen = new Set<string>();
 
-  syntaxTree(state).iterate({
-    from: Math.max(0, from),
-    to: Math.min(state.doc.length, to),
+  tree.iterate({
     enter(reference) {
       if (reference.name !== "Attribute") return;
 
@@ -79,17 +65,14 @@ export function collectHtmlUrlAttributeRanges(
         attributeNode.getChild("UnquotedAttributeValue");
       if (!nameNode || !valueNode) return false;
 
-      const attribute = state.doc
-        .sliceString(nameNode.from, nameNode.to)
-        .toLowerCase();
+      const attribute = source.slice(nameNode.from, nameNode.to).toLowerCase();
       if (!HTML_URL_ATTRIBUTE_NAMES.has(attribute)) return false;
-      if (!isMarkdownHtmlPosition(state, valueNode.from)) return false;
 
       let valueFrom = valueNode.from;
       let valueTo = valueNode.to;
       if (valueTo - valueFrom >= 2) {
-        const opening = state.doc.sliceString(valueFrom, valueFrom + 1);
-        const closing = state.doc.sliceString(valueTo - 1, valueTo);
+        const opening = source.slice(valueFrom, valueFrom + 1);
+        const closing = source.slice(valueTo - 1, valueTo);
         if ((opening === '"' || opening === "'") && closing === opening) {
           valueFrom += 1;
           valueTo -= 1;
@@ -97,11 +80,55 @@ export function collectHtmlUrlAttributeRanges(
       }
       if (valueTo <= valueFrom) return false;
 
-      const key = `${valueFrom}:${valueTo}`;
-      if (!seen.has(key)) {
-        seen.add(key);
-        ranges.push({ from: valueFrom, to: valueTo, attribute });
+      ranges.push({
+        from: nodeFrom + valueFrom,
+        to: nodeFrom + valueTo,
+        attribute,
+      });
+      return false;
+    },
+  });
+
+  return ranges;
+}
+
+/**
+ * Markdown構文木から生HTMLのURL属性値だけを抽出する。
+ *
+ * 外側のMarkdown構文木でHTMLTag/HTMLBlockを先に確定するため、
+ * インラインコードやコードフェンス内のHTMLコードは対象にならない。
+ */
+export function collectHtmlUrlAttributeRanges(
+  state: EditorState,
+  from = 0,
+  to = state.doc.length,
+): HtmlUrlAttributeRange[] {
+  const safeFrom = Math.max(0, from);
+  const safeTo = Math.min(state.doc.length, to);
+  const ranges: HtmlUrlAttributeRange[] = [];
+  const seen = new Set<string>();
+
+  syntaxTree(state).iterate({
+    from: safeFrom,
+    to: safeTo,
+    enter(reference) {
+      if (reference.name !== "HTMLTag" && reference.name !== "HTMLBlock") {
+        return;
       }
+
+      for (const range of collectUrlRangesFromHtmlNode(
+        state,
+        reference.from,
+        reference.to,
+      )) {
+        if (range.to <= safeFrom || range.from >= safeTo) continue;
+        const key = `${range.from}:${range.to}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        ranges.push(range);
+      }
+
+      // HTMLTag/HTMLBlockの内側は専用HTMLパーサーで処理済み。
       return false;
     },
   });
