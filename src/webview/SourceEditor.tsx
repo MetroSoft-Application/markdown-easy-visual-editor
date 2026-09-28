@@ -289,7 +289,7 @@ const sourceCodeLanguages = [
  */
 const vscodeSyntaxHighlightStyle = HighlightStyle.define([
   { tag: tags.meta, color: "var(--vscode-descriptionForeground)" },
-  { tag: tags.heading, color: "#4ec9b0", fontWeight: "600" },
+  { tag: tags.heading, color: "var(--mve-syntax-link)", fontWeight: "600" },
   {
     tag: tags.quote,
     color: "var(--vscode-textBlockQuote-foreground, var(--vscode-foreground))",
@@ -299,42 +299,42 @@ const vscodeSyntaxHighlightStyle = HighlightStyle.define([
   { tag: tags.strikethrough, textDecoration: "line-through" },
   {
     tag: tags.link,
-    color: "#4ec9b0",
+    color: "var(--mve-syntax-link)",
     textDecoration: "underline",
   },
-  { tag: tags.url, color: "#4ec9b0" },
+  { tag: tags.url, color: "var(--mve-syntax-link)" },
   // Markdown内の生HTMLもタグ・属性・値を明示的に区別する。
-  { tag: tags.tagName, color: "#569cd6" },
-  { tag: tags.attributeName, color: "#9cdcfe" },
-  { tag: tags.attributeValue, color: "#ce9178" },
-  { tag: tags.processingInstruction, color: "#d7ba7d" },
+  { tag: tags.tagName, color: "var(--mve-syntax-tag-name)" },
+  { tag: tags.attributeName, color: "var(--mve-syntax-attribute-name)" },
+  { tag: tags.attributeValue, color: "var(--mve-syntax-string)" },
+  { tag: tags.processingInstruction, color: "var(--mve-syntax-instruction)" },
   {
     tag: tags.monospace,
-    color: "#ce9178",
+    color: "var(--mve-syntax-string)",
     backgroundColor:
       "var(--vscode-textCodeBlock-background, var(--vscode-editor-inactiveSelectionBackground))",
     fontFamily:
       "var(--mve-editor-font-family, var(--vscode-editor-font-family, monospace))",
   },
-  { tag: tags.escape, color: "#ce9178" },
-  { tag: tags.character, color: "#b5cea8" },
+  { tag: tags.escape, color: "var(--mve-syntax-string)" },
+  { tag: tags.character, color: "var(--mve-syntax-number)" },
   {
     tag: [tags.keyword, tags.operator],
-    color: "#c586c0",
+    color: "var(--mve-syntax-keyword)",
   },
   {
     tag: [tags.atom, tags.bool, tags.contentSeparator],
-    color: "#dcdcaa",
+    color: "var(--mve-syntax-constant)",
   },
-  { tag: tags.number, color: "#b5cea8" },
-  { tag: tags.labelName, color: "#d7ba7d" },
+  { tag: tags.number, color: "var(--mve-syntax-number)" },
+  { tag: tags.labelName, color: "var(--mve-syntax-label)" },
   {
     tag: [tags.string, tags.special(tags.string)],
-    color: "#ce9178",
+    color: "var(--mve-syntax-string)",
   },
-  { tag: [tags.literal, tags.inserted], color: "#b5cea8" },
-  { tag: tags.deleted, color: "#f48771" },
-  { tag: tags.regexp, color: "#d16969" },
+  { tag: [tags.literal, tags.inserted], color: "var(--mve-syntax-number)" },
+  { tag: tags.deleted, color: "var(--mve-syntax-deleted)" },
+  { tag: tags.regexp, color: "var(--mve-syntax-regexp)" },
   {
     tag: tags.comment,
     color: "var(--vscode-descriptionForeground)",
@@ -342,19 +342,19 @@ const vscodeSyntaxHighlightStyle = HighlightStyle.define([
   },
   {
     tag: [tags.typeName, tags.className, tags.namespace],
-    color: "#155e4f",
+    color: "var(--mve-syntax-type)",
   },
   {
     tag: [tags.definition(tags.variableName), tags.local(tags.variableName)],
-    color: "#dcdcaa",
+    color: "var(--mve-syntax-constant)",
   },
   {
     tag: [tags.special(tags.variableName), tags.macroName],
-    color: "#c586c0",
+    color: "var(--mve-syntax-keyword)",
   },
   {
     tag: tags.definition(tags.propertyName),
-    color: "#155e4f",
+    color: "var(--mve-syntax-type)",
   },
   {
     tag: [
@@ -373,7 +373,7 @@ const vscodeSyntaxHighlightStyle = HighlightStyle.define([
       tags.squareBracket,
       tags.separator,
     ],
-    color: "#d4d4d4",
+    color: "var(--mve-syntax-punctuation)",
   },
 ]);
 
