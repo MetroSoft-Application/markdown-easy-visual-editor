@@ -67,7 +67,10 @@ import { getScrollRatio } from "../shared/scroll";
 import type { Messages } from "../shared/messages";
 import { isMveDebugEnabled, mveDebug } from "./debug";
 import { exactSelectionMatchExtension } from "./cmSelectionMatchHighlight";
-import { htmlUrlAttributeHighlightExtension } from "./cmHtmlSyntaxHighlight";
+import {
+  htmlUrlAttributeHighlightExtension,
+  markdownHtmlLanguageSupport,
+} from "./cmHtmlSyntaxHighlight";
 
 /**
  * 本文編集面で扱う値の種類と境界を表す型。
@@ -873,12 +876,7 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
             lineNumbers(),
             markdownLanguage({
               codeLanguages: sourceCodeLanguages,
-              htmlTagLanguage: html({
-                // Markdownでは断片HTMLを許容し、閉じタグ一致は強制しない。
-                matchClosingTags: false,
-                selfClosingTags: true,
-                autoCloseTags: false,
-              }),
+              htmlTagLanguage: markdownHtmlLanguageSupport,
             }),
             // 標準スタイルは濃い青を含むため使わず、明るいテーマ配色を1つだけ適用する。
             syntaxHighlighting(vscodeSyntaxHighlightStyle),
