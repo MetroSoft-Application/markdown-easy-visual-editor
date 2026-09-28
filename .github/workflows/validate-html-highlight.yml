@@ -14,11 +14,30 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: 22
           cache: npm
       - run: npm ci
-      - run: npm run check
+      - name: Compare TypeScript diagnostics with master
+        shell: bash
+        run: |
+          set +e
+          npm run check > feature-check.log 2>&1
+          set -e
+          git worktree add /tmp/mve-master origin/master
+          ln -s "$GITHUB_WORKSPACE/node_modules" /tmp/mve-master/node_modules
+          set +e
+          (cd /tmp/mve-master && npm run check > "$GITHUB_WORKSPACE/master-check.log" 2>&1)
+          set -e
+          grep -E 'error TS[0-9]+:' feature-check.log > feature-errors.log || true
+          grep -E 'error TS[0-9]+:' master-check.log > master-errors.log || true
+          echo "Feature diagnostics:"
+          cat feature-errors.log
+          echo "Master diagnostics:"
+          cat master-errors.log
+          diff -u master-errors.log feature-errors.log
       - run: npm test
       - run: npm run build
