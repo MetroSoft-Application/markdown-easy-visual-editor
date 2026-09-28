@@ -151,3 +151,7 @@
 
 - Added column and row movement feature.
 - Added column sorting feature.
+
+## 1.2.5
+
+- Fix the syntax highlighting colors.
