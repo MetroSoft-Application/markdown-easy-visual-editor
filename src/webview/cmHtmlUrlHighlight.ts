@@ -12,6 +12,11 @@ import {
 } from '@codemirror/view';
 
 /**
+ * CodeMirror構文木からresolveInnerで取得できる構文ノード型。
+ */
+type SyntaxNode = ReturnType<ReturnType<typeof syntaxTree>['resolveInner']>;
+
+/**
  * HTML URL属性の強調対象範囲。
  */
 export interface HtmlUrlAttributeRange {
@@ -52,6 +57,14 @@ const HTML_URL_ATTRIBUTES = new Set([
 ]);
 
 /**
+ * Markdown側でHTMLパーサーがoverlayとしてマウントされるホストノード。
+ */
+const MARKDOWN_HTML_HOST_NODES = new Set([
+    'HTMLBlock',
+    'HTMLTag'
+]);
+
+/**
  * HTMLの引用符付き属性値から、引用符を除いた本文範囲を返す。
  * @param state - 現在のCodeMirror文書状態。
  * @param from - 属性値ノードの開始位置。
@@ -71,10 +84,87 @@ function trimAttributeQuotes(
 }
 
 /**
+ * MarkdownのHTMLホストノードからoverlayされたHTML構文木のルートを取得する。
+ * @param host - Markdown側のHTMLBlockまたはHTMLTagノード。
+ * @param preferredPosition - 現在の可視範囲に近い解決位置。
+ * @returns overlayされたHTML構文木の最上位ノード。未解析時はundefined。
+ */
+function resolveHtmlRoot(
+    host: SyntaxNode,
+    preferredPosition: number
+): SyntaxNode | undefined {
+    if (host.to <= host.from) return undefined;
+
+    const positions = [
+        Math.min(host.to - 1, Math.max(host.from, preferredPosition)),
+        host.from,
+        host.to - 1
+    ];
+    for (const position of positions) {
+        let current = host.resolveInner(position, position <= host.from ? 1 : 0);
+        if (MARKDOWN_HTML_HOST_NODES.has(current.name)) continue;
+
+        while (
+            current.parent
+            && !MARKDOWN_HTML_HOST_NODES.has(current.parent.name)
+        ) {
+            current = current.parent;
+        }
+        if (!MARKDOWN_HTML_HOST_NODES.has(current.name)) return current;
+    }
+    return undefined;
+}
+
+/**
+ * HTML構文木を指定範囲だけ走査し、URL属性値を収集する。
+ * @param state - 現在のCodeMirror文書状態。
+ * @param node - overlayされたHTML構文ノード。
+ * @param scanFrom - 走査開始位置。
+ * @param scanTo - 走査終了位置。
+ * @param ranges - 検出結果の格納先。
+ * @returns 値は返さない。
+ */
+function collectHtmlUrlAttributeRanges(
+    state: EditorState,
+    node: SyntaxNode,
+    scanFrom: number,
+    scanTo: number,
+    ranges: HtmlUrlAttributeRange[]
+): void {
+    if (node.to < scanFrom || node.from > scanTo) return;
+
+    if (node.name === 'Attribute') {
+        const attributeNameNode = node.getChild('AttributeName');
+        if (!attributeNameNode) return;
+        const attribute = state.doc
+            .sliceString(attributeNameNode.from, attributeNameNode.to)
+            .toLowerCase();
+        if (!HTML_URL_ATTRIBUTES.has(attribute)) return;
+
+        const valueNode = node.getChild('AttributeValue')
+            ?? node.getChild('UnquotedAttributeValue');
+        if (!valueNode) return;
+
+        const value = trimAttributeQuotes(state, valueNode.from, valueNode.to);
+        const valueFrom = Math.max(scanFrom, value.from);
+        const valueTo = Math.min(scanTo, value.to);
+        if (valueTo > valueFrom) {
+            ranges.push({ from: valueFrom, to: valueTo, attribute });
+        }
+        return;
+    }
+
+    for (let child = node.firstChild; child; child = child.nextSibling) {
+        collectHtmlUrlAttributeRanges(state, child, scanFrom, scanTo, ranges);
+    }
+}
+
+/**
  * 指定範囲にあるHTML URL属性値をCodeMirrorの構文木から抽出する。
  *
- * 正規表現でMarkdown本文を再解析せず、既にCodeMirrorが保持している構文木だけを走査する。
- * 呼び出し側は可視範囲を渡すため、長大な文書でも全文走査しない。
+ * MarkdownのHTMLはoverlay構文木として保持されるため、まずHTMLBlock/HTMLTagだけを
+ * Markdown側の構文木から取得し、resolveInnerで既存のHTML構文木へ入る。
+ * 正規表現で本文を再解析せず、呼び出し側も可視範囲だけを渡すため全文走査しない。
  *
  * @param state - 現在のCodeMirror文書状態。
  * @param from - 走査開始位置。
@@ -95,29 +185,22 @@ export function findHtmlUrlAttributeRanges(
         from: scanFrom,
         to: scanTo,
         /**
-         * HTML Attributeノードだけを調べ、URL属性なら値ノードを装飾対象へ追加する。
-         * @param node - CodeMirror構文木の現在ノード。
-         * @returns Attributeの子走査を省略する場合はfalse。
+         * Markdown側のHTMLホストノードだけでoverlay構文木へ入り、対象属性を収集する。
+         * @param node - Markdown構文木の現在ノード。
+         * @returns HTMLホストのMarkdown子ノード走査を省略する場合はfalse。
          */
         enter(node) {
-            if (node.name !== 'Attribute') return;
-
-            const attributeNameNode = node.node.getChild('AttributeName');
-            if (!attributeNameNode) return false;
-            const attribute = state.doc
-                .sliceString(attributeNameNode.from, attributeNameNode.to)
-                .toLowerCase();
-            if (!HTML_URL_ATTRIBUTES.has(attribute)) return false;
-
-            const valueNode = node.node.getChild('AttributeValue')
-                ?? node.node.getChild('UnquotedAttributeValue');
-            if (!valueNode) return false;
-
-            const value = trimAttributeQuotes(state, valueNode.from, valueNode.to);
-            const valueFrom = Math.max(scanFrom, value.from);
-            const valueTo = Math.min(scanTo, value.to);
-            if (valueTo > valueFrom) {
-                ranges.push({ from: valueFrom, to: valueTo, attribute });
+            if (!MARKDOWN_HTML_HOST_NODES.has(node.name)) return;
+            const host = node.node as SyntaxNode;
+            const htmlRoot = resolveHtmlRoot(host, scanFrom);
+            if (htmlRoot) {
+                collectHtmlUrlAttributeRanges(
+                    state,
+                    htmlRoot,
+                    scanFrom,
+                    scanTo,
+                    ranges
+                );
             }
             return false;
         }
