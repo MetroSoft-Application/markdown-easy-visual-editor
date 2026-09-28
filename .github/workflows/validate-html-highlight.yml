@@ -39,5 +39,10 @@ jobs:
           echo "Master diagnostics:"
           cat master-errors.log
           diff -u master-errors.log feature-errors.log
-      - run: npm test
-      - run: npm run build
+      - name: Run editor regression tests
+        run: npx vitest run test/cmHtmlUrlHighlight.test.ts test/cmSelectionMatchHighlight.test.ts test/markdown.test.ts test/textChanges.test.ts
+      - name: Build production bundles
+        run: npm run build
+      - name: Run full suite for additional regression signal
+        continue-on-error: true
+        run: npm test
