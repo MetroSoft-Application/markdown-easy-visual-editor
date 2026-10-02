@@ -889,6 +889,12 @@ export interface Messages {
          */
         outlineWidth: string;
 
+        /** セクションへのリンクをコピーするメニュー項目。 */
+        copySectionLink: string;
+
+        /** セクションリンクのコピー成功通知。 */
+        sectionLinkCopied: string;
+
         /**
          * no・headings書式コマンドのラベルとして表示するローカライズ済み文言。
          */
@@ -2142,6 +2148,8 @@ function createMessages(language: SupportedLanguage): Messages {
             hideOutline: raw.app.hideOutline,
             showOutline: raw.app.showOutline,
             outlineWidth: raw.app.outlineWidth,
+            copySectionLink: raw.app.copySectionLink,
+            sectionLinkCopied: raw.app.sectionLinkCopied,
             noHeadings: raw.app.noHeadings,
             searchAndReplace: raw.app.searchAndReplace,
             searchText: raw.app.searchText,

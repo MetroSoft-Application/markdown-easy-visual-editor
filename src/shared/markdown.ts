@@ -1,7 +1,8 @@
 /**
  * @fileoverview Markdownの解析、インライン構文、表、画像、リンクの共通変換を提供する。表示と保存で本文の意味をそろえる。
  */
-import { marked, type Token, type Tokens } from 'marked';
+import { Marked, marked, type Token, type Tokens } from 'marked';
+import { footnoteDefinitionSyntax, mathBlockSyntax, tableOfContentsSyntax } from './markdownBlockSyntax';
 import { getMessages, type SupportedLanguage } from './messages';
 import { stripMveTextColorMarkup } from './textColor';
 
@@ -1498,6 +1499,7 @@ export function getOutline(markdown: string): OutlineItem[] {
     // Markdownの見出しを走査し、表示名・行番号・文書内位置・重複しないIDを収集する。
     const items: OutlineItem[] = [];
     const duplicateCount = new Map<string, number>();
+    const usedIds = new Set<string>();
     const lines = markdown.split(/\r\n|\r|\n/);
     const fencedLineIndexes = getFencedMarkdownLineIndexes(lines);
     let lineNumber = 1;
@@ -1519,14 +1521,12 @@ export function getOutline(markdown: string): OutlineItem[] {
                 .replace(/[*_`~+=]/g, '')
                 .trim();
             const baseId = explicit?.[1] || match[3] || slugify(text);
-            const count = duplicateCount.get(baseId) ?? 0;
-            duplicateCount.set(baseId, count + 1);
             items.push({
                 level: match[1].length,
                 text,
                 line: lineNumber,
                 offset: lineMatch.index,
-                id: count ? `${baseId}-${count}` : baseId
+                id: uniqueHeadingAnchorId(baseId, duplicateCount, usedIds)
             });
         }
         lineNumber += 1;
@@ -2666,6 +2666,88 @@ export function slugify(value: string): string {
         .replace(/[^\p{Letter}\p{Number}\s-]/gu, '')
         .replace(/\s+/g, '-')
         .replace(/-+/g, '-') || 'section';
+}
+
+/** 自動サフィックスと見出し本文の衝突を避けて、一意なアンカーIDを割り当てる。 */
+function uniqueHeadingAnchorId(base: string, counts: Map<string, number>, usedIds: Set<string>): string {
+    let count = counts.get(base) ?? 0;
+    let id = count ? `${base}-${count}` : base;
+    while (usedIds.has(id)) {
+        count += 1;
+        id = `${base}-${count}`;
+    }
+    counts.set(base, count + 1);
+    usedIds.add(id);
+    return id;
+}
+
+/** 描画順の重複数を反映した見出しアンカーIDを生成する。 */
+export function nextHeadingAnchorId(rawText: string, counts: Map<string, number>, usedIds: Set<string>): string {
+    const plain = stripMveTextColorMarkup(rawText);
+    const explicit = /\s+\{#([^}]+)\}\s*$/.exec(plain);
+    const base = explicit?.[1] ?? slugify(plain.replace(/\s+\{#[^}]+\}\s*$/, ''));
+    return uniqueHeadingAnchorId(base, counts, usedIds);
+}
+
+/** 同じMarkdown文書へ貼り付けて使える、見出し名付きの文書内リンクを作る。 */
+export function sectionMarkdownLink(text: string, id: string): string {
+    const label = (text.trim() || id)
+        .replace(/[\r\n]+/g, ' ')
+        .replace(/[\\`*_\[\]~^+=$<>&!|]/gu, '\\$&');
+    const fragment = id.replace(/[%#&|()[\]<>\\"'\s]/gu, (character) => {
+        const encoded = encodeURIComponent(character);
+        return encoded === character
+            ? `%${character.charCodeAt(0).toString(16).toUpperCase()}`
+            : encoded;
+    });
+    return `[${label}](#${fragment})`;
+}
+
+/** 見出しのトークン位置を元の行へ対応付けるため、改行数を数える。 */
+function countLineBreaks(value: string): number {
+    return (value.match(/\r\n|\r|\n/g) ?? []).length;
+}
+
+/** 描画と同じ順序の見出しIDから、リンクを開く行を求める。リンク操作時だけ呼び出す。 */
+export function headingLineForAnchor(markdown: string, targetId: string): number | undefined {
+    const counts = new Map<string, number>();
+    const usedIds = new Set<string>();
+    const parser = new Marked({ gfm: true, breaks: false });
+    parser.use({ extensions: [
+        mathBlockSyntax(),
+        tableOfContentsSyntax(),
+        footnoteDefinitionSyntax()
+    ] });
+    const tokens = parser.lexer(markdown);
+
+    const findInTokens = (blocks: Token[], source: string, firstLine: number): number | undefined => {
+        let cursor = 0;
+        let line = firstLine;
+        for (const block of blocks) {
+            if (block.type === 'checkbox') continue;
+            const offset = source.indexOf(block.raw, cursor);
+            if (offset < 0) continue;
+            line += countLineBreaks(source.slice(cursor, offset));
+            if (block.type === 'heading') {
+                const id = nextHeadingAnchorId((block.tokens ?? []).map((token) => token.raw).join(''), counts, usedIds);
+                if (id === targetId) return line;
+            } else if (block.type === 'blockquote') {
+                const nestedLine = findInTokens(block.tokens ?? [], block.text, line);
+                if (nestedLine !== undefined) return nestedLine;
+            } else if (block.type === 'list') {
+                const nestedLine = findInTokens(block.items, block.raw, line);
+                if (nestedLine !== undefined) return nestedLine;
+            } else if (block.type === 'list_item') {
+                const nestedLine = findInTokens(block.tokens ?? [], block.text, line);
+                if (nestedLine !== undefined) return nestedLine;
+            }
+            cursor = offset + block.raw.length;
+            line += countLineBreaks(block.raw);
+        }
+        return undefined;
+    };
+
+    return findInTokens(tokens, markdown, 1);
 }
 
 /**

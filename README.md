@@ -43,6 +43,8 @@ The view buttons at the top of the editor provide three layouts:
 
 Use the **View** tab's **Outline** button to show or hide the heading outline. Select a heading in the outline to jump to that section. Use **Ctrl+wheel** or **Cmd+wheel** to zoom the editor and preview.
 
+Right-click an outline item or a heading in the split Markdown preview, then choose **Copy link to section**. Paste the copied Markdown link (for example, `[Heading](#heading)`) into the same document to link to that section. A stationary right-click opens this menu; right-click and drag on an outline item still reorders its section.
+
 The ribbon can be collapsed when you need more space for your document.
 
 ### Reorder sections from the outline

@@ -545,6 +545,7 @@ export type HostToWebviewMessage =
          */
         settings: WebviewSettings;
     }
+    | { type: 'sectionLinkCopied' }
     | {
         /**
          * 共有プロトコルで対象や分岐を識別する値の型。
@@ -998,6 +999,7 @@ export type WebviewToHostMessage =
          */
         visible: boolean
     }
+    | { type: 'copySectionLink'; id: string; text: string }
     | {
         /**
          * 共有プロトコルで対象や分岐を識別する値の型。

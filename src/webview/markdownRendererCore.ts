@@ -3,9 +3,9 @@
  */
 import katex from 'katex';
 import { Marked, Renderer, type Token } from 'marked';
-import { getOutline, slugify } from '../shared/markdown';
+import { footnoteDefinitionSyntax, mathBlockSyntax, tableOfContentsSyntax } from '../shared/markdownBlockSyntax';
+import { getOutline, nextHeadingAnchorId, slugify, type OutlineItem } from '../shared/markdown';
 import { getMessages, type Messages, type SupportedLanguage } from '../shared/messages';
-import { stripMveTextColorMarkup } from '../shared/textColor';
 
 /**
  * Markdown変換へ渡す設定項目と既定値のデータ形状。
@@ -84,11 +84,33 @@ export interface UnsafeMarkdownBlock {
      * 表示または出力するHTML本文。
      */
     html: string;
+    /** 見出しブロックの本文内開始位置。 */
+    headingOffset?: number;
+    /** 実際に描画した見出しのID。 */
+    headingId?: string;
 
     /**
      * Markdown変換のrequires・sanitizationを切り替えるフラグ。
      */
     requiresSanitization: boolean;
+}
+
+/** 描画済み見出しのIDをアウトラインへ反映し、Setext見出しとの重複時もリンク先を一致させる。 */
+export function alignOutlineHeadingIds(
+    outline: OutlineItem[],
+    blocks: UnsafeMarkdownBlock[]
+): OutlineItem[] {
+    const byOffset = new Map<number, string>();
+    for (const block of blocks) {
+        if (block.headingOffset !== undefined && block.headingId) {
+            byOffset.set(block.headingOffset, block.headingId);
+        }
+    }
+    return outline.flatMap((item) => {
+        const id = byOffset.get(item.offset);
+        if (!id) return [];
+        return [id !== item.id ? { ...item, id } : item];
+    });
 }
 
 /**
@@ -115,6 +137,8 @@ export function renderMarkdownUnsafeBlocks(
     const messages = getMessages(options.language ?? 'ja');
     const renderer = new Renderer();
     const headingIds = new Map<string, number>();
+    const usedHeadingIds = new Set<string>();
+    let renderedHeadingId: string | undefined;
     const footnoteDefinitions = collectFootnoteDefinitions(markdown);
     const footnoteCounts = new Map<string, number>();
     let imageIndex = 0;
@@ -129,21 +153,9 @@ export function renderMarkdownUnsafeBlocks(
          */
         function ({ tokens, depth }) {
             const content = this.parser.parseInline(tokens);
-            const plain = stripMveTextColorMarkup(
-                tokens.map(
-                    /**
-                     * 各tokenからrawを取り出して一覧化する。
-                     * @param token - tokenのrawを参照する走査対象。
-                     * @returns rawを取り出した変換結果の一覧。
-                     */
-                    (token) => token.raw).join('')
-            );
-            const explicit = /\s+\{#([^}]+)\}\s*$/.exec(plain);
-            const base = explicit?.[1] ?? slugify(plain.replace(/\s+\{#[^}]+\}\s*$/, ''));
-            const count = headingIds.get(base) ?? 0;
-            headingIds.set(base, count + 1);
-            const id = count ? `${base}-${count}` : base;
-            return `<h${depth} id="${escapeAttribute(id)}">${content.replace(/\s+\{#[^}]+\}(?=(?:<\/span>)*\s*$)/, '')}</h${depth}>`;
+            const id = nextHeadingAnchorId(tokens.map((token) => token.raw).join(''), headingIds, usedHeadingIds);
+            renderedHeadingId = id;
+            return `<h${depth} id="${escapeAttribute(id)}" data-mve-heading="true">${content.replace(/\s+\{#[^}]+\}(?=(?:<\/span>)*\s*$)/, '')}</h${depth}>`;
         };
 
     /**
@@ -251,11 +263,14 @@ export function renderMarkdownUnsafeBlocks(
          */
         (token, index): UnsafeMarkdownBlock | undefined => {
             const tokenList = Object.assign([token], { links });
+            renderedHeadingId = undefined;
             const rendered = String(parser.parser(tokenList));
             if (!rendered.trim()) return undefined;
             const range = ranges[index];
             return {
                 html: `<div class="markdown-source-block" data-source-from="${range.from}" data-source-to="${range.to}">${rendered}</div>`,
+                headingOffset: token.type === 'heading' ? range.from : undefined,
+                headingId: token.type === 'heading' ? renderedHeadingId : undefined,
                 // コード/Mermaid本文と属性はrenderer.code内ですべてエスケープ済み。
                 requiresSanitization: token.type !== 'code'
             };
@@ -456,27 +471,7 @@ function inlineDelimited(name: string, rule: RegExp, tag: string): any {
  */
 function mathBlockExtension(messages: Messages): any {
     return {
-        name: 'mathBlock',
-        level: 'block',
-        /**
-         * Markdown変換の表示または操作を開始する。
-         * @param source - 解析・描画・変換の起点となる本文。
-         * @returns Markdown変換のstartが生成する結果。
-         */
-        start(source: string) {
-            const found = source.indexOf('$$');
-            return found >= 0 ? found : undefined;
-        },
-        /**
-         * Markdown変換の入力を構造化した値へ変換する。
-         * @param source - 解析・描画・変換の起点となる本文。
-         * @returns Markdown変換のtokenizerが生成する結果。
-         */
-        tokenizer(source: string) {
-            const match = /^\$\$[ \t]*\n?([\s\S]+?)\n?[ \t]*\$\$(?:\n|$)/.exec(source);
-            if (!match) return undefined;
-            return { type: 'mathBlock', raw: match[0], text: match[1].trim() } as CustomToken;
-        },
+        ...mathBlockSyntax(),
         /**
          * Markdown変換を表示用の結果へ変換する。
          * @param token - Markdown変換で走査または更新する要素。
@@ -536,27 +531,7 @@ function mathInlineExtension(messages: Messages): any {
  */
 function tocExtension(markdown: string, messages: Messages): any {
     return {
-        name: 'tableOfContents',
-        level: 'block',
-        /**
-         * Markdown変換の表示または操作を開始する。
-         * @param source - 解析・描画・変換の起点となる本文。
-         * @returns Markdown変換のstartが生成する結果。
-         */
-        start(source: string) {
-            const match = /^\[toc]\s*$/im.exec(source);
-            return match?.index;
-        },
-        /**
-         * Markdown変換の入力を構造化した値へ変換する。
-         * @param source - 解析・描画・変換の起点となる本文。
-         * @returns Markdown変換のtokenizerが生成する結果。
-         */
-        tokenizer(source: string) {
-            const match = /^\[toc]\s*(?:\r\n|\r|\n|$)/i.exec(source);
-            if (!match) return undefined;
-            return { type: 'tableOfContents', raw: match[0], text: '' } as CustomToken;
-        },
+        ...tableOfContentsSyntax(),
         /**
          * Markdown変換を表示用の結果へ変換する。
          * @returns Markdown変換で生成または変換した値。
@@ -573,27 +548,7 @@ function tocExtension(markdown: string, messages: Messages): any {
  */
 function footnoteDefinitionExtension(): any {
     return {
-        name: 'footnoteDefinition',
-        level: 'block',
-        /**
-         * Markdown変換の表示または操作を開始する。
-         * @param source - 解析・描画・変換の起点となる本文。
-         * @returns Markdown変換のstartが生成する結果。
-         */
-        start(source: string) {
-            const match = /^\[\^[^\]]+]\s*:/m.exec(source);
-            return match?.index;
-        },
-        /**
-         * Markdown変換の入力を構造化した値へ変換する。
-         * @param source - 解析・描画・変換の起点となる本文。
-         * @returns Markdown変換のtokenizerが生成する結果。
-         */
-        tokenizer(source: string) {
-            const match = /^\[\^([^\]]+)]\s*:\s*([^\r\n]+)(?:\r\n|\r|\n|$)/.exec(source);
-            if (!match) return undefined;
-            return { type: 'footnoteDefinition', raw: match[0], text: match[2], id: match[1] };
-        },
+        ...footnoteDefinitionSyntax(),
         /**
          * Markdown変換を表示用の結果へ変換する。
          * @returns Markdown変換で生成または変換した値。

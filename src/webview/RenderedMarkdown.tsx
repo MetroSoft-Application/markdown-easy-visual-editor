@@ -1067,8 +1067,14 @@ function RenderedMarkdownView({
       const href = originalHref ?? anchor.getAttribute("href") ?? "";
       if (!originalHref && href.startsWith("#")) {
         event.preventDefault();
+        let id = href.slice(1);
+        try {
+          id = decodeURIComponent(id);
+        } catch {
+          // 不正な%エスケープを含むIDも文字列として照合する。
+        }
         rootRef.current
-          ?.querySelector<HTMLElement>(href)
+          ?.querySelector<HTMLElement>(`#${CSS.escape(id)}`)
           ?.scrollIntoView({ behavior: "smooth", block: "start" });
       } else {
         // Webviewのネイティブ遷移を許すと、ローカルMarkdownがブラウザへ渡るため、

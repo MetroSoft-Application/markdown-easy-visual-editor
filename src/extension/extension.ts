@@ -24,7 +24,7 @@ import {
     type FontFamilySettings
 } from '../shared/fontFamily';
 import { resolveImageDirectoryRule } from '../shared/imageDirectory';
-import { collectLocalResourceReferences, sortDiagnostics, type Diagnostic } from '../shared/markdown';
+import { collectLocalResourceReferences, headingLineForAnchor, sectionMarkdownLink, sortDiagnostics, type Diagnostic } from '../shared/markdown';
 import { applyTextChanges, computeTextChanges, mapTextChanges, validateTextChanges, type TextChange } from '../shared/textChanges';
 import {
     canonicalizeContentChanges,
@@ -1095,6 +1095,10 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                 case 'openResource':
                     await this.openResource(document, message.href);
                     return;
+                case 'copySectionLink':
+                    await vscode.env.clipboard.writeText(sectionMarkdownLink(message.text, message.id));
+                    this.post(panel, { type: 'sectionLinkCopied' });
+                    return;
                 case 'htmlDocumentsRendered': {
                     const pending = this.pendingHtmlRenderRequests.get(message.requestId);
                     if (!pending) return;
@@ -1835,7 +1839,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
         const target = classifyResourceLink(href);
         if (target.kind === 'invalidLocalWebview') return;
         if (target.kind === 'localWebview') {
-            await vscode.commands.executeCommand('vscode.open', vscode.Uri.file(target.path));
+            await this.openLocalResource(vscode.Uri.file(target.path), href);
             return;
         }
         if (target.kind === 'external') {
@@ -1843,12 +1847,43 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
             return;
         }
         if (target.kind === 'absoluteFile') {
+            if (/^file:/i.test(target.href)) {
+                const linkedUri = vscode.Uri.parse(target.href);
+                await this.openLocalResource(linkedUri.with({ query: '', fragment: '' }), target.href);
+                return;
+            }
             const uri = resolveLocalResourceUri(document.uri, decodeLocalResourceSource(target.href));
-            if (uri) await vscode.commands.executeCommand('vscode.open', uri);
+            if (uri) await this.openLocalResource(uri, target.href);
             return;
         }
         const uri = resolveLocalResourceUri(document.uri, decodeLocalResourceSource(target.href));
-        if (uri) await vscode.commands.executeCommand('vscode.open', uri);
+        if (uri) await this.openLocalResource(uri, target.href);
+    }
+
+    /** ローカルMarkdownのフラグメントを見出し行へ解決して開く。 */
+    private async openLocalResource(uri: vscode.Uri, href: string): Promise<void> {
+        const fragmentIndex = href.indexOf('#');
+        if (fragmentIndex >= 0 && /\.(?:md|markdown)$/i.test(uri.path)) {
+            const rawFragment = href.slice(fragmentIndex + 1);
+            let id = rawFragment;
+            try {
+                id = decodeURIComponent(rawFragment);
+            } catch {
+                // 不正な%エスケープはそのままのIDとして照合する。
+            }
+            if (id) {
+                const target = await vscode.workspace.openTextDocument(uri);
+                const line = headingLineForAnchor(target.getText(), id);
+                if (line !== undefined) {
+                    const position = new vscode.Position(line - 1, 0);
+                    await vscode.window.showTextDocument(target, {
+                        selection: new vscode.Range(position, position)
+                    });
+                    return;
+                }
+            }
+        }
+        await vscode.commands.executeCommand('vscode.open', uri);
     }
 
     /**

@@ -65,6 +65,7 @@ const vscodeMock = vi.hoisted(
             defaultUpdate,
             globalState,
             event,
+            clipboardWriteText: vi.fn(async (_value: string) => undefined),
             getConfiguration: vi.fn(
                 /**
                  * HTML設定Host・テストの回帰のコールバックとして要素を処理する。
@@ -89,7 +90,7 @@ vi.mock('vscode',
         },
         ConfigurationTarget: { Global: 'global' },
         window: { showErrorMessage: vi.fn() },
-        env: { language: 'en' },
+        env: { language: 'en', clipboard: { writeText: vscodeMock.clipboardWriteText } },
     }));
 
 import { MarkdownEasyVisualEditorProvider } from '../src/extension/extension';
@@ -202,6 +203,7 @@ afterEach(
         vscodeMock.globalState.update.mockReset();
         vscodeMock.globalState.update.mockImplementation(vscodeMock.defaultUpdate);
         vscodeMock.getConfiguration.mockClear();
+        vscodeMock.clipboardWriteText.mockClear();
         vscodeMock.configuration.get.mockClear();
         vscodeMock.configuration.inspect.mockClear();
         vscodeMock.configuration.update.mockReset();
@@ -211,6 +213,24 @@ afterEach(
                 vscodeMock.configurationValues.set(key, value);
             });
     });
+
+describe('section link clipboard in the extension host', () => {
+    it('writes a Markdown fragment link and acknowledges the copy', async () => {
+        const provider = new MarkdownEasyVisualEditorProvider(createContext());
+        const document = createDocument('file:///workspace/拡張構文.md');
+        const panel = addPanel(provider, document);
+
+        await (provider as any).handleMessage(document, panel, {
+            type: 'copySectionLink',
+            id: '拡張構文',
+            text: '拡張構文',
+        });
+
+        expect(vscodeMock.clipboardWriteText).toHaveBeenCalledOnce();
+        expect(vscodeMock.clipboardWriteText).toHaveBeenCalledWith('[拡張構文](#拡張構文)');
+        expect(panel.webview.postMessage).toHaveBeenCalledWith({ type: 'sectionLinkCopied' });
+    });
+});
 
 describe('HTML export global settings in the extension host',
     /**
