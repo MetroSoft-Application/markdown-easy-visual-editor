@@ -545,6 +545,8 @@ export type HostToWebviewMessage =
          */
         settings: WebviewSettings;
     }
+    | { type: 'sectionLinkCopied' }
+    | { type: 'workspaceSectionLinkUnavailable' }
     | {
         /**
          * 共有プロトコルで対象や分岐を識別する値の型。
@@ -802,8 +804,13 @@ export type HostToWebviewMessage =
         type: 'hostCommand';
         /**
          * 共有プロトコルのcommandに関する状態または設定。
-         */
+        */
         command: 'insertImage' | 'exportPdf' | 'exportHtml' | 'undo' | 'redo'
+    }
+    | {
+        type: 'hostCommand';
+        command: 'navigateToOffset';
+        offset: number;
     };
 
 /**
@@ -998,6 +1005,7 @@ export type WebviewToHostMessage =
          */
         visible: boolean
     }
+    | { type: 'copySectionLink'; scope: 'document' | 'workspace'; id: string; text: string }
     | {
         /**
          * 共有プロトコルで対象や分岐を識別する値の型。
@@ -1196,7 +1204,9 @@ export type WebviewToHostMessage =
         /**
          * 共有プロトコルで受け渡すhrefの文字列。
          */
-        href: string
+        href: string;
+        /** 専用title印を持つワークスペース基準リンクかを示す。 */
+        workspaceRooted?: boolean
     }
     | {
         /**

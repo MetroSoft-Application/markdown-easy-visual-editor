@@ -361,7 +361,7 @@ describe('text color formatting',
                 });
 
                 expect(getOutline(result)).toMatchObject([{ text: 'Heading', id: 'custom' }]);
-                expect(rendered).toContain('<h1 id="custom">');
+                expect(rendered).toContain('<h1 id="custom" data-mve-heading="true">');
                 expect(rendered).toContain('href="#custom"');
                 expect(wordStats(applyTextColorFormatting('hello', { from: 0, to: 5 }, 'red').text).text).toBe(5);
             });
@@ -381,7 +381,7 @@ describe('text color formatting',
                 expect(renderMarkdownUnsafe(colored, {
                     remoteImagesEnabled: true,
                     language: 'en',
-                })).toContain('<h1 id="custom">');
+                })).toContain('<h1 id="custom" data-mve-heading="true">');
                 expect(collectDiagnostics(duplicate, 'en')).toContainEqual(expect.objectContaining({
                     code: 'duplicate-heading',
                     line: 2,
@@ -410,7 +410,7 @@ describe('text color formatting',
 
                 expect(outline.text).not.toBe('A');
                 expect(outline.id).not.toBe('a');
-                expect(rendered).toContain('<h1 id="' + outline.id + '">');
+                expect(rendered).toContain('<h1 id="' + outline.id + '" data-mve-heading="true">');
                 expect(wordStats(literal).text).toBeGreaterThan(1);
                 expect(aligned).toMatch(/\| --- {20,}\|/);
             });

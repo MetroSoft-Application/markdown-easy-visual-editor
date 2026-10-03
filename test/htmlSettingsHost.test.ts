@@ -14,6 +14,21 @@ const vscodeMock = vi.hoisted(
     () => {
         const state = new Map<string, unknown>();
         const configurationValues = new Map<string, unknown>();
+        const createUri = (scheme: string, uriPath: string, fragment = '') => ({
+            scheme,
+            path: uriPath,
+            fsPath: uriPath,
+            authority: '',
+            query: '',
+            fragment,
+            toString() {
+                return `${scheme}://${uriPath}${fragment ? `#${encodeURIComponent(fragment)}` : ''}`;
+            },
+            with(change: { path?: string; fragment?: string }) {
+                return createUri(scheme, change.path ?? uriPath, change.fragment ?? fragment);
+            },
+        });
+        const workspaceFolder = { uri: createUri('file', '/workspace/root') };
 
         /** globalState.updateの既定動作。旧形式の値と移行済み印を保持する。 */
         const defaultUpdate = /**
@@ -61,10 +76,32 @@ const vscodeMock = vi.hoisted(
         return {
             state,
             configurationValues,
+            workspaceFolder,
+            getWorkspaceFolder: vi.fn(() => undefined),
+            asRelativePath: vi.fn(() => 'guides/extended syntax.md'),
+            openTextDocument: vi.fn(async (_uri: unknown) => ({
+                getText: () => '# 拡張構文',
+                offsetAt: () => 0
+            })),
+            joinPath: vi.fn((base: any, ...segments: string[]) => ({
+                ...createUri(
+                    base.scheme,
+                    [base.path.replace(/\/$/, ''), ...segments].join('/').replace(/\/+/g, '/'),
+                ),
+            })),
+            file: vi.fn((filePath: string) => createUri('file', filePath)),
+            showTextDocument: vi.fn(async () => undefined),
+            executeCommand: vi.fn(async (_command: string, ..._args: unknown[]) => undefined),
+            activeTextEditor: undefined as any,
+            activeTab: undefined as any,
             configuration,
             defaultUpdate,
             globalState,
             event,
+            clipboardWriteText: vi.fn(async (_value: string) => undefined),
+            showInformationMessage: vi.fn(async (..._args: any[]): Promise<any> => undefined),
+            withProgress: vi.fn(async (_options: unknown, task: () => Promise<unknown>) => task()),
+            openExternal: vi.fn(async (_uri: unknown) => true),
             getConfiguration: vi.fn(
                 /**
                  * HTML設定Host・テストの回帰のコールバックとして要素を処理する。
@@ -85,12 +122,50 @@ vi.mock('vscode',
             onDidChangeConfiguration: vscodeMock.event,
             onDidGrantWorkspaceTrust: vscodeMock.event,
             getConfiguration: vscodeMock.getConfiguration,
+            getWorkspaceFolder: vscodeMock.getWorkspaceFolder,
+            asRelativePath: vscodeMock.asRelativePath,
+            openTextDocument: vscodeMock.openTextDocument,
             isTrusted: true,
         },
+        Uri: { joinPath: vscodeMock.joinPath, file: vscodeMock.file },
+        Position: class Position { constructor(public line: number, public character: number) {} },
+        Range: class Range { constructor(public start: unknown, public end: unknown) {} },
         ConfigurationTarget: { Global: 'global' },
-        window: { showErrorMessage: vi.fn() },
-        env: { language: 'en' },
+        window: {
+            showErrorMessage: vi.fn(),
+            showInformationMessage: vscodeMock.showInformationMessage,
+            withProgress: vscodeMock.withProgress,
+            showTextDocument: vscodeMock.showTextDocument,
+            get activeTextEditor() { return vscodeMock.activeTextEditor; },
+            tabGroups: { activeTabGroup: { get activeTab() { return vscodeMock.activeTab; } } },
+        },
+        commands: { executeCommand: vscodeMock.executeCommand },
+        Selection: class Selection {
+            readonly start: any;
+            readonly end: any;
+            constructor(public anchor: any, public active: any) {
+                this.start = anchor;
+                this.end = active;
+            }
+        },
+        TextEditorRevealType: { InCenter: 0 },
+        ProgressLocation: { Notification: 'notification' },
+        env: {
+            language: 'en',
+            clipboard: { writeText: vscodeMock.clipboardWriteText },
+            openExternal: vscodeMock.openExternal,
+        },
     }));
+
+const htmlExportMock = vi.hoisted(() => ({
+    prepareHtmlExport: vi.fn(async (..._args: any[]): Promise<any> => ({ documents: [] })),
+    writePreparedHtml: vi.fn(async (..._args: any[]): Promise<any> => undefined),
+}));
+
+vi.mock('../src/extension/html', () => htmlExportMock);
+
+const htmlPreviewMock = vi.hoisted(() => ({ openHtmlPreview: vi.fn(async () => undefined) }));
+vi.mock('../src/extension/htmlPreview', () => htmlPreviewMock);
 
 import { MarkdownEasyVisualEditorProvider } from '../src/extension/extension';
 import type { HtmlExportSettings } from '../src/shared/protocol';
@@ -202,6 +277,33 @@ afterEach(
         vscodeMock.globalState.update.mockReset();
         vscodeMock.globalState.update.mockImplementation(vscodeMock.defaultUpdate);
         vscodeMock.getConfiguration.mockClear();
+        vscodeMock.getWorkspaceFolder.mockReset();
+        vscodeMock.getWorkspaceFolder.mockReturnValue(undefined);
+        vscodeMock.asRelativePath.mockReset();
+        vscodeMock.asRelativePath.mockReturnValue('guides/extended syntax.md');
+        vscodeMock.openTextDocument.mockReset();
+        vscodeMock.openTextDocument.mockImplementation(async (_uri: unknown) => ({
+            getText: () => '# 拡張構文',
+            offsetAt: () => 0
+        }));
+        vscodeMock.joinPath.mockClear();
+        vscodeMock.file.mockClear();
+        vscodeMock.showTextDocument.mockClear();
+        vscodeMock.executeCommand.mockClear();
+        htmlPreviewMock.openHtmlPreview.mockClear();
+        vscodeMock.activeTextEditor = undefined;
+        vscodeMock.activeTab = undefined;
+        vscodeMock.clipboardWriteText.mockClear();
+        vscodeMock.showInformationMessage.mockReset();
+        vscodeMock.showInformationMessage.mockResolvedValue(undefined);
+        vscodeMock.withProgress.mockReset();
+        vscodeMock.withProgress.mockImplementation(async (_options: unknown, task: () => Promise<unknown>) => task());
+        vscodeMock.openExternal.mockReset();
+        vscodeMock.openExternal.mockResolvedValue(true);
+        htmlExportMock.prepareHtmlExport.mockReset();
+        htmlExportMock.prepareHtmlExport.mockResolvedValue({ documents: [] });
+        htmlExportMock.writePreparedHtml.mockReset();
+        htmlExportMock.writePreparedHtml.mockResolvedValue(undefined);
         vscodeMock.configuration.get.mockClear();
         vscodeMock.configuration.inspect.mockClear();
         vscodeMock.configuration.update.mockReset();
@@ -211,6 +313,324 @@ afterEach(
                 vscodeMock.configurationValues.set(key, value);
             });
     });
+
+describe('HTML export completion action in the extension host', () => {
+    it('opens exported HTML in the dedicated preview', async () => {
+        const provider = new MarkdownEasyVisualEditorProvider(createContext());
+        const document = createDocument('file:///workspace/root/source.md');
+        const panel = addPanel(provider, document);
+        const target = vscodeMock.file('/workspace/root/out/source.html');
+        htmlExportMock.prepareHtmlExport.mockResolvedValue({ documents: [] });
+        htmlExportMock.writePreparedHtml.mockResolvedValue({ target, paths: [target] });
+        vscodeMock.showInformationMessage.mockImplementation(async (_message, openAction) => openAction);
+
+        await (provider as any).handleMessage(document, panel, {
+            type: 'exportHtml',
+            requestId: 'html-open-test',
+            markdown: '# Section',
+            html: '<h1 id="section">Section</h1>',
+            css: '',
+            options: {
+                embedImages: false,
+                convertLinkedMarkdown: false,
+                saveWithoutDialog: true,
+            },
+        });
+
+        expect(vscodeMock.showInformationMessage).toHaveBeenCalledOnce();
+        expect(vscodeMock.showInformationMessage.mock.calls[0]).toHaveLength(2);
+        expect(target.scheme).toBe('file');
+        await vi.waitFor(() => expect(htmlPreviewMock.openHtmlPreview).toHaveBeenCalledWith(target));
+        expect(vscodeMock.openExternal).not.toHaveBeenCalled();
+    });
+
+    it('does not open the exported file when the notification is dismissed', async () => {
+        const provider = new MarkdownEasyVisualEditorProvider(createContext());
+        const document = createDocument('file:///workspace/root/source.md');
+        const panel = addPanel(provider, document);
+        const target = vscodeMock.file('/workspace/root/out/source.html');
+        htmlExportMock.prepareHtmlExport.mockResolvedValue({ documents: [] });
+        htmlExportMock.writePreparedHtml.mockResolvedValue({ target, paths: [target] });
+        vscodeMock.showInformationMessage.mockResolvedValue(undefined);
+
+        await (provider as any).handleMessage(document, panel, {
+            type: 'exportHtml',
+            requestId: 'html-dismiss-test',
+            markdown: '# Section',
+            html: '<h1 id="section">Section</h1>',
+            css: '',
+            options: {
+                embedImages: false,
+                convertLinkedMarkdown: false,
+                saveWithoutDialog: true,
+            },
+        });
+
+        await Promise.resolve();
+        expect(vscodeMock.openExternal).not.toHaveBeenCalled();
+    });
+});
+
+describe('section link clipboard in the extension host', () => {
+    it('writes a Markdown fragment link and acknowledges the copy', async () => {
+        const provider = new MarkdownEasyVisualEditorProvider(createContext());
+        const document = createDocument('file:///workspace/拡張構文.md');
+        const panel = addPanel(provider, document);
+
+        await (provider as any).handleMessage(document, panel, {
+            type: 'copySectionLink',
+            scope: 'document',
+            id: '拡張構文',
+            text: '拡張構文',
+        });
+
+        expect(vscodeMock.clipboardWriteText).toHaveBeenCalledOnce();
+        expect(vscodeMock.clipboardWriteText).toHaveBeenCalledWith('[拡張構文](#拡張構文)');
+        expect(panel.webview.postMessage).toHaveBeenCalledWith({ type: 'sectionLinkCopied' });
+    });
+
+    it('writes a workspace-rooted Markdown path from the document workspace folder', async () => {
+        const provider = new MarkdownEasyVisualEditorProvider(createContext());
+        const document = createDocument('file:///workspace/guides/extended%20syntax.md');
+        const panel = addPanel(provider, document);
+        vscodeMock.getWorkspaceFolder.mockReturnValue(vscodeMock.workspaceFolder as any);
+
+        await (provider as any).handleMessage(document, panel, {
+            type: 'copySectionLink',
+            scope: 'workspace',
+            id: '拡張構文',
+            text: '拡張構文',
+        });
+
+        expect(vscodeMock.asRelativePath).toHaveBeenCalledWith(document.uri, false);
+        expect(vscodeMock.clipboardWriteText).toHaveBeenCalledWith('[拡張構文](/guides/extended%20syntax.md#拡張構文 "MVE workspace-root link")');
+        expect(panel.webview.postMessage).toHaveBeenCalledWith({ type: 'sectionLinkCopied' });
+    });
+
+    it('does not copy a workspace link when the document has no workspace folder', async () => {
+        const provider = new MarkdownEasyVisualEditorProvider(createContext());
+        const document = createDocument('file:///outside/guide.md');
+        const panel = addPanel(provider, document);
+
+        await (provider as any).handleMessage(document, panel, {
+            type: 'copySectionLink',
+            scope: 'workspace',
+            id: '拡張構文',
+            text: '拡張構文',
+        });
+
+        expect(vscodeMock.clipboardWriteText).not.toHaveBeenCalled();
+        expect(panel.webview.postMessage).toHaveBeenCalledWith({ type: 'workspaceSectionLinkUnavailable' });
+    });
+
+    it('opens a workspace-rooted section link in the default editor at its heading', async () => {
+        const provider = new MarkdownEasyVisualEditorProvider(createContext());
+        const destinationDocument = createDocument('file:///workspace/root/notes/other.md');
+        destinationDocument.uri.path = '/workspace/root/notes/other.md';
+        vscodeMock.getWorkspaceFolder.mockReturnValue(vscodeMock.workspaceFolder as any);
+        let activeEditor: any;
+        vscodeMock.executeCommand.mockImplementationOnce(async (...args: unknown[]) => {
+            const openedUri = args[1];
+            activeEditor = {
+                document: { uri: openedUri },
+                selection: undefined,
+                revealRange: vi.fn(),
+            };
+            vscodeMock.activeTextEditor = activeEditor;
+        });
+
+        await (provider as any).openResource(destinationDocument, '/guides/extended%20syntax.md#拡張構文', true);
+
+        expect(vscodeMock.joinPath).toHaveBeenCalledWith(
+            vscodeMock.workspaceFolder.uri,
+            'guides',
+            'extended syntax.md',
+        );
+        expect(vscodeMock.openTextDocument).toHaveBeenCalledOnce();
+        expect((vscodeMock.openTextDocument.mock.calls[0][0] as any).path).toBe('/workspace/root/guides/extended syntax.md');
+        expect(vscodeMock.executeCommand).toHaveBeenCalledOnce();
+        const [command, openedUri, options] = vscodeMock.executeCommand.mock.calls[0];
+        expect(command).toBe('vscode.open');
+        expect((openedUri as any).path).toBe('/workspace/root/guides/extended syntax.md');
+        expect((openedUri as any).fragment).toBe('');
+        expect(options).toBeUndefined();
+        expect(activeEditor.selection.start.line).toBe(0);
+        expect(activeEditor.revealRange).toHaveBeenCalledOnce();
+        expect(vscodeMock.showTextDocument).not.toHaveBeenCalled();
+    });
+
+    it('sends the LF-normalized heading offset to the active custom editor after it becomes ready', async () => {
+        const provider = new MarkdownEasyVisualEditorProvider(createContext());
+        const destinationDocument = createDocument('file:///workspace/root/guides/extended%20syntax.md');
+        destinationDocument.uri.path = '/workspace/root/guides/extended syntax.md';
+        vscodeMock.configurationValues.set('editorAssociations', {
+            '*.md': 'markdownEasyVisualEditor.editor'
+        });
+        const backgroundPanel = { active: false, webview: { postMessage: vi.fn(async () => true) } };
+        const activePanel = { active: true, webview: { postMessage: vi.fn(async () => true) } };
+        const targetText = '# A\r\ntext\r\n# B';
+        vscodeMock.openTextDocument.mockResolvedValue({
+            getText: () => targetText,
+            offsetAt: () => 11,
+        } as any);
+        vscodeMock.executeCommand.mockImplementationOnce(async (...args: unknown[]) => {
+            const openedUri = args[1] as any;
+            vscodeMock.activeTab = {
+                input: { viewType: 'markdownEasyVisualEditor.editor', uri: openedUri }
+            };
+            (provider as any).panels.set(openedUri.toString(), new Set([backgroundPanel, activePanel]));
+            (provider as any).panelInitialized.add(backgroundPanel);
+            setTimeout(() => {
+                (provider as any).panelInitialized.add(activePanel);
+                (provider as any).resolvePanelReady(openedUri.toString(), activePanel);
+            }, 0);
+        });
+        vscodeMock.getWorkspaceFolder.mockReturnValue(vscodeMock.workspaceFolder as any);
+
+        await (provider as any).openResource(destinationDocument, '/guides/extended%20syntax.md#b', true);
+
+        expect(activePanel.webview.postMessage).toHaveBeenCalledWith({
+            type: 'hostCommand',
+            command: 'navigateToOffset',
+            offset: 9,
+        });
+        expect(backgroundPanel.webview.postMessage).not.toHaveBeenCalled();
+        expect(vscodeMock.activeTextEditor).toBeUndefined();
+    });
+
+    it('opens a heading link through the selected custom editor with its fragment', async () => {
+        const provider = new MarkdownEasyVisualEditorProvider(createContext());
+        const destinationDocument = createDocument('file:///workspace/root/guides/extended%20syntax.md');
+        destinationDocument.uri.path = '/workspace/root/guides/extended syntax.md';
+        vscodeMock.configurationValues.set('editorAssociations', {
+            '*.md': 'vscode.markdown.preview.editor'
+        });
+        vscodeMock.executeCommand.mockImplementationOnce(async (...args: unknown[]) => {
+            const openedUri = args[1] as any;
+            vscodeMock.activeTab = {
+                input: { viewType: 'vscode.markdown.preview.editor', uri: openedUri }
+            };
+        });
+        vscodeMock.getWorkspaceFolder.mockReturnValue(vscodeMock.workspaceFolder as any);
+
+        await (provider as any).openResource(destinationDocument, '/guides/extended%20syntax.md#拡張構文', true);
+
+        const [command, openedUri] = vscodeMock.executeCommand.mock.calls[0];
+        expect(command).toBe('vscode.open');
+        expect((openedUri as any).fragment).toBe('拡張構文');
+        expect(vscodeMock.activeTextEditor).toBeUndefined();
+    });
+
+    it('uses the most specific matching editor association', async () => {
+        const provider = new MarkdownEasyVisualEditorProvider(createContext());
+        const destinationDocument = createDocument('file:///workspace/root/guides/extended%20syntax.md');
+        destinationDocument.uri.path = '/workspace/root/guides/extended syntax.md';
+        vscodeMock.configurationValues.set('editorAssociations', {
+            '*.md': 'markdownEasyVisualEditor.editor',
+            '**/guides/*.md': 'vscode.markdown.preview.editor'
+        });
+        vscodeMock.executeCommand.mockImplementationOnce(async (...args: unknown[]) => {
+            const openedUri = args[1] as any;
+            vscodeMock.activeTab = {
+                input: { viewType: 'vscode.markdown.preview.editor', uri: openedUri }
+            };
+        });
+        vscodeMock.getWorkspaceFolder.mockReturnValue(vscodeMock.workspaceFolder as any);
+
+        await (provider as any).openResource(destinationDocument, '/guides/extended%20syntax.md#拡張構文', true);
+
+        const [, openedUri] = vscodeMock.executeCommand.mock.calls[0];
+        expect((openedUri as any).fragment).toBe('拡張構文');
+    });
+
+    it('does not treat double stars inside a path segment as a globstar', async () => {
+        const provider = new MarkdownEasyVisualEditorProvider(createContext());
+        const destinationDocument = createDocument('file:///workspace/root/foo/baz/bar.md');
+        destinationDocument.uri.path = '/workspace/root/foo/baz/bar.md';
+        vscodeMock.configurationValues.set('editorAssociations', {
+            '*.md': 'vscode.markdown.preview.editor',
+            '**/foo**/bar.md': 'markdownEasyVisualEditor.editor'
+        });
+        vscodeMock.executeCommand.mockImplementationOnce(async (...args: unknown[]) => {
+            const openedUri = args[1] as any;
+            vscodeMock.activeTab = {
+                input: { viewType: 'vscode.markdown.preview.editor', uri: openedUri }
+            };
+        });
+        vscodeMock.getWorkspaceFolder.mockReturnValue(vscodeMock.workspaceFolder as any);
+
+        await (provider as any).openResource(destinationDocument, '/foo/baz/bar.md#section', true);
+
+        const [, openedUri] = vscodeMock.executeCommand.mock.calls[0];
+        expect((openedUri as any).fragment).toBe('section');
+    });
+
+    it('matches editor association patterns without case sensitivity', async () => {
+        const provider = new MarkdownEasyVisualEditorProvider(createContext());
+        const destinationDocument = createDocument('file:///workspace/root/guide.md');
+        destinationDocument.uri.path = '/workspace/root/guide.md';
+        vscodeMock.configurationValues.set('editorAssociations', {
+            '*.MD': 'markdownEasyVisualEditor.editor'
+        });
+        vscodeMock.openTextDocument.mockResolvedValue({
+            getText: () => '# Found',
+            offsetAt: () => 0
+        } as any);
+        vscodeMock.executeCommand.mockImplementationOnce(async (...args: unknown[]) => {
+            const openedUri = args[1] as any;
+            vscodeMock.activeTab = {
+                input: { viewType: 'markdownEasyVisualEditor.editor', uri: openedUri }
+            };
+        });
+        vscodeMock.getWorkspaceFolder.mockReturnValue(vscodeMock.workspaceFolder as any);
+
+        await (provider as any).openResource(destinationDocument, '/guide.md#missing', true);
+
+        const [, openedUri] = vscodeMock.executeCommand.mock.calls[0];
+        expect((openedUri as any).fragment).toBe('');
+    });
+
+    it('preserves existing POSIX absolute links without the workspace marker', async () => {
+        const provider = new MarkdownEasyVisualEditorProvider(createContext());
+        const document = createDocument('file:///workspace/root/notes/source.md');
+
+        await (provider as any).openResource(document, '/tmp/guide.md#拡張構文');
+
+        expect(vscodeMock.file).toHaveBeenCalledWith('/tmp/guide.md');
+        expect((vscodeMock.openTextDocument.mock.calls[0][0] as any).path).toBe('/tmp/guide.md');
+        expect(vscodeMock.executeCommand).toHaveBeenCalledWith(
+            'vscode.open',
+            expect.objectContaining({ path: '/tmp/guide.md' }),
+        );
+    });
+
+    it('rejects workspace paths that escape their folder and decodes path segments once', async () => {
+        const provider = new MarkdownEasyVisualEditorProvider(createContext());
+        const document = createDocument('file:///workspace/root/notes/source.md');
+        document.uri.path = '/workspace/root/notes/source.md';
+        vscodeMock.getWorkspaceFolder.mockReturnValue(vscodeMock.workspaceFolder as any);
+
+        await (provider as any).openResource(document, '/../../outside.md#拡張構文', true);
+        await (provider as any).openResource(document, '/%2e%2e/%2e%2e/outside.md#拡張構文', true);
+        expect(vscodeMock.openTextDocument).not.toHaveBeenCalled();
+        expect(vscodeMock.file).not.toHaveBeenCalled();
+
+        await (provider as any).openResource(document, '/guides/a%23b.md#拡張構文', true);
+        await (provider as any).openResource(document, '/guides/100%2520.md#拡張構文', true);
+        await (provider as any).openResource(document, '/guides/%252e%252e.md#拡張構文', true);
+
+        expect(vscodeMock.joinPath.mock.calls.map((call: any[]) => call.slice(1))).toEqual([
+            ['guides', 'a#b.md'],
+            ['guides', '100%20.md'],
+            ['guides', '%2e%2e.md'],
+        ]);
+        expect(vscodeMock.openTextDocument.mock.calls.map((call: any[]) => call[0].path)).toEqual([
+            '/workspace/root/guides/a#b.md',
+            '/workspace/root/guides/100%20.md',
+            '/workspace/root/guides/%2e%2e.md',
+        ]);
+    });
+});
 
 describe('HTML export global settings in the extension host',
     /**

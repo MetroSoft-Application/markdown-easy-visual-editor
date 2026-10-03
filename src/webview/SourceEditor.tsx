@@ -67,6 +67,7 @@ import { getScrollRatio } from "../shared/scroll";
 import type { Messages } from "../shared/messages";
 import { isMveDebugEnabled, mveDebug } from "./debug";
 import { exactSelectionMatchExtension } from "./cmSelectionMatchHighlight";
+import { htmlUrlAttributeHighlightExtension } from "./cmHtmlUrlHighlight";
 
 /**
  * 本文編集面で扱う値の種類と境界を表す型。
@@ -123,25 +124,25 @@ export interface TextEditorHandle {
   insert(markdown: string, inline?: boolean): void;
   /**
    * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-    * @param edit - 編集後の本文と適用後の選択範囲。
+   * @param edit - 編集後の本文と適用後の選択範囲。
    * @returns 副作用を完了し、値は返さない。
    */
   applyEdit(edit: SourceEdit): void;
   /**
    * 本文編集面のactionを処理し、呼び出し側へ結果または副作用を返す。
-    * @param action - 適用する装飾、リスト、ブロック挿入などの操作種別。
+   * @param action - 適用する装飾、リスト、ブロック挿入などの操作種別。
    * @returns 本文編集面のactionが生成する結果。
    */
   action(action: SourceAction): void;
   /**
    * 本文編集面のcode・blockを処理し、呼び出し側へ結果または副作用を返す。
-    * @param language - 挿入するコードブロックの言語識別子。
+   * @param language - 挿入するコードブロックの言語識別子。
    * @returns 副作用を完了し、値は返さない。
    */
   codeBlock(language?: string): void;
   /**
    * 本文編集面のheadingを処理し、呼び出し側へ結果または副作用を返す。
-    * @param level - 挿入する見出しのレベル（1から6）。
+   * @param level - 挿入する見出しのレベル（1から6）。
    * @returns 副作用を完了し、値は返さない。
    */
   heading(level: number): void;
@@ -159,13 +160,13 @@ export interface TextEditorHandle {
   getSelection(): TextSelection;
   /**
    * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-    * @param selection - 本文上の開始・終了オフセットで指定する選択範囲。
+   * @param selection - 本文上の開始・終了オフセットで指定する選択範囲。
    * @returns 副作用を完了し、値は返さない。
    */
   setSelection(selection: TextSelection): void;
   /**
    * 本文編集面の表示または操作を開始する。
-    * @param selection - 表示位置へ移動する本文上の選択範囲。
+   * @param selection - 表示位置へ移動する本文上の選択範囲。
    * @returns 副作用を完了し、値は返さない。
    */
   revealRange(selection: TextSelection): void;
@@ -176,7 +177,7 @@ export interface TextEditorHandle {
   getViewport(): EditorViewportAnchor | undefined;
   /**
    * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-    * @param anchor - 本文編集面で復元する可視位置アンカー。
+   * @param anchor - 本文編集面で復元する可視位置アンカー。
    * @returns 副作用を完了し、値は返さない。
    */
   restoreViewport(anchor: EditorViewportAnchor): void;
@@ -288,7 +289,7 @@ const sourceCodeLanguages = [
  */
 const vscodeSyntaxHighlightStyle = HighlightStyle.define([
   { tag: tags.meta, color: "var(--vscode-descriptionForeground)" },
-  { tag: tags.heading, color: "#4ec9b0", fontWeight: "600" },
+  { tag: tags.heading, color: "var(--mve-syntax-link)", fontWeight: "600" },
   {
     tag: tags.quote,
     color: "var(--vscode-textBlockQuote-foreground, var(--vscode-foreground))",
@@ -298,38 +299,42 @@ const vscodeSyntaxHighlightStyle = HighlightStyle.define([
   { tag: tags.strikethrough, textDecoration: "line-through" },
   {
     tag: tags.link,
-    color: "#4ec9b0",
+    color: "var(--mve-syntax-link)",
     textDecoration: "underline",
   },
-  { tag: tags.url, color: "#4ec9b0" },
-  { tag: tags.processingInstruction, color: "#d7ba7d" },
+  { tag: tags.url, color: "var(--mve-syntax-link)" },
+  // Markdown内の生HTMLもタグ・属性・値を明示的に区別する。
+  { tag: tags.tagName, color: "var(--mve-syntax-tag-name)" },
+  { tag: tags.attributeName, color: "var(--mve-syntax-attribute-name)" },
+  { tag: tags.attributeValue, color: "var(--mve-syntax-string)" },
+  { tag: tags.processingInstruction, color: "var(--mve-syntax-instruction)" },
   {
     tag: tags.monospace,
-    color: "#ce9178",
+    color: "var(--mve-syntax-string)",
     backgroundColor:
       "var(--vscode-textCodeBlock-background, var(--vscode-editor-inactiveSelectionBackground))",
     fontFamily:
       "var(--mve-editor-font-family, var(--vscode-editor-font-family, monospace))",
   },
-  { tag: tags.escape, color: "#ce9178" },
-  { tag: tags.character, color: "#b5cea8" },
+  { tag: tags.escape, color: "var(--mve-syntax-string)" },
+  { tag: tags.character, color: "var(--mve-syntax-number)" },
   {
     tag: [tags.keyword, tags.operator],
-    color: "#c586c0",
+    color: "var(--mve-syntax-keyword)",
   },
   {
     tag: [tags.atom, tags.bool, tags.contentSeparator],
-    color: "#dcdcaa",
+    color: "var(--mve-syntax-constant)",
   },
-  { tag: tags.number, color: "#b5cea8" },
-  { tag: tags.labelName, color: "#d7ba7d" },
+  { tag: tags.number, color: "var(--mve-syntax-number)" },
+  { tag: tags.labelName, color: "var(--mve-syntax-label)" },
   {
     tag: [tags.string, tags.special(tags.string)],
-    color: "#ce9178",
+    color: "var(--mve-syntax-string)",
   },
-  { tag: [tags.literal, tags.inserted], color: "#b5cea8" },
-  { tag: tags.deleted, color: "#f48771" },
-  { tag: tags.regexp, color: "#d16969" },
+  { tag: [tags.literal, tags.inserted], color: "var(--mve-syntax-number)" },
+  { tag: tags.deleted, color: "var(--mve-syntax-deleted)" },
+  { tag: tags.regexp, color: "var(--mve-syntax-regexp)" },
   {
     tag: tags.comment,
     color: "var(--vscode-descriptionForeground)",
@@ -337,19 +342,19 @@ const vscodeSyntaxHighlightStyle = HighlightStyle.define([
   },
   {
     tag: [tags.typeName, tags.className, tags.namespace],
-    color: "#155e4f",
+    color: "var(--mve-syntax-type)",
   },
   {
     tag: [tags.definition(tags.variableName), tags.local(tags.variableName)],
-    color: "#dcdcaa",
+    color: "var(--mve-syntax-constant)",
   },
   {
     tag: [tags.special(tags.variableName), tags.macroName],
-    color: "#c586c0",
+    color: "var(--mve-syntax-keyword)",
   },
   {
     tag: tags.definition(tags.propertyName),
-    color: "#155e4f",
+    color: "var(--mve-syntax-type)",
   },
   {
     tag: [
@@ -368,7 +373,7 @@ const vscodeSyntaxHighlightStyle = HighlightStyle.define([
       tags.squareBracket,
       tags.separator,
     ],
-    color: "#d4d4d4",
+    color: "var(--mve-syntax-punctuation)",
   },
 ]);
 
@@ -433,15 +438,15 @@ const searchHighlightField = StateField.define<SearchHighlightState>({
 
   provide: /**
    * 本文編集面のprovideを処理し、呼び出し側へ結果または副作用を返す。
-    * @param field - 検索ハイライト状態とデコレーションを保持するStateField。
+   * @param field - 検索ハイライト状態とデコレーションを保持するStateField。
    * @returns 本文編集面のprovideが生成する結果。
    */ (field) =>
     EditorView.decorations.from(
       field,
       /**
-             * 検索一致の装飾を保持する状態からDecorationsを取り出す。
-             * @param value - 検索一致の装飾セットを保持する状態。
-             * @returns エディターへ適用する検索一致の装飾セット。
+       * 検索一致の装飾を保持する状態からDecorationsを取り出す。
+       * @param value - 検索一致の装飾セットを保持する状態。
+       * @returns エディターへ適用する検索一致の装飾セット。
        */
       (value) => value.decorations,
     ),
@@ -540,10 +545,10 @@ function updateVisibleSpaceDecorations(
   update.changes.iterChangedRanges(
     /**
      * ・from・aをifへ渡し、本文編集面の結果または副作用を処理する。
-      * @param _fromA - 変更前文書で置換される範囲の開始位置。
-      * @param _toA - 変更前文書で置換される範囲の終了位置。
-      * @param fromB - 変更後文書で置換された範囲の開始位置。
-      * @param toB - 変更後文書で置換された範囲の終了位置。
+     * @param _fromA - 変更前文書で置換される範囲の開始位置。
+     * @param _toA - 変更前文書で置換される範囲の終了位置。
+     * @param fromB - 変更後文書で置換された範囲の開始位置。
+     * @param toB - 変更後文書で置換された範囲の終了位置。
      * @returns 本文編集面のコールバックが生成する結果。
      */
     (_fromA, _toA, fromB, toB) => {
@@ -657,10 +662,10 @@ interface Props {
   activeSearchHit?: TextSelection;
   /**
    * 本文編集面のイベントまたはメッセージを受け取り、状態を更新する。
-    * @param beforeValue - 編集前のMarkdown本文。
-    * @param value - 編集後のMarkdown本文。
-    * @param changes - 編集前本文に対する変更範囲と挿入文字列の一覧。
-    * @param isCompositionCommit - IME変換を確定した変更ならtrue。
+   * @param beforeValue - 編集前のMarkdown本文。
+   * @param value - 編集後のMarkdown本文。
+   * @param changes - 編集前本文に対する変更範囲と挿入文字列の一覧。
+   * @param isCompositionCommit - IME変換を確定した変更ならtrue。
    * @returns 副作用を完了し、値は返さない。
    */
   onChange: (
@@ -681,7 +686,7 @@ interface Props {
   onSettled?: () => void;
   /**
    * 本文編集面のイベントまたはメッセージを受け取り、状態を更新する。
-    * @param selection - 本文上の開始・終了オフセットで表す選択範囲。
+   * @param selection - 本文上の開始・終了オフセットで表す選択範囲。
    * @returns 副作用を完了し、値は返さない。
    */
   onSelectionChange?: (selection: TextSelection) => void;
@@ -697,8 +702,8 @@ interface Props {
   placeholder?: string;
   /**
    * 本文編集面のイベントまたはメッセージを受け取り、状態を更新する。
-    * @param anchor - 本文エディターで取得した可視位置アンカー。
-    * @param userInitiated - スクロールがユーザー操作で始まった場合はtrue。
+   * @param anchor - 本文エディターで取得した可視位置アンカー。
+   * @param userInitiated - スクロールがユーザー操作で始まった場合はtrue。
    * @returns 副作用を完了し、値は返さない。
    */
   onViewportChange?: (
@@ -868,6 +873,7 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
             markdownLanguage({ codeLanguages: sourceCodeLanguages }),
             // 標準スタイルは濃い青を含むため使わず、明るいテーマ配色を1つだけ適用する。
             syntaxHighlighting(vscodeSyntaxHighlightStyle),
+            htmlUrlAttributeHighlightExtension,
             visibleSpaces,
             exactSelectionMatchExtension,
             searchHighlightField,
@@ -877,14 +883,14 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
             EditorView.updateListener.of(
               /**
                * 状態更新をsomeへ渡し、本文編集面の結果または副作用を処理する。
-                * @param update - 文書・選択・トランザクション・変更範囲を含むCodeMirror更新通知。
+               * @param update - 文書・選択・トランザクション・変更範囲を含むCodeMirror更新通知。
                * @returns 本文編集面のコールバックが生成する結果。
                */
               (update) => {
                 const isExternalSync = update.transactions.some(
                   /**
                    * transactionをannotationへ渡し、本文編集面の結果または副作用を処理する。
-                    * @param transaction - 外部同期annotationの有無を調べるトランザクション。
+                   * @param transaction - 外部同期annotationの有無を調べるトランザクション。
                    * @returns 本文編集面のコールバックが生成する結果。
                    */
                   (transaction) =>
@@ -952,11 +958,11 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
                   update.changes.iterChanges(
                     /**
                      * from・aを一覧追加へ渡し、本文編集面の結果または副作用を処理する。
-                      * @param fromA - 変更前文書で置換される範囲の開始位置。
-                      * @param toA - 変更前文書で置換される範囲の終了位置。
-                      * @param _fromB - 変更後文書で挿入範囲の開始位置。
-                      * @param _toB - 変更後文書で挿入範囲の終了位置。
-                      * @param inserted - 変更範囲へ挿入されたCodeMirrorテキスト。
+                     * @param fromA - 変更前文書で置換される範囲の開始位置。
+                     * @param toA - 変更前文書で置換される範囲の終了位置。
+                     * @param _fromB - 変更後文書で挿入範囲の開始位置。
+                     * @param _toB - 変更後文書で挿入範囲の終了位置。
+                     * @param inserted - 変更範囲へ挿入されたCodeMirrorテキスト。
                      * @returns 本文編集面のコールバックが生成する結果。
                      */
                     (fromA, toA, _fromB, _toB, inserted) => {
@@ -1179,7 +1185,7 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
           setCompositionNonce(
             /**
              * 本文編集面のコールバックとして値を処理する。
-     * @param value - 検索一致範囲とデコレーションを持つ現在の状態。
+             * @param value - 検索一致範囲とデコレーションを持つ現在の状態。
              * @returns 本文編集面のコールバックが生成する結果。
              */
             (value) => value + 1,
@@ -1321,7 +1327,7 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
 
                 /**
                  * 本文編集面のコールバックとしてrestoredを処理する。
-                  * @param restored - 復元処理が確定した本文編集面の可視位置アンカー。
+                 * @param restored - 復元処理が確定した本文編集面の可視位置アンカー。
                  * @returns 本文編集面のコールバックが生成する結果。
                  */
                 (restored) => viewportRef.current?.(restored, false),
@@ -1344,7 +1350,7 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
 
               write: /**
                * 本文編集面の値を保存先または共有状態へ書き出す。
-                * @param anchor - read段階で計測した可視位置アンカー。未計測時はundefined。
+               * @param anchor - read段階で計測した可視位置アンカー。未計測時はundefined。
                * @returns 副作用を完了し、値は返さない。
                */ (anchor) => {
                 if (anchor) publishViewport(anchor);
@@ -2066,9 +2072,9 @@ export const SourceEditor = React.memo(
   SourceEditorView,
 
   /**
-    * 前回と次回のpropsを比較し、エディターを再描画するか判定する。
-    * @param previous - 前回レンダーで使った本文エディターProps。
-    * @param next - 再描画の必要性を判定する新しい本文エディターProps。
+   * 前回と次回のpropsを比較し、エディターを再描画するか判定する。
+   * @param previous - 前回レンダーで使った本文エディターProps。
+   * @param next - 再描画の必要性を判定する新しい本文エディターProps。
    * @returns 本文編集面のコールバックが生成する結果。
    */
   (previous, next) =>

@@ -2,7 +2,8 @@
  * @fileoverview リソース・link・テストの回帰の仕様と回帰条件を検証する。失敗時は期待値と実装差分を示す。
  */
 import { describe, expect, it } from 'vitest';
-import { classifyResourceLink, resolveWebviewResourcePath } from '../src/extension/resourceLink';
+import { classifyResourceLink, resolveWebviewResourcePath, workspaceRootPathSegments } from '../src/extension/resourceLink';
+import { collectLocalResourceReferences } from '../src/shared/markdown';
 
 describe('Webview resource links',
     /**
@@ -53,6 +54,71 @@ describe('Webview resource links',
                     href: 'guide.md#section'
                 });
             });
+
+        it('resolves a single-slash path from the workspace root and rejects root escapes', () => {
+            expect(workspaceRootPathSegments('/guides/setup.md')).toEqual(['guides', 'setup.md']);
+            expect(workspaceRootPathSegments('/guides/../setup.md')).toEqual(['setup.md']);
+            expect(workspaceRootPathSegments('/../../outside.md')).toBeUndefined();
+            expect(workspaceRootPathSegments('//server/share.md')).toBeUndefined();
+            expect(workspaceRootPathSegments('/E:/docs/setup.md')).toBeUndefined();
+        });
+
+        it('recognizes workspace-rooted links with inline and reference-style title quoting', () => {
+            const inline = collectLocalResourceReferences(
+                "[Display](/guides/a.md#id 'MVE workspace-root link')"
+            );
+            const reference = collectLocalResourceReferences(
+                '[Display][x]\n\n[x]: /guides/a.md#id "MVE workspace-root link"'
+            );
+            const multilineTitles = [
+                '"MVE workspace-root link"',
+                ' "MVE workspace-root link"',
+                '   "MVE workspace-root link"',
+                '    "MVE workspace-root link"',
+                '\t"MVE workspace-root link"'
+            ];
+            const multilineReferences = multilineTitles.map((title) => collectLocalResourceReferences(
+                `[Display][x]\n\n[x]: /guides/a.md#id\n${title}`
+            ));
+            const quotedReference = collectLocalResourceReferences(
+                '> [Display][x]\n>\n> [x]: /guides/a.md#id\n>  "MVE workspace-root link"'
+            );
+            const escapedMarkerReference = collectLocalResourceReferences(
+                '[Display][x]\n\n[x]: /guides/a.md#id "MVE workspace\\-root link"'
+            );
+
+            expect(inline).toEqual([expect.objectContaining({
+                kind: 'link',
+                source: '/guides/a.md#id',
+                workspaceRooted: true
+            })]);
+            expect(reference).toEqual([expect.objectContaining({
+                kind: 'link',
+                source: '/guides/a.md#id',
+                workspaceRooted: true
+            })]);
+            for (const references of [...multilineReferences, quotedReference, escapedMarkerReference]) {
+                expect(references).toEqual([expect.objectContaining({
+                    kind: 'link',
+                    source: '/guides/a.md#id',
+                    workspaceRooted: true
+                })]);
+            }
+        });
+
+        it('keeps local references with escaped quotes in their title', () => {
+            const escapedTitle = String.raw`"see \"this\""`;
+            const references = collectLocalResourceReferences(
+                `[Display][x]
+
+[x]: guides/a.md#id ${escapedTitle}`
+            );
+
+            expect(references).toEqual([expect.objectContaining({
+                kind: 'link',
+                source: 'guides/a.md#id'
+            })]);
+        });
 
         it('routes a Webview local URL to VS Code instead of the browser',
             /**

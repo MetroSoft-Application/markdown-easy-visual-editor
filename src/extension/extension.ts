@@ -24,10 +24,18 @@ import {
     type FontFamilySettings
 } from '../shared/fontFamily';
 import { resolveImageDirectoryRule } from '../shared/imageDirectory';
-import { collectLocalResourceReferences, sortDiagnostics, type Diagnostic } from '../shared/markdown';
+import {
+    collectLocalResourceReferences,
+    headingLineForAnchor,
+    sectionMarkdownLink,
+    sortDiagnostics,
+    workspaceSectionMarkdownLink,
+    type Diagnostic
+} from '../shared/markdown';
 import { applyTextChanges, computeTextChanges, mapTextChanges, validateTextChanges, type TextChange } from '../shared/textChanges';
 import {
     canonicalizeContentChanges,
+    canonicalOffsetAt,
     materializeCanonicalChanges,
     toCanonicalText
 } from '../shared/canonicalText';
@@ -45,13 +53,100 @@ import {
     type HtmlRenderedDocument
 } from './html';
 import { decodeLocalResourceSource, isMissingResourceError } from './resourceCheck';
-import { classifyResourceLink } from './resourceLink';
+import { classifyResourceLink, workspaceRootPathSegments } from './resourceLink';
+import { openHtmlPreview } from './htmlPreview';
 
 
 /**
  * VS CodeがCustom Editorを識別するビュー種別。
  */
 const VIEW_TYPE = 'markdownEasyVisualEditor.editor';
+
+/** resourceに対して最も優先される明示的なeditor associationを取得する。 */
+function getEditorAssociation(uri: vscode.Uri): string | undefined {
+    const associations = vscode.workspace.getConfiguration('workbench')
+        .get<Record<string, unknown>>('editorAssociations', {});
+    const matchingAssociations = Object.entries(associations ?? {})
+        .filter(([pattern, viewType]) => typeof viewType === 'string'
+            && editorAssociationPatternMatches(pattern, uri))
+        .sort(([leftPattern], [rightPattern]) => rightPattern.length - leftPattern.length);
+    const viewType = matchingAssociations[0]?.[1];
+    return typeof viewType === 'string' ? viewType : undefined;
+}
+
+/** VS Codeのeditor association globを、URIのpathまたはbasenameと比較する。 */
+function editorAssociationPatternMatches(pattern: string, uri: vscode.Uri): boolean {
+    const normalizedPattern = pattern.replace(/\\/g, '/');
+    const hasPathSeparator = normalizedPattern.includes('/');
+    const regexSource = globPatternToRegex(normalizedPattern);
+    const regex = new RegExp('^' + regexSource + '$', 'i');
+    const target = hasPathSeparator
+        ? (uri.scheme + ':' + uri.path).replace(/\\/g, '/')
+        : path.posix.basename(uri.path.replace(/\\/g, '/'));
+    return regex.test(target);
+}
+
+/** fragmentを除いたURIのresource部分が一致するかを判定する。 */
+function sameUriResource(left: vscode.Uri | undefined, right: vscode.Uri): boolean {
+    return left !== undefined
+        && left.scheme === right.scheme
+        && left.authority === right.authority
+        && left.path === right.path
+        && left.query === right.query;
+}
+
+/** editor association globのワイルドカードをRegExp本文へ変換する。 */
+function globPatternToRegex(pattern: string): string {
+    let result = '';
+    for (let index = 0; index < pattern.length; index += 1) {
+        const character = pattern[index];
+        if (character === '*') {
+            if (pattern[index + 1] === '*') {
+                const isWholePathSegment = (index === 0 || pattern[index - 1] === '/')
+                    && (index + 2 === pattern.length || pattern[index + 2] === '/');
+                if (!isWholePathSegment) {
+                    result += '[^/]*';
+                    index += 1;
+                    continue;
+                }
+                index += 1;
+                if (pattern[index + 1] === '/') {
+                    result += '(?:.*/)?';
+                    index += 1;
+                } else {
+                    result += '.*';
+                }
+            } else {
+                result += '[^/]*';
+            }
+            continue;
+        }
+        if (character === '?') {
+            result += '[^/]';
+            continue;
+        }
+        if (character === '[') {
+            const close = pattern.indexOf(']', index + 1);
+            if (close > index + 1) {
+                const range = pattern.slice(index + 1, close);
+                result += `[${range.startsWith('!') ? `^${range.slice(1)}` : range}]`;
+                index = close;
+                continue;
+            }
+        }
+        if (character === '{') {
+            const close = pattern.indexOf('}', index + 1);
+            if (close > index + 1) {
+                const alternatives = pattern.slice(index + 1, close).split(',');
+                result += `(?:${alternatives.map(globPatternToRegex).join('|')})`;
+                index = close;
+                continue;
+            }
+        }
+        result += /[.+^$()|{}\\]/.test(character) ? `\\${character}` : character;
+    }
+    return result;
+}
 
 /**
  * globalStateで表示モードを保存するキー。
@@ -221,6 +316,7 @@ type ExportCommand = 'exportPdf' | 'exportHtml';
  * Webviewのready完了または失敗を通知するコールバックを保持する。
  */
 interface PanelReadyWaiter {
+    matches?: (panel: vscode.WebviewPanel) => boolean;
     /**
      * 拡張機能から必要な値またはリソースを取得する。
      * @param panel - ready状態になったWebviewPanelを待機側へ返す。
@@ -336,6 +432,11 @@ export function activate(context: vscode.ExtensionContext): void {
              * @returns 副作用を完了し、値は返さない。
              */
             (uri?: vscode.Uri) => provider.exportFromUri('exportHtml', uri)),
+        vscode.commands.registerCommand('markdownEasyVisualEditor.previewHtml',
+            async (uri?: vscode.Uri) => {
+                const target = uri ?? vscode.window.activeTextEditor?.document.uri;
+                if (target?.scheme === 'file' && /\.html?$/iu.test(target.fsPath)) await openHtmlPreview(target);
+            }),
         vscode.commands.registerCommand('markdownEasyVisualEditor.undo',
             /**
              * 要素をexecute・history・commandへ渡し、拡張機能の結果または副作用を処理する。
@@ -642,6 +743,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
              */
             () => {
                 // パネル破棄時に登録情報・履歴・保留中の操作を文書単位で片付ける。
+                this.rejectPanelReady(key, webviewPanel);
                 this.pdfPreviewAbortControllers.get(webviewPanel)?.abort();
                 for (const [requestId, pending] of this.mermaidRenderControllers) {
                     if (pending.panel !== webviewPanel) continue;
@@ -769,7 +871,10 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
      * @param documentUri - ready状態のWebviewPanelを検索・待機する対象文書のURI。
      * @returns 条件に一致する値。未検出時はundefinedまたはnull。
      */
-    private findReadyPanel(documentUri: vscode.Uri): vscode.WebviewPanel | undefined {
+    private findReadyPanel(
+        documentUri: vscode.Uri,
+        matches?: (panel: vscode.WebviewPanel) => boolean
+    ): vscode.WebviewPanel | undefined {
         const panels = this.panels.get(documentUri.toString());
         return panels ? [...panels].find(
             /**
@@ -777,7 +882,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
              * @param panel - 初期化済みとして登録されているか確認するWebviewPanel。
              * @returns 条件に一致した最初の要素。未検出時はundefined。
              */
-            (panel) => this.panelInitialized.has(panel)) : undefined;
+            (panel) => this.panelInitialized.has(panel) && (!matches || matches(panel))) : undefined;
     }
 
     /**
@@ -785,8 +890,11 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
      * @param documentUri - ready状態のWebviewPanelを検索・待機する対象文書のURI。
      * @returns 拡張機能の非同期処理で得られる結果。
      */
-    private waitForReadyPanel(documentUri: vscode.Uri): Promise<vscode.WebviewPanel> {
-        const readyPanel = this.findReadyPanel(documentUri);
+    private waitForReadyPanel(
+        documentUri: vscode.Uri,
+        matches?: (panel: vscode.WebviewPanel) => boolean
+    ): Promise<vscode.WebviewPanel> {
+        const readyPanel = this.findReadyPanel(documentUri, matches);
         if (readyPanel) return Promise.resolve(readyPanel);
 
         const key = documentUri.toString();
@@ -810,6 +918,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                         reject(new Error('Markdown Easy Visual Editorの準備がタイムアウトしました。'));
                     }, 30_000);
                 const waiter: PanelReadyWaiter = {
+                    matches,
 
 
                     resolve: /**
@@ -849,14 +958,16 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
     private resolvePanelReady(documentKey: string, panel: vscode.WebviewPanel): void {
         const waiters = this.panelReadyWaiters.get(documentKey);
         if (!waiters) return;
-        this.panelReadyWaiters.delete(documentKey);
         waiters.forEach(
             /**
              * waiterごとに成功結果通知を実行する。
              * @param waiter - waiterの成功結果通知を参照する走査対象。
              * @returns 副作用を完了し、値は返さない。
              */
-            (waiter) => waiter.resolve(panel));
+            (waiter) => {
+                if (!waiter.matches || waiter.matches(panel)) waiter.resolve(panel);
+            });
+        if (!waiters.size) this.panelReadyWaiters.delete(documentKey);
     }
 
     /**
@@ -864,10 +975,9 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
      * @param documentKey - 文書URI文字列をキーにしたready待機者集合を検索するキー。
      * @returns 副作用を完了し、値は返さない。
      */
-    private rejectPanelReady(documentKey: string): void {
+    private rejectPanelReady(documentKey: string, panel?: vscode.WebviewPanel): void {
         const waiters = this.panelReadyWaiters.get(documentKey);
         if (!waiters) return;
-        this.panelReadyWaiters.delete(documentKey);
         const error = new Error('Markdown Easy Visual EditorのWebviewが閉じられました。');
         waiters.forEach(
             /**
@@ -875,7 +985,10 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
              * @param waiter - waiterの失敗通知を参照する走査対象。
              * @returns 副作用を完了し、値は返さない。
              */
-            (waiter) => waiter.reject(error));
+            (waiter) => {
+                if (!panel || (waiter.matches && waiter.matches(panel))) waiter.reject(error);
+            });
+        if (!waiters.size) this.panelReadyWaiters.delete(documentKey);
     }
 
     /**
@@ -1093,8 +1206,27 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                     await this.openSource();
                     return;
                 case 'openResource':
-                    await this.openResource(document, message.href);
+                    await this.openResource(document, message.href, message.workspaceRooted === true);
                     return;
+                case 'copySectionLink': {
+                    let copiedLink: string;
+                    if (message.scope === 'workspace') {
+                        if (!vscode.workspace.getWorkspaceFolder(document.uri)) {
+                            this.post(panel, { type: 'workspaceSectionLinkUnavailable' });
+                            return;
+                        }
+                        copiedLink = workspaceSectionMarkdownLink(
+                            message.text,
+                            message.id,
+                            vscode.workspace.asRelativePath(document.uri, false)
+                        );
+                    } else {
+                        copiedLink = sectionMarkdownLink(message.text, message.id);
+                    }
+                    await vscode.env.clipboard.writeText(copiedLink);
+                    this.post(panel, { type: 'sectionLinkCopied' });
+                    return;
+                }
                 case 'htmlDocumentsRendered': {
                     const pending = this.pendingHtmlRenderRequests.get(message.requestId);
                     if (!pending) return;
@@ -1217,7 +1349,19 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                                  */
                                 (item) => item.fsPath)
                         });
-                        void vscode.window.showInformationMessage(this.getMessages().host.htmlExported(result.target.fsPath));
+                        const messages = this.getMessages();
+                        void vscode.window.showInformationMessage(
+                            messages.host.htmlExported(result.target.fsPath),
+                            messages.host.open
+                        ).then(
+                            /**
+                             * HTML出力完了メッセージの選択に応じて専用プレビューで開く。
+                             * @param choice - 出力したHTMLを開く操作。選択されない場合はundefined。
+                             * @returns 副作用を完了し、値は返さない。
+                             */
+                            (choice) => {
+                                if (choice === messages.host.open) void openHtmlPreview(result.target);
+                            });
                     } else {
                         this.post(panel, {
                             type: 'operationFailed',
@@ -1831,11 +1975,11 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
      * @param href - Markdown内のリンク先文字列。相対参照、ファイルパス、file URI、Webview URL、外部URLを受け取る。
      * @returns 副作用を完了し、値は返さない。
      */
-    private async openResource(document: vscode.TextDocument, href: string): Promise<void> {
+    private async openResource(document: vscode.TextDocument, href: string, workspaceRooted = false): Promise<void> {
         const target = classifyResourceLink(href);
         if (target.kind === 'invalidLocalWebview') return;
         if (target.kind === 'localWebview') {
-            await vscode.commands.executeCommand('vscode.open', vscode.Uri.file(target.path));
+            await this.openLocalResource(vscode.Uri.file(target.path), href);
             return;
         }
         if (target.kind === 'external') {
@@ -1843,12 +1987,78 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
             return;
         }
         if (target.kind === 'absoluteFile') {
-            const uri = resolveLocalResourceUri(document.uri, decodeLocalResourceSource(target.href));
-            if (uri) await vscode.commands.executeCommand('vscode.open', uri);
+            if (/^file:/i.test(target.href)) {
+                const linkedUri = vscode.Uri.parse(target.href);
+                await this.openLocalResource(linkedUri.with({ query: '', fragment: '' }), target.href);
+                return;
+            }
+            const uri = resolveLocalResourceUri(document.uri, target.href, workspaceRooted);
+            if (uri) await this.openLocalResource(uri, target.href);
             return;
         }
-        const uri = resolveLocalResourceUri(document.uri, decodeLocalResourceSource(target.href));
-        if (uri) await vscode.commands.executeCommand('vscode.open', uri);
+        const uri = resolveLocalResourceUri(document.uri, target.href, workspaceRooted);
+        if (uri) await this.openLocalResource(uri, target.href);
+    }
+
+    /** ローカルMarkdownのフラグメントを見出し行へ解決して開く。 */
+    private async openLocalResource(uri: vscode.Uri, href: string): Promise<void> {
+        const fragmentIndex = href.indexOf('#');
+        if (fragmentIndex >= 0 && /\.(?:md|markdown)$/i.test(uri.path)) {
+            const rawFragment = href.slice(fragmentIndex + 1);
+            let id = rawFragment;
+            try {
+                id = decodeURIComponent(rawFragment);
+            } catch {
+                // 不正な%エスケープはそのままのIDとして照合する。
+            }
+            if (id) {
+                const target = await vscode.workspace.openTextDocument(uri);
+                const line = headingLineForAnchor(target.getText(), id);
+                const editorAssociation = getEditorAssociation(uri);
+                const usesMveEditor = editorAssociation === VIEW_TYPE;
+                const usesAssociatedCustomEditor = editorAssociation !== undefined
+                    && editorAssociation !== 'default'
+                    && !usesMveEditor;
+                const openUri = usesAssociatedCustomEditor ? uri.with({ fragment: id }) : uri;
+                await vscode.commands.executeCommand('vscode.open', openUri);
+                if (line !== undefined) {
+                    const position = new vscode.Position(line - 1, 0);
+                    const activeTabInput = vscode.window.tabGroups.activeTabGroup.activeTab?.input as {
+                        viewType?: unknown;
+                        uri?: vscode.Uri;
+                    } | undefined;
+                    const activeCustomEditor = activeTabInput?.viewType === VIEW_TYPE
+                        && sameUriResource(activeTabInput.uri, uri);
+                    if (activeCustomEditor) {
+                        const activePanel = [...(this.panels.get(uri.toString()) ?? [])].find(
+                            (candidate) => candidate.active
+                        );
+                        const panel = activePanel
+                            ? this.panelInitialized.has(activePanel)
+                                ? activePanel
+                                : await this.waitForReadyPanel(uri, (candidate) => candidate === activePanel)
+                            : await this.waitForReadyPanel(uri, (candidate) => candidate.active);
+                        this.post(panel, {
+                            type: 'hostCommand',
+                            command: 'navigateToOffset',
+                            offset: canonicalOffsetAt(this.canonicalText(target), {
+                                line: position.line,
+                                character: position.character
+                            })
+                        });
+                    } else {
+                        const activeEditor = vscode.window.activeTextEditor;
+                        if (activeEditor && sameUriResource(activeEditor.document.uri, uri)) {
+                            const range = new vscode.Range(position, position);
+                            activeEditor.selection = new vscode.Selection(position, position);
+                            activeEditor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+                        }
+                    }
+                }
+                return;
+            }
+        }
+        await vscode.commands.executeCommand('vscode.open', uri);
     }
 
     /**
@@ -1866,7 +2076,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
              * @returns sourceを取り出した変換結果の一覧。
              */
             async (reference): Promise<Diagnostic | undefined> => {
-                const target = resolveLocalResourceUri(document.uri, reference.source);
+                const target = resolveLocalResourceUri(document.uri, reference.source, reference.workspaceRooted === true);
                 if (!target) return undefined;
                 try {
                     await vscode.workspace.fs.stat(target);
@@ -2589,8 +2799,15 @@ function relativeUriPath(documentUri: vscode.Uri, target: vscode.Uri): string {
  * @param source - Markdownから取り出した画像などのローカルURIまたはファイルパス。
  * @returns 条件に一致する値。未検出時はundefinedまたはnull。
  */
-function resolveLocalResourceUri(documentUri: vscode.Uri, source: string): vscode.Uri | undefined {
+function resolveLocalResourceUri(documentUri: vscode.Uri, source: string, workspaceRooted = false): vscode.Uri | undefined {
     const clean = decodeLocalResourceSource(source);
+    if (workspaceRooted) {
+        const workspaceSegments = workspaceRootPathSegments(clean);
+        const workspaceFolder = vscode.workspace.getWorkspaceFolder(documentUri);
+        return workspaceSegments && workspaceFolder
+            ? vscode.Uri.joinPath(workspaceFolder.uri, ...workspaceSegments)
+            : undefined;
+    }
     if (/^file:/i.test(clean)) return vscode.Uri.parse(clean);
     if (/^[A-Za-z]:[\\/]/.test(clean) && documentUri.scheme === 'file') {
         return vscode.Uri.file(clean.replace(/\\/g, path.sep));

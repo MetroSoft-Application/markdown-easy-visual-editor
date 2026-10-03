@@ -2,7 +2,7 @@
  * @fileoverview WebviewのMarkdown描画・Workerを管理する。Hostとの通信、ユーザー操作、表示状態の契約を保つ。
  */
 import { collectDiagnostics, getOutline, wordStats } from '../shared/markdown';
-import { renderMarkdownUnsafeBlocks, type RenderOptions } from './markdownRendererCore';
+import { alignOutlineHeadingIds, renderMarkdownUnsafeBlocks, type RenderOptions } from './markdownRendererCore';
 import { highlightCode } from './codeHighlighter';
 
 /**
@@ -35,11 +35,12 @@ self.addEventListener('message',
     (event: MessageEvent<RenderRequest>) => {
         const { id, markdown, options } = event.data;
         try {
+            const unsafeBlocks = renderMarkdownUnsafeBlocks(markdown, options, highlightCode);
             self.postMessage({
                 id,
                 markdown,
-                unsafeBlocks: renderMarkdownUnsafeBlocks(markdown, options, highlightCode),
-                outline: getOutline(markdown),
+                unsafeBlocks,
+                outline: alignOutlineHeadingIds(getOutline(markdown), unsafeBlocks),
                 diagnostics: collectDiagnostics(markdown, options.language),
                 stats: wordStats(markdown)
             });

@@ -730,6 +730,14 @@ export function App(): React.JSX.Element {
     type: "renderHtmlDocuments" }>>();
   const [exportStageRequested, setExportStageRequested] = useState(false);
   const [toast, setToast] = useState("");
+  const [sectionLinkMenu, setSectionLinkMenu] = useState<{
+    id: string;
+    text: string;
+    x: number;
+    y: number;
+  }>();
+  const sectionLinkMenuRef = useRef<HTMLDivElement>(null);
+  const skipOutlineContextMenuRef = useRef(false);
 
   const clientIdRef = useRef(createClientId());
   const sourceRef = useRef<TextEditorHandle>(null);
@@ -1635,6 +1643,59 @@ export function App(): React.JSX.Element {
     return () => window.clearTimeout(timer);
   }, [toast]);
 
+  useLayoutEffect(() => {
+    if (!sectionLinkMenu || !sectionLinkMenuRef.current) return;
+    const menu = sectionLinkMenuRef.current;
+    const bounds = menu.getBoundingClientRect();
+    menu.style.left = `${Math.max(8, Math.min(sectionLinkMenu.x, window.innerWidth - bounds.width - 8))}px`;
+    menu.style.top = `${Math.max(8, Math.min(sectionLinkMenu.y, window.innerHeight - bounds.height - 8))}px`;
+    menu.querySelector("button")?.focus({ preventScroll: true });
+  }, [sectionLinkMenu]);
+
+  useEffect(() => {
+    if (!sectionLinkMenu) return;
+    const closeOnPointerDown = (event: PointerEvent) => {
+      if (event.target instanceof Node && sectionLinkMenuRef.current?.contains(event.target)) return;
+      setSectionLinkMenu(undefined);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      event.preventDefault();
+      setSectionLinkMenu(undefined);
+    };
+    const closeMenu = () => setSectionLinkMenu(undefined);
+    document.addEventListener("pointerdown", closeOnPointerDown, true);
+    document.addEventListener("keydown", closeOnEscape, true);
+    document.addEventListener("scroll", closeMenu, true);
+    window.addEventListener("resize", closeMenu);
+    window.addEventListener("blur", closeMenu);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnPointerDown, true);
+      document.removeEventListener("keydown", closeOnEscape, true);
+      document.removeEventListener("scroll", closeMenu, true);
+      window.removeEventListener("resize", closeMenu);
+      window.removeEventListener("blur", closeMenu);
+    };
+  }, [sectionLinkMenu]);
+
+  useEffect(() => {
+    const resetOnRightPointerDown = (event: PointerEvent) => {
+      if (event.button === 2) skipOutlineContextMenuRef.current = false;
+    };
+    const suppressCompletedOutlineGesture = (event: MouseEvent) => {
+      if (!skipOutlineContextMenuRef.current || event.button !== 2) return;
+      event.preventDefault();
+      event.stopPropagation();
+      skipOutlineContextMenuRef.current = false;
+    };
+    document.addEventListener("pointerdown", resetOnRightPointerDown, true);
+    document.addEventListener("contextmenu", suppressCompletedOutlineGesture, true);
+    return () => {
+      document.removeEventListener("pointerdown", resetOnRightPointerDown, true);
+      document.removeEventListener("contextmenu", suppressCompletedOutlineGesture, true);
+    };
+  }, []);
+
   /**
    * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
    * @param message - HostとWebviewの間で受け渡すメッセージ。
@@ -1671,6 +1732,12 @@ export function App(): React.JSX.Element {
       return;
     }
     switch (message.type) {
+      case "sectionLinkCopied":
+        setToast(messages.app.sectionLinkCopied);
+        return;
+      case "workspaceSectionLinkUnavailable":
+        setToast(messages.app.workspaceSectionLinkUnavailable);
+        return;
       case "init":
         if (initializedRef.current) {
           applyHostSettings(message.settings);
@@ -1928,6 +1995,12 @@ export function App(): React.JSX.Element {
         });
         return;
       case "hostCommand":
+        if (message.command === "navigateToOffset") {
+          if (Number.isSafeInteger(message.offset) && message.offset >= 0) {
+            goToOutlineOffset(message.offset);
+          }
+          return;
+        }
         if (message.command === "insertImage") requestImagePicker();
         if (message.command === "exportPdf") void requestPdfExport();
         if (message.command === "exportHtml")
@@ -4256,6 +4329,7 @@ export function App(): React.JSX.Element {
     const current = outlineDragRef.current;
     if (!current || current.pointerId !== event.pointerId) return;
     if (current.dragging) event.preventDefault();
+    skipOutlineContextMenuRef.current = true;
     if (
       !cancelled &&
       isEditingEnabled(mode, splitView) &&
@@ -4282,6 +4356,10 @@ export function App(): React.JSX.Element {
     if (event.currentTarget.hasPointerCapture(event.pointerId)) {
       event.currentTarget.releasePointerCapture(event.pointerId);
     }
+    if (!cancelled && !current.dragging) {
+      const item = current.outline[current.sourceIndex];
+      if (item) setSectionLinkMenu({ id: item.id, text: item.text, x: event.clientX, y: event.clientY });
+    }
   }
 
   /**
@@ -4294,6 +4372,7 @@ export function App(): React.JSX.Element {
     event: React.PointerEvent<HTMLButtonElement>,
     sourceIndex: number,
   ): void {
+    if (event.button === 2) skipOutlineContextMenuRef.current = false;
     if (event.button !== 2 || !isEditingEnabled(mode, splitView)) return;
     // プレビューが遅延中の古いオフセットで本文を壊さないよう、最新描画済みのときだけ開始する。
     if (previewSnapshot.markdown !== markdown) return;
@@ -4312,6 +4391,28 @@ export function App(): React.JSX.Element {
     event.currentTarget.focus({ preventScroll: true });
     event.currentTarget.setPointerCapture(event.pointerId);
     event.preventDefault();
+  }
+
+  /** 見出しとアウトラインの右クリックから、対象の見出しIDを使うメニューを開く。 */
+  function handleSectionContextMenu(event: React.MouseEvent<HTMLDivElement>): void {
+    if (!(event.target instanceof Element)) return;
+    const outlineItem = event.target.closest<HTMLButtonElement>(".outline-item[data-section-id]");
+    if (outlineItem) {
+      event.preventDefault();
+      if (outlineDragRef.current || (skipOutlineContextMenuRef.current && event.nativeEvent.button === 2)) {
+        skipOutlineContextMenuRef.current = false;
+        return;
+      }
+      const id = outlineItem.dataset.sectionId;
+      if (id) setSectionLinkMenu({ id, text: outlineItem.textContent?.trim() || id, x: event.clientX, y: event.clientY });
+      return;
+    }
+    const heading = event.target.closest<HTMLElement>(
+      ".rendered-markdown h1[data-mve-heading], .rendered-markdown h2[data-mve-heading], .rendered-markdown h3[data-mve-heading], .rendered-markdown h4[data-mve-heading], .rendered-markdown h5[data-mve-heading], .rendered-markdown h6[data-mve-heading]",
+    );
+    if (!heading?.id) return;
+    event.preventDefault();
+    setSectionLinkMenu({ id: heading.id, text: heading.textContent?.trim() || heading.id, x: event.clientX, y: event.clientY });
   }
 
   /**
@@ -4405,7 +4506,8 @@ export function App(): React.JSX.Element {
      * @param href - プレビュー内で開くMarkdownリンクのhref文字列。
      * @returns Webviewルートのコールバックが生成する結果。
      */
-    (href: string) => vscode.postMessage({ type: "openResource", href }),
+    (href: string, workspaceRooted = false) =>
+      vscode.postMessage({ type: "openResource", href, workspaceRooted }),
     [],
   );
   const splitPreviewRendered = useCallback(
@@ -4579,7 +4681,7 @@ export function App(): React.JSX.Element {
       ? `minmax(0, ${splitRatio}fr) 8px minmax(0, ${1 - splitRatio}fr)`
       : "minmax(0, 1fr)";
   return (
-    <div className={`app ${printPreview ? "print-preview-mode" : ""}`}>
+    <div className={`app ${printPreview ? "print-preview-mode" : ""}`} onContextMenu={handleSectionContextMenu}>
       <Ribbon
         messages={messages}
         mode={mode}
@@ -4650,6 +4752,7 @@ export function App(): React.JSX.Element {
                       key={`${item.offset}-${item.id}`}
                       className={`outline-item${outlineDrag?.dragging && outlineDrag.sourceIndex === index ? " outline-drag-source" : ""}${outlineDrag?.targetIndex === index && outlineDrag.position ? ` outline-drop-${outlineDrag.position}` : ""}`}
                       data-outline-index={index}
+                      data-section-id={item.id}
                       data-dragging={
                         outlineDrag?.dragging &&
                         outlineDrag.sourceIndex === index
@@ -4684,13 +4787,6 @@ export function App(): React.JSX.Element {
                       (event) =>
                         finishOutlineDrag(event, true)
                       }
-                      onContextMenu={
-                      /**
-                       * イベントをprevent・defaultへ渡し、Webviewルートの結果または副作用を処理する。
-                       * @param event - 目次上のcontext menu表示を抑止するcontextmenu event。
-                       * @returns Webviewルートのコールバックが生成する結果。
-                       */
-                      (event) => event.preventDefault()}
                     >
                       {item.text}
                     </button>
@@ -5025,8 +5121,8 @@ export function App(): React.JSX.Element {
                 * @param href - PDFプレビュー内で開くMarkdownリンクのhref文字列。
                * @returns Webviewルートのコールバックが生成する結果。
                */
-              (href) =>
-                vscode.postMessage({ type: "openResource", href })
+              (href, workspaceRooted = false) =>
+                vscode.postMessage({ type: "openResource", href, workspaceRooted })
               }
               onZoom={adjustZoom}
               onRendered={
@@ -5564,6 +5660,46 @@ export function App(): React.JSX.Element {
           {toast}
         </div>
       )}
+      {sectionLinkMenu && (
+        <div
+          ref={sectionLinkMenuRef}
+          className="section-link-context-menu"
+          role="menu"
+          aria-label={messages.app.sectionLinkMenu}
+          style={{ left: sectionLinkMenu.x, top: sectionLinkMenu.y }}
+        >
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              vscode.postMessage({
+                type: "copySectionLink",
+                scope: "document",
+                id: sectionLinkMenu.id,
+                text: sectionLinkMenu.text,
+              });
+              setSectionLinkMenu(undefined);
+            }}
+          >
+            {messages.app.copySectionLink}
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              vscode.postMessage({
+                type: "copySectionLink",
+                scope: "workspace",
+                id: sectionLinkMenu.id,
+                text: sectionLinkMenu.text,
+              });
+              setSectionLinkMenu(undefined);
+            }}
+          >
+            {messages.app.copyWorkspaceSectionLink}
+          </button>
+        </div>
+      )}
     </div>
   );
 }
@@ -5820,10 +5956,22 @@ function useMarkdownPreviewSnapshot(
         html = `<pre>${escapeHtml(markdown)}</pre>`;
       }
       if (generationRef.current !== id) return;
+      const rendered = document.createElement("template");
+      rendered.innerHTML = html;
+      const headingIds = new Map<number, string>();
+      for (const heading of rendered.content.querySelectorAll<HTMLElement>(
+        ".markdown-source-block > [data-mve-heading][id]",
+      )) {
+        const offset = Number(heading.parentElement?.dataset.sourceFrom);
+        if (Number.isInteger(offset)) headingIds.set(offset, heading.id);
+      }
       setSnapshot({
         markdown,
         html,
-        outline: getOutline(markdown),
+        outline: getOutline(markdown).flatMap((item) => {
+          const id = headingIds.get(item.offset);
+          return id ? [{ ...item, id }] : [];
+        }),
         diagnostics: collectDiagnostics(markdown, language),
         stats: wordStats(markdown),
       });
@@ -6610,7 +6758,7 @@ function PdfPreview({
    * @param href - プレビュー内で開くリンクのhref文字列。
    * @returns Webviewルートのon・navigateが生成する結果。
    */
-  onNavigate: (href: string) => void;
+  onNavigate: (href: string, workspaceRooted?: boolean) => void;
   /**
    * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
    * @param delta - ズーム倍率の変更量。正数は拡大、負数は縮小。
