@@ -155,3 +155,8 @@
 ## 1.2.5
 
 - Fix the syntax highlighting colors.
+
+## 1.2.6
+
+- Added section link copying from headings and the outline.
+- Added an HTML preview that follows links to sections and other exported pages.

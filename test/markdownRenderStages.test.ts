@@ -4,7 +4,13 @@
 import { describe, expect, it } from 'vitest';
 import { highlightCode } from '../src/webview/codeHighlighter';
 import { alignOutlineHeadingIds, renderMarkdownUnsafeBlocks } from '../src/webview/markdownRendererCore';
-import { getOutline, headingLineForAnchor, sectionMarkdownLink } from '../src/shared/markdown';
+import {
+    collectLocalResourceReferences,
+    getOutline,
+    headingLineForAnchor,
+    sectionMarkdownLink,
+    workspaceSectionMarkdownLink
+} from '../src/shared/markdown';
 
 /**
  * markdownrenderstages・テストの回帰へ渡す設定または境界値。
@@ -51,6 +57,21 @@ describe('staged Markdown rendering',
             const html = renderMarkdownUnsafeBlocks(markdown, options).map((block) => block.html).join('');
             expect(html).toContain('<h1 id="拡張構文" data-mve-heading="true">');
             expect(html).toContain('<a href="#拡張構文">拡張構文</a>');
+        });
+
+        it('copies a workspace-rooted link that resolves from another Markdown file', () => {
+            const link = workspaceSectionMarkdownLink('拡張構文', '拡張構文', 'guides/extended syntax.md');
+            expect(link).toBe('[拡張構文](/guides/extended%20syntax.md#拡張構文 "MVE workspace-root link")');
+            const html = renderMarkdownUnsafeBlocks(link, options).map((block) => block.html).join('');
+            expect(html).toContain('<a href="#" data-mve-link="/guides/extended%20syntax.md#拡張構文" data-mve-workspace-rooted="true">拡張構文</a>');
+            expect(collectLocalResourceReferences(link)).toEqual([
+                {
+                    kind: 'link',
+                    source: '/guides/extended%20syntax.md#拡張構文',
+                    workspaceRooted: true,
+                    line: 1
+                }
+            ]);
         });
 
         it('keeps the copied link label as literal heading text', () => {

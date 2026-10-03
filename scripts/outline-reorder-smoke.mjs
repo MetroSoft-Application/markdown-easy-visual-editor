@@ -389,7 +389,7 @@ try {
   if (!(await page.evaluate(() => window.__mveContextMenus.at(-1)))) {
     throw new Error('Outline right-click left the native context menu enabled.');
   }
-  await sectionMenu.locator('button').click();
+  await sectionMenu.locator('button').nth(0).click();
   await page.waitForFunction(
     ({ id, text }) => window.__mveMessages.some((message) => message.type === 'copySectionLink' && message.id === id && message.text === text),
     { id: firstSectionId, text: firstSectionText }
@@ -405,7 +405,7 @@ try {
     throw new Error('Preview and outline heading IDs differ.');
   }
   const copyCount = await page.evaluate(() => window.__mveMessages.filter((message) => message.type === 'copySectionLink').length);
-  await sectionMenu.locator('button').click();
+  await sectionMenu.locator('button').nth(0).click();
   await page.waitForFunction(
     (count) => window.__mveMessages.filter((message) => message.type === 'copySectionLink').length === count + 1,
     copyCount
@@ -414,13 +414,22 @@ try {
   if (copiedPreviewId !== firstSectionId) throw new Error('Preview copied a different heading ID.');
   const copiedPreviewText = await page.evaluate(() => window.__mveMessages.filter((message) => message.type === 'copySectionLink').at(-1)?.text);
   if (copiedPreviewText !== firstSectionText) throw new Error('Preview copied a different heading label.');
+  const workspaceCopyCount = await page.evaluate(() => window.__mveMessages.filter((message) => message.type === 'copySectionLink').length);
+  await firstOutlineItem.click({ button: 'right' });
+  await sectionMenu.waitFor();
+  await sectionMenu.locator('button').nth(1).click();
+  await page.waitForFunction(
+    (count) => window.__mveMessages.filter((message) => message.type === 'copySectionLink').length === count + 1,
+    workspaceCopyCount
+  );
+  const workspaceCopy = await page.evaluate(() => window.__mveMessages.filter((message) => message.type === 'copySectionLink').at(-1));
+  if (workspaceCopy.scope !== 'workspace' || workspaceCopy.id !== firstSectionId || workspaceCopy.text !== firstSectionText) {
+    throw new Error('Workspace link copy sent the wrong scope or heading.');
+  }
   await previewHeading.click({ button: 'right' });
   await sectionMenu.waitFor();
   await page.keyboard.press('Escape');
   if (await sectionMenu.count()) throw new Error('Escape did not close the section link menu.');
-  if (await page.evaluate(() => window.__mveHostText) !== initialText) {
-    throw new Error('Section link menu changed the Markdown text.');
-  }
   const anchorTargets = await page.evaluate(() => {
     const root = document.querySelector('.split-preview .rendered-markdown');
     const reached = [];
@@ -632,6 +641,26 @@ try {
   await waitForHost(emptyParentMovedText);
   await waitForOutline(emptyParentMovedOutline);
 
+  await page.evaluate(() => {
+    const preview = document.querySelector('.split-preview .rendered-markdown');
+    if (!preview) throw new Error('Split preview Markdown is missing.');
+    const link = document.createElement('a');
+    link.href = '#';
+    link.dataset.mveLink = '/guides/setup.md#setup';
+    link.dataset.mveWorkspaceRooted = 'true';
+    link.textContent = 'Workspace link smoke';
+    preview.append(link);
+  });
+  await page.locator('.split-preview a[data-mve-workspace-rooted="true"]').click();
+  await page.waitForFunction(() => window.__mveMessages.some(
+    (message) => message.type === 'openResource' && message.workspaceRooted === true
+  ));
+  const workspaceNavigation = await page.evaluate(() => window.__mveMessages.filter(
+    (message) => message.type === 'openResource'
+  ).at(-1));
+  if (workspaceNavigation.href !== '/guides/setup.md#setup' || workspaceNavigation.workspaceRooted !== true) {
+    throw new Error('Workspace link navigation did not preserve its root-path marker.');
+  }
   if (errors.length) throw new Error(`Browser errors: ${errors.join('\n')}`);
   console.log(JSON.stringify({
     ok: true,

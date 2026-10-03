@@ -892,6 +892,15 @@ export interface Messages {
         /** セクションへのリンクをコピーするメニュー項目。 */
         copySectionLink: string;
 
+        /** セクションリンクのコンテキストメニュー名。 */
+        sectionLinkMenu: string;
+
+        /** 同じワークスペースフォルダー内で使えるセクションリンクをコピーするメニュー項目。 */
+        copyWorkspaceSectionLink: string;
+
+        /** 文書がワークスペースフォルダーに含まれていない場合の通知。 */
+        workspaceSectionLinkUnavailable: string;
+
         /** セクションリンクのコピー成功通知。 */
         sectionLinkCopied: string;
 
@@ -2149,6 +2158,9 @@ function createMessages(language: SupportedLanguage): Messages {
             showOutline: raw.app.showOutline,
             outlineWidth: raw.app.outlineWidth,
             copySectionLink: raw.app.copySectionLink,
+            sectionLinkMenu: raw.app.sectionLinkMenu,
+            copyWorkspaceSectionLink: raw.app.copyWorkspaceSectionLink,
+            workspaceSectionLinkUnavailable: raw.app.workspaceSectionLinkUnavailable,
             sectionLinkCopied: raw.app.sectionLinkCopied,
             noHeadings: raw.app.noHeadings,
             searchAndReplace: raw.app.searchAndReplace,

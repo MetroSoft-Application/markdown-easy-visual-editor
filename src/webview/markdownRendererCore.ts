@@ -4,7 +4,13 @@
 import katex from 'katex';
 import { Marked, Renderer, type Token } from 'marked';
 import { footnoteDefinitionSyntax, mathBlockSyntax, tableOfContentsSyntax } from '../shared/markdownBlockSyntax';
-import { getOutline, nextHeadingAnchorId, slugify, type OutlineItem } from '../shared/markdown';
+import {
+    getOutline,
+    nextHeadingAnchorId,
+    slugify,
+    WORKSPACE_SECTION_LINK_TITLE,
+    type OutlineItem
+} from '../shared/markdown';
 import { getMessages, type Messages, type SupportedLanguage } from '../shared/messages';
 
 /**
@@ -168,11 +174,15 @@ export function renderMarkdownUnsafeBlocks(
          */
         function ({ href, title, tokens }) {
             const content = this.parser.parseInline(tokens);
-            const titleAttribute = title ? ` title="${escapeAttribute(title)}"` : '';
+            const workspaceRooted = title === WORKSPACE_SECTION_LINK_TITLE;
+            const titleAttribute = title !== null && title !== undefined && !workspaceRooted
+                ? ` title="${escapeAttribute(title)}"`
+                : '';
+            const workspaceRootedAttribute = workspaceRooted ? ' data-mve-workspace-rooted="true"' : '';
             if (isLocalMarkdownLink(href)) {
-                return `<a href="#" data-mve-link="${escapeAttribute(href)}"${titleAttribute}>${content}</a>`;
+                return `<a href="#" data-mve-link="${escapeAttribute(href)}"${workspaceRootedAttribute}${titleAttribute}>${content}</a>`;
             }
-            return `<a href="${escapeAttribute(href)}"${titleAttribute}>${content}</a>`;
+            return `<a href="${escapeAttribute(href)}"${workspaceRootedAttribute}${titleAttribute}>${content}</a>`;
         };
 
     /** Markdown imageトークンを表示用またはブロック済み画像HTMLへ変換するrenderer。 */

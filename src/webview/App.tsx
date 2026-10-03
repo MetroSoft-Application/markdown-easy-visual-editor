@@ -1735,6 +1735,9 @@ export function App(): React.JSX.Element {
       case "sectionLinkCopied":
         setToast(messages.app.sectionLinkCopied);
         return;
+      case "workspaceSectionLinkUnavailable":
+        setToast(messages.app.workspaceSectionLinkUnavailable);
+        return;
       case "init":
         if (initializedRef.current) {
           applyHostSettings(message.settings);
@@ -1992,6 +1995,12 @@ export function App(): React.JSX.Element {
         });
         return;
       case "hostCommand":
+        if (message.command === "navigateToOffset") {
+          if (Number.isSafeInteger(message.offset) && message.offset >= 0) {
+            goToOutlineOffset(message.offset);
+          }
+          return;
+        }
         if (message.command === "insertImage") requestImagePicker();
         if (message.command === "exportPdf") void requestPdfExport();
         if (message.command === "exportHtml")
@@ -4497,7 +4506,8 @@ export function App(): React.JSX.Element {
      * @param href - プレビュー内で開くMarkdownリンクのhref文字列。
      * @returns Webviewルートのコールバックが生成する結果。
      */
-    (href: string) => vscode.postMessage({ type: "openResource", href }),
+    (href: string, workspaceRooted = false) =>
+      vscode.postMessage({ type: "openResource", href, workspaceRooted }),
     [],
   );
   const splitPreviewRendered = useCallback(
@@ -5111,8 +5121,8 @@ export function App(): React.JSX.Element {
                 * @param href - PDFプレビュー内で開くMarkdownリンクのhref文字列。
                * @returns Webviewルートのコールバックが生成する結果。
                */
-              (href) =>
-                vscode.postMessage({ type: "openResource", href })
+              (href, workspaceRooted = false) =>
+                vscode.postMessage({ type: "openResource", href, workspaceRooted })
               }
               onZoom={adjustZoom}
               onRendered={
@@ -5655,18 +5665,38 @@ export function App(): React.JSX.Element {
           ref={sectionLinkMenuRef}
           className="section-link-context-menu"
           role="menu"
-          aria-label={messages.app.copySectionLink}
+          aria-label={messages.app.sectionLinkMenu}
           style={{ left: sectionLinkMenu.x, top: sectionLinkMenu.y }}
         >
           <button
             type="button"
             role="menuitem"
             onClick={() => {
-              vscode.postMessage({ type: "copySectionLink", id: sectionLinkMenu.id, text: sectionLinkMenu.text });
+              vscode.postMessage({
+                type: "copySectionLink",
+                scope: "document",
+                id: sectionLinkMenu.id,
+                text: sectionLinkMenu.text,
+              });
               setSectionLinkMenu(undefined);
             }}
           >
             {messages.app.copySectionLink}
+          </button>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              vscode.postMessage({
+                type: "copySectionLink",
+                scope: "workspace",
+                id: sectionLinkMenu.id,
+                text: sectionLinkMenu.text,
+              });
+              setSectionLinkMenu(undefined);
+            }}
+          >
+            {messages.app.copyWorkspaceSectionLink}
           </button>
         </div>
       )}
@@ -6728,7 +6758,7 @@ function PdfPreview({
    * @param href - プレビュー内で開くリンクのhref文字列。
    * @returns Webviewルートのon・navigateが生成する結果。
    */
-  onNavigate: (href: string) => void;
+  onNavigate: (href: string, workspaceRooted?: boolean) => void;
   /**
    * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
    * @param delta - ズーム倍率の変更量。正数は拡大、負数は縮小。

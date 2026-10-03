@@ -73,6 +73,26 @@ export function classifyResourceLink(href: string): ResourceLinkTarget {
     return { kind: 'relative', href };
 }
 
+/** ワークスペース基準の単一スラッシュパスを、ルートからの安全なパス要素へ変換する。 */
+export function workspaceRootPathSegments(source: string): string[] | undefined {
+    if (!source.startsWith('/') || source.startsWith('//') || /^\/[A-Za-z]:[\\/]/.test(source)) {
+        return undefined;
+    }
+
+    const segments: string[] = [];
+    for (const segment of source.slice(1).replace(/\\/g, '/').split('/')) {
+        if (!segment || segment === '.') continue;
+        if (segment === '..') {
+            if (!segments.length) return undefined;
+            segments.pop();
+            continue;
+        }
+        segments.push(segment);
+    }
+
+    return segments.length ? segments : undefined;
+}
+
 /**
  * resourcelinkの条件を判定する。
  * @param href - 検査するリンク先文字列。
