@@ -60,6 +60,7 @@ import {
   mapTextOffset,
   type TextChange,
 } from "../shared/textChanges";
+import { fingerprintText } from "../shared/canonicalText";
 import {
   alignImageInMarkdown,
   resetImageSizeInMarkdown,
@@ -4393,9 +4394,24 @@ export function App(): React.JSX.Element {
     event.preventDefault();
   }
 
-  /** 見出しとアウトラインの右クリックから、対象の見出しIDを使うメニューを開く。 */
+  /**
+   * ソース面の右クリックでは選択範囲と本文指紋をHostへ送り、見出し上では見出しIDに対応するメニューを開く。
+   * @param event - 右クリックされたソース面またはアウトライン要素のマウスイベント。
+   */
   function handleSectionContextMenu(event: React.MouseEvent<HTMLDivElement>): void {
     if (!(event.target instanceof Element)) return;
+    if (event.target.closest(".source-editor")) {
+      const selection = sourceRef.current?.getSelection();
+      vscode.postMessage({
+        type: "copilotSelectionContext",
+        selection: selection && selection.from !== selection.to ? selection : undefined,
+        sourceFingerprint:
+          selection && selection.from !== selection.to
+            ? fingerprintText(localTextRef.current)
+            : undefined,
+      });
+      return;
+    }
     const outlineItem = event.target.closest<HTMLButtonElement>(".outline-item[data-section-id]");
     if (outlineItem) {
       event.preventDefault();

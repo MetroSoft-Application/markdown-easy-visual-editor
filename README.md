@@ -18,10 +18,11 @@ Markdown Easy Visual Editor is a VS Code extension for writing Markdown with a l
 - Review local links and images before exporting.
 - Preview and export your document as a PDF.
 - Export your document as HTML, with options for images and linked Markdown files.
+- Right-click selected source text to attach its file range to the Copilot Chat view.
 
 ## Requirements
 
-- Visual Studio Code 1.100 or later.
+- Visual Studio Code 1.106 or later.
 - A local, saved Markdown document for image insertion.
 - A trusted VS Code workspace for PDF and HTML export.
 

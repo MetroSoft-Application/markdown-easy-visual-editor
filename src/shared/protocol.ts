@@ -1007,6 +1007,21 @@ export type WebviewToHostMessage =
     }
     | { type: 'copySectionLink'; scope: 'document' | 'workspace'; id: string; text: string }
     | {
+        /** HostへCopilot Chatに渡す現在のソース選択範囲を通知するメッセージ種別。 */
+        type: 'copilotSelectionContext';
+        /**
+         * 選択時点のLF正規化済み本文に対する範囲。折りたたんだ選択では省略する。
+         */
+        selection?: {
+            /** 選択範囲の開始UTF-16オフセット。 */
+            from: number;
+            /** 選択範囲の終了UTF-16オフセット。 */
+            to: number;
+        };
+        /** 本文更新後に選択範囲を無効化するための選択時本文指紋。 */
+        sourceFingerprint?: string;
+    }
+    | {
         /**
          * 共有プロトコルで対象や分岐を識別する値の型。
          */

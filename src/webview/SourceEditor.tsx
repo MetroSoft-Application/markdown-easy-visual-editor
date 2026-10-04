@@ -2057,7 +2057,13 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
       });
     }
 
-    return <div ref={hostRef} className={`source-editor ${className}`} />;
+    return (
+      <div
+        ref={hostRef}
+        className={`source-editor ${className}`}
+        data-vscode-context='{"webviewSection":"sourceEditor","mveHasSelection":false}'
+      />
+    );
   },
 );
 
@@ -2152,10 +2158,9 @@ function publishViewportData(
 }
 
 /**
- * 本文編集面のpublish・selection・dataを処理し、呼び出し側へ結果または副作用を返す。
- * @param host - 選択位置データを書き込むエディターのホスト要素。未マウント時はnull。
- * @param state - 現在の編集・表示状態。
- * @returns 副作用を完了し、値は返さない。
+ * CodeMirror内の選択範囲を外部オフセットへ変換し、Hostが参照するDOM属性へ書き出す。
+ * @param host - 選択位置とコンテキストを書き込むホスト要素。エディター未マウント時は null。
+ * @param state - 選択範囲の外部位置と、選択中かどうかを判定する現在のEditorState。
  */
 function publishSelectionData(
   host: HTMLElement | null,
@@ -2169,6 +2174,10 @@ function publishSelectionData(
   host.dataset.selectionTo = String(
     editorOffsetToExternal(state, selection.to),
   );
+  host.dataset.vscodeContext = JSON.stringify({
+    webviewSection: "sourceEditor",
+    mveHasSelection: selection.from !== selection.to,
+  });
 }
 
 /**

@@ -2,7 +2,7 @@
   "name": "markdown-easy-visual-editor",
   "displayName": "Markdown Easy Visual Editor",
   "description": "A visual Markdown editor for VS Code with live preview, source editing, formatting tools, image support, and PDF export.",
-  "version": "1.2.6",
+  "version": "1.2.7",
   "publisher": "MetroSoft-Application",
   "icon": "resources/icon.png",
   "repository": {
@@ -11,7 +11,7 @@
   },
   "license": "MIT",
   "engines": {
-    "vscode": "^1.100.0"
+    "vscode": "^1.106.0"
   },
   "categories": [
     "Other",
@@ -90,6 +90,10 @@
       {
         "command": "markdownEasyVisualEditor.redo",
         "title": "Markdown Easy Visual Editor: Redo"
+      },
+      {
+        "command": "markdownEasyVisualEditor.attachSelectionToCopilotChat",
+        "title": "Attach Selection to GitHub Copilot Chat"
       }
     ],
     "menus": {
@@ -141,6 +145,13 @@
           "group": "navigation@1"
         }
       ],
+      "webview/context": [
+        {
+          "command": "markdownEasyVisualEditor.attachSelectionToCopilotChat",
+          "when": "webviewId == 'markdownEasyVisualEditor.editor' && webviewSection == 'sourceEditor' && mveHasSelection",
+          "group": "3_chat"
+        }
+      ],
       "commandPalette": [
         {
           "command": "markdownEasyVisualEditor.undo",
@@ -148,6 +159,10 @@
         },
         {
           "command": "markdownEasyVisualEditor.redo",
+          "when": "false"
+        },
+        {
+          "command": "markdownEasyVisualEditor.attachSelectionToCopilotChat",
           "when": "false"
         }
       ]
@@ -465,7 +480,8 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "watch": "node scripts/build.mjs --watch",
-    "check": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.webview.json --noEmit",
+    "check": "npm run check:documentation-comments && tsc -p tsconfig.json --noEmit && tsc -p tsconfig.webview.json --noEmit",
+    "check:documentation-comments": "node scripts/check-documentation-comments.mjs",
     "test": "vitest run",
     "test:startup": "npm run build && node scripts/startup-regression.mjs",
     "benchmark:vscode-startup": "npm run build && node scripts/benchmark-vscode-startup.mjs",
@@ -524,6 +540,7 @@
     "@vscode/test-electron": "^3.1.0",
     "@vscode/vsce": "^3.9.2",
     "esbuild": "^0.28.2",
+    "postcss": "^8.5.26",
     "typescript": "^7.0.2",
     "vitest": "^4.1.0"
   }

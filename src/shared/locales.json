@@ -506,7 +506,10 @@
       "invalidImageDirectory": "画像保存先はMarkdown文書からの安全な相対パスで指定してください。",
       "pdfBrowserUnavailable": "PDF用ブラウザを起動できません。設定でEdgeまたはChromeを指定してください。",
       "errorPrefix": "Markdown Easy Visual Editor",
-      "clientIdMismatch": "WebviewのclientIdが初期化時と一致しません。"
+      "clientIdMismatch": "WebviewのclientIdが初期化時と一致しません。",
+      "copilotChatUnavailable": "Copilot Chatの選択範囲添付コマンドを利用できません。VS CodeとGitHub Copilot Chatを確認してください。",
+      "copilotSelectionChanged": "選択後に文書が変更されたため、誤った範囲を添付しないよう処理を中止しました。選択し直してください。",
+      "copilotChatEditorUnavailable": "既存タブを変更せずに添付用エディターを開けません。別のエディター列を閉じてから再試行してください。"
     },
     "editor": {
       "placeholder": "Markdownを入力...",
@@ -1027,7 +1030,10 @@
       "invalidImageDirectory": "Specify a safe relative path from the Markdown document for the image directory.",
       "pdfBrowserUnavailable": "Could not start a PDF browser. Specify Edge or Chrome in the settings.",
       "errorPrefix": "Markdown Easy Visual Editor",
-      "clientIdMismatch": "The Webview clientId does not match the initialized clientId."
+      "clientIdMismatch": "The Webview clientId does not match the initialized clientId.",
+      "copilotChatUnavailable": "The command to attach a selection to Copilot Chat is unavailable. Check that VS Code Chat and GitHub Copilot Chat are enabled.",
+      "copilotSelectionChanged": "The document changed after the selection was made, so the attachment was canceled to avoid adding the wrong range. Select the text again.",
+      "copilotChatEditorUnavailable": "Could not open a temporary editor without reusing an existing tab. Close an editor column and try again."
     },
     "editor": {
       "placeholder": "Type Markdown...",
@@ -1548,7 +1554,10 @@
       "invalidImageDirectory": "请为图像目录指定相对于Markdown文档的安全路径。",
       "pdfBrowserUnavailable": "无法启动PDF浏览器。请在设置中指定Edge或Chrome。",
       "errorPrefix": "Markdown Easy Visual Editor",
-      "clientIdMismatch": "Webview clientId与初始化时不一致。"
+      "clientIdMismatch": "Webview clientId与初始化时不一致。",
+      "copilotChatUnavailable": "无法使用将所选内容附加到Copilot Chat的命令。请检查VS Code Chat和GitHub Copilot Chat是否已启用。",
+      "copilotSelectionChanged": "选择后文档已更改。为避免附加错误范围，操作已取消。请重新选择文本。",
+      "copilotChatEditorUnavailable": "无法在不重用现有选项卡的情况下打开临时编辑器。请关闭一个编辑器列后重试。"
     },
     "editor": {
       "placeholder": "输入Markdown...",
@@ -2069,7 +2078,10 @@
       "invalidImageDirectory": "Markdown 문서 기준의 안전한 상대 경로를 이미지 폴더로 지정하세요.",
       "pdfBrowserUnavailable": "PDF 브라우저를 시작할 수 없습니다. 설정에서 Edge 또는 Chrome을 지정하세요.",
       "errorPrefix": "Markdown Easy Visual Editor",
-      "clientIdMismatch": "Webview clientId가 초기화된 clientId와 일치하지 않습니다."
+      "clientIdMismatch": "Webview clientId가 초기화된 clientId와 일치하지 않습니다.",
+      "copilotChatUnavailable": "선택 영역을 Copilot Chat에 첨부하는 명령을 사용할 수 없습니다. VS Code Chat과 GitHub Copilot Chat이 활성화되어 있는지 확인하세요.",
+      "copilotSelectionChanged": "선택 후 문서가 변경되어 잘못된 범위가 첨부되지 않도록 작업을 취소했습니다. 텍스트를 다시 선택하세요.",
+      "copilotChatEditorUnavailable": "기존 탭을 재사용하지 않고 임시 편집기를 열 수 없습니다. 편집기 열 하나를 닫은 후 다시 시도하세요."
     },
     "editor": {
       "placeholder": "Markdown 입력...",
@@ -2590,7 +2602,10 @@
       "invalidImageDirectory": "Le répertoire d'images doit être un dossier situé près du document Markdown.",
       "pdfBrowserUnavailable": "Aucun navigateur PDF n'est disponible. Installez ou configurez Edge ou Chrome.",
       "errorPrefix": "Markdown Easy Visual Editor",
-      "clientIdMismatch": "Le client du webview ne correspond pas au client actif."
+      "clientIdMismatch": "Le client du webview ne correspond pas au client actif.",
+      "copilotChatUnavailable": "La commande d'ajout de la sélection à Copilot Chat est indisponible. Vérifiez que VS Code Chat et GitHub Copilot Chat sont activés.",
+      "copilotSelectionChanged": "Le document a changé après la sélection. L'ajout a été annulé pour éviter d'inclure une plage incorrecte. Sélectionnez à nouveau le texte.",
+      "copilotChatEditorUnavailable": "Impossible d'ouvrir un éditeur temporaire sans réutiliser un onglet existant. Fermez une colonne d'éditeur puis réessayez."
     },
     "editor": {
       "placeholder": "Saisissez du Markdown...",
@@ -3111,7 +3126,10 @@
       "invalidImageDirectory": "Das Bildverzeichnis muss ein Ordner neben dem Markdown-Dokument sein.",
       "pdfBrowserUnavailable": "Kein PDF-Browser verfügbar. Installieren oder konfigurieren Sie Edge oder Chrome.",
       "errorPrefix": "Markdown Easy Visual Editor",
-      "clientIdMismatch": "Die Webview-Client-ID stimmt nicht mit dem aktiven Client überein."
+      "clientIdMismatch": "Die Webview-Client-ID stimmt nicht mit dem aktiven Client überein.",
+      "copilotChatUnavailable": "Der Befehl zum Anfügen der Auswahl an Copilot Chat ist nicht verfügbar. Prüfen Sie, ob VS Code Chat und GitHub Copilot Chat aktiviert sind.",
+      "copilotSelectionChanged": "Das Dokument wurde nach der Auswahl geändert. Der Vorgang wurde abgebrochen, damit kein falscher Bereich angefügt wird. Wählen Sie den Text erneut aus.",
+      "copilotChatEditorUnavailable": "Ein temporärer Editor konnte nicht geöffnet werden, ohne einen vorhandenen Tab wiederzuverwenden. Schließen Sie eine Editorgruppe und versuchen Sie es erneut."
     },
     "editor": {
       "placeholder": "Markdown eingeben...",
@@ -3632,7 +3650,10 @@
       "invalidImageDirectory": "El directorio de imágenes debe ser una carpeta junto al documento Markdown.",
       "pdfBrowserUnavailable": "No hay un navegador PDF disponible. Instala o configura Edge o Chrome.",
       "errorPrefix": "Markdown Easy Visual Editor",
-      "clientIdMismatch": "El clientId del webview no coincide con el cliente activo."
+      "clientIdMismatch": "El clientId del webview no coincide con el cliente activo.",
+      "copilotChatUnavailable": "El comando para adjuntar la selección a Copilot Chat no está disponible. Compruebe que VS Code Chat y GitHub Copilot Chat estén habilitados.",
+      "copilotSelectionChanged": "El documento cambió después de la selección. Se canceló la acción para evitar adjuntar un rango incorrecto. Vuelva a seleccionar el texto.",
+      "copilotChatEditorUnavailable": "No se pudo abrir un editor temporal sin reutilizar una pestaña existente. Cierre una columna del editor e inténtelo de nuevo."
     },
     "editor": {
       "placeholder": "Escribe Markdown...",
