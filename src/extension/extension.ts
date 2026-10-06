@@ -24,10 +24,21 @@ import {
     type FontFamilySettings
 } from '../shared/fontFamily';
 import { resolveImageDirectoryRule } from '../shared/imageDirectory';
-import { collectLocalResourceReferences, sortDiagnostics, type Diagnostic } from '../shared/markdown';
+import {
+    collectLocalResourceReferences,
+    headingLineForAnchor,
+    sectionMarkdownLink,
+    sortDiagnostics,
+    workspaceSectionMarkdownLink,
+    type Diagnostic,
+    type TextSelection
+} from '../shared/markdown';
 import { applyTextChanges, computeTextChanges, mapTextChanges, validateTextChanges, type TextChange } from '../shared/textChanges';
 import {
     canonicalizeContentChanges,
+    canonicalOffsetAt,
+    canonicalPositionAt,
+    fingerprintText,
     materializeCanonicalChanges,
     toCanonicalText
 } from '../shared/canonicalText';
@@ -45,13 +56,103 @@ import {
     type HtmlRenderedDocument
 } from './html';
 import { decodeLocalResourceSource, isMissingResourceError } from './resourceCheck';
-import { classifyResourceLink } from './resourceLink';
+import { classifyResourceLink, workspaceRootPathSegments } from './resourceLink';
+import { openHtmlPreview } from './htmlPreview';
 
 
 /**
  * VS CodeがCustom Editorを識別するビュー種別。
  */
 const VIEW_TYPE = 'markdownEasyVisualEditor.editor';
+
+/** Copilot Chatの選択範囲添付に使う、ワークスペース単位の一時ファイル状態キー。 */
+const COPILOT_SELECTION_ATTACHMENT_STATE_KEY = 'markdownEasyVisualEditor.copilotSelectionAttachmentUri';
+
+/** resourceに対して最も優先される明示的なeditor associationを取得する。 */
+function getEditorAssociation(uri: vscode.Uri): string | undefined {
+    const associations = vscode.workspace.getConfiguration('workbench')
+        .get<Record<string, unknown>>('editorAssociations', {});
+    const matchingAssociations = Object.entries(associations ?? {})
+        .filter(([pattern, viewType]) => typeof viewType === 'string'
+            && editorAssociationPatternMatches(pattern, uri))
+        .sort(([leftPattern], [rightPattern]) => rightPattern.length - leftPattern.length);
+    const viewType = matchingAssociations[0]?.[1];
+    return typeof viewType === 'string' ? viewType : undefined;
+}
+
+/** VS Codeのeditor association globを、URIのpathまたはbasenameと比較する。 */
+function editorAssociationPatternMatches(pattern: string, uri: vscode.Uri): boolean {
+    const normalizedPattern = pattern.replace(/\\/g, '/');
+    const hasPathSeparator = normalizedPattern.includes('/');
+    const regexSource = globPatternToRegex(normalizedPattern);
+    const regex = new RegExp('^' + regexSource + '$', 'i');
+    const target = hasPathSeparator
+        ? (uri.scheme + ':' + uri.path).replace(/\\/g, '/')
+        : path.posix.basename(uri.path.replace(/\\/g, '/'));
+    return regex.test(target);
+}
+
+/** fragmentを除いたURIのresource部分が一致するかを判定する。 */
+function sameUriResource(left: vscode.Uri | undefined, right: vscode.Uri): boolean {
+    return left !== undefined
+        && left.scheme === right.scheme
+        && left.authority === right.authority
+        && left.path === right.path
+        && left.query === right.query;
+}
+
+/** editor association globのワイルドカードをRegExp本文へ変換する。 */
+function globPatternToRegex(pattern: string): string {
+    let result = '';
+    for (let index = 0; index < pattern.length; index += 1) {
+        const character = pattern[index];
+        if (character === '*') {
+            if (pattern[index + 1] === '*') {
+                const isWholePathSegment = (index === 0 || pattern[index - 1] === '/')
+                    && (index + 2 === pattern.length || pattern[index + 2] === '/');
+                if (!isWholePathSegment) {
+                    result += '[^/]*';
+                    index += 1;
+                    continue;
+                }
+                index += 1;
+                if (pattern[index + 1] === '/') {
+                    result += '(?:.*/)?';
+                    index += 1;
+                } else {
+                    result += '.*';
+                }
+            } else {
+                result += '[^/]*';
+            }
+            continue;
+        }
+        if (character === '?') {
+            result += '[^/]';
+            continue;
+        }
+        if (character === '[') {
+            const close = pattern.indexOf(']', index + 1);
+            if (close > index + 1) {
+                const range = pattern.slice(index + 1, close);
+                result += `[${range.startsWith('!') ? `^${range.slice(1)}` : range}]`;
+                index = close;
+                continue;
+            }
+        }
+        if (character === '{') {
+            const close = pattern.indexOf('}', index + 1);
+            if (close > index + 1) {
+                const alternatives = pattern.slice(index + 1, close).split(',');
+                result += `(?:${alternatives.map(globPatternToRegex).join('|')})`;
+                index = close;
+                continue;
+            }
+        }
+        result += /[.+^$()|{}\\]/.test(character) ? `\\${character}` : character;
+    }
+    return result;
+}
 
 /**
  * globalStateで表示モードを保存するキー。
@@ -221,6 +322,7 @@ type ExportCommand = 'exportPdf' | 'exportHtml';
  * Webviewのready完了または失敗を通知するコールバックを保持する。
  */
 interface PanelReadyWaiter {
+    matches?: (panel: vscode.WebviewPanel) => boolean;
     /**
      * 拡張機能から必要な値またはリソースを取得する。
      * @param panel - ready状態になったWebviewPanelを待機側へ返す。
@@ -314,8 +416,14 @@ export function activate(context: vscode.ExtensionContext): void {
             /**
              * 要素をopen・sourceへ渡し、拡張機能の結果または副作用を処理する。
              * @returns 拡張機能のコールバックが生成する結果。
-             */
+            */
             () => provider.openSource()),
+        vscode.commands.registerCommand('markdownEasyVisualEditor.attachSelectionToCopilotChat',
+            /**
+             * 選択範囲をGitHub Copilot Chatへ添付する。
+             * @returns 添付処理が生成する結果。
+             */
+            () => provider.attachSelectionToCopilotChat()),
         vscode.commands.registerCommand('markdownEasyVisualEditor.insertImage',
             /**
              * 要素をsend・commandへ渡し、拡張機能の結果または副作用を処理する。
@@ -336,6 +444,11 @@ export function activate(context: vscode.ExtensionContext): void {
              * @returns 副作用を完了し、値は返さない。
              */
             (uri?: vscode.Uri) => provider.exportFromUri('exportHtml', uri)),
+        vscode.commands.registerCommand('markdownEasyVisualEditor.previewHtml',
+            async (uri?: vscode.Uri) => {
+                const target = uri ?? vscode.window.activeTextEditor?.document.uri;
+                if (target?.scheme === 'file' && /\.html?$/iu.test(target.fsPath)) await openHtmlPreview(target);
+            }),
         vscode.commands.registerCommand('markdownEasyVisualEditor.undo',
             /**
              * 要素をexecute・history・commandへ渡し、拡張機能の結果または副作用を処理する。
@@ -518,6 +631,21 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
      */
     private activeDocument?: vscode.TextDocument;
 
+    /** 右クリック時に各Webviewから受け取ったCopilot Chat添付対象。 */
+    private readonly pendingCopilotSelections = new Map<
+        vscode.WebviewPanel,
+        {
+            selection: TextSelection;
+            sourceFingerprint: string
+        }
+    >();
+
+    /** 選択範囲添付の作成・前回添付の置換を直列化する。 */
+    private copilotAttachmentQueue: Promise<void> = Promise.resolve();
+
+    /** このワークスペースのChat Viewで前回添付し、拡張機能の再読込後も置き換え対象にする選択範囲ファイル。 */
+    private lastCopilotSelectionAttachment?: vscode.Uri;
+
     /**
      * VS Code連携と起動時計測の状態を初期化する。
      * @param context - 購読の登録や拡張リソース参照に使うVS CodeのExtensionContext。
@@ -642,6 +770,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
              */
             () => {
                 // パネル破棄時に登録情報・履歴・保留中の操作を文書単位で片付ける。
+                this.rejectPanelReady(key, webviewPanel);
                 this.pdfPreviewAbortControllers.get(webviewPanel)?.abort();
                 for (const [requestId, pending] of this.mermaidRenderControllers) {
                     if (pending.panel !== webviewPanel) continue;
@@ -649,6 +778,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                     this.mermaidRenderControllers.delete(requestId);
                 }
                 messageDisposable.dispose();
+                this.pendingCopilotSelections.delete(webviewPanel);
                 group.delete(webviewPanel);
                 if (!group.size) {
                     this.panels.delete(key);
@@ -769,7 +899,10 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
      * @param documentUri - ready状態のWebviewPanelを検索・待機する対象文書のURI。
      * @returns 条件に一致する値。未検出時はundefinedまたはnull。
      */
-    private findReadyPanel(documentUri: vscode.Uri): vscode.WebviewPanel | undefined {
+    private findReadyPanel(
+        documentUri: vscode.Uri,
+        matches?: (panel: vscode.WebviewPanel) => boolean
+    ): vscode.WebviewPanel | undefined {
         const panels = this.panels.get(documentUri.toString());
         return panels ? [...panels].find(
             /**
@@ -777,7 +910,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
              * @param panel - 初期化済みとして登録されているか確認するWebviewPanel。
              * @returns 条件に一致した最初の要素。未検出時はundefined。
              */
-            (panel) => this.panelInitialized.has(panel)) : undefined;
+            (panel) => this.panelInitialized.has(panel) && (!matches || matches(panel))) : undefined;
     }
 
     /**
@@ -785,8 +918,11 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
      * @param documentUri - ready状態のWebviewPanelを検索・待機する対象文書のURI。
      * @returns 拡張機能の非同期処理で得られる結果。
      */
-    private waitForReadyPanel(documentUri: vscode.Uri): Promise<vscode.WebviewPanel> {
-        const readyPanel = this.findReadyPanel(documentUri);
+    private waitForReadyPanel(
+        documentUri: vscode.Uri,
+        matches?: (panel: vscode.WebviewPanel) => boolean
+    ): Promise<vscode.WebviewPanel> {
+        const readyPanel = this.findReadyPanel(documentUri, matches);
         if (readyPanel) return Promise.resolve(readyPanel);
 
         const key = documentUri.toString();
@@ -810,6 +946,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                         reject(new Error('Markdown Easy Visual Editorの準備がタイムアウトしました。'));
                     }, 30_000);
                 const waiter: PanelReadyWaiter = {
+                    matches,
 
 
                     resolve: /**
@@ -849,14 +986,16 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
     private resolvePanelReady(documentKey: string, panel: vscode.WebviewPanel): void {
         const waiters = this.panelReadyWaiters.get(documentKey);
         if (!waiters) return;
-        this.panelReadyWaiters.delete(documentKey);
         waiters.forEach(
             /**
              * waiterごとに成功結果通知を実行する。
              * @param waiter - waiterの成功結果通知を参照する走査対象。
              * @returns 副作用を完了し、値は返さない。
              */
-            (waiter) => waiter.resolve(panel));
+            (waiter) => {
+                if (!waiter.matches || waiter.matches(panel)) waiter.resolve(panel);
+            });
+        if (!waiters.size) this.panelReadyWaiters.delete(documentKey);
     }
 
     /**
@@ -864,10 +1003,9 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
      * @param documentKey - 文書URI文字列をキーにしたready待機者集合を検索するキー。
      * @returns 副作用を完了し、値は返さない。
      */
-    private rejectPanelReady(documentKey: string): void {
+    private rejectPanelReady(documentKey: string, panel?: vscode.WebviewPanel): void {
         const waiters = this.panelReadyWaiters.get(documentKey);
         if (!waiters) return;
-        this.panelReadyWaiters.delete(documentKey);
         const error = new Error('Markdown Easy Visual EditorのWebviewが閉じられました。');
         waiters.forEach(
             /**
@@ -875,7 +1013,10 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
              * @param waiter - waiterの失敗通知を参照する走査対象。
              * @returns 副作用を完了し、値は返さない。
              */
-            (waiter) => waiter.reject(error));
+            (waiter) => {
+                if (!panel || (waiter.matches && waiter.matches(panel))) waiter.reject(error);
+            });
+        if (!waiters.size) this.panelReadyWaiters.delete(documentKey);
     }
 
     /**
@@ -943,6 +1084,28 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                 case 'startupMermaidReady':
                     if (this.panelClientIds.get(panel) !== message.clientId) return;
                     this.markStartup(panel, 'firstMermaidReadyMs');
+                    return;
+                case 'copilotSelectionContext':
+                    this.activePanel = panel;
+                    this.activeDocument = document;
+                    for (const pendingPanel of this.pendingCopilotSelections.keys()) {
+                        if (pendingPanel !== panel) this.pendingCopilotSelections.delete(pendingPanel);
+                    }
+                    if (
+                        message.selection &&
+                        Number.isInteger(message.selection.from) &&
+                        Number.isInteger(message.selection.to) &&
+                        message.selection.from >= 0 &&
+                        message.selection.from < message.selection.to &&
+                        typeof message.sourceFingerprint === 'string'
+                    ) {
+                        this.pendingCopilotSelections.set(panel, {
+                            selection: message.selection,
+                            sourceFingerprint: message.sourceFingerprint
+                        });
+                    } else {
+                        this.pendingCopilotSelections.delete(panel);
+                    }
                     return;
                 case 'localChanges':
                     await this.queueWebviewEdit(document, panel, message);
@@ -1093,8 +1256,27 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                     await this.openSource();
                     return;
                 case 'openResource':
-                    await this.openResource(document, message.href);
+                    await this.openResource(document, message.href, message.workspaceRooted === true);
                     return;
+                case 'copySectionLink': {
+                    let copiedLink: string;
+                    if (message.scope === 'workspace') {
+                        if (!vscode.workspace.getWorkspaceFolder(document.uri)) {
+                            this.post(panel, { type: 'workspaceSectionLinkUnavailable' });
+                            return;
+                        }
+                        copiedLink = workspaceSectionMarkdownLink(
+                            message.text,
+                            message.id,
+                            vscode.workspace.asRelativePath(document.uri, false)
+                        );
+                    } else {
+                        copiedLink = sectionMarkdownLink(message.text, message.id);
+                    }
+                    await vscode.env.clipboard.writeText(copiedLink);
+                    this.post(panel, { type: 'sectionLinkCopied' });
+                    return;
+                }
                 case 'htmlDocumentsRendered': {
                     const pending = this.pendingHtmlRenderRequests.get(message.requestId);
                     if (!pending) return;
@@ -1217,7 +1399,19 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                                  */
                                 (item) => item.fsPath)
                         });
-                        void vscode.window.showInformationMessage(this.getMessages().host.htmlExported(result.target.fsPath));
+                        const messages = this.getMessages();
+                        void vscode.window.showInformationMessage(
+                            messages.host.htmlExported(result.target.fsPath),
+                            messages.host.open
+                        ).then(
+                            /**
+                             * HTML出力完了メッセージの選択に応じて専用プレビューで開く。
+                             * @param choice - 出力したHTMLを開く操作。選択されない場合はundefined。
+                             * @returns 副作用を完了し、値は返さない。
+                             */
+                            (choice) => {
+                                if (choice === messages.host.open) void openHtmlPreview(result.target);
+                            });
                     } else {
                         this.post(panel, {
                             type: 'operationFailed',
@@ -1697,6 +1891,281 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
     }
 
     /**
+     * Webviewから届いた変更処理を文書単位で待ち合わせ、選択範囲の指紋検証を最新本文に対して行えるようにする。
+     * @param document - 未完了のWebview編集を待つ対象文書。
+     * @returns すべての保留中編集処理が解決するまで待機し、値は返さない。
+     */
+    private async waitForWebviewEdits(document: vscode.TextDocument): Promise<void> {
+        const key = document.uri.toString();
+        while (true) {
+            const pending = this.editChains.get(key);
+            if (!pending) return;
+            await pending.catch(() => undefined);
+        }
+    }
+
+    /**
+     * 選択時の本文指紋が一致し、範囲末尾が現在の本文内にある場合だけ添付範囲を採用する。
+     * @param currentText - 最新のLF正規化済み本文。
+     * @param pending - Webviewから届いた選択範囲と選択時の本文指紋。
+     * @returns 現在も有効な選択範囲。不一致または範囲外なら undefined。
+     */
+    private resolveCopilotSelectionRange(
+        currentText: string,
+        pending: { selection: TextSelection; sourceFingerprint: string }
+    ): TextSelection | undefined {
+        if (
+            pending.selection.to > currentText.length ||
+            fingerprintText(currentText) !== pending.sourceFingerprint
+        ) {
+            return undefined;
+        }
+        return pending.selection;
+    }
+
+    /**
+     * workbench.action.chat.openが範囲指定に対応するVS Codeの版かを判定する。
+     * @returns VS Code 1.106以降なら true。
+     */
+    private supportsChatRangeAttachments(): boolean {
+        const [major, minor] = vscode.version.split('.').map(part => Number.parseInt(part, 10));
+        return Number.isFinite(major) && Number.isFinite(minor) &&
+            (major > 1 || (major === 1 && minor >= 106));
+    }
+
+    /**
+     * VS CodeのファイルシステムでURIを stat し、Chatへ添付する一時ファイルが存在するか確認する。
+     * stat の失敗は添付不可として扱い、呼び出し元へ false を返す。
+     * @param uri - 添付対象文書のURI。
+     * @returns stat が成功した場合は true、失敗した場合は false。
+     */
+    private async chatCanAttachFile(uri: vscode.Uri): Promise<boolean> {
+        if (uri.scheme !== 'file') return false;
+        try {
+            await vscode.workspace.fs.stat(uri);
+            return true;
+        } catch {
+            return false;
+        }
+    }
+
+    /**
+     * Copilot Chat添付用の選択範囲ファイルを作成し、元のファイル名と行位置を保つ。
+     * Chatが範囲添付に対応する場合は一時ファイル内の行・列を元文書に合わせ、出所情報を選択範囲の末尾へ加える。
+     * @param document - 選択範囲の元となるMarkdown文書。
+     * @param canonicalText - LFに正規化した最新本文。
+     * @param selection - Copilot Chatへ添付する本文オフセット。
+     * @returns 添付対象の一時ファイルURIと、対応版で使う範囲。
+     */
+    private async createCopilotSelectionAttachment(
+        document: vscode.TextDocument,
+        canonicalText: string,
+        selection: TextSelection
+    ): Promise<{
+        uri: vscode.Uri;
+        range: {
+            startLineNumber: number;
+            startColumn: number;
+            endLineNumber: number;
+            endColumn: number;
+        };
+    }> {
+        const startPosition = canonicalPositionAt(canonicalText, selection.from);
+        const endPosition = canonicalPositionAt(canonicalText, selection.to);
+        const sourcePath = document.uri.scheme === 'file'
+            ? vscode.workspace.asRelativePath(document.uri, false)
+            : document.uri.toString();
+        const safeSourcePath = sourcePath
+            .replace(/[\r\n]/g, ' ')
+            .replace(/--/g, '- -')
+            .replace(/[<>]/g, '');
+        const sourceName = path.posix.basename(document.uri.path.replace(/\\/g, '/')) || 'Selection.md';
+        const fileName = sourceName.replace(/[<>:"/\\|?*\u0000-\u001f]/g, '_') || 'Selection.md';
+        const startLine = startPosition.line + 1;
+        const endLine = endPosition.line + 1;
+        const metadata = `<!-- Source: ${safeSourcePath}; lines ${startLine}-${endLine} -->`;
+        const selectedText = canonicalText.slice(selection.from, selection.to);
+        const annotatedSelection = selectedText.endsWith('\n')
+            ? `${selectedText.slice(0, -1)} ${metadata}\n`
+            : `${selectedText} ${metadata}`;
+        const endColumnAdjustment = selectedText.endsWith('\n') ? 0 : metadata.length + 1;
+        const contents = `${'\n'.repeat(startPosition.line)}${' '.repeat(startPosition.character)}${annotatedSelection}`;
+        const range = {
+            startLineNumber: startPosition.line + 1,
+            startColumn: startPosition.character + 1,
+            endLineNumber: endPosition.line + 1,
+            endColumn: endPosition.character + 1 + endColumnAdjustment
+        };
+
+        const storageRoot = this.context.storageUri ?? this.context.globalStorageUri;
+        const selectionRoot = vscode.Uri.joinPath(storageRoot, 'copilot-selection');
+        const attachmentDirectory = vscode.Uri.joinPath(selectionRoot, randomUUID());
+        const uri = vscode.Uri.joinPath(attachmentDirectory, fileName);
+        await vscode.workspace.fs.createDirectory(selectionRoot);
+        await vscode.workspace.fs.createDirectory(attachmentDirectory);
+        try {
+            await vscode.workspace.fs.writeFile(uri, Buffer.from(contents, 'utf8'));
+        } catch (error) {
+            try {
+                await vscode.workspace.fs.delete(attachmentDirectory, { recursive: true, useTrash: false });
+            } catch {
+                // 作成途中の一時ディレクトリを削除できなくても、元文書の状態には影響しない。
+            }
+            throw error;
+        }
+        return { uri, range };
+    }
+
+    /**
+     * 前回の拡張機能生成ファイルだけを削除し、Chatのファイル監視に添付チップを外させる。
+     * @param uri - 以前Copilot Chatへ添付した選択範囲ファイル。
+     * @returns 削除が完了したときに解決する。
+     */
+    private async deleteCopilotSelectionAttachment(uri: vscode.Uri): Promise<void> {
+        const selectionRoot = vscode.Uri.joinPath(
+            this.context.storageUri ?? this.context.globalStorageUri,
+            'copilot-selection'
+        );
+        const rootPrefix = `${selectionRoot.path.replace(/\/$/, '')}/`;
+        const relativePath = uri.path.startsWith(rootPrefix)
+            ? uri.path.slice(rootPrefix.length)
+            : '';
+        const pathSegments = relativePath.split('/');
+        if (
+            uri.scheme !== selectionRoot.scheme ||
+            uri.authority !== selectionRoot.authority ||
+            pathSegments.length !== 2 ||
+            !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(pathSegments[0]) ||
+            !pathSegments[1] ||
+            pathSegments[1] === '.' ||
+            pathSegments[1] === '..'
+        ) {
+            return;
+        }
+
+        try {
+            await vscode.workspace.fs.delete(uri, { useTrash: false });
+        } catch (deleteError) {
+            try {
+                await vscode.workspace.fs.stat(uri);
+            } catch {
+                return;
+            }
+            throw deleteError;
+        }
+
+        try {
+            await vscode.workspace.fs.delete(vscode.Uri.joinPath(uri, '..'), { useTrash: false });
+        } catch {
+            // 一時ファイルは削除済みなので、空ディレクトリの後片付けは省略できる。
+        }
+    }
+
+    /**
+     * 選択時点から本文が変わっていないことを確認してから、現在の範囲をCopilot Chatへ添付する。
+     * VS Codeの範囲添付APIを使うため、対象版は1.106以降に限定する。
+     * @returns 添付処理完了後に値を返さない。失敗時は利用者向けエラーを表示する。
+     */
+    async attachSelectionToCopilotChat(): Promise<void> {
+        const task = this.copilotAttachmentQueue.then(() => this.attachSelectionToCopilotChatCore());
+        this.copilotAttachmentQueue = task.catch(() => undefined);
+        await task;
+    }
+
+    /** 選択中のMarkdown範囲を読み取り、このワークスペースのChat Viewで前回追加した選択範囲添付を置き換える。 */
+    private async attachSelectionToCopilotChatCore(): Promise<void> {
+        const panel = this.activePanel;
+        const document = this.activeDocument;
+        const pendingSelection = panel ? this.pendingCopilotSelections.get(panel) : undefined;
+        if (!panel || !document || !pendingSelection) return;
+        this.pendingCopilotSelections.delete(panel);
+        await this.waitForWebviewEdits(document);
+
+        const messages = this.getMessages();
+        const registeredCommands = new Set(await vscode.commands.getCommands(true));
+        const canonicalText = this.canonicalText(document);
+        const selection = this.resolveCopilotSelectionRange(canonicalText, pendingSelection);
+        if (!selection) {
+            void vscode.window.showErrorMessage(messages.host.copilotSelectionChanged);
+            return;
+        }
+        if (
+            !this.supportsChatRangeAttachments() ||
+            !registeredCommands.has('workbench.action.chat.open') ||
+            !registeredCommands.has('github.copilot.chat.attachSelection')
+        ) {
+            void vscode.window.showErrorMessage(messages.host.copilotChatUnavailable);
+            return;
+        }
+
+        let attachment: Awaited<ReturnType<typeof this.createCopilotSelectionAttachment>> | undefined;
+        try {
+            attachment = await this.createCopilotSelectionAttachment(document, canonicalText, selection);
+            const createdAttachment = attachment;
+            // Chatの公開コマンドは添付結果を返さないため、対応コマンドとファイルを先に確認する。
+            if (!await this.chatCanAttachFile(createdAttachment.uri)) {
+                throw new Error(messages.host.copilotChatUnavailable);
+            }
+            await vscode.commands.executeCommand('workbench.action.chat.open', {
+                attachFiles: [{ uri: createdAttachment.uri, range: createdAttachment.range }]
+            });
+            // コマンド実行後も添付ファイルが利用可能な場合に限り、前回のURIを削除する。
+            if (!await this.chatCanAttachFile(createdAttachment.uri)) {
+                throw new Error(messages.host.copilotChatUnavailable);
+            }
+        } catch (error) {
+            if (attachment) {
+                try {
+                    await this.deleteCopilotSelectionAttachment(attachment.uri);
+                } catch {
+                    // 添付失敗時の一時ファイル削除エラーは元文書やChat入力へ波及させない。
+                }
+            }
+            const detail = error instanceof Error ? error.message : String(error);
+            void vscode.window.showErrorMessage(`${messages.host.errorPrefix}: ${detail}`);
+            return;
+        }
+        if (!attachment) return;
+        const currentAttachment = attachment;
+
+        const storedPreviousUri = this.context.workspaceState.get<string>(
+            COPILOT_SELECTION_ATTACHMENT_STATE_KEY
+        );
+        let previousAttachment = this.lastCopilotSelectionAttachment;
+        if (!previousAttachment && storedPreviousUri) {
+            try {
+                previousAttachment = vscode.Uri.parse(storedPreviousUri);
+            } catch {
+                previousAttachment = undefined;
+            }
+        }
+        if (previousAttachment) {
+            try {
+                await this.deleteCopilotSelectionAttachment(previousAttachment);
+            } catch (error) {
+                try {
+                    await this.deleteCopilotSelectionAttachment(currentAttachment.uri);
+                } catch {
+                    // 前回添付の削除失敗後に新しい添付を戻せない場合は、通知で状況を伝える。
+                }
+                const detail = error instanceof Error ? error.message : String(error);
+                void vscode.window.showErrorMessage(`${messages.host.errorPrefix}: ${detail}`);
+                return;
+            }
+        }
+
+        this.lastCopilotSelectionAttachment = currentAttachment.uri;
+        try {
+            await this.context.workspaceState.update(
+                COPILOT_SELECTION_ATTACHMENT_STATE_KEY,
+                currentAttachment.uri.toString()
+            );
+        } catch (error) {
+            console.error('Failed to persist the latest Copilot selection attachment.', error);
+        }
+    }
+
+    /**
      * 拡張機能の変更または要求をHost・Webview間へ通知する。
      * @param panel - 再同期要求を送るWebviewPanel。
      * @param document - 再同期対象のTextDocument。
@@ -1831,11 +2300,11 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
      * @param href - Markdown内のリンク先文字列。相対参照、ファイルパス、file URI、Webview URL、外部URLを受け取る。
      * @returns 副作用を完了し、値は返さない。
      */
-    private async openResource(document: vscode.TextDocument, href: string): Promise<void> {
+    private async openResource(document: vscode.TextDocument, href: string, workspaceRooted = false): Promise<void> {
         const target = classifyResourceLink(href);
         if (target.kind === 'invalidLocalWebview') return;
         if (target.kind === 'localWebview') {
-            await vscode.commands.executeCommand('vscode.open', vscode.Uri.file(target.path));
+            await this.openLocalResource(vscode.Uri.file(target.path), href);
             return;
         }
         if (target.kind === 'external') {
@@ -1843,12 +2312,78 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
             return;
         }
         if (target.kind === 'absoluteFile') {
-            const uri = resolveLocalResourceUri(document.uri, decodeLocalResourceSource(target.href));
-            if (uri) await vscode.commands.executeCommand('vscode.open', uri);
+            if (/^file:/i.test(target.href)) {
+                const linkedUri = vscode.Uri.parse(target.href);
+                await this.openLocalResource(linkedUri.with({ query: '', fragment: '' }), target.href);
+                return;
+            }
+            const uri = resolveLocalResourceUri(document.uri, target.href, workspaceRooted);
+            if (uri) await this.openLocalResource(uri, target.href);
             return;
         }
-        const uri = resolveLocalResourceUri(document.uri, decodeLocalResourceSource(target.href));
-        if (uri) await vscode.commands.executeCommand('vscode.open', uri);
+        const uri = resolveLocalResourceUri(document.uri, target.href, workspaceRooted);
+        if (uri) await this.openLocalResource(uri, target.href);
+    }
+
+    /** ローカルMarkdownのフラグメントを見出し行へ解決して開く。 */
+    private async openLocalResource(uri: vscode.Uri, href: string): Promise<void> {
+        const fragmentIndex = href.indexOf('#');
+        if (fragmentIndex >= 0 && /\.(?:md|markdown)$/i.test(uri.path)) {
+            const rawFragment = href.slice(fragmentIndex + 1);
+            let id = rawFragment;
+            try {
+                id = decodeURIComponent(rawFragment);
+            } catch {
+                // 不正な%エスケープはそのままのIDとして照合する。
+            }
+            if (id) {
+                const target = await vscode.workspace.openTextDocument(uri);
+                const line = headingLineForAnchor(target.getText(), id);
+                const editorAssociation = getEditorAssociation(uri);
+                const usesMveEditor = editorAssociation === VIEW_TYPE;
+                const usesAssociatedCustomEditor = editorAssociation !== undefined
+                    && editorAssociation !== 'default'
+                    && !usesMveEditor;
+                const openUri = usesAssociatedCustomEditor ? uri.with({ fragment: id }) : uri;
+                await vscode.commands.executeCommand('vscode.open', openUri);
+                if (line !== undefined) {
+                    const position = new vscode.Position(line - 1, 0);
+                    const activeTabInput = vscode.window.tabGroups.activeTabGroup.activeTab?.input as {
+                        viewType?: unknown;
+                        uri?: vscode.Uri;
+                    } | undefined;
+                    const activeCustomEditor = activeTabInput?.viewType === VIEW_TYPE
+                        && sameUriResource(activeTabInput.uri, uri);
+                    if (activeCustomEditor) {
+                        const activePanel = [...(this.panels.get(uri.toString()) ?? [])].find(
+                            (candidate) => candidate.active
+                        );
+                        const panel = activePanel
+                            ? this.panelInitialized.has(activePanel)
+                                ? activePanel
+                                : await this.waitForReadyPanel(uri, (candidate) => candidate === activePanel)
+                            : await this.waitForReadyPanel(uri, (candidate) => candidate.active);
+                        this.post(panel, {
+                            type: 'hostCommand',
+                            command: 'navigateToOffset',
+                            offset: canonicalOffsetAt(this.canonicalText(target), {
+                                line: position.line,
+                                character: position.character
+                            })
+                        });
+                    } else {
+                        const activeEditor = vscode.window.activeTextEditor;
+                        if (activeEditor && sameUriResource(activeEditor.document.uri, uri)) {
+                            const range = new vscode.Range(position, position);
+                            activeEditor.selection = new vscode.Selection(position, position);
+                            activeEditor.revealRange(range, vscode.TextEditorRevealType.InCenter);
+                        }
+                    }
+                }
+                return;
+            }
+        }
+        await vscode.commands.executeCommand('vscode.open', uri);
     }
 
     /**
@@ -1866,7 +2401,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
              * @returns sourceを取り出した変換結果の一覧。
              */
             async (reference): Promise<Diagnostic | undefined> => {
-                const target = resolveLocalResourceUri(document.uri, reference.source);
+                const target = resolveLocalResourceUri(document.uri, reference.source, reference.workspaceRooted === true);
                 if (!target) return undefined;
                 try {
                     await vscode.workspace.fs.stat(target);
@@ -1959,7 +2494,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
          * @param defaultValue - global設定と旧保存値の両方がない場合に使う既定値。
          * @returns 優先規則で選択した設定値。
          */ <T>(key: string, legacyValue: T | undefined, defaultValue: T): T =>
-            this.getGlobalSetting(config, key, legacyValue, defaultValue);
+                this.getGlobalSetting(config, key, legacyValue, defaultValue);
         const options = normalizePdfOptions({
             format: read(GLOBAL_CONFIGURATION_KEYS.pdf.format, legacy?.format, DEFAULT_PDF_OPTIONS.format),
             orientation: read(GLOBAL_CONFIGURATION_KEYS.pdf.orientation, legacy?.orientation, DEFAULT_PDF_OPTIONS.orientation),
@@ -2038,18 +2573,18 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
          * @param key - 移行先のVS Code設定キー。
          * @param value - 旧globalStateから読み取った設定値。
          */ (key: string, value: unknown): void => {
-            if (value !== undefined && config.inspect(key)?.globalValue === undefined) {
-                updates.push([key, value]);
-            }
-        };
+                if (value !== undefined && config.inspect(key)?.globalValue === undefined) {
+                    updates.push([key, value]);
+                }
+            };
         const asRecord = /**
          * 旧保存値のオブジェクトだけを安全に各設定へ展開する。
          * @param value - globalStateから読み取った未知の保存値。
          * @returns nullと配列以外のobjectならRecordとして扱った値、それ以外ならundefined。
          */ (value: unknown): Record<string, unknown> | undefined =>
-            value !== null && typeof value === 'object' && !Array.isArray(value)
-                ? value as Record<string, unknown>
-                : undefined;
+                value !== null && typeof value === 'object' && !Array.isArray(value)
+                    ? value as Record<string, unknown>
+                    : undefined;
 
         const viewMode = this.context.globalState.get<unknown>(VIEW_MODE_STATE_KEY);
         if (viewMode !== undefined) add(GLOBAL_CONFIGURATION_KEYS.viewMode, normalizeViewMode(viewMode));
@@ -2589,8 +3124,15 @@ function relativeUriPath(documentUri: vscode.Uri, target: vscode.Uri): string {
  * @param source - Markdownから取り出した画像などのローカルURIまたはファイルパス。
  * @returns 条件に一致する値。未検出時はundefinedまたはnull。
  */
-function resolveLocalResourceUri(documentUri: vscode.Uri, source: string): vscode.Uri | undefined {
+function resolveLocalResourceUri(documentUri: vscode.Uri, source: string, workspaceRooted = false): vscode.Uri | undefined {
     const clean = decodeLocalResourceSource(source);
+    if (workspaceRooted) {
+        const workspaceSegments = workspaceRootPathSegments(clean);
+        const workspaceFolder = vscode.workspace.getWorkspaceFolder(documentUri);
+        return workspaceSegments && workspaceFolder
+            ? vscode.Uri.joinPath(workspaceFolder.uri, ...workspaceSegments)
+            : undefined;
+    }
     if (/^file:/i.test(clean)) return vscode.Uri.parse(clean);
     if (/^[A-Za-z]:[\\/]/.test(clean) && documentUri.scheme === 'file') {
         return vscode.Uri.file(clean.replace(/\\/g, path.sep));

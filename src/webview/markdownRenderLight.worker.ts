@@ -3,6 +3,7 @@
  */
 import { collectDiagnostics, getOutline, wordStats } from "../shared/markdown";
 import {
+    alignOutlineHeadingIds,
     renderMarkdownUnsafeBlocks,
     type RenderOptions,
 } from "./markdownRendererCore";
@@ -37,12 +38,13 @@ self.addEventListener("message",
     (event: MessageEvent<RenderRequest>) => {
         const { id, markdown, options } = event.data;
         try {
+            const unsafeBlocks = renderMarkdownUnsafeBlocks(markdown, options);
             self.postMessage({
                 id,
                 markdown,
                 preliminary: true,
-                unsafeBlocks: renderMarkdownUnsafeBlocks(markdown, options),
-                outline: getOutline(markdown),
+                unsafeBlocks,
+                outline: alignOutlineHeadingIds(getOutline(markdown), unsafeBlocks),
                 diagnostics: collectDiagnostics(markdown, options.language),
                 stats: wordStats(markdown),
             });

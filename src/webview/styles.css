@@ -609,57 +609,260 @@ button:disabled {
 
 /*
  * @style .outline-panel nav
- * 対象UIの配置、状態、テーマ色を整える。
+ * アウトライン一覧に左右と下部の余白を設ける。
  */
 
 .outline-panel nav {
-    display: flex;
-    flex-direction: column;
+    padding: 0 8px 10px;
 }
 
 /*
- * @style .outline-panel nav button
- * 設定ダイアログと操作コントロールの状態を整える。
+ * @style .outline-tree, .outline-children
+ * ツリーの既定リスト装飾を取り除き、階層ごとの字下げを設定する。
  */
 
-.outline-panel nav button {
+.outline-tree,
+.outline-children {
+    margin: 0;
+    list-style: none;
+}
+
+.outline-tree {
+    padding: 0 0 0 18px;
+}
+
+.outline-children {
     position: relative;
-    overflow: hidden;
-    padding-block: 5px;
-    border: 0;
-    background: transparent;
-    text-align: left;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    margin-left: 22px;
+    padding: 0;
 }
 
 /*
- * @style .outline-panel nav button:hover
- * 設定ダイアログと操作コントロールの状態を整える。
+ * @style .outline-node, .outline-row
+ * 見出し行を詰めて表示し、行の背景を字下げ部分まで広げる。
  */
 
-.outline-panel nav button:hover {
+.outline-node {
+    min-width: 0;
+}
+
+.outline-row {
+    position: relative;
+    display: flex;
+    min-width: 0;
+    height: 22px;
+    align-items: stretch;
+}
+
+/*
+ * @style .outline-tree > .outline-node:not(.outline-node-parent) > .outline-row
+ * 子のない最上位見出しを開閉三角形の列まで左へ寄せる。
+ */
+
+.outline-tree > .outline-node:not(.outline-node-parent) > .outline-row {
+    margin-left: -18px;
+}
+
+/*
+ * @style .outline-row::before
+ * ホバー背景を現在の階層からツリーの左端まで広げる。
+ */
+
+.outline-row::before {
+    position: absolute;
+    z-index: 0;
+    top: 0;
+    right: 0;
+    bottom: 0;
+    left: calc(0px - var(--outline-row-inset, 18px));
+    content: '';
+    pointer-events: none;
+}
+
+/*
+ * @style .outline-children::before
+ * 親の開閉位置から子見出し群へ続く縦のガイド線を表示する。
+ */
+
+.outline-children::before {
+    position: absolute;
+    top: -11px;
+    bottom: 11px;
+    left: -30px;
+    border-left: 1px solid var(--vscode-tree-indentGuidesStroke, var(--vscode-panel-border, var(--mve-border)));
+    content: '';
+    pointer-events: none;
+}
+
+/*
+ * @style .outline-children[hidden]
+ * 折りたたんだ子見出しをレイアウトとフォーカス対象から外す。
+ */
+
+.outline-children[hidden] {
+    display: none;
+}
+
+/*
+ * @style .outline-children > .outline-node, .outline-children > .outline-node::before, .outline-children > .outline-node:not(.outline-node-parent)::before
+ * 子見出しの枝線を描き、葉では線を見出し名の列まで延長する。
+ */
+
+.outline-children > .outline-node {
+    position: relative;
+}
+
+.outline-children > .outline-node::before {
+    position: absolute;
+    top: 11px;
+    left: -30px;
+    width: 14px;
+    border-top: 1px solid var(--vscode-tree-indentGuidesStroke, var(--vscode-panel-border, var(--mve-border)));
+    content: '';
+    pointer-events: none;
+}
+
+.outline-children > .outline-node:not(.outline-node-parent)::before {
+    width: 32px;
+}
+
+/*
+ * @style .outline-row:hover::before, .outline-disclosure, .outline-disclosure:focus-visible
+ * 行全体のホバー背景と、子見出しだけに置く開閉操作・フォーカス表示を整える。
+ */
+
+.outline-row:hover::before {
     background: var(--vscode-list-hoverBackground);
 }
 
+.outline-disclosure {
+    display: grid;
+    position: absolute;
+    z-index: 1;
+    top: 0;
+    left: -16px;
+    width: 16px;
+    height: 22px;
+    padding: 0;
+    place-items: center;
+    border: 0;
+    background: transparent;
+    color: var(--vscode-foreground);
+    cursor: pointer;
+}
+
+.outline-disclosure:focus-visible {
+    outline: 1px solid var(--vscode-focusBorder);
+    outline-offset: -2px;
+}
+
 /*
- * @style .outline-panel nav button.outline-drag-source
- * 設定ダイアログと操作コントロールの状態を整える。
+ * @style .outline-disclosure-icon, .outline-disclosure[aria-expanded="true"] .outline-disclosure-icon
+ * 三角形の向きを開閉状態に合わせて切り替える。
  */
 
-.outline-panel nav button.outline-drag-source {
+.outline-disclosure-icon {
+    width: 0;
+    height: 0;
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+    border-left: 5px solid currentColor;
+    transform: translateX(1px);
+    transition: transform 100ms ease-out;
+}
+
+.outline-disclosure[aria-expanded="true"] .outline-disclosure-icon {
+    transform: translateX(1px) rotate(90deg);
+}
+
+/*
+ * @style .outline-panel nav .outline-item, .outline-panel nav .outline-item:hover, .outline-panel nav .outline-item:focus-visible
+ * 見出し名を全幅ボタンで表示し、長い文字列を省略してホバーとフォーカスを示す。
+ */
+
+.outline-panel nav .outline-item {
+    display: block;
+    position: relative;
+    z-index: 1;
+    flex: 1 1 auto;
+    min-width: 0;
+    overflow: hidden;
+    height: 22px;
+    box-sizing: border-box;
+    padding: 2px 7px 2px 2px;
+    border: 0;
+    background: transparent;
+    color: var(--vscode-foreground);
+    font: inherit;
+    line-height: 18px;
+    text-align: left;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    cursor: pointer;
+}
+
+.outline-panel nav .outline-item:hover {
+    background: transparent;
+}
+
+.outline-panel nav .outline-item:focus-visible {
+    outline: 1px solid var(--vscode-focusBorder);
+    outline-offset: -1px;
+}
+
+.section-link-context-menu {
+    position: fixed;
+    z-index: 2200;
+    min-width: 190px;
+    max-width: min(320px, calc(100vw - 16px));
+    padding: 4px;
+    border: 1px solid var(--vscode-menu-border, var(--vscode-panel-border, #454545));
+    border-radius: 5px;
+    background: var(--vscode-menu-background, var(--vscode-editorWidget-background, #252526));
+    color: var(--vscode-menu-foreground, var(--vscode-foreground));
+    box-shadow: 0 6px 20px rgb(0 0 0 / 30%);
+}
+
+.section-link-context-menu button {
+    display: block;
+    width: 100%;
+    min-height: 28px;
+    box-sizing: border-box;
+    padding: 5px 9px;
+    border: 0;
+    border-radius: 3px;
+    background: transparent;
+    color: inherit;
+    font: inherit;
+    text-align: left;
+    cursor: pointer;
+}
+
+.section-link-context-menu button:hover,
+.section-link-context-menu button:focus-visible {
+    outline: 0;
+    background: var(--vscode-menu-selectionBackground, var(--vscode-list-activeSelectionBackground, #04395e));
+    color: var(--vscode-menu-selectionForeground, var(--vscode-list-activeSelectionForeground, #fff));
+}
+
+/*
+ * @style .outline-panel nav .outline-item.outline-drag-source
+ * ドラッグ中の見出し名を薄く表示し、移動中のカーソルを示す。
+ */
+
+.outline-panel nav .outline-item.outline-drag-source {
     opacity: .45;
     cursor: grabbing;
 }
 
 /*
- * @style .outline-panel nav button.outline-drop-before::before, .outline-panel nav button.outline-drop-after::after
- * 設定ダイアログと操作コントロールの状態を整える。
+ * @style .outline-panel nav .outline-item.outline-drop-before::before, .outline-panel nav .outline-item.outline-drop-after::after
+ * 並べ替え先となる見出し名の上下に挿入位置を表示する。
  */
 
 
-.outline-panel nav button.outline-drop-before::before,
-.outline-panel nav button.outline-drop-after::after {
+.outline-panel nav .outline-item.outline-drop-before::before,
+.outline-panel nav .outline-item.outline-drop-after::after {
     position: absolute;
     right: 0;
     left: 0;
@@ -670,32 +873,32 @@ button:disabled {
 }
 
 /*
- * @style .outline-panel nav button.outline-drop-before::before
- * 設定ダイアログと操作コントロールの状態を整える。
+ * @style .outline-panel nav .outline-item.outline-drop-before::before
+ * 対象見出し名の直前に挿入位置を表示する。
  */
 
 
-.outline-panel nav button.outline-drop-before::before {
+.outline-panel nav .outline-item.outline-drop-before::before {
     top: 0;
 }
 
 /*
- * @style .outline-panel nav button.outline-drop-after::after
- * 設定ダイアログと操作コントロールの状態を整える。
+ * @style .outline-panel nav .outline-item.outline-drop-after::after
+ * 対象見出し名の直後に挿入位置を表示する。
  */
 
 
-.outline-panel nav button.outline-drop-after::after {
+.outline-panel nav .outline-item.outline-drop-after::after {
     bottom: 0;
 }
 
 /*
- * @style body.mve-dragging-outline, body.mve-dragging-outline .outline-panel nav button
- * 設定ダイアログと操作コントロールの状態を整える。
+ * @style body.mve-dragging-outline, body.mve-dragging-outline .outline-panel nav .outline-item
+ * 右ドラッグ中に見出し名と本文選択のカーソルを移動状態にする。
  */
 
 body.mve-dragging-outline,
-body.mve-dragging-outline .outline-panel nav button {
+body.mve-dragging-outline .outline-panel nav .outline-item {
     cursor: grabbing;
     user-select: none;
 }

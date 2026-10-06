@@ -32,6 +32,13 @@ async function run() {
   await extension.activate();
   assert.equal(extension.isActive, true, 'Markdown Easy Visual Editorをアクティベートできませんでした。');
 
+  const exportedHtml = vscode.Uri.file(path.resolve(__dirname, '..', '..', 'sample', '03-images.html'));
+  await vscode.commands.executeCommand('markdownEasyVisualEditor.previewHtml', exportedHtml);
+  await waitFor(() => vscode.window.tabGroups.all.some((group) => group.tabs.some((tab) =>
+    tab.input && 'viewType' in tab.input && tab.input.viewType === 'mainThreadWebview-markdownEasyVisualEditor.htmlPreview'
+  )), 'HTMLを専用プレビューで開けませんでした。');
+  await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+
   const representativeSample = vscode.Uri.file(path.resolve(__dirname, '..', '..', 'sample', '06-specification-template.md'));
   await vscode.workspace.openTextDocument(representativeSample);
   // エクスプローラー／エディターのコンテキストメニューと同じ公開コマンドを使う。
@@ -56,6 +63,70 @@ async function run() {
     'Markdownをテキストとして開けませんでした。'
   );
   assert.ok(vscode.window.tabGroups.all.length >= 2, 'テキストエディタが右側のグループに開かれませんでした。');
+  await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+
+  await vscode.commands.executeCommand('vscode.open', representativeSample);
+  await waitFor(
+    () => vscode.window.activeTextEditor?.document.uri.toString() === representativeSample.toString(),
+    '既定設定のvscode.openがテキストエディターを開きませんでした。'
+  );
+  const defaultTabInput = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
+  assert.ok(
+    !defaultTabInput || !('viewType' in defaultTabInput) || defaultTabInput.viewType !== 'markdownEasyVisualEditor.editor',
+    '既定設定のvscode.openがMarkdown Easy Visual Editorを選択しました。'
+  );
+  await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+
+  await vscode.workspace.getConfiguration('workbench').update('editorAssociations', {
+    '*.md': 'vscode.markdown.preview.editor'
+  }, vscode.ConfigurationTarget.Global);
+  await vscode.commands.executeCommand('vscode.open', representativeSample);
+  await waitFor(
+    () => {
+      const input = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
+      return input && 'viewType' in input && input.viewType === 'vscode.markdown.preview.editor';
+    }, '既定Markdown Previewでリンク元のタブを開けませんでした。');
+  await vscode.commands.executeCommand(
+    'vscode.open',
+    representativeSample.with({ fragment: 'extended-syntax' })
+  );
+  await waitFor(
+    () => {
+      const input = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
+      return input && 'viewType' in input && input.viewType === 'vscode.markdown.preview.editor';
+    }, 'Markdown Previewの既定設定でvscode.openがMarkdown Previewを選択しませんでした。');
+  assert.equal(
+    vscode.window.tabGroups.activeTabGroup.activeTab?.input?.uri?.fragment,
+    'extended-syntax',
+    '既定Markdown Previewがresource URIのfragmentを受け取りませんでした.'
+  );
+  const markdownPreviewTabs = vscode.window.tabGroups.all.flatMap((group) => group.tabs).filter((tab) =>
+    tab.input && 'viewType' in tab.input && tab.input.viewType === 'vscode.markdown.preview.editor'
+  );
+  assert.equal(markdownPreviewTabs.length, 1, 'fragment付きURIでMarkdown Previewが重複タブを開きました。');
+  await vscode.commands.executeCommand(
+    'vscode.open',
+    representativeSample.with({ fragment: 'another-section' })
+  );
+  await waitFor(
+    () => vscode.window.tabGroups.activeTabGroup.activeTab?.input?.uri?.fragment === 'another-section',
+    'Markdown Previewが異なるfragmentを受け取りませんでした。'
+  );
+  const markdownPreviewTabsAfterSecondFragment = vscode.window.tabGroups.all.flatMap((group) => group.tabs).filter((tab) =>
+    tab.input && 'viewType' in tab.input && tab.input.viewType === 'vscode.markdown.preview.editor'
+  );
+  assert.equal(markdownPreviewTabsAfterSecondFragment.length, 1, '異なるfragmentを続けて開くとMarkdown Previewが重複タブを開きました。');
+  await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+
+  await vscode.workspace.getConfiguration('workbench').update('editorAssociations', {
+    '*.md': 'markdownEasyVisualEditor.editor'
+  }, vscode.ConfigurationTarget.Global);
+  await vscode.commands.executeCommand('vscode.open', representativeSample);
+  await waitFor(
+    () => {
+      const input = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
+      return input && 'viewType' in input && input.viewType === 'markdownEasyVisualEditor.editor';
+    }, '既定エディター設定後にvscode.openがMarkdown Easy Visual Editorを選択しませんでした。');
   await vscode.commands.executeCommand('workbench.action.closeAllEditors');
 
   const temporaryDirectory = await fs.mkdtemp(path.join(os.tmpdir(), 'markdown-easy-visual-editor-host-'));

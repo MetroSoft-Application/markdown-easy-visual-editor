@@ -115,7 +115,7 @@ interface Props {
    * @param href - リンク操作領域の遷移先URI。
    * @returns Markdownプレビューのon・navigateが生成する結果。
    */
-  onNavigate?: (href: string) => void;
+  onNavigate?: (href: string, workspaceRooted?: boolean) => void;
   /**
    * Markdownプレビューのイベントまたはメッセージを受け取り、状態を更新する。
    * @param element - 寸法または属性を読み取るDOM要素。
@@ -1067,14 +1067,20 @@ function RenderedMarkdownView({
       const href = originalHref ?? anchor.getAttribute("href") ?? "";
       if (!originalHref && href.startsWith("#")) {
         event.preventDefault();
+        let id = href.slice(1);
+        try {
+          id = decodeURIComponent(id);
+        } catch {
+          // 不正な%エスケープを含むIDも文字列として照合する。
+        }
         rootRef.current
-          ?.querySelector<HTMLElement>(href)
+          ?.querySelector<HTMLElement>(`#${CSS.escape(id)}`)
           ?.scrollIntoView({ behavior: "smooth", block: "start" });
       } else {
         // Webviewのネイティブ遷移を許すと、ローカルMarkdownがブラウザへ渡るため、
         // 外部URLを含めてホスト側のリンク処理へ必ず委譲する。
         event.preventDefault();
-        onNavigate?.(href);
+        onNavigate?.(href, anchor.dataset.mveWorkspaceRooted === "true");
       }
     }
   }

@@ -256,6 +256,11 @@
       "hideOutline": "アウトラインを非表示",
       "showOutline": "アウトラインを表示",
       "outlineWidth": "アウトラインの幅",
+      "copySectionLink": "セクションへのリンクをコピー",
+      "sectionLinkMenu": "セクションリンク",
+      "copyWorkspaceSectionLink": "同じワークスペースフォルダー内のセクションリンクをコピー",
+      "workspaceSectionLinkUnavailable": "この文書はワークスペースフォルダーに含まれていません。",
+      "sectionLinkCopied": "セクションへのリンクをコピーしました。",
       "noHeadings": "見出しはありません。",
       "searchAndReplace": "検索と置換",
       "searchText": "検索文字列",
@@ -501,7 +506,10 @@
       "invalidImageDirectory": "画像保存先はMarkdown文書からの安全な相対パスで指定してください。",
       "pdfBrowserUnavailable": "PDF用ブラウザを起動できません。設定でEdgeまたはChromeを指定してください。",
       "errorPrefix": "Markdown Easy Visual Editor",
-      "clientIdMismatch": "WebviewのclientIdが初期化時と一致しません。"
+      "clientIdMismatch": "WebviewのclientIdが初期化時と一致しません。",
+      "copilotChatUnavailable": "Copilot Chatの選択範囲添付コマンドを利用できません。VS CodeとGitHub Copilot Chatを確認してください。",
+      "copilotSelectionChanged": "選択後に文書が変更されたため、誤った範囲を添付しないよう処理を中止しました。選択し直してください。",
+      "copilotChatEditorUnavailable": "既存タブを変更せずに添付用エディターを開けません。別のエディター列を閉じてから再試行してください。"
     },
     "editor": {
       "placeholder": "Markdownを入力...",
@@ -772,6 +780,11 @@
       "hideOutline": "Hide outline",
       "showOutline": "Show outline",
       "outlineWidth": "Outline width",
+      "copySectionLink": "Copy link to section",
+      "sectionLinkMenu": "Section links",
+      "copyWorkspaceSectionLink": "Copy section link from this workspace folder",
+      "workspaceSectionLinkUnavailable": "This document is not in a workspace folder.",
+      "sectionLinkCopied": "Link to section copied.",
       "noHeadings": "No headings.",
       "searchAndReplace": "Find and replace",
       "searchText": "Search text",
@@ -1017,7 +1030,10 @@
       "invalidImageDirectory": "Specify a safe relative path from the Markdown document for the image directory.",
       "pdfBrowserUnavailable": "Could not start a PDF browser. Specify Edge or Chrome in the settings.",
       "errorPrefix": "Markdown Easy Visual Editor",
-      "clientIdMismatch": "The Webview clientId does not match the initialized clientId."
+      "clientIdMismatch": "The Webview clientId does not match the initialized clientId.",
+      "copilotChatUnavailable": "The command to attach a selection to Copilot Chat is unavailable. Check that VS Code Chat and GitHub Copilot Chat are enabled.",
+      "copilotSelectionChanged": "The document changed after the selection was made, so the attachment was canceled to avoid adding the wrong range. Select the text again.",
+      "copilotChatEditorUnavailable": "Could not open a temporary editor without reusing an existing tab. Close an editor column and try again."
     },
     "editor": {
       "placeholder": "Type Markdown...",
@@ -1288,6 +1304,11 @@
       "hideOutline": "隐藏大纲",
       "showOutline": "显示大纲",
       "outlineWidth": "大纲宽度",
+      "copySectionLink": "复制章节链接",
+      "sectionLinkMenu": "章节链接",
+      "copyWorkspaceSectionLink": "复制当前工作区文件夹中的章节链接",
+      "workspaceSectionLinkUnavailable": "此文档不在工作区文件夹中。",
+      "sectionLinkCopied": "已复制章节链接。",
       "noHeadings": "没有标题。",
       "searchAndReplace": "查找和替换",
       "searchText": "搜索文本",
@@ -1533,7 +1554,10 @@
       "invalidImageDirectory": "请为图像目录指定相对于Markdown文档的安全路径。",
       "pdfBrowserUnavailable": "无法启动PDF浏览器。请在设置中指定Edge或Chrome。",
       "errorPrefix": "Markdown Easy Visual Editor",
-      "clientIdMismatch": "Webview clientId与初始化时不一致。"
+      "clientIdMismatch": "Webview clientId与初始化时不一致。",
+      "copilotChatUnavailable": "无法使用将所选内容附加到Copilot Chat的命令。请检查VS Code Chat和GitHub Copilot Chat是否已启用。",
+      "copilotSelectionChanged": "选择后文档已更改。为避免附加错误范围，操作已取消。请重新选择文本。",
+      "copilotChatEditorUnavailable": "无法在不重用现有选项卡的情况下打开临时编辑器。请关闭一个编辑器列后重试。"
     },
     "editor": {
       "placeholder": "输入Markdown...",
@@ -1804,6 +1828,11 @@
       "hideOutline": "개요 숨기기",
       "showOutline": "개요 표시",
       "outlineWidth": "개요 너비",
+      "copySectionLink": "섹션 링크 복사",
+      "sectionLinkMenu": "섹션 링크",
+      "copyWorkspaceSectionLink": "현재 작업 공간 폴더 기준 섹션 링크 복사",
+      "workspaceSectionLinkUnavailable": "이 문서는 작업 공간 폴더에 없습니다.",
+      "sectionLinkCopied": "섹션 링크를 복사했습니다.",
       "noHeadings": "제목이 없습니다.",
       "searchAndReplace": "찾기 및 바꾸기",
       "searchText": "검색어",
@@ -2049,7 +2078,10 @@
       "invalidImageDirectory": "Markdown 문서 기준의 안전한 상대 경로를 이미지 폴더로 지정하세요.",
       "pdfBrowserUnavailable": "PDF 브라우저를 시작할 수 없습니다. 설정에서 Edge 또는 Chrome을 지정하세요.",
       "errorPrefix": "Markdown Easy Visual Editor",
-      "clientIdMismatch": "Webview clientId가 초기화된 clientId와 일치하지 않습니다."
+      "clientIdMismatch": "Webview clientId가 초기화된 clientId와 일치하지 않습니다.",
+      "copilotChatUnavailable": "선택 영역을 Copilot Chat에 첨부하는 명령을 사용할 수 없습니다. VS Code Chat과 GitHub Copilot Chat이 활성화되어 있는지 확인하세요.",
+      "copilotSelectionChanged": "선택 후 문서가 변경되어 잘못된 범위가 첨부되지 않도록 작업을 취소했습니다. 텍스트를 다시 선택하세요.",
+      "copilotChatEditorUnavailable": "기존 탭을 재사용하지 않고 임시 편집기를 열 수 없습니다. 편집기 열 하나를 닫은 후 다시 시도하세요."
     },
     "editor": {
       "placeholder": "Markdown 입력...",
@@ -2320,6 +2352,11 @@
       "hideOutline": "Masquer le plan",
       "showOutline": "Afficher le plan",
       "outlineWidth": "Largeur du plan",
+      "copySectionLink": "Copier le lien vers la section",
+      "sectionLinkMenu": "Liens de section",
+      "copyWorkspaceSectionLink": "Copier le lien de section depuis ce dossier de l’espace de travail",
+      "workspaceSectionLinkUnavailable": "Ce document n’est pas dans un dossier de l’espace de travail.",
+      "sectionLinkCopied": "Lien vers la section copié.",
       "noHeadings": "Aucun titre trouvé.",
       "searchAndReplace": "Rechercher et remplacer",
       "searchText": "Texte à rechercher",
@@ -2565,7 +2602,10 @@
       "invalidImageDirectory": "Le répertoire d'images doit être un dossier situé près du document Markdown.",
       "pdfBrowserUnavailable": "Aucun navigateur PDF n'est disponible. Installez ou configurez Edge ou Chrome.",
       "errorPrefix": "Markdown Easy Visual Editor",
-      "clientIdMismatch": "Le client du webview ne correspond pas au client actif."
+      "clientIdMismatch": "Le client du webview ne correspond pas au client actif.",
+      "copilotChatUnavailable": "La commande d'ajout de la sélection à Copilot Chat est indisponible. Vérifiez que VS Code Chat et GitHub Copilot Chat sont activés.",
+      "copilotSelectionChanged": "Le document a changé après la sélection. L'ajout a été annulé pour éviter d'inclure une plage incorrecte. Sélectionnez à nouveau le texte.",
+      "copilotChatEditorUnavailable": "Impossible d'ouvrir un éditeur temporaire sans réutiliser un onglet existant. Fermez une colonne d'éditeur puis réessayez."
     },
     "editor": {
       "placeholder": "Saisissez du Markdown...",
@@ -2836,6 +2876,11 @@
       "hideOutline": "Gliederung ausblenden",
       "showOutline": "Gliederung anzeigen",
       "outlineWidth": "Breite der Gliederung",
+      "copySectionLink": "Link zum Abschnitt kopieren",
+      "sectionLinkMenu": "Abschnittslinks",
+      "copyWorkspaceSectionLink": "Abschnittslink aus diesem Workspace-Ordner kopieren",
+      "workspaceSectionLinkUnavailable": "Dieses Dokument gehört zu keinem Workspace-Ordner.",
+      "sectionLinkCopied": "Link zum Abschnitt kopiert.",
       "noHeadings": "Keine Überschriften gefunden.",
       "searchAndReplace": "Suchen und Ersetzen",
       "searchText": "Suchtext",
@@ -3081,7 +3126,10 @@
       "invalidImageDirectory": "Das Bildverzeichnis muss ein Ordner neben dem Markdown-Dokument sein.",
       "pdfBrowserUnavailable": "Kein PDF-Browser verfügbar. Installieren oder konfigurieren Sie Edge oder Chrome.",
       "errorPrefix": "Markdown Easy Visual Editor",
-      "clientIdMismatch": "Die Webview-Client-ID stimmt nicht mit dem aktiven Client überein."
+      "clientIdMismatch": "Die Webview-Client-ID stimmt nicht mit dem aktiven Client überein.",
+      "copilotChatUnavailable": "Der Befehl zum Anfügen der Auswahl an Copilot Chat ist nicht verfügbar. Prüfen Sie, ob VS Code Chat und GitHub Copilot Chat aktiviert sind.",
+      "copilotSelectionChanged": "Das Dokument wurde nach der Auswahl geändert. Der Vorgang wurde abgebrochen, damit kein falscher Bereich angefügt wird. Wählen Sie den Text erneut aus.",
+      "copilotChatEditorUnavailable": "Ein temporärer Editor konnte nicht geöffnet werden, ohne einen vorhandenen Tab wiederzuverwenden. Schließen Sie eine Editorgruppe und versuchen Sie es erneut."
     },
     "editor": {
       "placeholder": "Markdown eingeben...",
@@ -3352,6 +3400,11 @@
       "hideOutline": "Ocultar esquema",
       "showOutline": "Mostrar esquema",
       "outlineWidth": "Ancho del esquema",
+      "copySectionLink": "Copiar enlace a la sección",
+      "sectionLinkMenu": "Enlaces a secciones",
+      "copyWorkspaceSectionLink": "Copiar enlace de sección desde esta carpeta del espacio de trabajo",
+      "workspaceSectionLinkUnavailable": "Este documento no está en una carpeta del espacio de trabajo.",
+      "sectionLinkCopied": "Enlace a la sección copiado.",
       "noHeadings": "No se encontraron encabezados.",
       "searchAndReplace": "Buscar y reemplazar",
       "searchText": "Texto de búsqueda",
@@ -3597,7 +3650,10 @@
       "invalidImageDirectory": "El directorio de imágenes debe ser una carpeta junto al documento Markdown.",
       "pdfBrowserUnavailable": "No hay un navegador PDF disponible. Instala o configura Edge o Chrome.",
       "errorPrefix": "Markdown Easy Visual Editor",
-      "clientIdMismatch": "El clientId del webview no coincide con el cliente activo."
+      "clientIdMismatch": "El clientId del webview no coincide con el cliente activo.",
+      "copilotChatUnavailable": "El comando para adjuntar la selección a Copilot Chat no está disponible. Compruebe que VS Code Chat y GitHub Copilot Chat estén habilitados.",
+      "copilotSelectionChanged": "El documento cambió después de la selección. Se canceló la acción para evitar adjuntar un rango incorrecto. Vuelva a seleccionar el texto.",
+      "copilotChatEditorUnavailable": "No se pudo abrir un editor temporal sin reutilizar una pestaña existente. Cierre una columna del editor e inténtelo de nuevo."
     },
     "editor": {
       "placeholder": "Escribe Markdown...",

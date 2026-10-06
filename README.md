@@ -18,10 +18,11 @@ Markdown Easy Visual Editor is a VS Code extension for writing Markdown with a l
 - Review local links and images before exporting.
 - Preview and export your document as a PDF.
 - Export your document as HTML, with options for images and linked Markdown files.
+- Right-click selected source text to attach its file range to the Copilot Chat view.
 
 ## Requirements
 
-- Visual Studio Code 1.100 or later.
+- Visual Studio Code 1.106 or later.
 - A local, saved Markdown document for image insertion.
 - A trusted VS Code workspace for PDF and HTML export.
 
@@ -42,6 +43,8 @@ The view buttons at the top of the editor provide three layouts:
 - **Preview only**: read the rendered document without the editing pane.
 
 Use the **View** tab's **Outline** button to show or hide the heading outline. Select a heading in the outline to jump to that section. Use **Ctrl+wheel** or **Cmd+wheel** to zoom the editor and preview.
+
+Right-click an outline item or a heading in the split Markdown preview, then choose **Copy link to section** for a same-document link or **Copy section link from this workspace folder** for a link usable from other Markdown files in that folder. The workspace link uses a folder-rooted path (for example, `[Heading](/guides/setup.md#setup "MVE workspace-root link")`); the title marks the path for this extension and is hidden in its preview. A stationary right-click opens this menu; right-click and drag on an outline item still reorders its section.
 
 The ribbon can be collapsed when you need more space for your document.
 
@@ -200,6 +203,7 @@ The **Export** tab can convert the current Markdown document to HTML.
    - **Convert linked Markdown**: recursively convert local links to other Markdown files and update the links to their generated HTML files.
    - **Export directly to the same folder**: save the HTML beside the source Markdown file without showing a save dialog. This option is enabled by default.
 3. Choose **Export HTML**.
+4. Choose **Open** in the completion notification to view the generated HTML in Markdown Easy Visual Editor's HTML preview. Links between exported HTML files open in the same preview. To preview an existing HTML file, right-click it in Explorer and choose **Markdown Easy Visual Editor: Preview HTML**.
 
 When linked Markdown conversion is enabled, each linked Markdown file is also written as an HTML file in the corresponding location. Mermaid diagrams are rendered as SVG in the generated HTML. HTML export requires a trusted workspace.
 

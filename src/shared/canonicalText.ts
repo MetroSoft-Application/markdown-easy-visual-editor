@@ -5,6 +5,23 @@ import type { TextChange } from './protocol';
 import { validateTextChanges } from './textChanges';
 
 /**
+ * LF正規化済み本文の変更検知に使う識別子を作る。暗号学的衝突耐性ではなく、選択範囲が古い本文に由来するかの判定に使う。
+ * @param text - 比較対象のLF正規化済み本文。
+ * @returns 二つの32 bitハッシュ値とUTF-16長を連結した指紋。
+ */
+export function fingerprintText(text: string): string {
+    let first = 0x811c9dc5;
+    let second = 0x9e3779b9;
+    for (let index = 0; index < text.length; index += 1) {
+        const code = text.charCodeAt(index);
+        first = Math.imul(first ^ code, 0x01000193);
+        second = Math.imul(second ^ (code + index), 0x85ebca6b);
+        second ^= second >>> 13;
+    }
+    return `${(first >>> 0).toString(16)}:${(second >>> 0).toString(16)}:${text.length}`;
+}
+
+/**
  * canonicaltextで共有するデータ形状を表すインターフェース。
  */
 export interface TextPositionLike {

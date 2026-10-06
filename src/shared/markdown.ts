@@ -1,7 +1,11 @@
 /**
  * @fileoverview Markdownの解析、インライン構文、表、画像、リンクの共通変換を提供する。表示と保存で本文の意味をそろえる。
  */
-import { marked, type Token, type Tokens } from 'marked';
+import { Marked, marked, type Token, type Tokens } from 'marked';
+
+/** ワークスペースリンクを既存の絶対パスリンクと区別するMarkdown title印。 */
+export const WORKSPACE_SECTION_LINK_TITLE = 'MVE workspace-root link';
+import { footnoteDefinitionSyntax, mathBlockSyntax, tableOfContentsSyntax } from './markdownBlockSyntax';
 import { getMessages, type SupportedLanguage } from './messages';
 import { stripMveTextColorMarkup } from './textColor';
 
@@ -166,6 +170,9 @@ export interface LocalResourceReference {
      */
     source: string;
 
+    /** 専用title印を持つワークスペース基準リンクかを示す。 */
+    workspaceRooted?: boolean;
+
     /**
      * Markdownの位置・寸法・件数・時間を表す数値。
      */
@@ -187,6 +194,9 @@ interface LocalResourceDefinition {
      */
     source: string;
 
+    /** Titleがワークスペース基準リンクを示すかどうか。 */
+    workspaceRooted?: boolean;
+
     /**
      * Markdownの位置・寸法・件数・時間を表す数値。
      */
@@ -207,6 +217,9 @@ interface ScannedResourceLink {
      * 解析・描画・変換の起点となる本文。
      */
     source?: string;
+
+    /** 専用title印を持つワークスペース基準リンクかを示す。 */
+    workspaceRooted?: boolean;
 
     /**
      * Markdownで扱うreference・labelの文字列。
@@ -1498,6 +1511,7 @@ export function getOutline(markdown: string): OutlineItem[] {
     // Markdownの見出しを走査し、表示名・行番号・文書内位置・重複しないIDを収集する。
     const items: OutlineItem[] = [];
     const duplicateCount = new Map<string, number>();
+    const usedIds = new Set<string>();
     const lines = markdown.split(/\r\n|\r|\n/);
     const fencedLineIndexes = getFencedMarkdownLineIndexes(lines);
     let lineNumber = 1;
@@ -1519,14 +1533,12 @@ export function getOutline(markdown: string): OutlineItem[] {
                 .replace(/[*_`~+=]/g, '')
                 .trim();
             const baseId = explicit?.[1] || match[3] || slugify(text);
-            const count = duplicateCount.get(baseId) ?? 0;
-            duplicateCount.set(baseId, count + 1);
             items.push({
                 level: match[1].length,
                 text,
                 line: lineNumber,
                 offset: lineMatch.index,
-                id: count ? `${baseId}-${count}` : baseId
+                id: uniqueHeadingAnchorId(baseId, duplicateCount, usedIds)
             });
         }
         lineNumber += 1;
@@ -1967,12 +1979,13 @@ export function collectLocalResourceReferences(markdown: string): LocalResourceR
          * @returns 副作用を完了し、値は返さない。
          */
         (line, index) => {
-            const definition = parseLocalResourceDefinition(line);
+            const definition = parseLocalResourceDefinition(line, lines[index + 1]);
             if (!definition || !isLocalResourceSource(definition.source)) return;
             definitionLines.add(index + 1);
             definitions.set(normalizeReferenceLabel(definition.label), {
                 kind: definition.kind,
                 source: definition.source,
+                ...(definition.workspaceRooted ? { workspaceRooted: true } : {}),
                 line: index + 1
             });
         });
@@ -1984,7 +1997,12 @@ export function collectLocalResourceReferences(markdown: string): LocalResourceR
         if (definitionLines.has(line)) continue;
         if (scanned.source) {
             if (isLocalResourceSource(scanned.source)) {
-                references.push({ kind: scanned.kind, source: scanned.source, line });
+                references.push({
+                    kind: scanned.kind,
+                    source: scanned.source,
+                    ...(scanned.workspaceRooted ? { workspaceRooted: true } : {}),
+                    line
+                });
             }
             continue;
         }
@@ -1995,6 +2013,7 @@ export function collectLocalResourceReferences(markdown: string): LocalResourceR
         references.push({
             kind: scanned.kind === 'image' || definition.kind === 'image' ? 'image' : 'link',
             source: definition.source,
+            ...(definition.workspaceRooted ? { workspaceRooted: true } : {}),
             line
         });
     }
@@ -2009,7 +2028,12 @@ export function collectLocalResourceReferences(markdown: string): LocalResourceR
          */
         (definition, label) => {
             if (!usedDefinitions.has(label)) {
-                references.push({ kind: definition.kind, source: definition.source, line: definition.line });
+                references.push({
+                    kind: definition.kind,
+                    source: definition.source,
+                    ...(definition.workspaceRooted ? { workspaceRooted: true } : {}),
+                    line: definition.line
+                });
             }
         });
     return references;
@@ -2036,7 +2060,12 @@ function scanMarkdownResourceLinks(source: string): ScannedResourceLink[] {
         if (source[afterText] === '(') {
             const destination = readInlineResourceDestination(source, afterText);
             if (destination) {
-                links.push({ kind, source: destination.source, offset: index });
+                links.push({
+                    kind,
+                    source: destination.source,
+                    ...(destination.workspaceRooted ? { workspaceRooted: true } : {}),
+                    offset: index
+                });
                 index = destination.end;
                 continue;
             }
@@ -2088,6 +2117,9 @@ function readInlineResourceDestination(source: string, open: number): {
      * 解析・描画・変換の起点となる本文。
      */
     source: string;
+
+    /** 専用title印がリンクのワークスペース基準指定に使われているかを示す。 */
+    workspaceRooted: boolean;
     /**
      * Markdownのendを表す数値。
      */
@@ -2138,7 +2170,33 @@ function readInlineResourceDestination(source: string, open: number): {
     }
     if (!destination) return undefined;
     const close = findInlineResourceClose(source, index);
-    return close < 0 ? undefined : { source: destination.replace(/\\([\\()])/g, '$1'), end: close };
+    if (close < 0) return undefined;
+    return {
+        source: destination.replace(/\\([\\()])/g, '$1'),
+        workspaceRooted: isWorkspaceSectionLinkTitle(source.slice(index, close)),
+        end: close
+    };
+}
+
+/** Markdown titleの引用形式を除いてワークスペースリンク用の印か判定する。 */
+function isWorkspaceSectionLinkTitle(value: string): boolean {
+    return readResourceDefinitionTitle(value) === WORKSPACE_SECTION_LINK_TITLE;
+}
+
+/** Markdown参照定義で使える引用形式からtitle本文を取り出す。 */
+function readResourceDefinitionTitle(value: string): string | undefined {
+    const match = /^\s*(?:"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)'|\(((?:\\.|[^)\\])*)\))\s*$/u.exec(value);
+    const title = match?.[1] ?? match?.[2] ?? match?.[3];
+    return title === undefined ? undefined : unescapeResourceTitle(title);
+}
+
+/** Markdown titleのバックスラッシュでエスケープされた句読点を復元する。 */
+function unescapeResourceTitle(title: string): string {
+    const escapablePunctuation = "!\"#$%&'()*+,-./:;<=>?@[\\]^_{|}~";
+    return title.replace(/\\(.)/gu, (escape, character: string) =>
+        character === String.fromCharCode(96) || escapablePunctuation.includes(character)
+            ? character
+            : escape);
 }
 
 /**
@@ -2167,7 +2225,7 @@ function findInlineResourceClose(source: string, start: number): number {
  * @param line Markdown本文から処理する1行。
  * @returns Markdownで生成または変換した値。
  */
-function parseLocalResourceDefinition(line: string): {
+function parseLocalResourceDefinition(line: string, followingLine?: string): {
     /**
      * メッセージ、項目、または処理の種類を識別する値。
      */
@@ -2179,15 +2237,23 @@ function parseLocalResourceDefinition(line: string): {
     /**
      * 解析・描画・変換の起点となる本文。
      */
-    source: string
+    source: string;
+    /** Titleがワークスペース基準リンクを示すかどうか。 */
+    workspaceRooted: boolean;
 } | undefined {
     const candidate = stripResourceContainerPrefix(line);
-    const match = /^(!?)\[([^\]]*)\]:\s*(<[^>\r\n]+>|[^\s]+)(?:\s+.*)?$/u.exec(candidate);
+    const match = /^(!?)\[([^\]]*)\]:\s*(<[^>\r\n]+>|[^\s]+)(?:\s+(?:"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)'|\(((?:\\.|[^)\\])*)\)))?\s*$/u.exec(candidate);
     if (!match || match[2].startsWith('^')) return undefined;
+    const inlineTitle = match[4] ?? match[5] ?? match[6];
+    const continuationTitle = inlineTitle === undefined && followingLine !== undefined
+        ? readResourceDefinitionTitle(stripResourceContainerPrefix(followingLine))
+        : undefined;
+    const title = inlineTitle === undefined ? continuationTitle : unescapeResourceTitle(inlineTitle);
     return {
         kind: match[1] ? 'image' : 'link',
         label: match[2],
-        source: match[3].replace(/^<|>$/g, '').trim()
+        source: match[3].replace(/^<|>$/g, '').trim(),
+        workspaceRooted: title === WORKSPACE_SECTION_LINK_TITLE
     };
 }
 
@@ -2666,6 +2732,110 @@ export function slugify(value: string): string {
         .replace(/[^\p{Letter}\p{Number}\s-]/gu, '')
         .replace(/\s+/g, '-')
         .replace(/-+/g, '-') || 'section';
+}
+
+/** 自動サフィックスと見出し本文の衝突を避けて、一意なアンカーIDを割り当てる。 */
+function uniqueHeadingAnchorId(base: string, counts: Map<string, number>, usedIds: Set<string>): string {
+    let count = counts.get(base) ?? 0;
+    let id = count ? `${base}-${count}` : base;
+    while (usedIds.has(id)) {
+        count += 1;
+        id = `${base}-${count}`;
+    }
+    counts.set(base, count + 1);
+    usedIds.add(id);
+    return id;
+}
+
+/** 描画順の重複数を反映した見出しアンカーIDを生成する。 */
+export function nextHeadingAnchorId(rawText: string, counts: Map<string, number>, usedIds: Set<string>): string {
+    const plain = stripMveTextColorMarkup(rawText);
+    const explicit = /\s+\{#([^}]+)\}\s*$/.exec(plain);
+    const base = explicit?.[1] ?? slugify(plain.replace(/\s+\{#[^}]+\}\s*$/, ''));
+    return uniqueHeadingAnchorId(base, counts, usedIds);
+}
+
+/** 同じMarkdown文書へ貼り付けて使える、見出し名付きの文書内リンクを作る。 */
+export function sectionMarkdownLink(text: string, id: string): string {
+    return sectionMarkdownLinkToPath(text, id, '');
+}
+
+/** ワークスペース相対パスを使い、別のMarkdown文書にも貼り付けられる見出しリンクを作る。 */
+export function workspaceSectionMarkdownLink(text: string, id: string, relativePath: string): string {
+    const normalizedPath = relativePath.replace(/\\/g, '/').replace(/^\/+/, '');
+    const segments = normalizedPath.split('/').filter((segment) => segment && segment !== '.');
+    if (!segments.length || segments.some((segment) => segment === '..')) {
+        throw new Error('ワークスペース内のMarkdown文書パスが不正です。');
+    }
+    const destinationPath = `/${segments.map(encodeMarkdownPathSegment).join('/')}`;
+    return sectionMarkdownLinkToPath(text, id, destinationPath, WORKSPACE_SECTION_LINK_TITLE);
+}
+
+/** 見出し名とアンカーをMarkdownリンクとして安全に組み立てる。 */
+function sectionMarkdownLinkToPath(text: string, id: string, destinationPath: string, title?: string): string {
+    const label = (text.trim() || id)
+        .replace(/[\r\n]+/g, ' ')
+        .replace(/[\\`*_\[\]~^+=$<>&!|]/gu, '\\$&');
+    const fragment = id.replace(/[%#&|()[\]<>\\"'\s]/gu, (character) => {
+        const encoded = encodeURIComponent(character);
+        return encoded === character
+            ? `%${character.charCodeAt(0).toString(16).toUpperCase()}`
+            : encoded;
+    });
+    const titleSuffix = title === undefined ? '' : ` "${title}"`;
+    return `[${label}](${destinationPath}#${fragment}${titleSuffix})`;
+}
+
+/** Markdownリンク先で構文区切りになる文字だけをパスの各要素内でエスケープする。 */
+function encodeMarkdownPathSegment(segment: string): string {
+    return segment.replace(/[%#?()[\]<>|&\s]/gu, (character) => encodeURIComponent(character));
+}
+
+/** 見出しのトークン位置を元の行へ対応付けるため、改行数を数える。 */
+function countLineBreaks(value: string): number {
+    return (value.match(/\r\n|\r|\n/g) ?? []).length;
+}
+
+/** 描画と同じ順序の見出しIDから、リンクを開く行を求める。リンク操作時だけ呼び出す。 */
+export function headingLineForAnchor(markdown: string, targetId: string): number | undefined {
+    const counts = new Map<string, number>();
+    const usedIds = new Set<string>();
+    const parser = new Marked({ gfm: true, breaks: false });
+    parser.use({ extensions: [
+        mathBlockSyntax(),
+        tableOfContentsSyntax(),
+        footnoteDefinitionSyntax()
+    ] });
+    const tokens = parser.lexer(markdown);
+
+    const findInTokens = (blocks: Token[], source: string, firstLine: number): number | undefined => {
+        let cursor = 0;
+        let line = firstLine;
+        for (const block of blocks) {
+            if (block.type === 'checkbox') continue;
+            const offset = source.indexOf(block.raw, cursor);
+            if (offset < 0) continue;
+            line += countLineBreaks(source.slice(cursor, offset));
+            if (block.type === 'heading') {
+                const id = nextHeadingAnchorId((block.tokens ?? []).map((token) => token.raw).join(''), counts, usedIds);
+                if (id === targetId) return line;
+            } else if (block.type === 'blockquote') {
+                const nestedLine = findInTokens(block.tokens ?? [], block.text, line);
+                if (nestedLine !== undefined) return nestedLine;
+            } else if (block.type === 'list') {
+                const nestedLine = findInTokens(block.items, block.raw, line);
+                if (nestedLine !== undefined) return nestedLine;
+            } else if (block.type === 'list_item') {
+                const nestedLine = findInTokens(block.tokens ?? [], block.text, line);
+                if (nestedLine !== undefined) return nestedLine;
+            }
+            cursor = offset + block.raw.length;
+            line += countLineBreaks(block.raw);
+        }
+        return undefined;
+    };
+
+    return findInTokens(tokens, markdown, 1);
 }
 
 /**

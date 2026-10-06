@@ -5,10 +5,16 @@ import { promises as fs } from 'node:fs';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import * as vscode from 'vscode';
-import { marked } from 'marked';
+import { Marked, Renderer } from 'marked';
 import { DEFAULT_PDF_OPTIONS, type HtmlExportOptions } from '../shared/protocol';
 import { fontFamilyForCss } from '../shared/fontFamily';
-import { collectLocalResourceReferences } from '../shared/markdown';
+import { footnoteDefinitionSyntax, mathBlockSyntax, tableOfContentsSyntax } from '../shared/markdownBlockSyntax';
+import {
+    collectLocalResourceReferences,
+    nextHeadingAnchorId,
+    WORKSPACE_SECTION_LINK_TITLE
+} from '../shared/markdown';
+import { workspaceRootPathSegments } from './resourceLink';
 import { decodeLocalResourceSource } from './resourceCheck';
 
 /**
@@ -259,7 +265,11 @@ async function collectDocuments(request: HtmlExportRequest, targetPath: string):
                  */
                 (reference) => reference.kind === 'link');
         for (const reference of references) {
-            const linkedUri = resolveLocalFileUri(document.uri, reference.source);
+            const linkedUri = resolveLocalFileUri(
+                document.uri,
+                reference.source,
+                reference.workspaceRooted === true
+            );
             if (!linkedUri || !isMarkdownPath(linkedUri.fsPath)) continue;
             const linkedPath = normalizePath(linkedUri.fsPath);
             if (byPath.has(linkedPath)) continue;
@@ -290,7 +300,23 @@ async function collectDocuments(request: HtmlExportRequest, targetPath: string):
  * @returns HTMLで利用する文字列。
  */
 function renderLinkedMarkdown(markdown: string): string {
-    const renderer = new marked.Renderer();
+    const parser = new Marked({ gfm: true });
+    const renderer = new Renderer();
+    const headingIds = new Map<string, number>();
+    const usedHeadingIds = new Set<string>();
+    renderer.heading =
+        /**
+         * Markdown見出しを同じリンクID付きHTMLへ変換する。
+         * @param heading - Markedから受け取った見出しtoken。
+         * @returns HTMLの見出し要素。
+         */
+        function (heading) {
+            const { depth, tokens } = heading;
+            const id = nextHeadingAnchorId(tokens.map((token) => token.raw).join(''), headingIds, usedHeadingIds);
+            const content = this.parser.parseInline(tokens)
+                .replace(/\s+\{#[^}]+\}(?=(?:<\/span>)*\s*$)/, '');
+            return `<h${depth} id="${escapeAttribute(id)}">${content}</h${depth}>`;
+        };
     renderer.image =
         /**
          * HTMLの入力を検証し、表示または保存に使う形式へ変換する。
@@ -302,7 +328,48 @@ function renderLinkedMarkdown(markdown: string): string {
             const titleAttribute = title ? ` title="${escapeAttribute(title)}"` : '';
             return `<img src="${escapeAttribute(href)}" data-original-src="${escapeAttribute(href)}" alt="${escapeAttribute(text)}"${titleAttribute}>`;
         };
-    return String(marked.parse(markdown, { gfm: true, renderer }));
+    renderer.link =
+        /**
+         * MarkdownリンクをHTMLへ変換し、ワークスペース基準リンクの識別情報を保持する。
+         * @param link - Markedから受け取ったリンクトークン。
+         * @returns HTMLのa要素。
+         */
+        function (link) {
+            const { href, title, tokens } = link;
+            const workspaceRooted = title === WORKSPACE_SECTION_LINK_TITLE;
+            const titleAttribute = title && !workspaceRooted ? ` title="${escapeAttribute(title)}"` : '';
+            const workspaceAttribute = workspaceRooted ? ' data-mve-workspace-rooted="true"' : '';
+            const content = this.parser.parseInline(tokens);
+            return `<a href="${escapeAttribute(href)}"${workspaceAttribute}${titleAttribute}>${content}</a>`;
+        };
+    parser.setOptions({ renderer });
+    parser.use({
+        extensions: [
+            {
+                ...mathBlockSyntax(),
+                renderer(token) {
+                    const text = typeof token === 'object' && token !== null
+                        && 'text' in token && typeof token.text === 'string'
+                        ? token.text
+                        : '';
+                    return `<pre class="math-block">${escapeAttribute(text)}</pre>`;
+                }
+            },
+            {
+                ...tableOfContentsSyntax(),
+                renderer() {
+                    return '<p>[toc]</p>';
+                }
+            },
+            {
+                ...footnoteDefinitionSyntax(),
+                renderer() {
+                    return '';
+                }
+            }
+        ]
+    });
+    return String(parser.parse(markdown));
 }
 
 /**
@@ -371,7 +438,7 @@ async function rewriteImageTag(
     outputPath: string,
     options: HtmlExportOptions
 ): Promise<string> {
-    const original = decodeHtmlValue(readAttribute(tag, 'data-original-src') ?? readAttribute(tag, 'src'));
+    const original = decodeHtmlEntities(readAttribute(tag, 'data-original-src') ?? readAttribute(tag, 'src'));
     if (!original || isRemoteResource(original) || !sourcePath) return cleanDataAttributes(tag);
     const imagePath = resolveLocalPath(sourcePath, original);
     if (!imagePath) return cleanDataAttributes(tag);
@@ -405,21 +472,29 @@ function rewriteLinkTag(
     documents: HtmlDocument[],
     options: HtmlExportOptions
 ): string {
-    const original = decodeHtmlValue(readAttribute(tag, 'data-mve-link') ?? readAttribute(tag, 'href'));
-    if (!original || original.startsWith('#') || isRemoteResource(original) || !sourcePath) {
+    const original = decodeHtmlEntities(readAttribute(tag, 'data-mve-link') ?? readAttribute(tag, 'href'));
+    if (!original || !sourcePath) {
         return cleanDataAttributes(tag);
     }
-    const linkedPath = resolveLocalPath(sourcePath, original);
+    if (original.startsWith('#')) {
+        return replaceAttribute(cleanDataAttributes(tag), 'href', readFragment(original));
+    }
+    if (isRemoteResource(original)) return cleanDataAttributes(tag);
+    const workspaceRooted = readAttribute(tag, 'data-mve-workspace-rooted') === 'true';
+    const linkedPath = workspaceRooted
+        ? resolveLocalFileUri(vscode.Uri.file(sourcePath), original, true)?.fsPath
+        : resolveLocalPath(sourcePath, original);
     if (!linkedPath) return cleanDataAttributes(tag);
     const linkedDocument = documents.find(
         /**
          * source・pathが条件に一致する最初のdocumentを取得する。
          * @param document - HTML出力対象文書のソースパスを持つHtmlDocument。
          * @returns 条件に一致した最初の要素。未検出時はundefined。
-         */
+        */
         (document) => normalizePath(document.sourcePath) === normalizePath(linkedPath));
     const isMarkdown = isMarkdownPath(linkedPath);
-    const destinationPath = options.convertLinkedMarkdown && isMarkdown && linkedDocument
+    const isSameDocument = normalizePath(linkedPath) === normalizePath(sourcePath);
+    const destinationPath = linkedDocument && (isSameDocument || (options.convertLinkedMarkdown && isMarkdown))
         ? linkedDocument.outputPath
         : linkedPath;
     const fragment = readFragment(original);
@@ -433,9 +508,16 @@ function rewriteLinkTag(
  * @param source - MarkdownまたはHTMLから取得したローカルURI、パス、参照文字列。
  * @returns 条件に一致する値。未検出時はundefinedまたはnull。
  */
-function resolveLocalFileUri(baseUri: vscode.Uri, source: string): vscode.Uri | undefined {
+function resolveLocalFileUri(baseUri: vscode.Uri, source: string, workspaceRooted = false): vscode.Uri | undefined {
     const clean = decodeLocalResourceSource(source);
     if (!clean || isRemoteResource(clean)) return undefined;
+    if (workspaceRooted) {
+        if (baseUri.scheme !== 'file') return undefined;
+        const segments = workspaceRootPathSegments(clean);
+        const workspaceFolder = vscode.workspace.getWorkspaceFolder(baseUri);
+        if (!segments || !workspaceFolder || workspaceFolder.uri.scheme !== 'file') return undefined;
+        return vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, ...segments));
+    }
     if (/^file:/i.test(clean)) {
         try {
             const parsed = vscode.Uri.parse(clean);
@@ -538,18 +620,13 @@ function cleanDataAttributes(tag: string): string {
 }
 
 /**
- * HTML属性値のエンティティとパーセントエンコードをデコードする。
- * @param value - HTMLエンティティまたはURLエンコードを含む属性値。未指定ならundefined。
- * @returns エンティティとパーセントエンコードを戻した値。入力が未指定ならundefined。
+ * HTML属性値の文字参照だけをデコードし、URIのパーセント表記を保つ。
+ * @param value - HTMLエンティティを含む属性値。未指定ならundefined。
+ * @returns HTMLエンティティを戻した値。入力が未指定ならundefined。
  */
-function decodeHtmlValue(value: string | undefined): string | undefined {
+function decodeHtmlEntities(value: string | undefined): string | undefined {
     if (!value) return undefined;
-    const decoded = value.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
-    try {
-        return decodeURIComponent(decoded);
-    } catch {
-        return decoded;
-    }
+    return value.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
 }
 
 /**
@@ -560,7 +637,14 @@ function decodeHtmlValue(value: string | undefined): string | undefined {
 function readFragment(value: string): string {
     const index = value.indexOf('#');
     if (index < 0) return '';
-    return `#${encodeURIComponent(value.slice(index + 1))}`;
+    const rawFragment = value.slice(index + 1);
+    let decodedFragment = rawFragment;
+    try {
+        decodedFragment = decodeURIComponent(rawFragment);
+    } catch {
+        // 不正な%エスケープは文字列のまま再エンコードする。
+    }
+    return `#${encodeURIComponent(decodedFragment)}`;
 }
 
 /**

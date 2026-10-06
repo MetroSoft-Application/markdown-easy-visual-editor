@@ -889,6 +889,21 @@ export interface Messages {
          */
         outlineWidth: string;
 
+        /** セクションへのリンクをコピーするメニュー項目。 */
+        copySectionLink: string;
+
+        /** セクションリンクのコンテキストメニュー名。 */
+        sectionLinkMenu: string;
+
+        /** 同じワークスペースフォルダー内で使えるセクションリンクをコピーするメニュー項目。 */
+        copyWorkspaceSectionLink: string;
+
+        /** 文書がワークスペースフォルダーに含まれていない場合の通知。 */
+        workspaceSectionLinkUnavailable: string;
+
+        /** セクションリンクのコピー成功通知。 */
+        sectionLinkCopied: string;
+
         /**
          * no・headings書式コマンドのラベルとして表示するローカライズ済み文言。
          */
@@ -1942,6 +1957,15 @@ export interface Messages {
          * 表示項目「client・id・mismatch」の文言として表示するローカライズ済み文言。
          */
         clientIdMismatch: string;
+
+        /** Copilot Chatの選択範囲添付コマンドが利用できない場合の案内。 */
+        copilotChatUnavailable: string;
+
+        /** 文書変更後に選択本文が一致しない場合の案内。 */
+        copilotSelectionChanged: string;
+
+        /** 既存タブを再利用せず添付用エディターを開けない場合の案内。 */
+        copilotChatEditorUnavailable: string;
     };
 
     /**
@@ -2142,6 +2166,11 @@ function createMessages(language: SupportedLanguage): Messages {
             hideOutline: raw.app.hideOutline,
             showOutline: raw.app.showOutline,
             outlineWidth: raw.app.outlineWidth,
+            copySectionLink: raw.app.copySectionLink,
+            sectionLinkMenu: raw.app.sectionLinkMenu,
+            copyWorkspaceSectionLink: raw.app.copyWorkspaceSectionLink,
+            workspaceSectionLinkUnavailable: raw.app.workspaceSectionLinkUnavailable,
+            sectionLinkCopied: raw.app.sectionLinkCopied,
             noHeadings: raw.app.noHeadings,
             searchAndReplace: raw.app.searchAndReplace,
             searchText: raw.app.searchText,
@@ -2500,7 +2529,10 @@ function createMessages(language: SupportedLanguage): Messages {
             invalidImageDirectory: raw.host.invalidImageDirectory,
             pdfBrowserUnavailable: raw.host.pdfBrowserUnavailable,
             errorPrefix: raw.host.errorPrefix,
-            clientIdMismatch: raw.host.clientIdMismatch
+            clientIdMismatch: raw.host.clientIdMismatch,
+            copilotChatUnavailable: raw.host.copilotChatUnavailable,
+            copilotSelectionChanged: raw.host.copilotSelectionChanged,
+            copilotChatEditorUnavailable: raw.host.copilotChatEditorUnavailable
         },
         editor: raw.editor,
         internal: raw.internal

@@ -545,6 +545,8 @@ export type HostToWebviewMessage =
          */
         settings: WebviewSettings;
     }
+    | { type: 'sectionLinkCopied' }
+    | { type: 'workspaceSectionLinkUnavailable' }
     | {
         /**
          * 共有プロトコルで対象や分岐を識別する値の型。
@@ -802,8 +804,13 @@ export type HostToWebviewMessage =
         type: 'hostCommand';
         /**
          * 共有プロトコルのcommandに関する状態または設定。
-         */
+        */
         command: 'insertImage' | 'exportPdf' | 'exportHtml' | 'undo' | 'redo'
+    }
+    | {
+        type: 'hostCommand';
+        command: 'navigateToOffset';
+        offset: number;
     };
 
 /**
@@ -997,6 +1004,22 @@ export type WebviewToHostMessage =
          * 共有プロトコルのvisibleを有効または表示する設定。
          */
         visible: boolean
+    }
+    | { type: 'copySectionLink'; scope: 'document' | 'workspace'; id: string; text: string }
+    | {
+        /** HostへCopilot Chatに渡す現在のソース選択範囲を通知するメッセージ種別。 */
+        type: 'copilotSelectionContext';
+        /**
+         * 選択時点のLF正規化済み本文に対する範囲。折りたたんだ選択では省略する。
+         */
+        selection?: {
+            /** 選択範囲の開始UTF-16オフセット。 */
+            from: number;
+            /** 選択範囲の終了UTF-16オフセット。 */
+            to: number;
+        };
+        /** 本文更新後に選択範囲を無効化するための選択時本文指紋。 */
+        sourceFingerprint?: string;
     }
     | {
         /**
@@ -1196,7 +1219,9 @@ export type WebviewToHostMessage =
         /**
          * 共有プロトコルで受け渡すhrefの文字列。
          */
-        href: string
+        href: string;
+        /** 専用title印を持つワークスペース基準リンクかを示す。 */
+        workspaceRooted?: boolean
     }
     | {
         /**
