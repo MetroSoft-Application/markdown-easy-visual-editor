@@ -249,7 +249,7 @@ body[data-editor-theme] .startup {
 
 /*
  * @style body[data-editor-theme] .ribbon, body[data-editor-theme] .ribbon-tabs, body[data-editor-theme] .ribbon-content, body[data-editor-theme] .outline-panel, body[data-editor-theme] .outline-header, body[data-editor-theme] .outline-reopen, body[data-editor-theme] .diagnostics-panel, body[data-editor-theme] .inspector-panel, body[data-editor-theme] .pdf-settings-panel, body[data-editor-theme] .status-bar
- * リボンの操作項目と無効・選択状態を表示する。
+ * リボンとアウトラインの操作項目にテーマ文字色を適用する。
  */
 
 body[data-editor-theme] .ribbon,
@@ -280,12 +280,13 @@ body[data-editor-theme] .split-divider {
 }
 
 /*
- * @style body[data-editor-theme] .outline-panel nav button, body[data-editor-theme] .outline-header button, body[data-editor-theme] .outline-reopen, body[data-editor-theme] .panel-title button, body[data-editor-theme] .ribbon-tool, body[data-editor-theme] .ribbon-tabs button
- * リボンの操作項目と無効・選択状態を表示する。
+ * @style body[data-editor-theme] .outline-panel nav .outline-item, body[data-editor-theme] .outline-panel nav .outline-disclosure, body[data-editor-theme] .outline-header button, body[data-editor-theme] .outline-reopen, body[data-editor-theme] .panel-title button, body[data-editor-theme] .ribbon-tool, body[data-editor-theme] .ribbon-tabs button
+ * リボンとアウトラインの操作項目にテーマの文字色を適用する。
  */
 
 
-body[data-editor-theme] .outline-panel nav button,
+body[data-editor-theme] .outline-panel nav .outline-item,
+body[data-editor-theme] .outline-panel nav .outline-disclosure,
 body[data-editor-theme] .outline-header button,
 body[data-editor-theme] .outline-reopen,
 body[data-editor-theme] .panel-title button,
@@ -295,18 +296,28 @@ body[data-editor-theme] .ribbon-tabs button {
 }
 
 /*
- * @style body[data-editor-theme] .outline-panel nav button:hover, body[data-editor-theme] .outline-header button:hover, body[data-editor-theme] .outline-reopen:hover, body[data-editor-theme] .panel-title button:hover, body[data-editor-theme] .ribbon-tool:hover:not(:disabled), body[data-editor-theme] .ribbon-tabs button:hover
- * リボンの操作項目と無効・選択状態を表示する。
+ * @style body[data-editor-theme] .outline-panel nav .outline-row:hover::before, body[data-editor-theme] .outline-header button:hover, body[data-editor-theme] .outline-reopen:hover, body[data-editor-theme] .panel-title button:hover, body[data-editor-theme] .ribbon-tool:hover:not(:disabled), body[data-editor-theme] .ribbon-tabs button:hover
+ * アウトライン行とリボン操作項目のテーマ別ホバー背景を表示する。
  */
 
 
-body[data-editor-theme] .outline-panel nav button:hover,
+body[data-editor-theme] .outline-panel nav .outline-row:hover::before,
 body[data-editor-theme] .outline-header button:hover,
 body[data-editor-theme] .outline-reopen:hover,
 body[data-editor-theme] .panel-title button:hover,
 body[data-editor-theme] .ribbon-tool:hover:not(:disabled),
 body[data-editor-theme] .ribbon-tabs button:hover {
     background: var(--mve-theme-hover) !important;
+}
+
+/*
+ * @style body[data-editor-theme] .outline-children::before, body[data-editor-theme] .outline-children > .outline-node::before
+ * 枝線に現在のエディター配色の境界色を適用する。
+ */
+
+body[data-editor-theme] .outline-children::before,
+body[data-editor-theme] .outline-children > .outline-node::before {
+    border-color: var(--mve-theme-border) !important;
 }
 
 /*

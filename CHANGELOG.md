@@ -34,3 +34,7 @@
 ## 1.2.7
 
 - Added a right-click option to attach selected text directly to GitHub Copilot Chat.
+
+## 1.2.8
+
+- Added a collapsible outline tree that shows heading hierarchy.

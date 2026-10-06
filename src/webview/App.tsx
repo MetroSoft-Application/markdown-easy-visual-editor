@@ -107,7 +107,6 @@ declare const acquireVsCodeApi: <State = unknown>() => VsCodeApi<State>;
  * Webviewルートの現在状態または履歴を保持するデータ形状。
  */
 interface PersistedState {
-
   /**
    * 編集面とプレビューの表示構成。
    */
@@ -157,7 +156,6 @@ interface PersistedState {
  * Webviewルートで共有するデータ形状を表すインターフェース。
  */
 interface PendingLocalOperation {
-
   /**
    * Webviewルートで扱うop・idの文字列。
    */
@@ -185,55 +183,119 @@ interface PendingLocalOperation {
 }
 
 /**
- * Webviewルートの現在状態または履歴を保持するデータ形状。
+ * 右ドラッグで見出しを並べ替える間のポインターと配置状態を保持する。
  */
 interface OutlineDragState {
-
   /**
-   * 解析済みMarkdownから抽出した目次項目の一覧。
+   * ドラッグを開始した見出しのアウトライン配列内の位置。
    */
   sourceIndex: number;
 
   /**
-   * Webviewルートのpointer・idを表す数値。
+   * 操作中のポインターを識別するID。
    */
   pointerId: number;
 
   /**
-   * Webviewルートのstart・xを表す数値。
+   * 右ドラッグを開始した画面上のX座標。
    */
   startX: number;
 
   /**
-   * Webviewルートのstart・yを表す数値。
+   * 右ドラッグを開始した画面上のY座標。
    */
   startY: number;
 
   /**
-   * 解析・編集・変換の対象となるMarkdown本文。
+   * ドラッグ開始時点のMarkdown本文。
    */
   markdown: string;
 
   /**
-   * 解析済みMarkdownから抽出した目次項目の一覧。
+   * ドラッグ開始時点のアウトライン項目。
    */
   outline: OutlineItem[];
 
   /**
-   * Webviewルートのdraggingを切り替えるフラグ。
+   * 移動距離がしきい値を超えて並べ替え操作になったかどうか。
    */
   dragging: boolean;
 
   /**
-   * 解析済みMarkdownから抽出した目次項目の一覧。
+   * 現在のドロップ先見出しのアウトライン配列内の位置。
    */
   targetIndex?: number;
 
   /**
-   * ドラッグされた目次項目を移動先項目の前後どちらへ置くか。
+   * ドロップ先見出しの前後どちらへ配置するか。
    */
   position?: "before" | "after";
 }
+
+/** アウトライン項目の階層と元の一覧位置を保持するツリーノード。 */
+interface OutlineTreeNode {
+  /** 対応する平坦なアウトライン項目。 */
+  item: OutlineItem;
+
+  /** 元のアウトライン配列における0始まりの位置。 */
+  index: number;
+
+  /** 見出しレベルから導出した子見出し。 */
+  children: OutlineTreeNode[];
+}
+
+/** 現在の見出し構成に対応する折りたたみ状態。 */
+interface OutlineCollapseState {
+  /** 開閉状態が有効な見出し構成の署名。 */
+  signature: string;
+
+  /** 折りたたまれている見出しID。 */
+  collapsedIds: Set<string>;
+}
+
+/**
+ * 平坦な見出し一覧から、レベル順のツリーを線形時間で構築する。
+ * @param outline 文書順のアウトライン項目。
+ * @returns 元の配列位置を保持したツリーのルート項目。
+ */
+function buildOutlineTree(outline: readonly OutlineItem[]): OutlineTreeNode[] {
+  const roots: OutlineTreeNode[] = [];
+  const ancestors: OutlineTreeNode[] = [];
+
+  for (let index = 0; index < outline.length; index += 1) {
+    const item = outline[index];
+    while (
+      ancestors.length > 0 &&
+      ancestors[ancestors.length - 1].item.level >= item.level
+    ) {
+      ancestors.pop();
+    }
+
+    const node: OutlineTreeNode = { item, index, children: [] };
+    const parent = ancestors[ancestors.length - 1];
+    if (parent) parent.children.push(node);
+    else roots.push(node);
+    ancestors.push(node);
+  }
+
+  return roots;
+}
+
+/**
+ * 開閉状態を無効化する見出し構成の署名を作成する。
+ * @param outline 文書順のアウトライン項目。
+ * @returns 見出しID、レベル、本文を含む構成署名。
+ */
+function getOutlineStructureSignature(outline: readonly OutlineItem[]): string {
+  const structure: Array<[string, number, string]> = [];
+  for (const item of outline) {
+    structure.push([item.id, item.level, item.text]);
+  }
+  return JSON.stringify(structure);
+}
+
+/** 折りたたまれた見出しがない場合に参照する空のID集合。 */
+const EMPTY_OUTLINE_IDS = new Set<string>();
 
 /**
  * Webviewルートで扱う値の種類と境界を表す型。
@@ -244,7 +306,6 @@ type LocalResourceCheckPurpose = "preflight" | "pdf";
  * Webviewルートで送受信するメッセージまたは要求のデータ形状。
  */
 interface LocalResourceCheckRequest {
-
   /**
    * 解析・編集・変換の対象となるMarkdown本文。
    */
@@ -270,7 +331,6 @@ interface LocalResourceCheckRequest {
  * Webviewルートの現在状態または履歴を保持するデータ形状。
  */
 interface PdfPreviewState {
-
   /**
    * 要求と応答を対応付ける識別子。
    */
@@ -291,7 +351,6 @@ interface PdfPreviewState {
    */
   error?: string;
 }
-
 
 /**
  * Webviewルートのvscodeに関する状態または設定。
@@ -363,7 +422,6 @@ function mergeDiagnostics(
  * Webviewルートの現在状態または履歴を保持するデータ形状。
  */
 interface MarkdownPreviewSnapshot {
-
   /**
    * 解析・編集・変換の対象となるMarkdown本文。
    */
@@ -388,25 +446,25 @@ interface MarkdownPreviewSnapshot {
    * Markdown本文、本文文字列、行数の集計結果。
    */
   stats: {
-  /**
-   * 集計対象Markdown本文の文字数。
-   */
-  markdown: number;
-  /**
-   * Markdown構文を除去した本文の文字数。
-   */
-  text: number;
-  /**
-   * Markdown本文の行数。
-   */
-  lines: number };
+    /**
+     * 集計対象Markdown本文の文字数。
+     */
+    markdown: number;
+    /**
+     * Markdown構文を除去した本文の文字数。
+     */
+    text: number;
+    /**
+     * Markdown本文の行数。
+     */
+    lines: number;
+  };
 }
 
 /**
  * Webviewルートで送受信するメッセージまたは要求のデータ形状。
  */
 interface MarkdownWorkerResponse {
-
   /**
    * Webviewルートのidを表す数値。
    */
@@ -441,18 +499,19 @@ interface MarkdownWorkerResponse {
    * Webviewルートのstatsに関する状態または設定。
    */
   stats?: {
-  /**
-   * 集計対象Markdown本文の文字数。
-   */
-  markdown: number;
-  /**
-   * Markdown構文を除去した本文の文字数。
-   */
-  text: number;
-  /**
-   * Markdown本文の行数。
-   */
-  lines: number };
+    /**
+     * 集計対象Markdown本文の文字数。
+     */
+    markdown: number;
+    /**
+     * Markdown構文を除去した本文の文字数。
+     */
+    text: number;
+    /**
+     * Markdown本文の行数。
+     */
+    lines: number;
+  };
 
   /**
    * 処理に失敗した理由または例外。
@@ -464,7 +523,6 @@ interface MarkdownWorkerResponse {
  * Webviewルートで共有するデータ形状を表すインターフェース。
  */
 interface WebviewBootstrap {
-
   /**
    * 表示・解析・変換の対象となる本文。
    */
@@ -491,12 +549,14 @@ interface WebviewBootstrap {
  * @returns 副作用を完了し、値は返さない。
  */
 function readWebviewBootstrap(): WebviewBootstrap | undefined {
-  return (globalThis as typeof globalThis & {
-  /**
-   * Webviewルートの・mve・bootstrapに関する状態または設定。
-   */
-  __mveBootstrap?: WebviewBootstrap })
-    .__mveBootstrap;
+  return (
+    globalThis as typeof globalThis & {
+      /**
+       * Webviewルートの・mve・bootstrapに関する状態または設定。
+       */
+      __mveBootstrap?: WebviewBootstrap;
+    }
+  ).__mveBootstrap;
 }
 
 /**
@@ -512,22 +572,23 @@ function mergeCollectedDiagnostics(
   const missingImages = new Set(
     localResourceDiagnostics
       .filter(
-      /**
-       * sourceを持つmissing-local-image診断だけを残す。
-       * @param item - 欠落したローカル画像を示すリソース診断。
-       * @returns 条件を満たした要素だけを含む一覧。
-       */
-      (item) => item.code === "missing-local-image" && item.source)
+        /**
+         * sourceを持つmissing-local-image診断だけを残す。
+         * @param item - 欠落したローカル画像を示すリソース診断。
+         * @returns 条件を満たした要素だけを含む一覧。
+         */
+        (item) => item.code === "missing-local-image" && item.source,
+      )
       .map(
-      /**
-       * 欠落画像診断から参照元を集める。
-       * @param item - 重複診断を照合するローカル画像参照文字列を含む診断。
-       * @returns sourceを取り出した変換結果の一覧。
-       */
-      (item) => item.source as string),
+        /**
+         * 欠落画像診断から参照元を集める。
+         * @param item - 重複診断を照合するローカル画像参照文字列を含む診断。
+         * @returns sourceを取り出した変換結果の一覧。
+         */
+        (item) => item.source as string,
+      ),
   );
   const filteredStaticDiagnostics = staticDiagnostics.filter(
-
     /**
      * 欠落画像診断と重複する静的診断を除外する。
      * @param item - 静的Markdown解析が生成した診断。
@@ -559,27 +620,26 @@ export function App(): React.JSX.Element {
     bootstrap?.settings.outlineVisible ?? true,
   );
   const [outlineWidth, setOutlineWidth] = useState(
-  /**
-   * 要素をclamp・outline・widthへ渡し、Webviewルートの結果または副作用を処理する。
-   * @returns Webviewルートのコールバックが生成する結果。
-   */
-  () =>
-    clampOutlineWidth(restored?.outlineWidth ?? 220),
+    /**
+     * 要素をclamp・outline・widthへ渡し、Webviewルートの結果または副作用を処理する。
+     * @returns Webviewルートのコールバックが生成する結果。
+     */
+    () => clampOutlineWidth(restored?.outlineWidth ?? 220),
   );
   const [splitRatio, setSplitRatio] = useState(
-  /**
-   * 要素をclamp・split・ratioへ渡し、Webviewルートの結果または副作用を処理する。
-   * @returns Webviewルートのコールバックが生成する結果。
-   */
-  () =>
-    clampSplitRatio(restored?.splitRatio ?? 0.5),
+    /**
+     * 要素をclamp・split・ratioへ渡し、Webviewルートの結果または副作用を処理する。
+     * @returns Webviewルートのコールバックが生成する結果。
+     */
+    () => clampSplitRatio(restored?.splitRatio ?? 0.5),
   );
   const [zoom, setZoom] = useState(
-  /**
-   * 要素をclamp・zoomへ渡し、Webviewルートの結果または副作用を処理する。
-   * @returns Webviewルートのコールバックが生成する結果。
-   */
-  () => clampZoom(restored?.zoom ?? 1));
+    /**
+     * 要素をclamp・zoomへ渡し、Webviewルートの結果または副作用を処理する。
+     * @returns Webviewルートのコールバックが生成する結果。
+     */
+    () => clampZoom(restored?.zoom ?? 1),
+  );
   const zoomRef = useRef(zoom);
   zoomRef.current = zoom;
   const [splitView, setSplitView] = useState<ViewMode>(
@@ -609,21 +669,22 @@ export function App(): React.JSX.Element {
       stagePreviewRefinementViewportRestore,
     );
   const cancelPreviewWork = useCallback(
-  /**
-   * 要素をifへ渡し、Webviewルートの結果または副作用を処理する。
-   * @returns Webviewルートのコールバックが生成する結果。
-   */
-  () => {
-    if (document.body.dataset.mveInputActive !== "true") {
-      document.body.dataset.mveInputActive = "true";
-      window.dispatchEvent(new Event("mve-preview-input-active"));
-    }
-    cancelPendingPreviewUpdate();
-    cancelActivePreviewRender();
-  }, [cancelPendingPreviewUpdate, cancelActivePreviewRender]);
+    /**
+     * 要素をifへ渡し、Webviewルートの結果または副作用を処理する。
+     * @returns Webviewルートのコールバックが生成する結果。
+     */
+    () => {
+      if (document.body.dataset.mveInputActive !== "true") {
+        document.body.dataset.mveInputActive = "true";
+        window.dispatchEvent(new Event("mve-preview-input-active"));
+      }
+      cancelPendingPreviewUpdate();
+      cancelActivePreviewRender();
+    },
+    [cancelPendingPreviewUpdate, cancelActivePreviewRender],
+  );
   const renderedPreviewMarkdown = previewSnapshot.markdown;
   const messages = useMemo(
-
     /**
      * 要素をget・messagesへ渡し、Webviewルートの結果または副作用を処理する。
      * @returns Webviewルートのコールバックが生成する結果。
@@ -632,34 +693,37 @@ export function App(): React.JSX.Element {
     [settings.language],
   );
   useEffect(
-  /**
-   * 依存状態の変化に応じて表示または購読を更新する。
-   * @returns Webviewルートのコールバックが生成する結果。
-   */
-  () => {
-    if (settings.language) document.documentElement.lang = settings.language;
-  }, [settings.language]);
+    /**
+     * 依存状態の変化に応じて表示または購読を更新する。
+     * @returns Webviewルートのコールバックが生成する結果。
+     */
+    () => {
+      if (settings.language) document.documentElement.lang = settings.language;
+    },
+    [settings.language],
+  );
   useEffect(
-  /**
-   * 依存状態の変化に応じて表示または購読を更新する。
-   * @returns Webviewルートのコールバックが生成する結果。
-   */
-  () => {
-    const root = document.documentElement;
-    const editorFontFamily = normalizeFontFamily(settings.editorFontFamily);
-    const previewFontFamily = normalizeFontFamily(settings.previewFontFamily);
-    root.style.setProperty(
-      "--mve-editor-font-family",
-      fontFamilyForCss(editorFontFamily, DEFAULT_FONT_FAMILY_STACK),
-    );
-    root.style.setProperty(
-      "--mve-preview-font-family",
-      fontFamilyForCss(previewFontFamily, DEFAULT_FONT_FAMILY_STACK),
-    );
-  }, [settings.editorFontFamily, settings.previewFontFamily]);
+    /**
+     * 依存状態の変化に応じて表示または購読を更新する。
+     * @returns Webviewルートのコールバックが生成する結果。
+     */
+    () => {
+      const root = document.documentElement;
+      const editorFontFamily = normalizeFontFamily(settings.editorFontFamily);
+      const previewFontFamily = normalizeFontFamily(settings.previewFontFamily);
+      root.style.setProperty(
+        "--mve-editor-font-family",
+        fontFamilyForCss(editorFontFamily, DEFAULT_FONT_FAMILY_STACK),
+      );
+      root.style.setProperty(
+        "--mve-preview-font-family",
+        fontFamilyForCss(previewFontFamily, DEFAULT_FONT_FAMILY_STACK),
+      );
+    },
+    [settings.editorFontFamily, settings.previewFontFamily],
+  );
   // HTML/PDFの出力先は白背景のため、VS CodeのダークテーマをSVGへ持ち込まない。
   const exportSettings = useMemo(
-
     /**
      * Webviewルートのコールバックとして要素を処理する。
      * @returns Webviewルートのコールバックが生成する結果。
@@ -685,12 +749,14 @@ export function App(): React.JSX.Element {
   const [linkHref, setLinkHref] = useState("https://example.com");
   const [linkLabel, setLinkLabel] = useState("");
   const [pdfOptions, setPdfOptions] = useState<NormalizedPdfOptions>(
-  /**
-   * 要素をnormalize・pdf・optionsへ渡し、Webviewルートの結果または副作用を処理する。
-   * @returns Webviewルートのコールバックが生成する結果。
-   */
-  () =>
-    normalizePdfOptions(bootstrap?.settings.pdfOptions ?? DEFAULT_PDF_OPTIONS),
+    /**
+     * 要素をnormalize・pdf・optionsへ渡し、Webviewルートの結果または副作用を処理する。
+     * @returns Webviewルートのコールバックが生成する結果。
+     */
+    () =>
+      normalizePdfOptions(
+        bootstrap?.settings.pdfOptions ?? DEFAULT_PDF_OPTIONS,
+      ),
   );
   /**
    * WebviewルートのDOMまたは状態を保持する参照。
@@ -701,16 +767,17 @@ export function App(): React.JSX.Element {
    */
   const pdfOptionsPersistTimerRef = useRef<number | undefined>(undefined);
   const [htmlOptions, setHtmlOptions] = useState<HtmlExportOptions>(
-  /**
-   * 要素をmerge・html・export・optionsへ渡し、Webviewルートの結果または副作用を処理する。
-   * @returns Webviewルートのコールバックが生成する結果。
-   */
-  () => ({
-    ...mergeHtmlExportOptions(
-      DEFAULT_HTML_EXPORT_OPTIONS,
-      bootstrap?.settings.htmlOptions ?? DEFAULT_HTML_EXPORT_SETTINGS,
-    ),
-  }));
+    /**
+     * 要素をmerge・html・export・optionsへ渡し、Webviewルートの結果または副作用を処理する。
+     * @returns Webviewルートのコールバックが生成する結果。
+     */
+    () => ({
+      ...mergeHtmlExportOptions(
+        DEFAULT_HTML_EXPORT_OPTIONS,
+        bootstrap?.settings.htmlOptions ?? DEFAULT_HTML_EXPORT_SETTINGS,
+      ),
+    }),
+  );
   /**
    * WebviewルートのDOMまたは状態を保持する参照。
    */
@@ -723,12 +790,17 @@ export function App(): React.JSX.Element {
     requestId: "",
     loading: false,
   });
-  const [htmlRenderRequest, setHtmlRenderRequest] =
-    useState<Extract<HostToWebviewMessage, {
-    /**
-     * Webviewルートで対象や分岐を識別する値の型。
-     */
-    type: "renderHtmlDocuments" }>>();
+  const [htmlRenderRequest, setHtmlRenderRequest] = useState<
+    Extract<
+      HostToWebviewMessage,
+      {
+        /**
+         * Webviewルートで対象や分岐を識別する値の型。
+         */
+        type: "renderHtmlDocuments";
+      }
+    >
+  >();
   const [exportStageRequested, setExportStageRequested] = useState(false);
   const [toast, setToast] = useState("");
   const [sectionLinkMenu, setSectionLinkMenu] = useState<{
@@ -739,6 +811,8 @@ export function App(): React.JSX.Element {
   }>();
   const sectionLinkMenuRef = useRef<HTMLDivElement>(null);
   const skipOutlineContextMenuRef = useRef(false);
+  /** 三角形上から始まった右ポインター操作を見出し名の右クリックと区別する。 */
+  const outlineDisclosureRightPointerRef = useRef(false);
 
   const clientIdRef = useRef(createClientId());
   const sourceRef = useRef<TextEditorHandle>(null);
@@ -761,23 +835,26 @@ export function App(): React.JSX.Element {
       updateRenderedState?: boolean,
     ) => void
   >(
-  /**
-   * Webviewルートのコールバックとして要素を処理する。
-   * @returns 副作用を完了し、値は返さない。
-   */
-  () => undefined);
+    /**
+     * Webviewルートのコールバックとして要素を処理する。
+     * @returns 副作用を完了し、値は返さない。
+     */
+    () => undefined,
+  );
   const versionRef = useRef(bootstrap?.version ?? 0);
   const initializedRef = useRef(Boolean(bootstrap));
   const startupReportedRef = useRef(false);
   const startupMermaidReportedRef = useRef(false);
   const startupInitReceivedAtRef = useRef<number | undefined>(
     bootstrap
-      ? (globalThis as typeof globalThis & {
-      /**
-       * Webviewルートの・mve・bundle・executed・atを表す数値。
-       */
-      __mveBundleExecutedAt?: number })
-          .__mveBundleExecutedAt
+      ? (
+          globalThis as typeof globalThis & {
+            /**
+             * Webviewルートの・mve・bundle・executed・atを表す数値。
+             */
+            __mveBundleExecutedAt?: number;
+          }
+        ).__mveBundleExecutedAt
       : undefined,
   );
   // ACK待ちは常に1件だけとし、その間の入力はlocalTextRefの最新値へ上書き集約する。
@@ -808,7 +885,6 @@ export function App(): React.JSX.Element {
   >(undefined);
   const skipNextSourceViewportRestoreRef = useRef(false);
   const pendingPreviewViewportRestoreRef = useRef<{
-
     /**
      * Webviewルートのsplit・previewに関する状態または設定。
      */
@@ -825,6 +901,7 @@ export function App(): React.JSX.Element {
   const previewUserScrollPendingRef = useRef(new WeakSet<HTMLElement>());
   const previewPointerScrollActiveRef = useRef(new WeakSet<HTMLElement>());
   const previewTouchScrollActiveRef = useRef(new WeakSet<HTMLElement>());
+  /** Pointer Events の各段階で参照する最新の見出し並べ替え状態。 */
   const outlineDragRef = useRef<OutlineDragState | undefined>(undefined);
   const [outlineDrag, setOutlineDrag] = useState<OutlineDragState | undefined>(
     undefined,
@@ -835,7 +912,6 @@ export function App(): React.JSX.Element {
     new Map<
       HTMLElement,
       {
-
         /**
          * メッセージ、項目、または処理の種類を識別する値。
          */
@@ -873,7 +949,6 @@ export function App(): React.JSX.Element {
   // 全文連結キーを作らず、既存スナップショットへの参照だけを保持する。
   const lastAutomaticRetryRef = useRef<
     | {
-
         /**
          * Webviewルートのversionを表す数値。
          */
@@ -892,7 +967,6 @@ export function App(): React.JSX.Element {
     | undefined
   >(undefined);
   const persistViewStateRef = useRef<(viewModeOverride?: ViewMode) => void>(
-
     /**
      * Webviewルートのコールバックとして要素を処理する。
      * @returns 副作用を完了し、値は返さない。
@@ -902,7 +976,6 @@ export function App(): React.JSX.Element {
   const persistViewStateTimerRef = useRef<number | undefined>(undefined);
   const pendingPersistViewModeRef = useRef<ViewMode | undefined>(undefined);
   const hostMessageHandlerRef = useRef<(message: HostToWebviewMessage) => void>(
-
     /**
      * Webviewルートのコールバックとして要素を処理する。
      * @returns 副作用を完了し、値は返さない。
@@ -925,8 +998,223 @@ export function App(): React.JSX.Element {
   }
 
   const outline = previewSnapshot.outline;
-  const diagnostics = useMemo(
+  const outlineStructureSignature = useMemo(
+    /**
+     * 現在の見出し構成から開閉状態の識別子を作成する。
+     * @returns 見出し構成の署名。
+     */
+    () => getOutlineStructureSignature(outline),
+    [outline],
+  );
+  const outlineTree = useMemo(
+    /**
+     * 見出し一覧から表示用のツリーを構築する。
+     * @returns 階層を持つアウトライン項目。
+     */
+    () => buildOutlineTree(outline),
+    [outline],
+  );
+  const [outlineCollapseState, setOutlineCollapseState] =
+    useState<OutlineCollapseState>(
+      /**
+       * Webview起動時に全見出しを展開した状態で初期化する。
+       * @returns 初期構造署名と空の折りたたみID集合。
+       */
+      () => ({ signature: outlineStructureSignature, collapsedIds: new Set() }),
+    );
+  const collapsedOutlineIds =
+    outlineCollapseState.signature === outlineStructureSignature
+      ? outlineCollapseState.collapsedIds
+      : EMPTY_OUTLINE_IDS;
 
+  useEffect(
+    /**
+     * 見出し構成が変わった際に古い折りたたみ状態を解除する。
+     * @returns 開閉状態の更新を完了する副作用コールバック。
+     */
+    () => {
+      setOutlineCollapseState(
+        /**
+         * 新しい見出し構成に対して折りたたみ状態を初期化する。
+         * @param current 直前の開閉状態。
+         * @returns 新しい構成署名と、空または既存の折りたたみID集合。
+         */
+        (current) =>
+          current.signature === outlineStructureSignature
+            ? current
+            : {
+                signature: outlineStructureSignature,
+                collapsedIds: new Set(),
+              },
+      );
+    },
+    [outlineStructureSignature],
+  );
+
+  /**
+   * 指定した見出しの子見出しの表示状態を反転する。
+   * @param id 開閉する見出しの一意なID。
+   * @returns 副作用を完了し、値は返さない。
+   */
+  function toggleOutlineSection(id: string): void {
+    setOutlineCollapseState(
+      /**
+       * 開閉する見出しIDを現在の状態へ追加または削除する。
+       * @param current 直前の開閉状態。
+       * @returns 更新した構成署名と折りたたみID集合。
+       */
+      (current) => {
+        const collapsedIds =
+          current.signature === outlineStructureSignature
+            ? new Set(current.collapsedIds)
+            : new Set<string>();
+        if (collapsedIds.has(id)) collapsedIds.delete(id);
+        else collapsedIds.add(id);
+        return { signature: outlineStructureSignature, collapsedIds };
+      },
+    );
+  }
+
+  /**
+   * ツリー項目とその子孫を階層順に描画する。
+   * @param nodes 元の配列位置を持つツリー項目。
+   * @param depth ツリー内の階層。行のホバー範囲を親列まで戻すために使う。
+   * @returns アウトライン項目のリスト要素。
+   */
+  function renderOutlineNodes(
+    nodes: readonly OutlineTreeNode[],
+    depth = 0,
+  ): React.JSX.Element[] {
+    return nodes.map(
+      /**
+       * 見出し行、開閉三角形、子見出しを描画する。
+       * @param node 現在描画する見出しツリー項目。
+       * @returns 見出し行と子見出しのリスト要素。
+       */
+      (node) => {
+        const { item, index, children } = node;
+        const hasChildren = children.length > 0;
+        const collapsed = collapsedOutlineIds.has(item.id);
+        const childListId = `outline-children-${index}`;
+        const isDragSource =
+          outlineDrag?.dragging && outlineDrag.sourceIndex === index;
+        const isDropTarget =
+          outlineDrag?.targetIndex === index && outlineDrag.position;
+
+        return (
+          <li
+            className={
+              hasChildren ? "outline-node outline-node-parent" : "outline-node"
+            }
+            data-outline-level={item.level}
+            key={`${item.offset}-${item.id}`}
+          >
+            <div
+              className="outline-row"
+              style={
+                {
+                  "--outline-row-inset":
+                    depth === 0 && !hasChildren
+                      ? "0px"
+                      : `${18 + depth * 22}px`,
+                } as React.CSSProperties
+              }
+            >
+              {hasChildren ? (
+                <button
+                  type="button"
+                  className="outline-disclosure"
+                  aria-label={item.text}
+                  aria-expanded={!collapsed}
+                  aria-controls={childListId}
+                  onClick={
+                    /**
+                     * 開閉三角形の操作を処理し、見出し移動を起動しない。
+                     * @param event 開閉三角形のクリックイベント。
+                     * @returns 副作用を完了し、値は返さない。
+                    */
+                    (event) => {
+                      event.stopPropagation();
+                      if (event.button !== 0) return;
+                      toggleOutlineSection(item.id);
+                    }
+                  }
+                  onContextMenu={
+                    /**
+                     * 開閉三角形上の右クリックを既定処理と親のメニュー処理へ伝えない。
+                     * @param event 開閉三角形のコンテキストメニューイベント。
+                     * @returns 既定メニューと親への伝播を抑止する副作用。
+                    */
+                    (event) => {
+                      outlineDisclosureRightPointerRef.current = false;
+                      event.preventDefault();
+                      event.stopPropagation();
+                    }
+                  }
+                >
+                  <span
+                    className="outline-disclosure-icon"
+                    aria-hidden="true"
+                  />
+                </button>
+              ) : null}
+              <button
+                type="button"
+                className={
+                  `outline-item${isDragSource ? " outline-drag-source" : ""}` +
+                  `${isDropTarget ? ` outline-drop-${outlineDrag?.position}` : ""}`
+                }
+                data-outline-index={index}
+                data-section-id={item.id}
+                data-dragging={isDragSource ? "true" : undefined}
+                onClick={
+                  /**
+                   * 見出し名をクリックした場合に対応する本文位置へ移動する。
+                   * @param event 見出し名のクリックイベント。
+                   * @returns 副作用を完了し、値は返さない。
+                   */
+                  (event) => {
+                    if (event.button === 0) goToOutlineOffset(item.offset);
+                  }
+                }
+                onPointerDown={
+                  /**
+                   * 見出し名の右ドラッグによる節移動を開始する。
+                   * @param event 見出し名のポインターイベント。
+                   * @returns 副作用を完了し、値は返さない。
+                   */
+                  (event) => beginOutlineDrag(event, index)
+                }
+                onPointerMove={updateOutlineDrag}
+                onPointerUp={finishOutlineDrag}
+                onPointerCancel={
+                  /**
+                   * キャンセルされた節ドラッグを終了する。
+                   * @param event 見出し名のポインターキャンセルイベント。
+                   * @returns 副作用を完了し、値は返さない。
+                   */
+                  (event) => finishOutlineDrag(event, true)
+                }
+              >
+                {item.text}
+              </button>
+            </div>
+            {hasChildren ? (
+              <ul
+                className="outline-children"
+                id={childListId}
+                hidden={collapsed}
+              >
+                {renderOutlineNodes(children, depth + 1)}
+              </ul>
+            ) : null}
+          </li>
+        );
+      },
+    );
+  }
+
+  const diagnostics = useMemo(
     /**
      * 要素をmerge・collected・diagnosticsへ渡し、Webviewルートの結果または副作用を処理する。
      * @returns Webviewルートのコールバックが生成する結果。
@@ -939,7 +1227,6 @@ export function App(): React.JSX.Element {
     [previewSnapshot.diagnostics, localResourceDiagnostics],
   );
   const diagnosticSummary = useMemo(
-
     /**
      * 要素をsummarize・diagnosticsへ渡し、Webviewルートの結果または副作用を処理する。
      * @returns Webviewルートのコールバックが生成する結果。
@@ -949,7 +1236,6 @@ export function App(): React.JSX.Element {
   );
   const stats = previewSnapshot.stats;
   const searchHits = useMemo(
-
     /**
      * 要素をfind・search・hitsへ渡し、Webviewルートの結果または副作用を処理する。
      * @returns Webviewルートのコールバックが生成する結果。
@@ -960,243 +1246,271 @@ export function App(): React.JSX.Element {
   const previewHtml = previewSnapshot.html;
 
   useEffect(
-  /**
-   * 依存状態の変化に応じて購読を更新し、解除処理を返す。
-   * @returns Webviewルートのコールバックが生成する結果。
-   */
-  () => {
-    // ホストへWebviewの準備完了を通知し、以後のメッセージを現在のハンドラーへ渡す。
-    mveDebug("webview.ready", { clientId: clientIdRef.current });
-    vscode.postMessage({ type: "ready", clientId: clientIdRef.current });
-    
-    const onMessage = /**
-     * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
-     * @param event - ホストから受信したwebview向けメッセージイベント。
-     * @returns Webviewルートのon・messageが生成する結果。
-     */ (event: MessageEvent<HostToWebviewMessage>) =>
-      hostMessageHandlerRef.current(event.data);
-    window.addEventListener("message", onMessage);
     /**
-     * イベントでremove・event・listenerを実行する。
-     * @returns 副作用を完了し、値は返さない。
-     */
-    return () => {
-      window.removeEventListener("message", onMessage);
-      if (persistViewStateTimerRef.current !== undefined) {
-        window.clearTimeout(persistViewStateTimerRef.current);
-        persistViewStateTimerRef.current = undefined;
-      }
-      if (pdfOptionsPersistTimerRef.current !== undefined) {
-        flushPdfOptionsPersistence();
-      }
-      if (previewScrollFrameRef.current !== undefined) {
-        window.cancelAnimationFrame(previewScrollFrameRef.current);
-        previewScrollFrameRef.current = undefined;
-      }
-      if (previewToSourceSyncTimerRef.current !== undefined) {
-        window.clearTimeout(previewToSourceSyncTimerRef.current);
-        previewToSourceSyncTimerRef.current = undefined;
-      }
-      if (sourceToPreviewSyncTimerRef.current !== undefined) {
-        window.clearTimeout(sourceToPreviewSyncTimerRef.current);
-        sourceToPreviewSyncTimerRef.current = undefined;
-      }
-      if (renderedPreviewRestoreFrameRef.current !== undefined) {
-        window.cancelAnimationFrame(renderedPreviewRestoreFrameRef.current);
-        renderedPreviewRestoreFrameRef.current = undefined;
-      }
-      if (renderedPreviewRestoreTimerRef.current !== undefined) {
-        window.clearTimeout(renderedPreviewRestoreTimerRef.current);
-        renderedPreviewRestoreTimerRef.current = undefined;
-      }
-      pendingPreviewScrollsRef.current.clear();
-      pendingPreviewToSourceAnchorRef.current = undefined;
-      pendingSourceToPreviewAnchorRef.current = undefined;
-      pendingRenderedPreviewKindsRef.current.clear();
-    };
-  }, []);
-
-  useEffect(
-  /**
-   * 依存状態の変化に応じて表示または購読を更新する。
-   * @returns Webviewルートのコールバックが生成する結果。
-   */
-  () => {
-    if (!initialized) return;
-    // Explorer起点の出力が描画要求を送る前に、init反映済みのApp状態を保証する。
-    vscode.postMessage({ type: "initialized", clientId: clientIdRef.current });
-  }, [initialized]);
-
-  useEffect(
-  /**
-   * 依存状態の変化に応じて表示または購読を更新する。
-   * @returns Webviewルートのコールバックが生成する結果。
-   */
-  () => {
-    if (previewSnapshot.markdown !== localTextRef.current) return;
-    const waiters = previewSnapshotWaitersRef.current.splice(0);
-    waiters.forEach(
-    /**
-     * 成功結果通知ごとに成功結果通知を実行する。
-     * @param resolve - Promiseの成功を通知する関数。
-     * @returns 副作用を完了し、値は返さない。
-     */
-    (resolve) => resolve());
-  }, [previewSnapshot.markdown]);
-
-  useEffect(
-  /**
-   * 依存状態の変化に応じて表示または購読を更新する。
-   * @returns Webviewルートのコールバックが生成する結果。
-   */
-  () => {
-    // 表示モードやレイアウト設定をVS CodeのWebview状態へ保存する。
-    persistViewState();
-  }, [outlineWidth, splitRatio, zoom, splitView]);
-
-  useEffect(
-  /**
-   * 依存状態の変化に応じて表示または購読を更新する。
-   * @returns Webviewルートのコールバックが生成する結果。
-   */
-  () => {
-    // 本文が変わったら、前の本文に対するローカル参照診断を破棄する。
-    resourceCheckGenerationRef.current += 1;
-    setLocalResourceDiagnostics(
-    /**
-     * Webviewルートのコールバックとしてpreviousを処理する。
-     * @param previous - Markdown変更前のローカルリソース診断一覧。未解決診断が残る場合にクリアする基準値。
-     * @returns Webviewルートに対応する要素の一覧。
-     */
-    (previous) =>
-      previous.length ? [] : previous,
-    );
-  }, [markdown]);
-
-  useEffect(
-  /**
-   * 依存状態の変化に応じて表示または購読を更新する。
-   * @returns Webviewルートのコールバックが生成する結果。
-   */
-  () => {
-    if (!printPreview) pdfPreviewSignatureRef.current = undefined;
-  }, [printPreview]);
-
-  useEffect(
-  /**
-   * 依存状態の変化に応じて購読を更新し、解除処理を返す。
-   * @returns Webviewルートのコールバックが生成する結果。
-   */
-  () => {
-    if (!printPreview || !initialized || !settings.workspaceTrusted) return;
-    if (pdfPreviewTimerRef.current !== undefined)
-      window.clearTimeout(pdfPreviewTimerRef.current);
-    pdfPreviewTimerRef.current = window.setTimeout(
-    /**
-     * 指定時間の経過後に後続処理を実行する。
-     * @returns 副作用を完了し、値は返さない。
-     */
-    () => {
-      pdfPreviewTimerRef.current = undefined;
-      requestPdfPreview();
-    }, 350);
-    /**
-     * Webviewルートのreturnを処理し、呼び出し側へ結果または副作用を返す。
-     * @returns Webviewルートのreturnが生成する結果。
-     */
-    return () => {
-      if (pdfPreviewTimerRef.current !== undefined) {
-        window.clearTimeout(pdfPreviewTimerRef.current);
-        pdfPreviewTimerRef.current = undefined;
-      }
-    };
-  }, [
-    initialized,
-    markdown,
-    pdfOptions,
-    printPreview,
-    settings.language,
-    settings.remoteImagesEnabled,
-    version,
-  ]);
-
-  useEffect(
-  /**
-   * 依存状態の変化に応じて購読を更新し、解除処理を返す。
-   * @returns Webviewルートのコールバックが生成する結果。
-   */
-  () => {
-    // 検索パネルが開いた直後に入力欄へフォーカスし、既存文字列を選択する。
-    if (!searchVisible) return;
-    const frame = requestAnimationFrame(
-    /**
-     * 次の描画フレームで表示更新を実行する。
+     * 依存状態の変化に応じて購読を更新し、解除処理を返す。
      * @returns Webviewルートのコールバックが生成する結果。
      */
     () => {
-      searchInputRef.current?.focus();
-      searchInputRef.current?.select();
-    });
+      // ホストへWebviewの準備完了を通知し、以後のメッセージを現在のハンドラーへ渡す。
+      mveDebug("webview.ready", { clientId: clientIdRef.current });
+      vscode.postMessage({ type: "ready", clientId: clientIdRef.current });
+
+      const onMessage = /**
+       * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
+       * @param event - ホストから受信したwebview向けメッセージイベント。
+       * @returns Webviewルートのon・messageが生成する結果。
+       */ (event: MessageEvent<HostToWebviewMessage>) =>
+        hostMessageHandlerRef.current(event.data);
+      window.addEventListener("message", onMessage);
+      /**
+       * イベントでremove・event・listenerを実行する。
+       * @returns 副作用を完了し、値は返さない。
+       */
+      return () => {
+        window.removeEventListener("message", onMessage);
+        if (persistViewStateTimerRef.current !== undefined) {
+          window.clearTimeout(persistViewStateTimerRef.current);
+          persistViewStateTimerRef.current = undefined;
+        }
+        if (pdfOptionsPersistTimerRef.current !== undefined) {
+          flushPdfOptionsPersistence();
+        }
+        if (previewScrollFrameRef.current !== undefined) {
+          window.cancelAnimationFrame(previewScrollFrameRef.current);
+          previewScrollFrameRef.current = undefined;
+        }
+        if (previewToSourceSyncTimerRef.current !== undefined) {
+          window.clearTimeout(previewToSourceSyncTimerRef.current);
+          previewToSourceSyncTimerRef.current = undefined;
+        }
+        if (sourceToPreviewSyncTimerRef.current !== undefined) {
+          window.clearTimeout(sourceToPreviewSyncTimerRef.current);
+          sourceToPreviewSyncTimerRef.current = undefined;
+        }
+        if (renderedPreviewRestoreFrameRef.current !== undefined) {
+          window.cancelAnimationFrame(renderedPreviewRestoreFrameRef.current);
+          renderedPreviewRestoreFrameRef.current = undefined;
+        }
+        if (renderedPreviewRestoreTimerRef.current !== undefined) {
+          window.clearTimeout(renderedPreviewRestoreTimerRef.current);
+          renderedPreviewRestoreTimerRef.current = undefined;
+        }
+        pendingPreviewScrollsRef.current.clear();
+        pendingPreviewToSourceAnchorRef.current = undefined;
+        pendingSourceToPreviewAnchorRef.current = undefined;
+        pendingRenderedPreviewKindsRef.current.clear();
+      };
+    },
+    [],
+  );
+
+  useEffect(
     /**
-     * Webviewルートのreturnを処理し、呼び出し側へ結果または副作用を返す。
-     * @returns Webviewルートのreturnが生成する結果。
+     * 依存状態の変化に応じて表示または購読を更新する。
+     * @returns Webviewルートのコールバックが生成する結果。
      */
-    return () => cancelAnimationFrame(frame);
-  }, [searchVisible]);
+    () => {
+      if (!initialized) return;
+      // Explorer起点の出力が描画要求を送る前に、init反映済みのApp状態を保証する。
+      vscode.postMessage({
+        type: "initialized",
+        clientId: clientIdRef.current,
+      });
+    },
+    [initialized],
+  );
 
   useEffect(
-  /**
-   * 依存状態の変化に応じて表示または購読を更新する。
-   * @returns Webviewルートのコールバックが生成する結果。
-   */
-  () => {
-    // 検索結果の現在位置をソースエディターへ選択・表示する。
-    if (!searchVisible || !searchHits.length) return;
-    const active = searchHits[Math.min(searchIndex, searchHits.length - 1)];
-    if (mode === "split" && splitView !== "preview") {
-      sourceRef.current?.setSelection(active);
-      sourceRef.current?.revealRange(active);
-    }
-  }, [searchVisible, searchHits, searchIndex, mode, splitView]);
+    /**
+     * 依存状態の変化に応じて表示または購読を更新する。
+     * @returns Webviewルートのコールバックが生成する結果。
+     */
+    () => {
+      if (previewSnapshot.markdown !== localTextRef.current) return;
+      const waiters = previewSnapshotWaitersRef.current.splice(0);
+      waiters.forEach(
+        /**
+         * 成功結果通知ごとに成功結果通知を実行する。
+         * @param resolve - Promiseの成功を通知する関数。
+         * @returns 副作用を完了し、値は返さない。
+         */
+        (resolve) => resolve(),
+      );
+    },
+    [previewSnapshot.markdown],
+  );
 
   useEffect(
-  /**
-   * 依存状態の変化に応じて表示または購読を更新する。
-   * @returns 副作用を完了し、値は返さない。
-   */
-  () => {
-    // リモート画像設定をCSSから参照できるbody属性へ反映する。
-    document.body.dataset.remoteImagesEnabled = String(
+    /**
+     * 依存状態の変化に応じて表示または購読を更新する。
+     * @returns Webviewルートのコールバックが生成する結果。
+     */
+    () => {
+      // 表示モードやレイアウト設定をVS CodeのWebview状態へ保存する。
+      persistViewState();
+    },
+    [outlineWidth, splitRatio, zoom, splitView],
+  );
+
+  useEffect(
+    /**
+     * 依存状態の変化に応じて表示または購読を更新する。
+     * @returns Webviewルートのコールバックが生成する結果。
+     */
+    () => {
+      // 本文が変わったら、前の本文に対するローカル参照診断を破棄する。
+      resourceCheckGenerationRef.current += 1;
+      setLocalResourceDiagnostics(
+        /**
+         * Webviewルートのコールバックとしてpreviousを処理する。
+         * @param previous - Markdown変更前のローカルリソース診断一覧。未解決診断が残る場合にクリアする基準値。
+         * @returns Webviewルートに対応する要素の一覧。
+         */
+        (previous) => (previous.length ? [] : previous),
+      );
+    },
+    [markdown],
+  );
+
+  useEffect(
+    /**
+     * 依存状態の変化に応じて表示または購読を更新する。
+     * @returns Webviewルートのコールバックが生成する結果。
+     */
+    () => {
+      if (!printPreview) pdfPreviewSignatureRef.current = undefined;
+    },
+    [printPreview],
+  );
+
+  useEffect(
+    /**
+     * 依存状態の変化に応じて購読を更新し、解除処理を返す。
+     * @returns Webviewルートのコールバックが生成する結果。
+     */
+    () => {
+      if (!printPreview || !initialized || !settings.workspaceTrusted) return;
+      if (pdfPreviewTimerRef.current !== undefined)
+        window.clearTimeout(pdfPreviewTimerRef.current);
+      pdfPreviewTimerRef.current = window.setTimeout(
+        /**
+         * 指定時間の経過後に後続処理を実行する。
+         * @returns 副作用を完了し、値は返さない。
+         */
+        () => {
+          pdfPreviewTimerRef.current = undefined;
+          requestPdfPreview();
+        },
+        350,
+      );
+      /**
+       * Webviewルートのreturnを処理し、呼び出し側へ結果または副作用を返す。
+       * @returns Webviewルートのreturnが生成する結果。
+       */
+      return () => {
+        if (pdfPreviewTimerRef.current !== undefined) {
+          window.clearTimeout(pdfPreviewTimerRef.current);
+          pdfPreviewTimerRef.current = undefined;
+        }
+      };
+    },
+    [
+      initialized,
+      markdown,
+      pdfOptions,
+      printPreview,
+      settings.language,
       settings.remoteImagesEnabled,
-    );
-  }, [settings.remoteImagesEnabled]);
+      version,
+    ],
+  );
 
   useEffect(
-  /**
-   * 依存状態の変化に応じて購読を更新し、解除処理を返す。
-   * @returns 副作用を完了し、値は返さない。
-   */
-  () => {
-    // CtrlまたはCmdを押しながらのホイール入力で表示倍率を変更する。
-    const editorArea = editorAreaRef.current;
-    if (!editorArea) return;
-    
-    const onWheel = /**
-     * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
-     * @param event - Ctrl+ホイールによるプレビュー倍率変更を判定するwheel event。
-     * @returns 副作用を完了し、値は返さない。
-     */ (event: WheelEvent) => {
-      if (!event.ctrlKey) return;
-      event.preventDefault();
-      adjustZoom(event.deltaY < 0 ? 0.1 : -0.1);
-    };
-    editorArea.addEventListener("wheel", onWheel, { passive: false });
     /**
-     * イベントでremove・event・listenerを実行する。
+     * 依存状態の変化に応じて購読を更新し、解除処理を返す。
+     * @returns Webviewルートのコールバックが生成する結果。
+     */
+    () => {
+      // 検索パネルが開いた直後に入力欄へフォーカスし、既存文字列を選択する。
+      if (!searchVisible) return;
+      const frame = requestAnimationFrame(
+        /**
+         * 次の描画フレームで表示更新を実行する。
+         * @returns Webviewルートのコールバックが生成する結果。
+         */
+        () => {
+          searchInputRef.current?.focus();
+          searchInputRef.current?.select();
+        },
+      );
+      /**
+       * Webviewルートのreturnを処理し、呼び出し側へ結果または副作用を返す。
+       * @returns Webviewルートのreturnが生成する結果。
+       */
+      return () => cancelAnimationFrame(frame);
+    },
+    [searchVisible],
+  );
+
+  useEffect(
+    /**
+     * 依存状態の変化に応じて表示または購読を更新する。
+     * @returns Webviewルートのコールバックが生成する結果。
+     */
+    () => {
+      // 検索結果の現在位置をソースエディターへ選択・表示する。
+      if (!searchVisible || !searchHits.length) return;
+      const active = searchHits[Math.min(searchIndex, searchHits.length - 1)];
+      if (mode === "split" && splitView !== "preview") {
+        sourceRef.current?.setSelection(active);
+        sourceRef.current?.revealRange(active);
+      }
+    },
+    [searchVisible, searchHits, searchIndex, mode, splitView],
+  );
+
+  useEffect(
+    /**
+     * 依存状態の変化に応じて表示または購読を更新する。
      * @returns 副作用を完了し、値は返さない。
      */
-    return () => editorArea.removeEventListener("wheel", onWheel);
-  }, [initialized]);
+    () => {
+      // リモート画像設定をCSSから参照できるbody属性へ反映する。
+      document.body.dataset.remoteImagesEnabled = String(
+        settings.remoteImagesEnabled,
+      );
+    },
+    [settings.remoteImagesEnabled],
+  );
+
+  useEffect(
+    /**
+     * 依存状態の変化に応じて購読を更新し、解除処理を返す。
+     * @returns 副作用を完了し、値は返さない。
+     */
+    () => {
+      // CtrlまたはCmdを押しながらのホイール入力で表示倍率を変更する。
+      const editorArea = editorAreaRef.current;
+      if (!editorArea) return;
+
+      const onWheel = /**
+       * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
+       * @param event - Ctrl+ホイールによるプレビュー倍率変更を判定するwheel event。
+       * @returns 副作用を完了し、値は返さない。
+       */ (event: WheelEvent) => {
+        if (!event.ctrlKey) return;
+        event.preventDefault();
+        adjustZoom(event.deltaY < 0 ? 0.1 : -0.1);
+      };
+      editorArea.addEventListener("wheel", onWheel, { passive: false });
+      /**
+       * イベントでremove・event・listenerを実行する。
+       * @returns 副作用を完了し、値は返さない。
+       */
+      return () => editorArea.removeEventListener("wheel", onWheel);
+    },
+    [initialized],
+  );
 
   /**
    * Webviewルートのadjust・zoomを処理し、呼び出し側へ結果または副作用を返す。
@@ -1231,418 +1545,440 @@ export function App(): React.JSX.Element {
   }
 
   useLayoutEffect(
-  /**
-   * 要素をifへ渡し、Webviewルートの結果または副作用を処理する。
-   * @returns Webviewルートのコールバックが生成する結果。
-   */
-  () => {
-    // 保留した選択移動または表示位置復元をレイアウト確定後に実行する。
-    const navigation = pendingNavigationRef.current;
-    if (
-      navigation &&
-      mode === "split" &&
-      splitView !== "preview" &&
-      sourceRef.current
-    ) {
-      sourceRef.current.setSelection(navigation);
-      sourceRef.current.revealRange(navigation);
-      const preview = splitPreviewRef.current;
-      if (preview) {
-        const previewAnchor: PreviewViewportAnchor = {
-          offset: navigation.from,
-          topOffset: 18,
-        };
-        viewportStateRef.current.splitPreview = previewAnchor;
-        // CodeMirrorのrevealRangeと同じ描画世代で、プレビューも選択位置へ揃える。
-        requestAnimationFrame(
+    /**
+     * 要素をifへ渡し、Webviewルートの結果または副作用を処理する。
+     * @returns Webviewルートのコールバックが生成する結果。
+     */
+    () => {
+      // 保留した選択移動または表示位置復元をレイアウト確定後に実行する。
+      const navigation = pendingNavigationRef.current;
+      if (
+        navigation &&
+        mode === "split" &&
+        splitView !== "preview" &&
+        sourceRef.current
+      ) {
+        sourceRef.current.setSelection(navigation);
+        sourceRef.current.revealRange(navigation);
+        const preview = splitPreviewRef.current;
+        if (preview) {
+          const previewAnchor: PreviewViewportAnchor = {
+            offset: navigation.from,
+            topOffset: 18,
+          };
+          viewportStateRef.current.splitPreview = previewAnchor;
+          // CodeMirrorのrevealRangeと同じ描画世代で、プレビューも選択位置へ揃える。
+          requestAnimationFrame(
+            /**
+             * 次の描画フレームで表示更新を実行する。
+             * @returns Webviewルートのコールバックが生成する結果。
+             */
+            () => {
+              if (splitPreviewRef.current === preview)
+                restorePreview(preview, previewAnchor);
+            },
+          );
+        }
+        pendingNavigationRef.current = undefined;
+        pendingViewportRestoreRef.current = false;
+        return;
+      }
+      if (!pendingViewportRestoreRef.current) return;
+      // Markdown Workerが旧プレビューを表示している間は復元を消化しない。
+      // 最新世代のDOMが確定したレイアウトで一度だけ復元する。
+      if (renderedPreviewMarkdown !== markdown) return;
+      const frame = requestAnimationFrame(
         /**
          * 次の描画フレームで表示更新を実行する。
          * @returns Webviewルートのコールバックが生成する結果。
          */
         () => {
-          if (splitPreviewRef.current === preview)
-            restorePreview(preview, previewAnchor);
-        });
-      }
-      pendingNavigationRef.current = undefined;
-      pendingViewportRestoreRef.current = false;
-      return;
-    }
-    if (!pendingViewportRestoreRef.current) return;
-    // Markdown Workerが旧プレビューを表示している間は復元を消化しない。
-    // 最新世代のDOMが確定したレイアウトで一度だけ復元する。
-    if (renderedPreviewMarkdown !== markdown) return;
-    const frame = requestAnimationFrame(
+          restoreVisibleViewports();
+          pendingViewportRestoreRef.current = false;
+        },
+      );
+      /**
+       * Webviewルートのreturnを処理し、呼び出し側へ結果または副作用を返す。
+       * @returns Webviewルートのreturnが生成する結果。
+       */
+      return () => cancelAnimationFrame(frame);
+    },
+    [
+      mode,
+      splitView,
+      zoom,
+      splitRatio,
+      outlineVisible,
+      diagnosticsVisible,
+      Boolean(inspector),
+      markdown,
+      renderedPreviewMarkdown,
+    ],
+  );
+
+  useLayoutEffect(
     /**
-     * 次の描画フレームで表示更新を実行する。
+     * 要素をifへ渡し、Webviewルートの結果または副作用を処理する。
      * @returns Webviewルートのコールバックが生成する結果。
      */
     () => {
-      restoreVisibleViewports();
-      pendingViewportRestoreRef.current = false;
-    });
-    /**
-     * Webviewルートのreturnを処理し、呼び出し側へ結果または副作用を返す。
-     * @returns Webviewルートのreturnが生成する結果。
-     */
-    return () => cancelAnimationFrame(frame);
-  }, [
-    mode,
-    splitView,
-    zoom,
-    splitRatio,
-    outlineVisible,
-    diagnosticsVisible,
-    Boolean(inspector),
-    markdown,
-    renderedPreviewMarkdown,
-  ]);
+      const area = editorAreaRef.current;
+      const split = area?.querySelector<HTMLElement>(".split-editor");
+      const source = area?.querySelector<HTMLElement>(".split-source-pane");
+      const preview = area?.querySelector<HTMLElement>(".split-preview-pane");
+      if (!area) return;
 
-  useLayoutEffect(
-  /**
-   * 要素をifへ渡し、Webviewルートの結果または副作用を処理する。
-   * @returns Webviewルートのコールバックが生成する結果。
-   */
-  () => {
-    const area = editorAreaRef.current;
-    const split = area?.querySelector<HTMLElement>(".split-editor");
-    const source = area?.querySelector<HTMLElement>(".split-source-pane");
-    const preview = area?.querySelector<HTMLElement>(".split-preview-pane");
-    if (!area) return;
-
-    
-    const size = /**
-     * Webviewルートのsizeを処理し、呼び出し側へ結果または副作用を返す。
-     * @param element - 表示寸法とCSSのdisplay値を測定する領域。未描画ならnull。
-     * @returns Webviewルートのsizeが生成する結果。
-     */ (element: HTMLElement | null) => {
-      if (!element) return undefined;
-      const rect = element.getBoundingClientRect();
-      const style = getComputedStyle(element);
-      return {
-        width: Math.round(rect.width * 100) / 100,
-        height: Math.round(rect.height * 100) / 100,
-        display: style.display,
+      const size = /**
+       * Webviewルートのsizeを処理し、呼び出し側へ結果または副作用を返す。
+       * @param element - 表示寸法とCSSのdisplay値を測定する領域。未描画ならnull。
+       * @returns Webviewルートのsizeが生成する結果。
+       */ (element: HTMLElement | null) => {
+        if (!element) return undefined;
+        const rect = element.getBoundingClientRect();
+        const style = getComputedStyle(element);
+        return {
+          width: Math.round(rect.width * 100) / 100,
+          height: Math.round(rect.height * 100) / 100,
+          display: style.display,
+        };
       };
-    };
-    mveDebug("view.layout", {
+      mveDebug("view.layout", {
+        mode,
+        splitView,
+        editorArea: size(area),
+        split: size(split ?? null),
+        source: size(source ?? null),
+        preview: size(preview ?? null),
+        columns: split
+          ? getComputedStyle(split).gridTemplateColumns
+          : undefined,
+      });
+    },
+    [
+      initialized,
       mode,
       splitView,
-      editorArea: size(area),
-      split: size(split ?? null),
-      source: size(source ?? null),
-      preview: size(preview ?? null),
-      columns: split ? getComputedStyle(split).gridTemplateColumns : undefined,
-    });
-  }, [
-    initialized,
-    mode,
-    splitView,
-    outlineVisible,
-    splitRatio,
-    zoom,
-    diagnosticsVisible,
-    Boolean(inspector),
-  ]);
+      outlineVisible,
+      splitRatio,
+      zoom,
+      diagnosticsVisible,
+      Boolean(inspector),
+    ],
+  );
 
   useEffect(
-  /**
-   * 依存状態の変化に応じて表示または購読を更新する。
-   * @returns Webviewルートのコールバックが生成する結果。
-   */
-  () => {
-    // リサイズ中に各ペインの表示アンカーを保存し、リサイズ後に同じ位置へ戻す。
-    let frame = 0;
-    let resetSnapshotTimer = 0;
-    let resizeSnapshot:
-      | {
+    /**
+     * 依存状態の変化に応じて表示または購読を更新する。
+     * @returns Webviewルートのコールバックが生成する結果。
+     */
+    () => {
+      // リサイズ中に各ペインの表示アンカーを保存し、リサイズ後に同じ位置へ戻す。
+      let frame = 0;
+      let resetSnapshotTimer = 0;
+      let resizeSnapshot:
+        | {
+            /**
+             * 解析・描画・変換の起点となる本文。
+             */
+            source?: EditorViewportAnchor;
 
-          /**
-           * 解析・描画・変換の起点となる本文。
-           */
-          source?: EditorViewportAnchor;
+            /**
+             * Webviewルートのsplit・previewに関する状態または設定。
+             */
+            splitPreview?: PreviewViewportAnchor;
 
-          /**
-           * Webviewルートのsplit・previewに関する状態または設定。
-           */
-          splitPreview?: PreviewViewportAnchor;
+            /**
+             * Webviewルートのpreview・onlyに関する状態または設定。
+             */
+            previewOnly?: PreviewViewportAnchor;
 
-          /**
-           * Webviewルートのpreview・onlyに関する状態または設定。
-           */
-          previewOnly?: PreviewViewportAnchor;
+            /**
+             * Webviewルートのintent・generationを表す数値。
+             */
+            intentGeneration: number;
+          }
+        | undefined;
 
-          /**
-           * Webviewルートのintent・generationを表す数値。
-           */
-          intentGeneration: number;
+      const onResize = /**
+       * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
+       * @returns Webviewルートのon・resizeが生成する結果。
+       */ () => {
+        if (!resizeSnapshot) {
+          resizeSnapshot = {
+            source: viewportStateRef.current.source
+              ? { ...viewportStateRef.current.source }
+              : undefined,
+            splitPreview: viewportStateRef.current.splitPreview
+              ? { ...viewportStateRef.current.splitPreview }
+              : undefined,
+            previewOnly: viewportStateRef.current.previewOnly
+              ? { ...viewportStateRef.current.previewOnly }
+              : undefined,
+            intentGeneration: viewportUserIntentGenerationRef.current,
+          };
         }
-      | undefined;
-    
-    const onResize = /**
-     * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
-     * @returns Webviewルートのon・resizeが生成する結果。
-     */ () => {
-      if (!resizeSnapshot) {
-        resizeSnapshot = {
-          source: viewportStateRef.current.source
-            ? { ...viewportStateRef.current.source }
-            : undefined,
-          splitPreview: viewportStateRef.current.splitPreview
-            ? { ...viewportStateRef.current.splitPreview }
-            : undefined,
-          previewOnly: viewportStateRef.current.previewOnly
-            ? { ...viewportStateRef.current.previewOnly }
-            : undefined,
-          intentGeneration: viewportUserIntentGenerationRef.current,
-        };
-      }
-      pendingSourceViewportRestoreRef.current = resizeSnapshot.source
-        ? { ...resizeSnapshot.source }
-        : undefined;
-      cancelAnimationFrame(frame);
-      frame = requestAnimationFrame(
+        pendingSourceViewportRestoreRef.current = resizeSnapshot.source
+          ? { ...resizeSnapshot.source }
+          : undefined;
+        cancelAnimationFrame(frame);
+        frame = requestAnimationFrame(
+          /**
+           * 次の描画フレームで表示更新を実行する。
+           * @returns Webviewルートのコールバックが生成する結果。
+           */
+          () => {
+            const snapshot = resizeSnapshot;
+            if (
+              !snapshot ||
+              snapshot.intentGeneration !==
+                viewportUserIntentGenerationRef.current
+            )
+              return;
+            if (
+              mode === "split" &&
+              splitView !== "preview" &&
+              snapshot.source
+            ) {
+              restoreSource(snapshot.source);
+            }
+            if (
+              mode === "split" &&
+              splitView !== "text" &&
+              splitPreviewRef.current &&
+              snapshot.splitPreview
+            ) {
+              restorePreview(splitPreviewRef.current, snapshot.splitPreview);
+            }
+            if (
+              mode === "preview" &&
+              editorAreaRef.current &&
+              snapshot.previewOnly
+            ) {
+              restorePreview(editorAreaRef.current, snapshot.previewOnly);
+            }
+          },
+        );
+        window.clearTimeout(resetSnapshotTimer);
+        resetSnapshotTimer = window.setTimeout(
+          /**
+           * 指定時間の経過後に後続処理を実行する。
+           * @returns 副作用を完了し、値は返さない。
+           */
+          () => {
+            resizeSnapshot = undefined;
+          },
+          120,
+        );
+      };
+
+      const endPreviewPointerScroll = /**
+       * Webviewルートのend・preview・pointer・scrollを処理し、呼び出し側へ結果または副作用を返す。
+       * @returns Webviewルートのend・preview・pointer・scrollが生成する結果。
+       */ () => {
+        const splitPreview = splitPreviewRef.current;
+        const editorArea = editorAreaRef.current;
+        if (splitPreview)
+          previewPointerScrollActiveRef.current.delete(splitPreview);
+        if (editorArea)
+          previewPointerScrollActiveRef.current.delete(editorArea);
+      };
+
+      const endPreviewTouchScroll = /**
+       * Webviewルートのend・preview・touch・scrollを処理し、呼び出し側へ結果または副作用を返す。
+       * @returns Webviewルートのend・preview・touch・scrollが生成する結果。
+       */ () => {
+        const splitPreview = splitPreviewRef.current;
+        const editorArea = editorAreaRef.current;
+        if (splitPreview)
+          previewTouchScrollActiveRef.current.delete(splitPreview);
+        if (editorArea) previewTouchScrollActiveRef.current.delete(editorArea);
+      };
+      window.addEventListener("resize", onResize);
+      window.addEventListener("pointerup", endPreviewPointerScroll);
+      window.addEventListener("pointercancel", endPreviewPointerScroll);
+      window.addEventListener("touchend", endPreviewTouchScroll);
+      window.addEventListener("touchcancel", endPreviewTouchScroll);
       /**
-       * 次の描画フレームで表示更新を実行する。
-       * @returns Webviewルートのコールバックが生成する結果。
-       */
-      () => {
-        const snapshot = resizeSnapshot;
-        if (
-          !snapshot ||
-          snapshot.intentGeneration !== viewportUserIntentGenerationRef.current
-        )
-          return;
-        if (mode === "split" && splitView !== "preview" && snapshot.source) {
-          restoreSource(snapshot.source);
-        }
-        if (
-          mode === "split" &&
-          splitView !== "text" &&
-          splitPreviewRef.current &&
-          snapshot.splitPreview
-        ) {
-          restorePreview(splitPreviewRef.current, snapshot.splitPreview);
-        }
-        if (
-          mode === "preview" &&
-          editorAreaRef.current &&
-          snapshot.previewOnly
-        ) {
-          restorePreview(editorAreaRef.current, snapshot.previewOnly);
-        }
-      });
-      window.clearTimeout(resetSnapshotTimer);
-      resetSnapshotTimer = window.setTimeout(
-      /**
-       * 指定時間の経過後に後続処理を実行する。
+       * UIイベントを表示または編集状態へ反映する。
        * @returns 副作用を完了し、値は返さない。
        */
-      () => {
-        resizeSnapshot = undefined;
-      }, 120);
-    };
-    
-    const endPreviewPointerScroll = /**
-     * Webviewルートのend・preview・pointer・scrollを処理し、呼び出し側へ結果または副作用を返す。
-     * @returns Webviewルートのend・preview・pointer・scrollが生成する結果。
-     */ () => {
-      const splitPreview = splitPreviewRef.current;
-      const editorArea = editorAreaRef.current;
-      if (splitPreview)
-        previewPointerScrollActiveRef.current.delete(splitPreview);
-      if (editorArea) previewPointerScrollActiveRef.current.delete(editorArea);
-    };
-    
-    const endPreviewTouchScroll = /**
-     * Webviewルートのend・preview・touch・scrollを処理し、呼び出し側へ結果または副作用を返す。
-     * @returns Webviewルートのend・preview・touch・scrollが生成する結果。
-     */ () => {
-      const splitPreview = splitPreviewRef.current;
-      const editorArea = editorAreaRef.current;
-      if (splitPreview)
-        previewTouchScrollActiveRef.current.delete(splitPreview);
-      if (editorArea) previewTouchScrollActiveRef.current.delete(editorArea);
-    };
-    window.addEventListener("resize", onResize);
-    window.addEventListener("pointerup", endPreviewPointerScroll);
-    window.addEventListener("pointercancel", endPreviewPointerScroll);
-    window.addEventListener("touchend", endPreviewTouchScroll);
-    window.addEventListener("touchcancel", endPreviewTouchScroll);
-    /**
-     * UIイベントを表示または編集状態へ反映する。
-     * @returns 副作用を完了し、値は返さない。
-     */
-    return () => {
-      cancelAnimationFrame(frame);
-      window.clearTimeout(resetSnapshotTimer);
-      window.removeEventListener("resize", onResize);
-      window.removeEventListener("pointerup", endPreviewPointerScroll);
-      window.removeEventListener("pointercancel", endPreviewPointerScroll);
-      window.removeEventListener("touchend", endPreviewTouchScroll);
-      window.removeEventListener("touchcancel", endPreviewTouchScroll);
-    };
-  }, [initialized, mode, splitView]);
+      return () => {
+        cancelAnimationFrame(frame);
+        window.clearTimeout(resetSnapshotTimer);
+        window.removeEventListener("resize", onResize);
+        window.removeEventListener("pointerup", endPreviewPointerScroll);
+        window.removeEventListener("pointercancel", endPreviewPointerScroll);
+        window.removeEventListener("touchend", endPreviewTouchScroll);
+        window.removeEventListener("touchcancel", endPreviewTouchScroll);
+      };
+    },
+    [initialized, mode, splitView],
+  );
 
   useEffect(
-
     /**
      * 依存状態の変化に応じて表示または購読を更新する。
      * @returns Webviewルートのコールバックが生成する結果。
      */
     () =>
-    /**
-     * 要素を削除へ渡し、Webviewルートの結果または副作用を処理する。
-     * @returns Webviewルートのコールバックが生成する結果。
-     */
-    () => {
-      outlineDragRef.current = undefined;
-      document.body.classList.remove("mve-dragging-outline");
-    },
+      /**
+       * 要素を削除へ渡し、Webviewルートの結果または副作用を処理する。
+       * @returns Webviewルートのコールバックが生成する結果。
+       */
+      () => {
+        outlineDragRef.current = undefined;
+        document.body.classList.remove("mve-dragging-outline");
+      },
     [],
   );
 
   useEffect(
-  /**
-   * 依存状態の変化に応じて表示または購読を更新する。
-   * @returns Webviewルートのコールバックが生成する結果。
-   */
-  () => {
-    // 貼り付け・ドラッグ&ドロップ・キーボードショートカットを文書編集へ接続する。
-    
-    const onPaste = /**
-     * pasteイベントでhandle・pasteを実行する。
-     * @param event - 編集中の本文に貼り付けられた画像またはテキストを処理するclipboard event。
-     * @returns 副作用を完了し、値は返さない。
-     */ (event: ClipboardEvent) => void handlePaste(event);
-    
-    const onDragOver = /**
-     * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
-     * @param event - 画像ファイルのdrag-overを受け取り、copy dropを許可するdrag event。
-     * @returns Webviewルートのon・drag・overが生成する結果。
-     */ (event: DragEvent) => {
-      if (
-        isEditingEnabled(mode, splitView) &&
-        Array.from(event.dataTransfer?.items ?? []).some(
+    /**
+     * 依存状態の変化に応じて表示または購読を更新する。
+     * @returns Webviewルートのコールバックが生成する結果。
+     */
+    () => {
+      // 貼り付け・ドラッグ&ドロップ・キーボードショートカットを文書編集へ接続する。
 
-          /**
-           * Webviewルートのコールバックとして項目を処理する。
-           * @param item - DataTransferから取得した貼り付け項目。画像ファイルかを判定する。
-           * @returns Webviewルートのコールバックが生成する結果。
-           */
-          (item) => item.kind === "file",
-        )
-      ) {
-        event.preventDefault();
-        if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
-      }
-    };
-    
-    const onDrop = /**
-     * dropイベントでifを実行する。
-     * @param event - 本文へ画像ファイルをdropした際のdrag event。
-     * @returns 副作用を完了し、値は返さない。
-     */ (event: DragEvent) => {
-      if (!isEditingEnabled(mode, splitView)) return;
-      const files = Array.from(event.dataTransfer?.files ?? []).filter(
-        isImageFile,
-      );
-      if (!files.length) return;
-      event.preventDefault();
-      event.stopImmediatePropagation();
-      void saveImageFiles(files);
-    };
-    
-    const onKeyDown = /**
-     * keydownイベントでbooleanを実行する。
-     * @param event - Webview本文とプレビューのグローバルショートカットを処理するkeydown event。
-     * @returns 副作用を完了し、値は返さない。
-     */ (event: KeyboardEvent) => {
-      const target = event.target instanceof Element ? event.target : undefined;
-      const inApp =
-        Boolean(target?.closest(".app")) || target === document.body;
-      const inSourceEditor = Boolean(target?.closest(".cm-content"));
-      const inFormControl = Boolean(target?.closest("input, textarea, select"));
-      const inTableEditor = Boolean(target?.closest(".mve-table-editor"));
-      if (
-        inApp &&
-        (inSourceEditor || !inFormControl) &&
-        !event.isComposing &&
-        (event.ctrlKey || event.metaKey) &&
-        !event.altKey
-      ) {
-        const key = event.key.toLowerCase();
-        const command =
-          key === "z"
-            ? event.shiftKey
-              ? "redo"
-              : "undo"
-            : key === "y" && !event.shiftKey
-              ? "redo"
-              : undefined;
-        if (command) {
+      const onPaste = /**
+       * pasteイベントでhandle・pasteを実行する。
+       * @param event - 編集中の本文に貼り付けられた画像またはテキストを処理するclipboard event。
+       * @returns 副作用を完了し、値は返さない。
+       */ (event: ClipboardEvent) => void handlePaste(event);
+
+      const onDragOver = /**
+       * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
+       * @param event - 画像ファイルのdrag-overを受け取り、copy dropを許可するdrag event。
+       * @returns Webviewルートのon・drag・overが生成する結果。
+       */ (event: DragEvent) => {
+        if (
+          isEditingEnabled(mode, splitView) &&
+          Array.from(event.dataTransfer?.items ?? []).some(
+            /**
+             * Webviewルートのコールバックとして項目を処理する。
+             * @param item - DataTransferから取得した貼り付け項目。画像ファイルかを判定する。
+             * @returns Webviewルートのコールバックが生成する結果。
+             */
+            (item) => item.kind === "file",
+          )
+        ) {
           event.preventDefault();
-          event.stopImmediatePropagation();
-          requestHistoryCommand(command);
+          if (event.dataTransfer) event.dataTransfer.dropEffect = "copy";
+        }
+      };
+
+      const onDrop = /**
+       * dropイベントでifを実行する。
+       * @param event - 本文へ画像ファイルをdropした際のdrag event。
+       * @returns 副作用を完了し、値は返さない。
+       */ (event: DragEvent) => {
+        if (!isEditingEnabled(mode, splitView)) return;
+        const files = Array.from(event.dataTransfer?.files ?? []).filter(
+          isImageFile,
+        );
+        if (!files.length) return;
+        event.preventDefault();
+        event.stopImmediatePropagation();
+        void saveImageFiles(files);
+      };
+
+      const onKeyDown = /**
+       * keydownイベントでbooleanを実行する。
+       * @param event - Webview本文とプレビューのグローバルショートカットを処理するkeydown event。
+       * @returns 副作用を完了し、値は返さない。
+       */ (event: KeyboardEvent) => {
+        const target =
+          event.target instanceof Element ? event.target : undefined;
+        const inApp =
+          Boolean(target?.closest(".app")) || target === document.body;
+        const inSourceEditor = Boolean(target?.closest(".cm-content"));
+        const inFormControl = Boolean(
+          target?.closest("input, textarea, select"),
+        );
+        const inTableEditor = Boolean(target?.closest(".mve-table-editor"));
+        if (
+          inApp &&
+          (inSourceEditor || !inFormControl) &&
+          !event.isComposing &&
+          (event.ctrlKey || event.metaKey) &&
+          !event.altKey
+        ) {
+          const key = event.key.toLowerCase();
+          const command =
+            key === "z"
+              ? event.shiftKey
+                ? "redo"
+                : "undo"
+              : key === "y" && !event.shiftKey
+                ? "redo"
+                : undefined;
+          if (command) {
+            event.preventDefault();
+            event.stopImmediatePropagation();
+            requestHistoryCommand(command);
+            return;
+          }
+        }
+        if (
+          (event.ctrlKey || event.metaKey) &&
+          event.key.toLowerCase() === "f"
+        ) {
+          event.preventDefault();
+          openSearch();
           return;
         }
-      }
-      if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "f") {
-        event.preventDefault();
-        openSearch();
-        return;
-      }
-      if (
-        event.altKey &&
-        event.key === "Enter" &&
-        isEditingEnabled(mode, splitView) &&
-        !inTableEditor
-      ) {
-        event.preventDefault();
-        getActiveEditor()?.action("cellBreak");
-      }
-    };
-    document.addEventListener("paste", onPaste, true);
-    document.addEventListener("dragover", onDragOver, true);
-    document.addEventListener("drop", onDrop, true);
-    document.addEventListener("keydown", onKeyDown, true);
-    /**
-     * イベントでremove・event・listenerを実行する。
-     * @returns 副作用を完了し、値は返さない。
-     */
-    return () => {
-      document.removeEventListener("paste", onPaste, true);
-      document.removeEventListener("dragover", onDragOver, true);
-      document.removeEventListener("drop", onDrop, true);
-      document.removeEventListener("keydown", onKeyDown, true);
-    };
-  }, [
-    mode,
-    splitView,
-    settings.maxPasteSizeMb,
-    settings.imageDirectory,
-  ]);
+        if (
+          event.altKey &&
+          event.key === "Enter" &&
+          isEditingEnabled(mode, splitView) &&
+          !inTableEditor
+        ) {
+          event.preventDefault();
+          getActiveEditor()?.action("cellBreak");
+        }
+      };
+      document.addEventListener("paste", onPaste, true);
+      document.addEventListener("dragover", onDragOver, true);
+      document.addEventListener("drop", onDrop, true);
+      document.addEventListener("keydown", onKeyDown, true);
+      /**
+       * イベントでremove・event・listenerを実行する。
+       * @returns 副作用を完了し、値は返さない。
+       */
+      return () => {
+        document.removeEventListener("paste", onPaste, true);
+        document.removeEventListener("dragover", onDragOver, true);
+        document.removeEventListener("drop", onDrop, true);
+        document.removeEventListener("keydown", onKeyDown, true);
+      };
+    },
+    [mode, splitView, settings.maxPasteSizeMb, settings.imageDirectory],
+  );
 
   useEffect(
-  /**
-   * 依存状態の変化に応じて購読を更新し、解除処理を返す。
-   * @returns 副作用を完了し、値は返さない。
-   */
-  () => {
-    // 通知トーストを一定時間後に自動的に閉じる。
-    if (!toast) return;
-    const timer = window.setTimeout(
     /**
-     * 指定時間の経過後に後続処理を実行する。
+     * 依存状態の変化に応じて購読を更新し、解除処理を返す。
      * @returns 副作用を完了し、値は返さない。
      */
-    () => setToast(""), 2600);
-    /**
-     * Webviewルートのreturnを処理し、呼び出し側へ結果または副作用を返す。
-     * @returns 副作用を完了し、値は返さない。
-     */
-    return () => window.clearTimeout(timer);
-  }, [toast]);
+    () => {
+      // 通知トーストを一定時間後に自動的に閉じる。
+      if (!toast) return;
+      const timer = window.setTimeout(
+        /**
+         * 指定時間の経過後に後続処理を実行する。
+         * @returns 副作用を完了し、値は返さない。
+         */
+        () => setToast(""),
+        2600,
+      );
+      /**
+       * Webviewルートのreturnを処理し、呼び出し側へ結果または副作用を返す。
+       * @returns 副作用を完了し、値は返さない。
+       */
+      return () => window.clearTimeout(timer);
+    },
+    [toast],
+  );
 
   useLayoutEffect(() => {
     if (!sectionLinkMenu || !sectionLinkMenuRef.current) return;
@@ -1656,7 +1992,11 @@ export function App(): React.JSX.Element {
   useEffect(() => {
     if (!sectionLinkMenu) return;
     const closeOnPointerDown = (event: PointerEvent) => {
-      if (event.target instanceof Node && sectionLinkMenuRef.current?.contains(event.target)) return;
+      if (
+        event.target instanceof Node &&
+        sectionLinkMenuRef.current?.contains(event.target)
+      )
+        return;
       setSectionLinkMenu(undefined);
     };
     const closeOnEscape = (event: KeyboardEvent) => {
@@ -1690,10 +2030,22 @@ export function App(): React.JSX.Element {
       skipOutlineContextMenuRef.current = false;
     };
     document.addEventListener("pointerdown", resetOnRightPointerDown, true);
-    document.addEventListener("contextmenu", suppressCompletedOutlineGesture, true);
+    document.addEventListener(
+      "contextmenu",
+      suppressCompletedOutlineGesture,
+      true,
+    );
     return () => {
-      document.removeEventListener("pointerdown", resetOnRightPointerDown, true);
-      document.removeEventListener("contextmenu", suppressCompletedOutlineGesture, true);
+      document.removeEventListener(
+        "pointerdown",
+        resetOnRightPointerDown,
+        true,
+      );
+      document.removeEventListener(
+        "contextmenu",
+        suppressCompletedOutlineGesture,
+        true,
+      );
     };
   }, []);
 
@@ -1847,13 +2199,12 @@ export function App(): React.JSX.Element {
           getActiveEditor()?.insert(
             message.paths
               .map(
-              /**
-               * 各項目をimage・markdownへ渡し、変換結果を一覧化する。
-               * @param item - 走査中の要素。
-               * @returns 入力要素から生成した変換結果の一覧。
-               */
-              (item) =>
-                imageMarkdown(item, messages.editor.defaultImageAlt),
+                /**
+                 * 各項目をimage・markdownへ渡し、変換結果を一覧化する。
+                 * @param item - 走査中の要素。
+                 * @returns 入力要素から生成した変換結果の一覧。
+                 */
+                (item) => imageMarkdown(item, messages.editor.defaultImageAlt),
               )
               .join("\n"),
             true,
@@ -1878,7 +2229,6 @@ export function App(): React.JSX.Element {
           if (message.diagnostics.length && request.purpose === "pdf") {
             const detail = message.diagnostics
               .map(
-
                 /**
                  * 行番号があれば診断文の先頭へ付ける。
                  * @param item - PDF書き出し前に表示するローカルリソース診断。
@@ -1920,16 +2270,17 @@ export function App(): React.JSX.Element {
             message.requestId === pdfPreviewRequestRef.current
           ) {
             setPdfPreview(
-            /**
-             * Webviewルートのコールバックとしてpreviousを処理する。
-             * @param previous - 更新前のPDFプレビュー状態。loadingとerrorを更新し、他の状態を保つ基準値。
-             * @returns Webviewルートのコールバックが生成する結果。
-             */
-            (previous) => ({
-              ...previous,
-              loading: false,
-              error: message.message,
-            }));
+              /**
+               * Webviewルートのコールバックとしてpreviousを処理する。
+               * @param previous - 更新前のPDFプレビュー状態。loadingとerrorを更新し、他の状態を保つ基準値。
+               * @returns Webviewルートのコールバックが生成する結果。
+               */
+              (previous) => ({
+                ...previous,
+                loading: false,
+                error: message.message,
+              }),
+            );
             console.error(
               "[Markdown Easy Visual Editor] PDF preview failed.",
               message.message,
@@ -2018,11 +2369,15 @@ export function App(): React.JSX.Element {
    * @returns 副作用を完了し、値は返さない。
    */
   function applyExternalChanges(
-    message: Extract<HostToWebviewMessage, {
-    /**
-     * Webviewルートで対象や分岐を識別する値の型。
-     */
-    type: "externalChanges" }>,
+    message: Extract<
+      HostToWebviewMessage,
+      {
+        /**
+         * Webviewルートで対象や分岐を識別する値の型。
+         */
+        type: "externalChanges";
+      }
+    >,
   ): void {
     if (message.baseVersion !== versionRef.current) {
       requestResync(
@@ -2226,12 +2581,13 @@ export function App(): React.JSX.Element {
   function commitSourceSnapshot(): string {
     const current = localTextRef.current;
     setMarkdown(
-    /**
-     * Webviewルートのコールバックとしてpreviousを処理する。
-     * @param previous - 更新前のMarkdown本文。エディター最新値へ置き換えるか判定する基準値。
-     * @returns 副作用を完了し、値は返さない。
-     */
-    (previous) => (previous === current ? previous : current));
+      /**
+       * Webviewルートのコールバックとしてpreviousを処理する。
+       * @param previous - 更新前のMarkdown本文。エディター最新値へ置き換えるか判定する基準値。
+       * @returns 副作用を完了し、値は返さない。
+       */
+      (previous) => (previous === current ? previous : current),
+    );
     return current;
   }
 
@@ -2312,16 +2668,18 @@ export function App(): React.JSX.Element {
       pendingPersistViewModeRef.current = viewModeOverride;
     if (persistViewStateTimerRef.current !== undefined) return;
     persistViewStateTimerRef.current = window.setTimeout(
-    /**
-     * 指定時間の経過後に後続処理を実行する。
-     * @returns 副作用を完了し、値は返さない。
-     */
-    () => {
-      persistViewStateTimerRef.current = undefined;
-      const pendingViewMode = pendingPersistViewModeRef.current;
-      pendingPersistViewModeRef.current = undefined;
-      persistViewStateRef.current(pendingViewMode);
-    }, 100);
+      /**
+       * 指定時間の経過後に後続処理を実行する。
+       * @returns 副作用を完了し、値は返さない。
+       */
+      () => {
+        persistViewStateTimerRef.current = undefined;
+        const pendingViewMode = pendingPersistViewModeRef.current;
+        pendingPersistViewModeRef.current = undefined;
+        persistViewStateRef.current(pendingViewMode);
+      },
+      100,
+    );
   }
 
   persistViewStateRef.current = persistViewState;
@@ -2476,15 +2834,16 @@ export function App(): React.JSX.Element {
         scrollSyncEnabledRef.current = enabled;
         if (!enabled) cancelPendingCrossPaneScrollSync();
         setSettings(
-        /**
-         * Webviewルートのコールバックとしてcurrentを処理する。
-         * @param current - 現在のWebview設定。スクロール同期だけを切り替え、他設定を保つ基準値。
-         * @returns Webviewルートのコールバックが生成する結果。
-         */
-        (current) => ({
-          ...current,
-          scrollSyncEnabled: enabled,
-        }));
+          /**
+           * Webviewルートのコールバックとしてcurrentを処理する。
+           * @param current - 現在のWebview設定。スクロール同期だけを切り替え、他設定を保つ基準値。
+           * @returns Webviewルートのコールバックが生成する結果。
+           */
+          (current) => ({
+            ...current,
+            scrollSyncEnabled: enabled,
+          }),
+        );
         vscode.postMessage({ type: "setScrollSyncEnabled", enabled });
         return;
       }
@@ -2523,15 +2882,16 @@ export function App(): React.JSX.Element {
         return;
       case "setImageDirectory":
         setSettings(
-        /**
-         * Webviewルートのコールバックとしてcurrentを処理する。
-         * @param current - 現在のWebview設定。画像保存先だけを置き換え、他設定を保つ基準値。
-         * @returns Webviewルートのコールバックが生成する結果。
-         */
-        (current) => ({
-          ...current,
-          imageDirectory: command.directory,
-        }));
+          /**
+           * Webviewルートのコールバックとしてcurrentを処理する。
+           * @param current - 現在のWebview設定。画像保存先だけを置き換え、他設定を保つ基準値。
+           * @returns Webviewルートのコールバックが生成する結果。
+           */
+          (current) => ({
+            ...current,
+            imageDirectory: command.directory,
+          }),
+        );
         vscode.postMessage({
           type: "setImageDirectory",
           directory: command.directory,
@@ -2539,7 +2899,9 @@ export function App(): React.JSX.Element {
         return;
       case "setFontFamilies": {
         const editorFontFamily = normalizeFontFamily(command.editorFontFamily);
-        const previewFontFamily = normalizeFontFamily(command.previewFontFamily);
+        const previewFontFamily = normalizeFontFamily(
+          command.previewFontFamily,
+        );
         const nextPdfOptions = normalizePdfOptions({
           ...pdfOptionsRef.current,
           fontFamily: previewFontFamily || DEFAULT_PDF_OPTIONS.fontFamily,
@@ -2547,17 +2909,18 @@ export function App(): React.JSX.Element {
         pdfOptionsRef.current = nextPdfOptions;
         setPdfOptions(nextPdfOptions);
         setSettings(
-        /**
-         * Webviewルートのコールバックとしてcurrentを処理する。
-         * @param current - 現在のWebview設定。エディター・プレビューのフォントとPDF設定を更新する基準値。
-         * @returns 副作用を完了し、値は返さない。
-         */
-        (current) => ({
-          ...current,
-          editorFontFamily,
-          previewFontFamily,
-          pdfOptions: nextPdfOptions,
-        }));
+          /**
+           * Webviewルートのコールバックとしてcurrentを処理する。
+           * @param current - 現在のWebview設定。エディター・プレビューのフォントとPDF設定を更新する基準値。
+           * @returns 副作用を完了し、値は返さない。
+           */
+          (current) => ({
+            ...current,
+            editorFontFamily,
+            previewFontFamily,
+            pdfOptions: nextPdfOptions,
+          }),
+        );
         vscode.postMessage({
           type: "setFontFamilies",
           editorFontFamily,
@@ -2703,26 +3066,29 @@ export function App(): React.JSX.Element {
     const items = Array.from(event.clipboardData?.items ?? []);
     const imageFiles = items
       .filter(
-      /**
-       * 画像ファイルを表すクリップボード項目だけを残す。
-       * @param item - 貼り付けられた画像ファイルを表すDataTransferItem。
-       * @returns 条件を満たした要素だけを含む一覧。
-       */
-      (item) => item.kind === "file" && item.type.startsWith("image/"))
+        /**
+         * 画像ファイルを表すクリップボード項目だけを残す。
+         * @param item - 貼り付けられた画像ファイルを表すDataTransferItem。
+         * @returns 条件を満たした要素だけを含む一覧。
+         */
+        (item) => item.kind === "file" && item.type.startsWith("image/"),
+      )
       .map(
-      /**
-       * 画像クリップボード項目からFileを取得する。
-       * @param item - 画像ファイルかを確認済みのDataTransferItem。
-       * @returns get・as・fileを取り出した変換結果の一覧。
-       */
-      (item) => item.getAsFile())
+        /**
+         * 画像クリップボード項目からFileを取得する。
+         * @param item - 画像ファイルかを確認済みのDataTransferItem。
+         * @returns get・as・fileを取り出した変換結果の一覧。
+         */
+        (item) => item.getAsFile(),
+      )
       .filter(
-      /**
-       * 未定義または無効なfileを除外する。
-       * @param file - 有効性を判定するfile。
-       * @returns 条件を満たした要素だけを含む一覧。
-       */
-      (file): file is File => Boolean(file));
+        /**
+         * 未定義または無効なfileを除外する。
+         * @param file - 有効性を判定するfile。
+         * @returns 条件を満たした要素だけを含む一覧。
+         */
+        (file): file is File => Boolean(file),
+      );
     if (imageFiles.length) {
       event.preventDefault();
       event.stopImmediatePropagation();
@@ -2734,7 +3100,6 @@ export function App(): React.JSX.Element {
     const plainText = event.clipboardData?.getData("text/plain") ?? "";
     const hasHtmlTable = /<table\b[^>]*>[\s\S]*<\/table>/i.test(html ?? "");
     const hasTsvMime = Array.from(event.clipboardData?.types ?? []).some(
-
       /**
        * Webviewルートのコールバックとしてtypeを処理する。
        * @param type - Clipboard APIが報告したクリップボード項目のMIME type。
@@ -2879,40 +3244,43 @@ export function App(): React.JSX.Element {
   async function waitForCurrentPreviewSnapshot(): Promise<boolean> {
     if (previewSnapshot.markdown === localTextRef.current) return true;
     return new Promise(
-    /**
-     * 遅延処理の完了または失敗を待機側へ通知する。
-     * @param resolve - Promiseの成功を通知する関数。
-     * @returns 非同期処理の完了値。
-     */
-    (resolve) => {
-      let waiter: (() => void) | undefined;
-      const timeout = window.setTimeout(
       /**
-       * 指定時間の経過後に後続処理を実行する。
-       * @returns 副作用を完了し、値は返さない。
+       * 遅延処理の完了または失敗を待機側へ通知する。
+       * @param resolve - Promiseの成功を通知する関数。
+       * @returns 非同期処理の完了値。
        */
-      () => {
-        const index = waiter
-          ? previewSnapshotWaitersRef.current.indexOf(waiter)
-          : -1;
-        if (index >= 0) previewSnapshotWaitersRef.current.splice(index, 1);
-        resolve(false);
-      }, 15_000);
-      waiter =
-      /**
-       * Webviewルートが指定条件を満たすまで待機する。
-       * @returns 副作用を完了し、値は返さない。
-       */
-      () => {
-        window.clearTimeout(timeout);
-        const index = previewSnapshotWaitersRef.current.indexOf(
-          waiter as () => void,
+      (resolve) => {
+        let waiter: (() => void) | undefined;
+        const timeout = window.setTimeout(
+          /**
+           * 指定時間の経過後に後続処理を実行する。
+           * @returns 副作用を完了し、値は返さない。
+           */
+          () => {
+            const index = waiter
+              ? previewSnapshotWaitersRef.current.indexOf(waiter)
+              : -1;
+            if (index >= 0) previewSnapshotWaitersRef.current.splice(index, 1);
+            resolve(false);
+          },
+          15_000,
         );
-        if (index >= 0) previewSnapshotWaitersRef.current.splice(index, 1);
-        resolve(true);
-      };
-      previewSnapshotWaitersRef.current.push(waiter);
-    });
+        waiter =
+          /**
+           * Webviewルートが指定条件を満たすまで待機する。
+           * @returns 副作用を完了し、値は返さない。
+           */
+          () => {
+            window.clearTimeout(timeout);
+            const index = previewSnapshotWaitersRef.current.indexOf(
+              waiter as () => void,
+            );
+            if (index >= 0) previewSnapshotWaitersRef.current.splice(index, 1);
+            resolve(true);
+          };
+        previewSnapshotWaitersRef.current.push(waiter);
+      },
+    );
   }
 
   /**
@@ -2923,38 +3291,41 @@ export function App(): React.JSX.Element {
     if (exportRootRef.current && (printPreview || exportStageRequested))
       return exportRootRef.current;
     return new Promise(
-    /**
-     * 遅延処理の完了または失敗を待機側へ通知する。
-     * @param resolve - Promiseの成功を通知する関数。
-     * @returns 非同期処理の完了値。
-     */
-    (resolve) => {
-      let waiter: ((root: HTMLDivElement | undefined) => void) | undefined;
-      const timeout = window.setTimeout(
       /**
-       * 指定時間の経過後に後続処理を実行する。
-       * @returns 副作用を完了し、値は返さない。
+       * 遅延処理の完了または失敗を待機側へ通知する。
+       * @param resolve - Promiseの成功を通知する関数。
+       * @returns 非同期処理の完了値。
        */
-      () => {
-        const index = waiter
-          ? exportStageWaitersRef.current.indexOf(waiter)
-          : -1;
-        if (index >= 0) exportStageWaitersRef.current.splice(index, 1);
-        resolve(exportRootRef.current ?? undefined);
-      }, 15_000);
-      waiter =
-      /**
-       * Webviewルートが指定条件を満たすまで待機する。
-        * @param root - エクスポート用プレビューの描画ルート。未マウント時はundefined。
-       * @returns 副作用を完了し、値は返さない。
-       */
-      (root) => {
-        window.clearTimeout(timeout);
-        resolve(root);
-      };
-      exportStageWaitersRef.current.push(waiter);
-      setExportStageRequested(true);
-    });
+      (resolve) => {
+        let waiter: ((root: HTMLDivElement | undefined) => void) | undefined;
+        const timeout = window.setTimeout(
+          /**
+           * 指定時間の経過後に後続処理を実行する。
+           * @returns 副作用を完了し、値は返さない。
+           */
+          () => {
+            const index = waiter
+              ? exportStageWaitersRef.current.indexOf(waiter)
+              : -1;
+            if (index >= 0) exportStageWaitersRef.current.splice(index, 1);
+            resolve(exportRootRef.current ?? undefined);
+          },
+          15_000,
+        );
+        waiter =
+          /**
+           * Webviewルートが指定条件を満たすまで待機する。
+           * @param root - エクスポート用プレビューの描画ルート。未マウント時はundefined。
+           * @returns 副作用を完了し、値は返さない。
+           */
+          (root) => {
+            window.clearTimeout(timeout);
+            resolve(root);
+          };
+        exportStageWaitersRef.current.push(waiter);
+        setExportStageRequested(true);
+      },
+    );
   }
 
   /**
@@ -2972,14 +3343,19 @@ export function App(): React.JSX.Element {
       window.clearTimeout(pdfOptionsPersistTimerRef.current);
     }
     pdfOptionsPersistTimerRef.current = window.setTimeout(
-    /**
-     * 指定時間の経過後に後続処理を実行する。
-     * @returns 副作用を完了し、値は返さない。
-     */
-    () => {
-      pdfOptionsPersistTimerRef.current = undefined;
-      vscode.postMessage({ type: "setPdfOptions", options: pdfOptionsRef.current });
-    }, PDF_OPTIONS_PERSIST_DELAY_MS);
+      /**
+       * 指定時間の経過後に後続処理を実行する。
+       * @returns 副作用を完了し、値は返さない。
+       */
+      () => {
+        pdfOptionsPersistTimerRef.current = undefined;
+        vscode.postMessage({
+          type: "setPdfOptions",
+          options: pdfOptionsRef.current,
+        });
+      },
+      PDF_OPTIONS_PERSIST_DELAY_MS,
+    );
   }
 
   /**
@@ -2990,7 +3366,10 @@ export function App(): React.JSX.Element {
     if (pdfOptionsPersistTimerRef.current === undefined) return;
     window.clearTimeout(pdfOptionsPersistTimerRef.current);
     pdfOptionsPersistTimerRef.current = undefined;
-    vscode.postMessage({ type: "setPdfOptions", options: pdfOptionsRef.current });
+    vscode.postMessage({
+      type: "setPdfOptions",
+      options: pdfOptionsRef.current,
+    });
   }
 
   /**
@@ -3023,7 +3402,6 @@ export function App(): React.JSX.Element {
     const diagnosticNotice = currentSummary.errors.length
       ? currentSummary.errors
           .map(
-
             /**
              * 行番号があれば診断文の先頭へ付ける。
              * @param item - PDF書き出し前に表示するエラー診断。
@@ -3112,7 +3490,7 @@ export function App(): React.JSX.Element {
 
   /**
    * Webviewルートが指定条件を満たすまで待機する。
-    * @param root - 配下の未完了Mermaid描画を監視するHTML出力ルート。未指定時は現在の出力ルートを使う。
+   * @param root - 配下の未完了Mermaid描画を監視するHTML出力ルート。未指定時は現在の出力ルートを使う。
    * @returns 条件が成立したかを示す真偽値。
    */
   async function waitForHtmlMermaidRendering(
@@ -3127,12 +3505,13 @@ export function App(): React.JSX.Element {
       Date.now() < deadline
     ) {
       await new Promise<void>(
-      /**
-       * 遅延処理の完了または失敗を待機側へ通知する。
-       * @param resolve - Promiseの成功を通知する関数。
-       * @returns 非同期処理の完了値。
-       */
-      (resolve) => window.setTimeout(resolve, 50));
+        /**
+         * 遅延処理の完了または失敗を待機側へ通知する。
+         * @param resolve - Promiseの成功を通知する関数。
+         * @returns 非同期処理の完了値。
+         */
+        (resolve) => window.setTimeout(resolve, 50),
+      );
     }
     return !root.querySelector(
       '.mermaid:not([data-mermaid-status]), .mermaid[data-mermaid-status="rendering"]',
@@ -3164,17 +3543,18 @@ export function App(): React.JSX.Element {
     const requestId = createClientId();
     pdfPreviewRequestRef.current = requestId;
     setPdfPreview(
-    /**
-     * Webviewルートのコールバックとしてpreviousを処理する。
-     * @param previous - 更新前のPDFプレビュー状態。新しい要求IDとloading状態を設定し、PDFデータなどを保つ基準値。
-     * @returns 副作用を完了し、値は返さない。
-     */
-    (previous) => ({
-      ...previous,
-      requestId,
-      loading: true,
-      error: undefined,
-    }));
+      /**
+       * Webviewルートのコールバックとしてpreviousを処理する。
+       * @param previous - 更新前のPDFプレビュー状態。新しい要求IDとloading状態を設定し、PDFデータなどを保つ基準値。
+       * @returns 副作用を完了し、値は返さない。
+       */
+      (previous) => ({
+        ...previous,
+        requestId,
+        loading: true,
+        error: undefined,
+      }),
+    );
     const css = collectPrintableCss(settings.previewFontFamily, false);
     mveDebug("pdf.preview-request", {
       requestId,
@@ -3199,24 +3579,27 @@ export function App(): React.JSX.Element {
     exportRootRef.current = element as HTMLDivElement;
     const waiters = exportStageWaitersRef.current.splice(0);
     waiters.forEach(
-    /**
-     * 成功結果通知ごとに成功結果通知を実行する。
-     * @param resolve - Promiseの成功を通知する関数。
-     * @returns 副作用を完了し、値は返さない。
-     */
-    (resolve) => resolve(exportRootRef.current ?? undefined));
+      /**
+       * 成功結果通知ごとに成功結果通知を実行する。
+       * @param resolve - Promiseの成功を通知する関数。
+       * @returns 副作用を完了し、値は返さない。
+       */
+      (resolve) => resolve(exportRootRef.current ?? undefined),
+    );
     if (printPreview && settings.workspaceTrusted) {
       if (pdfPreviewTimerRef.current !== undefined)
         window.clearTimeout(pdfPreviewTimerRef.current);
       pdfPreviewTimerRef.current = window.setTimeout(
-      /**
-       * 指定時間の経過後に後続処理を実行する。
-       * @returns 副作用を完了し、値は返さない。
-       */
-      () => {
-        pdfPreviewTimerRef.current = undefined;
-        requestPdfPreview();
-      }, 80);
+        /**
+         * 指定時間の経過後に後続処理を実行する。
+         * @returns 副作用を完了し、値は返さない。
+         */
+        () => {
+          pdfPreviewTimerRef.current = undefined;
+          requestPdfPreview();
+        },
+        80,
+      );
     }
   }
 
@@ -3349,20 +3732,20 @@ export function App(): React.JSX.Element {
     if (mode === "split" && splitView === "both") {
       // CodeMirrorの選択行とスクロール位置が確定してから、同じ高さへプレビューを揃える。
       window.requestAnimationFrame(
-      /**
-       * 次の描画フレームで表示更新を実行する。
-       * @returns 副作用を完了し、値は返さない。
-       */
-      () => {
-        window.requestAnimationFrame(
         /**
          * 次の描画フレームで表示更新を実行する。
          * @returns 副作用を完了し、値は返さない。
          */
-        () =>
-          revealOutlineInSplitPreview(offset, true),
-        );
-      });
+        () => {
+          window.requestAnimationFrame(
+            /**
+             * 次の描画フレームで表示更新を実行する。
+             * @returns 副作用を完了し、値は返さない。
+             */
+            () => revealOutlineInSplitPreview(offset, true),
+          );
+        },
+      );
     }
   }
 
@@ -3779,25 +4162,33 @@ export function App(): React.JSX.Element {
     });
     if (previewScrollFrameRef.current === undefined) {
       previewScrollFrameRef.current = window.requestAnimationFrame(
-      /**
-       * 次の描画フレームで表示更新を実行する。
-       * @returns 副作用を完了し、値は返さない。
-       */
-      () => {
-        previewScrollFrameRef.current = undefined;
-        const scrolls = Array.from(pendingPreviewScrollsRef.current.entries());
-        pendingPreviewScrollsRef.current.clear();
-        scrolls.forEach(
         /**
-         * キューから取り出した対象コンテナーへプレビューのスクロールを反映する。
-         * @param pendingContainer - スクロールを反映するプレビュー要素。
-         * @param next - 同期方向とユーザー操作由来かどうかを保持する保留中のスクロール情報。
+         * 次の描画フレームで表示更新を実行する。
          * @returns 副作用を完了し、値は返さない。
          */
-        ([pendingContainer, next]) => {
-          processPreviewScroll(next.kind, pendingContainer, next.userInitiated);
-        });
-      });
+        () => {
+          previewScrollFrameRef.current = undefined;
+          const scrolls = Array.from(
+            pendingPreviewScrollsRef.current.entries(),
+          );
+          pendingPreviewScrollsRef.current.clear();
+          scrolls.forEach(
+            /**
+             * キューから取り出した対象コンテナーへプレビューのスクロールを反映する。
+             * @param pendingContainer - スクロールを反映するプレビュー要素。
+             * @param next - 同期方向とユーザー操作由来かどうかを保持する保留中のスクロール情報。
+             * @returns 副作用を完了し、値は返さない。
+             */
+            ([pendingContainer, next]) => {
+              processPreviewScroll(
+                next.kind,
+                pendingContainer,
+                next.userInitiated,
+              );
+            },
+          );
+        },
+      );
     }
     performance.clearMeasures("mve-preview-scroll-handler");
     performance.measure("mve-preview-scroll-handler", {
@@ -3886,19 +4277,21 @@ export function App(): React.JSX.Element {
         (performance.now() - lastPreviewToSourceSyncRef.current),
     );
     previewToSourceSyncTimerRef.current = window.setTimeout(
-    /**
-     * 指定時間の経過後に後続処理を実行する。
-     * @returns 副作用を完了し、値は返さない。
-     */
-    () => {
-      previewToSourceSyncTimerRef.current = undefined;
-      lastPreviewToSourceSyncRef.current = performance.now();
-      const pending = pendingPreviewToSourceAnchorRef.current;
-      pendingPreviewToSourceAnchorRef.current = undefined;
-      if (!scrollSyncEnabledRef.current || !pending) return;
-      mveDebug("preview.scroll.sync-source", { pending });
-      restoreSource(pending);
-    }, delay);
+      /**
+       * 指定時間の経過後に後続処理を実行する。
+       * @returns 副作用を完了し、値は返さない。
+       */
+      () => {
+        previewToSourceSyncTimerRef.current = undefined;
+        lastPreviewToSourceSyncRef.current = performance.now();
+        const pending = pendingPreviewToSourceAnchorRef.current;
+        pendingPreviewToSourceAnchorRef.current = undefined;
+        if (!scrollSyncEnabledRef.current || !pending) return;
+        mveDebug("preview.scroll.sync-source", { pending });
+        restoreSource(pending);
+      },
+      delay,
+    );
   }
 
   /**
@@ -3916,23 +4309,25 @@ export function App(): React.JSX.Element {
         (performance.now() - lastSourceToPreviewSyncRef.current),
     );
     sourceToPreviewSyncTimerRef.current = window.setTimeout(
-    /**
-     * 指定時間の経過後に後続処理を実行する。
-     * @returns 副作用を完了し、値は返さない。
-     */
-    () => {
-      sourceToPreviewSyncTimerRef.current = undefined;
-      lastSourceToPreviewSyncRef.current = performance.now();
-      const pending = pendingSourceToPreviewAnchorRef.current;
-      pendingSourceToPreviewAnchorRef.current = undefined;
-      const preview = splitPreviewRef.current;
-      if (!scrollSyncEnabledRef.current || !pending || !preview) return;
-      if (pending.scrollRatio !== undefined) {
-        restorePreviewScrollRatio(preview, pending.scrollRatio);
-      } else {
-        restorePreview(preview, pending);
-      }
-    }, delay);
+      /**
+       * 指定時間の経過後に後続処理を実行する。
+       * @returns 副作用を完了し、値は返さない。
+       */
+      () => {
+        sourceToPreviewSyncTimerRef.current = undefined;
+        lastSourceToPreviewSyncRef.current = performance.now();
+        const pending = pendingSourceToPreviewAnchorRef.current;
+        pendingSourceToPreviewAnchorRef.current = undefined;
+        const preview = splitPreviewRef.current;
+        if (!scrollSyncEnabledRef.current || !pending || !preview) return;
+        if (pending.scrollRatio !== undefined) {
+          restorePreviewScrollRatio(preview, pending.scrollRatio);
+        } else {
+          restorePreview(preview, pending);
+        }
+      },
+      delay,
+    );
   }
 
   /**
@@ -3967,7 +4362,9 @@ export function App(): React.JSX.Element {
     const nextPdfOptions = normalizePdfOptions(
       nextSettings.pdfOptions ?? DEFAULT_PDF_OPTIONS,
     );
-    const nextHtmlSettings = normalizeHtmlExportSettings(nextSettings.htmlOptions);
+    const nextHtmlSettings = normalizeHtmlExportSettings(
+      nextSettings.htmlOptions,
+    );
     const pendingHtmlSettings = pendingHtmlOptionsRef.current;
     const effectiveHtmlSettings = pendingHtmlSettings ?? nextHtmlSettings;
     if (
@@ -3975,7 +4372,8 @@ export function App(): React.JSX.Element {
       pendingHtmlSettings.embedImages === nextHtmlSettings.embedImages &&
       pendingHtmlSettings.convertLinkedMarkdown ===
         nextHtmlSettings.convertLinkedMarkdown &&
-      pendingHtmlSettings.saveWithoutDialog === nextHtmlSettings.saveWithoutDialog
+      pendingHtmlSettings.saveWithoutDialog ===
+        nextHtmlSettings.saveWithoutDialog
     ) {
       pendingHtmlOptionsRef.current = undefined;
     }
@@ -3986,7 +4384,8 @@ export function App(): React.JSX.Element {
     htmlOptionsRef.current = effectiveHtmlOptions;
     setHtmlOptions(effectiveHtmlOptions);
     // 自分の入力を保存するまでの間に届いた古いsettingsChangedで、画面の最新値を戻さない。
-    const hasPendingPdfOptions = pdfOptionsPersistTimerRef.current !== undefined;
+    const hasPendingPdfOptions =
+      pdfOptionsPersistTimerRef.current !== undefined;
     const effectivePdfOptions = hasPendingPdfOptions
       ? pdfOptionsRef.current
       : nextPdfOptions;
@@ -4017,7 +4416,8 @@ export function App(): React.JSX.Element {
     setHtmlOptions(nextHtmlOptions);
     if (
       currentSettings.embedImages !== nextSettings.embedImages ||
-      currentSettings.convertLinkedMarkdown !== nextSettings.convertLinkedMarkdown ||
+      currentSettings.convertLinkedMarkdown !==
+        nextSettings.convertLinkedMarkdown ||
       currentSettings.saveWithoutDialog !== nextSettings.saveWithoutDialog
     ) {
       pendingHtmlOptionsRef.current = nextSettings;
@@ -4133,18 +4533,19 @@ export function App(): React.JSX.Element {
     );
     if (delay > 0) {
       renderedPreviewRestoreTimerRef.current = window.setTimeout(
-      /**
-       * 指定時間の経過後に後続処理を実行する。
-       * @returns 副作用を完了し、値は返さない。
-       */
-      () => {
-        renderedPreviewRestoreTimerRef.current = undefined;
-        scheduleRenderedPreviewRestore();
-      }, delay);
+        /**
+         * 指定時間の経過後に後続処理を実行する。
+         * @returns 副作用を完了し、値は返さない。
+         */
+        () => {
+          renderedPreviewRestoreTimerRef.current = undefined;
+          scheduleRenderedPreviewRestore();
+        },
+        delay,
+      );
       return;
     }
     renderedPreviewRestoreFrameRef.current = window.requestAnimationFrame(
-
       /**
        * 次の描画フレームで表示更新を実行する。
        * @returns 副作用を完了し、値は返さない。
@@ -4154,22 +4555,23 @@ export function App(): React.JSX.Element {
         const kinds = Array.from(pendingRenderedPreviewKindsRef.current);
         pendingRenderedPreviewKindsRef.current.clear();
         kinds.forEach(
-        /**
-         * pending・kindごとにifを実行する。
-         * @param pendingKind - 復元するプレビュー種別。分割表示かプレビュー単独表示を示す。
-         * @returns 副作用を完了し、値は返さない。
-         */
-        (pendingKind) => {
-          const container =
-            pendingKind === "splitPreview"
-              ? splitPreviewRef.current
-              : editorAreaRef.current;
-          if (
-            container &&
-            !pendingPreviewScrollsRef.current.get(container)?.userInitiated
-          )
-            restorePendingPreview(pendingKind, container);
-        });
+          /**
+           * pending・kindごとにifを実行する。
+           * @param pendingKind - 復元するプレビュー種別。分割表示かプレビュー単独表示を示す。
+           * @returns 副作用を完了し、値は返さない。
+           */
+          (pendingKind) => {
+            const container =
+              pendingKind === "splitPreview"
+                ? splitPreviewRef.current
+                : editorAreaRef.current;
+            if (
+              container &&
+              !pendingPreviewScrollsRef.current.get(container)?.userInitiated
+            )
+              restorePendingPreview(pendingKind, container);
+          },
+        );
       },
     );
   }
@@ -4225,7 +4627,7 @@ export function App(): React.JSX.Element {
     pendingViewportRestoreRef.current = true;
     const container = event.currentTarget.parentElement;
     if (!container) return;
-    
+
     const move = /**
      * Webviewルートの要素を規則に従って並べ替える。
      * @param moveEvent - Webviewルートへ届いたユーザー操作またはDOMイベント。
@@ -4239,7 +4641,7 @@ export function App(): React.JSX.Element {
         );
       }
     };
-    
+
     const end = /**
      * Webviewルートのendを処理し、呼び出し側へ結果または副作用を返す。
      * @returns 副作用を完了し、値は返さない。
@@ -4359,7 +4761,13 @@ export function App(): React.JSX.Element {
     }
     if (!cancelled && !current.dragging) {
       const item = current.outline[current.sourceIndex];
-      if (item) setSectionLinkMenu({ id: item.id, text: item.text, x: event.clientX, y: event.clientY });
+      if (item)
+        setSectionLinkMenu({
+          id: item.id,
+          text: item.text,
+          x: event.clientX,
+          y: event.clientY,
+        });
     }
   }
 
@@ -4395,16 +4803,39 @@ export function App(): React.JSX.Element {
   }
 
   /**
+   * 開閉三角形から始まった右ポインター操作を識別する。
+   * @param event アプリ領域に届いたポインター押下イベント。
+   * @returns 右ポインター操作の開始位置を記録する副作用。
+   */
+  function trackOutlineDisclosurePointer(
+    event: React.PointerEvent<HTMLDivElement>,
+  ): void {
+    outlineDisclosureRightPointerRef.current =
+      event.button === 2 &&
+      event.target instanceof Element &&
+      event.target.closest(".outline-disclosure") !== null;
+  }
+
+  /**
    * ソース面の右クリックでは選択範囲と本文指紋をHostへ送り、見出し上では見出しIDに対応するメニューを開く。
    * @param event - 右クリックされたソース面またはアウトライン要素のマウスイベント。
    */
-  function handleSectionContextMenu(event: React.MouseEvent<HTMLDivElement>): void {
+  function handleSectionContextMenu(
+    event: React.MouseEvent<HTMLDivElement>,
+  ): void {
     if (!(event.target instanceof Element)) return;
+    if (event.nativeEvent.button === 2 && outlineDisclosureRightPointerRef.current) {
+      outlineDisclosureRightPointerRef.current = false;
+      event.preventDefault();
+      event.stopPropagation();
+      return;
+    }
     if (event.target.closest(".source-editor")) {
       const selection = sourceRef.current?.getSelection();
       vscode.postMessage({
         type: "copilotSelectionContext",
-        selection: selection && selection.from !== selection.to ? selection : undefined,
+        selection:
+          selection && selection.from !== selection.to ? selection : undefined,
         sourceFingerprint:
           selection && selection.from !== selection.to
             ? fingerprintText(localTextRef.current)
@@ -4412,15 +4843,26 @@ export function App(): React.JSX.Element {
       });
       return;
     }
-    const outlineItem = event.target.closest<HTMLButtonElement>(".outline-item[data-section-id]");
+    const outlineItem = event.target.closest<HTMLButtonElement>(
+      ".outline-item[data-section-id]",
+    );
     if (outlineItem) {
       event.preventDefault();
-      if (outlineDragRef.current || (skipOutlineContextMenuRef.current && event.nativeEvent.button === 2)) {
+      if (
+        outlineDragRef.current ||
+        (skipOutlineContextMenuRef.current && event.nativeEvent.button === 2)
+      ) {
         skipOutlineContextMenuRef.current = false;
         return;
       }
       const id = outlineItem.dataset.sectionId;
-      if (id) setSectionLinkMenu({ id, text: outlineItem.textContent?.trim() || id, x: event.clientX, y: event.clientY });
+      if (id)
+        setSectionLinkMenu({
+          id,
+          text: outlineItem.textContent?.trim() || id,
+          x: event.clientX,
+          y: event.clientY,
+        });
       return;
     }
     const heading = event.target.closest<HTMLElement>(
@@ -4428,7 +4870,12 @@ export function App(): React.JSX.Element {
     );
     if (!heading?.id) return;
     event.preventDefault();
-    setSectionLinkMenu({ id: heading.id, text: heading.textContent?.trim() || heading.id, x: event.clientX, y: event.clientY });
+    setSectionLinkMenu({
+      id: heading.id,
+      text: heading.textContent?.trim() || heading.id,
+      x: event.clientX,
+      y: event.clientY,
+    });
   }
 
   /**
@@ -4441,7 +4888,7 @@ export function App(): React.JSX.Element {
     captureVisibleViewports();
     const workspace = event.currentTarget.parentElement;
     if (!workspace) return;
-    
+
     const move = /**
      * Webviewルートの要素を規則に従って並べ替える。
      * @param moveEvent - Webviewルートへ届いたユーザー操作またはDOMイベント。
@@ -4450,7 +4897,7 @@ export function App(): React.JSX.Element {
       const bounds = workspace.getBoundingClientRect();
       setOutlineWidth(clampOutlineWidth(moveEvent.clientX - bounds.left));
     };
-    
+
     const end = /**
      * Webviewルートのendを処理し、呼び出し側へ結果または副作用を返す。
      * @returns Webviewルートのendが生成する結果。
@@ -4468,10 +4915,9 @@ export function App(): React.JSX.Element {
 
   const imageResizeEnabled = mode === "split" && splitView !== "text";
   const splitPreviewImageResize = useCallback(
-
     /**
      * image・indexをifへ渡し、Webviewルートの結果または副作用を処理する。
-      * @param imageIndex - Markdown本文内でサイズを変更するプレビュー画像の0始まりインデックス。
+     * @param imageIndex - Markdown本文内でサイズを変更するプレビュー画像の0始まりインデックス。
      * @param width - 表示領域または列の幅。
      * @returns Webviewルートのコールバックが生成する結果。
      */
@@ -4481,10 +4927,9 @@ export function App(): React.JSX.Element {
     [imageResizeEnabled, mode, splitView],
   );
   const splitPreviewImageReset = useCallback(
-
     /**
      * image・indexをifへ渡し、Webviewルートの結果または副作用を処理する。
-      * @param imageIndex - Markdown本文内で元のサイズへ戻すプレビュー画像の0始まりインデックス。
+     * @param imageIndex - Markdown本文内で元のサイズへ戻すプレビュー画像の0始まりインデックス。
      * @returns Webviewルートのコールバックが生成する結果。
      */
     (imageIndex: number) => {
@@ -4493,11 +4938,10 @@ export function App(): React.JSX.Element {
     [imageResizeEnabled, mode, splitView],
   );
   const splitPreviewImageAlign = useCallback(
-
     /**
      * image・indexをifへ渡し、Webviewルートの結果または副作用を処理する。
-      * @param imageIndex - Markdown本文内で配置を変えるプレビュー画像の0始まりインデックス。
-      * @param alignment - 画像を左・中央・右のどこへ配置するかを示す値。
+     * @param imageIndex - Markdown本文内で配置を変えるプレビュー画像の0始まりインデックス。
+     * @param alignment - 画像を左・中央・右のどこへ配置するかを示す値。
      * @returns Webviewルートのコールバックが生成する結果。
      */
     (imageIndex: number, alignment: ImageAlignment) => {
@@ -4506,7 +4950,6 @@ export function App(): React.JSX.Element {
     [imageResizeEnabled, mode, splitView],
   );
   const splitPreviewInspect = useCallback(
-
     /**
      * targetをchange・inspectorへ渡し、Webviewルートの結果または副作用を処理する。
      * @param target - プレビューで選択されたMermaid図、数式、画像のInspector対象。
@@ -4516,7 +4959,6 @@ export function App(): React.JSX.Element {
     [mode, splitView],
   );
   const splitPreviewNavigate = useCallback(
-
     /**
      * hrefをメッセージ送信へ渡し、Webviewルートの結果または副作用を処理する。
      * @param href - プレビュー内で開くMarkdownリンクのhref文字列。
@@ -4527,7 +4969,6 @@ export function App(): React.JSX.Element {
     [],
   );
   const splitPreviewRendered = useCallback(
-
     /**
      * 要素をhandle・preview・renderedへ渡し、Webviewルートの結果または副作用を処理する。
      * @returns Webviewルートのコールバックが生成する結果。
@@ -4542,7 +4983,6 @@ export function App(): React.JSX.Element {
     ],
   );
   const sourceEditorChange = useCallback(
-
     /**
      * エディターの変更内容をローカル状態へ反映し、必要ならHostへ同期する。
      * @param beforeText - Webviewルートで扱う文字列または本文。
@@ -4615,22 +5055,23 @@ export function App(): React.JSX.Element {
     [],
   );
   const sourceEditorSettled = useCallback(
-  /**
-   * 要素をstage・preview・viewport・restoreへ渡し、Webviewルートの結果または副作用を処理する。
-   * @returns Webviewルートのコールバックが生成する結果。
-   */
-  () => {
-    stagePreviewViewportRestore();
-    setMarkdown(localTextRef.current);
-    delete document.body.dataset.mveInputActive;
-    window.dispatchEvent(new Event("mve-preview-input-settled"));
-  }, []);
+    /**
+     * 要素をstage・preview・viewport・restoreへ渡し、Webviewルートの結果または副作用を処理する。
+     * @returns Webviewルートのコールバックが生成する結果。
+     */
+    () => {
+      stagePreviewViewportRestore();
+      setMarkdown(localTextRef.current);
+      delete document.body.dataset.mveInputActive;
+      window.dispatchEvent(new Event("mve-preview-input-settled"));
+    },
+    [],
+  );
 
   const sourceEditorSelectionChange = useCallback(
-
     /**
      * UIイベントを表示または編集状態へ反映する。
-    * @param nextSelection CodeMirrorとプレビューへ反映する新しい選択範囲。
+     * @param nextSelection CodeMirrorとプレビューへ反映する新しい選択範囲。
      * @returns 副作用を完了し、値は返さない。
      */
     (nextSelection: TextSelection) => {
@@ -4646,12 +5087,13 @@ export function App(): React.JSX.Element {
       if (
         previousKeys.length === nextKeys.length &&
         nextKeys.every(
-        /**
-         * Webviewルートのコールバックとしてkeyを処理する。
-          * @param key - 選択範囲に適用中のMarkdown書式名。
-         * @returns Webviewルートのコールバックが生成する結果。
-         */
-        (key) => previous[key] === nextMarks[key])
+          /**
+           * Webviewルートのコールバックとしてkeyを処理する。
+           * @param key - 選択範囲に適用中のMarkdown書式名。
+           * @returns Webviewルートのコールバックが生成する結果。
+           */
+          (key) => previous[key] === nextMarks[key],
+        )
       )
         return;
       activeMarksRef.current = nextMarks;
@@ -4660,7 +5102,6 @@ export function App(): React.JSX.Element {
     [],
   );
   const sourceEditorViewportChange = useCallback(
-
     /**
      * anchorをhandle・source・viewportへ渡し、Webviewルートの結果または副作用を処理する。
      * @param anchor - 本文エディターから通知された可視位置アンカー。
@@ -4672,21 +5113,23 @@ export function App(): React.JSX.Element {
     [mode, splitView],
   );
   const sourceEditorUserScrollIntent = useCallback(
-  /**
-   * 要素をcancel・pending・cross・pane・scroll・syncへ渡し、Webviewルートの結果または副作用を処理する。
-   * @returns Webviewルートのコールバックが生成する結果。
-   */
-  () => {
-    cancelPendingCrossPaneScrollSync();
-    cancelPendingRenderedPreviewRestore();
-    viewportUserIntentGenerationRef.current += 1;
-    sourceViewportIntentGenerationRef.current =
-      viewportUserIntentGenerationRef.current;
-    pendingSourceViewportRestoreRef.current = undefined;
-    skipNextSourceViewportRestoreRef.current = false;
-    pendingPreviewViewportRestoreRef.current = {};
-    pendingViewportRestoreRef.current = false;
-  }, []);
+    /**
+     * 要素をcancel・pending・cross・pane・scroll・syncへ渡し、Webviewルートの結果または副作用を処理する。
+     * @returns Webviewルートのコールバックが生成する結果。
+     */
+    () => {
+      cancelPendingCrossPaneScrollSync();
+      cancelPendingRenderedPreviewRestore();
+      viewportUserIntentGenerationRef.current += 1;
+      sourceViewportIntentGenerationRef.current =
+        viewportUserIntentGenerationRef.current;
+      pendingSourceViewportRestoreRef.current = undefined;
+      skipNextSourceViewportRestoreRef.current = false;
+      pendingPreviewViewportRestoreRef.current = {};
+      pendingViewportRestoreRef.current = false;
+    },
+    [],
+  );
 
   if (!initialized)
     return <div className="startup">{messages.app.startup}</div>;
@@ -4697,7 +5140,11 @@ export function App(): React.JSX.Element {
       ? `minmax(0, ${splitRatio}fr) 8px minmax(0, ${1 - splitRatio}fr)`
       : "minmax(0, 1fr)";
   return (
-    <div className={`app ${printPreview ? "print-preview-mode" : ""}`} onContextMenu={handleSectionContextMenu}>
+    <div
+      className={`app ${printPreview ? "print-preview-mode" : ""}`}
+      onPointerDownCapture={trackOutlineDisclosurePointer}
+      onContextMenu={handleSectionContextMenu}
+    >
       <Ribbon
         messages={messages}
         mode={mode}
@@ -4742,71 +5189,24 @@ export function App(): React.JSX.Element {
                   title={messages.app.hideOutline}
                   aria-label={messages.app.hideOutline}
                   onClick={
-                  /**
-                   * click操作を表示または編集状態へ反映する。
-                   * @returns 副作用を完了し、値は返さない。
-                   */
-                  () => {
-                    prepareLayoutRestore();
-                    setOutlineVisibility(false);
-                  }}
+                    /**
+                     * click操作を表示または編集状態へ反映する。
+                     * @returns 副作用を完了し、値は返さない。
+                     */
+                    () => {
+                      prepareLayoutRestore();
+                      setOutlineVisibility(false);
+                    }
+                  }
                 >
                   ×
                 </button>
               </div>
               {outline.length ? (
-                <nav>
-                  {outline.map(
-                  /**
-                   * アウトライン見出しをクリック可能な要素として並べる。
-                   * @param item - 見出し本文、識別子、Markdown本文内オフセットを持つアウトライン項目。
-                   * @param index - アウトライン一覧内の見出し位置。
-                   * @returns 見出しに移動するボタン。
-                   */
-                  (item, index) => (
-                    <button
-                      key={`${item.offset}-${item.id}`}
-                      className={`outline-item${outlineDrag?.dragging && outlineDrag.sourceIndex === index ? " outline-drag-source" : ""}${outlineDrag?.targetIndex === index && outlineDrag.position ? ` outline-drop-${outlineDrag.position}` : ""}`}
-                      data-outline-index={index}
-                      data-section-id={item.id}
-                      data-dragging={
-                        outlineDrag?.dragging &&
-                        outlineDrag.sourceIndex === index
-                          ? "true"
-                          : undefined
-                      }
-                      style={{ paddingLeft: `${8 + item.level * 10}px` }}
-                      onClick={
-                      /**
-                       * clickイベントでifを実行する。
-                       * @param event - 選択した目次項目の本文位置へ移動するclick event。
-                       * @returns 副作用を完了し、値は返さない。
-                       */
-                      (event) => {
-                        if (event.button === 0) goToOutlineOffset(item.offset);
-                      }}
-                      onPointerDown={
-                      /**
-                       * イベントをbegin・outline・dragへ渡し、Webviewルートの結果または副作用を処理する。
-                       * @param event - 目次項目のdragを開始するpointer event。
-                       * @returns Webviewルートのコールバックが生成する結果。
-                       */
-                      (event) => beginOutlineDrag(event, index)}
-                      onPointerMove={updateOutlineDrag}
-                      onPointerUp={finishOutlineDrag}
-                      onPointerCancel={
-                      /**
-                       * イベントをfinish・outline・dragへ渡し、Webviewルートの結果または副作用を処理する。
-                       * @param event - 目次項目のpointer cancelを処理するevent。
-                       * @returns Webviewルートのコールバックが生成する結果。
-                       */
-                      (event) =>
-                        finishOutlineDrag(event, true)
-                      }
-                    >
-                      {item.text}
-                    </button>
-                  ))}
+                <nav aria-label={messages.app.outline}>
+                  <ul className="outline-tree">
+                    {renderOutlineNodes(outlineTree)}
+                  </ul>
                 </nav>
               ) : (
                 <p>{messages.app.noHeadings}</p>
@@ -4823,26 +5223,27 @@ export function App(): React.JSX.Element {
               tabIndex={0}
               onPointerDown={beginOutlineResize}
               onKeyDown={
-              /**
-               * keydown操作を表示または編集状態へ反映する。
-               * @param event - アウトライン幅を矢印キーで変更するkeydown event。
-               * @returns 副作用を完了し、値は返さない。
-               */
-              (event) => {
-                if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
-                  setOutlineWidth(
-                  /**
-                   * 値をclamp・outline・widthへ渡し、Webviewルートの結果または副作用を処理する。
-                   * @param value - キー操作前のアウトライン幅（px）。
-                   * @returns Webviewルートのコールバックが生成する結果。
-                   */
-                  (value) =>
-                    clampOutlineWidth(
-                      value + (event.key === "ArrowLeft" ? -10 : 10),
-                    ),
-                  );
+                /**
+                 * keydown操作を表示または編集状態へ反映する。
+                 * @param event - アウトライン幅を矢印キーで変更するkeydown event。
+                 * @returns 副作用を完了し、値は返さない。
+                 */
+                (event) => {
+                  if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+                    setOutlineWidth(
+                      /**
+                       * 値をclamp・outline・widthへ渡し、Webviewルートの結果または副作用を処理する。
+                       * @param value - キー操作前のアウトライン幅（px）。
+                       * @returns Webviewルートのコールバックが生成する結果。
+                       */
+                      (value) =>
+                        clampOutlineWidth(
+                          value + (event.key === "ArrowLeft" ? -10 : 10),
+                        ),
+                    );
+                  }
                 }
-              }}
+              }
             />
           </>
         ) : (
@@ -4852,14 +5253,15 @@ export function App(): React.JSX.Element {
             title={messages.app.showOutline}
             aria-label={messages.app.showOutline}
             onClick={
-            /**
-             * click操作を表示または編集状態へ反映する。
-             * @returns 副作用を完了し、値は返さない。
-             */
-            () => {
-              prepareLayoutRestore();
-              setOutlineVisibility(true);
-            }}
+              /**
+               * click操作を表示または編集状態へ反映する。
+               * @returns 副作用を完了し、値は返さない。
+               */
+              () => {
+                prepareLayoutRestore();
+                setOutlineVisibility(true);
+              }
+            }
           >
             ›
           </button>
@@ -4868,14 +5270,15 @@ export function App(): React.JSX.Element {
           ref={editorAreaRef}
           className="editor-area"
           onMouseUp={
-          /**
-           * 要素をget・active・editorへ渡し、Webviewルートの結果または副作用を処理する。
-           * @returns 副作用を完了し、値は返さない。
-           */
-          () => {
-            selectionStateRef.current =
-              getActiveEditor()?.getSelection() ?? selectionStateRef.current;
-          }}
+            /**
+             * 要素をget・active・editorへ渡し、Webviewルートの結果または副作用を処理する。
+             * @returns 副作用を完了し、値は返さない。
+             */
+            () => {
+              selectionStateRef.current =
+                getActiveEditor()?.getSelection() ?? selectionStateRef.current;
+            }
+          }
           tabIndex={mode === "preview" ? 0 : undefined}
           onWheelCapture={
             mode === "preview" ? markPreviewScrollIntent : undefined
@@ -4891,13 +5294,12 @@ export function App(): React.JSX.Element {
           }
           onScroll={
             mode === "preview"
-              ?
-              /**
-               * イベントをhandle・preview・scrollへ渡し、Webviewルートの結果または副作用を処理する。
-               * @param event - preview-only paneのscroll event。
-               * @returns 副作用を完了し、値は返さない。
-               */
-              (event) =>
+              ? /**
+                 * イベントをhandle・preview・scrollへ渡し、Webviewルートの結果または副作用を処理する。
+                 * @param event - preview-only paneのscroll event。
+                 * @returns 副作用を完了し、値は返さない。
+                 */
+                (event) =>
                   handlePreviewScroll("previewOnly", event.currentTarget)
               : undefined
           }
@@ -4913,38 +5315,41 @@ export function App(): React.JSX.Element {
                 placeholder={messages.ribbon.search}
                 value={searchQuery}
                 onChange={
-                /**
-                 * change操作を表示または編集状態へ反映する。
-                 * @param event - 検索入力の更新を処理するchange event。
-                 * @returns 副作用を完了し、値は返さない。
-                 */
-                (event) => {
-                  setSearchQuery(event.target.value);
-                  setSearchIndex(0);
-                }}
+                  /**
+                   * change操作を表示または編集状態へ反映する。
+                   * @param event - 検索入力の更新を処理するchange event。
+                   * @returns 副作用を完了し、値は返さない。
+                   */
+                  (event) => {
+                    setSearchQuery(event.target.value);
+                    setSearchIndex(0);
+                  }
+                }
                 onKeyDown={
-                /**
-                 * keydownイベントでifを実行する。
-                 * @param event - Escapeで検索を閉じ、Enter系キーで一致箇所を移動するkeydown event。
-                 * @returns 副作用を完了し、値は返さない。
-                 */
-                (event) => {
-                  if (event.key === "Escape") closeSearch();
-                  if (event.key === "Enter")
-                    jumpToSearch(event.shiftKey ? -1 : 1);
-                }}
+                  /**
+                   * keydownイベントでifを実行する。
+                   * @param event - Escapeで検索を閉じ、Enter系キーで一致箇所を移動するkeydown event。
+                   * @returns 副作用を完了し、値は返さない。
+                   */
+                  (event) => {
+                    if (event.key === "Escape") closeSearch();
+                    if (event.key === "Enter")
+                      jumpToSearch(event.shiftKey ? -1 : 1);
+                  }
+                }
               />
               <input
                 aria-label={messages.app.replacementText}
                 placeholder={messages.app.replacement}
                 value={searchReplacement}
                 onChange={
-                /**
-                 * change操作を表示または編集状態へ反映する。
-                 * @param event - 置換文字列入力の更新を処理するchange event。
-                 * @returns 副作用を完了し、値は返さない。
-                 */
-                (event) => setSearchReplacement(event.target.value)}
+                  /**
+                   * change操作を表示または編集状態へ反映する。
+                   * @param event - 置換文字列入力の更新を処理するchange event。
+                   * @returns 副作用を完了し、値は返さない。
+                   */
+                  (event) => setSearchReplacement(event.target.value)
+                }
               />
               <span className="search-count">
                 {searchHits.length
@@ -4954,11 +5359,12 @@ export function App(): React.JSX.Element {
               <button
                 type="button"
                 onClick={
-                /**
-                 * clickイベントでjump・to・searchを実行する。
-                 * @returns 副作用を完了し、値は返さない。
-                 */
-                () => jumpToSearch(-1)}
+                  /**
+                   * clickイベントでjump・to・searchを実行する。
+                   * @returns 副作用を完了し、値は返さない。
+                   */
+                  () => jumpToSearch(-1)
+                }
                 disabled={!searchHits.length}
                 title={messages.app.previousMatch}
               >
@@ -4967,11 +5373,12 @@ export function App(): React.JSX.Element {
               <button
                 type="button"
                 onClick={
-                /**
-                 * clickイベントでjump・to・searchを実行する。
-                 * @returns 副作用を完了し、値は返さない。
-                 */
-                () => jumpToSearch(1)}
+                  /**
+                   * clickイベントでjump・to・searchを実行する。
+                   * @returns 副作用を完了し、値は返さない。
+                   */
+                  () => jumpToSearch(1)
+                }
                 disabled={!searchHits.length}
                 title={messages.app.nextMatch}
               >
@@ -4980,11 +5387,12 @@ export function App(): React.JSX.Element {
               <button
                 type="button"
                 onClick={
-                /**
-                 * clickイベントでreplace・searchを実行する。
-                 * @returns 副作用を完了し、値は返さない。
-                 */
-                () => replaceSearch(false)}
+                  /**
+                   * clickイベントでreplace・searchを実行する。
+                   * @returns 副作用を完了し、値は返さない。
+                   */
+                  () => replaceSearch(false)
+                }
                 disabled={!searchQuery}
               >
                 {messages.app.replacement}
@@ -4992,11 +5400,12 @@ export function App(): React.JSX.Element {
               <button
                 type="button"
                 onClick={
-                /**
-                 * clickイベントでreplace・searchを実行する。
-                 * @returns 副作用を完了し、値は返さない。
-                 */
-                () => replaceSearch(true)}
+                  /**
+                   * clickイベントでreplace・searchを実行する。
+                   * @returns 副作用を完了し、値は返さない。
+                   */
+                  () => replaceSearch(true)
+                }
                 disabled={!searchQuery}
               >
                 {messages.app.replaceAll}
@@ -5049,27 +5458,31 @@ export function App(): React.JSX.Element {
                 tabIndex={0}
                 onPointerDown={beginSplitResize}
                 onKeyDown={
-                /**
-                 * keydown操作を表示または編集状態へ反映する。
-                 * @param event - 分割pane比率を矢印キーで変更するkeydown event。
-                 * @returns 副作用を完了し、値は返さない。
-                 */
-                (event) => {
-                  if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
-                    prepareLayoutRestore();
-                    setSplitRatio(
-                    /**
-                     * 値をclamp・split・ratioへ渡し、Webviewルートの結果または副作用を処理する。
-                     * @param value - キー操作前の左右ペイン分割比率。
-                     * @returns Webviewルートのコールバックが生成する結果。
-                     */
-                    (value) =>
-                      clampSplitRatio(
-                        value + (event.key === "ArrowLeft" ? -0.02 : 0.02),
-                      ),
-                    );
+                  /**
+                   * keydown操作を表示または編集状態へ反映する。
+                   * @param event - 分割pane比率を矢印キーで変更するkeydown event。
+                   * @returns 副作用を完了し、値は返さない。
+                   */
+                  (event) => {
+                    if (
+                      event.key === "ArrowLeft" ||
+                      event.key === "ArrowRight"
+                    ) {
+                      prepareLayoutRestore();
+                      setSplitRatio(
+                        /**
+                         * 値をclamp・split・ratioへ渡し、Webviewルートの結果または副作用を処理する。
+                         * @param value - キー操作前の左右ペイン分割比率。
+                         * @returns Webviewルートのコールバックが生成する結果。
+                         */
+                        (value) =>
+                          clampSplitRatio(
+                            value + (event.key === "ArrowLeft" ? -0.02 : 0.02),
+                          ),
+                      );
+                    }
                   }
-                }}
+                }
               />
               <div
                 ref={splitPreviewRef}
@@ -5081,13 +5494,13 @@ export function App(): React.JSX.Element {
                 onTouchStart={markPreviewScrollIntent}
                 onKeyDown={markPreviewScrollIntent}
                 onScroll={
-                /**
-                 * イベントをhandle・preview・scrollへ渡し、Webviewルートの結果または副作用を処理する。
-                 * @param event - split previewのscroll event。
-                 * @returns Webviewルートのコールバックが生成する結果。
-                 */
-                (event) =>
-                  handlePreviewScroll("splitPreview", event.currentTarget)
+                  /**
+                   * イベントをhandle・preview・scrollへ渡し、Webviewルートの結果または副作用を処理する。
+                   * @param event - split previewのscroll event。
+                   * @returns Webviewルートのコールバックが生成する結果。
+                   */
+                  (event) =>
+                    handlePreviewScroll("splitPreview", event.currentTarget)
                 }
               >
                 <RenderedMarkdown
@@ -5125,28 +5538,34 @@ export function App(): React.JSX.Element {
               pdfLoading={pdfPreview.loading}
               pdfError={pdfPreview.error}
               onInspect={
-              /**
-               * targetをchange・inspectorへ渡し、Webviewルートの結果または副作用を処理する。
-                * @param target - プレビューで選択されたMermaid図、数式、画像のInspector対象。
-               * @returns Webviewルートのコールバックが生成する結果。
-               */
-              (target) => changeInspector(target)}
+                /**
+                 * targetをchange・inspectorへ渡し、Webviewルートの結果または副作用を処理する。
+                 * @param target - プレビューで選択されたMermaid図、数式、画像のInspector対象。
+                 * @returns Webviewルートのコールバックが生成する結果。
+                 */
+                (target) => changeInspector(target)
+              }
               onNavigate={
-              /**
-               * hrefをメッセージ送信へ渡し、Webviewルートの結果または副作用を処理する。
-                * @param href - PDFプレビュー内で開くMarkdownリンクのhref文字列。
-               * @returns Webviewルートのコールバックが生成する結果。
-               */
-              (href, workspaceRooted = false) =>
-                vscode.postMessage({ type: "openResource", href, workspaceRooted })
+                /**
+                 * hrefをメッセージ送信へ渡し、Webviewルートの結果または副作用を処理する。
+                 * @param href - PDFプレビュー内で開くMarkdownリンクのhref文字列。
+                 * @returns Webviewルートのコールバックが生成する結果。
+                 */
+                (href, workspaceRooted = false) =>
+                  vscode.postMessage({
+                    type: "openResource",
+                    href,
+                    workspaceRooted,
+                  })
               }
               onZoom={adjustZoom}
               onRendered={
-              /**
-               * 要素をhandle・preview・renderedへ渡し、Webviewルートの結果または副作用を処理する。
-               * @returns Webviewルートのコールバックが生成する結果。
-               */
-              () => handlePreviewRendered("previewOnly")}
+                /**
+                 * 要素をhandle・preview・renderedへ渡し、Webviewルートの結果または副作用を処理する。
+                 * @returns Webviewルートのコールバックが生成する結果。
+                 */
+                () => handlePreviewRendered("previewOnly")
+              }
             />
           )}
         </main>
@@ -5157,19 +5576,19 @@ export function App(): React.JSX.Element {
             messages={messages}
             onChange={updateInspector}
             onClose={
-            /**
-             * UIイベントをHostまたはWebviewへ通知する。
-             * @returns 副作用を完了し、値は返さない。
-             */
-            () => changeInspector(undefined)}
+              /**
+               * UIイベントをHostまたはWebviewへ通知する。
+               * @returns 副作用を完了し、値は返さない。
+               */
+              () => changeInspector(undefined)
+            }
             onOpenResource={
-            /**
-             * hrefをメッセージ送信へ渡し、Webviewルートの結果または副作用を処理する。
-             * @param href - Inspectorから開くMarkdownリソースのhref文字列。
-             * @returns Webviewルートのコールバックが生成する結果。
-             */
-            (href) =>
-              vscode.postMessage({ type: "openResource", href })
+              /**
+               * hrefをメッセージ送信へ渡し、Webviewルートの結果または副作用を処理する。
+               * @param href - Inspectorから開くMarkdownリソースのhref文字列。
+               * @returns Webviewルートのコールバックが生成する結果。
+               */
+              (href) => vscode.postMessage({ type: "openResource", href })
             }
           />
         )}
@@ -5202,35 +5621,37 @@ export function App(): React.JSX.Element {
             <p className="diagnostic-help">{messages.app.diagnosticHelp}</p>
             {diagnostics.length ? (
               diagnostics.map(
-              /**
-               * 診断項目を種別と一覧内位置を用いたキーで表示する。
-               * @param item - 画面に詳細を表示する診断。
-               * @param index - 診断一覧内の項目位置。
-               * @returns 診断内容を表示するReact要素。
-               */
-              (item, index) => (
-                <div
-                  key={`${item.code}-${index}`}
-                  className={`diagnostic ${item.severity}`}
-                >
-                  <strong>{messages.app.severity[item.severity]}</strong>
-                  {item.line ? (
-                    <button
-                      type="button"
-                      className="diagnostic-location"
-                      onClick={
-                      /**
-                       * click操作を表示または編集状態へ反映する。
-                       * @returns 副作用を完了し、値は返さない。
-                       */
-                      () => goToDiagnosticLine(item.line as number)}
-                    >
-                      {messages.app.line(item.line as number)}
-                    </button>
-                  ) : null}
-                  <span>{item.message}</span>
-                </div>
-              ))
+                /**
+                 * 診断項目を種別と一覧内位置を用いたキーで表示する。
+                 * @param item - 画面に詳細を表示する診断。
+                 * @param index - 診断一覧内の項目位置。
+                 * @returns 診断内容を表示するReact要素。
+                 */
+                (item, index) => (
+                  <div
+                    key={`${item.code}-${index}`}
+                    className={`diagnostic ${item.severity}`}
+                  >
+                    <strong>{messages.app.severity[item.severity]}</strong>
+                    {item.line ? (
+                      <button
+                        type="button"
+                        className="diagnostic-location"
+                        onClick={
+                          /**
+                           * click操作を表示または編集状態へ反映する。
+                           * @returns 副作用を完了し、値は返さない。
+                           */
+                          () => goToDiagnosticLine(item.line as number)
+                        }
+                      >
+                        {messages.app.line(item.line as number)}
+                      </button>
+                    ) : null}
+                    <span>{item.message}</span>
+                  </div>
+                ),
+              )
             ) : (
               <p>{messages.app.noProblems}</p>
             )}
@@ -5246,14 +5667,15 @@ export function App(): React.JSX.Element {
                 title={messages.app.close}
                 aria-label={messages.app.close}
                 onClick={
-                /**
-                 * click操作を表示または編集状態へ反映する。
-                 * @returns 副作用を完了し、値は返さない。
-                 */
-                () => {
-                  flushPdfOptionsPersistence();
-                  setPrintSettingsVisible(false);
-                }}
+                  /**
+                   * click操作を表示または編集状態へ反映する。
+                   * @returns 副作用を完了し、値は返さない。
+                   */
+                  () => {
+                    flushPdfOptionsPersistence();
+                    setPrintSettingsVisible(false);
+                  }
+                }
               >
                 ×
               </button>
@@ -5264,33 +5686,35 @@ export function App(): React.JSX.Element {
               <select
                 value={pdfOptions.format}
                 onChange={
-                /**
-                 * changeイベントでupdate・pdf・optionsを実行する。
-                 * @param event - PDF出力形式の選択を処理するchange event。
-                 * @returns 副作用を完了し、値は返さない。
-                 */
-                (event) =>
-                  updatePdfOptions(
                   /**
-                   * Webviewルートのコールバックとしてcurrentを処理する。
-                   * @param current - 現在の正規化済みPDF設定。用紙サイズを変更し、他の設定を維持する基準値。
-                   * @returns Webviewルートのコールバックが生成する結果。
+                   * changeイベントでupdate・pdf・optionsを実行する。
+                   * @param event - PDF出力形式の選択を処理するchange event。
+                   * @returns 副作用を完了し、値は返さない。
                    */
-                  (current) => ({
-                    ...current,
-                    format: event.target.value as PdfOptions["format"],
-                  }))
+                  (event) =>
+                    updatePdfOptions(
+                      /**
+                       * Webviewルートのコールバックとしてcurrentを処理する。
+                       * @param current - 現在の正規化済みPDF設定。用紙サイズを変更し、他の設定を維持する基準値。
+                       * @returns Webviewルートのコールバックが生成する結果。
+                       */
+                      (current) => ({
+                        ...current,
+                        format: event.target.value as PdfOptions["format"],
+                      }),
+                    )
                 }
               >
                 {PDF_PAPER_FORMATS.map(
-                /**
-                 * pdf・paper・formatsの各要素を変換して一覧化する。
-                 * @param format - 本文または出力を解釈する形式。
-                 * @returns 入力要素から生成した変換結果の一覧。
-                 */
-                (format) => (
-                  <option key={format}>{format}</option>
-                ))}
+                  /**
+                   * pdf・paper・formatsの各要素を変換して一覧化する。
+                   * @param format - 本文または出力を解釈する形式。
+                   * @returns 入力要素から生成した変換結果の一覧。
+                   */
+                  (format) => (
+                    <option key={format}>{format}</option>
+                  ),
+                )}
               </select>
             </label>
             <label>
@@ -5298,23 +5722,24 @@ export function App(): React.JSX.Element {
               <select
                 value={pdfOptions.orientation}
                 onChange={
-                /**
-                 * changeイベントでupdate・pdf・optionsを実行する。
-                 * @param event - PDFページ方向の選択を処理するchange event。
-                 * @returns 副作用を完了し、値は返さない。
-                 */
-                (event) =>
-                  updatePdfOptions(
                   /**
-                   * Webviewルートのコールバックとしてcurrentを処理する。
-                   * @param current - 現在の正規化済みPDF設定。用紙方向を変更し、他の設定を維持する基準値。
-                   * @returns Webviewルートのコールバックが生成する結果。
+                   * changeイベントでupdate・pdf・optionsを実行する。
+                   * @param event - PDFページ方向の選択を処理するchange event。
+                   * @returns 副作用を完了し、値は返さない。
                    */
-                  (current) => ({
-                    ...current,
-                    orientation: event.target
-                      .value as PdfOptions["orientation"],
-                  }))
+                  (event) =>
+                    updatePdfOptions(
+                      /**
+                       * Webviewルートのコールバックとしてcurrentを処理する。
+                       * @param current - 現在の正規化済みPDF設定。用紙方向を変更し、他の設定を維持する基準値。
+                       * @returns Webviewルートのコールバックが生成する結果。
+                       */
+                      (current) => ({
+                        ...current,
+                        orientation: event.target
+                          .value as PdfOptions["orientation"],
+                      }),
+                    )
                 }
               >
                 <option value="portrait">{messages.app.portrait}</option>
@@ -5326,22 +5751,23 @@ export function App(): React.JSX.Element {
               <input
                 value={pdfOptions.header}
                 onChange={
-                /**
-                 * changeイベントでupdate・pdf・optionsを実行する。
-                 * @param event - PDFヘッダー出力設定の変更を処理するchange event。
-                 * @returns 副作用を完了し、値は返さない。
-                 */
-                (event) =>
-                  updatePdfOptions(
                   /**
-                   * Webviewルートのコールバックとしてcurrentを処理する。
-                   * @param current - 現在の正規化済みPDF設定。ヘッダー文字列を変更し、他の設定を維持する基準値。
-                   * @returns Webviewルートのコールバックが生成する結果。
+                   * changeイベントでupdate・pdf・optionsを実行する。
+                   * @param event - PDFヘッダー出力設定の変更を処理するchange event。
+                   * @returns 副作用を完了し、値は返さない。
                    */
-                  (current) => ({
-                    ...current,
-                    header: event.target.value,
-                  }))
+                  (event) =>
+                    updatePdfOptions(
+                      /**
+                       * Webviewルートのコールバックとしてcurrentを処理する。
+                       * @param current - 現在の正規化済みPDF設定。ヘッダー文字列を変更し、他の設定を維持する基準値。
+                       * @returns Webviewルートのコールバックが生成する結果。
+                       */
+                      (current) => ({
+                        ...current,
+                        header: event.target.value,
+                      }),
+                    )
                 }
               />
             </label>
@@ -5350,75 +5776,80 @@ export function App(): React.JSX.Element {
               <input
                 value={pdfOptions.footer}
                 onChange={
-                /**
-                 * changeイベントでupdate・pdf・optionsを実行する。
-                 * @param event - PDFフッター出力設定の変更を処理するchange event。
-                 * @returns 副作用を完了し、値は返さない。
-                 */
-                (event) =>
-                  updatePdfOptions(
                   /**
-                   * Webviewルートのコールバックとしてcurrentを処理する。
-                   * @param current - 現在の正規化済みPDF設定。フッター文字列を変更し、他の設定を維持する基準値。
-                   * @returns Webviewルートのコールバックが生成する結果。
+                   * changeイベントでupdate・pdf・optionsを実行する。
+                   * @param event - PDFフッター出力設定の変更を処理するchange event。
+                   * @returns 副作用を完了し、値は返さない。
                    */
-                  (current) => ({
-                    ...current,
-                    footer: event.target.value,
-                  }))
+                  (event) =>
+                    updatePdfOptions(
+                      /**
+                       * Webviewルートのコールバックとしてcurrentを処理する。
+                       * @param current - 現在の正規化済みPDF設定。フッター文字列を変更し、他の設定を維持する基準値。
+                       * @returns Webviewルートのコールバックが生成する結果。
+                       */
+                      (current) => ({
+                        ...current,
+                        footer: event.target.value,
+                      }),
+                    )
                 }
               />
             </label>
             <fieldset className="pdf-margin-fields">
               <legend>{messages.app.margins}</legend>
               {(["top", "right", "bottom", "left"] as const).map(
-              /**
-               * 4方向のPDF余白入力欄を作る。
-               * @param side - 編集する余白の位置（top、right、bottom、left）。
-               * @returns 入力要素から生成した変換結果の一覧。
-               */
-              (side) => (
-                <label key={side}>
-                  {
-                    (
-                      {
-                        top: messages.app.top,
-                        right: messages.app.right,
-                        bottom: messages.app.bottom,
-                        left: messages.app.left,
-                      } as const
-                    )[side]
-                  }
-                  <input
-                    key={`${side}-${pdfOptions.margins[side]}`}
-                    type="number"
-                    min={0}
-                    max={50}
-                    defaultValue={pdfOptions.margins[side]}
-                    onBlur={
-                    /**
-                     * イベントをupdate・pdf・optionsへ渡し、Webviewルートの結果または副作用を処理する。
-                     * @param event - PDF余白入力をblur時に確定するfocus event。
-                     * @returns Webviewルートのコールバックが生成する結果。
-                     */
-                    (event) =>
-                      updatePdfOptions(
-                      /**
-                       * currentをclamp・pdf・marginへ渡し、Webviewルートの結果または副作用を処理する。
-                        * @param current - 現在の正規化済みPDF設定。指定した辺の余白を変更し、他の余白と設定を維持する基準値。
-                       * @returns Webviewルートのコールバックが生成する結果。
-                       */
-                      (current) => ({
-                        ...current,
-                        margins: {
-                          ...current.margins,
-                          [side]: clampPdfMargin(event.currentTarget.value),
-                        },
-                      }))
+                /**
+                 * 4方向のPDF余白入力欄を作る。
+                 * @param side - 編集する余白の位置（top、right、bottom、left）。
+                 * @returns 入力要素から生成した変換結果の一覧。
+                 */
+                (side) => (
+                  <label key={side}>
+                    {
+                      (
+                        {
+                          top: messages.app.top,
+                          right: messages.app.right,
+                          bottom: messages.app.bottom,
+                          left: messages.app.left,
+                        } as const
+                      )[side]
                     }
-                  />
-                </label>
-              ))}
+                    <input
+                      key={`${side}-${pdfOptions.margins[side]}`}
+                      type="number"
+                      min={0}
+                      max={50}
+                      defaultValue={pdfOptions.margins[side]}
+                      onBlur={
+                        /**
+                         * イベントをupdate・pdf・optionsへ渡し、Webviewルートの結果または副作用を処理する。
+                         * @param event - PDF余白入力をblur時に確定するfocus event。
+                         * @returns Webviewルートのコールバックが生成する結果。
+                         */
+                        (event) =>
+                          updatePdfOptions(
+                            /**
+                             * currentをclamp・pdf・marginへ渡し、Webviewルートの結果または副作用を処理する。
+                             * @param current - 現在の正規化済みPDF設定。指定した辺の余白を変更し、他の余白と設定を維持する基準値。
+                             * @returns Webviewルートのコールバックが生成する結果。
+                             */
+                            (current) => ({
+                              ...current,
+                              margins: {
+                                ...current.margins,
+                                [side]: clampPdfMargin(
+                                  event.currentTarget.value,
+                                ),
+                              },
+                            }),
+                          )
+                      }
+                    />
+                  </label>
+                ),
+              )}
             </fieldset>
             <fieldset className="pdf-typography-fields">
               <legend>{messages.app.typography}</legend>
@@ -5433,29 +5864,29 @@ export function App(): React.JSX.Element {
                   step={0.5}
                   defaultValue={pdfOptions.bodyFontSize}
                   onBlur={
-                  /**
-                   * イベントをupdate・pdf・optionsへ渡し、Webviewルートの結果または副作用を処理する。
-                   * @param event - PDF本文フォントサイズ入力をblur時に確定するfocus event。
-                   * @returns Webviewルートのコールバックが生成する結果。
-                   */
-                  (event) =>
-                    updatePdfOptions(
                     /**
-                     * currentをnumberへ渡し、Webviewルートの結果または副作用を処理する。
-                     * @param current - 現在の正規化済みPDF設定。本文文字サイズを変更し、他の設定を維持する基準値。
+                     * イベントをupdate・pdf・optionsへ渡し、Webviewルートの結果または副作用を処理する。
+                     * @param event - PDF本文フォントサイズ入力をblur時に確定するfocus event。
                      * @returns Webviewルートのコールバックが生成する結果。
                      */
-                    (current) => ({
-                      ...current,
-                      bodyFontSize: Number(event.currentTarget.value),
-                    }))
+                    (event) =>
+                      updatePdfOptions(
+                        /**
+                         * currentをnumberへ渡し、Webviewルートの結果または副作用を処理する。
+                         * @param current - 現在の正規化済みPDF設定。本文文字サイズを変更し、他の設定を維持する基準値。
+                         * @returns Webviewルートのコールバックが生成する結果。
+                         */
+                        (current) => ({
+                          ...current,
+                          bodyFontSize: Number(event.currentTarget.value),
+                        }),
+                      )
                   }
                 />
               </label>
               <fieldset className="pdf-heading-fields">
                 <legend>{messages.app.headingFontSizes} (pt)</legend>
                 {(["h1", "h2", "h3", "h4", "h5", "h6"] as const).map(
-
                   /**
                    * h1からh6のPDF見出し文字サイズ入力欄を作る。
                    * @param heading - 編集する見出しレベル（h1〜h6）。
@@ -5472,25 +5903,26 @@ export function App(): React.JSX.Element {
                         step={0.5}
                         defaultValue={pdfOptions.headingFontSizes[heading]}
                         onBlur={
-                        /**
-                         * イベントをupdate・pdf・optionsへ渡し、Webviewルートの結果または副作用を処理する。
-                         * @param event - PDF見出しレベル別フォントサイズ入力をblur時に確定するfocus event。
-                         * @returns Webviewルートのコールバックが生成する結果。
-                         */
-                        (event) =>
-                          updatePdfOptions(
                           /**
-                           * currentをnumberへ渡し、Webviewルートの結果または副作用を処理する。
-                           * @param current - 現在の正規化済みPDF設定。対象見出しの文字サイズを変更し、他の見出しと設定を維持する基準値。
+                           * イベントをupdate・pdf・optionsへ渡し、Webviewルートの結果または副作用を処理する。
+                           * @param event - PDF見出しレベル別フォントサイズ入力をblur時に確定するfocus event。
                            * @returns Webviewルートのコールバックが生成する結果。
                            */
-                          (current) => ({
-                            ...current,
-                            headingFontSizes: {
-                              ...current.headingFontSizes,
-                              [heading]: Number(event.currentTarget.value),
-                            },
-                          }))
+                          (event) =>
+                            updatePdfOptions(
+                              /**
+                               * currentをnumberへ渡し、Webviewルートの結果または副作用を処理する。
+                               * @param current - 現在の正規化済みPDF設定。対象見出しの文字サイズを変更し、他の見出しと設定を維持する基準値。
+                               * @returns Webviewルートのコールバックが生成する結果。
+                               */
+                              (current) => ({
+                                ...current,
+                                headingFontSizes: {
+                                  ...current.headingFontSizes,
+                                  [heading]: Number(event.currentTarget.value),
+                                },
+                              }),
+                            )
                         }
                       />
                     </label>
@@ -5507,22 +5939,23 @@ export function App(): React.JSX.Element {
                   step={0.5}
                   defaultValue={pdfOptions.codeFontSize}
                   onBlur={
-                  /**
-                   * イベントをupdate・pdf・optionsへ渡し、Webviewルートの結果または副作用を処理する。
-                   * @param event - PDFコードフォントサイズ入力をblur時に確定するfocus event。
-                   * @returns Webviewルートのコールバックが生成する結果。
-                   */
-                  (event) =>
-                    updatePdfOptions(
                     /**
-                     * currentをnumberへ渡し、Webviewルートの結果または副作用を処理する。
-                     * @param current - 現在の正規化済みPDF設定。コード文字サイズを変更し、他の設定を維持する基準値。
+                     * イベントをupdate・pdf・optionsへ渡し、Webviewルートの結果または副作用を処理する。
+                     * @param event - PDFコードフォントサイズ入力をblur時に確定するfocus event。
                      * @returns Webviewルートのコールバックが生成する結果。
                      */
-                    (current) => ({
-                      ...current,
-                      codeFontSize: Number(event.currentTarget.value),
-                    }))
+                    (event) =>
+                      updatePdfOptions(
+                        /**
+                         * currentをnumberへ渡し、Webviewルートの結果または副作用を処理する。
+                         * @param current - 現在の正規化済みPDF設定。コード文字サイズを変更し、他の設定を維持する基準値。
+                         * @returns Webviewルートのコールバックが生成する結果。
+                         */
+                        (current) => ({
+                          ...current,
+                          codeFontSize: Number(event.currentTarget.value),
+                        }),
+                      )
                   }
                 />
               </label>
@@ -5536,22 +5969,23 @@ export function App(): React.JSX.Element {
                   step={0.05}
                   defaultValue={pdfOptions.lineHeight}
                   onBlur={
-                  /**
-                   * イベントをupdate・pdf・optionsへ渡し、Webviewルートの結果または副作用を処理する。
-                   * @param event - PDF行間設定入力をblur時に確定するfocus event。
-                   * @returns Webviewルートのコールバックが生成する結果。
-                   */
-                  (event) =>
-                    updatePdfOptions(
                     /**
-                     * currentをnumberへ渡し、Webviewルートの結果または副作用を処理する。
-                     * @param current - 現在の正規化済みPDF設定。行高を変更し、他の設定を維持する基準値。
+                     * イベントをupdate・pdf・optionsへ渡し、Webviewルートの結果または副作用を処理する。
+                     * @param event - PDF行間設定入力をblur時に確定するfocus event。
                      * @returns Webviewルートのコールバックが生成する結果。
                      */
-                    (current) => ({
-                      ...current,
-                      lineHeight: Number(event.currentTarget.value),
-                    }))
+                    (event) =>
+                      updatePdfOptions(
+                        /**
+                         * currentをnumberへ渡し、Webviewルートの結果または副作用を処理する。
+                         * @param current - 現在の正規化済みPDF設定。行高を変更し、他の設定を維持する基準値。
+                         * @returns Webviewルートのコールバックが生成する結果。
+                         */
+                        (current) => ({
+                          ...current,
+                          lineHeight: Number(event.currentTarget.value),
+                        }),
+                      )
                   }
                 />
               </label>
@@ -5565,22 +5999,23 @@ export function App(): React.JSX.Element {
                   step={0.5}
                   defaultValue={pdfOptions.paragraphSpacing}
                   onBlur={
-                  /**
-                   * イベントをupdate・pdf・optionsへ渡し、Webviewルートの結果または副作用を処理する。
-                   * @param event - PDF段落間隔入力をblur時に確定するfocus event。
-                   * @returns Webviewルートのコールバックが生成する結果。
-                   */
-                  (event) =>
-                    updatePdfOptions(
                     /**
-                     * currentをnumberへ渡し、Webviewルートの結果または副作用を処理する。
-                     * @param current - 現在の正規化済みPDF設定。段落間隔を変更し、他の設定を維持する基準値。
+                     * イベントをupdate・pdf・optionsへ渡し、Webviewルートの結果または副作用を処理する。
+                     * @param event - PDF段落間隔入力をblur時に確定するfocus event。
                      * @returns Webviewルートのコールバックが生成する結果。
                      */
-                    (current) => ({
-                      ...current,
-                      paragraphSpacing: Number(event.currentTarget.value),
-                    }))
+                    (event) =>
+                      updatePdfOptions(
+                        /**
+                         * currentをnumberへ渡し、Webviewルートの結果または副作用を処理する。
+                         * @param current - 現在の正規化済みPDF設定。段落間隔を変更し、他の設定を維持する基準値。
+                         * @returns Webviewルートのコールバックが生成する結果。
+                         */
+                        (current) => ({
+                          ...current,
+                          paragraphSpacing: Number(event.currentTarget.value),
+                        }),
+                      )
                   }
                 />
               </label>
@@ -5589,11 +6024,12 @@ export function App(): React.JSX.Element {
               type="button"
               className="primary"
               onClick={
-              /**
-               * clickイベントでrequest・pdf・exportを実行する。
-               * @returns 副作用を完了し、値は返さない。
-               */
-              () => void requestPdfExport()}
+                /**
+                 * clickイベントでrequest・pdf・exportを実行する。
+                 * @returns 副作用を完了し、値は返さない。
+                 */
+                () => void requestPdfExport()
+              }
             >
               {messages.ribbon.labels.exportPdf}
             </button>
@@ -5628,19 +6064,20 @@ export function App(): React.JSX.Element {
           request={htmlRenderRequest}
           settings={exportSettings}
           onRendered={
-          /**
-           * documentsをメッセージ送信へ渡し、Webviewルートの結果または副作用を処理する。
-           * @param documents - 文書URIと開いている文書オブジェクトの対応表。
-           * @returns Webviewルートのコールバックが生成する結果。
-           */
-          (documents) => {
-            vscode.postMessage({
-              type: "htmlDocumentsRendered",
-              requestId: htmlRenderRequest.requestId,
-              documents,
-            });
-            setHtmlRenderRequest(undefined);
-          }}
+            /**
+             * documentsをメッセージ送信へ渡し、Webviewルートの結果または副作用を処理する。
+             * @param documents - 文書URIと開いている文書オブジェクトの対応表。
+             * @returns Webviewルートのコールバックが生成する結果。
+             */
+            (documents) => {
+              vscode.postMessage({
+                type: "htmlDocumentsRendered",
+                requestId: htmlRenderRequest.requestId,
+                documents,
+              });
+              setHtmlRenderRequest(undefined);
+            }
+          }
         />
       )}
       {helpTopic && (
@@ -5648,11 +6085,12 @@ export function App(): React.JSX.Element {
           topic={helpTopic}
           messages={messages}
           onClose={
-          /**
-           * 要素をset・help・topicへ渡し、Webviewルートの結果または副作用を処理する。
-           * @returns 副作用を完了し、値は返さない。
-           */
-          () => setHelpTopic(undefined)}
+            /**
+             * 要素をset・help・topicへ渡し、Webviewルートの結果または副作用を処理する。
+             * @returns 副作用を完了し、値は返さない。
+             */
+            () => setHelpTopic(undefined)
+          }
         />
       )}
       {linkDialogVisible && (
@@ -5664,11 +6102,12 @@ export function App(): React.JSX.Element {
           onLabelChange={setLinkLabel}
           onApply={applyLinkDialog}
           onClose={
-          /**
-           * 要素をset・link・dialog・visibleへ渡し、Webviewルートの結果または副作用を処理する。
-           * @returns Webviewルートのコールバックが生成する結果。
-           */
-          () => setLinkDialogVisible(false)}
+            /**
+             * 要素をset・link・dialog・visibleへ渡し、Webviewルートの結果または副作用を処理する。
+             * @returns Webviewルートのコールバックが生成する結果。
+             */
+            () => setLinkDialogVisible(false)
+          }
         />
       )}
       {toast && (
@@ -5738,7 +6177,6 @@ function Inspector({
   onClose,
   onOpenResource,
 }: {
-
   /**
    * Webviewルートのtargetに関する状態または設定。
    */
@@ -5755,8 +6193,8 @@ function Inspector({
   messages: Messages;
   /**
    * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
-    * @param source - Inspectorで編集している画像・数式・図の参照元文字列。
-    * @param alt - Inspectorで編集している画像の代替テキスト。画像以外では省略する。
+   * @param source - Inspectorで編集している画像・数式・図の参照元文字列。
+   * @param alt - Inspectorで編集している画像の代替テキスト。画像以外では省略する。
    * @returns Webviewルートのon・changeが生成する結果。
    */
   onChange: (source: string, alt?: string) => void;
@@ -5775,14 +6213,16 @@ function Inspector({
   const [source, setSource] = useState(target.source);
   const [alt, setAlt] = useState(target.type === "image" ? target.alt : "");
   useEffect(
-  /**
-   * 依存状態の変化に応じて表示または購読を更新する。
-   * @returns Webviewルートのコールバックが生成する結果。
-   */
-  () => {
-    setSource(target.source);
-    if (target.type === "image") setAlt(target.alt);
-  }, [target]);
+    /**
+     * 依存状態の変化に応じて表示または購読を更新する。
+     * @returns Webviewルートのコールバックが生成する結果。
+     */
+    () => {
+      setSource(target.source);
+      if (target.type === "image") setAlt(target.alt);
+    },
+    [target],
+  );
   return (
     <aside className="inspector-panel">
       <div className="panel-title">
@@ -5811,32 +6251,40 @@ function Inspector({
             <input
               value={alt}
               onChange={
-              /**
-               * change操作を表示または編集状態へ反映する。
-               * @param event - 画像altテキスト入力の更新を処理するchange event。
-               * @returns 副作用を完了し、値は返さない。
-               */
-              (event) => setAlt(event.target.value)}
+                /**
+                 * change操作を表示または編集状態へ反映する。
+                 * @param event - 画像altテキスト入力の更新を処理するchange event。
+                 * @returns 副作用を完了し、値は返さない。
+                 */
+                (event) => setAlt(event.target.value)
+              }
             />
           </label>
           <label>
             {messages.app.inspector.reference}
             <input value={source} readOnly />
           </label>
-          <button onClick={
-          /**
-           * click操作を表示または編集状態へ反映する。
-           * @returns 副作用を完了し、値は返さない。
-           */
-          () => onOpenResource(source)}>
+          <button
+            onClick={
+              /**
+               * click操作を表示または編集状態へ反映する。
+               * @returns 副作用を完了し、値は返さない。
+               */
+              () => onOpenResource(source)
+            }
+          >
             {messages.app.inspector.openFile}
           </button>
-          <button className="primary" onClick={
-          /**
-           * click操作を表示または編集状態へ反映する。
-           * @returns 副作用を完了し、値は返さない。
-           */
-          () => onChange(source, alt)}>
+          <button
+            className="primary"
+            onClick={
+              /**
+               * click操作を表示または編集状態へ反映する。
+               * @returns 副作用を完了し、値は返さない。
+               */
+              () => onChange(source, alt)
+            }
+          >
             {messages.app.inspector.apply}
           </button>
         </>
@@ -5846,12 +6294,13 @@ function Inspector({
             value={source}
             spellCheck={false}
             onChange={
-            /**
-             * change操作を表示または編集状態へ反映する。
-             * @param event - Inspectorの画像Markdown本文入力を処理するchange event。
-             * @returns 副作用を完了し、値は返さない。
-             */
-            (event) => setSource(event.target.value)}
+              /**
+               * change操作を表示または編集状態へ反映する。
+               * @param event - Inspectorの画像Markdown本文入力を処理するchange event。
+               * @returns 副作用を完了し、値は返さない。
+               */
+              (event) => setSource(event.target.value)
+            }
           />
           <div className="inspector-preview">
             <RenderedMarkdown
@@ -5863,12 +6312,16 @@ function Inspector({
               settings={settings}
             />
           </div>
-          <button className="primary" onClick={
-          /**
-           * click操作を表示または編集状態へ反映する。
-           * @returns 副作用を完了し、値は返さない。
-           */
-          () => onChange(source)}>
+          <button
+            className="primary"
+            onClick={
+              /**
+               * click操作を表示または編集状態へ反映する。
+               * @returns 副作用を完了し、値は返さない。
+               */
+              () => onChange(source)
+            }
+          >
             {messages.app.inspector.apply}
           </button>
         </>
@@ -5903,256 +6356,260 @@ function useMarkdownPreviewSnapshot(
   const workerRef = useRef<Worker | undefined>(undefined);
   const workerBusyRef = useRef(false);
   const cancelSanitizationRef = useRef<() => void>(
-  /**
-   * Webviewルートのコールバックとして要素を処理する。
-   * @returns 副作用を完了し、値は返さない。
-   */
-  () => undefined);
+    /**
+     * Webviewルートのコールバックとして要素を処理する。
+     * @returns 副作用を完了し、値は返さない。
+     */
+    () => undefined,
+  );
   const generationRef = useRef(0);
   const onBeforeRefinementRef = useRef(onBeforeRefinement);
   onBeforeRefinementRef.current = onBeforeRefinement;
 
   const cancelActiveRender = useCallback(
-  /**
-   * 要素をifへ渡し、Webviewルートの結果または副作用を処理する。
-   * @returns Webviewルートのコールバックが生成する結果。
-   */
-  () => {
-    generationRef.current += 1;
-    if (workerBusyRef.current) {
-      workerRef.current?.terminate();
-      workerRef.current = undefined;
-      workerBusyRef.current = false;
-    }
-    cancelSanitizationRef.current();
-    cancelSanitizationRef.current =
     /**
-     * Webviewルートのcurrentを処理し、呼び出し側へ結果または副作用を返す。
-     * @returns 副作用を完了し、値は返さない。
+     * 要素をifへ渡し、Webviewルートの結果または副作用を処理する。
+     * @returns Webviewルートのコールバックが生成する結果。
      */
-    () => undefined;
-  }, []);
+    () => {
+      generationRef.current += 1;
+      if (workerBusyRef.current) {
+        workerRef.current?.terminate();
+        workerRef.current = undefined;
+        workerBusyRef.current = false;
+      }
+      cancelSanitizationRef.current();
+      cancelSanitizationRef.current =
+        /**
+         * Webviewルートのcurrentを処理し、呼び出し側へ結果または副作用を返す。
+         * @returns 副作用を完了し、値は返さない。
+         */
+        () => undefined;
+    },
+    [],
+  );
 
   useEffect(
-  /**
-   * 依存状態の変化に応じて表示または購読を更新する。
-   * @returns Webviewルートのコールバックが生成する結果。
-   */
-  () => {
-    cancelActiveRender();
-    if (!enabled) return;
-    const id = generationRef.current;
-    const startedAt = performance.now();
+    /**
+     * 依存状態の変化に応じて表示または購読を更新する。
+     * @returns Webviewルートのコールバックが生成する結果。
+     */
+    () => {
+      cancelActiveRender();
+      if (!enabled) return;
+      const id = generationRef.current;
+      const startedAt = performance.now();
 
-    
-    const applySynchronousFallback = /**
-     * Webviewルートの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-     * @param error - 処理に失敗した理由または例外。
-     * @returns 副作用を完了し、値は返さない。
-     */ async (error: unknown) => {
-      if (generationRef.current !== id) return;
-      document.body.dataset.mveMarkdownWorkerStatus = "fallback";
-      console.error(
-        "[Markdown Easy Visual Editor] Markdown Workerを利用できないため同期描画へ切り替えます。",
-        error,
-      );
-      const fallbackStartedAt = performance.now();
-      let html: string;
-      try {
-        html = await renderMarkdownFallback(markdown, {
-          remoteImagesEnabled,
-          language,
-        });
-      } catch (fallbackError) {
+      const applySynchronousFallback = /**
+       * Webviewルートの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+       * @param error - 処理に失敗した理由または例外。
+       * @returns 副作用を完了し、値は返さない。
+       */ async (error: unknown) => {
         if (generationRef.current !== id) return;
+        document.body.dataset.mveMarkdownWorkerStatus = "fallback";
         console.error(
-          "[Markdown Easy Visual Editor] Markdown フォールバックを読み込めませんでした。",
-          fallbackError,
+          "[Markdown Easy Visual Editor] Markdown Workerを利用できないため同期描画へ切り替えます。",
+          error,
         );
-        html = `<pre>${escapeHtml(markdown)}</pre>`;
-      }
-      if (generationRef.current !== id) return;
-      const rendered = document.createElement("template");
-      rendered.innerHTML = html;
-      const headingIds = new Map<number, string>();
-      for (const heading of rendered.content.querySelectorAll<HTMLElement>(
-        ".markdown-source-block > [data-mve-heading][id]",
-      )) {
-        const offset = Number(heading.parentElement?.dataset.sourceFrom);
-        if (Number.isInteger(offset)) headingIds.set(offset, heading.id);
-      }
-      setSnapshot({
-        markdown,
-        html,
-        outline: getOutline(markdown).flatMap((item) => {
-          const id = headingIds.get(item.offset);
-          return id ? [{ ...item, id }] : [];
-        }),
-        diagnostics: collectDiagnostics(markdown, language),
-        stats: wordStats(markdown),
-      });
-      recordLatestPerformanceMeasure("mve-preview-markdown", fallbackStartedAt);
-    };
-
-    
-    const startWorker = /**
-     * Webviewルートの表示または操作を開始する。
-     * @param rich - リッチMarkdown用Workerを選ぶ場合はtrue。
-     * @param refinement - 完成HTMLの反映として描画する場合はtrue。初回の簡易描画はfalse。
-     * @returns Webviewルートのstart・workerが生成する結果。
-     */ async (rich = false, refinement = false) => {
-      try {
-        let worker = workerRef.current;
-        if (!worker) {
-          document.body.dataset.mveMarkdownWorkerStatus = "loading";
-          worker = await acquireMarkdownWorker(rich);
-          if (generationRef.current !== id) {
-            worker.terminate();
-            return;
-          }
-          workerRef.current = worker;
+        const fallbackStartedAt = performance.now();
+        let html: string;
+        try {
+          html = await renderMarkdownFallback(markdown, {
+            remoteImagesEnabled,
+            language,
+          });
+        } catch (fallbackError) {
+          if (generationRef.current !== id) return;
+          console.error(
+            "[Markdown Easy Visual Editor] Markdown フォールバックを読み込めませんでした。",
+            fallbackError,
+          );
+          html = `<pre>${escapeHtml(markdown)}</pre>`;
         }
         if (generationRef.current !== id) return;
-        workerBusyRef.current = true;
-        document.body.dataset.mveMarkdownWorkerStatus = "running";
-        worker.onmessage =
-        /**
-         * Webviewルートのonmessageを処理し、呼び出し側へ結果または副作用を返す。
-         * @param event - Markdown rendering workerから応答を受信するmessage event。
-         * @returns Webviewルートのonmessageが生成する結果。
-         */
-        (event: MessageEvent<MarkdownWorkerResponse>) => {
-          recordLatestPerformanceMark("mve-preview-worker-response");
-          const response = event.data;
-          if (
-            response.id !== id ||
-            generationRef.current !== id ||
-            workerRef.current !== worker
-          )
-            return;
-          workerBusyRef.current = false;
-          if (
-            response.error ||
-            !response.unsafeBlocks ||
-            response.markdown === undefined ||
-            !response.outline ||
-            !response.diagnostics ||
-            !response.stats
-          ) {
-            void applySynchronousFallback(response.error);
-            return;
-          }
-          const preliminary = response.preliminary === true;
-          document.body.dataset.mveMarkdownWorkerStatus = preliminary
-            ? "preliminary"
-            : "ready";
-          recordLatestPerformanceMeasure(
-            "mve-preview-markdown-worker",
-            startedAt,
-          );
-          if (preliminary && workerRef.current === worker) {
-            worker.terminate();
-            workerRef.current = undefined;
-          }
-          cancelSanitizationRef.current = sanitizeMarkdownBlocks(
-            response.unsafeBlocks,
-
-            /**
-             * Webviewルートのコールバックとして要素を処理する。
-             * @returns Webviewルートのコールバックが生成する結果。
-             */
-            () => generationRef.current === id,
-
-            /**
-             * htmlをrecord・latest・performance・markへ渡し、Webviewルートの結果または副作用を処理する。
-             * @param html - 表示または出力するHTML本文。
-             * @param maximumChunkDuration - 1回のHTMLサニタイズ処理にかかった最長チャンク時間（ミリ秒）。
-             * @returns Webviewルートのコールバックが生成する結果。
-             */
-            (html, maximumChunkDuration) => {
-              recordLatestPerformanceMark("mve-preview-sanitize-complete");
-              cancelSanitizationRef.current =
-              /**
-               * Webviewルートのcurrentを処理し、呼び出し側へ結果または副作用を返す。
-               * @returns 副作用を完了し、値は返さない。
-               */
-              () => undefined;
-              recordPerformanceDuration(
-                "mve-preview-markdown",
-                maximumChunkDuration,
-              );
-              if (generationRef.current !== id) return;
-              if (refinement) onBeforeRefinementRef.current();
-              setSnapshot({
-                markdown: response.markdown as string,
-                html,
-                outline: response.outline as OutlineItem[],
-                diagnostics: response.diagnostics as Diagnostic[],
-                stats: response.stats as {
-
-                  /**
-                  * 集計対象Markdown本文の文字数。
-                   */
-                  markdown: number;
-
-                  /**
-                  * Markdown構文を除去した本文の文字数。
-                   */
-                  text: number;
-
-                  /**
-                   * Markdown本文の行数。
-                   */
-                  lines: number;
-                },
-              });
-              if (preliminary) void startWorker(true, true);
-            },
-          );
-        };
-        worker.onerror =
-        /**
-         * Webviewルートのonerrorを処理し、呼び出し側へ結果または副作用を返す。
-         * @param event - Markdown rendering workerで処理失敗を受信するerror event。
-         * @returns Webviewルートのonerrorが生成する結果。
-         */
-        (event) => {
-          if (generationRef.current !== id || workerRef.current !== worker)
-            return;
-          workerBusyRef.current = false;
-          worker.terminate();
-          workerRef.current = undefined;
-          void applySynchronousFallback(event.message);
-        };
-        worker.postMessage({
-          id,
+        const rendered = document.createElement("template");
+        rendered.innerHTML = html;
+        const headingIds = new Map<number, string>();
+        for (const heading of rendered.content.querySelectorAll<HTMLElement>(
+          ".markdown-source-block > [data-mve-heading][id]",
+        )) {
+          const offset = Number(heading.parentElement?.dataset.sourceFrom);
+          if (Number.isInteger(offset)) headingIds.set(offset, heading.id);
+        }
+        setSnapshot({
           markdown,
-          options: { remoteImagesEnabled, language },
+          html,
+          outline: getOutline(markdown).flatMap((item) => {
+            const id = headingIds.get(item.offset);
+            return id ? [{ ...item, id }] : [];
+          }),
+          diagnostics: collectDiagnostics(markdown, language),
+          stats: wordStats(markdown),
         });
-      } catch (error) {
-        void applySynchronousFallback(error);
-      }
-    };
-    void startWorker();
-    return cancelActiveRender;
-  }, [markdown, remoteImagesEnabled, language, enabled, cancelActiveRender]);
+        recordLatestPerformanceMeasure(
+          "mve-preview-markdown",
+          fallbackStartedAt,
+        );
+      };
+
+      const startWorker = /**
+       * Webviewルートの表示または操作を開始する。
+       * @param rich - リッチMarkdown用Workerを選ぶ場合はtrue。
+       * @param refinement - 完成HTMLの反映として描画する場合はtrue。初回の簡易描画はfalse。
+       * @returns Webviewルートのstart・workerが生成する結果。
+       */ async (rich = false, refinement = false) => {
+        try {
+          let worker = workerRef.current;
+          if (!worker) {
+            document.body.dataset.mveMarkdownWorkerStatus = "loading";
+            worker = await acquireMarkdownWorker(rich);
+            if (generationRef.current !== id) {
+              worker.terminate();
+              return;
+            }
+            workerRef.current = worker;
+          }
+          if (generationRef.current !== id) return;
+          workerBusyRef.current = true;
+          document.body.dataset.mveMarkdownWorkerStatus = "running";
+          worker.onmessage =
+            /**
+             * Webviewルートのonmessageを処理し、呼び出し側へ結果または副作用を返す。
+             * @param event - Markdown rendering workerから応答を受信するmessage event。
+             * @returns Webviewルートのonmessageが生成する結果。
+             */
+            (event: MessageEvent<MarkdownWorkerResponse>) => {
+              recordLatestPerformanceMark("mve-preview-worker-response");
+              const response = event.data;
+              if (
+                response.id !== id ||
+                generationRef.current !== id ||
+                workerRef.current !== worker
+              )
+                return;
+              workerBusyRef.current = false;
+              if (
+                response.error ||
+                !response.unsafeBlocks ||
+                response.markdown === undefined ||
+                !response.outline ||
+                !response.diagnostics ||
+                !response.stats
+              ) {
+                void applySynchronousFallback(response.error);
+                return;
+              }
+              const preliminary = response.preliminary === true;
+              document.body.dataset.mveMarkdownWorkerStatus = preliminary
+                ? "preliminary"
+                : "ready";
+              recordLatestPerformanceMeasure(
+                "mve-preview-markdown-worker",
+                startedAt,
+              );
+              if (preliminary && workerRef.current === worker) {
+                worker.terminate();
+                workerRef.current = undefined;
+              }
+              cancelSanitizationRef.current = sanitizeMarkdownBlocks(
+                response.unsafeBlocks,
+
+                /**
+                 * Webviewルートのコールバックとして要素を処理する。
+                 * @returns Webviewルートのコールバックが生成する結果。
+                 */
+                () => generationRef.current === id,
+
+                /**
+                 * htmlをrecord・latest・performance・markへ渡し、Webviewルートの結果または副作用を処理する。
+                 * @param html - 表示または出力するHTML本文。
+                 * @param maximumChunkDuration - 1回のHTMLサニタイズ処理にかかった最長チャンク時間（ミリ秒）。
+                 * @returns Webviewルートのコールバックが生成する結果。
+                 */
+                (html, maximumChunkDuration) => {
+                  recordLatestPerformanceMark("mve-preview-sanitize-complete");
+                  cancelSanitizationRef.current =
+                    /**
+                     * Webviewルートのcurrentを処理し、呼び出し側へ結果または副作用を返す。
+                     * @returns 副作用を完了し、値は返さない。
+                     */
+                    () => undefined;
+                  recordPerformanceDuration(
+                    "mve-preview-markdown",
+                    maximumChunkDuration,
+                  );
+                  if (generationRef.current !== id) return;
+                  if (refinement) onBeforeRefinementRef.current();
+                  setSnapshot({
+                    markdown: response.markdown as string,
+                    html,
+                    outline: response.outline as OutlineItem[],
+                    diagnostics: response.diagnostics as Diagnostic[],
+                    stats: response.stats as {
+                      /**
+                       * 集計対象Markdown本文の文字数。
+                       */
+                      markdown: number;
+
+                      /**
+                       * Markdown構文を除去した本文の文字数。
+                       */
+                      text: number;
+
+                      /**
+                       * Markdown本文の行数。
+                       */
+                      lines: number;
+                    },
+                  });
+                  if (preliminary) void startWorker(true, true);
+                },
+              );
+            };
+          worker.onerror =
+            /**
+             * Webviewルートのonerrorを処理し、呼び出し側へ結果または副作用を返す。
+             * @param event - Markdown rendering workerで処理失敗を受信するerror event。
+             * @returns Webviewルートのonerrorが生成する結果。
+             */
+            (event) => {
+              if (generationRef.current !== id || workerRef.current !== worker)
+                return;
+              workerBusyRef.current = false;
+              worker.terminate();
+              workerRef.current = undefined;
+              void applySynchronousFallback(event.message);
+            };
+          worker.postMessage({
+            id,
+            markdown,
+            options: { remoteImagesEnabled, language },
+          });
+        } catch (error) {
+          void applySynchronousFallback(error);
+        }
+      };
+      void startWorker();
+      return cancelActiveRender;
+    },
+    [markdown, remoteImagesEnabled, language, enabled, cancelActiveRender],
+  );
 
   useEffect(
-
     /**
      * 依存状態の変化に応じて表示または購読を更新する。
      * @returns Webviewルートで利用する文字列。
      */
     () =>
-    /**
-     * 要素をterminateへ渡し、Webviewルートの結果または副作用を処理する。
-     * @returns Webviewルートで利用する文字列。
-     */
-    () => {
-      workerRef.current?.terminate();
-      workerRef.current = undefined;
-      workerBusyRef.current = false;
-    },
+      /**
+       * 要素をterminateへ渡し、Webviewルートの結果または副作用を処理する。
+       * @returns Webviewルートで利用する文字列。
+       */
+      () => {
+        workerRef.current?.terminate();
+        workerRef.current = undefined;
+        workerBusyRef.current = false;
+      },
     [],
   );
 
@@ -6167,7 +6624,6 @@ const markdownWorkerBlobUrlPromises = new Map<string, Promise<string>>();
  * Webviewルートで共有するデータ形状を表すインターフェース。
  */
 interface PreloadedMarkdownWorker {
-
   /**
    * Webviewルートのworkerに関する状態または設定。
    */
@@ -6187,7 +6643,9 @@ interface PreloadedMarkdownWorker {
 /**
  * Webviewルートの非同期処理を共有するPromise。
  */
-let preloadedMarkdownWorkerPromise: Promise<PreloadedMarkdownWorker> | undefined;
+let preloadedMarkdownWorkerPromise:
+  | Promise<PreloadedMarkdownWorker>
+  | undefined;
 
 /**
  * Webviewルートから必要な値またはリソースを取得する。
@@ -6200,13 +6658,12 @@ function resolveMarkdownWorkerResourceUrl(rich = false): string {
     : document.body.dataset.mveMarkdownWorkerUri;
   if (configured) return configured;
   const script = Array.from(document.scripts).find(
-  /**
-    * Webviewのバンドルスクリプトを探す。
-    * @param candidate - 読み込まれたWebviewスクリプト要素。
-   * @returns 条件に一致した最初の要素。未検出時はundefined。
-   */
-  (candidate) =>
-    /(?:^|\/)webview\.js(?:[?#]|$)/.test(candidate.src),
+    /**
+     * Webviewのバンドルスクリプトを探す。
+     * @param candidate - 読み込まれたWebviewスクリプト要素。
+     * @returns 条件に一致した最初の要素。未検出時はundefined。
+     */
+    (candidate) => /(?:^|\/)webview\.js(?:[?#]|$)/.test(candidate.src),
   );
   return new URL(
     rich ? "markdown-rich-worker.js" : "markdown-worker.js",
@@ -6225,35 +6682,38 @@ async function resolveMarkdownWorkerLaunchUrl(rich = false): Promise<string> {
   let pending = markdownWorkerBlobUrlPromises.get(resourceUrl);
   pending ??= fetch(resourceUrl)
     .then(
-    /**
-     * responseをifへ渡し、Webviewルートの結果または副作用を処理する。
-     * @param response - Markdown Worker取得要求のHTTP応答。成功状態を確認して本文Blobを読み取る。
-     * @returns 副作用を完了し、値は返さない。
-     */
-    (response) => {
-      if (!response.ok)
-        throw new Error(
-          `Markdown Workerの取得に失敗しました (${response.status})`,
-        );
-      return response.blob();
-    })
+      /**
+       * responseをifへ渡し、Webviewルートの結果または副作用を処理する。
+       * @param response - Markdown Worker取得要求のHTTP応答。成功状態を確認して本文Blobを読み取る。
+       * @returns 副作用を完了し、値は返さない。
+       */
+      (response) => {
+        if (!response.ok)
+          throw new Error(
+            `Markdown Workerの取得に失敗しました (${response.status})`,
+          );
+        return response.blob();
+      },
+    )
     .then(
-    /**
-     * blobをcreate・object・urlへ渡し、Webviewルートの結果または副作用を処理する。
-     * @param blob - 取得したMarkdown Workerスクリプト本文のBlob。Worker起動用Object URLを作る元データ。
-     * @returns 副作用を完了し、値は返さない。
-     */
-    (blob) => URL.createObjectURL(blob))
+      /**
+       * blobをcreate・object・urlへ渡し、Webviewルートの結果または副作用を処理する。
+       * @param blob - 取得したMarkdown Workerスクリプト本文のBlob。Worker起動用Object URLを作る元データ。
+       * @returns 副作用を完了し、値は返さない。
+       */
+      (blob) => URL.createObjectURL(blob),
+    )
     .catch(
-    /**
-     * errorを削除へ渡し、Webviewルートの結果または副作用を処理する。
-     * @param error - 処理に失敗した理由または例外。
-     * @returns 副作用を完了し、値は返さない。
-     */
-    (error) => {
-      markdownWorkerBlobUrlPromises.delete(resourceUrl);
-      throw error;
-    });
+      /**
+       * errorを削除へ渡し、Webviewルートの結果または副作用を処理する。
+       * @param error - 処理に失敗した理由または例外。
+       * @returns 副作用を完了し、値は返さない。
+       */
+      (error) => {
+        markdownWorkerBlobUrlPromises.delete(resourceUrl);
+        throw error;
+      },
+    );
   markdownWorkerBlobUrlPromises.set(resourceUrl, pending);
   return pending;
 }
@@ -6264,33 +6724,36 @@ async function resolveMarkdownWorkerLaunchUrl(rich = false): Promise<string> {
  */
 export function preloadMarkdownWorker(): void {
   preloadedMarkdownWorkerPromise ??= resolveMarkdownWorkerLaunchUrl().then(
-  /**
-   * urlをworkerへ渡し、Webviewルートの結果または副作用を処理する。
-   * @param url - Webviewルートで読み書きするリソースの場所。
-   * @returns Webviewルートの非同期処理で得られる結果。
-   */
-  (url) => {
-    const state = {} as PreloadedMarkdownWorker;
-    const worker = new Worker(url);
-    state.worker = worker;
-    state.errorListener =
     /**
-     * Webviewルートのerror・listenerを処理し、呼び出し側へ結果または副作用を返す。
-     * @param event - preload中に発生したworker errorの詳細を記録するErrorEvent。
+     * urlをworkerへ渡し、Webviewルートの結果または副作用を処理する。
+     * @param url - Webviewルートで読み書きするリソースの場所。
      * @returns Webviewルートの非同期処理で得られる結果。
      */
-    (event: ErrorEvent) => {
-      state.error = event.message || event.error || "Markdown Worker preload failed";
-    };
-    worker.addEventListener("error", state.errorListener);
-    return state;
-  });
+    (url) => {
+      const state = {} as PreloadedMarkdownWorker;
+      const worker = new Worker(url);
+      state.worker = worker;
+      state.errorListener =
+        /**
+         * Webviewルートのerror・listenerを処理し、呼び出し側へ結果または副作用を返す。
+         * @param event - preload中に発生したworker errorの詳細を記録するErrorEvent。
+         * @returns Webviewルートの非同期処理で得られる結果。
+         */
+        (event: ErrorEvent) => {
+          state.error =
+            event.message || event.error || "Markdown Worker preload failed";
+        };
+      worker.addEventListener("error", state.errorListener);
+      return state;
+    },
+  );
   void preloadedMarkdownWorkerPromise.catch(
-  /**
-   * Webviewルートのコールバックとして要素を処理する。
-   * @returns Webviewルートの非同期処理で得られる結果。
-   */
-  () => undefined);
+    /**
+     * Webviewルートのコールバックとして要素を処理する。
+     * @returns Webviewルートの非同期処理で得られる結果。
+     */
+    () => undefined,
+  );
 }
 
 /**
@@ -6301,7 +6764,8 @@ export function preloadMarkdownWorker(): void {
 async function acquireMarkdownWorker(rich = false): Promise<Worker> {
   if (rich) return new Worker(await resolveMarkdownWorkerLaunchUrl(true));
   preloadMarkdownWorker();
-  const pending = preloadedMarkdownWorkerPromise as Promise<PreloadedMarkdownWorker>;
+  const pending =
+    preloadedMarkdownWorkerPromise as Promise<PreloadedMarkdownWorker>;
   preloadedMarkdownWorkerPromise = undefined;
   const state = await pending;
   state.worker.removeEventListener("error", state.errorListener);
@@ -6340,7 +6804,6 @@ function sanitizeMarkdownBlocks(
   let maximumChunkDuration = 0;
   let slowestBlock = { duration: 0, length: 0, prefix: "" };
 
-  
   const close = /**
    * Webviewルートの処理またはリソースを終了し、後続利用可能な状態へ戻す。
    * @returns 副作用を完了し、値は返さない。
@@ -6350,7 +6813,6 @@ function sanitizeMarkdownBlocks(
     timer = undefined;
   };
 
-  
   const runChunk = /**
    * Webviewルートの処理順序と完了状態を管理する。
    * @returns Webviewルートのrun・chunkが生成する結果。
@@ -6391,7 +6853,6 @@ function sanitizeMarkdownBlocks(
     performance.mark("mve-preview-sanitize-slowest", { detail: slowestBlock });
     (
       globalThis as typeof globalThis & {
-
         /**
          * Webviewルートの・mve・slowest・sanitize・blockに関する状態または設定。
          */
@@ -6444,15 +6905,19 @@ function recordPerformanceDuration(name: string, duration: number): void {
 function collectStartupMetrics(
   initReceivedAt: number | undefined,
 ): Record<string, number> {
-  const metrics: Record<string, number> = { previewReportedAt: performance.now() };
+  const metrics: Record<string, number> = {
+    previewReportedAt: performance.now(),
+  };
   const bundleExecutedAt = (
     globalThis as typeof globalThis & {
-    /**
-     * Webviewルートの・mve・bundle・executed・atを表す数値。
-     */
-    __mveBundleExecutedAt?: number }
+      /**
+       * Webviewルートの・mve・bundle・executed・atを表す数値。
+       */
+      __mveBundleExecutedAt?: number;
+    }
   ).__mveBundleExecutedAt;
-  if (bundleExecutedAt !== undefined) metrics.bundleExecutedAt = bundleExecutedAt;
+  if (bundleExecutedAt !== undefined)
+    metrics.bundleExecutedAt = bundleExecutedAt;
   if (initReceivedAt !== undefined) metrics.initReceivedAt = initReceivedAt;
   const workerResponse = performance
     .getEntriesByName("mve-preview-worker-response", "mark")
@@ -6497,93 +6962,99 @@ function useInterruptibleDebouncedValue<T>(
   const generationRef = useRef(0);
 
   const cancelPending = useCallback(
-  /**
-   * 要素をifへ渡し、Webviewルートの結果または副作用を処理する。
-   * @returns Webviewルートのコールバックが生成する結果。
-   */
-  () => {
-    generationRef.current += 1;
-    if (timerRef.current !== undefined) {
-      window.clearTimeout(timerRef.current);
-      timerRef.current = undefined;
-    }
-    if (idleHandleRef.current !== undefined) {
-      const idleWindow = window as Window & {
-        /**
-         * Webviewルートの条件を判定する。
-         * @param handle - requestIdleCallbackが返した、取り消すアイドルコールバックID。
-         * @returns 戻り値はなく、指定したidle callbackを取り消す。
-         */
-        cancelIdleCallback?: (handle: number) => void;
-      };
-      if (idleUsesTimeoutRef.current || !idleWindow.cancelIdleCallback) {
-        window.clearTimeout(idleHandleRef.current);
-      } else {
-        idleWindow.cancelIdleCallback(idleHandleRef.current);
-      }
-      idleHandleRef.current = undefined;
-    }
-  }, []);
-
-  useEffect(
-  /**
-   * 依存状態の変化に応じて表示または購読を更新する。
-   * @returns Webviewルートのコールバックが生成する結果。
-   */
-  () => {
-    if (!firstNonInitialValueRef.current && value === initialValueRef.current)
-      return;
-    // 初回のホスト文書だけは起動時の表示を遅らせない。
-    if (!firstNonInitialValueRef.current) {
-      firstNonInitialValueRef.current = true;
-      setDebounced(value);
-      return;
-    }
-    cancelPending();
-    const generation = generationRef.current;
-    timerRef.current = window.setTimeout(
     /**
-     * 指定時間の経過後に後続処理を実行する。
-     * @returns 副作用を完了し、値は返さない。
+     * 要素をifへ渡し、Webviewルートの結果または副作用を処理する。
+     * @returns Webviewルートのコールバックが生成する結果。
      */
     () => {
-      timerRef.current = undefined;
-
-      
-      const commit = /**
-       * Webviewルートの変更または要求をHost・Webview間へ通知する。
-       * @returns Webviewルートで利用する文字列。
-       */ () => {
-        idleHandleRef.current = undefined;
-        if (generation !== generationRef.current) return;
-        setDebounced(value);
-      };
-      const idleWindow = window as Window & {
-        /**
-         * アイドル時または上限時間の経過後にコールバックを実行するブラウザーAPI。
-         * @param callback - 実行を予約するアイドル処理。
-         * @param options - 強制実行までの最大待機時間を指定する設定。
-         * @returns 予約した処理の識別番号。
-         */
-        requestIdleCallback?: (
-          callback: () => void,
-          options?: {
-          /** アイドル処理を強制実行するまでの最大待機時間（ミリ秒）。 */
-          timeout: number },
-        ) => number;
-      };
-      if (idleWindow.requestIdleCallback) {
-        idleUsesTimeoutRef.current = false;
-        idleHandleRef.current = idleWindow.requestIdleCallback(commit, {
-          timeout: 750,
-        });
-      } else {
-        idleUsesTimeoutRef.current = true;
-        idleHandleRef.current = window.setTimeout(commit, 0);
+      generationRef.current += 1;
+      if (timerRef.current !== undefined) {
+        window.clearTimeout(timerRef.current);
+        timerRef.current = undefined;
       }
-    }, delay);
-    return cancelPending;
-  }, [value, delay, cancelPending]);
+      if (idleHandleRef.current !== undefined) {
+        const idleWindow = window as Window & {
+          /**
+           * Webviewルートの条件を判定する。
+           * @param handle - requestIdleCallbackが返した、取り消すアイドルコールバックID。
+           * @returns 戻り値はなく、指定したidle callbackを取り消す。
+           */
+          cancelIdleCallback?: (handle: number) => void;
+        };
+        if (idleUsesTimeoutRef.current || !idleWindow.cancelIdleCallback) {
+          window.clearTimeout(idleHandleRef.current);
+        } else {
+          idleWindow.cancelIdleCallback(idleHandleRef.current);
+        }
+        idleHandleRef.current = undefined;
+      }
+    },
+    [],
+  );
+
+  useEffect(
+    /**
+     * 依存状態の変化に応じて表示または購読を更新する。
+     * @returns Webviewルートのコールバックが生成する結果。
+     */
+    () => {
+      if (!firstNonInitialValueRef.current && value === initialValueRef.current)
+        return;
+      // 初回のホスト文書だけは起動時の表示を遅らせない。
+      if (!firstNonInitialValueRef.current) {
+        firstNonInitialValueRef.current = true;
+        setDebounced(value);
+        return;
+      }
+      cancelPending();
+      const generation = generationRef.current;
+      timerRef.current = window.setTimeout(
+        /**
+         * 指定時間の経過後に後続処理を実行する。
+         * @returns 副作用を完了し、値は返さない。
+         */
+        () => {
+          timerRef.current = undefined;
+
+          const commit = /**
+           * Webviewルートの変更または要求をHost・Webview間へ通知する。
+           * @returns Webviewルートで利用する文字列。
+           */ () => {
+            idleHandleRef.current = undefined;
+            if (generation !== generationRef.current) return;
+            setDebounced(value);
+          };
+          const idleWindow = window as Window & {
+            /**
+             * アイドル時または上限時間の経過後にコールバックを実行するブラウザーAPI。
+             * @param callback - 実行を予約するアイドル処理。
+             * @param options - 強制実行までの最大待機時間を指定する設定。
+             * @returns 予約した処理の識別番号。
+             */
+            requestIdleCallback?: (
+              callback: () => void,
+              options?: {
+                /** アイドル処理を強制実行するまでの最大待機時間（ミリ秒）。 */
+                timeout: number;
+              },
+            ) => number;
+          };
+          if (idleWindow.requestIdleCallback) {
+            idleUsesTimeoutRef.current = false;
+            idleHandleRef.current = idleWindow.requestIdleCallback(commit, {
+              timeout: 750,
+            });
+          } else {
+            idleUsesTimeoutRef.current = true;
+            idleHandleRef.current = window.setTimeout(commit, 0);
+          }
+        },
+        delay,
+      );
+      return cancelPending;
+    },
+    [value, delay, cancelPending],
+  );
 
   return [debounced, cancelPending];
 }
@@ -6609,15 +7080,18 @@ function HtmlDocumentRenderStage({
   settings,
   onRendered,
 }: {
-
   /**
    * Webviewルートのrequestに関する状態または設定。
    */
-  request: Extract<HostToWebviewMessage, {
-  /**
-   * Webviewルートで対象や分岐を識別する値の型。
-   */
-  type: "renderHtmlDocuments" }>;
+  request: Extract<
+    HostToWebviewMessage,
+    {
+      /**
+       * Webviewルートで対象や分岐を識別する値の型。
+       */
+      type: "renderHtmlDocuments";
+    }
+  >;
 
   /**
    * Webviewルートへ渡す設定または境界値。
@@ -6626,13 +7100,16 @@ function HtmlDocumentRenderStage({
   /**
    * Webviewルートのon・renderedに関する状態または設定。
    */
-  onRendered: (documents: Array<{
-  /**
-   * Webviewルートで扱うidの文字列。
-   */
-  id: string;
-  /** 対象Markdown文書からレンダリングしたHTML本文。 */
-  html: string }>) => void;
+  onRendered: (
+    documents: Array<{
+      /**
+       * Webviewルートで扱うidの文字列。
+       */
+      id: string;
+      /** 対象Markdown文書からレンダリングしたHTML本文。 */
+      html: string;
+    }>,
+  ) => void;
 }): React.JSX.Element {
   const renderedRef = useRef(new Map<string, string>());
   const completedRef = useRef(false);
@@ -6652,40 +7129,43 @@ function HtmlDocumentRenderStage({
     completedRef.current = true;
     onRenderedRef.current(
       request.documents.map(
-      /**
-       * 各HTML出力文書のIDに対応するレンダリング済み本文をまとめる。
-       * @param document - Hostから受け取ったHTML出力対象文書。
-       * @returns 文書IDとサニタイズ済みHTML本文の組。
-       */
-      (document) => ({
-        id: document.id,
-        html: renderedRef.current.get(document.id) ?? "",
-      })),
+        /**
+         * 各HTML出力文書のIDに対応するレンダリング済み本文をまとめる。
+         * @param document - Hostから受け取ったHTML出力対象文書。
+         * @returns 文書IDとサニタイズ済みHTML本文の組。
+         */
+        (document) => ({
+          id: document.id,
+          html: renderedRef.current.get(document.id) ?? "",
+        }),
+      ),
     );
   }
 
   return (
     <div className="export-stage html-document-render-stage" aria-hidden="true">
       {request.documents.map(
-      /**
-       * HTML出力対象文書ごとに非表示のMarkdownレンダラーを作る。
-       * @param document - 描画するMarkdown本文とHost側の文書ID。
-       * @returns その文書をレンダリングするReact要素。
-       */
-      (document) => (
-        <RenderedMarkdown
-          key={document.id}
-          markdown={document.markdown}
-          settings={settings}
-          onRendered={
-          /**
-           * 要素をhandle・renderedへ渡し、Webviewルートの結果または副作用を処理する。
-          * @param element - 出力用HTMLがレンダリングされた文書のルート要素。
-           * @returns Webviewルートのコールバックが生成する結果。
-           */
-          (element) => handleRendered(document.id, element)}
-        />
-      ))}
+        /**
+         * HTML出力対象文書ごとに非表示のMarkdownレンダラーを作る。
+         * @param document - 描画するMarkdown本文とHost側の文書ID。
+         * @returns その文書をレンダリングするReact要素。
+         */
+        (document) => (
+          <RenderedMarkdown
+            key={document.id}
+            markdown={document.markdown}
+            settings={settings}
+            onRendered={
+              /**
+               * 要素をhandle・renderedへ渡し、Webviewルートの結果または副作用を処理する。
+               * @param element - 出力用HTMLがレンダリングされた文書のルート要素。
+               * @returns Webviewルートのコールバックが生成する結果。
+               */
+              (element) => handleRendered(document.id, element)
+            }
+          />
+        ),
+      )}
     </div>
   );
 }
@@ -6722,7 +7202,6 @@ function PdfPreview({
   onZoom,
   onRendered,
 }: {
-
   /**
    * 解析・編集・変換の対象となるMarkdown本文。
    */
@@ -6792,13 +7271,15 @@ function PdfPreview({
   const showPdfLayer = Boolean(pdfBase64 && pdfCanvasReady);
 
   useEffect(
-  /**
-   * 依存状態の変化に応じて表示または購読を更新する。
-   * @returns Webviewルートのコールバックが生成する結果。
-   */
-  () => {
-    setPdfCanvasReady(false);
-  }, [pdfBase64, zoom]);
+    /**
+     * 依存状態の変化に応じて表示または購読を更新する。
+     * @returns Webviewルートのコールバックが生成する結果。
+     */
+    () => {
+      setPdfCanvasReady(false);
+    },
+    [pdfBase64, zoom],
+  );
 
   return (
     <div
@@ -6816,14 +7297,15 @@ function PdfPreview({
           type="button"
           aria-label={messages.app.pdfPreview.zoomOut}
           onClick={
-          /**
-           * clickイベントでmve・debugを実行する。
-           * @returns 副作用を完了し、値は返さない。
-           */
-          () => {
-            mveDebug("pdf.zoom-button", { delta: -0.1, zoom });
-            onZoom(-0.1);
-          }}
+            /**
+             * clickイベントでmve・debugを実行する。
+             * @returns 副作用を完了し、値は返さない。
+             */
+            () => {
+              mveDebug("pdf.zoom-button", { delta: -0.1, zoom });
+              onZoom(-0.1);
+            }
+          }
         >
           −
         </button>
@@ -6834,14 +7316,15 @@ function PdfPreview({
           type="button"
           aria-label={messages.app.pdfPreview.zoomIn}
           onClick={
-          /**
-           * clickイベントでmve・debugを実行する。
-           * @returns 副作用を完了し、値は返さない。
-           */
-          () => {
-            mveDebug("pdf.zoom-button", { delta: 0.1, zoom });
-            onZoom(0.1);
-          }}
+            /**
+             * clickイベントでmve・debugを実行する。
+             * @returns 副作用を完了し、値は返さない。
+             */
+            () => {
+              mveDebug("pdf.zoom-button", { delta: 0.1, zoom });
+              onZoom(0.1);
+            }
+          }
         >
           ＋
         </button>
@@ -6861,20 +7344,22 @@ function PdfPreview({
         <div className="pdf-preview-live-layer">
           <div
             className="pdf-preview-live-content"
-            style={{
-              zoom,
-              fontFamily: options.fontFamily,
-              fontSize: `${options.bodyFontSize}pt`,
-              lineHeight: options.lineHeight,
-              "--mve-pdf-h1-size": `${options.headingFontSizes.h1}pt`,
-              "--mve-pdf-h2-size": `${options.headingFontSizes.h2}pt`,
-              "--mve-pdf-h3-size": `${options.headingFontSizes.h3}pt`,
-              "--mve-pdf-h4-size": `${options.headingFontSizes.h4}pt`,
-              "--mve-pdf-h5-size": `${options.headingFontSizes.h5}pt`,
-              "--mve-pdf-h6-size": `${options.headingFontSizes.h6}pt`,
-              "--mve-pdf-code-size": `${options.codeFontSize}pt`,
-              "--mve-pdf-paragraph-spacing": `${options.paragraphSpacing}pt`,
-            } as React.CSSProperties}
+            style={
+              {
+                zoom,
+                fontFamily: options.fontFamily,
+                fontSize: `${options.bodyFontSize}pt`,
+                lineHeight: options.lineHeight,
+                "--mve-pdf-h1-size": `${options.headingFontSizes.h1}pt`,
+                "--mve-pdf-h2-size": `${options.headingFontSizes.h2}pt`,
+                "--mve-pdf-h3-size": `${options.headingFontSizes.h3}pt`,
+                "--mve-pdf-h4-size": `${options.headingFontSizes.h4}pt`,
+                "--mve-pdf-h5-size": `${options.headingFontSizes.h5}pt`,
+                "--mve-pdf-h6-size": `${options.headingFontSizes.h6}pt`,
+                "--mve-pdf-code-size": `${options.codeFontSize}pt`,
+                "--mve-pdf-paragraph-spacing": `${options.paragraphSpacing}pt`,
+              } as React.CSSProperties
+            }
           >
             {options.header && (
               <div className="pdf-preview-header">
@@ -6889,11 +7374,12 @@ function PdfPreview({
               onInspect={onInspect}
               onNavigate={onNavigate}
               onRendered={
-              /**
-               * 要素をon・renderedへ渡し、Webviewルートの結果または副作用を処理する。
-               * @returns Webviewルートのコールバックが生成する結果。
-               */
-              () => onRendered()}
+                /**
+                 * 要素をon・renderedへ渡し、Webviewルートの結果または副作用を処理する。
+                 * @returns Webviewルートのコールバックが生成する結果。
+                 */
+                () => onRendered()
+              }
               deferMermaid
             />
             {options.footer && (
@@ -6914,19 +7400,20 @@ function PdfPreview({
             pageRatio={dimensions.width / dimensions.height}
             zoom={zoom}
             onRendered={
-            /**
-             * 要素をmve・debugへ渡し、Webviewルートの結果または副作用を処理する。
-             * @returns Webviewルートのコールバックが生成する結果。
-             */
-            () => {
-              mveDebug("pdf.preview-layer-ready", {
-                zoom,
-                format: options.format,
-                orientation: options.orientation,
-              });
-              setPdfCanvasReady(true);
-              onRendered();
-            }}
+              /**
+               * 要素をmve・debugへ渡し、Webviewルートの結果または副作用を処理する。
+               * @returns Webviewルートのコールバックが生成する結果。
+               */
+              () => {
+                mveDebug("pdf.preview-layer-ready", {
+                  zoom,
+                  format: options.format,
+                  orientation: options.orientation,
+                });
+                setPdfCanvasReady(true);
+                onRendered();
+              }
+            }
           />
         </div>
       )}
@@ -6966,7 +7453,6 @@ function LinkDialog({
   onApply,
   onClose,
 }: {
-
   /**
    * リンク操作領域の遷移先URI。
    */
@@ -7014,15 +7500,16 @@ function LinkDialog({
       <form
         className="help-dialog link-dialog"
         onSubmit={
-        /**
-         * イベントをprevent・defaultへ渡し、Webviewルートの結果または副作用を処理する。
-         * @param event - リンク設定を確定するform submit event。
-         * @returns Webviewルートのコールバックが生成する結果。
-         */
-        (event) => {
-          event.preventDefault();
-          onApply();
-        }}
+          /**
+           * イベントをprevent・defaultへ渡し、Webviewルートの結果または副作用を処理する。
+           * @param event - リンク設定を確定するform submit event。
+           * @returns Webviewルートのコールバックが生成する結果。
+           */
+          (event) => {
+            event.preventDefault();
+            onApply();
+          }
+        }
       >
         <div className="panel-title">
           <h2 id="link-dialog-title">{messages.app.link.title}</h2>
@@ -7043,12 +7530,13 @@ function LinkDialog({
             type="url"
             value={href}
             onChange={
-            /**
-             * changeイベントでon・href・changeを実行する。
-             * @param event - リンク先URL入力の更新を処理するchange event。
-             * @returns 副作用を完了し、値は返さない。
-             */
-            (event) => onHrefChange(event.target.value)}
+              /**
+               * changeイベントでon・href・changeを実行する。
+               * @param event - リンク先URL入力の更新を処理するchange event。
+               * @returns 副作用を完了し、値は返さない。
+               */
+              (event) => onHrefChange(event.target.value)
+            }
             placeholder={messages.app.link.urlPlaceholder}
           />
         </label>
@@ -7057,12 +7545,13 @@ function LinkDialog({
           <input
             value={label}
             onChange={
-            /**
-             * changeイベントでon・label・changeを実行する。
-             * @param event - リンク表示文字列入力の更新を処理するchange event。
-             * @returns 副作用を完了し、値は返さない。
-             */
-            (event) => onLabelChange(event.target.value)}
+              /**
+               * changeイベントでon・label・changeを実行する。
+               * @param event - リンク表示文字列入力の更新を処理するchange event。
+               * @returns 副作用を完了し、値は返さない。
+               */
+              (event) => onLabelChange(event.target.value)
+            }
           />
         </label>
         <div className="dialog-actions">
@@ -7090,7 +7579,6 @@ function HelpDialog({
   messages,
   onClose,
 }: {
-
   /**
    * Webviewルートのtopicに関する状態または設定。
    */
@@ -7275,31 +7763,33 @@ function HelpDialog({
         {topic === "features" && (
           <div className="feature-list">
             {featureSections.map(
-            /**
-             * 各機能カテゴリの見出しと説明を表示する。
-             * @param section - 機能セクションの見出しと項目一覧。
-             * @returns 見出しと機能一覧を表示するReact要素。
-             */
-            (section) => (
-              <section key={section.title}>
-                <h3>{section.title}</h3>
-                <ul>
-                  {section.items.map(
-                  /**
-                   * section.itemsの各要素を変換して一覧化する。
-                   * @param label - 機能項目の表示名。
-                   * @param description - 機能項目の説明文。
-                   * @returns 表示名と説明文を含むリスト項目。
-                   */
-                  ([label, description]) => (
-                    <li key={label}>
-                      <strong>{label}</strong>
-                      <span>{description}</span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ))}
+              /**
+               * 各機能カテゴリの見出しと説明を表示する。
+               * @param section - 機能セクションの見出しと項目一覧。
+               * @returns 見出しと機能一覧を表示するReact要素。
+               */
+              (section) => (
+                <section key={section.title}>
+                  <h3>{section.title}</h3>
+                  <ul>
+                    {section.items.map(
+                      /**
+                       * section.itemsの各要素を変換して一覧化する。
+                       * @param label - 機能項目の表示名。
+                       * @param description - 機能項目の説明文。
+                       * @returns 表示名と説明文を含むリスト項目。
+                       */
+                      ([label, description]) => (
+                        <li key={label}>
+                          <strong>{label}</strong>
+                          <span>{description}</span>
+                        </li>
+                      ),
+                    )}
+                  </ul>
+                </section>
+              ),
+            )}
           </div>
         )}
       </section>
@@ -7329,26 +7819,25 @@ async function fileToPayload(
     canvas.height = bitmap.height;
     canvas.getContext("2d")?.drawImage(bitmap, 0, 0);
     const blob = await new Promise<Blob>(
-    /**
-     * 非同期処理の成功結果と失敗理由を待機側へ通知する。
-     * @param resolve - Promiseの成功を通知する関数。
-     * @param reject - Promiseの失敗を通知する関数。
-     * @returns 非同期処理の完了値。
-     */
-    (resolve, reject) =>
-      canvas.toBlob(
-
-        /**
-         * 値を成功結果通知へ渡し、Webviewルートの結果または副作用を処理する。
-         * @param value - canvasから受け取る画像変換結果。nullなら変換に失敗している。
-         * @returns Webviewルートのコールバックが生成する結果。
-         */
-        (value) =>
-          value
-            ? resolve(value)
-            : reject(new Error(messages.app.errors.bmpConversion)),
-        "image/png",
-      ),
+      /**
+       * 非同期処理の成功結果と失敗理由を待機側へ通知する。
+       * @param resolve - Promiseの成功を通知する関数。
+       * @param reject - Promiseの失敗を通知する関数。
+       * @returns 非同期処理の完了値。
+       */
+      (resolve, reject) =>
+        canvas.toBlob(
+          /**
+           * 値を成功結果通知へ渡し、Webviewルートの結果または副作用を処理する。
+           * @param value - canvasから受け取る画像変換結果。nullなら変換に失敗している。
+           * @returns Webviewルートのコールバックが生成する結果。
+           */
+          (value) =>
+            value
+              ? resolve(value)
+              : reject(new Error(messages.app.errors.bmpConversion)),
+          "image/png",
+        ),
     );
     return {
       name: file.name.replace(/\.bmp$/i, ".png"),
@@ -7416,16 +7905,6 @@ function findSearchHits(
   value: string,
   query: string,
 ): Array<{
-/**
- * Webviewルートのfromを表す数値。
- */
-from: number;
-/**
- * Webviewルートのtoを表す数値。
- */
-to: number }> {
-  if (!query) return [];
-  const hits: Array<{
   /**
    * Webviewルートのfromを表す数値。
    */
@@ -7433,7 +7912,19 @@ to: number }> {
   /**
    * Webviewルートのtoを表す数値。
    */
-  to: number }> = [];
+  to: number;
+}> {
+  if (!query) return [];
+  const hits: Array<{
+    /**
+     * Webviewルートのfromを表す数値。
+     */
+    from: number;
+    /**
+     * Webviewルートのtoを表す数値。
+     */
+    to: number;
+  }> = [];
   let offset = 0;
   while (offset <= value.length) {
     const index = value.indexOf(query, offset);
@@ -7459,7 +7950,6 @@ function clampSplitRatio(value: number): number {
  * @returns Webviewルートのpdf・page・dimensionsが生成する結果。
  */
 function pdfPageDimensions(options: NormalizedPdfOptions): {
-
   /**
    * 表示領域または列の幅。
    */
@@ -7471,14 +7961,15 @@ function pdfPageDimensions(options: NormalizedPdfOptions): {
   height: number;
 } {
   const dimensions: {
-  /**
-   * 表示領域または列の幅。
-   */
-  width: number;
-  /**
-   * 表示領域または行の高さ。
-   */
-  height: number } = {
+    /**
+     * 表示領域または列の幅。
+     */
+    width: number;
+    /**
+     * 表示領域または行の高さ。
+     */
+    height: number;
+  } = {
     A0: { width: 841, height: 1189 },
     A1: { width: 594, height: 841 },
     A2: { width: 420, height: 594 },
@@ -7496,8 +7987,8 @@ function pdfPageDimensions(options: NormalizedPdfOptions): {
 
 /**
  * Webviewルートを出力または保存できる文字列へ整える。
-   * @param value - {page}と{pages}を置換するPDFヘッダーまたはフッターのテンプレート。
-   * @returns ページ番号プレースホルダーを1へ置き換えたテンプレート。
+ * @param value - {page}と{pages}を置換するPDFヘッダーまたはフッターのテンプレート。
+ * @returns ページ番号プレースホルダーを1へ置き換えたテンプレート。
  */
 function formatPdfTemplate(value: string): string {
   return value.replace(/\{page\}/g, "1").replace(/\{pages\}/g, "1");
@@ -7550,40 +8041,42 @@ function mapChangesPreferLocal(
 ): TextChange[] {
   return [...changes]
     .sort(
-    /**
-     * 2つの値を比較して並び順を決める。
-     * @param left - 比較対象の左側の値。
-     * @param right - 比較対象の右側の値。
-     * @returns 2つの要素の順序を示す数値。
-     */
-    (left, right) => left.rangeOffset - right.rangeOffset)
+      /**
+       * 2つの値を比較して並び順を決める。
+       * @param left - 比較対象の左側の値。
+       * @param right - 比較対象の右側の値。
+       * @returns 2つの要素の順序を示す数値。
+       */
+      (left, right) => left.rangeOffset - right.rangeOffset,
+    )
     .map(
-    /**
-     * 各ローカル変更範囲の位置を他方の変更範囲に合わせて移動する。
-     * @param change - 変更前本文に対して計算した、位置を移動するローカル変更。
-     * @returns range・offsetを取り出した変換結果の一覧。
-     */
-    (change) => {
-      const start = change.rangeOffset;
-      if (change.rangeLength === 0) {
+      /**
+       * 各ローカル変更範囲の位置を他方の変更範囲に合わせて移動する。
+       * @param change - 変更前本文に対して計算した、位置を移動するローカル変更。
+       * @returns range・offsetを取り出した変換結果の一覧。
+       */
+      (change) => {
+        const start = change.rangeOffset;
+        if (change.rangeLength === 0) {
+          return {
+            ...change,
+            rangeOffset: mapTextOffset(start, over, baseLength, 1),
+          };
+        }
+        const mappedStart = mapTextOffset(start, over, baseLength, -1);
+        const mappedEnd = mapTextOffset(
+          start + change.rangeLength,
+          over,
+          baseLength,
+          1,
+        );
         return {
           ...change,
-          rangeOffset: mapTextOffset(start, over, baseLength, 1),
+          rangeOffset: mappedStart,
+          rangeLength: Math.max(0, mappedEnd - mappedStart),
         };
-      }
-      const mappedStart = mapTextOffset(start, over, baseLength, -1);
-      const mappedEnd = mapTextOffset(
-        start + change.rangeLength,
-        over,
-        baseLength,
-        1,
-      );
-      return {
-        ...change,
-        rangeOffset: mappedStart,
-        rangeLength: Math.max(0, mappedEnd - mappedStart),
-      };
-    });
+      },
+    );
 }
 
 /**
@@ -7646,7 +8139,7 @@ function replaceDelimitedBlock(
 
     /**
      * 区切りブロックの一致部分を調べ、内容が一致する場合に置換後の文字列を返す。
- * @param whole - 区切りブロック全体に一致した文字列。
+     * @param whole - 区切りブロック全体に一致した文字列。
      * @param prefix 一致した開始区切り行とその行末文字。
      * @param openingEol 開始区切り行の後にある改行文字。
      * @param body 一致した開始行と終了行の間にある既存内容。
@@ -7731,7 +8224,6 @@ function collectPrintableCss(
   return rules.join("\n");
 }
 
-
 /**
  * Webviewルートの非同期処理を共有するPromise。
  */
@@ -7742,7 +8234,9 @@ let exportFontCssPromise: Promise<string> | undefined;
  * @param fontFamily 印刷CSSへ設定するフォントファミリー。
  * @returns Webviewルートで利用する文字列。
  */
-async function collectEmbeddedPrintableCss(fontFamily: string): Promise<string> {
+async function collectEmbeddedPrintableCss(
+  fontFamily: string,
+): Promise<string> {
   exportFontCssPromise ??= fetch(
     webviewAssetUrl(
       "export-fonts.css",
@@ -7750,26 +8244,28 @@ async function collectEmbeddedPrintableCss(fontFamily: string): Promise<string> 
     ),
   )
     .then(
-    /**
-     * responseをifへ渡し、Webviewルートの結果または副作用を処理する。
-     * @param response - 埋め込みフォントCSS取得要求のHTTP応答。成功状態を確認してCSS本文を読み取る。
-     * @returns Webviewルートのコールバックが生成する結果。
-     */
-    (response) => {
-      if (!response.ok) {
-        throw new Error(`Unable to load export fonts (${response.status})`);
-      }
-      return response.text();
-    })
+      /**
+       * responseをifへ渡し、Webviewルートの結果または副作用を処理する。
+       * @param response - 埋め込みフォントCSS取得要求のHTTP応答。成功状態を確認してCSS本文を読み取る。
+       * @returns Webviewルートのコールバックが生成する結果。
+       */
+      (response) => {
+        if (!response.ok) {
+          throw new Error(`Unable to load export fonts (${response.status})`);
+        }
+        return response.text();
+      },
+    )
     .catch(
-    /**
-     * Webviewルートのコールバックとしてerrorを処理する。
-     * @param error - 処理に失敗した理由または例外。
-     * @returns Webviewルートのコールバックが生成する結果。
-     */
-    (error) => {
-      exportFontCssPromise = undefined;
-      throw error;
-    });
+      /**
+       * Webviewルートのコールバックとしてerrorを処理する。
+       * @param error - 処理に失敗した理由または例外。
+       * @returns Webviewルートのコールバックが生成する結果。
+       */
+      (error) => {
+        exportFontCssPromise = undefined;
+        throw error;
+      },
+    );
   return `${collectPrintableCss(fontFamily, false)}\n${await exportFontCssPromise}`;
 }
