@@ -2056,6 +2056,77 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
 }
 
 /*
+ * @style .pdf-text-replacement-fields
+ * PDF出力前の正規表現置換ルール一覧を表示する。
+ */
+
+.pdf-text-replacement-fields {
+    display: grid;
+    gap: 8px;
+    margin: 12px 0;
+    padding: 0 8px 8px;
+    border: 1px solid var(--mve-border);
+}
+
+.pdf-text-replacement-fields legend {
+    padding: 0 4px;
+    color: var(--vscode-descriptionForeground);
+    font-size: 11px;
+}
+
+.pdf-text-replacement-help {
+    margin: 6px 0 0;
+    color: var(--vscode-descriptionForeground);
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+.pdf-text-replacement-rule {
+    position: relative;
+    display: grid;
+    gap: 4px;
+    padding: 8px 30px 8px 8px;
+    border: 1px solid var(--mve-border);
+    border-radius: 4px;
+}
+
+.pdf-text-replacement-rule label {
+    margin: 0;
+}
+
+.pdf-text-replacement-rule[data-invalid="true"] {
+    border-color: var(--vscode-errorForeground);
+}
+
+.pdf-text-replacement-error {
+    margin: 0;
+    color: var(--vscode-errorForeground);
+    font-size: 11px;
+}
+
+.pdf-text-replacement-remove {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    width: 24px;
+    height: 24px;
+    padding: 0;
+    border: 1px solid var(--mve-border);
+    border-radius: 3px;
+    color: var(--vscode-foreground);
+    background: transparent;
+}
+
+.pdf-text-replacement-add {
+    justify-self: start;
+    padding: 5px 9px;
+    border: 1px solid var(--vscode-button-border, transparent);
+    border-radius: 3px;
+    color: var(--vscode-button-foreground);
+    background: var(--vscode-button-background);
+}
+
+/*
  * @style .pdf-margin-fields
  * 対象UIの配置、状態、テーマ色を整える。
  */
