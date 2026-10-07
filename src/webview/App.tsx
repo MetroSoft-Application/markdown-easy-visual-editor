@@ -29,6 +29,7 @@ import type {
   ImagePayload,
   NormalizedPdfOptions,
   PdfOptions,
+  PdfTextReplacementRule,
   VsCodeApi,
   ViewMode,
   WebviewSettings,
@@ -75,6 +76,7 @@ import {
   normalizeFontFamily,
 } from "../shared/fontFamily";
 import { prepareExportHtml } from "../shared/exportHtml";
+import { applyPdfTextReplacements } from "../shared/pdfTextReplacement";
 import { createClientId } from "./id";
 import { webviewAssetUrl } from "./assets";
 import { isMveDebugEnabled, mveDebug } from "./debug";
@@ -766,6 +768,28 @@ export function App(): React.JSX.Element {
    * WebviewルートのDOMまたは状態を保持する参照。
    */
   const pdfOptionsPersistTimerRef = useRef<number | undefined>(undefined);
+  const pdfReplacementResult = useMemo(
+    /**
+     * 印刷用Markdownへ現在の置換ルールを順番に適用する。
+     * @returns 置換後Markdownと正規表現エラー一覧。
+     */
+    () =>
+      applyPdfTextReplacements(
+        renderedPreviewMarkdown,
+        pdfOptions.textReplacements,
+      ),
+    [renderedPreviewMarkdown, pdfOptions.textReplacements],
+  );
+  const printablePreviewMarkdown = pdfReplacementResult.errors.length
+    ? renderedPreviewMarkdown
+    : pdfReplacementResult.text;
+  const [pdfExportMarkdown, setPdfExportMarkdown] = useState<
+    string | undefined
+  >(undefined);
+  const [pdfExportStageRequested, setPdfExportStageRequested] =
+    useState(false);
+  const activePdfExportMarkdown =
+    pdfExportMarkdown ?? printablePreviewMarkdown;
   const [htmlOptions, setHtmlOptions] = useState<HtmlExportOptions>(
     /**
      * 要素をmerge・html・export・optionsへ渡し、Webviewルートの結果または副作用を処理する。
@@ -821,6 +845,14 @@ export function App(): React.JSX.Element {
   const exportRootRef = useRef<HTMLDivElement>(null);
   const exportStageWaitersRef = useRef<
     Array<(root: HTMLDivElement | undefined) => void>
+  >([]);
+  const pdfExportRootRef = useRef<HTMLDivElement>(null);
+  const pdfExportRootMarkdownRef = useRef<string | undefined>(undefined);
+  const pdfExportStageWaitersRef = useRef<
+    Array<{
+      markdown: string;
+      resolve: (root: HTMLDivElement | undefined) => void;
+    }>
   >([]);
   const previewSnapshotWaitersRef = useRef<Array<() => void>>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -3288,7 +3320,7 @@ export function App(): React.JSX.Element {
    * @returns 副作用を完了し、値は返さない。
    */
   async function ensureExportRoot(): Promise<HTMLDivElement | undefined> {
-    if (exportRootRef.current && (printPreview || exportStageRequested))
+    if (exportRootRef.current && exportStageRequested)
       return exportRootRef.current;
     return new Promise(
       /**
@@ -3324,6 +3356,63 @@ export function App(): React.JSX.Element {
           };
         exportStageWaitersRef.current.push(waiter);
         setExportStageRequested(true);
+      },
+    );
+  }
+
+  /**
+   * 置換済みMarkdownをPDF専用の非表示描画ステージへ反映し、描画完了したDOMを返す。
+   * @param printableMarkdown PDFへ出力する置換済みMarkdown本文。
+   * @returns PDF用Markdownを描画したDOM。タイムアウト時はundefined。
+   */
+  async function ensurePdfExportRoot(
+    printableMarkdown: string,
+  ): Promise<HTMLDivElement | undefined> {
+    if (
+      pdfExportRootRef.current &&
+      pdfExportRootMarkdownRef.current === printableMarkdown &&
+      (printPreview || pdfExportStageRequested)
+    ) {
+      return pdfExportRootRef.current;
+    }
+
+    return new Promise(
+      /**
+       * PDF専用描画ステージの完了を待つ。
+       * @param resolve 描画済みDOMを返すPromise解決関数。
+       * @returns 副作用を完了し、値は返さない。
+       */
+      (resolve) => {
+        const waiter = { markdown: printableMarkdown, resolve };
+        const timeout = window.setTimeout(
+          /**
+           * 描画が完了しない場合に待機を解除する。
+           * @returns 副作用を完了し、値は返さない。
+           */
+          () => {
+            const index = pdfExportStageWaitersRef.current.indexOf(waiter);
+            if (index >= 0) pdfExportStageWaitersRef.current.splice(index, 1);
+            resolve(
+              pdfExportRootMarkdownRef.current === printableMarkdown
+                ? pdfExportRootRef.current ?? undefined
+                : undefined,
+            );
+          },
+          15_000,
+        );
+        waiter.resolve =
+          /**
+           * 対象Markdownの描画完了時にタイムアウトを解除してDOMを返す。
+           * @param root PDF専用描画ステージのルート要素。
+           * @returns 副作用を完了し、値は返さない。
+           */
+          (root) => {
+            window.clearTimeout(timeout);
+            resolve(root);
+          };
+        pdfExportStageWaitersRef.current.push(waiter);
+        setPdfExportMarkdown(printableMarkdown);
+        setPdfExportStageRequested(true);
       },
     );
   }
@@ -3381,7 +3470,23 @@ export function App(): React.JSX.Element {
       setToast(messages.app.toast.workspaceTrustRequired);
       return;
     }
+
     flushPdfOptionsPersistence();
+    const currentMarkdown = localTextRef.current;
+    const replacementResult = applyPdfTextReplacements(
+      currentMarkdown,
+      pdfOptionsRef.current.textReplacements,
+    );
+    if (replacementResult.errors.length) {
+      const first = replacementResult.errors[0];
+      setToast(
+        messages.app.toast.operationFailed(
+          `${messages.app.invalidRegularExpression} (${first.index + 1}): ${first.message}`,
+        ),
+      );
+      return;
+    }
+
     if (!(await waitForCurrentPreviewSnapshot())) {
       setToast(
         messages.app.toast.operationFailed(
@@ -3391,7 +3496,6 @@ export function App(): React.JSX.Element {
       return;
     }
     requestLocalResourceCheck("pdf");
-    const currentMarkdown = localTextRef.current;
     const currentSummary = summarizeDiagnostics(
       mergeDiagnostics(
         currentMarkdown,
@@ -3418,15 +3522,17 @@ export function App(): React.JSX.Element {
           diagnosticNotice,
         ),
       );
-    const root = await ensureExportRoot();
+
+    const root = await ensurePdfExportRoot(replacementResult.text);
     if (!(await waitForHtmlMermaidRendering(root))) {
       setToast(`${messages.renderer.mermaidError}: timeout`);
-      if (!printPreview) setExportStageRequested(false);
+      setPdfExportMarkdown(undefined);
+      if (!printPreview) setPdfExportStageRequested(false);
       return;
     }
     const html = root
       ? serializeExportHtml(root)
-      : `<pre>${escapeHtml(currentMarkdown)}</pre>`;
+      : `<pre>${escapeHtml(replacementResult.text)}</pre>`;
     if (!root)
       setToast(messages.app.toast.pdfFallbackToMarkdown(diagnosticNotice));
     const requestId = createClientId();
@@ -3439,9 +3545,12 @@ export function App(): React.JSX.Element {
     };
     pdfRequestsRef.current.add(requestId);
     vscode.postMessage(message);
+
+    setPdfExportMarkdown(undefined);
     if (!printPreview) {
-      exportRootRef.current = null;
-      setExportStageRequested(false);
+      pdfExportRootRef.current = null;
+      pdfExportRootMarkdownRef.current = undefined;
+      setPdfExportStageRequested(false);
     }
   }
 
@@ -3524,7 +3633,12 @@ export function App(): React.JSX.Element {
    */
   function requestPdfPreview(): void {
     if (!printPreview || !settings.workspaceTrusted) return;
-    const root = exportRootRef.current;
+    if (pdfReplacementResult.errors.length) return;
+    const root = pdfExportRootRef.current;
+    if (
+      pdfExportRootMarkdownRef.current !== printablePreviewMarkdown
+    )
+      return;
     if (
       !root ||
       root.querySelector(
@@ -3532,12 +3646,10 @@ export function App(): React.JSX.Element {
       )
     )
       return;
-    const html = root
-      ? serializeExportHtml(root)
-      : `<pre>${escapeHtml(markdown)}</pre>`;
+    const html = serializeExportHtml(root);
     // 画像のloadやResizeObserverでexport-stageのDOMが変わっても、同じ本文のPDFを再生成しない。
     // 画像サイズの変更はMarkdown本文が変わるため、このキーも変わる。
-    const signature = `${settings.language}\0${settings.remoteImagesEnabled}\0${settings.mermaidTheme}\0${JSON.stringify(pdfOptions)}\0${markdown}`;
+    const signature = `${settings.language}\0${settings.remoteImagesEnabled}\0${settings.mermaidTheme}\0${JSON.stringify(pdfOptions)}\0${printablePreviewMarkdown}`;
     if (pdfPreviewSignatureRef.current === signature) return;
     pdfPreviewSignatureRef.current = signature;
     const requestId = createClientId();
@@ -3586,12 +3698,40 @@ export function App(): React.JSX.Element {
        */
       (resolve) => resolve(exportRootRef.current ?? undefined),
     );
-    if (printPreview && settings.workspaceTrusted) {
+  }
+
+  /**
+   * PDF専用描画ステージの完了を保存し、待機中の出力と印刷プレビューへ通知する。
+   * @param element PDF用Markdownを描画したルート要素。
+   * @param renderedMarkdown このDOMへ描画済みの置換後Markdown。
+   * @returns 副作用を完了し、値は返さない。
+   */
+  function handlePdfExportRendered(
+    element: HTMLElement,
+    renderedMarkdown: string,
+  ): void {
+    pdfExportRootRef.current = element as HTMLDivElement;
+    pdfExportRootMarkdownRef.current = renderedMarkdown;
+
+    const matching = pdfExportStageWaitersRef.current.filter(
+      (waiter) => waiter.markdown === renderedMarkdown,
+    );
+    pdfExportStageWaitersRef.current =
+      pdfExportStageWaitersRef.current.filter(
+        (waiter) => waiter.markdown !== renderedMarkdown,
+      );
+    matching.forEach((waiter) => waiter.resolve(pdfExportRootRef.current ?? undefined));
+
+    if (
+      printPreview &&
+      settings.workspaceTrusted &&
+      renderedMarkdown === printablePreviewMarkdown
+    ) {
       if (pdfPreviewTimerRef.current !== undefined)
         window.clearTimeout(pdfPreviewTimerRef.current);
       pdfPreviewTimerRef.current = window.setTimeout(
         /**
-         * 指定時間の経過後に後続処理を実行する。
+         * PDF専用DOMが確定した後にプレビュー生成を要求する。
          * @returns 副作用を完了し、値は返さない。
          */
         () => {
@@ -6020,9 +6160,121 @@ export function App(): React.JSX.Element {
                 />
               </label>
             </fieldset>
+            <fieldset className="pdf-replacement-fields">
+              <legend>{messages.app.printReplacements}</legend>
+              <p className="pdf-replacement-help">
+                {messages.app.printReplacementsHelp}
+              </p>
+              {pdfOptions.textReplacements.map(
+                (rule: PdfTextReplacementRule, index: number) => {
+                  const validationError =
+                    pdfReplacementResult.errors.find(
+                      (error) => error.index === index,
+                    )?.message;
+                  return (
+                    <div className="pdf-replacement-rule" key={index}>
+                      <label>
+                        {messages.app.regexPattern}
+                        <input
+                          value={rule.pattern}
+                          spellCheck={false}
+                          onChange={(event) =>
+                            updatePdfOptions((current) => ({
+                              ...current,
+                              textReplacements: current.textReplacements.map(
+                                (item, itemIndex) =>
+                                  itemIndex === index
+                                    ? { ...item, pattern: event.target.value }
+                                    : item,
+                              ),
+                            }))
+                          }
+                        />
+                      </label>
+                      <label className="pdf-replacement-flags">
+                        {messages.app.regexFlags}
+                        <input
+                          value={rule.flags ?? ""}
+                          spellCheck={false}
+                          placeholder="imsu"
+                          onChange={(event) =>
+                            updatePdfOptions((current) => ({
+                              ...current,
+                              textReplacements: current.textReplacements.map(
+                                (item, itemIndex) =>
+                                  itemIndex === index
+                                    ? { ...item, flags: event.target.value }
+                                    : item,
+                              ),
+                            }))
+                          }
+                        />
+                      </label>
+                      <label>
+                        {messages.app.replacementText}
+                        <input
+                          value={rule.replacement}
+                          onChange={(event) =>
+                            updatePdfOptions((current) => ({
+                              ...current,
+                              textReplacements: current.textReplacements.map(
+                                (item, itemIndex) =>
+                                  itemIndex === index
+                                    ? {
+                                        ...item,
+                                        replacement: event.target.value,
+                                      }
+                                    : item,
+                              ),
+                            }))
+                          }
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        className="pdf-replacement-remove"
+                        onClick={() =>
+                          updatePdfOptions((current) => ({
+                            ...current,
+                            textReplacements:
+                              current.textReplacements.filter(
+                                (_item, itemIndex) => itemIndex !== index,
+                              ),
+                          }))
+                        }
+                      >
+                        {messages.app.removeReplacementRule}
+                      </button>
+                      {validationError ? (
+                        <p className="pdf-replacement-error" role="alert">
+                          {messages.app.invalidRegularExpression}:{" "}
+                          {validationError}
+                        </p>
+                      ) : null}
+                    </div>
+                  );
+                },
+              )}
+              <button
+                type="button"
+                className="pdf-replacement-add"
+                onClick={() =>
+                  updatePdfOptions((current) => ({
+                    ...current,
+                    textReplacements: [
+                      ...current.textReplacements,
+                      { pattern: "", replacement: "", flags: "" },
+                    ],
+                  }))
+                }
+              >
+                {messages.app.addReplacementRule}
+              </button>
+            </fieldset>
             <button
               type="button"
               className="primary"
+              disabled={pdfReplacementResult.errors.length > 0}
               onClick={
                 /**
                  * clickイベントでrequest・pdf・exportを実行する。
@@ -6049,7 +6301,7 @@ export function App(): React.JSX.Element {
             : messages.app.status.synced}
         </span>
       </footer>
-      {(printPreview || exportStageRequested) && (
+      {exportStageRequested && (
         <div className="export-stage" aria-hidden="true">
           <RenderedMarkdown
             markdown={renderedPreviewMarkdown}
@@ -6059,6 +6311,18 @@ export function App(): React.JSX.Element {
           />
         </div>
       )}
+      {(printPreview || pdfExportStageRequested) &&
+        pdfReplacementResult.errors.length === 0 && (
+          <div className="export-stage" aria-hidden="true">
+            <RenderedMarkdown
+              markdown={activePdfExportMarkdown}
+              settings={exportSettings}
+              onRendered={(element) =>
+                handlePdfExportRendered(element, activePdfExportMarkdown)
+              }
+            />
+          </div>
+        )}
       {htmlRenderRequest && (
         <HtmlDocumentRenderStage
           request={htmlRenderRequest}
