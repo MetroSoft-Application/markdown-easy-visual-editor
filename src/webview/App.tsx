@@ -3472,13 +3472,12 @@ export function App(): React.JSX.Element {
     }
 
     flushPdfOptionsPersistence();
-    const currentMarkdown = localTextRef.current;
-    const replacementResult = applyPdfTextReplacements(
-      currentMarkdown,
+    const ruleValidation = applyPdfTextReplacements(
+      "",
       pdfOptionsRef.current.textReplacements,
     );
-    if (replacementResult.errors.length) {
-      const first = replacementResult.errors[0];
+    if (ruleValidation.errors.length) {
+      const first = ruleValidation.errors[0];
       setToast(
         messages.app.toast.operationFailed(
           `${messages.app.invalidRegularExpression} (${first.index + 1}): ${first.message}`,
@@ -3491,6 +3490,20 @@ export function App(): React.JSX.Element {
       setToast(
         messages.app.toast.operationFailed(
           `${messages.renderer.mermaidError}: timeout`,
+        ),
+      );
+      return;
+    }
+    const currentMarkdown = localTextRef.current;
+    const replacementResult = applyPdfTextReplacements(
+      currentMarkdown,
+      pdfOptionsRef.current.textReplacements,
+    );
+    if (replacementResult.errors.length) {
+      const first = replacementResult.errors[0];
+      setToast(
+        messages.app.toast.operationFailed(
+          `${messages.app.invalidRegularExpression} (${first.index + 1}): ${first.message}`,
         ),
       );
       return;
@@ -3575,7 +3588,8 @@ export function App(): React.JSX.Element {
     const root = await ensureExportRoot();
     if (!(await waitForHtmlMermaidRendering(root))) {
       setToast(`${messages.renderer.mermaidError}: timeout`);
-      if (!printPreview) setExportStageRequested(false);
+      exportRootRef.current = null;
+      setExportStageRequested(false);
       return;
     }
     const requestId = createClientId();
@@ -3591,10 +3605,8 @@ export function App(): React.JSX.Element {
       css: await collectEmbeddedPrintableCss(settings.previewFontFamily),
       options,
     });
-    if (!printPreview) {
-      exportRootRef.current = null;
-      setExportStageRequested(false);
-    }
+    exportRootRef.current = null;
+    setExportStageRequested(false);
   }
 
   /**
