@@ -450,6 +450,35 @@
           "scope": "application",
           "description": "Space after paragraphs in PDF output, in points."
         },
+        "markdownEasyVisualEditor.pdf.textReplacements": {
+          "type": "array",
+          "default": [],
+          "scope": "application",
+          "description": "Ordered regular-expression replacements applied to Markdown before PDF rendering. Leave replacement empty to omit matches.",
+          "items": {
+            "type": "object",
+            "required": [
+              "pattern",
+              "replacement"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "pattern": {
+                "type": "string",
+                "description": "JavaScript regular-expression pattern."
+              },
+              "replacement": {
+                "type": "string",
+                "description": "Replacement text. Leave empty to remove matches."
+              },
+              "flags": {
+                "type": "string",
+                "default": "",
+                "description": "JavaScript regular-expression flags. Global replacement is always enabled."
+              }
+            }
+          }
+        },
         "markdownEasyVisualEditor.pdf.saveWithoutDialog": {
           "type": "boolean",
           "default": true,
