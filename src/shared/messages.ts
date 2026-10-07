@@ -1102,6 +1102,27 @@ export interface Messages {
          */
         paragraphSpacing: string;
 
+        /** PDF出力前の正規表現置換設定の見出し。 */
+        printReplacements: string;
+
+        /** PDF出力前置換の使い方を説明する文言。 */
+        printReplacementsHelp: string;
+
+        /** 正規表現パターン入力欄のラベル。 */
+        regexPattern: string;
+
+        /** 正規表現フラグ入力欄のラベル。 */
+        regexFlags: string;
+
+        /** PDF出力前置換ルールを追加するボタンのラベル。 */
+        addReplacementRule: string;
+
+        /** PDF出力前置換ルールを削除するボタンのラベル。 */
+        removeReplacementRule: string;
+
+        /** 不正な正規表現を示す文言。 */
+        invalidRegularExpression: string;
+
         /**
          * 表示文言のstatusに関する状態または設定。
          */
@@ -2214,6 +2235,13 @@ function createMessages(language: SupportedLanguage): Messages {
             codeFontSize: raw.app.codeFontSize,
             lineHeight: raw.app.lineHeight,
             paragraphSpacing: raw.app.paragraphSpacing,
+            printReplacements: raw.app.printReplacements,
+            printReplacementsHelp: raw.app.printReplacementsHelp,
+            regexPattern: raw.app.regexPattern,
+            regexFlags: raw.app.regexFlags,
+            addReplacementRule: raw.app.addReplacementRule,
+            removeReplacementRule: raw.app.removeReplacementRule,
+            invalidRegularExpression: raw.app.invalidRegularExpression,
             status: {
                 modeSplit: raw.app.status.modeSplit,
                 modePreview: raw.app.status.modePreview,
