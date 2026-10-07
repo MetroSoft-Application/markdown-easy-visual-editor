@@ -6,6 +6,7 @@ import {
   applyPdfTextReplacements,
   validatePdfTextReplacementRule,
 } from "../src/shared/pdfTextReplacement";
+import { normalizePdfOptions } from "../src/shared/protocol";
 
 describe("PDF text replacements", () => {
   it("replaces every match even when g is not specified", () => {
@@ -75,5 +76,19 @@ describe("PDF text replacements", () => {
 
     expect(result.text).toBe("text");
     expect(result.errors).toHaveLength(1);
+  });
+
+  it("normalizes persisted replacement rules without dropping user input", () => {
+    const options = normalizePdfOptions({
+      textReplacements: [
+        { pattern: "秘密", replacement: "[非表示]", flags: "i" },
+        { pattern: "(draft)", replacement: "", flags: "" },
+      ],
+    });
+
+    expect(options.textReplacements).toEqual([
+      { pattern: "秘密", replacement: "[非表示]", flags: "i" },
+      { pattern: "(draft)", replacement: "", flags: "" },
+    ]);
   });
 });
