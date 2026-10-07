@@ -5812,6 +5812,186 @@ export function App(): React.JSX.Element {
                 }
               />
             </label>
+            <fieldset className="pdf-text-replacement-fields">
+              <legend>{messages.app.textReplacements}</legend>
+              <p className="pdf-text-replacement-help">
+                {messages.app.textReplacementsHelp}
+              </p>
+              {pdfOptions.textReplacements.map(
+                /**
+                 * PDF出力前の正規表現置換ルールを入力行として表示する。
+                 * @param rule - 編集する正規表現パターンと置換文字列。
+                 * @param index - 置換ルール一覧内の位置。
+                 * @returns 正規表現、置換文字列、削除操作を含む入力行。
+                 */
+                (rule, index) => {
+                  const invalid =
+                    Boolean(rule.pattern) &&
+                    !isValidPdfTextReplacementPattern(rule.pattern);
+                  return (
+                    <div
+                      key={index}
+                      className="pdf-text-replacement-rule"
+                      data-invalid={invalid || undefined}
+                    >
+                      <label>
+                        {messages.app.regexPattern}
+                        <input
+                          value={rule.pattern}
+                          spellCheck={false}
+                          aria-invalid={invalid}
+                          onChange={
+                            /**
+                             * 正規表現入力を該当ルールへ反映する。
+                             * @param event - 正規表現パターンの変更イベント。
+                             * @returns 副作用を完了し、値は返さない。
+                             */
+                            (event) =>
+                              updatePdfOptions(
+                                /**
+                                 * 現在のPDF設定から該当ルールのパターンだけを更新する。
+                                 * @param current - 現在の正規化済みPDF設定。
+                                 * @returns 更新後のPDF設定。
+                                 */
+                                (current) => ({
+                                  ...current,
+                                  textReplacements:
+                                    current.textReplacements.map(
+                                      /**
+                                       * 指定位置の置換ルールだけを更新する。
+                                       * @param item - 現在の置換ルール。
+                                       * @param itemIndex - 置換ルール一覧内の位置。
+                                       * @returns 更新後または元の置換ルール。
+                                       */
+                                      (item, itemIndex) =>
+                                        itemIndex === index
+                                          ? {
+                                              ...item,
+                                              pattern: event.target.value,
+                                            }
+                                          : item,
+                                    ),
+                                }),
+                              )
+                          }
+                        />
+                      </label>
+                      {invalid && (
+                        <p
+                          className="pdf-text-replacement-error"
+                          role="alert"
+                        >
+                          {messages.app.invalidRegex}
+                        </p>
+                      )}
+                      <label>
+                        {messages.app.replacementText}
+                        <input
+                          value={rule.replacement}
+                          onChange={
+                            /**
+                             * 置換文字列入力を該当ルールへ反映する。
+                             * @param event - 置換文字列の変更イベント。
+                             * @returns 副作用を完了し、値は返さない。
+                             */
+                            (event) =>
+                              updatePdfOptions(
+                                /**
+                                 * 現在のPDF設定から該当ルールの置換文字列だけを更新する。
+                                 * @param current - 現在の正規化済みPDF設定。
+                                 * @returns 更新後のPDF設定。
+                                 */
+                                (current) => ({
+                                  ...current,
+                                  textReplacements:
+                                    current.textReplacements.map(
+                                      /**
+                                       * 指定位置の置換ルールだけを更新する。
+                                       * @param item - 現在の置換ルール。
+                                       * @param itemIndex - 置換ルール一覧内の位置。
+                                       * @returns 更新後または元の置換ルール。
+                                       */
+                                      (item, itemIndex) =>
+                                        itemIndex === index
+                                          ? {
+                                              ...item,
+                                              replacement: event.target.value,
+                                            }
+                                          : item,
+                                    ),
+                                }),
+                              )
+                          }
+                        />
+                      </label>
+                      <button
+                        type="button"
+                        className="pdf-text-replacement-remove"
+                        title={messages.app.removeReplacementRule}
+                        aria-label={messages.app.removeReplacementRule}
+                        onClick={
+                          /**
+                           * 指定したPDF置換ルールを一覧から削除する。
+                           * @returns 副作用を完了し、値は返さない。
+                           */
+                          () =>
+                            updatePdfOptions(
+                              /**
+                               * 指定位置以外の置換ルールを保持する。
+                               * @param current - 現在の正規化済みPDF設定。
+                               * @returns 更新後のPDF設定。
+                               */
+                              (current) => ({
+                                ...current,
+                                textReplacements:
+                                  current.textReplacements.filter(
+                                    /**
+                                     * 削除対象以外のルールを残す。
+                                     * @param _item - 判定対象の置換ルール。
+                                     * @param itemIndex - 置換ルール一覧内の位置。
+                                     * @returns 一覧へ残す場合はtrue。
+                                     */
+                                    (_item, itemIndex) =>
+                                      itemIndex !== index,
+                                  ),
+                              }),
+                            )
+                        }
+                      >
+                        ×
+                      </button>
+                    </div>
+                  );
+                },
+              )}
+              <button
+                type="button"
+                className="pdf-text-replacement-add"
+                onClick={
+                  /**
+                   * 空のPDF置換ルールを末尾へ追加する。
+                   * @returns 副作用を完了し、値は返さない。
+                   */
+                  () =>
+                    updatePdfOptions(
+                      /**
+                       * 現在のPDF設定へ空の置換ルールを追加する。
+                       * @param current - 現在の正規化済みPDF設定。
+                       * @returns 更新後のPDF設定。
+                       */
+                      (current) => ({
+                        ...current,
+                        textReplacements: [
+                          ...current.textReplacements,
+                          { pattern: "", replacement: "" },
+                        ],
+                      }),
+                    )
+                }
+              >
+                {messages.app.addReplacementRule}
+              </button>
+            </fieldset>
             <fieldset className="pdf-margin-fields">
               <legend>{messages.app.margins}</legend>
               {(["top", "right", "bottom", "left"] as const).map(
