@@ -28,6 +28,26 @@ export const PDF_PAPER_FORMATS = ['A0', 'A1', 'A2', 'A3', 'A4', 'A5', 'A6', 'B4'
 export type PdfPaperFormat = typeof PDF_PAPER_FORMATS[number];
 
 /**
+ * PDF出力前にMarkdownへ適用する正規表現置換ルール。
+ */
+export interface PdfTextReplacementRule {
+    /**
+     * JavaScript RegExpとして解釈する検索パターン。
+     */
+    pattern: string;
+
+    /**
+     * 一致箇所へ適用する置換文字列。空文字列なら一致箇所を削除する。
+     */
+    replacement: string;
+
+    /**
+     * JavaScript RegExpへ渡すフラグ。全件置換のgは未指定でも自動付与する。
+     */
+    flags?: string;
+}
+
+/**
  * 画像保存で受け渡す名前、MIMEタイプ、Base64本文の組。
  */
 export interface ImagePayload {
@@ -144,6 +164,11 @@ export interface PdfOptions {
     paragraphSpacing?: number;
 
     /**
+     * PDF描画の直前にMarkdownへ上から順に適用する正規表現置換ルール。
+     */
+    textReplacements?: PdfTextReplacementRule[];
+
+    /**
      * 出力を保存ダイアログなしで確定する設定。
      */
     saveWithoutDialog: boolean;
@@ -152,7 +177,7 @@ export interface PdfOptions {
 /**
  * 共有プロトコルへ渡す設定項目と既定値のデータ形状。
  */
-export type NormalizedPdfOptions = Omit<PdfOptions, 'fontFamily' | 'bodyFontSize' | 'headingFontSizes' | 'codeFontSize' | 'lineHeight' | 'paragraphSpacing'> & {
+export type NormalizedPdfOptions = Omit<PdfOptions, 'fontFamily' | 'bodyFontSize' | 'headingFontSizes' | 'codeFontSize' | 'lineHeight' | 'paragraphSpacing' | 'textReplacements'> & {
 
     /**
      * PDF本文に適用するフォント指定。
@@ -208,6 +233,11 @@ export type NormalizedPdfOptions = Omit<PdfOptions, 'fontFamily' | 'bodyFontSize
      * PDF段落間の間隔。
      */
     paragraphSpacing: number;
+
+    /**
+     * PDF描画の直前にMarkdownへ適用する正規表現置換ルール。
+     */
+    textReplacements: PdfTextReplacementRule[];
 };
 
 /**
@@ -251,6 +281,7 @@ export const DEFAULT_PDF_OPTIONS: NormalizedPdfOptions = {
     codeFontSize: 9,
     lineHeight: 1.6,
     paragraphSpacing: 6,
+    textReplacements: [],
     saveWithoutDialog: true
 };
 
@@ -267,6 +298,17 @@ export function normalizePdfOptions(value: unknown): NormalizedPdfOptions {
     const headings = (candidate.headingFontSizes && typeof candidate.headingFontSizes === 'object'
         ? candidate.headingFontSizes
         : {}) as Partial<NonNullable<PdfOptions['headingFontSizes']>>;
+    const textReplacements = Array.isArray(candidate.textReplacements)
+        ? candidate.textReplacements.flatMap((value): PdfTextReplacementRule[] => {
+            if (!value || typeof value !== 'object' || Array.isArray(value)) return [];
+            const rule = value as Partial<PdfTextReplacementRule>;
+            return [{
+                pattern: typeof rule.pattern === 'string' ? rule.pattern : '',
+                replacement: typeof rule.replacement === 'string' ? rule.replacement : '',
+                flags: typeof rule.flags === 'string' ? rule.flags : ''
+            }];
+        })
+        : [];
 
     const numberInRange = /**
      * 共有プロトコルのnumber・in・rangeを処理し、呼び出し側へ結果または副作用を返す。
@@ -319,6 +361,7 @@ export function normalizePdfOptions(value: unknown): NormalizedPdfOptions {
         codeFontSize: numberInRange(candidate.codeFontSize, DEFAULT_PDF_OPTIONS.codeFontSize, 6, 36),
         lineHeight: numberInRange(candidate.lineHeight, DEFAULT_PDF_OPTIONS.lineHeight, 0.8, 3),
         paragraphSpacing: numberInRange(candidate.paragraphSpacing, DEFAULT_PDF_OPTIONS.paragraphSpacing, 0, 48),
+        textReplacements,
         saveWithoutDialog: typeof candidate.saveWithoutDialog === 'boolean'
             ? candidate.saveWithoutDialog
             : DEFAULT_PDF_OPTIONS.saveWithoutDialog
