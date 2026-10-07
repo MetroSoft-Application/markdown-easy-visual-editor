@@ -1008,6 +1008,19 @@ export interface Messages {
          */
         printSettingsHelp: string;
 
+        /** PDF出力直前の正規表現置換設定の見出し。 */
+        textReplacements: string;
+        /** PDF出力直前の正規表現置換設定の説明。 */
+        textReplacementsHelp: string;
+        /** 正規表現入力欄のラベル。 */
+        regexPattern: string;
+        /** 置換ルール追加操作のラベル。 */
+        addReplacementRule: string;
+        /** 置換ルール削除操作のラベル。 */
+        removeReplacementRule: string;
+        /** 不正な正規表現を示す検証文言。 */
+        invalidRegex: string;
+
         /**
          * paper設定の表示文言として表示するローカライズ済み文言。
          */
@@ -2195,6 +2208,12 @@ function createMessages(language: SupportedLanguage): Messages {
              */ (line: number) => text('app.line', { line }),
             printSettings: raw.app.printSettings,
             printSettingsHelp: raw.app.printSettingsHelp,
+            textReplacements: raw.app.textReplacements,
+            textReplacementsHelp: raw.app.textReplacementsHelp,
+            regexPattern: raw.app.regexPattern,
+            addReplacementRule: raw.app.addReplacementRule,
+            removeReplacementRule: raw.app.removeReplacementRule,
+            invalidRegex: raw.app.invalidRegex,
             paper: raw.app.paper,
             orientation: raw.app.orientation,
             portrait: raw.app.portrait,
