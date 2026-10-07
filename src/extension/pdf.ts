@@ -13,6 +13,7 @@ import {
 } from '../shared/protocol';
 import { getMessages, type SupportedLanguage } from '../shared/messages';
 import { DEFAULT_FONT_FAMILY_STACK, fontFamilyForCss } from '../shared/fontFamily';
+import { applyPdfTextReplacements } from '../shared/pdfTextReplacement';
 
 /**
  * PDF出力へ渡すHTML、CSS、設定、保存先をまとめた要求。
@@ -303,6 +304,8 @@ export async function renderPdf(request: PdfExportRequest): Promise<Buffer> {
         );
         previewLog?.('assets ready');
         const options = normalizePdfOptions(request.options);
+        const header = applyPdfTextReplacements(options.header, options.textReplacements);
+        const footer = applyPdfTextReplacements(options.footer, options.textReplacements);
         const pdf = await withRenderControl(
 
             /**
@@ -319,9 +322,9 @@ export async function renderPdf(request: PdfExportRequest): Promise<Buffer> {
                     bottom: `${options.margins.bottom}mm`,
                     left: `${options.margins.left}mm`
                 },
-                displayHeaderFooter: Boolean(options.header || options.footer),
-                headerTemplate: template(options.header),
-                footerTemplate: template(options.footer, true),
+                displayHeaderFooter: Boolean(header || footer),
+                headerTemplate: template(header),
+                footerTemplate: template(footer, true),
                 tagged: request.purpose !== 'preview',
                 outline: request.purpose !== 'preview'
             }),
