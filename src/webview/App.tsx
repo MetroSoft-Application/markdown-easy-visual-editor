@@ -1410,7 +1410,11 @@ export function App(): React.JSX.Element {
      * @returns Webviewルートのコールバックが生成する結果。
      */
     () => {
-      if (!printPreview) pdfPreviewSignatureRef.current = undefined;
+      if (!printPreview) {
+        pdfPreviewSignatureRef.current = undefined;
+        pdfExportRootRef.current = null;
+        pdfExportRootMarkdownRef.current = undefined;
+      }
     },
     [printPreview],
   );
@@ -3546,7 +3550,11 @@ export function App(): React.JSX.Element {
     if (!(await waitForHtmlMermaidRendering(root))) {
       setToast(`${messages.renderer.mermaidError}: timeout`);
       setPdfExportMarkdown(undefined);
-      if (!printPreview) setPdfExportStageRequested(false);
+      if (!printPreview) {
+        pdfExportRootRef.current = null;
+        pdfExportRootMarkdownRef.current = undefined;
+        setPdfExportStageRequested(false);
+      }
       return;
     }
     const html = root
