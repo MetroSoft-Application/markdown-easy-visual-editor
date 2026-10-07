@@ -29,6 +29,7 @@ import type {
   ImagePayload,
   NormalizedPdfOptions,
   PdfOptions,
+  PdfTextReplacementRule,
   VsCodeApi,
   ViewMode,
   WebviewSettings,
@@ -75,6 +76,10 @@ import {
   normalizeFontFamily,
 } from "../shared/fontFamily";
 import { prepareExportHtml } from "../shared/exportHtml";
+import {
+  applyPdfTextReplacements,
+  isValidPdfTextReplacementPattern,
+} from "../shared/pdfTextReplacement";
 import { createClientId } from "./id";
 import { webviewAssetUrl } from "./assets";
 import { isMveDebugEnabled, mveDebug } from "./debug";
@@ -85,6 +90,10 @@ import type { UnsafeMarkdownBlock } from "./markdownRendererCore";
 import { acceptMermaidRenderResult } from "./mermaidRenderer";
 import { RenderedMarkdown, type InspectorTarget } from "./RenderedMarkdown";
 import { PdfDocumentPreview } from "./PdfDocumentPreview";
+import {
+  applyPdfTextReplacementsToHtml,
+  cloneWithPdfTextReplacements,
+} from "./pdfTextReplacementDom";
 import { Ribbon, type RibbonCommand } from "./Ribbon";
 import {
   SourceEditor,
@@ -3425,8 +3434,13 @@ export function App(): React.JSX.Element {
       return;
     }
     const html = root
-      ? serializeExportHtml(root)
-      : `<pre>${escapeHtml(currentMarkdown)}</pre>`;
+      ? serializePdfExportHtml(root, pdfOptionsRef.current.textReplacements)
+      : `<pre>${escapeHtml(
+          applyPdfTextReplacements(
+            currentMarkdown,
+            pdfOptionsRef.current.textReplacements,
+          ),
+        )}</pre>`;
     if (!root)
       setToast(messages.app.toast.pdfFallbackToMarkdown(diagnosticNotice));
     const requestId = createClientId();
@@ -3533,8 +3547,10 @@ export function App(): React.JSX.Element {
     )
       return;
     const html = root
-      ? serializeExportHtml(root)
-      : `<pre>${escapeHtml(markdown)}</pre>`;
+      ? serializePdfExportHtml(root, pdfOptions.textReplacements)
+      : `<pre>${escapeHtml(
+          applyPdfTextReplacements(markdown, pdfOptions.textReplacements),
+        )}</pre>`;
     // 画像のloadやResizeObserverでexport-stageのDOMが変わっても、同じ本文のPDFを再生成しない。
     // 画像サイズの変更はMarkdown本文が変わるため、このキーも変わる。
     const signature = `${settings.language}\0${settings.remoteImagesEnabled}\0${settings.mermaidTheme}\0${JSON.stringify(pdfOptions)}\0${markdown}`;
@@ -7069,6 +7085,18 @@ function serializeExportHtml(element: HTMLElement): string {
 }
 
 /**
+ * PDF出力用DOMの可視テキストへ正規表現置換を適用してシリアライズする。
+ * 元のプレビューDOMとMarkdown本文は変更しない。
+ */
+function serializePdfExportHtml(
+  element: HTMLElement,
+  rules: readonly PdfTextReplacementRule[],
+): string {
+  const clone = cloneWithPdfTextReplacements(element, rules);
+  return prepareExportHtml(clone.innerHTML);
+}
+
+/**
  * Hostが指定したMarkdown文書を非表示領域でレンダリングし、HTML出力用データを返す。
  * @param request - HTML出力対象のMarkdown文書一覧を含むHost要求。
  * @param settings - 非表示レンダリングに使うWebview設定。
@@ -7268,6 +7296,10 @@ function PdfPreview({
 }): React.JSX.Element {
   const [pdfCanvasReady, setPdfCanvasReady] = useState(false);
   const dimensions = pdfPageDimensions(options);
+  const liveHtml = useMemo(
+    () => applyPdfTextReplacementsToHtml(html, options.textReplacements),
+    [html, options.textReplacements],
+  );
   const showPdfLayer = Boolean(pdfBase64 && pdfCanvasReady);
 
   useEffect(
@@ -7363,12 +7395,15 @@ function PdfPreview({
           >
             {options.header && (
               <div className="pdf-preview-header">
-                {formatPdfTemplate(options.header)}
+                {applyPdfTextReplacements(
+                  formatPdfTemplate(options.header),
+                  options.textReplacements,
+                )}
               </div>
             )}
             <RenderedMarkdown
               markdown={markdown}
-              html={html}
+              html={liveHtml}
               settings={settings}
               className="pdf-preview-content"
               onInspect={onInspect}
@@ -7384,7 +7419,10 @@ function PdfPreview({
             />
             {options.footer && (
               <div className="pdf-preview-footer">
-                {formatPdfTemplate(options.footer)}
+                {applyPdfTextReplacements(
+                  formatPdfTemplate(options.footer),
+                  options.textReplacements,
+                )}
               </div>
             )}
           </div>
