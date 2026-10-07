@@ -219,6 +219,7 @@ const GLOBAL_CONFIGURATION_KEYS = {
         codeFontSize: 'pdf.codeFontSize',
         lineHeight: 'pdf.lineHeight',
         paragraphSpacing: 'pdf.paragraphSpacing',
+        textReplacements: 'pdf.textReplacements',
         saveWithoutDialog: 'pdf.saveWithoutDialog'
     },
     html: {
@@ -2518,6 +2519,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
             codeFontSize: read(GLOBAL_CONFIGURATION_KEYS.pdf.codeFontSize, legacy?.codeFontSize, DEFAULT_PDF_OPTIONS.codeFontSize),
             lineHeight: read(GLOBAL_CONFIGURATION_KEYS.pdf.lineHeight, legacy?.lineHeight, DEFAULT_PDF_OPTIONS.lineHeight),
             paragraphSpacing: read(GLOBAL_CONFIGURATION_KEYS.pdf.paragraphSpacing, legacy?.paragraphSpacing, DEFAULT_PDF_OPTIONS.paragraphSpacing),
+            textReplacements: read(GLOBAL_CONFIGURATION_KEYS.pdf.textReplacements, legacy?.textReplacements, DEFAULT_PDF_OPTIONS.textReplacements),
             saveWithoutDialog: read(GLOBAL_CONFIGURATION_KEYS.pdf.saveWithoutDialog, legacy?.saveWithoutDialog, DEFAULT_PDF_OPTIONS.saveWithoutDialog)
         });
         const fontSettings = this.getFontSettings(config);
@@ -2628,6 +2630,9 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
             if ('codeFontSize' in legacyPdfRecord) add(GLOBAL_CONFIGURATION_KEYS.pdf.codeFontSize, legacyPdf.codeFontSize);
             if ('lineHeight' in legacyPdfRecord) add(GLOBAL_CONFIGURATION_KEYS.pdf.lineHeight, legacyPdf.lineHeight);
             if ('paragraphSpacing' in legacyPdfRecord) add(GLOBAL_CONFIGURATION_KEYS.pdf.paragraphSpacing, legacyPdf.paragraphSpacing);
+            if ('textReplacements' in legacyPdfRecord) {
+                add(GLOBAL_CONFIGURATION_KEYS.pdf.textReplacements, legacyPdf.textReplacements);
+            }
             if ('saveWithoutDialog' in legacyPdfRecord) {
                 add(GLOBAL_CONFIGURATION_KEYS.pdf.saveWithoutDialog, legacyPdf.saveWithoutDialog);
             }
@@ -3020,6 +3025,7 @@ function pdfConfigurationEntries(options: NormalizedPdfOptions): Array<[string, 
         [GLOBAL_CONFIGURATION_KEYS.pdf.codeFontSize, options.codeFontSize],
         [GLOBAL_CONFIGURATION_KEYS.pdf.lineHeight, options.lineHeight],
         [GLOBAL_CONFIGURATION_KEYS.pdf.paragraphSpacing, options.paragraphSpacing],
+        [GLOBAL_CONFIGURATION_KEYS.pdf.textReplacements, options.textReplacements],
         [GLOBAL_CONFIGURATION_KEYS.pdf.saveWithoutDialog, options.saveWithoutDialog]
     ];
 }
