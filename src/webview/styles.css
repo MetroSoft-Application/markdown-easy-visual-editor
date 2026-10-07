@@ -2138,6 +2138,86 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
 }
 
 /*
+ * @style .pdf-replacement-fields
+ * PDF出力前の正規表現置換ルールを一覧編集しやすい枠内へ配置する。
+ */
+
+.pdf-replacement-fields {
+    margin: 12px 0;
+    padding: 0 8px 8px;
+    border: 1px solid var(--mve-border);
+}
+
+/*
+ * @style .pdf-replacement-fields legend
+ * 置換設定の見出しを他の印刷設定fieldsetと揃える。
+ */
+
+.pdf-replacement-fields legend {
+    padding: 0 4px;
+    color: var(--vscode-descriptionForeground);
+    font-size: 11px;
+}
+
+/*
+ * @style .pdf-replacement-help
+ * 正規表現置換の適用順序と削除方法の説明を控えめに表示する。
+ */
+
+.pdf-replacement-help {
+    margin: 6px 0 10px;
+    color: var(--vscode-descriptionForeground);
+    font-size: 11px;
+    line-height: 1.4;
+}
+
+/*
+ * @style .pdf-replacement-rule
+ * 1件ごとの正規表現、フラグ、置換文字列を視覚的に分離する。
+ */
+
+.pdf-replacement-rule {
+    margin: 8px 0;
+    padding: 8px;
+    border: 1px solid var(--mve-border);
+    background: var(--vscode-editor-background);
+}
+
+/*
+ * @style .pdf-replacement-rule label
+ * 置換ルール内の入力欄間隔を設定パネル向けに詰める。
+ */
+
+.pdf-replacement-rule label {
+    margin: 5px 0;
+}
+
+/*
+ * @style .pdf-replacement-remove, .pdf-replacement-add
+ * 置換ルールの追加・削除操作を通常の設定ボタンとして表示する。
+ */
+
+.pdf-replacement-remove,
+.pdf-replacement-add {
+    padding: 4px 8px;
+    border: 1px solid var(--vscode-button-border, var(--mve-border));
+    color: var(--vscode-button-secondaryForeground, var(--vscode-button-foreground));
+    background: var(--vscode-button-secondaryBackground, transparent);
+}
+
+/*
+ * @style .pdf-replacement-error
+ * 不正な正規表現を該当ルール直下で強調する。
+ */
+
+.pdf-replacement-error {
+    margin: 6px 0 0;
+    color: var(--vscode-errorForeground);
+    font-size: 11px;
+    overflow-wrap: anywhere;
+}
+
+/*
  * @style .inspector-preview
  * Markdownプレビューの本文とブロック要素を整える。
  */
