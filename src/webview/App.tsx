@@ -3383,7 +3383,13 @@ export function App(): React.JSX.Element {
        * @returns 副作用を完了し、値は返さない。
        */
       (resolve) => {
-        const waiter = { markdown: printableMarkdown, resolve };
+        const waiter: {
+          markdown: string;
+          resolve: (root: HTMLDivElement | undefined) => void;
+        } = {
+          markdown: printableMarkdown,
+          resolve: (root) => resolve(root),
+        };
         const timeout = window.setTimeout(
           /**
            * 描画が完了しない場合に待機を解除する。
