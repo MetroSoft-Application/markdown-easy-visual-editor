@@ -341,12 +341,6 @@ export const RIBBON_DEFINITIONS: RibbonDefinitions = {
         copyTsv: {
             label: { kind: "message", path: "ribbon.labels.copyTsv" },
         },
-        openSource: {
-            label: { kind: "message", path: "ribbon.source" },
-            options: {
-                title: { kind: "message", path: "ribbon.sourceTitle" },
-            },
-        },
         outline: {
             label: { kind: "message", path: "ribbon.outline" },
             options: {
@@ -502,6 +496,13 @@ export const RIBBON_DEFINITIONS: RibbonDefinitions = {
             label: { kind: "message", path: "ribbon.previewOnly" },
             options: { variant: "source" },
             group: "viewModes",
+        },
+        openSource: {
+            label: { kind: "message", path: "ribbon.source" },
+            options: {
+                variant: "header",
+                title: { kind: "message", path: "ribbon.sourceTitle" },
+            },
         },
         collapse: {
             label: { kind: "message", path: "ribbon.collapse" },

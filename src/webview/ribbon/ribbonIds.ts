@@ -93,7 +93,6 @@ export type RibbonItemId =
     | "cellBreak"
     | "openTableEditor"
     | "copyTsv"
-    | "openSource"
     | "outline"
     | "scrollSync"
     | "imageResize"
@@ -119,7 +118,8 @@ export type RibbonHeaderButtonId =
     | "search"
     | "splitView"
     | "textOnly"
-    | "previewOnly";
+    | "previewOnly"
+    | "openSource";
 
 /**
  * リボンヘッダー項目を識別するIDの文字列型です。

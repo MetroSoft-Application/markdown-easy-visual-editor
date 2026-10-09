@@ -642,12 +642,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
         (state.mode === "split" && state.splitView === "preview"),
     },
   ),
-  openSource: button(
-    /**
-     * リボンボタンのクリック時に編集コマンドを通知する。
-     */
-    ({ onCommand }) => onCommand({ type: "openSource" }),
-  ),
   outline: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
@@ -1048,6 +1042,12 @@ export const RIBBON_HEADER_IMPLEMENTATIONS: Record<
   splitView: viewModeButton("both"),
   textOnly: viewModeButton("text"),
   previewOnly: viewModeButton("preview"),
+  openSource: button(
+    /**
+     * リボンボタンのクリック時に編集コマンドを通知する。
+     */
+    ({ onCommand }) => onCommand({ type: "openSource" }),
+  ),
   collapse: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。

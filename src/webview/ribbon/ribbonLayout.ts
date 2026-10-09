@@ -117,7 +117,7 @@ export const RIBBON_LAYOUT: RibbonLayoutDefinition = {
             groups: [
                 {
                     id: "pane",
-                    itemIds: ["openSource", "outline", "scrollSync"],
+                    itemIds: ["outline", "scrollSync"],
                 },
                 {
                     id: "preview",
@@ -181,6 +181,13 @@ export const RIBBON_LAYOUT: RibbonLayoutDefinition = {
     ],
 
     header: {
-        itemIds: ["search", "splitView", "textOnly", "previewOnly", "collapse"],
+        itemIds: [
+            "search",
+            "splitView",
+            "textOnly",
+            "previewOnly",
+            "openSource",
+            "collapse",
+        ],
     },
 };
