@@ -1,5 +1,5 @@
 /**
- * @fileoverview テスト・拡張機能・hostを開発・検証環境で実行する。前提条件や失敗条件を終了コードとログで示す。
+ * @fileoverview VS Code Extension Hostを起動し、拡張機能統合テストを実行して結果を終了コードへ反映する。
  */
 import { runTests } from '@vscode/test-electron';
 import { mkdtemp, rm } from 'node:fs/promises';
@@ -34,7 +34,6 @@ try {
 /**
  * 統合テスト用VS Codeプロファイルを削除し、失敗時も後始末を再試行する。
  * @param profileRoot - 統合テスト用プロファイルの一時ディレクトリ。
- * @returns テスト・拡張機能・hostのremove・profileが生成する結果。
  */
 async function removeProfile(profileRoot) {
   for (let attempt = 0; attempt < 8; attempt++) {
@@ -50,7 +49,6 @@ async function removeProfile(profileRoot) {
       /**
        * 遅延処理の完了または失敗を待機側へ通知する。
        * @param resolve - Promiseの成功を通知する関数。
-       * @returns 非同期処理の完了値。
        */
       (resolve) => setTimeout(resolve, 250));
     }

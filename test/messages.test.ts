@@ -1,21 +1,13 @@
 /**
- * @fileoverview 表示文言・テストの回帰の仕様と回帰条件を検証する。失敗時は期待値と実装差分を示す。
+ * @fileoverview 対応言語ごとの表示文言、補間パラメーター、未登録キーのフォールバックを検証する。
  */
 import { describe, expect, it } from 'vitest';
 import { getMessages, resolveLanguage, SUPPORTED_LANGUAGES } from '../src/shared/messages';
 import localeCatalog from '../src/shared/locales.json';
 
 describe('message language resolution',
-    /**
-     * 「message language resolution」の仕様と回帰条件を検証するテストケース。
-     * @returns テストケースを実行し、値は返さない。
-     */
     () => {
         it('follows the VS Code language for auto',
-            /**
-             * 「follows the VS Code language for auto」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 expect(resolveLanguage('auto', 'ja-JP')).toBe('ja');
                 expect(resolveLanguage('auto', 'en-US')).toBe('en');
@@ -27,10 +19,6 @@ describe('message language resolution',
             });
 
         it('prioritizes an explicit language over the detected language',
-            /**
-             * 「prioritizes an explicit language over the detected language」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 expect(resolveLanguage('ja', 'en-US')).toBe('ja');
                 expect(resolveLanguage('en', 'ja-JP')).toBe('en');
@@ -38,10 +26,6 @@ describe('message language resolution',
             });
 
         it('returns the matching catalog',
-            /**
-             * 「returns the matching catalog」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 expect(getMessages('ja').ribbon.tabs.home).toBe('ホーム');
                 expect(getMessages('en').ribbon.tabs.home).toBe('Home');
@@ -58,28 +42,20 @@ describe('message language resolution',
             });
 
         it('keeps a complete independent catalog for every supported language',
-            /**
-             * 「keeps a complete independent catalog for every supported language」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
 
 
-                const walk = /**
-     * ロケールの値を再帰的にたどり、文字列でない葉のパスを集める。
-     * @param value - 再帰走査中の翻訳カタログ値。
-     * @param prefix 現在たどっているロケール項目のドット区切りパス。
-     * @returns 表示文言・テストの回帰で利用する文字列。
-     */ (value: unknown, prefix = ''): string[] => {
-                        if (!value || typeof value !== 'object' || Array.isArray(value)) return [prefix];
-                        return Object.keys(value).flatMap(
-                            /**
-                             * keyをwalkへ渡し、表示文言・テストの回帰の結果または副作用を処理する。
-                             * @param key - 表示文言・テストの回帰の対象や分岐を識別する値。
-                             * @returns 表示文言・テストの回帰で利用する文字列。
-                             */
-                            (key) => walk((value as Record<string, unknown>)[key], prefix ? `${prefix}.${key}` : key));
-                    };
+                /**
+                 * ロケールカタログを再帰走査し、葉のキーをドット区切りで集める。
+                 * @param value - 現在走査しているロケール値。
+                 * @param prefix - 現在の値までに連結したキーのパス。
+                 * @returns カタログ内の葉を示すキーの一覧。
+                 */
+                const walk = (value: unknown, prefix = ''): string[] => {
+                    if (!value || typeof value !== 'object' || Array.isArray(value)) return [prefix];
+                    return Object.keys(value).flatMap((key) =>
+                        walk((value as Record<string, unknown>)[key], prefix ? `${prefix}.${key}` : key));
+                };
                 const baseKeys = walk(localeCatalog.en).sort();
 
                 for (const language of ['ja', 'en', 'zh-cn', 'ko', 'fr', 'de', 'es'] as const) {
@@ -88,18 +64,9 @@ describe('message language resolution',
             });
 
         it('provides localized table editor messages and interpolates limits',
-            /**
-             * 「provides localized table editor messages and interpolates limits」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const languages = ['ja', 'en', 'zh-cn', 'ko', 'fr', 'de', 'es'] as const;
                 const titles = languages.map(
-                    /**
-                     * 各languageをget・messagesへ渡し、変換結果を一覧化する。
-                     * @param language - 表示文言・テストの回帰の対象や分岐を識別する値。
-                     * @returns 入力要素から生成した変換結果の一覧。
-                     */
                     (language) => getMessages(language).app.tableEditor.title);
 
                 expect(new Set(titles).size).toBe(languages.length);
@@ -119,45 +86,32 @@ describe('message language resolution',
             });
 
         it('keeps the English catalog free of Japanese and CJK text',
-            /**
-             * 「keeps the English catalog free of Japanese and CJK text」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
 
 
-                const cjk = /**
-     * 表示文言・テストの回帰のcjkを処理し、呼び出し側へ結果または副作用を返す。
-     * @param value - CJK文字の有無を判定するメッセージ文字列。
-     * @returns 条件が成立したかを示す真偽値。
-     */ (value: string): boolean => Array.from(value).some(
-                    /**
-                     * characterをcode・point・atへ渡し、表示文言・テストの回帰の結果または副作用を処理する。
-                     * @param character - 表示文言・テストの回帰へ渡す入力。
-                     * @returns 表示文言・テストの回帰で利用する文字列。
-                     */
-                    (character) => {
-                        const codePoint = character.codePointAt(0) ?? 0;
-                        return (codePoint >= 0x3040 && codePoint <= 0x30ff)
-                            || (codePoint >= 0x3400 && codePoint <= 0x9fff);
-                    });
+                /**
+                 * 文字列にひらがな、カタカナ、またはCJK統合漢字が含まれるか調べる。
+                 * @param value - 判定する翻訳文字列。
+                 * @returns 対象文字を含む場合はtrue。
+                 */
+                const cjk = (value: string): boolean => Array.from(value).some((character) => {
+                    const codePoint = character.codePointAt(0) ?? 0;
+                    return (codePoint >= 0x3040 && codePoint <= 0x30ff)
+                        || (codePoint >= 0x3400 && codePoint <= 0x9fff);
+                });
 
-
-                const findCjk = /**
-     * ロケールの値を再帰的にたどり、未翻訳のCJK文字を含むパスを集める。
-     * @param value - CJK文字を検索する翻訳カタログの現在値。
-     * @param prefix 現在たどっているロケール項目のドット区切りパス。
-     * @returns 表示文言・テストの回帰で利用する文字列。
-     */ (value: unknown, prefix = ''): string[] => {
-                        if (typeof value === 'string') return cjk(value) ? [prefix] : [];
-                        if (!value || typeof value !== 'object') return [];
-                        return Object.entries(value).flatMap(
-                            /**
-                             * 設定をfind・cjkへ渡し、表示文言・テストの回帰の結果または副作用を処理する。
-                             * @returns 表示文言・テストの回帰のコールバックが生成する結果。
-                             */
-                            ([key, child]) => findCjk(child, prefix ? `${prefix}.${key}` : key));
-                    };
+                /**
+                 * ロケールを再帰走査し、未翻訳のCJK文字を含むキーを集める。
+                 * @param value - 現在走査しているロケール値。
+                 * @param prefix - 現在の値までに連結したキーのパス。
+                 * @returns CJK文字を含む翻訳項目のキー一覧。
+                 */
+                const findCjk = (value: unknown, prefix = ''): string[] => {
+                    if (typeof value === 'string') return cjk(value) ? [prefix] : [];
+                    if (!value || typeof value !== 'object') return [];
+                    return Object.entries(value).flatMap(([key, child]) =>
+                        findCjk(child, prefix ? `${prefix}.${key}` : key));
+                };
 
                 expect(findCjk(localeCatalog.en)).toEqual([]);
             });

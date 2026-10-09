@@ -2,7 +2,7 @@
  * @fileoverview プレビュー倍率を除いた論理幅を計算し、画像の表示幅とMarkdownへ保存する幅を分離する。
  */
 /**
- * imageresizeで共有するデータ形状を表すインターフェース。
+ * 画像リンクの元表記と解決後の参照先を結び付けます。
  */
 interface ImageReference {
 
@@ -12,12 +12,12 @@ interface ImageReference {
     kind: 'markdown' | 'html';
 
     /**
-     * imageresizeのstartを表す数値。
+     * 画像参照記法の開始位置を示す本文内UTF-16オフセットです。
      */
     start: number;
 
     /**
-     * imageresizeのendを表す数値。
+     * 画像参照記法の終了位置を示す本文内UTF-16オフセットです。
      */
     end: number;
 
@@ -49,11 +49,11 @@ export type ImageAlignment = 'left' | 'center' | 'right';
 const MIN_IMAGE_WIDTH = 48;
 
 /**
- * imageresizeのresize・image・in・markdownを処理し、呼び出し側へ結果または副作用を返す。
+  * Markdown本文内の指定画像へ幅を設定し、ほかの記法を保った本文を返す。
  * @param markdown - サイズ変更する画像参照を含むMarkdown本文。
  * @param imageIndex - 変更する画像参照の0始まりインデックス。
  * @param width - imgのwidth属性へ設定する幅（px）。
- * @returns imageresizeで利用する文字列。
+  * @returns 対象画像の幅だけを更新したMarkdown本文。
  */
 export function resizeImageInMarkdown(markdown: string, imageIndex: number, width: number): string {
     const image = scanImageReferences(markdown)[imageIndex];
@@ -68,11 +68,11 @@ export function resizeImageInMarkdown(markdown: string, imageIndex: number, widt
 }
 
 /**
- * imageresizeのalign・image・in・markdownを処理し、呼び出し側へ結果または副作用を返す。
+  * Markdown本文内の指定画像へ配置属性を設定し、ほかの記法を保った本文を返す。
  * @param markdown - 配置を変更する画像参照を含むMarkdown本文。
  * @param imageIndex - 変更する画像参照の0始まりインデックス。
  * @param alignment - Markdown画像に設定する配置（left、center、right）。
- * @returns imageresizeで利用する文字列。
+  * @returns 対象画像の配置だけを更新したMarkdown本文。
  */
 export function alignImageInMarkdown(markdown: string, imageIndex: number, alignment: ImageAlignment): string {
     const image = scanImageReferences(markdown)[imageIndex];
@@ -88,9 +88,10 @@ export function alignImageInMarkdown(markdown: string, imageIndex: number, align
 
 /**
  * imageresizeの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+ * 指定したHTML画像のwidthとheightを取り除く。
  * @param markdown - サイズをリセットする画像参照を含むMarkdown本文。
  * @param imageIndex - リセットする画像参照の0始まりインデックス。
- * @returns imageresizeで利用する文字列。
+ * @returns 対象画像のサイズ属性を除いたMarkdown本文。対象がなければ元の本文。
  */
 export function resetImageSizeInMarkdown(markdown: string, imageIndex: number): string {
     const image = scanImageReferences(markdown)[imageIndex];
@@ -103,27 +104,27 @@ export function resetImageSizeInMarkdown(markdown: string, imageIndex: number): 
 }
 
 /**
- * imageresizeの入力を許可された形式へ整える。
+ * 画像幅を最小値以上の整数pxへ丸める。
  * @param width - 画像へ設定するCSS幅候補（px）。
- * @returns imageresizeで利用する数値。
+
  */
 function normalizeWidth(width: number): number {
     return Math.max(MIN_IMAGE_WIDTH, Math.round(Number.isFinite(width) ? width : MIN_IMAGE_WIDTH));
 }
 
 /**
- * imageresizeの入力を許可された形式へ整える。
+ * 画像配置をleft、center、rightの有効値へ正規化する。
  * @param alignment - 画像に適用する配置値（left/center/right）。
- * @returns imageresizeで生成または変換した値。
+ * @returns left、center、rightのいずれか。
  */
 function normalizeAlignment(alignment: ImageAlignment): ImageAlignment {
     return alignment === 'center' || alignment === 'right' ? alignment : 'left';
 }
 
 /**
- * imageresizeの入力を走査し、該当する範囲または要素を順に返す。
+ * Markdownの画像構文とHTML img要素から参照先と本文範囲を収集する。
  * @param markdown - 画像参照を列挙するMarkdown本文。
- * @returns imageresizeに対応する要素の一覧。
+ * @returns 参照先、画像構文の形式、本文内の範囲を持つ画像参照一覧。
  */
 function scanImageReferences(markdown: string): ImageReference[] {
     const masked = maskCode(markdown);
@@ -201,9 +202,9 @@ function scanImageReferences(markdown: string): ImageReference[] {
 }
 
 /**
- * imageresizeのmask・codeを処理し、呼び出し側へ結果または副作用を返す。
+  * コードブロックとインラインコードを空白化し、画像構文の誤検出を防ぐ走査用本文を返す。
  * @param source - コード範囲を空白化して画像参照の誤検出を防ぐMarkdown本文。
- * @returns imageresizeで利用する文字列。
+  * @returns コード範囲を空白に置き換えた本文。
  */
 function maskCode(source: string): string {
     const chars = source.split('');
@@ -238,10 +239,10 @@ function maskCode(source: string): string {
 }
 
 /**
- * imageresizeから必要な値またはリソースを取得する。
+ * コード領域を除いたMarkdownから参照画像定義を集める。
  * @param source - 参照定義の元テキストを切り出すMarkdown本文。
  * @param masked - コード記法をマスクして定義構文を走査する本文。
- * @returns imageresizeで利用する文字列。
+ * @returns 小文字化した参照ラベルから元URIと表示タイトルを引くMap。
  */
 function collectReferenceDefinitions(source: string, masked: string): Map<string, {
     /**
@@ -281,18 +282,18 @@ function collectReferenceDefinitions(source: string, masked: string): Map<string
 }
 
 /**
- * imageresizeの入力を許可された形式へ整える。
+ * Markdown参照ラベルの空白を統一し、小文字へ変換する。
  * @param label - Markdown参照定義との照合に使う参照ラベル。
- * @returns imageresizeで利用する文字列。
+
  */
 function normalizeReferenceLabel(label: string): string {
     return label.trim().replace(/\s+/g, ' ').toLowerCase();
 }
 
 /**
- * imageresizeの入力を構造化した値へ変換する。
+ * Markdown画像リンクのリンク先と任意titleを解析する。
  * @param target - Markdown参照定義のリンク先と任意titleを含む文字列。
- * @returns imageresizeで生成または変換した値。
+ * @returns 画像のリンク先と、指定されている場合はtitle。
  */
 function parseMarkdownTarget(target: string): {
     /**
@@ -315,9 +316,9 @@ function parseMarkdownTarget(target: string): {
 }
 
 /**
- * imageresizeの入力を構造化した値へ変換する。
+ * Markdown画像タイトルから引用符を外した値を読み取る。
  * @param value - 引用符または括弧で囲まれたMarkdownタイトル文字列。
- * @returns 副作用を完了し、値は返さない。
+ * @returns タイトル本文。タイトル構文がない場合はundefined。
  */
 function parseTitle(value: string): string | undefined {
     const match = /^(?:"([^"]*)"|'([^']*)'|\(([^)]*)\))$/.exec(value);
@@ -325,11 +326,11 @@ function parseTitle(value: string): string | undefined {
 }
 
 /**
- * imageresizeから必要な値またはリソースを取得する。
+  * 入れ子や引用符を考慮して、指定位置以降で対応する閉じ括弧を探す。
  * @param source - 対応する閉じ括弧を探索するMarkdown文字列。
  * @param start - 閉じ括弧の探索を始めるUTF-16オフセット。
  * @param closing - 一致させる閉じ括弧文字。
- * @returns imageresizeで利用する数値。
+  * @returns 対応する閉じ括弧のUTF-16位置。見つからない場合は-1。
  */
 function findClosing(source: string, start: number, closing: string): number {
     for (let index = start; index < source.length; index += 1) {
@@ -343,10 +344,10 @@ function findClosing(source: string, start: number, closing: string): number {
 }
 
 /**
- * imageresizeから必要な値またはリソースを取得する。
+  * Markdownリンク先にある入れ子の丸括弧を考慮して、閉じ括弧を探す。
  * @param source - 対応する閉じ括弧を探索するMarkdown文字列。
  * @param start - 閉じ括弧の探索を始めるUTF-16オフセット。
- * @returns imageresizeで利用する数値。
+  * @returns 対応する閉じ丸括弧のUTF-16位置。見つからない場合は-1。
  */
 function findClosingParenthesis(source: string, start: number): number {
     let depth = 1;
@@ -362,10 +363,10 @@ function findClosingParenthesis(source: string, start: number): number {
 }
 
 /**
- * imageresizeで使う値または実行環境を組み立てる。
+ * Markdown画像参照から指定幅を持つimg要素を生成する。
  * @param image - imgタグへ変換する解析済みMarkdown画像参照。
  * @param width - imgのwidth属性へ設定する画像幅（px）。
- * @returns imageresizeで利用する文字列。
+
  */
 function buildMarkdownReplacement(image: ImageReference, width: number): string {
     const attributes = [
@@ -378,10 +379,10 @@ function buildMarkdownReplacement(image: ImageReference, width: number): string 
 }
 
 /**
- * imageresizeで使う値または実行環境を組み立てる。
+ * Markdown画像参照から指定配置を持つimg要素を生成する。
  * @param image - imgタグへ変換する解析済みMarkdown画像参照。
  * @param alignment - imgタグへ設定する配置値（left/center/right）。
- * @returns imageresizeで利用する文字列。
+
  */
 function buildMarkdownAlignmentReplacement(image: ImageReference, alignment: ImageAlignment): string {
     const attributes = [
@@ -394,21 +395,21 @@ function buildMarkdownAlignmentReplacement(image: ImageReference, alignment: Ima
 }
 
 /**
- * imageresizeで使う値または実行環境を組み立てる。
+ * img要素のwidth属性を指定幅へ置き換える。
  * @param tag - width属性を書き込むimg HTMLタグ全体。
  * @param width - imgのwidth属性へ設定する画像幅（px）。
- * @returns imageresizeで利用する文字列。
+
  */
 function buildHtmlReplacement(tag: string, width: number): string {
     return upsertHtmlAttribute(removeHtmlAttribute(tag, 'height'), 'width', String(width));
 }
 
 /**
- * imageresizeのupsert・html・attributeを処理し、呼び出し側へ結果または副作用を返す。
+  * imgタグ内の指定属性を追加または更新し、タグ文字列を返す。
  * @param tag - 属性を書き換えるimg HTMLタグ全体。
  * @param name - 更新するHTML属性名。
  * @param value - HTML属性へ設定する未エスケープの値。
- * @returns imageresizeで利用する文字列。
+  * @returns 属性値を更新したHTMLタグ。
  */
 function upsertHtmlAttribute(tag: string, name: string, value: string): string {
     const pattern = new RegExp(`\\s${escapeRegExp(name)}\\s*=\\s*(?:"[^"]*"|'[^']*'|[^\\s>]+)`, 'i');
@@ -421,7 +422,7 @@ function upsertHtmlAttribute(tag: string, name: string, value: string): string {
  * imageresizeの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
  * @param tag - 属性を削除するimg HTMLタグ全体。
  * @param name - 削除するHTML属性名。
- * @returns imageresizeで利用する文字列。
+
  */
 function removeHtmlAttribute(tag: string, name: string): string {
     const pattern = new RegExp(`\\s${escapeRegExp(name)}\\s*=\\s*(?:"[^"]*"|'[^']*'|[^\\s>]+)`, 'gi');
@@ -439,10 +440,10 @@ function hasHtmlAttribute(tag: string, name: string): boolean {
 }
 
 /**
- * imageresizeから必要な値またはリソースを取得する。
+ * HTMLタグから指定属性の値を読み取る。
  * @param tag - 属性値を読み取るimg HTMLタグ全体。
  * @param name - 読み取るHTML属性名。
- * @returns 副作用を完了し、値は返さない。
+ * @returns 属性値。指定属性がない場合はundefined。
  */
 function readHtmlAttribute(tag: string, name: string): string | undefined {
     const pattern = new RegExp(`\\s${escapeRegExp(name)}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i');
@@ -451,18 +452,18 @@ function readHtmlAttribute(tag: string, name: string): string | undefined {
 }
 
 /**
- * imageresizeの入力を許可された形式へ整える。
+ * HTML属性へ埋め込む文字列の予約文字をエスケープする。
  * @param value - HTML属性値としてエスケープする文字列。
- * @returns imageresizeで利用する文字列。
+
  */
 function escapeHtmlAttribute(value: string): string {
     return value.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
 /**
- * imageresizeの入力を許可された形式へ整える。
+ * 正規表現のメタ文字をリテラルとして扱えるようにエスケープする。
  * @param value - 正規表現リテラルとして扱う文字列。
- * @returns imageresizeで利用する文字列。
+
  */
 function escapeRegExp(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

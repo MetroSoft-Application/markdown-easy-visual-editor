@@ -122,7 +122,6 @@ function resolveHtmlRoot(
  * @param scanFrom - 走査開始位置。
  * @param scanTo - 走査終了位置。
  * @param ranges - 検出結果の格納先。
- * @returns 値は返さない。
  */
 function collectHtmlUrlAttributeRanges(
     state: EditorState,
@@ -255,7 +254,6 @@ const htmlUrlAttributeHighlightPlugin = ViewPlugin.fromClass(class {
      * 文書または可視範囲が変わった場合だけ装飾を再計算する。
      * 選択・カーソル移動だけでは再走査しない。
      * @param update - CodeMirrorビュー更新。
-     * @returns 値は返さない。
      */
     update(update: ViewUpdate): void {
         if (

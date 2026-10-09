@@ -1,5 +1,5 @@
 /**
- * @fileoverview canonicaltext・テストの回帰の仕様と回帰条件を検証する。失敗時は期待値と実装差分を示す。
+ * @fileoverview CRLF、CR、LFを共通座標へ正規化する処理と、正規化前後の位置・変更範囲の対応を検証する。
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -15,14 +15,12 @@ import { applyTextChanges } from '../src/shared/textChanges';
 
 describe('canonical text synchronization boundary',
     /**
-     * 「canonical text synchronization boundary」の仕様と回帰条件を検証するテストケース。
-     * @returns テストケースを実行し、値は返さない。
+     * Extension HostとWebviewが改行形式の違いで異なる編集位置を算出しないことを検証する。
      */
     () => {
         it('normalizes physical line endings to one LF coordinate space',
             /**
-             * 「normalizes physical line endings to one LF coordinate space」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
+             * 本文内ではLFへ統一し、Hostへ反映する際は元文書のCRLFへ戻せることを確認する。
              */
             () => {
                 expect(toCanonicalText('a\r\nb\rc\n')).toBe('a\nb\nc\n');
@@ -31,8 +29,7 @@ describe('canonical text synchronization boundary',
 
         it('maps offsets through line/character positions independently of CRLF width',
             /**
-             * 「maps offsets through line/character positions independently of CRLF width」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
+             * 行・文字位置との相互変換で、物理CRLFの2文字幅を論理座標へ持ち込まないことを確認する。
              */
             () => {
                 const text = 'ab\ncd\nef';
@@ -44,26 +41,14 @@ describe('canonical text synchronization boundary',
 
         it('indexes one large document once for a batch of disjoint changes',
             /**
-             * 「indexes one large document once for a batch of disjoint changes」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
+             * 離れた挿入を元文書上の位置へ変換し、変更一覧を適用しても後半の位置がずれないことを確認する。
              */
             () => {
                 const lines = Array.from({ length: 2_000 },
-                    /**
-                     * canonicaltext・テストの回帰の前提条件を準備し、回帰条件を検証するテストケース。
-                      * @param _ - Array.fromの各反復で渡される未使用の値。
-                      * @param index - 生成する行番号（0始まり）。
-                     * @returns テストケースを実行し、値は返さない。
-                     */
                     (_, index) => `line-${index}`);
                 const previous = lines.join('\n');
                 const contentChanges = Array.from({ length: 200 },
-                    /**
-                     * canonicaltext・テストの回帰のコールバックとして・を処理する。
-                     * @param _ - 引数位置を維持するための未使用値。
-                     * @param index - 配列・行列・文字列の要素位置を示す番号。
-                     * @returns canonicaltext・テストの回帰のコールバックが生成する結果。
-                     */
+
                     (_, index) => {
                         const line = index * 10;
                         return {
@@ -84,8 +69,7 @@ describe('canonical text synchronization boundary',
 
         it('uses the indexed coordinate boundary on newline characters and the final empty line',
             /**
-             * 「uses the indexed coordinate boundary on newline characters and the final empty line」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
+             * 改行文字の直前・直後と末尾改行後の空行で、境界位置を往復できることを確認する。
              */
             () => {
                 const index = indexCanonicalText('ab\n');
@@ -96,8 +80,7 @@ describe('canonical text synchronization boundary',
 
         it('reduces the first physical CRLF in an empty document to exactly one logical newline',
             /**
-             * 「reduces the first physical CRLF in an empty document to exactly one logical newline」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
+             * 空文書へのCRLF入力を論理上の単一LF挿入としてHostへ報告することを確認する。
              */
             () => {
                 const previous = '';
@@ -115,8 +98,7 @@ describe('canonical text synchronization boundary',
 
         it('makes the reported CRLF result equal to the Webview LF expectation instead of a competing insertion',
             /**
-             * 「makes the reported CRLF result equal to the Webview LF expectation instead of a competing insertion」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
+             * HostのCRLF編集通知を再正規化しても、Webviewが適用した変更と競合しないことを確認する。
              */
             () => {
                 const base = '';
@@ -147,8 +129,7 @@ describe('canonical text synchronization boundary',
 
         it('treats a physical EOL-only conversion as no semantic text change',
             /**
-             * 「treats a physical EOL-only conversion as no semantic text change」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
+             * 改行コードだけの変換では論理本文が変わらないことを確認する。
              */
             () => {
                 expect(toCanonicalText('a\r\nb\r\n')).toBe('a\nb\n');
@@ -157,8 +138,7 @@ describe('canonical text synchronization boundary',
 
         it('converts external CRLF edits into the same LF coordinate space',
             /**
-             * 「converts external CRLF edits into the same LF coordinate space」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
+             * 外部編集のCRLF挿入・削除範囲をLF座標へ変換して正しい本文へ適用できることを確認する。
              */
             () => {
                 const previous = 'alpha\nbeta';

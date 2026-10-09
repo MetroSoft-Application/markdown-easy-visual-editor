@@ -1,5 +1,5 @@
 /**
- * @fileoverview tableeditorphase2・テストの回帰の仕様と回帰条件を検証する。失敗時は期待値と実装差分を示す。
+ * @fileoverview 表の行と列を並べ替える際に、見出し行、セル値、列配置の対応が保たれることを検証する。
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -12,16 +12,8 @@ import {
 } from "../src/webview/tableEditorModel";
 
 describe("table editor phase 2 integration",
-    /**
-     * 「table editor phase 2 integration」の仕様と回帰条件を検証するテストケース。
-     * @returns テストケースを実行し、値は返さない。
-     */
     () => {
         it("reorders data rows while keeping the Markdown header row fixed",
-            /**
-             * 「reorders data rows while keeping the Markdown header row fixed」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const source = [
                     "| Name | Value |",
@@ -48,10 +40,6 @@ describe("table editor phase 2 integration",
             });
 
         it("reorders column cells and alignment markers together",
-            /**
-             * 「reorders column cells and alignment markers together」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const source = [
                     "| Left | Center | Right |",

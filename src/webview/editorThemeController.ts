@@ -1,5 +1,5 @@
 /**
- * @fileoverview Webviewの編集テーマ制御を管理する。Hostとの通信、ユーザー操作、表示状態の契約を保つ。
+ * @fileoverview VS Codeのテーマ状態をWebviewへ反映し、テーマ変更時にエディターとプレビューの配色を更新する。
  */
 import type { EditorTheme, HostToWebviewMessage } from '../shared/protocol';
 
@@ -8,13 +8,13 @@ import type { EditorTheme, HostToWebviewMessage } from '../shared/protocol';
  */
 const THEMES: readonly EditorTheme[] = ['light', 'dark'];
 /**
- * 編集テーマ制御のcurrent・themeに関する状態または設定。
+ * CodeMirror編集面へ現在適用しているテーマID。
  */
 let currentTheme: EditorTheme = 'dark';
 
 /**
- * 編集テーマ制御のinstall・editor・theme・controllerを処理し、呼び出し側へ結果または副作用を返す。
- * @returns 編集テーマ制御のinstall・editor・theme・controllerが生成する結果。
+ * エディターのテーマ変更イベントを購読し、現在のCodeMirrorテーマを切り替える。
+ * @returns テーマ変更イベントの購読を解除する関数。
  */
 export function installEditorThemeController(): () => void {
     applyTheme(currentTheme);
@@ -23,7 +23,6 @@ export function installEditorThemeController(): () => void {
     const onMessage = /**
      * 編集テーマ制御のイベントまたはメッセージを受け取り、状態を更新する。
      * @param event - hostからeditor theme設定を受け取るmessage event。
-     * @returns 副作用を完了し、値は返さない。
      */ (event: MessageEvent<HostToWebviewMessage>) => {
             const message = event.data;
             if (message.type !== 'init' && message.type !== 'settingsChanged') return;
@@ -34,7 +33,6 @@ export function installEditorThemeController(): () => void {
     const onChange = /**
      * change操作を表示または編集状態へ反映する。
      * @param event - theme選択欄のchange event。
-     * @returns 副作用を完了し、値は返さない。
      */ (event: Event) => {
             const select = event.target instanceof HTMLSelectElement ? event.target : undefined;
             if (!select?.classList.contains('mve-editor-theme-select')) return;
@@ -44,10 +42,6 @@ export function installEditorThemeController(): () => void {
         };
     window.addEventListener('message', onMessage);
     document.addEventListener('change', onChange);
-    /**
-     * イベントでremove・event・listenerを実行する。
-     * @returns 副作用を完了し、値は返さない。
-     */
     return () => {
         window.removeEventListener('message', onMessage);
         document.removeEventListener('change', onChange);
@@ -57,7 +51,6 @@ export function installEditorThemeController(): () => void {
 /**
  * 編集テーマ制御の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
  * @param theme - 描画や表示に適用する配色テーマ。
- * @returns 副作用を完了し、値は返さない。
  */
 function setCurrentTheme(theme: EditorTheme): void {
     currentTheme = THEMES.includes(theme) ? theme : 'dark';
@@ -69,7 +62,6 @@ function setCurrentTheme(theme: EditorTheme): void {
 /**
  * 編集テーマ制御の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
  * @param theme - 描画や表示に適用する配色テーマ。
- * @returns 副作用を完了し、値は返さない。
  */
 function applyTheme(theme: EditorTheme): void {
     document.documentElement.dataset.editorTheme = theme;

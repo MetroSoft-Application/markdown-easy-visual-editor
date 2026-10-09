@@ -1,16 +1,15 @@
 /**
- * @fileoverview Webviewのsearchselectedtextを管理する。Hostとの通信、ユーザー操作、表示状態の契約を保つ。
+ * @fileoverview 選択中の本文文字列をCodeMirror検索欄へ転記し、範囲内検索の開始位置をそろえる。
  */
 import { EditorView } from '@codemirror/view';
 
 /**
- * searchselectedtextのinstalledに関する状態または設定。
+ * 検索文字列の転送リスナーを登録済みか示す。
  */
 let installed = false;
 
 /**
- * searchselectedtextのinstall・selected・text・search・transferを処理し、呼び出し側へ結果または副作用を返す。
- * @returns 副作用を完了し、値は返さない。
+ * 選択中のエディター本文を検索UIへ渡すメッセージを登録する。
  */
 export function installSelectedTextSearchTransfer(): void {
     if (installed) return;
@@ -19,12 +18,10 @@ export function installSelectedTextSearchTransfer(): void {
 
     const scheduleTransfer = /**
      * searchselectedtextの処理順序と完了状態を管理する。
-     * @returns 副作用を完了し、値は返さない。
      */ (): void => {
             window.requestAnimationFrame(
                 /**
                  * 次の描画フレームで表示更新を実行する。
-                 * @returns 副作用を完了し、値は返さない。
                  */
                 () => {
                     const panel = document.querySelector<HTMLElement>('.search-panel');
@@ -37,7 +34,6 @@ export function installSelectedTextSearchTransfer(): void {
     const handleKeyDown = /**
      * searchselectedtextのイベントまたはメッセージを受け取り、状態を更新する。
      * @param event - Ctrl/Cmd+Fで選択文字列を検索欄へ送るkeydown event。
-     * @returns 副作用を完了し、値は返さない。
      */ (event: KeyboardEvent): void => {
             if (event.altKey || (!event.ctrlKey && !event.metaKey) || event.key.toLowerCase() !== 'f') return;
             scheduleTransfer();
@@ -47,7 +43,6 @@ export function installSelectedTextSearchTransfer(): void {
     const handleClick = /**
      * searchselectedtextのイベントまたはメッセージを受け取り、状態を更新する。
      * @param event - 選択文字列を検索欄へ移すsource button click event。
-     * @returns 副作用を完了し、値は返さない。
      */ (event: MouseEvent): void => {
             const target = event.target instanceof Element
                 ? event.target.closest<HTMLButtonElement>('button.ribbon-source-button')
@@ -63,7 +58,6 @@ export function installSelectedTextSearchTransfer(): void {
 /**
  * 選択中の文字列を指定した検索欄へ転送する。
  * @param panel 検索文字列を書き込む入力要素。
- * @returns 副作用を完了し、値は返さない。
  */
 function transferSelectionToSearch(panel: HTMLElement): void {
     const editorElement = findVisibleEditorElement();
@@ -107,7 +101,6 @@ function transferSelectionToSearch(panel: HTMLElement): void {
 /**
  * searchselectedtextの表示または操作を開始する。
  * @param panel - 検索欄を含む検索パネル要素。
- * @returns 副作用を完了し、値は返さない。
  */
 function focusSearchInput(panel: HTMLElement): void {
     const input = panel.querySelector<HTMLInputElement>('input:first-of-type');
@@ -117,16 +110,11 @@ function focusSearchInput(panel: HTMLElement): void {
 }
 
 /**
- * searchselectedtextから必要な値またはリソースを取得する。
- * @returns 条件に一致する値。未検出時はundefinedまたはnull。
+ * 表示中のソースエディター要素を取得する。
+ * @returns 選択文字列を取得する対象のエディター。見つからない場合はundefined。
  */
 function findVisibleEditorElement(): HTMLElement | undefined {
     return Array.from(document.querySelectorAll<HTMLElement>('.source-editor .cm-editor'))
         .find(
-            /**
-             * get・client・rectsが条件に一致する最初の要素を取得する。
-             * @param element - 要素のget・client・rectsを参照する走査対象。
-             * @returns 条件に一致した最初の要素。未検出時はundefined。
-             */
             (element) => element.getClientRects().length > 0);
 }

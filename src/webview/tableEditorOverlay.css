@@ -1,11 +1,8 @@
-/*
+/**
  * @fileoverview 表編集オーバーレイのグリッド、セル、選択、ドラッグ状態を定義する。
  * スタイルだけを変更し、本文データと編集状態を変更しない。
  */
-/*
- * @style .mve-table-editor-root
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
+/* オーバーレイ、表グリッド、編集操作を一つの高さ制限付き領域へまとめる。 */
 .mve-table-editor-root {
     position: fixed;
     inset: 0;
@@ -16,11 +13,6 @@
     padding: 16px;
     background: rgb(0 0 0 / 45%);
 }
-
-/*
- * @style .mve-table-editor
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
 
 
 .mve-table-editor {
@@ -42,11 +34,6 @@
     box-shadow: 0 12px 40px rgb(0 0 0 / 40%);
 }
 
-/*
- * @style .mve-table-editor-resizer
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
-
 
 .mve-table-editor-resizer {
     position: absolute;
@@ -65,11 +52,6 @@
     touch-action: none;
 }
 
-/*
- * @style .mve-table-editor-resizer:hover, .mve-table-editor-resizer:focus-visible
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
-
 
 .mve-table-editor-resizer:hover,
 .mve-table-editor-resizer:focus-visible {
@@ -78,11 +60,6 @@
     opacity: 1;
     outline: 0;
 }
-
-/*
- * @style .mve-table-editor-header, .mve-table-editor-toolbar, .mve-table-editor-footer
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
 
 
 .mve-table-editor-header,
@@ -95,11 +72,6 @@
     background: var(--mve-panel, var(--vscode-sideBar-background, var(--vscode-editor-background)));
 }
 
-/*
- * @style .mve-table-editor-header
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
-
 
 .mve-table-editor-header {
     padding: 0 12px;
@@ -109,20 +81,10 @@
     touch-action: none;
 }
 
-/*
- * @style .mve-table-editor-header strong
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
-
 
 .mve-table-editor-header strong {
     font-size: 14px;
 }
-
-/*
- * @style .mve-table-editor-header span
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
 
 
 .mve-table-editor-header span {
@@ -130,21 +92,11 @@
     font-size: 12px;
 }
 
-/*
- * @style .mve-table-editor-header .mve-table-editor-dirty
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
-
 
 .mve-table-editor-header .mve-table-editor-dirty {
     color: var(--vscode-editorWarning-foreground, #cca700);
     font-weight: 600;
 }
-
-/*
- * @style .mve-table-editor-close
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
 
 
 .mve-table-editor-close {
@@ -152,11 +104,6 @@
     min-width: 30px;
     height: 28px;
 }
-
-/*
- * @style .mve-table-editor-toolbar
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
 
 
 .mve-table-editor-toolbar {
@@ -167,11 +114,6 @@
     overflow-x: auto;
     overflow-y: hidden;
 }
-
-/*
- * @style .mve-table-editor-toolbar-group
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
 
 
 .mve-table-editor-toolbar-group {
@@ -184,31 +126,16 @@
     border-right: 1px solid var(--vscode-panel-border, var(--mve-border));
 }
 
-/*
- * @style .mve-table-editor-toolbar-group:first-child
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
-
 
 .mve-table-editor-toolbar-group:first-child {
     padding-left: 0;
 }
-
-/*
- * @style .mve-table-editor-toolbar-group.last
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
 
 
 .mve-table-editor-toolbar-group.last {
     border-right: 0;
     padding-right: 0;
 }
-
-/*
- * @style .mve-table-editor-toolbar-label
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
 
 
 .mve-table-editor-toolbar-label {
@@ -218,22 +145,12 @@
     white-space: nowrap;
 }
 
-/*
- * @style .mve-table-editor-toolbar-controls
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
-
 
 .mve-table-editor-toolbar-controls {
     display: flex;
     align-items: center;
     gap: 4px;
 }
-
-/*
- * @style .mve-table-editor button
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
 
 
 .mve-table-editor button {
@@ -246,11 +163,6 @@
     cursor: pointer;
     white-space: nowrap;
 }
-
-/*
- * @style .mve-table-editor-toolbar button
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
 
 
 .mve-table-editor-toolbar button {
@@ -268,20 +180,10 @@
     line-height: 1;
 }
 
-/*
- * @style .mve-table-editor button:hover:not(:disabled)
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
-
 
 .mve-table-editor button:hover:not(:disabled) {
     background: var(--vscode-button-secondaryHoverBackground, var(--mve-hover));
 }
-
-/*
- * @style .mve-table-editor button.active
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
 
 
 .mve-table-editor button.active {
@@ -290,42 +192,22 @@
     border-color: var(--vscode-focusBorder);
 }
 
-/*
- * @style .mve-table-editor button.primary
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
-
 
 .mve-table-editor button.primary {
     background: var(--vscode-button-background);
     color: var(--vscode-button-foreground);
 }
 
-/*
- * @style .mve-table-editor button.primary:hover:not(:disabled)
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
-
 
 .mve-table-editor button.primary:hover:not(:disabled) {
     background: var(--vscode-button-hoverBackground);
 }
-
-/*
- * @style .mve-table-editor button:disabled
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
 
 
 .mve-table-editor button:disabled {
     opacity: 0.45;
     cursor: default;
 }
-
-/*
- * @style .mve-table-editor-grid-wrap
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
 
 
 .mve-table-editor-grid-wrap {
@@ -336,11 +218,6 @@
     background: var(--vscode-editor-background);
 }
 
-/*
- * @style .mve-table-editor-grid
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
-
 
 .mve-table-editor-grid {
     width: 100%;
@@ -349,11 +226,6 @@
     table-layout: fixed;
     background: var(--vscode-editor-background);
 }
-
-/*
- * @style .mve-table-editor-grid th, .mve-table-editor-grid td
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
 
 
 .mve-table-editor-grid th,
@@ -365,20 +237,10 @@
     padding: 0;
 }
 
-/*
- * @style .mve-table-editor-grid tr > :first-child
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
-
 
 .mve-table-editor-grid tr> :first-child {
     border-left: 1px solid var(--vscode-panel-border, var(--mve-border));
 }
-
-/*
- * @style .mve-table-editor-column-selector-row > th
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
 
 
 .mve-table-editor-column-selector-row>th {
@@ -396,22 +258,12 @@
     cursor: pointer;
 }
 
-/*
- * @style .mve-table-editor-column-selector-row > th[data-selected="true"], .mve-table-editor-row-selector[data-selected="true"]
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
-
 
 .mve-table-editor-column-selector-row>th[data-selected="true"],
 .mve-table-editor-row-selector[data-selected="true"] {
     background: var(--vscode-list-activeSelectionBackground, #264f78);
     color: var(--vscode-list-activeSelectionForeground, var(--vscode-foreground));
 }
-
-/*
- * @style .mve-table-editor-column-selector
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
 
 
 .mve-table-editor-column-selector {
@@ -461,20 +313,10 @@
     opacity: 0.4;
 }
 
-/*
- * @style .mve-table-editor-column-selector[data-drop-target="true"]
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
-
 
 .mve-table-editor-column-selector[data-drop-target="true"] {
     box-shadow: inset 3px 0 0 var(--vscode-focusBorder, #007acc);
 }
-
-/*
- * @style .mve-table-editor-corner
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
 
 
 .mve-table-editor-corner {
@@ -485,11 +327,6 @@
     max-width: 42px;
     font-size: 9px;
 }
-
-/*
- * @style .mve-table-editor-row-selector
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
 
 
 .mve-table-editor-row-selector {
@@ -508,21 +345,11 @@
     user-select: none;
 }
 
-/*
- * @style .mve-table-editor-row-selector > span:first-child
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
-
 
 .mve-table-editor-row-selector>span:first-child {
     display: inline-block;
     min-width: 13px;
 }
-
-/*
- * @style .mve-table-editor-header-row > th, .mve-table-editor-header-row > td
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
 
 
 .mve-table-editor-header-row>th,
@@ -532,11 +359,6 @@
     z-index: 5;
 }
 
-/*
- * @style .mve-table-editor-header-row > th
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
-
 
 .mve-table-editor-header-row>th {
     left: 0;
@@ -544,20 +366,10 @@
     background: var(--vscode-editorGutter-background, var(--mve-panel));
 }
 
-/*
- * @style .mve-table-editor-header-row > td
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
-
 
 .mve-table-editor-header-row>td {
     background: color-mix(in srgb, var(--vscode-list-activeSelectionBackground, #264f78) 70%, var(--vscode-editor-background));
 }
-
-/*
- * @style .mve-table-editor-axis-drag-handle
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
 
 
 .mve-table-editor-axis-drag-handle {
@@ -573,11 +385,6 @@
     opacity: 0.55;
 }
 
-/*
- * @style .mve-table-editor-axis-drag-handle:hover, .mve-table-editor-axis-drag-handle:focus-visible
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
-
 
 .mve-table-editor-axis-drag-handle:hover,
 .mve-table-editor-axis-drag-handle:focus-visible {
@@ -587,31 +394,16 @@
     outline-offset: 1px;
 }
 
-/*
- * @style .mve-table-editor-axis-drag-handle:active
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
-
 
 .mve-table-editor-axis-drag-handle:active {
     cursor: grabbing;
 }
-
-/*
- * @style .mve-table-editor-grid tbody tr[data-drop-target="true"] > td, .mve-table-editor-grid tbody tr[data-drop-target="true"] > th
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
 
 
 .mve-table-editor-grid tbody tr[data-drop-target="true"]>td,
 .mve-table-editor-grid tbody tr[data-drop-target="true"]>th {
     box-shadow: inset 0 3px 0 var(--vscode-focusBorder, #007acc);
 }
-
-/*
- * @style .mve-table-editor-row-resizer
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
 
 
 .mve-table-editor-row-resizer {
@@ -633,11 +425,6 @@
     touch-action: none;
 }
 
-/*
- * @style .mve-table-editor-row-resizer:hover, .mve-table-editor-row-resizer:focus-visible
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
-
 
 .mve-table-editor-row-resizer:hover,
 .mve-table-editor-row-resizer:focus-visible {
@@ -646,30 +433,15 @@
     opacity: 0.85;
 }
 
-/*
- * @style .mve-table-editor-grid td[data-selected="true"]
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
-
 
 .mve-table-editor-grid td[data-selected="true"] {
     background: color-mix(in srgb, var(--vscode-editor-selectionBackground, #264f78) 28%, var(--vscode-editor-background));
 }
 
-/*
- * @style .mve-table-editor-header-row > td[data-selected="true"]
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
-
 
 .mve-table-editor-header-row>td[data-selected="true"] {
     background: color-mix(in srgb, var(--vscode-list-activeSelectionBackground, #264f78) 82%, var(--vscode-editor-background));
 }
-
-/*
- * @style .mve-table-editor-grid td[data-active="true"]
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
 
 
 .mve-table-editor-grid td[data-active="true"] {
@@ -678,50 +450,25 @@
     z-index: 3;
 }
 
-/*
- * @style .mve-table-editor-header-row > td[data-active="true"]
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
-
 
 .mve-table-editor-header-row>td[data-active="true"] {
     z-index: 7;
 }
-
-/*
- * @style .mve-table-editor-grid td[data-alignment="left"] textarea
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
 
 
 .mve-table-editor-grid td[data-alignment="left"] textarea {
     text-align: left;
 }
 
-/*
- * @style .mve-table-editor-grid td[data-alignment="center"] textarea
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
-
 
 .mve-table-editor-grid td[data-alignment="center"] textarea {
     text-align: center;
 }
 
-/*
- * @style .mve-table-editor-grid td[data-alignment="right"] textarea
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
-
 
 .mve-table-editor-grid td[data-alignment="right"] textarea {
     text-align: right;
 }
-
-/*
- * @style .mve-table-editor-grid textarea
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
 
 
 .mve-table-editor-grid textarea {
@@ -741,30 +488,15 @@
     overflow-wrap: anywhere;
 }
 
-/*
- * @style .mve-table-editor-grid textarea:focus
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
-
 
 .mve-table-editor-grid textarea:focus {
     background: color-mix(in srgb, var(--vscode-editor-selectionBackground, #264f78) 16%, transparent);
 }
 
-/*
- * @style .mve-table-editor-grid td[data-selected="true"] textarea:focus
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
-
 
 .mve-table-editor-grid td[data-selected="true"] textarea:focus {
     background: color-mix(in srgb, var(--vscode-editor-selectionBackground, #264f78) 22%, transparent);
 }
-
-/*
- * @style .mve-table-editor-column-resizer
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
 
 
 .mve-table-editor-column-resizer {
@@ -786,11 +518,6 @@
     opacity: 0.28;
 }
 
-/*
- * @style .mve-table-editor-column-resizer:hover, .mve-table-editor-column-resizer:focus-visible
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
-
 
 .mve-table-editor-column-resizer:hover,
 .mve-table-editor-column-resizer:focus-visible {
@@ -798,22 +525,12 @@
     background: var(--vscode-focusBorder, #007acc) !important;
 }
 
-/*
- * @style .mve-table-editor-footer
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
-
 
 .mve-table-editor-footer {
     justify-content: space-between;
     padding: 0 12px;
     border-top: 1px solid var(--vscode-panel-border, var(--mve-border));
 }
-
-/*
- * @style .mve-table-editor-status
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
 
 
 .mve-table-editor-status {
@@ -825,20 +542,10 @@
     font-size: 12px;
 }
 
-/*
- * @style .mve-table-editor-status.visible
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
-
 
 .mve-table-editor-status.visible {
     color: var(--vscode-editorWarning-foreground, var(--vscode-foreground));
 }
-
-/*
- * @style .mve-table-editor-actions
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
 
 
 .mve-table-editor-actions {
@@ -846,11 +553,6 @@
     gap: 8px;
     margin-left: auto;
 }
-
-/*
- * @style .mve-table-editor-toast
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
 
 
 .mve-table-editor-toast {
@@ -867,26 +569,12 @@
     box-shadow: 0 4px 18px rgb(0 0 0 / 28%);
 }
 
-/*
- * @style @media (max-width: 720px)
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 
 @media (max-width: 720px) {
-    /*
- * @style .mve-table-editor-root
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
 
     .mve-table-editor-root {
         padding: 10px;
     }
-
-    /*
-     * @style .mve-table-editor
-     * 表編集グリッドのセル、選択範囲、行列操作を表示する。
-     */
 
 
     .mve-table-editor {
@@ -897,11 +585,6 @@
         grid-template-rows: 42px auto minmax(0, 1fr) auto;
     }
 
-    /*
-     * @style .mve-table-editor-toolbar
-     * 表編集グリッドのセル、選択範囲、行列操作を表示する。
-     */
-
 
     .mve-table-editor-toolbar {
         flex-wrap: wrap;
@@ -909,20 +592,10 @@
         max-height: 136px;
     }
 
-    /*
-     * @style .mve-table-editor-toolbar-group
-     * 表編集グリッドのセル、選択範囲、行列操作を表示する。
-     */
-
 
     .mve-table-editor-toolbar-group {
         padding: 3px 7px;
     }
-
-    /*
-     * @style .mve-table-editor-footer
-     * 表編集グリッドのセル、選択範囲、行列操作を表示する。
-     */
 
 
     .mve-table-editor-footer {
@@ -930,11 +603,6 @@
         gap: 8px;
         padding: 8px;
     }
-
-    /*
-     * @style .mve-table-editor-status
-     * 表編集グリッドのセル、選択範囲、行列操作を表示する。
-     */
 
 
     .mve-table-editor-status {

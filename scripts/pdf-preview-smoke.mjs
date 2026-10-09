@@ -1,5 +1,5 @@
 /**
- * @fileoverview PDF・プレビュー・スモーク検証を開発・検証環境で実行する。前提条件や失敗条件を終了コードとログで示す。
+ * @fileoverview ChromiumでPDFプレビューを開き、ページ描画、置換、ズーム、エラー表示を確認する。
  */
 import { chromium } from 'playwright-core';
 import { createServer } from 'node:http';
@@ -8,9 +8,9 @@ import path from 'node:path';
 
 /**
  * 指定した名前のファイルを検証用ディレクトリから再帰的に探す。
- * @param root - PDF・プレビュー・スモーク検証へ渡す入力。
- * @param name - PDF・プレビュー・スモーク検証の対象や分岐を識別する値。
- * @returns PDF・プレビュー・スモーク検証のfind・fileが生成する結果。
+ * @param root - 再帰検索を始めるディレクトリ。
+ * @param name - 大文字小文字を区別せず探すファイル名。
+ * @returns 一致したファイルのパス。見つからない場合はundefined。
  */
 async function findFile(root, name) {
   for (const entry of await readdir(root, { withFileTypes: true })) {
@@ -34,7 +34,7 @@ if (!executablePath) throw new Error('Chromiumがありません。npm run pdf:i
  */
 const root = path.resolve('dist');
 /**
- * PDF・プレビュー・スモーク検証のlarge・sampleとして読み込んだ本文または設定。
+ * プレビュー負荷の計測に使用する大きなMarkdownサンプル。
  */
 const largeSample = (await readFile('sample/09-large-document.md', 'utf8')).replace(/\r\n?/g, '\n');
 /**
@@ -42,10 +42,9 @@ const largeSample = (await readFile('sample/09-large-document.md', 'utf8')).repl
  */
 const server = createServer(
 /**
- * requestをsliceへ渡し、PDF・プレビュー・スモーク検証の結果または副作用を処理する。
- * @param request - PDF・プレビュー・スモーク検証へ渡す入力。
- * @param response - PDF・プレビュー・スモーク検証へ渡す入力。
- * @returns PDF・プレビュー・スモーク検証のコールバックが生成する結果。
+ * dist内のアセット要求へファイル内容とMIME型を返す簡易HTTPハンドラー。
+ * @param request - URLから配信対象ファイルを決める受信リクエスト。
+ * @param response - ファイル内容または404を返すレスポンス。
  */
 async (request, response) => {
   const name = request.url === '/' ? 'index.html' : request.url?.slice(1) ?? '';
@@ -68,7 +67,6 @@ await new Promise(
 /**
  * 非同期処理のlisten通知を待機側へ渡す。
  * @param resolve - Promiseの成功を通知する関数。
- * @returns 非同期処理の完了値。
  */
 (resolve) => server.listen(0, '127.0.0.1', resolve));
 /**
@@ -76,7 +74,7 @@ await new Promise(
  */
 const port = server.address().port;
 /**
- * PDF・プレビュー・スモーク検証の位置・寸法・件数・時間を表す数値。
+ * PDFプレビューを開くために使うChromiumインスタンスです。
  */
 const browser = await chromium.launch({ executablePath, headless: true });
 
@@ -91,9 +89,7 @@ try {
   const context = await browser.newContext();
   await context.addInitScript(
   /**
-   * preview・pdfを一覧追加へ渡し、PDF・プレビュー・スモーク検証の結果または副作用を処理する。
    * @param previewPdf - PDF・プレビュー・スモーク検証へ渡す入力。
-   * @returns PDF・プレビュー・スモーク検証のコールバックが生成する結果。
    */
   (previewPdf) => {
     window.__mveDebugEnabled = true;
@@ -107,16 +103,14 @@ try {
 
       
       postMessage: /**
-       * PDF・プレビュー・スモーク検証の変更または要求をHost・Webview間へ通知する。
-       * @param message - HostとWebviewの間で受け渡すメッセージ。
-       * @returns PDF・プレビュー・スモーク検証のpost・messageが生成する結果。
+       * Webviewから送られたメッセージを検証用キューへ記録する。
+       * @param message - Webviewが送信したプロトコルメッセージ。
        */ (message) => {
         window.__mveMessages.push(message);
         if (message.type === 'renderPdfPreview') {
           setTimeout(
           /**
            * 指定時間の経過後に後続処理を実行する。
-           * @returns 副作用を完了し、値は返さない。
            */
           () => window.dispatchEvent(new MessageEvent('message', {
             data: { type: 'pdfPreviewReady', requestId: message.requestId, pdfBase64: previewPdf }
@@ -126,14 +120,12 @@ try {
 
       
       getState: /**
-       * PDF・プレビュー・スモーク検証から必要な値またはリソースを取得する。
        * @returns 条件に一致する値。未検出時はundefinedまたはnull。
        */ () => undefined,
 
       
       setState: /**
        * PDF・プレビュー・スモーク検証の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-       * @returns 副作用を完了し、値は返さない。
        */ () => undefined
     });
   }, pdfBase64);
@@ -144,7 +136,6 @@ try {
   /**
    * pageerrorイベントで一覧追加を実行する。
    * @param error - ユーザー操作またはDOMから通知されたイベント。
-   * @returns 副作用を完了し、値は返さない。
    */
   (error) => pageErrors.push(error.message));
   await page.goto(`http://127.0.0.1:${port}/`);
@@ -155,13 +146,11 @@ try {
   await page.waitForFunction(
   /**
    * HostとWebviewのメッセージ状態が完了条件を満たすまで待機する。
-   * @returns PDF・プレビュー・スモーク検証のコールバックが生成する結果。
    */
   () => window.__mveMessages.some(
   /**
-   * PDF・プレビュー・スモーク検証のコールバックとしてメッセージを処理する。
+
    * @param message - HostとWebviewの間で受け渡すメッセージ。
-   * @returns PDF・プレビュー・スモーク検証のコールバックが生成する結果。
    */
   (message) => message.type === 'ready'));
 
@@ -177,10 +166,7 @@ try {
     pdfOptions: { fontFamily: 'Test Preview Font' }
   };
   await page.evaluate(
-  /**
-   * Webviewの実行状態のdispatch・event結果を読み取り、検証用の値へ変換する。
-  * @returns ブラウザー内で読み取った値または変換結果。
-   */
+   /** PDFをプレビューへ渡す初期化メッセージをブラウザーから送る。 */
   ({ text, initSettings }) => {
     window.dispatchEvent(new MessageEvent('message', {
       data: { type: 'init', text, version: 1, uri: 'file:///C:/large.md', settings: initSettings }
@@ -219,7 +205,7 @@ try {
     /**
      * 種別「setPdfOptions」のメッセージだけを残す。
      * @param message - メッセージのtypeを参照する走査対象。
-     * @returns 条件を満たした要素だけを含む一覧。
+
      */
     (message) => message.type === 'setPdfOptions')
   );
@@ -238,7 +224,6 @@ try {
 
   const widthBeforeZoom = await page.locator('.pdf-page').first().evaluate(
   /**
-   * ブラウザー内の状態のget・bounding・client・rect結果を読み取り、検証用の値へ変換する。
    * @param element - PDFプレビューのズーム前に画像幅を測定する要素。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
@@ -251,7 +236,6 @@ try {
   await page.waitForTimeout(500);
   const widthAfterZoom = await page.locator('.pdf-page').first().evaluate(
   /**
-   * ブラウザー内の状態のget・bounding・client・rect結果を読み取り、検証用の値へ変換する。
    * @param element - PDFプレビューを拡大した後に画像幅を測定する要素。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
@@ -268,7 +252,6 @@ try {
   await page.waitForTimeout(500);
   const widthAfterShrink = await page.locator('.pdf-page').first().evaluate(
   /**
-   * ブラウザー内の状態のget・bounding・client・rect結果を読み取り、検証用の値へ変換する。
    * @param element - PDFプレビューを縮小した後に画像幅を測定する要素。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
@@ -282,7 +265,6 @@ try {
   await page.waitForTimeout(500);
   const widthAfterButtonZoom = await page.locator('.pdf-page').first().evaluate(
   /**
-   * ブラウザー内の状態のget・bounding・client・rect結果を読み取り、検証用の値へ変換する。
    * @param element - PDFプレビューのボタン操作後に画像幅を測定する要素。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
@@ -301,7 +283,7 @@ try {
     /**
      * 種別「renderPdfPreview」のメッセージだけを残す。
      * @param message - メッセージのtypeを参照する走査対象。
-     * @returns 条件を満たした要素だけを含む一覧。
+
      */
     (message) => message.type === 'renderPdfPreview'),
     pages: Number(document.querySelector('.pdf-pages')?.getAttribute('data-page-count') ?? 0),
@@ -318,7 +300,7 @@ try {
       /**
        * 種別「pdf.zoom-button」のエントリだけを残す。
        * @param entry - エントリのイベントを参照する走査対象。
-       * @returns 条件を満たした要素だけを含む一覧。
+
        */
       (entry) => entry.event === 'pdf.zoom-button' || entry.event === 'zoom.changed')
       .map(
@@ -349,7 +331,7 @@ try {
   /**
    * 条件を満たすイベントだけを残す。
    * @param event - zoom.changed debug eventを数える一覧要素。
-   * @returns 条件を満たした要素だけを含む一覧。
+
    */
   (event) => event === 'zoom.changed').length < 3) {
     throw new Error(`PDF zoom debug events missing: ${JSON.stringify(result.debugEvents)}`);
@@ -363,7 +345,6 @@ try {
   /**
    * 非同期処理の閉じる通知を待機側へ渡す。
    * @param resolve - Promiseの成功を通知する関数。
-   * @returns 非同期処理の完了値。
    */
   (resolve) => server.close(resolve));
 }

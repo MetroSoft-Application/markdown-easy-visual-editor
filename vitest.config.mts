@@ -1,11 +1,10 @@
 /**
- * @fileoverview Webviewのvitest・configを管理する。Hostとの通信、ユーザー操作、表示状態の契約を保つ。
+ * @fileoverview Vitestの実行環境、テストファイルの対象範囲、カバレッジ出力形式を設定する。
  */
 import { defineConfig } from 'vitest/config';
 
 /**
- * vitest・configのexportを処理し、呼び出し側へ結果または副作用を返す。
- * @returns vitest・configのexportが生成する結果。
+ * Node環境でtest/**/*.test.tsを実行し、カバレッジをtextとHTMLで出力する設定。
  */
 export default defineConfig({
   test: {

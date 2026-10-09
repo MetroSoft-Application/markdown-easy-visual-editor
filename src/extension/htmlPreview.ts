@@ -1,10 +1,19 @@
+/**
+ * @fileoverview Extension Hostで出力済みHTMLを専用Webviewに表示し、HTML内リンクを処理する。
+ * HTMLとリンク先はワークスペースFSから読み込み、初期フォルダー外やHTML以外への移動を拒否する。
+ * 読み込み失敗時はパネルを破棄し、表示中のページに対する失敗は現在の内容を維持する。
+ */
 import path from 'node:path';
 import { randomBytes } from 'node:crypto';
 import * as vscode from 'vscode';
 
+/** プレビュー内リンクからExtension Hostへ通知する遷移種別とhref。 */
 type PreviewMessage = { type: 'navigate' | 'external'; href: string };
 
-/** 出力済みHTMLを、リンク先も表示できる専用Webviewで開く。 */
+/**
+ * 出力済みHTMLを専用Webviewで開き、初期フォルダー内のHTMLリンク遷移を処理する。
+ * @param target 表示するHTMLファイルのURI。
+ */
 export async function openHtmlPreview(target: vscode.Uri): Promise<void> {
     const root = vscode.workspace.getWorkspaceFolder(target)?.uri
         ?? vscode.Uri.file(path.dirname(target.fsPath));
@@ -17,6 +26,7 @@ export async function openHtmlPreview(target: vscode.Uri): Promise<void> {
     );
     let current = target;
 
+    /** HTMLをFSから読み、表示位置・タイトルを更新してフラグメント指定を含めWebviewへ設定する。失敗は呼び出し側へ返す。 */
     const display = async (uri: vscode.Uri, fragment = ''): Promise<void> => {
         const bytes = await vscode.workspace.fs.readFile(uri);
         current = uri;
@@ -25,6 +35,7 @@ export async function openHtmlPreview(target: vscode.Uri): Promise<void> {
     };
 
     panel.webview.onDidReceiveMessage((message: PreviewMessage) => {
+        // リンク種別とパス境界を検証し、外部URLまたはルート内のHTMLだけを開く。
         void (async () => {
             if (!message || typeof message.href !== 'string') return;
             if (message.type === 'external') {
@@ -65,7 +76,14 @@ export async function openHtmlPreview(target: vscode.Uri): Promise<void> {
     }
 }
 
-/** 表示時だけリンクの操作とローカルリソースの基準URIを追加する。 */
+/**
+ * CSP、ローカル参照用base URI、リンク通知処理をHTMLへ追加する。
+ * @param html 出力されたHTML本文。
+ * @param webview CSPとローカルリソースURIの生成に使うWebview。
+ * @param uri 表示中HTMLのURI。隣接リソースの基準ディレクトリを決める。
+ * @param fragment 初期表示でスクロールするURLフラグメント。
+ * @returns CSPとリンク処理を組み込んだHTML。head/bodyがない断片は必要な要素で包む。
+ */
 export function preparePreviewHtml(html: string, webview: vscode.Webview, uri: vscode.Uri, fragment = ''): string {
     const nonce = randomBytes(16).toString('hex');
     const baseUri = webview.asWebviewUri(vscode.Uri.file(path.dirname(uri.fsPath))).toString().replace(/\/?$/u, '/');
@@ -114,11 +132,13 @@ export function preparePreviewHtml(html: string, webview: vscode.Webview, uri: v
     return preparedHtml + script;
 }
 
+/** 相対パスが親へ抜けず、絶対パスにもならない場合だけルート内と判定する。 */
 function isWithin(root: string, candidate: string): boolean {
     const relative = path.relative(root, candidate);
     return relative === '' || (relative !== '..' && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative));
 }
 
+/** 二重引用符で囲むHTML属性に挿入する値のアンパサンド、引用符、山括弧をエスケープする。 */
 function escapeAttribute(value: string): string {
     return value.replace(/&/gu, '&amp;').replace(/"/gu, '&quot;').replace(/</gu, '&lt;');
 }

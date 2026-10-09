@@ -1,5 +1,5 @@
 /**
- * @fileoverview textchanges・テストの回帰の仕様と回帰条件を検証する。失敗時は期待値と実装差分を示す。
+ * @fileoverview 本文変更の最小差分、複数編集の合成、競合範囲検出、同時挿入の決定的な収束を検証する。
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -12,16 +12,8 @@ import {
 } from '../src/shared/textChanges';
 
 describe('text changes',
-    /**
-     * 「text changes」の仕様と回帰条件を検証するテストケース。
-     * @returns テストケースを実行し、値は返さない。
-     */
     () => {
         it('computes and applies a minimal replacement',
-            /**
-             * 「computes and applies a minimal replacement」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const before = 'alpha\r\nbeta\r\ngamma';
                 const after = 'alpha\r\nBETA\r\ngamma';
@@ -31,10 +23,6 @@ describe('text changes',
             });
 
         it('applies multiple offsets against the same base document',
-            /**
-             * 「applies multiple offsets against the same base document」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const changes = [
                     { rangeOffset: 0, rangeLength: 1, text: 'A' },
@@ -44,20 +32,16 @@ describe('text changes',
             });
 
         it('composes a long sequence without retaining one full operation per key',
-            /**
-             * 「composes a long sequence without retaining one full operation per key」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const base = 'alpha\r\nbeta\r\ngamma';
                 let text = base;
                 let composed: Array<{
                     /**
-                     * textchanges・テストの回帰の位置・寸法・件数・時間を表す数値。
+                     * 編集前本文の先頭から変更範囲が始まるUTF-16オフセットです。
                      */
                     rangeOffset: number;
                     /**
-                     * textchanges・テストの回帰の位置・寸法・件数・時間を表す数値。
+                     * 変更で削除するUTF-16コード単位数です。
                      */
                     rangeLength: number;
                     /**
@@ -78,10 +62,6 @@ describe('text changes',
             });
 
         it('composes edits that replace and then remove inserted and original text',
-            /**
-             * 「composes edits that replace and then remove inserted and original text」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const base = '0123456789';
                 const first = [
@@ -98,10 +78,6 @@ describe('text changes',
             });
 
         it('maps local edits over an earlier remote insertion',
-            /**
-             * 「maps local edits over an earlier remote insertion」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const local = [{ rangeOffset: 6, rangeLength: 4, text: 'BETA' }];
                 const remote = [{ rangeOffset: 0, rangeLength: 0, text: '# ' }];
@@ -111,20 +87,12 @@ describe('text changes',
             });
 
         it('maps an anchor through replacements',
-            /**
-             * 「maps an anchor through replacements」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const changes = [{ rangeOffset: 2, rangeLength: 2, text: '12345' }];
                 expect(mapTextOffset(6, changes, 8)).toBe(9);
             });
 
         it('maps CRLF insertions using raw UTF-16 lengths',
-            /**
-             * 「maps CRLF insertions using raw UTF-16 lengths」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const local = [{ rangeOffset: 3, rangeLength: 0, text: 'local' }];
                 const remote = [{ rangeOffset: 0, rangeLength: 0, text: 'a\r\nb\r\n' }];
@@ -135,16 +103,9 @@ describe('text changes',
             });
 
         it('requires resync for overlapping concurrent replacements',
-            /**
-             * 「requires resync for overlapping concurrent replacements」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 expect(
-                    /**
-                     * 要素をmap・text・changesへ渡し、textchanges・テストの回帰の結果または副作用を処理する。
-                     * @returns textchanges・テストの回帰のコールバックが生成する結果。
-                     */
+
                     () => mapTextChanges(
                         [{ rangeOffset: 2, rangeLength: 3, text: 'local' }],
                         [{ rangeOffset: 4, rangeLength: 2, text: 'remote' }],
@@ -153,33 +114,19 @@ describe('text changes',
             });
 
         it('rejects overlapping and out-of-range changes',
-            /**
-             * 「rejects overlapping and out-of-range changes」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 expect(
-                    /**
-                     * 要素をvalidate・text・changesへ渡し、textchanges・テストの回帰の結果または副作用を処理する。
-                     * @returns textchanges・テストの回帰のコールバックが生成する結果。
-                     */
+
                     () => validateTextChanges([
                         { rangeOffset: 1, rangeLength: 3, text: '' },
                         { rangeOffset: 2, rangeLength: 1, text: '' }
                     ], 5)).toThrow(/Overlapping/);
                 expect(
-                    /**
-                     * 要素をapply・text・changesへ渡し、textchanges・テストの回帰の結果または副作用を処理する。
-                     * @returns textchanges・テストの回帰のコールバックが生成する結果。
-                     */
+
                     () => applyTextChanges('abc', [{ rangeOffset: 4, rangeLength: 0, text: 'x' }])).toThrow(/Invalid/);
             });
 
         it('converges concurrent inserts by applying the same client ordering',
-            /**
-             * 「converges concurrent inserts by applying the same client ordering」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const base = 'document';
                 const clientA = [{ rangeOffset: base.length, rangeLength: 0, text: 'A' }];
@@ -193,10 +140,6 @@ describe('text changes',
             });
 
         it('keeps one hundred concurrent client operations convergent',
-            /**
-             * 「keeps one hundred concurrent client operations convergent」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 let server = '';
                 let replicaA = '';

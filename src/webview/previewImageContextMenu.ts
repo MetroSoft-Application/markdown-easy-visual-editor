@@ -1,21 +1,19 @@
 /**
- * @fileoverview Webviewのプレビュー画像メニューを管理する。Hostとの通信、ユーザー操作、表示状態の契約を保つ。
+ * @fileoverview プレビュー画像のコンテキストメニューを生成し、コピー、リソースを開く、サイズ初期化の操作を仲介する。
  */
 import { getMessages } from "../shared/messages";
 /**
- * プレビュー画像メニューのmenu・classに関する状態または設定。
+ * 画像右クリックで開くコンテキストメニューに付ける識別クラス。
  */
 const MENU_CLASS = "mve-preview-image-context-menu";
 /**
- * プレビュー画像メニューのtoast・classに関する状態または設定。
+ * 画像コピー結果を一時表示する通知に付ける識別クラス。
  */
 const TOAST_CLASS = "mve-preview-image-copy-toast";
 
 /**
- * プレビュー画像メニューで扱う値の種類と境界を表す型。
- */
 /**
- * プレビュー画像メニューで共有するデータ形状を表すインターフェース。
+ * クリップボードへ渡す形式に変換済みの画像データです。
  */
 interface PreparedClipboardImage {
 
@@ -25,12 +23,12 @@ interface PreparedClipboardImage {
     source: string;
 
     /**
-     * プレビュー画像メニューで対象や分岐を識別する値の型。
+     * クリップボード画像のMIMEタイプを示す文字列です。
      */
     type: string;
 
     /**
-     * プレビュー画像メニューのblobに関する状態または設定。
+     * クリップボードへ書き込む画像データ。
      */
     blob: Blob;
 
@@ -51,8 +49,8 @@ interface PreparedClipboardImage {
 }
 
 /**
- * プレビュー画像メニューのinstall・preview・image・context・menuを処理し、呼び出し側へ結果または副作用を返す。
- * @returns プレビュー画像メニューのinstall・preview・image・context・menuが生成する結果。
+ * プレビュー内画像の右クリックメニューを登録し、終了時にイベントとDOMを解除する関数を返す。
+ * @returns 登録したdocument/windowイベントとメニュー要素を破棄する関数。
  */
 export function installPreviewImageContextMenu(): () => void {
     let menu: HTMLDivElement | undefined;
@@ -63,7 +61,6 @@ export function installPreviewImageContextMenu(): () => void {
 
     const closeMenu = /**
    * プレビュー画像メニューの処理またはリソースを終了し、後続利用可能な状態へ戻す。
-   * @returns 副作用を完了し、値は返さない。
    */ () => {
             generation += 1;
             menu?.remove();
@@ -73,9 +70,8 @@ export function installPreviewImageContextMenu(): () => void {
 
 
     const onContextMenu = /**
-   * プレビュー画像メニューのイベントまたはメッセージを受け取り、状態を更新する。
-   * @param event - 描画画像のcontext menuを開くmouse event。
-   * @returns プレビュー画像メニューのon・context・menuが生成する結果。
+    * 右クリック位置にあるプレビュー画像を特定し、画像操作メニューを表示する。
+    * @param event - 描画画像のcontext menuを開くmouse event。
    */ (event: MouseEvent) => {
             if (!(event.target instanceof Element)) return;
             const image = event.target.closest<HTMLImageElement>(
@@ -94,9 +90,8 @@ export function installPreviewImageContextMenu(): () => void {
 
 
     const onPointerDown = /**
-   * プレビュー画像メニューのイベントまたはメッセージを受け取り、状態を更新する。
-   * @param event - 画像メニュー外の押下でメニューを閉じるpointer event。
-   * @returns プレビュー画像メニューのon・pointer・downが生成する結果。
+    * メニュー外のpointer操作を検出し、表示中の画像メニューを閉じる。
+    * @param event - 画像メニュー外の押下でメニューを閉じるpointer event。
    */ (event: PointerEvent) => {
             if (
                 !menu ||
@@ -112,7 +107,6 @@ export function installPreviewImageContextMenu(): () => void {
     const onKeyDown = /**
    * keydownイベントでifを実行する。
    * @param event - 表示中の画像メニューをEscapeで閉じるkeydown event。
-   * @returns 副作用を完了し、値は返さない。
    */ (event: KeyboardEvent) => {
             if (event.key !== "Escape" || !menu) return;
             event.preventDefault();
@@ -121,10 +115,7 @@ export function installPreviewImageContextMenu(): () => void {
 
 
 
-    const onViewportChange = /**
-   * プレビュー画像メニューのイベントまたはメッセージを受け取り、状態を更新する。
-   * @returns プレビュー画像メニューのon・viewport・changeが生成する結果。
-   */ () => closeMenu();
+    const onViewportChange = () => closeMenu();
 
     document.addEventListener("contextmenu", onContextMenu, true);
     document.addEventListener("pointerdown", onPointerDown, true);
@@ -133,10 +124,7 @@ export function installPreviewImageContextMenu(): () => void {
     window.addEventListener("blur", onViewportChange);
     document.addEventListener("scroll", onViewportChange, true);
 
-    /**
-     * イベントでclose・menuを実行する。
-     * @returns 副作用を完了し、値は返さない。
-     */
+    // 画面位置が変わるとアンカーからずれるため、開いたメニューを閉じる。
     return () => {
         closeMenu();
         if (toastTimer !== undefined) window.clearTimeout(toastTimer);
@@ -152,7 +140,6 @@ export function installPreviewImageContextMenu(): () => void {
                 /**
                  * DOMノードごとに削除を実行する。
                  * @param node - DOMノードの削除を参照する走査対象。
-                 * @returns 副作用を完了し、値は返さない。
                  */
                 (node) => node.remove());
     };
@@ -162,7 +149,6 @@ export function installPreviewImageContextMenu(): () => void {
      * @param image - コンテキストメニューの対象となるプレビュー画像。
      * @param clientX - クリック位置のviewport相対X座標（CSS px）。
      * @param clientY - クリック位置のviewport相対Y座標（CSS px）。
-     * @returns 副作用を完了し、値は返さない。
      */
     function openMenu(
         image: HTMLImageElement,
@@ -191,9 +177,8 @@ export function installPreviewImageContextMenu(): () => void {
         void prepareClipboardImage(image)
             .then(
                 /**
-                 * 値をifへ渡し、プレビュー画像メニューの結果または副作用を処理する。
+                 * 画像変換の非同期完了が古いメニューに属する場合は、後続UIを更新しない。
                  * @param value - クリップボード書き込み用に準備した画像データ一式。
-                 * @returns プレビュー画像メニューのコールバックが生成する結果。
                  */
                 (value) => {
                     if (generation !== currentGeneration || menu !== nextMenu) return;
@@ -203,10 +188,8 @@ export function installPreviewImageContextMenu(): () => void {
                     button.focus({ preventScroll: true });
                 })
             .catch(
-                /**
-                 * errorをwarnへ渡し、プレビュー画像メニューの結果または副作用を処理する。
+                /** コピー準備に失敗した理由を記録し、利用者へ失敗を通知する。
                  * @param error - 処理に失敗した理由または例外。
-                 * @returns プレビュー画像メニューのコールバックが生成する結果。
                  */
                 (error: unknown) => {
                     console.warn(
@@ -222,7 +205,6 @@ export function installPreviewImageContextMenu(): () => void {
         button.addEventListener("click",
             /**
              * イベントでifを実行する。
-             * @returns 副作用を完了し、値は返さない。
              */
             () => {
                 if (!prepared) return;
@@ -230,19 +212,15 @@ export function installPreviewImageContextMenu(): () => void {
                 closeMenu();
                 void copyPreparedImage(target)
                     .then(
-                        /**
-                         * copiedをshow・toastへ渡し、プレビュー画像メニューの結果または副作用を処理する。
+                        /** clipboard書き込み結果に応じた通知を表示する。
                          * @param copied - 画像をクリップボードへ書き込めた場合true。
-                         * @returns 副作用を完了し、値は返さない。
                          */
                         (copied) => {
                             showToast(copied ? text.copied : text.failed, !copied);
                         })
                     .catch(
-                        /**
-                         * errorをwarnへ渡し、プレビュー画像メニューの結果または副作用を処理する。
+                        /** clipboard書き込みに失敗した理由を記録する。
                          * @param error - 処理に失敗した理由または例外。
-                         * @returns 副作用を完了し、値は返さない。
                          */
                         (error: unknown) => {
                             console.warn(
@@ -258,7 +236,6 @@ export function installPreviewImageContextMenu(): () => void {
      * プレビュー画像メニューの表示または操作を開始する。
      * @param message - HostとWebviewの間で受け渡すメッセージ。
      * @param error - 失敗toastとして表示する場合はtrue。
-     * @returns 副作用を完了し、値は返さない。
      */
     function showToast(message: string, error: boolean): void {
         if (toastTimer !== undefined) window.clearTimeout(toastTimer);
@@ -268,7 +245,6 @@ export function installPreviewImageContextMenu(): () => void {
                 /**
                  * DOMノードごとに削除を実行する。
                  * @param node - DOMノードの削除を参照する走査対象。
-                 * @returns 副作用を完了し、値は返さない。
                  */
                 (node) => node.remove());
         const toast = document.createElement("div");
@@ -280,7 +256,6 @@ export function installPreviewImageContextMenu(): () => void {
         toastTimer = window.setTimeout(
             /**
              * 指定時間の経過後に後続処理を実行する。
-             * @returns 副作用を完了し、値は返さない。
              */
             () => {
                 toast.remove();
@@ -290,12 +265,11 @@ export function installPreviewImageContextMenu(): () => void {
 }
 
 /**
- * プレビュー画像メニューのposition・menuを処理し、呼び出し側へ結果または副作用を返す。
+ * viewport外へはみ出さない位置に画像コンテキストメニューを配置する。
  * @param menu - 位置を設定するコンテキストメニュー要素。
  * @param image - メニュー位置の基準となるプレビュー画像。
  * @param clientX - クリック位置のviewport相対X座標（CSS px）。
  * @param clientY - クリック位置のviewport相対Y座標（CSS px）。
- * @returns 副作用を完了し、値は返さない。
  */
 function positionMenu(
     menu: HTMLElement,
@@ -321,9 +295,9 @@ function positionMenu(
 }
 
 /**
- * プレビュー画像メニューで使う値または実行環境を組み立てる。
+ * プレビュー画像からクリップボード保存に使う形式とデータを作る。
  * @param image - コピー用データを作るプレビュー画像。
- * @returns プレビュー画像メニューの非同期処理で得られる結果。
+ * @returns 画像Blob、MIMEタイプ、元のdata URL、HTML、Markdown参照を含むデータ。
  */
 async function prepareClipboardImage(
     image: HTMLImageElement,
@@ -429,7 +403,6 @@ async function copyPreparedImage(
  * @param clipboard - コピー項目を書き込むClipboard API。
  * @param item - Clipboard APIで画像ファイルとして書き込むDataTransferItem。
  * @param retries - フォーカス回復を待つ残り試行回数。
- * @returns 副作用を完了し、値は返さない。
  */
 async function writeClipboardWithFocusRetry(
     clipboard: Clipboard,
@@ -441,7 +414,6 @@ async function writeClipboardWithFocusRetry(
             /**
              * 遅延処理の完了または失敗を待機側へ通知する。
              * @param resolve - Promiseの成功を通知する関数。
-             * @returns 非同期処理の完了値。
              */
             (resolve) => window.setTimeout(resolve, 20));
         return writeClipboardWithFocusRetry(clipboard, item, retries - 1);
@@ -501,7 +473,7 @@ function copyEmbeddedImageBySelection(
 }
 
 /**
- * プレビュー画像メニューのclipboard・supports・typeを処理し、呼び出し側へ結果または副作用を返す。
+ * 指定MIMEタイプをImageBitmapとCanvasを使うクリップボード変換で扱えるか判定する。
  * @param type - 生成するData URLに設定する画像MIMEタイプ。
  * @returns 条件が成立したかを示す真偽値。
  */
@@ -511,9 +483,8 @@ export function clipboardSupportsType(type: string): boolean {
     const supports = (
         ClipboardItem as typeof ClipboardItem & {
             /**
-             * プレビュー画像メニューのsupportsを処理し、呼び出し側へ結果または副作用を返す。
-             * @param mimeType - プレビュー画像メニューの対象や分岐を識別する値。
-             * @returns プレビュー画像メニューで利用する文字列。
+ * @param mimeType - 出力形式がこのブラウザーで変換可能か調べるMIMEタイプ。
+
              */
             supports?: (mimeType: string) => boolean;
         }
@@ -529,10 +500,10 @@ export function clipboardSupportsType(type: string): boolean {
 }
 
 /**
- * プレビュー画像メニューから必要な値またはリソースを取得する。
+ * 応答ヘッダーと画像URLから正規化済みMIMEタイプを決める。
  * @param type - 推定の補助に使う画像MIME type。
  * @param source - MIMEタイプを推定する画像参照URLまたはファイルパス。
- * @returns プレビュー画像メニューで利用する文字列。
+ * @returns 対応する画像MIMEタイプ。不明な場合は空文字列。
  */
 function resolveImageMimeType(type: string, source: string): string {
     const normalized = normalizeMimeType(type);
@@ -541,9 +512,9 @@ function resolveImageMimeType(type: string, source: string): string {
 }
 
 /**
- * プレビュー画像メニューの入力を許可された形式へ整える。
+ * MIME typeのパラメーターを除き、小文字へ正規化する。
  * @param type - 正規化する画像MIME type。
- * @returns プレビュー画像メニューで利用する文字列。
+
  */
 function normalizeMimeType(type: string): string {
     const normalized = type.split(";", 1)[0]?.trim().toLowerCase() ?? "";
@@ -558,7 +529,7 @@ function normalizeMimeType(type: string): string {
 /**
  * プレビュー画像メニューの入力を検証し、表示または保存に使う形式へ変換する。
  * @param source - 拡張子からMIMEタイプを推定する画像参照。
- * @returns プレビュー画像メニューで利用する文字列。
+
  */
 function imageMimeTypeFromSource(source: string): string {
     const value = source.split(/[?#]/, 1)[0]?.toLowerCase() ?? "";
@@ -573,9 +544,9 @@ function imageMimeTypeFromSource(source: string): string {
 }
 
 /**
- * プレビュー画像メニューから必要な値またはリソースを取得する。
+ * URLから画像を取得し、HTTP失敗を除外してレスポンスBlobを返す。
  * @param source - fetchでBlobを取得する画像URL。
- * @returns プレビュー画像メニューの非同期処理で得られる結果。
+ * @returns URLから取得した画像データのBlob。
  */
 async function fetchImageBlob(source: string): Promise<Blob> {
     const response = await fetch(source, {
@@ -591,9 +562,9 @@ async function fetchImageBlob(source: string): Promise<Blob> {
 }
 
 /**
- * プレビュー画像メニューの入力を検証し、表示または保存に使う形式へ変換する。
+ * Base64またはpercent-encodedのData URL本文をBlobへ変換する。
  * @param source - Blobへ変換する画像Data URL。
- * @returns プレビュー画像メニューのdata・url・to・blobが生成する結果。
+ * @returns Data URLのMIMEタイプと本文を保持するBlob。
  */
 function dataUrlToBlob(source: string): Blob {
     const match = /^data:([^;,]*)([^,]*?),(.*)$/s.exec(source);
@@ -628,9 +599,9 @@ async function blobToDataUrl(blob: Blob, type: string): Promise<string> {
 }
 
 /**
- * プレビュー画像メニューの入力を許可された形式へ整える。
+ * HTML属性へ埋め込む画像参照の予約文字をエスケープする。
  * @param value - HTML属性へ出力する画像参照文字列。
- * @returns プレビュー画像メニューで利用する文字列。
+
  */
 function escapeHtmlAttribute(value: string): string {
     return value
@@ -641,9 +612,9 @@ function escapeHtmlAttribute(value: string): string {
 }
 
 /**
- * プレビュー画像メニューの入力を許可された形式へ整える。
+ * Markdown画像のalt文字列でバックスラッシュと閉じ角括弧をエスケープする。
  * @param value - Markdown画像のaltへ出力する文字列。
- * @returns プレビュー画像メニューで利用する文字列。
+
  */
 function escapeMarkdownAlt(value: string): string {
     return value.replace(/\\/g, "\\\\").replace(/\]/g, "\\]");

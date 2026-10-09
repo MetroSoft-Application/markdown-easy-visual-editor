@@ -1,18 +1,18 @@
 /**
- * @fileoverview Webviewのdebugを管理する。Hostとの通信、ユーザー操作、表示状態の契約を保つ。
+ * @fileoverview Webviewの診断イベントを時刻付きで記録し、必要に応じてJSON出力または消去できるデバッグAPIを提供する。
  */
 /**
- * debugで共有するデータ形状を表すインターフェース。
+ * デバッグログ1件の通し番号、経過時間、イベント名、詳細データを保持する。
  */
 export interface MveDebugEntry {
 
     /**
-     * debugのseqを表す数値。
+     * ログ追加順の通し番号。
      */
     seq: number;
 
     /**
-     * debugのatを表す数値。
+     * デバッグ開始からイベント記録までの経過ミリ秒。
      */
     at: number;
 
@@ -22,49 +22,47 @@ export interface MveDebugEntry {
     event: string;
 
     /**
-     * debugで扱うdetailsの文字列。
+     * イベントに付随する構造化データ。
      */
     details: Record<string, unknown>;
 }
 
 /**
- * debugで共有するデータ形状を表すインターフェース。
+ * windowに公開するデバッグ用フラグ、ログ、操作関数の型。
  */
 interface MveDebugWindow extends Window {
 
     /**
-     * debugの・mve・debug・enabledを示す状態フラグ。
+     * 詳細ログを記録するかを制御するフラグ。
      */
     __mveDebugEnabled?: boolean;
 
     /**
-     * debugの・mve・debug・logに関する状態または設定。
+     * 最新500件までの診断ログ。
      */
     __mveDebugLog?: MveDebugEntry[];
     /**
-     * debugの・mve・debug・dumpを処理し、呼び出し側へ結果または副作用を返す。
-     * デバッグ記録をJSON文字列で返す関数。
+     * 診断ログを整形済みJSON文字列で返す関数。
      */
     __mveDebugDump?: () => string;
     /**
-     * debugの・mve・debug・clearを処理し、呼び出し側へ結果または副作用を返す。
-     * デバッグ記録を消去する関数。
+     * 診断ログを空にする関数。
      */
     __mveDebugClear?: () => void;
 }
 
 /**
- * debugのsequenceに関する状態または設定。
+ * 次に記録するログ行へ割り当てる通し番号。
  */
 let sequence = 0;
 /**
- * debugのstarted・atに関する状態または設定。
+ * 経過時間を測る起点。
  */
 const startedAt = typeof performance === 'undefined' ? Date.now() : performance.now();
 
 /**
- * debugのnowを処理し、呼び出し側へ結果または副作用を返す。
- * @returns debugで利用する数値。
+ * 診断開始からの経過時間をミリ秒で返す。
+ * @returns performance.nowを基準にした経過ミリ秒。performanceが使えない場合はDate.now基準。
  */
 function now(): number {
     return typeof performance === 'undefined' ? Date.now() - startedAt : performance.now() - startedAt;
@@ -83,7 +81,6 @@ export function isMveDebugEnabled(): boolean {
  * デバッグが有効な場合に、イベント名と構造化情報を診断ログへ記録する。
  * @param event ログ行を識別するイベント名。
  * @param details ログへ添える構造化診断データ。
- * @returns 副作用を完了し、値は返さない。
  */
 export function mveDebug(event: string, details: Record<string, unknown> = {}): void {
     if (!isMveDebugEnabled()) return;
@@ -102,16 +99,8 @@ export function mveDebug(event: string, details: Record<string, unknown> = {}): 
     if (log.length > 500) log.splice(0, log.length - 500);
     target.__mveDebugLog = log;
     target.__mveDebugDump =
-        /**
-         * debugの・mve・debug・dumpを処理し、呼び出し側へ結果または副作用を返す。
-         * @returns debugで利用する文字列。
-         */
         () => JSON.stringify(target.__mveDebugLog ?? [], null, 2);
     target.__mveDebugClear =
-        /**
-         * debugの・mve・debug・clearを処理し、呼び出し側へ結果または副作用を返す。
-         * @returns debugの・mve・debug・clearが生成する結果。
-         */
         () => { target.__mveDebugLog = []; };
     console.info(`[MVE ${entry.seq}] ${event}`, details);
 }

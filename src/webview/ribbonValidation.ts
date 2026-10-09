@@ -5,7 +5,7 @@ import type { RibbonDefinitions } from "./ribbonDefinitionTypes";
 import type { RibbonLayoutDefinition } from "./ribbonLayoutTypes";
 
 /**
- * リボンで共有するデータ形状を表すインターフェース。
+ * リボン項目の入力検証と状態表示に使う実装です。
  */
 export interface RibbonValidationItemImplementation {
 
@@ -16,7 +16,7 @@ export interface RibbonValidationItemImplementation {
 }
 
 /**
- * リボンで共有するデータ形状を表すインターフェース。
+ * リボンヘッダーの入力検証状態を表示する実装です。
  */
 export interface RibbonValidationHeaderImplementation {
 
@@ -32,7 +32,6 @@ export interface RibbonValidationHeaderImplementation {
  * @param definitions - IDをキーにしたリボン項目定義の一覧。
  * @param implementations IDをキーにした通常リボン項目の実装定義。
  * @param headerImplementations IDをキーにしたヘッダー項目の実装定義。
- * @returns 条件が成立したかを示す真偽値。
  */
 export function validateRibbonConfiguration(
     layout: RibbonLayoutDefinition,
@@ -61,11 +60,6 @@ export function validateRibbonConfiguration(
     }
 
     const groupIds = layout.tabs.flatMap(
-        /**
-         * tabをmapへ渡し、リボンの結果または副作用を処理する。
-         * @param tab - リボンへ渡す入力。
-         * @returns リボンのコールバックが生成する結果。
-         */
         (tab) =>
             tab.groups.map(
                 /**
@@ -87,18 +81,8 @@ export function validateRibbonConfiguration(
     }
 
     const itemIds = layout.tabs.flatMap(
-        /**
-         * tabをflat・mapへ渡し、リボンの結果または副作用を処理する。
-         * @param tab - リボンへ渡す入力。
-         * @returns リボンのコールバックが生成する結果。
-         */
         (tab) =>
             tab.groups.flatMap(
-                /**
-                 * リボンのコールバックとしてgroupを処理する。
-                 * @param group - リボンへ渡す入力。
-                 * @returns リボンのコールバックが生成する結果。
-                 */
                 (group) => group.itemIds),
     );
     assertUnique(itemIds, "items");
@@ -140,9 +124,8 @@ export function validateRibbonConfiguration(
     const usedContainerIds = Object.values(definitions.items).flatMap(
 
         /**
-         * リボンのコールバックとしてdefinitionを処理する。
+
          * @param definition - 配置対象タブに属するリボン項目定義。
-         * @returns 副作用を完了し、値は返さない。
          */
         (definition) => (definition.container ? [definition.container] : []),
     );
@@ -155,9 +138,8 @@ export function validateRibbonConfiguration(
     const usedHeaderGroupIds = Object.values(definitions.headerItems).flatMap(
 
         /**
-         * リボンのコールバックとしてdefinitionを処理する。
+
          * @param definition - 配置対象ヘッダーグループに属する項目定義。
-         * @returns 副作用を完了し、値は返さない。
          */
         (definition) => (definition.group ? [definition.group] : []),
     );
@@ -182,15 +164,15 @@ function validateContiguousItemContainers(
         string,
         {
             /**
-             * リボンで扱うtab・idの文字列。
+             * エラーになったタブの識別子。
              */
             tabId: string;
             /**
-             * リボンで扱うgroup・idの文字列。
+             * エラーになったグループの識別子。
              */
             groupId: string;
             /**
-             * リボンの位置・寸法・件数・時間を表す数値。
+             * グループ内の最後のエラー項目を示す0始まりの位置です。
              */
             lastIndex: number
         }
@@ -273,14 +255,14 @@ function assertSameIds(
         /**
          * 条件を満たす識別子だけを残す。
          * @param id - リボンの対象や分岐を識別する値。
-         * @returns 条件を満たした要素だけを含む一覧。
+
          */
         (id) => !actualSet.has(id));
     const unexpected = actual.filter(
         /**
          * 条件を満たす識別子だけを残す。
          * @param id - リボンの対象や分岐を識別する値。
-         * @returns 条件を満たした要素だけを含む一覧。
+
          */
         (id) => !expectedSet.has(id));
     if (missing.length > 0 || unexpected.length > 0) {

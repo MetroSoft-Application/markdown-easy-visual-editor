@@ -1,3 +1,7 @@
+/**
+ * @fileoverview 出力HTMLプレビューのリンク遷移、断片HTMLの補完、Webview内リンク処理を検証する。
+ * 一時HTMLと任意のChrome実行ファイルを使い、環境に依存するブラウザー確認は実行可能時だけ行う。
+ */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { mkdtemp, readFile, rmdir, unlink, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
@@ -7,6 +11,7 @@ import { chromium } from 'playwright-core';
 
 const previewMock = vi.hoisted(() => {
     const state: { panel?: any; listener?: (message: unknown) => void; root?: string } = {};
+    /** VS Codeのfile URIモックを、Extension Hostテスト用に組み立てる。 */
     const file = (fsPath: string) => ({ scheme: 'file', fsPath, toString: () => `file://${fsPath}` });
     return { state, file, openExternal: vi.fn(async () => true) };
 });

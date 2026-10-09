@@ -1,49 +1,49 @@
 /**
- * @fileoverview Webviewのスクロール位置復元を管理する。Hostとの通信、ユーザー操作、表示状態の契約を保つ。
+ * @fileoverview 本文範囲とプレビュー要素を対応付け、描画更新後のスクロール位置を復元する。
  */
 import { getScrollRatio } from '../shared/scroll';
 
 /**
- * スクロール位置復元で共有するデータ形状を表すインターフェース。
+ * プレビューで復元する要素と画面内相対位置です。
  */
 export interface PreviewViewportAnchor {
 
     /**
-     * スクロール位置復元の位置・寸法・件数・時間を表す数値。
+     * 復元対象のMarkdown本文内UTF-16オフセットです。
      */
     offset: number;
 
     /**
-     * スクロール位置復元の位置・寸法・件数・時間を表す数値。
+     * 対象要素上端とプレビュー表示領域上端の距離をCSSピクセル単位で示します。
      */
     topOffset: number;
     /**
-     * スクロール位置復元のblock・fromを表す数値。
+     * 対応するMarkdownブロックの開始UTF-16オフセット。
      */
     blockFrom?: number;
 
     /**
-     * スクロール位置復元のblock・progressを表す数値。
+     * ブロック内での縦位置を0から1の範囲で表した割合。
      */
     blockProgress?: number;
     /**
-     * スクロール位置復元のscroll・ratioを表す数値。
+     * プレビュー全体の縦スクロール位置を0から1の範囲で表した割合。
      */
     scrollRatio?: number;
 }
 
 /**
- * スクロール位置復元で共有するデータ形状を表すインターフェース。
+ * ソース本文における対象ブロックの開始・終了位置です。
  */
 interface SourceRange {
 
     /**
-     * スクロール位置復元のfromを表す数値。
+     * 対象Markdownブロックの先頭UTF-16オフセットです。
      */
     from: number;
 
     /**
-     * スクロール位置復元のtoを表す数値。
+     * 対象Markdownブロックの末尾UTF-16オフセットです。
      */
     to: number;
 }
@@ -54,7 +54,7 @@ interface SourceRange {
 const previewSourceElementCache = new WeakMap<HTMLElement, {
 
     /**
-     * スクロール位置復元のrootに関する状態または設定。
+      * スクロール可能なプレビュー全体のルート要素。
      */
     root: HTMLElement;
 
@@ -64,12 +64,12 @@ const previewSourceElementCache = new WeakMap<HTMLElement, {
     revision: string;
 
     /**
-     * スクロール位置復元のelementsに関する状態または設定。
+      * 可視位置の判定対象となる描画済みプレビュー要素。
      */
     elements: HTMLElement[];
 
     /**
-     * スクロール位置復元のsource・elementsに関する状態または設定。
+      * Markdown本文の位置に対応付けられたプレビュー要素。
      */
     sourceElements: HTMLElement[];
 }>();
@@ -77,16 +77,16 @@ const previewSourceElementCache = new WeakMap<HTMLElement, {
 /**
  * スクロール位置復元の寸法、容量、位置、または計測値を求める。
  * @param value - 0から1の範囲へ制限するスクロール比率。
- * @returns スクロール位置復元で利用する数値。
+
  */
 function clampUnit(value: number): number {
     return Math.min(1, Math.max(0, value));
 }
 
 /**
- * スクロール位置復元から必要な値またはリソースを取得する。
+ * 描画要素のソース開始位置と終了位置を読み取る。
  * @param element - 寸法または属性を読み取るDOM要素。
- * @returns 副作用を完了し、値は返さない。
+ * @returns 有効なソース範囲。開始位置が数値でない場合はundefined。
  */
 function readSourceRange(element: HTMLElement): SourceRange | undefined {
     const from = Number(element.dataset.sourceFrom);
@@ -97,9 +97,9 @@ function readSourceRange(element: HTMLElement): SourceRange | undefined {
 }
 
 /**
- * スクロール位置復元から必要な値またはリソースを取得する。
+  * スクロール復元対象に使うプレビュー内のブロック要素を集める。
  * @param container - 描画済みMarkdownとスクロール状態を持つプレビュー要素。
- * @returns スクロール位置復元に対応する要素の一覧。
+  * @returns Markdown本文との位置対応を持つプレビュー要素一覧。
  */
 function getPreviewSourceElements(container: HTMLElement): HTMLElement[] {
     const root = container.querySelector<HTMLElement>('.rendered-markdown') ?? container;
@@ -126,9 +126,9 @@ function getPreviewSourceElements(container: HTMLElement): HTMLElement[] {
 }
 
 /**
- * スクロール位置復元から必要な値またはリソースを取得する。
+  * 本文オフセット情報がない場合に、見出しや段落などから復元対象要素を集める。
  * @param container - 描画済みMarkdownとスクロール状態を持つプレビュー要素。
- * @returns スクロール位置復元に対応する要素の一覧。
+  * プレビュー内の復元対象要素一覧。
  */
 function getPreviewSourceElementsByOffset(container: HTMLElement): HTMLElement[] {
     getPreviewSourceElements(container);
@@ -136,10 +136,10 @@ function getPreviewSourceElementsByOffset(container: HTMLElement): HTMLElement[]
 }
 
 /**
- * スクロール位置復元から必要な値またはリソースを取得する。
+  * viewport上端より下にある最初の本文対応要素と、その可視位置を求める。
  * @param elements - スクロール位置復元で走査または更新する要素。
  * @param viewportTop - 可視境界判定に使うviewport上端のY座標（client CSS px）。
- * @returns 条件に一致する値。未検出時はundefinedまたはnull。
+  * @returns 最初の可視要素とviewport上端からの距離。該当要素がなければundefined。
  */
 function findFirstVisibleSourceElement(
     elements: HTMLElement[],
@@ -162,10 +162,10 @@ function findFirstVisibleSourceElement(
 }
 
 /**
- * スクロール位置復元から必要な値またはリソースを取得する。
+  * 指定した本文オフセットを含む復元対象要素を検索する。
  * @param elements - スクロール位置復元で走査または更新する要素。
  * @param offset - 表示要素に対応するMarkdown本文内のUTF-16オフセット。
- * @returns 条件に一致する値。未検出時はundefinedまたはnull。
+  * @returns オフセットに対応する要素。対応範囲がなければundefined。
  */
 function findSourceElementAtOffset(elements: HTMLElement[], offset: number): HTMLElement | undefined {
     let low = 0;
@@ -207,9 +207,9 @@ export function restoreScrollRatio(container: HTMLElement, ratio: number): boole
 }
 
 /**
- * スクロール位置復元のcapture・preview・viewportを処理し、呼び出し側へ結果または副作用を返す。
+ * プレビュー上端にある描画要素と本文オフセットを記録する。
  * @param container - 描画済みMarkdownとスクロール状態を持つプレビュー要素。
- * @returns 副作用を完了し、値は返さない。
+ * @returns 復元に使える要素とソース位置。表示領域またはソース位置を取得できない場合はundefined。
  */
 export function capturePreviewViewport(container: HTMLElement): PreviewViewportAnchor | undefined {
     if (container.clientHeight === 0) return undefined;

@@ -1,5 +1,5 @@
 /**
- * @fileoverview 表編集履歴・テストの回帰の仕様と回帰条件を検証する。失敗時は期待値と実装差分を示す。
+ * @fileoverview 表編集Undo/Redoでデータ、レイアウト、選択状態を復元し、履歴上限と分岐時のRedo破棄を検証する。
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -11,11 +11,11 @@ import {
 } from '../src/webview/tableEditorHistory';
 
 /**
- * 表編集履歴・テストの回帰のsnapshotを処理し、呼び出し側へ結果または副作用を返す。
+ * 指定セル値と選択位置を持つ履歴スナップショットを作成する。
  * @param value - 履歴スナップショットのデータセルへ格納する文字列。
- * @param row - 表編集履歴・テストの回帰で走査または更新する要素。
- * @param column - 表編集履歴・テストの回帰で走査または更新する要素。
- * @returns 表編集履歴・テストの回帰のsnapshotが生成する結果。
+ * @param row - 選択状態へ設定する行番号。
+ * @param column - 選択状態へ設定する列番号。
+ * @returns 指定データと選択状態を含むスナップショット。
  */
 function snapshot(value: string, row = 0, column = 0): TableEditorHistorySnapshot {
     return {
@@ -37,16 +37,8 @@ function snapshot(value: string, row = 0, column = 0): TableEditorHistorySnapsho
 }
 
 describe('table editor draft history',
-    /**
-     * 「table editor draft history」の仕様と回帰条件を検証するテストケース。
-     * @returns テストケースを実行し、値は返さない。
-     */
     () => {
         it('undoes and redoes draft mutations without sharing mutable arrays',
-            /**
-             * 「undoes and redoes draft mutations without sharing mutable arrays」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const history = createTableEditorHistory();
                 const before = snapshot('before');
@@ -70,10 +62,6 @@ describe('table editor draft history',
             });
 
         it('restores layout and selection state with the table data',
-            /**
-             * 「restores layout and selection state with the table data」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const history = createTableEditorHistory();
                 const before = snapshot('before', 1, 0);
@@ -98,10 +86,6 @@ describe('table editor draft history',
             });
 
         it('clears redo when a new edit starts after undo',
-            /**
-             * 「clears redo when a new edit starts after undo」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const history = createTableEditorHistory();
                 recordTableEditorHistory(history, snapshot('a'));
@@ -114,10 +98,6 @@ describe('table editor draft history',
             });
 
         it('caps retained undo entries',
-            /**
-             * 「caps retained undo entries」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const history = createTableEditorHistory();
                 recordTableEditorHistory(history, snapshot('a'), 2);

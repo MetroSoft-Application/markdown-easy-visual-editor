@@ -10,23 +10,23 @@ import { getMessages, type SupportedLanguage } from './messages';
 import { stripMveTextColorMarkup } from './textColor';
 
 /**
- * Markdownで共有するデータ形状を表すインターフェース。
+ * 本文内選択範囲の開始・終了UTF-16オフセットです。
  */
 export interface TextSelection {
 
     /**
-     * Markdownのfromを表す数値。
+     * 選択範囲の先頭を示す本文内UTF-16オフセットです。
      */
     from: number;
 
     /**
-     * Markdownのtoを表す数値。
+     * 選択範囲の末尾を示す本文内UTF-16オフセットです。
      */
     to: number;
 }
 
 /**
- * Markdownで共有するデータ形状を表すインターフェース。
+ * 編集後のMarkdown本文と、その本文で選択する範囲を保持します。
  */
 export interface SourceEdit {
 
@@ -36,18 +36,18 @@ export interface SourceEdit {
     text: string;
 
     /**
-     * Markdownのselectionに関する状態または設定。
+   * Markdown本文内の選択範囲をUTF-16オフセットで示す。
      */
     selection: TextSelection;
 }
 
 /**
- * Markdownで共有するデータ形状を表すインターフェース。
+ * 見出しの深さ、表示名、本文内の行位置を持つ目次項目です。
  */
 export interface OutlineItem {
 
     /**
-     * Markdownのlevelを表す数値。
+     * 見出しレベルを示す1から6までの整数です。
      */
     level: number;
 
@@ -57,12 +57,12 @@ export interface OutlineItem {
     text: string;
 
     /**
-     * Markdownの位置・寸法・件数・時間を表す数値。
+     * 見出しが始まる0始まりのMarkdown行番号です。
      */
     line: number;
 
     /**
-     * Markdownの位置・寸法・件数・時間を表す数値。
+     * 見出し先頭の文書内UTF-16オフセットです。
      */
     offset: number;
 
@@ -78,38 +78,38 @@ export interface OutlineItem {
 export type OutlineMovePosition = 'before' | 'after';
 
 /**
- * Markdownで共有するデータ形状を表すインターフェース。
+ * 分割したMarkdownブロックの種別と本文内の範囲を表します。
  */
 export interface MarkdownBlock {
 
     /**
-     * Markdownのfromを表す数値。
+     * ブロック先頭の本文内UTF-16オフセットです。
      */
     from: number;
 
     /**
-     * Markdownのtoを表す数値。
+     * ブロック末尾の本文内UTF-16オフセットです。
      */
     to: number;
 
     /**
-     * Markdownで扱うrawの文字列。
+     * ブロック範囲に含まれる元のMarkdown文字列です。
      */
     raw: string;
 
     /**
-     * Markdownで対象や分岐を識別する値の型。
+     * ブロック種別（見出し、段落、リストなど）を示します。
      */
     type: string;
 }
 
 /**
- * Markdownで共有するデータ形状を表すインターフェース。
+ * Markdown本文の問題位置、重大度、説明を表す診断項目です。
  */
 export interface Diagnostic {
 
     /**
-     * Markdownのseverityに関する状態または設定。
+   * 診断の重大度をerror、warning、infoのいずれかで示す。
      */
     severity: 'error' | 'warning' | 'info';
 
@@ -124,7 +124,7 @@ export interface Diagnostic {
     message: string;
 
     /**
-     * Markdownの位置・寸法・件数・時間を表す数値。
+     * 診断箇所を含む0始まりのMarkdown行番号です。
      */
     line?: number;
 
@@ -135,28 +135,28 @@ export interface Diagnostic {
 }
 
 /**
- * Markdownで共有するデータ形状を表すインターフェース。
+ * error、warning、infoの重大度別に診断項目をまとめます。
  */
 export interface DiagnosticSummary {
 
     /**
-     * Markdownのerrorsに関する状態または設定。
+   * error重大度の診断一覧。
      */
     errors: Diagnostic[];
 
     /**
-     * Markdownのwarningsに関する状態または設定。
+   * warning重大度の診断一覧。
      */
     warnings: Diagnostic[];
 
     /**
-     * Markdownのinfosに関する状態または設定。
+   * info重大度の診断一覧。
      */
     infos: Diagnostic[];
 }
 
 /**
- * Markdownで共有するデータ形状を表すインターフェース。
+ * Markdown内で参照されたローカルリソースの位置と参照先です。
  */
 export interface LocalResourceReference {
 
@@ -174,13 +174,13 @@ export interface LocalResourceReference {
     workspaceRooted?: boolean;
 
     /**
-     * Markdownの位置・寸法・件数・時間を表す数値。
+     * リソース参照が見つかった0始まりのMarkdown行番号です。
      */
     line: number;
 }
 
 /**
- * Markdownで共有するデータ形状を表すインターフェース。
+ * リソース参照の種別、記法、参照行、ワークスペース基準指定です。
  */
 interface LocalResourceDefinition {
 
@@ -198,13 +198,13 @@ interface LocalResourceDefinition {
     workspaceRooted?: boolean;
 
     /**
-     * Markdownの位置・寸法・件数・時間を表す数値。
+     * 参照を含む0始まりのMarkdown行番号です。
      */
     line: number;
 }
 
 /**
- * Markdownで共有するデータ形状を表すインターフェース。
+ * 走査したリソースリンクの構文、参照先、本文位置です。
  */
 interface ScannedResourceLink {
 
@@ -222,19 +222,19 @@ interface ScannedResourceLink {
     workspaceRooted?: boolean;
 
     /**
-     * Markdownで扱うreference・labelの文字列。
+   * Markdown参照リンクのラベル。
      */
     referenceLabel?: string;
 
     /**
-     * Markdownの位置・寸法・件数・時間を表す数値。
+     * リンク記法の開始位置を示す文書内UTF-16オフセットです。
      */
     offset: number;
 }
 
 
 /**
- * Markdownの位置・寸法・件数・時間を表す数値。
+ * インライン装飾記号を本文へ置き換える正規表現と置換文字列の対応表です。
  */
 const INLINE_MARKERS: Array<[RegExp, string]> = [
     [/\*\*([^\n]+?)\*\*/g, '$1'],
@@ -256,7 +256,7 @@ const INLINE_MARKERS: Array<[RegExp, string]> = [
  * @param prefix 選択範囲の前へ付けるMarkdown書式文字列。
  * @param suffix 選択範囲の後ろへ付けるMarkdown書式文字列。
  * @param placeholder - 入力欄に値がないときに表示する案内文。
- * @returns Markdownのwrap・selectionが生成する結果。
+ * @returns 書式を適用した本文と、挿入内容を選択する新しい範囲。
  */
 export function wrapSelection(
     source: string,
@@ -284,7 +284,7 @@ export function wrapSelection(
 }
 
 /**
- * Markdownのprefix・selected・linesを処理し、呼び出し側へ結果または副作用を返す。
+ * 選択範囲に含まれる各行の先頭へ指定文字列を追加する。
  * @param source - 選択行へprefixを挿入するMarkdown本文。
  * @param selection - prefixを切り替える本文内のfrom/to UTF-16範囲。
  * @param prefix 選択範囲の前へ付けるMarkdown書式文字列。
@@ -303,7 +303,6 @@ export function prefixSelectedLines(
     const caretOnly = selection.from === selection.to;
     const allPrefixed = lines.every(
         /**
-         * lineをtrimへ渡し、Markdownの結果または副作用を処理する。
          * @param line Markdown本文から処理する1行。
          * @returns 条件が成立したかを示す真偽値。
          */
@@ -330,10 +329,10 @@ export function prefixSelectedLines(
 }
 
 /**
- * 選択行のインデントを切り替える。
+ * 選択した行の先頭に空白2文字を追加する。
  * @param source - 選択行へ2文字分のindentを挿入するMarkdown本文。
  * @param selection - indentする本文内のfrom/to UTF-16範囲。
- * @returns Markdownのindent・selected・linesが生成する結果。
+ * @returns インデント後の本文と、変更後のカーソル範囲。
  */
 export function indentSelectedLines(source: string, selection: TextSelection): SourceEdit {
     const from = lineStart(source, Math.min(selection.from, selection.to));
@@ -377,7 +376,6 @@ export function prefixOrderedList(source: string, selection: TextSelection): Sou
     const ordered = /^\s*\d+[.)]\s+/;
     const allOrdered = lines.every(
         /**
-         * lineをtrimへ渡し、Markdownの結果または副作用を処理する。
          * @param line Markdown本文から処理する1行。
          * @returns 条件が成立したかを示す真偽値。
          */
@@ -408,7 +406,7 @@ export function prefixOrderedList(source: string, selection: TextSelection): Sou
  * @param changed - 変更後の選択行ブロック。
  * @param regionFrom - 変更ブロックの文書内開始UTF-16オフセット。
  * @param selection - 文書内で位置を移し替える変更前選択範囲。
- * @returns Markdownで生成または変換した値。
+ * @returns 変更後の本文へ移した選択範囲。
  */
 export function mapLineSelection(
     original: string,
@@ -421,9 +419,8 @@ export function mapLineSelection(
 
 
     const mapOffset = /**
-     * Markdownのmap・offsetを処理し、呼び出し側へ結果または副作用を返す。
      * @param absolute - 変更ブロック内位置へ変換する文書内の絶対UTF-16オフセット。
-     * @returns Markdownで利用する数値。
+
      */ (absolute: number): number => {
             const relative = Math.max(0, Math.min(original.length, absolute - regionFrom));
             let oldCursor = 0;
@@ -448,12 +445,11 @@ export function mapLineSelection(
 }
 
 /**
- * Markdownのmap・line・offsetを処理し、呼び出し側へ結果または副作用を返す。
- * 変更前後の1行における共通部分を使ってUTF-16位置を写像する。
+ * 変更前後の1行に共通する文字範囲を使ってUTF-16オフセットを移す。
  * @param original - 選択位置を写像する変更前の1行。
  * @param changed - 対応位置を探す変更後の1行。
  * @param offset - 変更前行内のUTF-16オフセット。
- * @returns Markdownで利用する数値。
+ * @returns 変更後の行内UTF-16オフセット。
  */
 function mapLineOffset(original: string, changed: string, offset: number): number {
     if (original === changed) return offset;
@@ -472,10 +468,10 @@ function mapLineOffset(original: string, changed: string, offset: number): numbe
 }
 
 /**
- * Markdownのordered・list・linesを処理し、呼び出し側へ結果または副作用を返す。
+ * 番号付きリストの行へ開始番号からの連番を付ける。
  * @param lines Markdown本文を行ごとに分けた文字列一覧。
  * @param firstNumber - 番号付きリストへ割り当てる開始番号。
- * @returns Markdownで利用する文字列。
+ * @returns 入力行と同じ件数の、番号を付け直した行一覧。
  */
 function orderedListLines(lines: string[], firstNumber: number): string[] {
     // 空行とインデントを維持しながら、各行へ開始番号からの連番を付ける。
@@ -497,10 +493,10 @@ function orderedListLines(lines: string[], firstNumber: number): string[] {
 }
 
 /**
- * Markdownのordered・list・number・beforeを処理し、呼び出し側へ結果または副作用を返す。
+ * 挿入位置より前に続く番号付きリストの次の項目番号を求める。
  * @param source - 処理対象となるMarkdown本文。
  * @param from - 次の番号を決めるため走査する挿入位置の本文UTF-16オフセット。
- * @returns Markdownで利用する数値。
+ * @returns 次に使う番号。直前に番号付きリストがなければ1。
  */
 function orderedListNumberBefore(source: string, from: number): number {
     // 対象行の直前にある番号付きリストを読み取り、次に使う番号を計算する。
@@ -511,10 +507,10 @@ function orderedListNumberBefore(source: string, from: number): number {
 }
 
 /**
- * Markdownの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+ * 選択範囲内のリンク・強調・取り消し線などの記号を除去する。
  * @param source - 選択範囲のinline書式を解除する元Markdown本文。
  * @param selection - 書式を解除する本文内のfrom/to UTF-16範囲。
- * @returns Markdownのclear・inline・formattingが生成する結果。
+ * @returns 書式記号を除いた本文と、更新後の選択範囲。
  */
 export function clearInlineFormatting(source: string, selection: TextSelection): SourceEdit {
     // 選択範囲のリンク先を一時退避し、本文中のインライン装飾記号だけを取り除く。
@@ -525,14 +521,7 @@ export function clearInlineFormatting(source: string, selection: TextSelection):
     const protectedTargets: string[] = [];
     // リンク先をプレースホルダーへ置き換え、装飾除去の対象から外す。
     selected = selected.replace(/(\]\()([^)]+)(\))/g,
-        /**
-         * ・matchを一覧追加へ渡し、Markdownの結果または副作用を処理する。
-         * @param _match - 置換対象となったリンク記法全体。
-         * @param open - 一致したリンク開始記法「](」。
-         * @param target - 装飾除去中に退避するリンク先文字列。
-         * @param close - 一致したリンク終端記号「)」。
-         * @returns Markdownのコールバックが生成する結果。
-         */
+
         (_match, open: string, target: string, close: string) => {
             const index = protectedTargets.push(target) - 1;
             return `${open}\uE000${index}\uE001${close}`;
@@ -543,12 +532,7 @@ export function clearInlineFormatting(source: string, selection: TextSelection):
     }
     // 退避していたリンク先を元の位置へ戻す。
     selected = selected.replace(/\uE000(\d+)\uE001/g,
-        /**
-         * ・matchをnumberへ渡し、Markdownの結果または副作用を処理する。
-         * @param _match - 置換対象として一致した退避リンク参照マーカー。
-         * @param index - 退避リンク先配列の添字を表す数字文字列。
-         * @returns Markdownのコールバックが生成する結果。
-         */
+
         (_match, index: string) => protectedTargets[Number(index)] ?? '');
     return {
         text: source.slice(0, from) + selected + source.slice(to),
@@ -557,10 +541,10 @@ export function clearInlineFormatting(source: string, selection: TextSelection):
 }
 
 /**
- * Markdownの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+ * 選択行の見出し、引用、リスト、コードブロックなどの記号を除去する。
  * @param source - 選択ブロックの書式を解除する元Markdown本文。
  * @param selection - 書式を解除する本文内のfrom/to UTF-16範囲。
- * @returns Markdownのclear・block・formattingが生成する結果。
+ * @returns ブロック書式記号を除いた本文と、更新後の選択範囲。
  */
 export function clearBlockFormatting(source: string, selection: TextSelection): SourceEdit {
     // 選択行を取り出し、コードフェンス・見出し・引用・リスト・インデントの記号を除去する。
@@ -596,40 +580,30 @@ export function clearBlockFormatting(source: string, selection: TextSelection): 
 }
 
 /**
- * Markdownで使う値または実行環境を組み立てる。
- * @param rows - Markdownで走査または更新する要素。
- * @param columns - Markdownで走査または更新する要素。
- * @returns Markdownで利用する文字列。
+ * 指定行列数のMarkdown表を見出し行、区切り行、空行で生成する。
+ * @param rows - 表の本文行数。許容範囲外の値は2から50へ制限する。
+ * @param columns - 表の列数。許容範囲外の値は1から20へ制限する。
+ * @returns 見出し行、区切り行、空の本文行を含むMarkdown表。
  */
 export function createTableMarkdown(rows = 3, columns = 3): string {
     // 行数と列数を許容範囲へ収め、見出し・区切り・空の本文行から表を生成する。
     const safeRows = Math.max(2, Math.min(rows, 50));
     const safeColumns = Math.max(1, Math.min(columns, 20));
     const header = `| ${Array.from({ length: safeColumns },
-        /**
-         * Markdownのコールバックとして・を処理する。
-         * @param _ - 引数位置を維持するための未使用値。
-         * @param i - Markdownへ渡す入力。
-         * @returns Markdownのコールバックが生成する結果。
-         */
+
         (_, i) => `列${i + 1}`).join(' | ')} |`;
     const divider = `| ${Array.from({ length: safeColumns },
         /**
-         * Markdownのコールバックとして要素を処理する。
-         * @returns Markdownのコールバックが生成する結果。
+         * Markdown表の列数分、区切り行のセルを作成する。
          */
         () => '---').join(' | ')} |`;
     const body = Array.from(
         { length: safeRows - 1 },
 
-        /**
-         * 要素をfromへ渡し、Markdownの結果または副作用を処理する。
-         * @returns Markdownのコールバックが生成する結果。
-         */
+
         () => `| ${Array.from({ length: safeColumns },
             /**
-             * Markdownのコールバックとして要素を処理する。
-             * @returns Markdownのコールバックが生成する結果。
+             * Markdown表の列数分、空の本文セルを作成する。
              */
             () => '').join(' | ')} |`
     );
@@ -658,18 +632,18 @@ export type MarkdownTableAction =
 export interface MarkdownTableActionOptions {
 
     /**
-     * Markdownで扱うheader・nameの文字列。
+   * HTML出力で再利用する文書の見出し名。
      */
     headerName?: string;
 }
 
 /**
- * Markdownで共有するデータ形状を表すインターフェース。
+ * Markdown表のヘッダー、行、セル配置を解析した結果です。
  */
 interface ParsedMarkdownTable {
 
     /**
-     * Markdownで扱うlinesの一覧。
+     * 解析対象となるMarkdown表の各行です。
      */
     lines: string[];
 
@@ -679,22 +653,22 @@ interface ParsedMarkdownTable {
     lineStarts: number[];
 
     /**
-     * Markdownで扱うeolの文字列。
+     * 入力Markdown表で使われている改行文字列です。
      */
     eol: string;
 
     /**
-     * Markdownの位置・寸法・件数・時間を表す数値。
+     * 表の先頭行を示す0始まりのMarkdown行番号です。
      */
     startLine: number;
 
     /**
-     * Markdownの位置・寸法・件数・時間を表す数値。
+     * 表の最終行を示す0始まりのMarkdown行番号です。
      */
     endLine: number;
 
     /**
-     * Markdownの位置・寸法・件数・時間を表す数値。
+     * 区切り行を示す0始まりのMarkdown行番号です。
      */
     separatorLine: number;
 
@@ -714,23 +688,23 @@ interface ParsedMarkdownTable {
     indent: string;
 
     /**
-     * Markdownの位置・寸法・件数・時間を表す数値。
+     * 表データ内の0始まりの行番号です。
      */
     rowIndex: number;
 
     /**
-     * Markdownの位置・寸法・件数・時間を表す数値。
+     * 表データ内の0始まりの列番号です。
      */
     columnIndex: number;
 }
 
 /**
- * Markdownの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+ * 指定した表編集操作を適用する差分を計算する。
  * @param markdown - 表編集操作を適用する元Markdown本文。
  * @param selection - 操作対象表を特定する本文内のUTF-16選択範囲。
  * @param action - 実行する表編集操作の識別子。
  * @param options - 呼び出し側が指定する処理設定。
- * @returns 副作用を完了し、値は返さない。
+ * @returns 表本文の編集範囲と置換後テキスト。選択範囲が対象表に含まれない場合はundefined。
  */
 export function applyMarkdownTableAction(
     markdown: string,
@@ -758,16 +732,14 @@ export function applyMarkdownTableAction(
         case 'rowBefore':
             rows.splice(rowIndex, 0, Array.from({ length: separator.length },
                 /**
-                 * Markdownのコールバックとして要素を処理する。
-                 * @returns Markdownのコールバックが生成する結果。
+                 * 挿入する表行のセルを空文字で初期化する。
                  */
                 () => ''));
             break;
         case 'rowAfter':
             rows.splice(rowIndex + 1, 0, Array.from({ length: separator.length },
                 /**
-                 * Markdownのコールバックとして要素を処理する。
-                 * @returns Markdownのコールバックが生成する結果。
+                 * 挿入する表行のセルを空文字で初期化する。
                  */
                 () => ''));
             rowIndex += 1;
@@ -782,8 +754,7 @@ export function applyMarkdownTableAction(
                 /**
                  * 行ごとにspliceを実行する。
                  * @param row - 行のspliceを参照する走査対象。
-                 * @param index - 配列・行列・文字列の要素位置を示す番号。
-                 * @returns 副作用を完了し、値は返さない。
+                 * @param index - 走査中の配列における0始まりの要素位置。
                  */
                 (row, index) => row.splice(columnIndex, 0, index === 0 ? newColumnHeader(options.headerName, columnIndex + 1) : ''));
             separator.splice(columnIndex, 0, '---');
@@ -793,8 +764,7 @@ export function applyMarkdownTableAction(
                 /**
                  * 行ごとにspliceを実行する。
                  * @param row - 行のspliceを参照する走査対象。
-                 * @param index - 配列・行列・文字列の要素位置を示す番号。
-                 * @returns 副作用を完了し、値は返さない。
+                 * @param index - 走査中の配列における0始まりの要素位置。
                  */
                 (row, index) => row.splice(columnIndex + 1, 0, index === 0 ? newColumnHeader(options.headerName, columnIndex + 2) : ''));
             separator.splice(columnIndex + 1, 0, '---');
@@ -821,22 +791,12 @@ export function applyMarkdownTableAction(
         case 'alignColumns': {
             // 各列の表示幅を求め、本文セルと区切りセルを同じ幅に揃える。
             const widths = Array.from({ length: separator.length },
-                /**
-                 * ・をmaxへ渡し、Markdownの結果または副作用を処理する。
-                 * @param _ - 引数位置を維持するための未使用値。
-                 * @param index - 配列・行列・文字列の要素位置を示す番号。
-                 * @returns 副作用を完了し、値は返さない。
-                 */
+
                 (_, index) =>
                     Math.max(
                         3,
                         displayWidth(stripMveTextColorMarkup(separator[index] ?? '')),
                         ...rows.map(
-                            /**
-                             * 各行をdisplay・widthへ渡し、変換結果を一覧化する。
-                             * @param row - 走査中の要素。
-                             * @returns 入力要素から生成した変換結果の一覧。
-                             */
                             (row) => displayWidth(stripMveTextColorMarkup(row[index] ?? '')))
                     )
             );
@@ -856,10 +816,10 @@ export function applyMarkdownTableAction(
 }
 
 /**
- * Markdownの入力を構造化した値へ変換する。
+ * 選択位置を含むMarkdown表の行・区切り・セル範囲を解析する。
  * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
  * @param selection - 解析対象表を特定するMarkdown本文内のUTF-16選択範囲。
- * @returns 副作用を完了し、値は返さない。
+ * @returns 行、区切り、セル範囲を含む表解析結果。選択位置に有効な表がない場合はundefined。
  */
 function parseMarkdownTable(markdown: string, selection: TextSelection): ParsedMarkdownTable | undefined {
     // 改行位置を記録しながら、選択行を含む連続した表の範囲を特定する。
@@ -867,7 +827,7 @@ function parseMarkdownTable(markdown: string, selection: TextSelection): ParsedM
         /**
          * 各matchを変換して一覧化する。
          * @param match - Markdownへ渡す入力。
-         * @returns 入力要素から生成した変換結果の一覧。
+
          */
         (match) => match[0]);
     const eol = lineBreaks[0] ?? '\n';
@@ -889,10 +849,8 @@ function parseMarkdownTable(markdown: string, selection: TextSelection): ParsedM
 
     const separatorLine = lines.findIndex(
         /**
-         * lineをis・table・separator・lineへ渡し、Markdownの結果または副作用を処理する。
          * @param line Markdown本文から処理する1行。
-         * @param index - 配列・行列・文字列の要素位置を示す番号。
-         * @returns Markdownのコールバックが生成する結果。
+         * @param index - 走査中の配列における0始まりの要素位置。
          */
         (line, index) => index >= startLine && index <= endLine && isTableSeparatorLine(line));
     if (separatorLine < 0) return undefined;
@@ -905,25 +863,20 @@ function parseMarkdownTable(markdown: string, selection: TextSelection): ParsedM
             /**
              * 各lineを変換して一覧化する。
              * @param line Markdown本文から処理する1行。
-             * @param index - 配列・行列・文字列の要素位置を示す番号。
-             * @returns 入力要素から生成した変換結果の一覧。
+             * @param index - 走査中の配列における0始まりの要素位置。
+
              */
             (line, index) => ({ line, index: startLine + index }))
         .filter(
             /**
              * 条件を満たす設定だけを残す。
              * @param index - 元文書内で区切り行か判定する0始まり行インデックス。
-            * @returns 条件を満たした要素だけを含む一覧。
+
              */
             ({ index }) => index !== separatorLine);
     if (!rowLines.length) return undefined;
 
     const rows = rowLines.map(
-        /**
-         * 各設定をsplit・table・cellsへ渡し、変換結果を一覧化する。
-         * @param line - 表範囲内の行情報から取り出すMarkdown本文の行。
-        * @returns 入力要素から生成した変換結果の一覧。
-         */
         ({ line }) => splitTableCells(line));
     const separator = splitTableCells(lines[separatorLine]);
     const columnCount = Math.max(1, separator.length, ...rows.map(
@@ -938,9 +891,8 @@ function parseMarkdownTable(markdown: string, selection: TextSelection): ParsedM
 
     const rowLineIndex = rowLines.findIndex(
         /**
-         * Markdownのコールバックとして設定を処理する。
+
          * @param index - 元文書内で現在の選択行と照合する0始まり行インデックス。
-        * @returns Markdownのコールバックが生成する結果。
          */
         ({ index }) => index === currentLine);
     const rowIndex = rowLineIndex < 0 ? 0 : rowLineIndex;
@@ -964,14 +916,14 @@ function parseMarkdownTable(markdown: string, selection: TextSelection): ParsedM
 }
 
 /**
- * Markdownを表示用の結果へ変換する。
+ * 編集済みのMarkdown表を本文へ反映し、選択セルの位置も返す。
  * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
  * @param table - 元Markdown表の行位置、区切り、インデント、選択セル情報。
  * @param rows - 編集後に出力する表セルの行列。
  * @param separator - Markdownへ出力する表の配置区切りセル。
  * @param rowIndex - 編集後に選択状態とする本文行の0始まりインデックス。
  * @param columnIndex - 編集後に選択状態とする表列の0始まりインデックス。
- * @returns Markdownで生成または変換した値。
+ * @returns 置換後のMarkdown本文と、編集後の選択位置。
  */
 function renderMarkdownTableEdit(
     markdown: string,
@@ -983,11 +935,6 @@ function renderMarkdownTableEdit(
 ): SourceEdit {
     // 編集済みの行と区切り行をMarkdownへ再出力し、選択セルの先頭へカーソルを移す。
     const renderedRows = rows.map(
-        /**
-         * 各行をrender・table・rowへ渡し、変換結果を一覧化する。
-         * @param row - 走査中の要素。
-         * @returns 入力要素から生成した変換結果の一覧。
-         */
         (row) => renderTableRow(table.indent, row));
     const renderedSeparator = renderTableRow(table.indent, separator);
     const renderedTable = [renderedRows[0], renderedSeparator, ...renderedRows.slice(1)];
@@ -1013,11 +960,11 @@ function renderMarkdownTableEdit(
 }
 
 /**
- * Markdownの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+ * TSVの行列を選択したMarkdown表へ反映する差分を計算する。
  * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
  * @param selection - 表編集を適用するMarkdown本文内のUTF-16選択範囲。
  * @param tsv - 表セルへ分割するタブ区切りテキスト。
- * @returns 副作用を完了し、値は返さない。
+ * @returns TSVを表本文へ反映する編集範囲と置換後テキスト。対象表がない場合はundefined。
  */
 export function applyMarkdownTableTsv(
     markdown: string,
@@ -1031,9 +978,8 @@ export function applyMarkdownTableTsv(
     const pastedRows = parseTsv(tsv);
     if (!pastedRows.length || !pastedRows.some(
         /**
-         * Markdownのコールバックとして行を処理する。
+
          * @param row - Markdownで走査または更新する要素。
-         * @returns 副作用を完了し、値は返さない。
          */
         (row) => row.length)) return undefined;
 
@@ -1060,8 +1006,7 @@ export function applyMarkdownTableTsv(
         (row) => row.length));
     while (rows.length < requiredRows) rows.push(Array.from({ length: separator.length },
         /**
-         * Markdownのコールバックとして要素を処理する。
-         * @returns 条件が成立したかを示す真偽値。
+         * 不足している表行の各セルを空文字で初期化する。
          */
         () => ''));
     while (separator.length < requiredColumns) separator.push('---');
@@ -1095,11 +1040,11 @@ export function isMarkdownCodeFencePosition(markdown: string, selection: TextSel
 }
 
 /**
- * Markdownの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+ * TSVの各行をMarkdown表として、選択範囲の先頭へ挿入する。
  * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
  * @param selection - TSV表を挿入または貼り付ける本文内のUTF-16範囲。
  * @param rows - TSVから解析した表セル文字列の行列。
- * @returns Markdownのinsert・markdown・table・from・tsvが生成する結果。
+ * @returns 表を挿入した本文と、挿入した表の選択範囲。
  */
 function insertMarkdownTableFromTsv(markdown: string, selection: TextSelection, rows: string[][]): SourceEdit {
     const eol = markdown.match(/\r\n|\r|\n/)?.[0] ?? '\n';
@@ -1116,31 +1061,20 @@ function insertMarkdownTableFromTsv(markdown: string, selection: TextSelection, 
         /**
          * 各行をfromへ渡し、変換結果を一覧化する。
          * @param row - 走査中の要素。
-         * @returns 入力要素から生成した変換結果の一覧。
+
          */
         (row) => Array.from({ length: columnCount },
-            /**
-             * ・をescape・markdown・table・cellへ渡し、Markdownの結果または副作用を処理する。
-             * @param _ - 引数位置を維持するための未使用値。
-             * @param index - 配列・行列・文字列の要素位置を示す番号。
-             * @returns 副作用を完了し、値は返さない。
-             */
+
             (_, index) => escapeMarkdownTableCell(row[index] ?? '')));
     const separator = Array.from({ length: columnCount },
         /**
-         * Markdownのコールバックとして要素を処理する。
-         * @returns 副作用を完了し、値は返さない。
+         * Markdown表の列数分、区切り行のセルを作成する。
          */
         () => '---');
     const rendered = [
         renderTableRow('', normalizedRows[0]),
         renderTableRow('', separator),
         ...normalizedRows.slice(1).map(
-            /**
-             * 各行をrender・table・rowへ渡し、変換結果を一覧化する。
-             * @param row - 走査中の要素。
-             * @returns 入力要素から生成した変換結果の一覧。
-             */
             (row) => renderTableRow('', row))
     ].join(eol);
     const before = markdown.slice(0, from);
@@ -1154,10 +1088,10 @@ function insertMarkdownTableFromTsv(markdown: string, selection: TextSelection, 
 }
 
 /**
- * Markdownの変更または利用者の操作意図を記録し、後続処理へ渡す。
+ * 選択したMarkdown表のヘッダーとデータ行をタブ区切り形式へ変換する。
  * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
  * @param selection - Markdown本文からTSVへ書き出す表を示す選択範囲。
- * @returns 副作用を完了し、値は返さない。
+ * @returns 表の内容を表すTSV文字列。選択位置に有効な表がない場合はundefined。
  */
 export function markdownTableToTsv(markdown: string, selection: TextSelection): string | undefined {
     const table = parseMarkdownTable(markdown, selection);
@@ -1170,19 +1104,14 @@ export function markdownTableToTsv(markdown: string, selection: TextSelection): 
              * @returns mapを取り出した変換結果の一覧。
              */
             (row) => row.map(
-                /**
-                 * 各セルをencode・tsv・cellへ渡し、変換結果を一覧化する。
-                 * @param cell - Markdownで走査または更新する要素。
-                 * @returns 入力要素から生成した変換結果の一覧。
-                 */
                 (cell) => encodeTsvCell(stripMarkdownTableCell(cell))).join('\t'))
         .join('\r\n');
 }
 
 /**
- * Markdownの入力を構造化した値へ変換する。
+ * TSVの引用符とエスケープを解釈し、行・セルの二次元配列へ分割する。
  * @param tsv - クリップボードから読み込んだタブ・改行区切りの貼り付けテキスト。
- * @returns Markdownで利用する文字列。
+ * @returns 引用符とタブ・改行を解釈した行列。
  */
 function parseTsv(tsv: string): string[][] {
     const rows: string[][] = [];
@@ -1229,9 +1158,9 @@ function parseTsv(tsv: string): string[][] {
 }
 
 /**
- * Markdownの入力を許可された形式へ整える。
+ * Markdown表セル内の予約記号と改行をエスケープする。
  * @param value - Markdown表セルへ出力する前に記号と改行をエスケープする文字列。
- * @returns Markdownで利用する文字列。
+
  */
 function escapeMarkdownTableCell(value: string): string {
     return value
@@ -1265,9 +1194,9 @@ function isInsideMarkdownFence(lines: string[], lineIndex: number): boolean {
 }
 
 /**
- * Markdownから必要な値またはリソースを取得する。
+ * コードフェンスで囲まれたMarkdown本文の行番号を集める。
  * @param lines Markdown本文を行ごとに分けた文字列一覧。
- * @returns Markdownで利用する数値。
+ * @returns コードフェンス内の0始まり行番号のSet。
  */
 function getFencedMarkdownLineIndexes(lines: string[]): Set<number> {
     const fencedLineIndexes = new Set<number>();
@@ -1296,7 +1225,7 @@ function getFencedMarkdownLineIndexes(lines: string[]): Set<number> {
 /**
  * Markdownから不要または危険な情報を除去する。
  * @param value - Markdown表セルの記法を取り除いて表示用テキストへ戻す文字列。
- * @returns Markdownで利用する文字列。
+
  */
 function stripMarkdownTableCell(value: string): string {
     let text = value.trim()
@@ -1311,19 +1240,19 @@ function stripMarkdownTableCell(value: string): string {
 }
 
 /**
- * Markdownのencode・tsv・cellを処理し、呼び出し側へ結果または副作用を返す。
+ * TSVセル内のタブ、改行、二重引用符を引用形式へ変換する。
  * @param value - TSVセルとして引用符と改行をエスケープする文字列。
- * @returns Markdownで利用する文字列。
+ * @returns 特殊文字を含む場合に引用符で囲んだセル文字列。
  */
 function encodeTsvCell(value: string): string {
     return /[\t\r\n"]/.test(value) ? `"${value.replace(/"/g, '""')}"` : value;
 }
 
 /**
- * Markdownから必要な値またはリソースを取得する。
+ * 行開始オフセットを二分探索し、本文オフセットが属する行を特定する。
  * @param lineStarts - 本文中の各行の開始オフセットを昇順に並べた配列。
  * @param offset - 属する行番号を検索する本文内オフセット。
- * @returns Markdownで利用する数値。
+ * @returns オフセットを含む0始まりの行番号。
  */
 function findLineIndex(lineStarts: number[], offset: number): number {
     // 行開始位置の配列を二分探索し、オフセットが属する行番号を求める。
@@ -1358,17 +1287,16 @@ function isTableSeparatorLine(line: string): boolean {
     const cells = splitTableCells(line);
     return cells.length > 0 && cells.every(
         /**
-         * セルをtestへ渡し、Markdownの結果または副作用を処理する。
          * @param cell - Markdownで走査または更新する要素。
-         * @returns Markdownで利用する文字列。
+
          */
         (cell) => /^:?-{3,}:?$/.test(cell.trim()));
 }
 
 /**
- * Markdownのsplit・table・cellsを処理し、呼び出し側へ結果または副作用を返す。
+ * Markdown表の行をエスケープされていない縦棒でセルに分割する。
  * @param line Markdown本文から処理する1行。
- * @returns Markdownで利用する文字列。
+ * @returns 行に含まれるセル値の一覧。
  */
 function splitTableCells(line: string): string[] {
     // エスケープされていない縦棒だけを区切りとして、表のセルを分割する。
@@ -1391,11 +1319,11 @@ function splitTableCells(line: string): string[] {
 }
 
 /**
- * Markdownのtable・column・atを処理し、呼び出し側へ結果または副作用を返す。
+ * 表行の区切り記号を走査し、指定オフセットが属する列を求める。
  * @param line Markdown本文から処理する1行。
  * @param offset - 表行内のUTF-16カーソルオフセット。
  * @param columnCount - 列番号を上限に制限する表の総列数。
- * @returns Markdownで利用する数値。
+ * @returns 0始まり列番号。結果は既存列数の範囲に制限する。
  */
 function tableColumnAt(line: string, offset: number, columnCount: number): number {
     // 行内の縦棒を数え、指定オフセットが属する列番号を求める。
@@ -1410,10 +1338,10 @@ function tableColumnAt(line: string, offset: number, columnCount: number): numbe
 }
 
 /**
- * Markdownを表示用の結果へ変換する。
+ * インデントとセル列からMarkdown表の1行を生成する。
  * @param indent - 表行の前に保つMarkdown blockquote/listのインデント文字列。
  * @param cells - Markdown表行として出力する各セルの文字列一覧。
- * @returns Markdownで利用する文字列。
+
  */
 function renderTableRow(indent: string, cells: string[]): string {
     // インデントとセル配列から、1行分のMarkdown表記を生成する。
@@ -1421,10 +1349,10 @@ function renderTableRow(indent: string, cells: string[]): string {
 }
 
 /**
- * Markdownのnew・column・headerを処理し、呼び出し側へ結果または副作用を返す。
+ * 空の見出しに列番号を使った既定名を付ける。
  * @param value - 新しいMarkdown表列の見出し候補。空の場合は列番号から生成する。
  * @param columnNumber - 新しい列の1始まり番号。空見出しのfallback生成に使う。
- * @returns Markdownで利用する文字列。
+ * @returns 空でない場合は入力値、空の場合は列番号から作った見出し。
  */
 function newColumnHeader(value: string | undefined, columnNumber: number): string {
     // 指定された見出しを使い、空の場合は列番号から既定の見出しを作る。
@@ -1433,9 +1361,9 @@ function newColumnHeader(value: string | undefined, columnNumber: number): strin
 }
 
 /**
- * Markdownのdisplay・widthを処理し、呼び出し側へ結果または副作用を返す。
+ * 結合文字を幅0、全角文字を幅2として文字列の表示幅を数える。
  * @param value - 表示幅を計算する文字列。
- * @returns Markdownで利用する数値。
+ * @returns 全角文字を2として数えた表示幅。
  */
 function displayWidth(value: string): number {
     // 結合文字を除外し、全角文字を2幅として表示幅を数える。
@@ -1449,10 +1377,10 @@ function displayWidth(value: string): number {
 }
 
 /**
- * Markdownのpad・display・widthを処理し、呼び出し側へ結果または副作用を返す。
+ * 表示幅が指定値に達するまで文字列の末尾へ空白を追加する。
  * @param value - 指定幅に達するまで空白で埋める表示文字列。
  * @param width - 表示領域または列の幅。
- * @returns Markdownで利用する文字列。
+ * @returns 指定幅まで右側を空白で埋めた文字列。
  */
 function padDisplayWidth(value: string, width: number): string {
     // 現在の表示幅が指定幅に届くまで末尾へ空白を追加する。
@@ -1482,9 +1410,9 @@ function isWideCodePoint(codePoint: number): boolean {
 }
 
 /**
- * Markdownの入力を許可された形式へ整える。
+ * Markdown画像alt属性へ出力するため、予約記号をescapeし改行を除く。
  * @param value - Markdown画像altへ出力する文字列。
- * @returns Markdownで利用する文字列。
+ * @returns 角括弧・バックスラッシュをescapeし、1行に整えたalt文字列。
  */
 export function escapeMarkdownAlt(value: string): string {
     // 画像の代替テキストからMarkdown記号と改行を除去して1行へ整える。
@@ -1495,7 +1423,7 @@ export function escapeMarkdownAlt(value: string): string {
  * Markdownの入力を検証し、表示または保存に使う形式へ変換する。
  * @param path - Markdown画像destinationへ挿入するURIまたは相対パス。
  * @param alt - Markdown画像記法へ挿入するaltテキスト。
- * @returns Markdownで利用する文字列。
+ * @returns 指定destinationとaltを使ったMarkdown画像記法。
  */
 export function imageMarkdown(path: string, alt = getMessages('ja').editor.defaultImageAlt): string {
     // パスの区切りを正規化し、エスケープ済みの代替テキストで画像記法を作る。
@@ -1503,9 +1431,9 @@ export function imageMarkdown(path: string, alt = getMessages('ja').editor.defau
 }
 
 /**
- * Markdownから必要な値またはリソースを取得する。
+ * Markdown見出しから順序付きのアウトライン項目を作る。
  * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
- * @returns Markdownに対応する要素の一覧。
+ * @returns 見出し名、深さ、行番号、文書内オフセット、重複しないIDを持つ項目一覧。
  */
 export function getOutline(markdown: string): OutlineItem[] {
     // Markdownの見出しを走査し、表示名・行番号・文書内位置・重複しないIDを収集する。
@@ -1585,13 +1513,13 @@ export function isOutlineEmptyParentTarget(
 }
 
 /**
- * Markdownの要素を規則に従って並べ替える。
+ * 指定したアウトライン項目を配下の見出しごと移動する。
  * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
  * @param outline Markdown見出しから構成したアウトライン項目一覧。
  * @param sourceIndex 移動元となるアウトライン項目の0始まりインデックス。
  * @param targetIndex 移動先となるアウトライン項目の0始まりインデックス。
  * @param position 移動先項目の前後どちらへ対象項目を置くか。
- * @returns 副作用を完了し、値は返さない。
+ * @returns 見出しセクションを移動した本文。移動条件を満たさない場合はundefined。
  */
 export function moveOutlineSection(
     markdown: string,
@@ -1627,11 +1555,11 @@ export function moveOutlineSection(
 }
 
 /**
- * Markdownから必要な値またはリソースを取得する。
+ * 指定アウトライン項目から次の同階層以上の見出しまでの範囲を求める。
  * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
  * @param outline Markdown見出しから構成したアウトライン項目一覧。
- * @param index - 配列・行列・文字列の要素位置を示す番号。
- * @returns Markdownで利用する数値。
+ * @param index - 範囲の起点となるアウトライン項目の番号。
+ * @returns 次の同階層以上の見出しの行、または文書末尾のオフセット。
  */
 function findOutlineSectionEnd(markdown: string, outline: readonly OutlineItem[], index: number): number {
     const source = outline[index];
@@ -1643,9 +1571,9 @@ function findOutlineSectionEnd(markdown: string, outline: readonly OutlineItem[]
 }
 
 /**
- * Markdownから必要な値またはリソースを取得する。
+ * 本文に最初に現れる改行コードを調べる。
  * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
- * @returns Markdownで利用する文字列。
+ * @returns CRLF、CR、LFのいずれか。改行がなければLF。
  */
 function getMarkdownLineSeparator(markdown: string): string {
     const match = /\r\n|\r|\n/.exec(markdown);
@@ -1653,7 +1581,7 @@ function getMarkdownLineSeparator(markdown: string): string {
 }
 
 /**
- * Markdownのends・with・line・breakを処理し、呼び出し側へ結果または副作用を返す。
+ * 文字列の末尾がCRLF、CR、LFのいずれかで終わるかを調べる。
  * @param value - 末尾がCRLF、CR、LFのいずれかであるか判定する文字列。
  * @returns 条件が成立したかを示す真偽値。
  */
@@ -1662,9 +1590,9 @@ function endsWithLineBreak(value: string): boolean {
 }
 
 /**
- * Markdownのsplit・markdown・blocksを処理し、呼び出し側へ結果または副作用を返す。
+ * Markdown本文をmarkedの解析結果と対応づけたブロック一覧に分割する。
  * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
- * @returns Markdownに対応する要素の一覧。
+ * @returns Markdown本文の各ブロックと元文書内の位置を持つ一覧。
  */
 export function splitMarkdownBlocks(markdown: string): MarkdownBlock[] {
     // 改行を正規化したMarkdownをmarkedで解析し、元文書のオフセットを持つブロックへ変換する。
@@ -1703,9 +1631,9 @@ export function splitMarkdownBlocks(markdown: string): MarkdownBlock[] {
 }
 
 /**
- * Markdownの入力を許可された形式へ整える。
+ * 改行コードをLFへ統一し、正規化後の各オフセットに対応する元位置を記録する。
  * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
- * @returns Markdownで生成または変換した値。
+ * @returns LFへ正規化した本文と、各位置に対応する原文オフセット配列。
  */
 function normalizeWithOriginalOffsets(markdown: string): {
     /**
@@ -1735,10 +1663,10 @@ function normalizeWithOriginalOffsets(markdown: string): {
 }
 
 /**
- * Markdownから必要な値またはリソースを取得する。
+ * Markdown本文を走査し、利用者に表示する診断を集める。
  * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
  * @param language - Markdownの対象や分岐を識別する値。
- * @returns Markdownに対応する要素の一覧。
+ * @returns 指定言語の診断メッセージと本文内位置を含む診断一覧。
  */
 export function collectDiagnostics(markdown: string, language: SupportedLanguage | string = 'ja'): Diagnostic[] {
     // 文書全体を1回走査し、診断パネルとPDF出力前チェックが共有する結果を作る。
@@ -1752,7 +1680,7 @@ export function collectDiagnostics(markdown: string, language: SupportedLanguage
          */
         marker: string;
         /**
-         * Markdownの位置・寸法・件数・時間を表す数値。
+         * 対象見出しがある0始まりのMarkdown行番号です。
          */
         line: number
     } | undefined;
@@ -1761,8 +1689,7 @@ export function collectDiagnostics(markdown: string, language: SupportedLanguage
         /**
          * lineごとにexecを実行する。
          * @param line Markdown本文から処理する1行。
-         * @param index - 配列・行列・文字列の要素位置を示す番号。
-         * @returns 副作用を完了し、値は返さない。
+         * @param index - 走査中の配列における0始まりの要素位置。
          */
         (line, index) => {
             const match = /^\s{0,3}(`{3,}|~{3,})(.*)$/.exec(stripResourceContainerPrefix(line));
@@ -1793,8 +1720,7 @@ export function collectDiagnostics(markdown: string, language: SupportedLanguage
         /**
          * lineごとにifを実行する。
          * @param line Markdown本文から処理する1行。
-         * @param index - 配列・行列・文字列の要素位置を示す番号。
-         * @returns 副作用を完了し、値は返さない。
+         * @param index - 走査中の配列における0始まりの要素位置。
          */
         (line, index) => {
             if (fencedLines.has(index + 1)) return;
@@ -1851,8 +1777,7 @@ export function collectDiagnostics(markdown: string, language: SupportedLanguage
         /**
          * lineごとにifを実行する。
          * @param line Markdown本文から処理する1行。
-         * @param index - 配列・行列・文字列の要素位置を示す番号。
-         * @returns 副作用を完了し、値は返さない。
+         * @param index - 走査中の配列における0始まりの要素位置。
          */
         (line, index) => {
             if (fencedLines.has(index + 1)) return;
@@ -1863,8 +1788,7 @@ export function collectDiagnostics(markdown: string, language: SupportedLanguage
         /**
          * lineごとにifを実行する。
          * @param line Markdown本文から処理する1行。
-         * @param index - 配列・行列・文字列の要素位置を示す番号。
-         * @returns 副作用を完了し、値は返さない。
+         * @param index - 走査中の配列における0始まりの要素位置。
          */
         (line, index) => {
             if (fencedLines.has(index + 1)) return;
@@ -1885,9 +1809,8 @@ export function collectDiagnostics(markdown: string, language: SupportedLanguage
 
     const imageSource = markdown.replace(/`+[^`\r\n]*`+/g,
         /**
-         * コードをreplaceへ渡し、Markdownの結果または副作用を処理する。
          * @param code - Markdownへ渡す入力。
-         * @returns Markdownに対応する要素の一覧。
+         * @returns 改行以外を空白にした、元の長さを保つコードマスク。
          */
         (code) => code.replace(/[^\r\n]/g, ' '));
     const imagePattern = /!\[([^\]]*)\]\(([^)\s]+)(?:\s+"[^"]*")?\)/g;
@@ -1916,9 +1839,9 @@ export function collectDiagnostics(markdown: string, language: SupportedLanguage
 }
 
 /**
- * Markdownから必要な値またはリソースを取得する。
+ * Markdown内で参照されるローカル画像・リンク先を収集する。
  * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
- * @returns Markdownに対応する要素の一覧。
+ * @returns 文書内位置と参照先を含むローカルリソース一覧。
  */
 export function collectLocalResourceReferences(markdown: string): LocalResourceReference[] {
     const lines = markdown.split(/\r\n|\r|\n/);
@@ -1929,7 +1852,7 @@ export function collectLocalResourceReferences(markdown: string): LocalResourceR
          */
         marker: string;
         /**
-         * Markdownの位置・寸法・件数・時間を表す数値。
+         * 対象見出しがある0始まりのMarkdown行番号です。
          */
         line: number
     } | undefined;
@@ -1937,8 +1860,7 @@ export function collectLocalResourceReferences(markdown: string): LocalResourceR
         /**
          * lineごとにexecを実行する。
          * @param line - lineのsを参照する走査対象。
-         * @param index - 配列・行列・文字列の要素位置を示す番号。
-         * @returns 副作用を完了し、値は返さない。
+         * @param index - 走査中の配列における0始まりの要素位置。
          */
         (line, index) => {
             const match = /^\s{0,3}(`{3,}|~{3,})(.*)$/.exec(stripResourceContainerPrefix(line));
@@ -1961,7 +1883,7 @@ export function collectLocalResourceReferences(markdown: string): LocalResourceR
         /**
          * 各lineからlengthを取り出して一覧化する。
          * @param line - lineのlengthを参照する走査対象。
-         * @param index - 配列・行列・文字列の要素位置を示す番号。
+         * @param index - 走査中の配列における0始まりの要素位置。
          * @returns lengthを取り出した変換結果の一覧。
          */
         (line, index) => {
@@ -1973,10 +1895,8 @@ export function collectLocalResourceReferences(markdown: string): LocalResourceR
     const definitionLines = new Set<number>();
     scanLines.forEach(
         /**
-         * lineごとにparse・local・resource・definitionを実行する。
          * @param line Markdown本文から処理する1行。
-         * @param index - 配列・行列・文字列の要素位置を示す番号。
-         * @returns 副作用を完了し、値は返さない。
+         * @param index - 走査中の配列における0始まりの要素位置。
          */
         (line, index) => {
             const definition = parseLocalResourceDefinition(line, lines[index + 1]);
@@ -2024,7 +1944,6 @@ export function collectLocalResourceReferences(markdown: string): LocalResourceR
          * definitionごとにifを実行する。
          * @param definition - definitionのkindを参照する走査対象。
          * @param label - 使用済み判定に使う正規化済み参照ラベル。
-         * @returns 副作用を完了し、値は返さない。
          */
         (definition, label) => {
             if (!usedDefinitions.has(label)) {
@@ -2040,9 +1959,9 @@ export function collectLocalResourceReferences(markdown: string): LocalResourceR
 }
 
 /**
- * Markdownの入力を走査し、該当する範囲または要素を順に返す。
+ * Markdown本文からリンク・画像の参照先とソース上の範囲を収集する。
  * @param source - リンク・画像の参照先を抽出するMarkdown本文。
- * @returns Markdownに対応する要素の一覧。
+ * @returns 参照先、リンク形式、本文内の範囲を持つリソース参照一覧。
  */
 function scanMarkdownResourceLinks(source: string): ScannedResourceLink[] {
     const links: ScannedResourceLink[] = [];
@@ -2107,10 +2026,10 @@ function scanMarkdownResourceLinks(source: string): ScannedResourceLink[] {
 }
 
 /**
- * Markdownから必要な値またはリソースを取得する。
+ * Markdownのinline linkから、括弧内のリソース参照先を読み取る。
  * @param source - 参照先を読むinline linkを含むMarkdown本文。
  * @param open - destination読取開始位置となる開き括弧のUTF-16オフセット。
- * @returns Markdownのread・inline・resource・destinationが生成する結果。
+ * @returns 参照先文字列と閉じ括弧位置。参照先がない場合はundefined。
  */
 function readInlineResourceDestination(source: string, open: number): {
     /**
@@ -2121,7 +2040,7 @@ function readInlineResourceDestination(source: string, open: number): {
     /** 専用title印がリンクのワークスペース基準指定に使われているかを示す。 */
     workspaceRooted: boolean;
     /**
-     * Markdownのendを表す数値。
+     * リソース参照記法の終了位置を示す本文内UTF-16オフセットです。
      */
     end: number
 } | undefined {
@@ -2200,10 +2119,10 @@ function unescapeResourceTitle(title: string): string {
 }
 
 /**
- * Markdownから必要な値またはリソースを取得する。
+ * 入れ子の括弧とエスケープを考慮してlink destinationの終端を探す。
  * @param source - 括弧付きlink destinationを含むMarkdown本文。
  * @param start - 開き括弧の次から検索する本文内UTF-16オフセット。
- * @returns Markdownで利用する数値。
+ * @returns 閉じ括弧の位置。見つからない場合は-1。
  */
 function findInlineResourceClose(source: string, start: number): number {
     let nestedParentheses = 0;
@@ -2221,9 +2140,9 @@ function findInlineResourceClose(source: string, start: number): number {
 }
 
 /**
- * Markdownの入力を構造化した値へ変換する。
+ * Markdown参照定義行と任意の次行タイトルを解析する。
  * @param line Markdown本文から処理する1行。
- * @returns Markdownで生成または変換した値。
+ * @returns 参照定義の種別、ラベル、参照先など。定義として解析できない場合はundefined。
  */
 function parseLocalResourceDefinition(line: string, followingLine?: string): {
     /**
@@ -2272,7 +2191,7 @@ function isIndentedResourceCodeLine(line: string): boolean {
 /**
  * Markdownから不要または危険な情報を除去する。
  * @param line Markdown本文から処理する1行。
- * @returns Markdownで利用する文字列。
+
  */
 function stripResourceContainerPrefix(line: string): string {
     if (/^(?: {4}|\t)/u.test(line)) return line;
@@ -2288,10 +2207,10 @@ function stripResourceContainerPrefix(line: string): string {
 }
 
 /**
- * Markdownのmask・html・commentsを処理し、呼び出し側へ結果または副作用を返す。
+ * コードや文字列内にないHTMLコメントを、解析対象からマスクする。
  * @param line Markdown本文から処理する1行。
  * @param state - 現在の編集・表示状態。
- * @returns Markdownで利用する文字列。
+ * @returns コメント部分を同じ長さの空白に置き換えた行。
  */
 function maskHtmlComments(line: string, state: {
     /**
@@ -2321,10 +2240,10 @@ function maskHtmlComments(line: string, state: {
 }
 
 /**
- * Markdownのline・number・atを処理し、呼び出し側へ結果または副作用を返す。
+ * UTF-16オフセットが属するMarkdown行の1始まり行番号を求める。
  * @param source - 行番号を求めるMarkdown本文。
  * @param offset - 行番号を求める本文内UTF-16オフセット。
- * @returns Markdownで利用する数値。
+ * @returns 1始まりの行番号。
  */
 function lineNumberAt(source: string, offset: number): number {
     let line = 1;
@@ -2335,9 +2254,9 @@ function lineNumberAt(source: string, offset: number): number {
 }
 
 /**
- * Markdownの要素を規則に従って並べ替える。
+ * 診断を重大度、行番号、本文内オフセットの順に並べ替える。
  * @param diagnostics - 集約または整形する診断一覧。
- * @returns Markdownに対応する要素の一覧。
+ * @returns 表示順に並べた診断一覧。
  */
 export function sortDiagnostics(diagnostics: Diagnostic[]): Diagnostic[] {
     return diagnostics
@@ -2345,8 +2264,8 @@ export function sortDiagnostics(diagnostics: Diagnostic[]): Diagnostic[] {
             /**
              * 各項目を変換して一覧化する。
              * @param item - 走査中の要素。
-             * @param index - 配列・行列・文字列の要素位置を示す番号。
-             * @returns 入力要素から生成した変換結果の一覧。
+             * @param index - 走査中の配列における0始まりの要素位置。
+
              */
             (item, index) => ({ item, index }))
         .sort(
@@ -2365,15 +2284,15 @@ export function sortDiagnostics(diagnostics: Diagnostic[]): Diagnostic[] {
             /**
              * 各設定を変換して一覧化する。
              * @param item - 並べ替えた診断一覧へ戻すDiagnostic項目。
-            * @returns 入力要素から生成した変換結果の一覧。
+
              */
             ({ item }) => item);
 }
 
 /**
- * Markdownのsummarize・diagnosticsを処理し、呼び出し側へ結果または副作用を返す。
+ * 診断一覧を重大度別の件数に集約する。
  * @param diagnostics - 集約または整形する診断一覧。
- * @returns Markdownのsummarize・diagnosticsが生成する結果。
+ * @returns error、warning、infoそれぞれの診断件数。
  */
 export function summarizeDiagnostics(diagnostics: Diagnostic[]): DiagnosticSummary {
     return {
@@ -2381,41 +2300,39 @@ export function summarizeDiagnostics(diagnostics: Diagnostic[]): DiagnosticSumma
             /**
              * 種別「error」の項目だけを残す。
              * @param item - 項目のseverityを参照する走査対象。
-             * @returns 条件を満たした要素だけを含む一覧。
+
              */
             (item) => item.severity === 'error'),
         warnings: diagnostics.filter(
             /**
              * 種別「warning」の項目だけを残す。
              * @param item - 項目のseverityを参照する走査対象。
-             * @returns 条件を満たした要素だけを含む一覧。
+
              */
             (item) => item.severity === 'warning'),
         infos: diagnostics.filter(
             /**
              * 種別「info」の項目だけを残す。
              * @param item - 項目のseverityを参照する走査対象。
-             * @returns 条件を満たした要素だけを含む一覧。
+
              */
             (item) => item.severity === 'info')
     };
 }
 
 /**
- * Markdownのdiagnose・markdown・tableを処理し、呼び出し側へ結果または副作用を返す。
+ * 表の区切り行とセル数を検証し、誤ったMarkdown表に診断を追加する。
  * @param lines Markdown本文を行ごとに分けた文字列一覧。
  * @param headerLine 表見出し行の0始まりインデックス。
  * @param fencedLines コードフェンス内にある0始まり行インデックスのSet。
  * @param diagnostics - 集約または整形する診断一覧。
  * @param messages 診断に表示する翻訳済みメッセージ。
- * @returns 条件が成立したかを示す真偽値。
  */
 function diagnoseMarkdownTable(lines: string[], headerLine: number, fencedLines: Set<number>, diagnostics: Diagnostic[], messages: ReturnType<typeof getMessages>): void {
     const header = splitTableCells(lines[headerLine]);
     const separator = splitTableCells(lines[headerLine + 1]);
     if (header.some(
         /**
-         * セルをtrimへ渡し、Markdownの結果または副作用を処理する。
          * @param cell - Markdownで走査または更新する要素。
          * @returns 条件が成立したかを示す真偽値。
          */
@@ -2458,7 +2375,6 @@ function isLikelyTableSeparatorLine(line: string): boolean {
     const cells = splitTableCells(line);
     return cells.length > 0 && cells.some(
         /**
-         * セルをtestへ渡し、Markdownの結果または副作用を処理する。
          * @param cell - Markdownで走査または更新する要素。
          * @returns 条件が成立したかを示す真偽値。
          */
@@ -2475,7 +2391,6 @@ function isInvalidTableSeparatorCandidate(separator: string): boolean {
 
 
     const separatorLike = /**
-     * Markdownのseparator・likeを処理し、呼び出し側へ結果または副作用を返す。
      * @param cell - Markdownで走査または更新する要素。
      * @returns 条件が成立したかを示す真偽値。
      */ (cell: string): boolean => !cell.trim() || /^:?-{1,}:?$/.test(cell.trim());
@@ -2483,7 +2398,7 @@ function isInvalidTableSeparatorCandidate(separator: string): boolean {
 }
 
 /**
- * Markdownで共有するデータ形状を表すインターフェース。
+ * 角括弧内から抽出した内容と、閉じ括弧直後の本文内UTF-16オフセットです。
  */
 interface BracketContent {
 
@@ -2493,13 +2408,13 @@ interface BracketContent {
     content: string;
 
     /**
-     * Markdownのendを表す数値。
+     * 角括弧内テキストの終了位置を示す本文内UTF-16オフセットです。
      */
     end: number;
 }
 
 /**
- * Markdownで共有するデータ形状を表すインターフェース。
+ * 参照リンク定義のラベルと使用箇所の集計結果です。
  */
 interface ReferenceUsage {
 
@@ -2520,10 +2435,10 @@ interface ReferenceUsage {
 }
 
 /**
- * Markdownから必要な値またはリソースを取得する。
+ * 開き括弧に対応する閉じ括弧と、その間の内容を探す。
  * @param source - 角括弧の内容を抽出するMarkdown本文。
  * @param open - 開き角括弧の本文内UTF-16インデックス。
- * @returns 副作用を完了し、値は返さない。
+ * @returns 閉じ括弧の位置と内容。対応する括弧が閉じていない場合はundefined。
  */
 function readBracketContent(source: string, open: number): BracketContent | undefined {
     let depth = 0;
@@ -2552,9 +2467,9 @@ function readBracketContent(source: string, open: number): BracketContent | unde
 }
 
 /**
- * Markdownから必要な値またはリソースを取得する。
+ * 1行から定義参照と参照リンクの使用箇所を収集する。
  * @param line Markdown本文から処理する1行。
- * @returns Markdownに対応する要素の一覧。
+ * @returns ラベルと本文内オフセットを含む参照使用箇所。
  */
 function collectReferenceUsages(line: string): ReferenceUsage[] {
     const usages: ReferenceUsage[] = [];
@@ -2581,9 +2496,9 @@ function collectReferenceUsages(line: string): ReferenceUsage[] {
 }
 
 /**
- * Markdownの入力を構造化した値へ変換する。
+ * 参照定義行からリンク識別子を取り出す。
  * @param line Markdown本文から処理する1行。
- * @returns 副作用を完了し、値は返さない。
+ * @returns 参照定義で取得した識別子。対象行でない場合はundefined。
  */
 function parseReferenceDefinition(line: string): string | undefined {
     const open = line.search(/\S/);
@@ -2596,28 +2511,26 @@ function parseReferenceDefinition(line: string): string | undefined {
 }
 
 /**
- * Markdownのmask・inline・codeを処理し、呼び出し側へ結果または副作用を返す。
+ * inline code部分を同じ長さの空白へ置き換えて解析対象から除く。
  * @param line Markdown本文から処理する1行。
- * @returns Markdownで利用する文字列。
+ * @returns inline code以外の文字を保持したマスク済み行。
  */
 function maskInlineCode(line: string): string {
     return line.replace(/`+[^`\r\n]*`+/g,
         /**
          * Markdownの前提条件を準備し、回帰条件を検証するテストケース。
          * @param code - 正規表現に一致したインラインコード範囲。
-         * @returns テストケースを実行し、値は返さない。
          */
         (code) => code.replace(/[^\r\n]/g, ' '));
 }
 
 /**
- * Markdownのreport・broken・referenceを処理し、呼び出し側へ結果または副作用を返す。
+ * 未定義の参照リンクを診断一覧へ追加する。
  * @param label - 未定義参照リンクのラベル。空の場合は呼び出し側が渡したリンク文字列。
  * @param line 診断に記録するMarkdownの1始まり行番号。
  * @param definitions 既知の参照ラベルを保持するSet。
  * @param diagnostics - 集約または整形する診断一覧。
  * @param messages 診断に表示する翻訳済みメッセージ。
- * @returns 副作用を完了し、値は返さない。
  */
 function reportBrokenReference(
     label: string,
@@ -2638,9 +2551,9 @@ function reportBrokenReference(
 }
 
 /**
- * Markdownの入力を許可された形式へ整える。
+ * Markdown参照ラベルのエスケープと空白を正規化し、小文字へ変換する。
  * @param label - Markdown参照定義との照合に使う参照ラベル。
- * @returns Markdownで利用する文字列。
+
  */
 function normalizeReferenceLabel(label: string): string {
     return label.trim().replace(/\\([\\\[\]])/g, '$1').replace(/\s+/g, ' ').toLowerCase();
@@ -2660,9 +2573,9 @@ function isLocalResourceSource(source: string): boolean {
 }
 
 /**
- * Markdownを出力または保存できる文字列へ整える。
+ * 過剰な空行を縮約し、改行形式を保って末尾改行を付ける。
  * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
- * @returns Markdownで利用する文字列。
+ * @returns 余分な空行を整理したMarkdown本文。
  */
 export function formatMarkdown(markdown: string): string {
     // 改行形式を保ったまま過剰な空行を縮約し、末尾に改行を付ける。
@@ -2688,9 +2601,9 @@ export function formatMarkdown(markdown: string): string {
 }
 
 /**
- * Markdownのword・statsを処理し、呼び出し側へ結果または副作用を返す。
+ * Markdown本文を走査し、単語数と行数を集計する。
  * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
- * @returns Markdownのword・statsが生成する結果。
+ * @returns 集計した単語数と行数。
  */
 export function wordStats(markdown: string): {
     /**
@@ -2720,9 +2633,9 @@ export function wordStats(markdown: string): {
 }
 
 /**
- * Markdownのslugifyを処理し、呼び出し側へ結果または副作用を返す。
+ * 見出し文字列を小文字化し、文字・数字・ハイフンだけのslugにする。
  * @param value - 見出しからアンカーIDを生成する元テキスト。
- * @returns Markdownで利用する文字列。
+ * @returns 空白をハイフンへ置換し、アンカーIDに使える形へ正規化した文字列。
  */
 export function slugify(value: string): string {
     // 見出し文字列を小文字化し、使用可能な文字とハイフンだけのIDへ変換する。
@@ -2747,7 +2660,13 @@ function uniqueHeadingAnchorId(base: string, counts: Map<string, number>, usedId
     return id;
 }
 
-/** 描画順の重複数を反映した見出しアンカーIDを生成する。 */
+/**
+ * 描画順を保ちながら、明示アンカーまたは見出し本文から一意なIDを割り当てる。
+ * @param rawText アンカー生成前の見出し本文。
+ * @param counts 同じ基底IDが現れた回数を保持する辞書。
+ * @param usedIds すでに割り当てたIDの集合。
+ * @returns 衝突を避けて割り当てた見出しID。
+ */
 export function nextHeadingAnchorId(rawText: string, counts: Map<string, number>, usedIds: Set<string>): string {
     const plain = stripMveTextColorMarkup(rawText);
     const explicit = /\s+\{#([^}]+)\}\s*$/.exec(plain);
@@ -2755,12 +2674,24 @@ export function nextHeadingAnchorId(rawText: string, counts: Map<string, number>
     return uniqueHeadingAnchorId(base, counts, usedIds);
 }
 
-/** 同じMarkdown文書へ貼り付けて使える、見出し名付きの文書内リンクを作る。 */
+/**
+ * 同じMarkdown文書内で見出しへ移動するリンクを作る。
+ * @param text リンクラベルに使う見出し本文。
+ * @param id 描画時に割り当てられた見出しアンカーID。
+ * @returns 文書内の見出しを指すMarkdownリンク。
+ */
 export function sectionMarkdownLink(text: string, id: string): string {
     return sectionMarkdownLinkToPath(text, id, '');
 }
 
-/** ワークスペース相対パスを使い、別のMarkdown文書にも貼り付けられる見出しリンクを作る。 */
+/**
+ * ワークスペース相対パスを含む見出しリンクを作る。
+ * @param text リンクラベルに使う見出し本文。
+ * @param id 描画時に割り当てられた見出しアンカーID。
+ * @param relativePath ワークスペース内の移動先Markdown文書。
+ * @returns 移動先文書の見出しを指すMarkdownリンク。
+ * @throws {Error} パスが空、または `..` を含んでワークスペース外へ出る場合。
+ */
 export function workspaceSectionMarkdownLink(text: string, id: string, relativePath: string): string {
     const normalizedPath = relativePath.replace(/\\/g, '/').replace(/^\/+/, '');
     const segments = normalizedPath.split('/').filter((segment) => segment && segment !== '.');
@@ -2796,7 +2727,12 @@ function countLineBreaks(value: string): number {
     return (value.match(/\r\n|\r|\n/g) ?? []).length;
 }
 
-/** 描画と同じ順序の見出しIDから、リンクを開く行を求める。リンク操作時だけ呼び出す。 */
+/**
+ * 描画と同じ見出しIDの割り当て順で、リンク先の行番号を求める。
+ * @param markdown 見出し階層を走査するMarkdown本文。
+ * @param targetId 移動先として検索する見出しアンカーID。
+ * @returns 一致した見出しの1始まり行番号。本文にIDがない場合はundefined。
+ */
 export function headingLineForAnchor(markdown: string, targetId: string): number | undefined {
     const counts = new Map<string, number>();
     const usedIds = new Set<string>();
@@ -2808,6 +2744,13 @@ export function headingLineForAnchor(markdown: string, targetId: string): number
     ] });
     const tokens = parser.lexer(markdown);
 
+    /**
+     * 元のソース位置を追いながら入れ子のブロックを走査し、描画時と同じ見出しIDに対応する行を返す。
+     * @param blocks 現在の階層にあるMarkedトークン。
+     * @param source トークンのraw/textを照合する元Markdown。
+     * @param firstLine この階層の先頭行番号。
+     * @returns targetIdと一致する見出しの行番号。見つからなければundefined。
+     */
     const findInTokens = (blocks: Token[], source: string, firstLine: number): number | undefined => {
         let cursor = 0;
         let line = firstLine;
@@ -2839,10 +2782,10 @@ export function headingLineForAnchor(markdown: string, targetId: string): number
 }
 
 /**
- * Markdownのline・startを処理し、呼び出し側へ結果または副作用を返す。
+ * 指定オフセットが属する行の開始位置を返す。
  * @param source - 行境界を調べるMarkdown本文。
  * @param offset - 行境界を調べる本文内UTF-16オフセット。
- * @returns Markdownで利用する数値。
+ * @returns 行頭のUTF-16オフセット。
  */
 function lineStart(source: string, offset: number): number {
     // 指定位置を含む行の開始オフセットを返す。
@@ -2850,10 +2793,10 @@ function lineStart(source: string, offset: number): number {
 }
 
 /**
- * Markdownのline・endを処理し、呼び出し側へ結果または副作用を返す。
+ * 指定オフセットが属する行の終端位置を返す。
  * @param source - 行境界を調べるMarkdown本文。
  * @param offset - 行境界を調べる本文内UTF-16オフセット。
- * @returns Markdownで利用する数値。
+ * @returns 行末のUTF-16オフセット。
  */
 function lineEnd(source: string, offset: number): number {
     // 指定位置を含む行の終端オフセットを返す。

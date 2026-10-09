@@ -81,14 +81,12 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   undo: button(
     /**
      * クリック時にリボン操作「undo」を編集面へ通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "historyCommand", command: "undo" }),
   ),
   redo: button(
     /**
      * クリック時にリボン操作「redo」を編集面へ通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "historyCommand", command: "redo" }),
   ),
@@ -108,9 +106,8 @@ export const RIBBON_IMPLEMENTATIONS: Record<
           defaultValue="0"
           onChange={
             /**
-             * changeイベントでon・commandを実行する。
+              * 選択された見出しレベルをheadingコマンドとして通知する。
              * @param event - 見出しレベルselectの変更値を数値化してheading commandへ渡すchange event。
-             * @returns 副作用を完了し、値は返さない。
              */
             (event) =>
               context.onCommand({
@@ -138,7 +135,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   quote: button(
     /**
      * クリック時にリボン操作「quote」を編集面へ通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "sourceAction", action: "quote" }),
     { disabled: editDisabled },
@@ -146,7 +142,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   bulletList: button(
     /**
      * クリック時にリボン操作「bulletList」を編集面へ通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) =>
       onCommand({ type: "sourceAction", action: "bulletList" }),
@@ -155,7 +150,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   orderedList: button(
     /**
      * クリック時にリボン操作「orderedList」を編集面へ通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) =>
       onCommand({ type: "sourceAction", action: "orderedList" }),
@@ -164,7 +158,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   taskList: button(
     /**
      * クリック時にリボン操作「taskList」を編集面へ通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "sourceAction", action: "taskList" }),
     { disabled: editDisabled },
@@ -172,7 +165,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   indent: button(
     /**
      * クリック時にリボン操作「indent」を編集面へ通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "sourceAction", action: "indent" }),
     { disabled: editDisabled },
@@ -180,7 +172,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   outdent: button(
     /**
      * クリック時にリボン操作「outdent」を編集面へ通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "sourceAction", action: "outdent" }),
     { disabled: editDisabled },
@@ -188,7 +179,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   bold: button(
     /**
      * クリック時にリボン操作「bold」を編集面へ通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "sourceAction", action: "bold" }),
     { disabled: editDisabled, active: activeMark("bold") },
@@ -196,7 +186,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   italic: button(
     /**
      * クリック時にリボン操作「italic」を編集面へ通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "sourceAction", action: "italic" }),
     { disabled: editDisabled, active: activeMark("italic") },
@@ -204,7 +193,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   strike: button(
     /**
      * クリック時にリボン操作「strike」を編集面へ通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "sourceAction", action: "strike" }),
     { disabled: editDisabled, active: activeMark("strike") },
@@ -212,7 +200,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   underline: button(
     /**
      * クリック時にリボン操作「underline」を編集面へ通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "sourceAction", action: "underline" }),
     { disabled: editDisabled, active: activeMark("underline") },
@@ -220,7 +207,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   highlight: button(
     /**
      * クリック時にリボン操作「highlight」を編集面へ通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "sourceAction", action: "highlight" }),
     { disabled: editDisabled, active: activeMark("highlight") },
@@ -228,7 +214,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   code: button(
     /**
      * クリック時にリボン操作「inlineCode」を編集面へ通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) =>
       onCommand({ type: "sourceAction", action: "inlineCode" }),
@@ -237,7 +222,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   superscript: button(
     /**
      * クリック時にリボン操作「sup」を編集面へ通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "sourceAction", action: "sup" }),
     { disabled: editDisabled },
@@ -245,7 +229,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   subscript: button(
     /**
      * クリック時にリボン操作「sub」を編集面へ通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "sourceAction", action: "sub" }),
     { disabled: editDisabled },
@@ -266,10 +249,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
           value={context.textColorChoice}
           disabled={context.readOnly}
           onFocus={
-            /**
-             * 要素をset・text・color・choiceへ渡し、リボン実装の結果または副作用を処理する。
-             * @returns リボン実装のコールバックが生成する結果。
-             */
+
             () =>
               context.setTextColorChoice(
                 readActiveSourceTextColor() ?? "default",
@@ -279,7 +259,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
             /**
              * change操作を表示または編集状態へ反映する。
              * @param event - 文字色selectの選択値を本文へ適用するchange event。
-             * @returns 副作用を完了し、値は返さない。
              */
             (event) => {
               const value = event.target
@@ -325,7 +304,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   clearInline: button(
     /**
      * クリック時にリボン操作「clearInline」を編集面へ通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => {
       if (!clearInlineFormattingWithTextColor()) {
@@ -337,7 +315,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   clearBlock: button(
     /**
      * クリック時にリボン操作「clearBlock」を編集面へ通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) =>
       onCommand({ type: "sourceAction", action: "clearBlock" }),
@@ -346,7 +323,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   link: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "link" }),
     { disabled: editDisabled },
@@ -354,7 +330,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   image: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "image" }),
     { disabled: editDisabled },
@@ -384,7 +359,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
                 /**
                  * change操作を表示または編集状態へ反映する。
                  * @param event - 表の行数入力を制限値内へ調整するchange event。
-                 * @returns 副作用を完了し、値は返さない。
                  */
                 (event) =>
                   context.setTableRows(
@@ -409,7 +383,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
                 /**
                  * change操作を表示または編集状態へ反映する。
                  * @param event - 表の列数入力を制限値内へ調整するchange event。
-                 * @returns 副作用を完了し、値は返さない。
                  */
                 (event) =>
                   context.setTableColumns(
@@ -429,7 +402,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   insertTable: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand, tableRows, tableColumns }) =>
       onCommand({
@@ -442,7 +414,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   horizontalRule: button(
     /**
      * クリック時にリボン操作「horizontalRule」を編集面へ通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) =>
       onCommand({ type: "sourceAction", action: "horizontalRule" }),
@@ -451,7 +422,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   hardBreak: button(
     /**
      * クリック時にリボン操作「hardBreak」を編集面へ通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "sourceAction", action: "hardBreak" }),
     { disabled: editDisabled },
@@ -474,7 +444,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
             /**
              * change操作を表示または編集状態へ反映する。
              * @param event - code language selectの選択値を更新するchange event。
-             * @returns 副作用を完了し、値は返さない。
              */
             (event) => context.setCodeLanguage(event.target.value)
           }
@@ -498,7 +467,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   codeBlock: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand, codeLanguage }) =>
       onCommand({ type: "codeBlock", language: codeLanguage }),
@@ -507,7 +475,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   mermaid: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand, messages }) =>
       onCommand({ type: "insert", value: messages.ribbon.snippets.mermaid }),
@@ -516,7 +483,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   math: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) =>
       onCommand({ type: "insert", value: "\n$$\nE = mc^2\n$$\n" }),
@@ -525,7 +491,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   footnote: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand, messages }) =>
       onCommand({ type: "insert", value: messages.ribbon.snippets.footnote }),
@@ -534,7 +499,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   toc: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "insert", value: "\n[toc]\n" }),
     { disabled: editDisabled },
@@ -542,7 +506,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   pageBreak: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) =>
       onCommand({ type: "insert", value: "\n<!-- pagebreak -->\n" }),
@@ -551,7 +514,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   note: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand, messages }) =>
       onCommand({ type: "insert", value: messages.ribbon.snippets.note }),
@@ -560,7 +522,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   warning: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand, messages }) =>
       onCommand({ type: "insert", value: messages.ribbon.snippets.warning }),
@@ -584,7 +545,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
             /**
              * change操作を表示または編集状態へ反映する。
              * @param event - emoji selectの選択値を更新するchange event。
-             * @returns 副作用を完了し、値は返さない。
              */
             (event) => context.setEmoji(event.target.value)
           }
@@ -593,7 +553,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
             /**
              * 各値を変換して一覧化する。
              * @param value - 走査中の要素。
-             * @returns 入力要素から生成した変換結果の一覧。
+
              */
             (value) => (
               <option key={value} value={value}>
@@ -608,7 +568,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   insertEmoji: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand, emoji }) => onCommand({ type: "insert", value: emoji }),
     { disabled: editDisabled },
@@ -642,7 +601,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
               /**
                * change操作を表示または編集状態へ反映する。
                * @param event - 新しい表のheader name入力を更新するchange event。
-               * @returns 副作用を完了し、値は返さない。
                */
               (event) => context.setHeaderName(event.target.value)
             }
@@ -658,7 +616,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   cellBreak: button(
     /**
      * クリック時にリボン操作「cellBreak」を編集面へ通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "sourceAction", action: "cellBreak" }),
     { disabled: editDisabled },
@@ -666,7 +623,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   openTableEditor: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-     * @returns クリック処理を完了し、値は返さない。
      */
     () => window.dispatchEvent(new Event("mve-open-table-editor")),
     { disabled: editDisabled },
@@ -674,7 +630,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   copyTsv: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "copyTableTsv" }),
     {
@@ -690,19 +645,16 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   openSource: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "openSource" }),
   ),
   outline: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "toggleOutline" }),
     {
       active: /**
-       * リボン実装のactiveを処理し、呼び出し側へ結果または副作用を返す。
        * @param state - 現在の編集・表示状態。
        * @returns リボン実装のactiveが生成する結果。
        */ (state) => state.outlineVisible,
@@ -711,12 +663,10 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   scrollSync: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "toggleScrollSync" }),
     {
       active: /**
-       * リボン実装のactiveを処理し、呼び出し側へ結果または副作用を返す。
        * @param state - 現在の編集・表示状態。
        * @returns リボン実装のactiveが生成する結果。
        */ (state) => state.scrollSyncEnabled,
@@ -725,13 +675,11 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   imageResize: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ imageResizeControlsVisible }) =>
       setPreviewImageResizeControlsVisible(!imageResizeControlsVisible),
     {
       active: /**
-       * リボン実装のactiveを処理し、呼び出し側へ結果または副作用を返す。
        * @param state - 現在の編集・表示状態。
        * @returns リボン実装のactiveが生成する結果。
        */ (state) => state.imageResizeControlsVisible,
@@ -759,7 +707,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
             /**
              * change操作をHostまたはWebviewへ通知する。
              * @param event - theme選択を反映しHostへ設定を送るchange event。
-             * @returns 副作用を完了し、値は返さない。
              */
             (event) => {
               const theme = event.target.value as EditorTheme;
@@ -788,21 +735,18 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   openPrintSettings: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "openPrintSettings" }),
   ),
   printPreview: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "togglePrintPreview" }),
   ),
   exportPdf: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "exportPdf" }),
   ),
@@ -813,7 +757,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   exportHtml: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand, htmlOptions }) =>
       onCommand({ type: "exportHtml", options: htmlOptions }),
@@ -821,7 +764,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   preflight: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "runPreflightCheck" }),
   ),
@@ -841,9 +783,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
             className="ribbon-setting-form"
             onSubmit={
               /**
-               * イベントをprevent・defaultへ渡し、リボン実装の結果または副作用を処理する。
                * @param event - 画像保存先フォームを確定するsubmit event。
-               * @returns リボン実装のコールバックが生成する結果。
                */
               (event) => {
                 event.preventDefault();
@@ -865,15 +805,11 @@ export const RIBBON_IMPLEMENTATIONS: Record<
                   /**
                    * change操作を表示または編集状態へ反映する。
                    * @param event - 画像保存先入力をdraftへ反映するchange event。
-                   * @returns 副作用を完了し、値は返さない。
                    */
                   (event) => context.setImageDirectoryDraft(event.target.value)
                 }
                 onBlur={
-                  /**
-                   * 要素をsave・image・directoryへ渡し、リボン実装の結果または副作用を処理する。
-                   * @returns リボン実装のコールバックが生成する結果。
-                   */
+
                   () => saveImageDirectory(context)
                 }
               />
@@ -910,9 +846,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
             className="ribbon-setting-form"
             onSubmit={
               /**
-               * イベントをprevent・defaultへ渡し、リボン実装の結果または副作用を処理する。
                * @param event - font familyフォームを確定するsubmit event。
-               * @returns リボン実装のコールバックが生成する結果。
                */
               (event) => {
                 event.preventDefault();
@@ -935,16 +869,13 @@ export const RIBBON_IMPLEMENTATIONS: Record<
                   /**
                    * change操作を表示または編集状態へ反映する。
                     * @param value - 入力欄で選択または入力されたエディター用フォント名。
-                   * @returns 副作用を完了し、値は返さない。
                    */
                   (value) =>
                     context.setEditorFontFamilyDraft(normalizeFontFamily(value))
                 }
                 onCommit={
                   /**
-                   * 値をsave・font・familyへ渡し、リボン実装の結果または副作用を処理する。
                     * @param value - 保存するエディター用フォント名。
-                   * @returns リボン実装のコールバックが生成する結果。
                    */
                   (value) => saveFontFamily(context, "editor", value)
                 }
@@ -965,7 +896,6 @@ export const RIBBON_IMPLEMENTATIONS: Record<
                   /**
                    * change操作を表示または編集状態へ反映する。
                     * @param value - 入力欄で選択または入力されたプレビュー用フォント名。
-                   * @returns 副作用を完了し、値は返さない。
                    */
                   (value) =>
                     context.setPreviewFontFamilyDraft(
@@ -974,9 +904,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
                 }
                 onCommit={
                   /**
-                   * 値をsave・font・familyへ渡し、リボン実装の結果または副作用を処理する。
                     * @param value - 保存するプレビュー用フォント名。
-                   * @returns リボン実装のコールバックが生成する結果。
                    */
                   (value) => saveFontFamily(context, "preview", value)
                 }
@@ -995,21 +923,19 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   shortcuts: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "showShortcuts" }),
   ),
   features: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "showFeatures" }),
   ),
 };
 
 /**
- * リボン実装で共有するデータ形状を表すインターフェース。
+ * フォント名入力欄の現在値と変更通知を表します。
  */
 interface FontFamilyInputProps {
   /**
@@ -1046,8 +972,8 @@ interface FontFamilyInputProps {
 }
 
 /**
- * リボン実装のfont・family・inputを処理し、呼び出し側へ結果または副作用を返す。
- * @returns リボン実装のfont・family・inputが生成する結果。
+ * エディターとプレビューのフォントファミリーを編集する入力欄を描画する。
+ * @returns フォントファミリー入力欄。
  */
 function FontFamilyInput({
   id,
@@ -1069,8 +995,7 @@ function FontFamilyInput({
       autoComplete="off"
       onFocus={
         /**
-         * リボン実装のコールバックとして要素を処理する。
-         * @returns リボン実装のコールバックが生成する結果。
+         * 編集開始前の値を保存し、入力確定時の変更判定に使う。
          */
         () => {
           valueBeforeEditRef.current = value;
@@ -1080,7 +1005,6 @@ function FontFamilyInput({
         /**
          * change操作を表示または編集状態へ反映する。
          * @param event - フォント名入力の変更値を親へ渡すchange event。
-         * @returns 副作用を完了し、値は返さない。
          */
         (event) => onChange(event.target.value)
       }
@@ -1088,7 +1012,6 @@ function FontFamilyInput({
         /**
          * keydownイベントでifを実行する。
          * @param event - Enterで編集を確定しEscapeで戻すkeydown event。
-         * @returns 副作用を完了し、値は返さない。
          */
         (event) => {
           if (event.key === "Enter") {
@@ -1102,10 +1025,7 @@ function FontFamilyInput({
         }
       }
       onBlur={
-        /**
-         * 要素をon・commitへ渡し、リボン実装の結果または副作用を処理する。
-         * @returns リボン実装のコールバックが生成する結果。
-         */
+
         () => onCommit(value)
       }
     />
@@ -1113,7 +1033,7 @@ function FontFamilyInput({
 }
 
 /**
- * リボン実装のribbon・header・implementationsに関する状態または設定。
+ * 検索、表示切替、折りたたみのヘッダー項目と実行処理の対応表。
  */
 export const RIBBON_HEADER_IMPLEMENTATIONS: Record<
   RibbonHeaderImplementationId,
@@ -1122,7 +1042,6 @@ export const RIBBON_HEADER_IMPLEMENTATIONS: Record<
   search: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "find" }),
   ),
@@ -1132,16 +1051,15 @@ export const RIBBON_HEADER_IMPLEMENTATIONS: Record<
   collapse: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ collapsed, setCollapsed }) => setCollapsed(!collapsed),
   ),
 };
 
 /**
- * リボン実装のview・mode・buttonを処理し、呼び出し側へ結果または副作用を返す。
- * @param view - リボン実装へ渡す入力。
- * @returns 通知処理を完了し、値は返さない。
+ * 表示モードを切り替えるヘッダーボタンの実行定義を作成する。
+ * @param view - 切り替え先の分割表示モード。
+ * @returns 指定モードを通知し、該当モードの選択状態も判定するボタン定義。
  */
 function viewModeButton(
   view: "both" | "text" | "preview",
@@ -1149,12 +1067,10 @@ function viewModeButton(
   return button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand }) => onCommand({ type: "splitView", view }),
     {
       active: /**
-       * リボン実装のactiveを処理し、呼び出し側へ結果または副作用を返す。
        * @param state - 現在の編集・表示状態。
        * @returns リボン実装のactiveが生成する結果。
        */ (state) => state.mode === "split" && state.splitView === view,
@@ -1163,9 +1079,9 @@ function viewModeButton(
 }
 
 /**
- * リボン実装のtable・buttonを処理し、呼び出し側へ結果または副作用を返す。
- * @param action - リボン実装へ渡す入力。
- * @returns 通知処理を完了し、値は返さない。
+ * 表編集コマンドを通知するボタンの実行定義を作成する。
+ * @param action - 実行する表編集操作。列の前後挿入では見出し名も通知する。
+ * @returns 表編集ボタンの実行定義。編集不可状態では無効になる。
  */
 function tableButton(
   action: Exclude<TableAction, "insert">,
@@ -1173,7 +1089,6 @@ function tableButton(
   return button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
-    * @returns クリック処理を完了し、値は返さない。
      */
     ({ onCommand, headerName }) =>
       onCommand({
@@ -1190,8 +1105,8 @@ function tableButton(
 
 /**
  * HTML出力設定から指定した項目の現在値を取得する。
- * @param option - リボン実装へ渡す設定または境界値。
- * @returns リボン実装のhtml・optionが生成する結果。
+ * @param option - 画面から切り替えるHTML出力設定。
+ * @returns 現在の設定値をチェックボックスへ結び付ける実装。
  */
 function htmlOption(
   option: "embedImages" | "convertLinkedMarkdown" | "saveWithoutDialog",
@@ -1214,7 +1129,6 @@ function htmlOption(
               /**
                * change操作を表示または編集状態へ反映する。
                * @param event - HTML出力optionの変更を設定へ反映するchange event。
-               * @returns 副作用を完了し、値は返さない。
                */
               (event) =>
                 context.onHtmlOptionsChange({
@@ -1258,10 +1172,10 @@ function pdfOption(): RibbonControlImplementation {
 }
 
 /**
- * リボン項目定義から指定した入力フィールドを取得する。
- * @param definition - リボン実装へ渡す入力。
- * @param id - リボン実装の対象や分岐を識別する値。
- * @returns リボン実装のget・control・fieldが生成する結果。
+ * リボン項目定義から識別子に一致する入力フィールドを取得する。
+ * @param definition - 入力フィールド一覧を持つリボン項目定義。
+ * @param id - 取得するフィールドの識別子。
+ * @returns 識別子に一致するフィールド。定義にない場合は例外を投げる。
  */
 function getControlField(
   definition: RibbonItemDefinition,
@@ -1284,7 +1198,6 @@ function getControlField(
 /**
  * リボン実装の値を保存先または共有状態へ書き出す。
  * @param context フォント設定の現在値、ドラフト値、保存処理を提供するリボン実装コンテキスト。
- * @returns 副作用を完了し、値は返さない。
  */
 function saveImageDirectory(context: RibbonImplementationContext): void {
   const directory = context.imageDirectoryDraft.trim();
@@ -1295,7 +1208,6 @@ function saveImageDirectory(context: RibbonImplementationContext): void {
 /**
  * 編集面とプレビュー面のドラフト値を、それぞれの設定保存処理へ渡す。
  * @param context 現在値、ドラフト値、設定保存コマンドを提供するリボン実装コンテキスト。
- * @returns 副作用を完了し、値は返さない。
  */
 function saveFontFamilies(context: RibbonImplementationContext): void {
   const editorFontFamily = normalizeFontFamily(context.editorFontFamilyDraft);
@@ -1308,7 +1220,6 @@ function saveFontFamilies(context: RibbonImplementationContext): void {
  * @param context 現在値、ドラフト値、設定保存コマンドを提供するリボン実装コンテキスト。
  * @param field 更新するフォント設定の対象面。editorは編集面、previewはプレビュー面。
  * @param value 対象面に保存するフォントファミリー。
- * @returns 副作用を完了し、値は返さない。
  */
 function saveFontFamily(
   context: RibbonImplementationContext,
@@ -1331,7 +1242,6 @@ function saveFontFamily(
  * @param context 現在値、ドラフト値、設定保存コマンドを提供するリボン実装コンテキスト。
  * @param editorFontFamily 保存する編集面のフォントファミリー。
  * @param previewFontFamily 保存するプレビュー面のフォントファミリー。
- * @returns 副作用を完了し、値は返さない。
  */
 function saveFontFamilyValues(
   context: RibbonImplementationContext,
@@ -1355,7 +1265,7 @@ function saveFontFamilyValues(
  * @param value - 数値入力欄から受け取った文字列。
  * @param minimum - 戻り値に許可する下限。
  * @param maximum - 戻り値に許可する上限。
- * @returns リボン実装で利用する数値。
+
  */
 function clampNumber(value: string, minimum: number, maximum: number): number {
   const parsed = Number(value);

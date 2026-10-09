@@ -64,7 +64,7 @@ export interface HtmlExportRequest {
 export interface HtmlExportResult {
 
     /**
-     * HTMLのtargetに関する状態または設定。
+     * 出力HTMLファイルを保存する最終パス。
      */
     target: vscode.Uri;
 
@@ -75,7 +75,7 @@ export interface HtmlExportResult {
 }
 
 /**
- * HTMLで共有するデータ形状を表すインターフェース。
+ * 元文書のURI、ファイルパス、HTML化するMarkdown本文を保持します。
  */
 export interface HtmlDocument {
 
@@ -106,12 +106,12 @@ export interface HtmlDocument {
 }
 
 /**
- * HTMLで共有するデータ形状を表すインターフェース。
+ * 保存先URIと、HTML化する文書一覧をまとめた準備情報です。
  */
 export interface HtmlExportPreparation {
 
     /**
-     * HTMLのtargetに関する状態または設定。
+     * export処理が保存先として選んだHTMLファイルのURI。
      */
     target: vscode.Uri;
 
@@ -122,7 +122,7 @@ export interface HtmlExportPreparation {
 }
 
 /**
- * HTMLで共有するデータ形状を表すインターフェース。
+ * HTML文書の識別子と、レンダリング済みHTML本文です。
  */
 export interface HtmlRenderedDocument {
 
@@ -138,7 +138,7 @@ export interface HtmlRenderedDocument {
 }
 
 /**
- * HTMLのexport・htmlを処理し、呼び出し側へ結果または副作用を返す。
+ * Markdownと関連HTML文書を解決し、設定を適用したHTMLを保存する。
  * @param request - HTML本文・CSS・元文書URI・言語・フォント・出力設定をまとめた要求。
  * @returns 書き出したHTMLのURIと関連文書情報。保存ダイアログをキャンセルした場合はundefined。
  */
@@ -149,7 +149,7 @@ export async function exportHtml(request: HtmlExportRequest): Promise<HtmlExport
 }
 
 /**
- * HTMLで使う値または実行環境を組み立てる。
+ * HTMLの保存先を決定し、出力対象のローカル文書を収集する。
  * @param request - HTML本文・CSS・元文書URI・言語・フォント・出力設定をまとめた要求。
  * @returns 書き出し用HTMLと関連文書を準備した結果。保存をキャンセルした場合はundefined。
  */
@@ -181,7 +181,7 @@ export async function prepareHtmlExport(request: HtmlExportRequest): Promise<Htm
  * @param request - HTML本文・CSS・元文書URI・言語・フォント・出力設定をまとめた要求。
  * @param preparation - HTML保存先URIと、出力対象文書のレコード一覧。
  * @param renderedDocuments - Webviewから受け取った識別子付きHTML描画結果の一覧。
- * @returns HTMLの非同期処理で得られる結果。
+ * @returns 保存したHTMLファイルのURIと、出力で参照するファイルURI一覧。
  */
 export async function writePreparedHtml(
     request: HtmlExportRequest,
@@ -196,11 +196,6 @@ export async function writePreparedHtml(
          */
         (document) => [normalizePath(document.id), document.html]));
     const documents = preparation.documents.map(
-        /**
-         * 各documentからsource・pathを取り出して一覧化する。
-         * @param document - HTMLへ出力するMarkdown文書のソースパス、URI、本文、保存先を持つレコード。
-         * @returns source・pathを取り出した変換結果の一覧。
-         */
         (document) => ({
             ...document,
             html: renderedById.get(normalizePath(document.sourcePath)) ?? document.html
@@ -232,10 +227,10 @@ export async function writePreparedHtml(
 }
 
 /**
- * HTMLから必要な値またはリソースを取得する。
+ * ルート文書とリンク先文書を収集し、各文書のHTML出力先と本文を決定する。
  * @param request - HTML本文・CSS・元文書URI・言語・フォント・出力設定をまとめた要求。
  * @param targetPath - ルートHTMLの保存先ファイルパス。
- * @returns HTMLに対応する要素の一覧。
+ * ソースURIと出力パスを持つ、重複を除いたHTML出力対象文書一覧。
  */
 async function collectDocuments(request: HtmlExportRequest, targetPath: string): Promise<HtmlDocument[]> {
     const documents: HtmlDocument[] = [];
@@ -261,7 +256,7 @@ async function collectDocuments(request: HtmlExportRequest, targetPath: string):
                 /**
                  * 種別「link」のreferenceだけを残す。
                 * @param reference - Markdown本文から見つけたリンクまたはリソース参照。
-                 * @returns 条件を満たした要素だけを含む一覧。
+
                  */
                 (reference) => reference.kind === 'link');
         for (const reference of references) {
@@ -295,9 +290,9 @@ async function collectDocuments(request: HtmlExportRequest, targetPath: string):
 }
 
 /**
- * HTMLを表示用の結果へ変換する。
+ * Markdownを見出しアンカーとローカル参照情報を含むHTMLへ描画する。
  * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
- * @returns HTMLで利用する文字列。
+
  */
 function renderLinkedMarkdown(markdown: string): string {
     const parser = new Marked({ gfm: true });
@@ -378,7 +373,7 @@ function renderLinkedMarkdown(markdown: string): string {
  * @param css - head内のstyle要素へ挿入するスタイルシート。
  * @param language - html要素のlang属性に設定する言語コード。
  * @param fontFamily - 生成HTMLの本文へ適用するフォントファミリー。
- * @returns HTMLで利用する文字列。
+
  */
 function buildStandaloneHtml(body: string, css: string, language: string, fontFamily?: string): string {
     const safeCss = css.replace(/<\/style/gi, '<\\/style');
@@ -387,13 +382,13 @@ function buildStandaloneHtml(body: string, css: string, language: string, fontFa
 }
 
 /**
- * HTMLのrewrite・bodyを処理し、呼び出し側へ結果または副作用を返す。
+ * body内の画像・文書リンクを出力先相対参照や埋め込みデータへ書き換える。
  * @param html - 表示または出力するHTML本文。
  * @param sourcePath - 変換するHTML内の相対参照を解決するリンク元ファイルパス。
  * @param outputPath - 書き換え後の相対リンクの基準となる生成HTMLの保存先パス。
  * @param documents - 現在のHTML出力に含まれるHtmlDocument一覧。リンク先Markdownの出力先解決に使う。
  * @param options - 画像を埋め込むか、リンク先MarkdownをHTML化するかを指定するHTML出力設定。
- * @returns HTMLで利用する文字列。
+
  */
 async function rewriteBody(
     html: string,
@@ -407,7 +402,7 @@ async function rewriteBody(
         /**
          * 各matchを変換して一覧化する。
          * @param match - img開始タグに一致した正規表現のMatch。match[0]にタグ全体を含む。
-         * @returns 入力要素から生成した変換結果の一覧。
+
          */
         (match) => match[0]);
     for (const tag of imageTags) {
@@ -416,21 +411,20 @@ async function rewriteBody(
     }
     result = result.replace(/<a\b[^>]*>/gi,
         /**
-         * tagをrewrite・link・tagへ渡し、HTMLの結果または副作用を処理する。
          * @param tag - 書き換えるa要素のHTMLタグ全体。
-         * @returns HTMLで利用する文字列。
+
          */
         (tag) => rewriteLinkTag(tag, sourcePath, outputPath, documents, options));
     return result.replace(/\sdata-(?:original-src|mve-[\w-]+)(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?/gi, '');
 }
 
 /**
- * HTMLのrewrite・image・tagを処理し、呼び出し側へ結果または副作用を返す。
+ * 画像srcを埋め込みData URLまたは生成HTMLからの相対パスへ書き換える。
  * @param tag - 画像のsrc属性を読み書きするimg要素のHTMLタグ全体。
  * @param sourcePath - 相対画像参照を解決するリンク元HTMLファイルのパス。
  * @param outputPath - 画像リンクの基準となる生成HTMLの保存先パス。
  * @param options - 画像を埋め込むか相対参照にするかを指定するHTML出力設定。
- * @returns HTMLで利用する文字列。
+
  */
 async function rewriteImageTag(
     tag: string,
@@ -457,13 +451,13 @@ async function rewriteImageTag(
 }
 
 /**
- * HTMLのrewrite・link・tagを処理し、呼び出し側へ結果または副作用を返す。
+ * 文書リンクを関連文書のHTML出力先または元の相対参照へ書き換える。
  * @param tag - href属性を書き換えるa要素のHTMLタグ全体。
  * @param sourcePath - 相対リンクを解決するリンク元HTMLファイルのパス。
  * @param outputPath - 相対リンクの基準となる生成HTMLの保存先パス。
  * @param documents - 現在のHTML出力に含まれるHtmlDocument一覧。リンク先Markdownの出力先解決に使う。
  * @param options - リンク先MarkdownをHTML化するかを指定するHTML出力設定。
- * @returns HTMLで利用する文字列。
+
  */
 function rewriteLinkTag(
     tag: string,
@@ -486,11 +480,6 @@ function rewriteLinkTag(
         : resolveLocalPath(sourcePath, original);
     if (!linkedPath) return cleanDataAttributes(tag);
     const linkedDocument = documents.find(
-        /**
-         * source・pathが条件に一致する最初のdocumentを取得する。
-         * @param document - HTML出力対象文書のソースパスを持つHtmlDocument。
-         * @returns 条件に一致した最初の要素。未検出時はundefined。
-        */
         (document) => normalizePath(document.sourcePath) === normalizePath(linkedPath));
     const isMarkdown = isMarkdownPath(linkedPath);
     const isSameDocument = normalizePath(linkedPath) === normalizePath(sourcePath);
@@ -534,7 +523,7 @@ function resolveLocalFileUri(baseUri: vscode.Uri, source: string, workspaceRoote
  * ファイルを基準にローカルリソース参照を絶対パスへ解決する。
  * @param baseFilePath - 相対参照の基準となるHTMLまたはMarkdownファイルのパス。
  * @param source - ローカルURI、絶対パス、または基準ファイルからの相対パス。
- * @returns HTMLで利用する文字列。
+
  */
 function resolveLocalPath(baseFilePath: string, source: string): string {
     const clean = decodeLocalResourceSource(source);
@@ -551,11 +540,11 @@ function resolveLocalPath(baseFilePath: string, source: string): string {
 }
 
 /**
- * HTMLのoutput・path・forを処理し、呼び出し側へ結果または副作用を返す。
+ * リンク先Markdownがルート文書と同じ相対位置になるよう出力先HTMLパスを求める。
  * @param sourcePath - 出力対象Markdown文書のソースパス。
  * @param rootSourcePath - ルートMarkdown文書のソースパス。
  * @param rootOutputPath - ルートHTMLの保存先パス。
- * @returns HTMLで利用する文字列。
+ * @returns ソースツリー内の相対位置を保った生成HTMLパス。
  */
 function outputPathFor(sourcePath: string, rootSourcePath: string, rootOutputPath: string): string {
     const sourceRoot = path.dirname(rootSourcePath);
@@ -567,25 +556,20 @@ function outputPathFor(sourcePath: string, rootSourcePath: string, rootOutputPat
 }
 
 /**
- * HTMLのrelative・hrefを処理し、呼び出し側へ結果または副作用を返す。
+ * 2つのファイルパスからHTML hrefを作り、各URL区間を安全にエンコードする。
  * @param fromFilePath - 生成hrefを使用するHTMLファイルのパス。
  * @param toFilePath - hrefの参照先ファイルパス。
- * @returns HTMLで利用する文字列。
+ * @returns 区切りを`/`へ揃えてエンコードした相対href。
  */
 function relativeHref(fromFilePath: string, toFilePath: string): string {
     const relative = path.relative(path.dirname(fromFilePath), toFilePath).replace(/\\/g, '/');
     const normalized = relative || path.basename(toFilePath);
     return normalized.split('/').map(
-        /**
-         * 各segmentをencode・uricomponentへ渡し、変換結果を一覧化する。
-         * @param segment - 相対hrefのうちURIエンコードするパス区間。
-         * @returns 入力要素から生成した変換結果の一覧。
-         */
         (segment) => segment === '.' || segment === '..' ? segment : encodeURIComponent(segment)).join('/');
 }
 
 /**
- * HTMLから必要な値またはリソースを取得する。
+ * HTML開始タグから指定属性の値を引用符を除いて読み取る。
  * @param tag - 属性を読み取るHTML要素タグ全体。
  * @param name - 読み取るHTML属性名。
  * @returns 指定属性の引用符を除いた値。属性がなければundefined。
@@ -600,7 +584,7 @@ function readAttribute(tag: string, name: string): string | undefined {
  * @param tag - 属性を置換するHTML要素タグ全体。
  * @param name - 置換するHTML属性名。
  * @param value - 指定HTML属性へ設定する新しい未エスケープ値。
- * @returns HTMLで利用する文字列。
+
  */
 function replaceAttribute(tag: string, name: string, value: string): string {
     const pattern = new RegExp(`\\b${name}\\s*=\\s*(?:"[^"]*"|'[^']*'|[^\\s>]+)`, 'i');
@@ -613,7 +597,7 @@ function replaceAttribute(tag: string, name: string, value: string): string {
 /**
  * HTMLから不要または危険な情報を除去する。
  * @param tag - 不要なdata属性を除去するHTML要素タグ全体。
- * @returns HTMLで利用する文字列。
+
  */
 function cleanDataAttributes(tag: string): string {
     return tag.replace(/\sdata-(?:original-src|mve-[\w-]+)(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?/gi, '');
@@ -632,7 +616,7 @@ function decodeHtmlEntities(value: string | undefined): string | undefined {
 /**
  * リンク参照のフラグメント部分をURIエンコードして返す。
  * @param value - リンク参照文字列。#以降を抽出してURIエンコードする。
- * @returns HTMLで利用する文字列。
+
  */
 function readFragment(value: string): string {
     const index = value.indexOf('#');
@@ -668,7 +652,7 @@ function isMarkdownPath(value: string): boolean {
 /**
  * 絶対化、正規化、小文字化したファイルパスを返す。
  * @param value - 絶対化・正規化・小文字化して比較するファイルパス。
- * @returns HTMLで利用する文字列。
+
  */
 function normalizePath(value: string): string {
     return path.normalize(path.resolve(value)).toLowerCase();
@@ -678,7 +662,7 @@ function normalizePath(value: string): string {
  * ファイルパス末尾の拡張子を指定した拡張子へ置き換える。
  * @param value - 拡張子を置き換えるファイルパス。
  * @param extension - 置き換え後に付ける拡張子。
- * @returns HTMLで利用する文字列。
+
  */
 function replaceExtension(value: string, extension: string): string {
     return value.replace(/\.[^./\\]+$/, extension);
@@ -687,7 +671,7 @@ function replaceExtension(value: string, extension: string): string {
 /**
  * 出力ファイルパスにHTML拡張子がない場合は.htmlを付ける。
  * @param value - HTML拡張子を付ける出力ファイルパス。
- * @returns HTMLで利用する文字列。
+
  */
 function ensureHtmlExtension(value: string): string {
     return /\.html?$/i.test(value) ? value : `${value}.html`;
@@ -696,7 +680,7 @@ function ensureHtmlExtension(value: string): string {
 /**
  * HTML属性値に含まれるアンパサンド、山括弧、引用符をエンティティへ変換する。
  * @param value - HTML属性へ出力する未エスケープ文字列。
- * @returns HTMLで利用する文字列。
+
  */
 function escapeAttribute(value: string): string {
     return value.replace(/[&<>"']/g,
@@ -711,7 +695,7 @@ function escapeAttribute(value: string): string {
 /**
  * PDFまたはHTML出力前に危険な要素と属性をHTML本文から除去する。
  * @param value - PDFまたはHTML出力前に危険な要素・属性を除去するHTML本文。
- * @returns HTMLで利用する文字列。
+
  */
 function stripUnsafeMarkup(value: string): string {
     return value
@@ -721,9 +705,9 @@ function stripUnsafeMarkup(value: string): string {
 }
 
 /**
- * HTMLのmime・from・pathを処理し、呼び出し側へ結果または副作用を返す。
+ * ファイル拡張子からHTML出力で使う画像MIMEタイプを決める。
  * @param filePath - 拡張子から画像MIMEタイプを判定するファイルパス。
- * @returns HTMLで利用する文字列。
+ * @returns 拡張子に対応するMIMEタイプ。不明な拡張子はapplication/octet-stream。
  */
 function mimeFromPath(filePath: string): string {
     const extension = path.extname(filePath).toLowerCase();
@@ -741,7 +725,7 @@ function mimeFromPath(filePath: string): string {
 const HTML_CSS = /**
  * HTML出力用の印刷・レイアウト規則を指定フォントで生成する。
  * @param fontFamily - body要素へ適用するCSSフォント指定。
- * @returns HTMLで利用する文字列。
+
  */ (fontFamily: string): string => `
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body { margin: 0; font-family: ${fontFamily}; color: #202124; background: #fff; }

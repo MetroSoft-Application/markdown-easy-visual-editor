@@ -46,13 +46,10 @@ function values(
 describe('findHtmlUrlAttributeRanges',
     /**
      * HTML URL属性の抽出仕様を検証する。
-     * @returns テストケースを実行し、値は返さない。
      */
     () => {
         it('highlights common image and link URL attributes without quotes',
-            /**
-             * @returns テストケースを実行し、値は返さない。
-             */
+
             () => {
                 const state = createState(
                     '<img src="./images/photo.png" alt="photo" width="800">\n'
@@ -65,9 +62,7 @@ describe('findHtmlUrlAttributeRanges',
             });
 
         it('highlights inline HTML URL attributes inside Markdown paragraphs',
-            /**
-             * @returns テストケースを実行し、値は返さない。
-             */
+
             () => {
                 const state = createState(
                     'Before <img src="./inline.png" alt="inline"> '
@@ -80,9 +75,7 @@ describe('findHtmlUrlAttributeRanges',
             });
 
         it('supports srcset, poster and unquoted URL attributes',
-            /**
-             * @returns テストケースを実行し、値は返さない。
-             */
+
             () => {
                 const state = createState(
                     '<source srcset="small.png 1x, large.png 2x">\n'
@@ -96,9 +89,7 @@ describe('findHtmlUrlAttributeRanges',
             });
 
         it('matches URL attribute names case-insensitively',
-            /**
-             * @returns テストケースを実行し、値は返さない。
-             */
+
             () => {
                 const state = createState('<IMG SRC="./upper.png">');
                 expect(values(state, findHtmlUrlAttributeRanges(state))).toEqual([
@@ -107,9 +98,7 @@ describe('findHtmlUrlAttributeRanges',
             });
 
         it('ignores ordinary HTML attributes and Markdown link syntax',
-            /**
-             * @returns テストケースを実行し、値は返さない。
-             */
+
             () => {
                 const state = createState(
                     '<img alt="photo" width="800" class="hero">\n'
@@ -120,9 +109,7 @@ describe('findHtmlUrlAttributeRanges',
             });
 
         it('does not treat HTML-looking text inside code fences as HTML attributes',
-            /**
-             * @returns テストケースを実行し、値は返さない。
-             */
+
             () => {
                 const state = createState(
                     '```text\n'
@@ -134,9 +121,7 @@ describe('findHtmlUrlAttributeRanges',
             });
 
         it('restricts traversal and decoration candidates to the requested range',
-            /**
-             * @returns テストケースを実行し、値は返さない。
-             */
+
             () => {
                 const doc = '<img src="first.png">\n<a href="second.md">Second</a>';
                 const state = createState(doc);

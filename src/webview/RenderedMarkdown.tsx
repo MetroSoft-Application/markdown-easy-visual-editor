@@ -20,7 +20,7 @@ import { mveDebug } from "./debug";
 export type InspectorTarget =
   | {
       /**
-       * Markdownプレビューで対象や分岐を識別する値の型。
+       * Mermaid図のソースをインスペクターで表示する対象です。
        */
       type: "mermaid";
       /**
@@ -30,7 +30,7 @@ export type InspectorTarget =
     }
   | {
       /**
-       * Markdownプレビューで対象や分岐を識別する値の型。
+       * 数式のソースをインスペクターで表示する対象です。
        */
       type: "math";
       /**
@@ -40,7 +40,7 @@ export type InspectorTarget =
     }
   | {
       /**
-       * Markdownプレビューで対象や分岐を識別する値の型。
+       * 画像の参照先をインスペクターで表示する対象です。
        */
       type: "image";
       /**
@@ -52,13 +52,13 @@ export type InspectorTarget =
        */
       alt: string;
       /**
-       * Markdownプレビューの位置・寸法・件数・時間を表す数値。
+       * document.images内でこの画像要素に対応する0始まりの番号です。
        */
       imageIndex?: number;
     };
 
 /**
- * Markdownプレビューで共有するデータ形状を表すインターフェース。
+ * Markdownプレビューへ渡す本文、表示設定、操作イベントです。
  */
 interface Props {
   /**
@@ -76,67 +76,60 @@ interface Props {
   settings: WebviewSettings;
 
   /**
-   * Markdownプレビューで扱うclass・nameの文字列。
+   * プレビュー全体の外側要素へ追加するCSSクラス。
    */
   className?: string;
 
   /**
-   * Markdownプレビューのimage・zoomを表す数値。
+   * プレビュー画像の表示倍率。未指定時は通常倍率で描画する。
    */
   imageZoom?: number;
   /**
-   * Markdownプレビューのイベントまたはメッセージを受け取り、状態を更新する。
-   * @param target - Inspectorへ表示するプレビュー要素の参照情報。
-   * @returns 副作用を完了し、値は返さない。
+   * プレビューで選択された画像、数式、MermaidのInspector対象を親へ通知する。
+   * @param target - Inspectorで開く対象の種別と本文などを含む情報。
    */
   onInspect?: (target: InspectorTarget) => void;
   /**
-   * Markdownプレビューのイベントまたはメッセージを受け取り、状態を更新する。
+   * プレビュー画像の幅変更を親コンポーネントへ通知する。
    * @param imageIndex - 操作するMarkdown画像参照の0始まりインデックス。
    * @param width - 表示領域または列の幅。
-   * @returns 副作用を完了し、値は返さない。
    */
   onImageResize?: (imageIndex: number, width: number) => void;
   /**
-   * Markdownプレビューのイベントまたはメッセージを受け取り、状態を更新する。
+   * プレビュー画像のサイズを既定値へ戻す要求を親コンポーネントへ通知する。
    * @param imageIndex - 操作するMarkdown画像参照の0始まりインデックス。
-   * @returns Markdownプレビューのon・image・resetが生成する結果。
    */
   onImageReset?: (imageIndex: number) => void;
   /**
-   * Markdownプレビューのイベントまたはメッセージを受け取り、状態を更新する。
+    * 指定画像へ左・中央・右の配置を適用する操作を親へ通知する。
    * @param imageIndex - 操作するMarkdown画像参照の0始まりインデックス。
    * @param alignment - 画像へ適用する配置（left/center/right）。
-   * @returns Markdownプレビューのon・image・alignが生成する結果。
    */
   onImageAlign?: (imageIndex: number, alignment: ImageAlignment) => void;
   /**
-   * Markdownプレビューのイベントまたはメッセージを受け取り、状態を更新する。
+    * Markdownリンクの遷移先とワークスペース基準リンクかどうかを親へ渡す。
    * @param href - リンク操作領域の遷移先URI。
-   * @returns Markdownプレビューのon・navigateが生成する結果。
    */
   onNavigate?: (href: string, workspaceRooted?: boolean) => void;
   /**
-   * Markdownプレビューのイベントまたはメッセージを受け取り、状態を更新する。
+    * 対象DOM要素のMarkdown描画完了を親へ通知する。
    * @param element - 寸法または属性を読み取るDOM要素。
-   * @returns Markdownプレビューのon・renderedが生成する結果。
    */
   onRendered?: (element: HTMLElement) => void;
   /**
-   * Markdownプレビューのイベントまたはメッセージを受け取り、状態を更新する。
-   * @returns Markdownプレビューのon・mermaid・renderedが生成する結果。
+    * Mermaid図の描画完了を親へ通知する。
    */
   onMermaidRendered?: () => void;
 
   /**
-   * Markdownプレビューのdefer・mermaidを切り替えるフラグ。
+   * 初期Markdown表示後にMermaid描画を遅延するかを指定する。
    */
   deferMermaid?: boolean;
 }
 
 /**
- * Markdownプレビューを表示用の結果へ変換する。
- * @returns Markdownプレビューで生成または変換した値。
+ * Markdown本文と表示状態からプレビューのReact要素を描画する。
+ * @returns Markdownプレビューを表すReact要素。
  */
 function RenderedMarkdownView({
   markdown,
@@ -171,7 +164,7 @@ function RenderedMarkdownView({
          */
         key: string;
         /**
-         * Markdownプレビューのcontrollerに関する状態または設定。
+         * この描画要求と関連リソースを中断するAbortController。
          */
         controller: AbortController;
       }
@@ -192,10 +185,7 @@ function RenderedMarkdownView({
   onImageResetRef.current = onImageReset;
   onImageAlignRef.current = onImageAlign;
   useLayoutEffect(
-    /**
-     * 要素をifへ渡し、Markdownプレビューの結果または副作用を処理する。
-     * @returns Markdownプレビューのコールバックが生成する結果。
-     */
+
     () => {
       const root = rootRef.current;
       if (!root) return;
@@ -220,36 +210,25 @@ function RenderedMarkdownView({
   useEffect(
     /**
      * 依存状態の変化に応じて表示または購読を更新する。
-     * @returns Markdownプレビューのコールバックが生成する結果。
      */
     () =>
-      /**
-       * 要素をfor・eachへ渡し、Markdownプレビューの結果または副作用を処理する。
-       * @returns Markdownプレビューのコールバックが生成する結果。
-       */
+
       () => {
         mermaidRenderControllersRef.current.forEach(
           /**
            * 設定ごとにabortを実行する。
-          * @returns 副作用を完了し、値は返さない。
            */
           ({ controller }) => controller.abort(),
         );
         mermaidRenderControllersRef.current.clear();
-        mermaidObjectUrlsRef.current.forEach(
-          /**
-           * urlごとにrevoke・object・urlを実行する。
-           * @param url - Markdownプレビューで読み書きするリソースの場所。
-           * @returns 副作用を完了し、値は返さない。
-           */
-          (url) => URL.revokeObjectURL(url),
+        mermaidObjectUrlsRef.current.forEach((url) =>
+          URL.revokeObjectURL(url),
         );
         mermaidObjectUrlsRef.current.clear();
         mermaidInteractionManagersRef.current.forEach(
           /**
            * cleanupごとにcleanupを実行する。
            * @param cleanup - Mermaid図のイベントとインタラクション管理を解除する関数。
-           * @returns 副作用を完了し、値は返さない。
            */
           (cleanup) => cleanup(),
         );
@@ -261,7 +240,6 @@ function RenderedMarkdownView({
   useEffect(
     /**
      * 依存状態の変化に応じて表示または購読を更新する。
-     * @returns Markdownプレビューのコールバックが生成する結果。
      */
     () => {
       // HTMLの更新を監視し、未処理のMermaidや画像の読み込み後にレイアウトを通知する。
@@ -273,14 +251,12 @@ function RenderedMarkdownView({
         /**
          * tableごとにfromを実行する。
          * @param table - tableのrowsを参照する走査対象。
-         * @returns 副作用を完了し、値は返さない。
          */
         (table) => {
           Array.from(table.rows).forEach(
             /**
              * 行ごとにifを実行する。
              * @param row - 行のcellsを参照する走査対象。
-             * @returns 副作用を完了し、値は返さない。
              */
             (row) => {
               const cell = row.cells[0];
@@ -317,40 +293,21 @@ function RenderedMarkdownView({
       const renderControllers = mermaidRenderControllersRef.current;
       const scrollContainer = findScrollContainer(root);
       let lastViewportActivityAt = 0;
-      interactionManagers.forEach(
-        /**
-         * cleanupごとにifを実行する。
-         * @param cleanup - DOMから外れた図のイベントとインタラクション管理を解除する関数。
-         * @param node - DOMノードのis・connectedを参照する走査対象。
-         * @returns 副作用を完了し、値は返さない。
-         */
-        (cleanup, node) => {
+      interactionManagers.forEach((cleanup, node) => {
           if (node.isConnected) return;
           cleanup();
           interactionManagers.delete(node);
-        },
-      );
+      });
       // 差分DOMで保持された同一図の描画は継続する。図ソース・テーマが変わった要求だけを破棄する。
-      renderControllers.forEach(
-        /**
-         * エントリごとにdecode・uricomponentを実行する。
-         * @param entry - エントリのkeyを参照する走査対象。
-         * @param node - DOMノードのdatasetを参照する走査対象。
-         * @returns 副作用を完了し、値は返さない。
-         */
-        (entry, node) => {
+      renderControllers.forEach((entry, node) => {
           const source = decodeURIComponent(node.dataset.mermaidSource ?? "");
           if (node.isConnected && entry.key === `${theme}\0${source}`) return;
           entry.controller.abort();
           renderControllers.delete(node);
           delete node.dataset.mermaidStatus;
-        },
-      );
+      });
 
-      const notifyRendered = /**
-       * Markdownプレビューのnotify・renderedを処理し、呼び出し側へ結果または副作用を返す。
-       * @returns 副作用を完了し、値は返さない。
-       */ () => {
+      const notifyRendered =  () => {
         if (cancelled) return;
         // 出力ステージはMermaidが全件確定する前のResizeObserver通知を完了扱いしない。
         if (
@@ -369,7 +326,6 @@ function RenderedMarkdownView({
        * @param source - 現在の図ノードに対応するMermaidソース文字列。
        * @param rendered Mermaidレンダラーが返したSVGと描画状態。
        * @param isCurrent 描画結果を現在のプレビューへ適用できるか判定する関数。
-       * @returns 副作用を完了し、値は返さない。
        */ async (
         node: HTMLElement,
         source: string,
@@ -378,11 +334,7 @@ function RenderedMarkdownView({
       ): Promise<void> => {
         const applyStartedAt = performance.now();
 
-        const recordApplyDuration = /**
-         * Markdownプレビューのrecord・apply・durationを処理し、呼び出し側へ結果または副作用を返す。
-         * @param startedAt - SVGのDOM適用処理を開始したHigh Resolution Time（ミリ秒）。
-         * @returns Markdownプレビューのrecord・apply・durationが生成する結果。
-         */ (startedAt = applyStartedAt) => {
+        const recordApplyDuration = (startedAt = applyStartedAt) => {
           performance.clearMeasures("mve-preview-mermaid-apply");
           performance.measure("mve-preview-mermaid-apply", {
             start: startedAt,
@@ -453,10 +405,6 @@ function RenderedMarkdownView({
         image.addEventListener(
           "load",
 
-          /**
-           * イベントでnotify・renderedを実行する。
-           * @returns 副作用を完了し、値は返さない。
-           */
           () => {
             notifyRendered();
           },
@@ -487,7 +435,7 @@ function RenderedMarkdownView({
       };
 
       const renderNodes = /**
-       * Markdownプレビューを表示用の結果へ変換する。
+       * 未描画Mermaidノードを描画し、その状態をDOMへ反映する。
        * @returns 条件が成立したかを示す真偽値。
        */ async (): Promise<boolean> => {
         // 未描画のMermaidノードを抽出し、SVG描画結果またはエラー表示を反映する。
@@ -498,7 +446,7 @@ function RenderedMarkdownView({
           /**
            * datasetの条件を満たすDOMノードだけを残す。
            * @param node - DOMノードのdatasetを参照する走査対象。
-           * @returns 条件を満たした要素だけを含む一覧。
+
            */
           (node) =>
             !node.dataset.mermaidStatus &&
@@ -508,9 +456,8 @@ function RenderedMarkdownView({
           if (
             !allNodes.some(
               /**
-               * MarkdownプレビューのコールバックとしてDOMノードを処理する。
+
                * @param node - Markdownプレビューで走査または更新する要素。
-               * @returns Markdownプレビューのコールバックが生成する結果。
                */
               (node) => node.dataset.mermaidStatus === "rendering",
             )
@@ -519,7 +466,7 @@ function RenderedMarkdownView({
           }
           return allNodes.some(
             /**
-             * MarkdownプレビューのコールバックとしてDOMノードを処理する。
+
              * @param node - Markdownプレビューで走査または更新する要素。
              * @returns 条件が成立したかを示す真偽値。
              */
@@ -637,7 +584,7 @@ function RenderedMarkdownView({
         notifyRendered();
         return allNodes.some(
           /**
-           * MarkdownプレビューのコールバックとしてDOMノードを処理する。
+
            * @param node - Markdownプレビューで走査または更新する要素。
            * @returns 条件が成立したかを示す真偽値。
            */
@@ -646,10 +593,9 @@ function RenderedMarkdownView({
       };
 
       const scheduleRenderNodes = /**
-       * Markdownプレビューの処理順序と完了状態を管理する。
+       * 遅延後にMermaid描画を1チャンク実行し、表示範囲内の残件があれば次のチャンクを予約する。
        * @param delay - 次のMermaid描画chunkを開始するまでの遅延（ミリ秒）。
        * @param restart - 既存の描画タイマーを解除して予約し直す場合true。
-       * @returns Markdownプレビューのschedule・render・nodesが生成する結果。
        */ (delay = deferMermaid ? 80 : 0, restart = false) => {
         const startedAt = performance.now();
         if (restart && renderTimer !== undefined) {
@@ -664,21 +610,16 @@ function RenderedMarkdownView({
           renderTimer = window.setTimeout(
             /**
              * 指定時間の経過後に後続処理を実行する。
-             * @returns 副作用を完了し、値は返さない。
              */
             () => {
               renderTimer = undefined;
               void renderNodes().then(
-                /**
-                 * 要素をfromへ渡し、Markdownプレビューの結果または副作用を処理する。
-                 * @returns Markdownプレビューのコールバックが生成する結果。
-                 */
+
                 () => {
                   const hasNextForegroundNode = Array.from(
                     root.querySelectorAll<HTMLElement>(".mermaid"),
                   ).some(
                     /**
-                     * DOMノードをis・near・viewportへ渡し、Markdownプレビューの結果または副作用を処理する。
                      * @param node - Markdownプレビューで走査または更新する要素。
                      * @returns 条件が成立したかを示す真偽値。
                      */
@@ -704,10 +645,9 @@ function RenderedMarkdownView({
       let imageEnhanceTimer: number | undefined;
 
       const enhanceImages = /**
-       * Markdownプレビューのenhance・imagesを処理し、呼び出し側へ結果または副作用を返す。
-       * @param candidates - 拡張処理を適用する候補画像一覧。undefinedなら全画像を走査する。
-       * @returns Markdownプレビューのenhance・imagesが生成する結果。
-       */ (candidates?: HTMLImageElement[]) => {
+        * 対象画像にリサイズ・配置コントロールを追加し、解除処理を保存する。
+        * @param candidates - 拡張処理を適用する候補画像一覧。undefinedなら全画像を走査する。
+        */ (candidates?: HTMLImageElement[]) => {
         if (onImageResizeRef.current || onImageAlignRef.current) {
           const cleanup = enhanceResizableImages(
             root,
@@ -724,7 +664,6 @@ function RenderedMarkdownView({
 
       const processImageEnhancementChunk = /**
        * Markdownプレビューのイベントまたはメッセージを受け取り、状態を更新する。
-       * @returns Markdownプレビューのprocess・image・enhancement・chunkが生成する結果。
        */ () => {
         imageEnhanceTimer = undefined;
         if (cancelled) return;
@@ -767,15 +706,13 @@ function RenderedMarkdownView({
       };
 
       const scheduleImageEnhancements = /**
-       * Markdownプレビューの処理順序と完了状態を管理する。
+       * 対象画像を遅延拡張キューへ追加し、未予約なら次の処理チャンクを予約する。
        * @param imagesToEnhance - 遅延拡張キューへ登録する画像要素一覧。
-       * @returns Markdownプレビューのschedule・image・enhancementsが生成する結果。
-       */ (imagesToEnhance: HTMLImageElement[]) => {
+        */ (imagesToEnhance: HTMLImageElement[]) => {
         imagesToEnhance.forEach(
           /**
            * 画像ごとに追加を実行する。
           * @param image - リサイズ操作の拡張処理キューへ追加する画像。
-           * @returns 副作用を完了し、値は返さない。
            */
           (image) => pendingImageEnhancements.add(image),
         );
@@ -787,10 +724,7 @@ function RenderedMarkdownView({
         }
       };
       const resizeObserver = new ResizeObserver(
-        /**
-         * 要素をnotify・renderedへ渡し、Markdownプレビューの結果または副作用を処理する。
-         * @returns Markdownプレビューのコールバックが生成する結果。
-         */
+
         () => {
           notifyRendered();
         },
@@ -807,38 +741,21 @@ function RenderedMarkdownView({
         if (deferMermaid && typeof IntersectionObserver !== "undefined") {
           imageEnhanceObserver = new IntersectionObserver(
             /**
-             * entriesをifへ渡し、Markdownプレビューの結果または副作用を処理する。
              * @param entries - 画像の表示範囲変化を通知したIntersectionObserverエントリ一覧。
-             * @returns Markdownプレビューのコールバックが生成する結果。
              */
             (entries) => {
               if (cancelled) return;
               const visibleImages = entries
                 .filter(
-                  /**
-                   * is・intersectingの条件を満たすエントリだけを残す。
-                   * @param entry - エントリのis・intersectingを参照する走査対象。
-                   * @returns 条件を満たした要素だけを含む一覧。
-                   */
                   (entry) =>
                     entry.isIntersecting &&
                     entry.target instanceof HTMLImageElement,
                 )
                 .map(
-                  /**
-                   * 各エントリからtargetを取り出して一覧化する。
-                   * @param entry - エントリのtargetを参照する走査対象。
-                   * @returns targetを取り出した変換結果の一覧。
-                   */
                   (entry) => entry.target as HTMLImageElement,
                 );
-              visibleImages.forEach(
-                /**
-                 * 画像ごとにunobserveを実行する。
-                 * @param image - 画像のenhance・observerを参照する走査対象。
-                 * @returns 副作用を完了し、値は返さない。
-                 */
-                (image) => imageEnhanceObserver?.unobserve(image),
+              visibleImages.forEach((image) =>
+                imageEnhanceObserver?.unobserve(image),
               );
               if (visibleImages.length)
                 scheduleImageEnhancements(visibleImages);
@@ -848,13 +765,8 @@ function RenderedMarkdownView({
               rootMargin: "600px 0px",
             },
           );
-          resizableImages.forEach(
-            /**
-             * 画像ごとにobserveを実行する。
-             * @param image - 画像のenhance・observerを参照する走査対象。
-             * @returns 副作用を完了し、値は返さない。
-             */
-            (image) => imageEnhanceObserver?.observe(image),
+          resizableImages.forEach((image) =>
+            imageEnhanceObserver?.observe(image),
           );
         } else {
           enhanceImages(resizableImages);
@@ -862,24 +774,13 @@ function RenderedMarkdownView({
       }
       // 画像の読み込み完了時に、変化したプレビューの大きさを親へ通知する。
 
-      const imageLoaded = /**
-       * Markdownプレビューの入力を検証し、表示または保存に使う形式へ変換する。
-       * @returns Markdownプレビューのimage・loadedが生成する結果。
-       */ () => {
+      const imageLoaded = () => {
         notifyRendered();
       };
-      images.forEach(
-        /**
-         * 画像ごとにadd・event・listenerを実行する。
-         * @param image - 画像のadd・event・listenerを参照する走査対象。
-         * @returns 副作用を完了し、値は返さない。
-         */
-        (image) => image.addEventListener("load", imageLoaded),
-      );
+      images.forEach((image) => image.addEventListener("load", imageLoaded));
 
       const scheduleAfterViewportActivity = /**
        * Markdownプレビューの処理順序と完了状態を管理する。
-       * @returns Markdownプレビューのschedule・after・viewport・activityが生成する結果。
        */ () => {
         lastViewportActivityAt = performance.now();
         scheduleRenderNodes(120, true);
@@ -895,10 +796,8 @@ function RenderedMarkdownView({
         passive: true,
       });
 
-      const pauseForInput = /**
-       * Markdownプレビューのpause・for・inputを処理し、呼び出し側へ結果または副作用を返す。
-       * @returns Markdownプレビューのpause・for・inputが生成する結果。
-       */ () => {
+      const pauseForInput = () => {
+        // 入力中は高コストなMermaid描画と画像拡張のタイマーを止める。
         if (renderTimer !== undefined) {
           window.clearTimeout(renderTimer);
           renderTimer = undefined;
@@ -909,10 +808,8 @@ function RenderedMarkdownView({
         }
       };
 
-      const resumeAfterInput = /**
-       * Markdownプレビューのresume・after・inputを処理し、呼び出し側へ結果または副作用を返す。
-       * @returns Markdownプレビューのresume・after・inputが生成する結果。
-       */ () => {
+      const resumeAfterInput = () => {
+        // 入力確定後に描画を再開し、保留画像も拡張キューへ戻す。
         scheduleRenderNodes(120, true);
         if (pendingImageEnhancements.size) scheduleImageEnhancements([]);
       };
@@ -920,10 +817,7 @@ function RenderedMarkdownView({
       window.addEventListener("mve-preview-input-settled", resumeAfterInput);
       if (deferMermaid) onRenderedRef.current?.(root);
       scheduleRenderNodes();
-      /**
-       * Markdownプレビューのreturnを処理し、呼び出し側へ結果または副作用を返す。
-       * @returns Markdownプレビューのreturnが生成する結果。
-       */
+      // effect解除時に監視・タイマー・イベントをすべて解放する。
       return () => {
         cancelled = true;
         if (renderTimer !== undefined) window.clearTimeout(renderTimer);
@@ -932,13 +826,8 @@ function RenderedMarkdownView({
         pendingImageEnhancements.clear();
         resizeObserver.disconnect();
         imageEnhanceObserver?.disconnect();
-        images.forEach(
-          /**
-           * 画像ごとにremove・event・listenerを実行する。
-           * @param image - 画像のremove・event・listenerを参照する走査対象。
-           * @returns 副作用を完了し、値は返さない。
-           */
-          (image) => image.removeEventListener("load", imageLoaded),
+        images.forEach((image) =>
+          image.removeEventListener("load", imageLoaded),
         );
         scrollContainer?.removeEventListener(
           "scroll",
@@ -954,7 +843,6 @@ function RenderedMarkdownView({
           /**
            * cleanupごとにcleanupを実行する。
            * @param cleanup - 画像リサイズ操作に登録したイベントを解除する関数。
-           * @returns 副作用を完了し、値は返さない。
            */
           (cleanup) => cleanup(),
         );
@@ -963,7 +851,6 @@ function RenderedMarkdownView({
           /**
            * urlごとにifを実行する。
            * @param url - DOMから抽出したurl。
-           * @returns 副作用を完了し、値は返さない。
            */
           (url) => {
             if (
@@ -973,9 +860,8 @@ function RenderedMarkdownView({
                 ),
               ).some(
                 /**
-                 * Markdownプレビューのコールバックとして画像を処理する。
+
                  * @param image - 解放前にsrcの参照中かを確認するMermaid画像要素。
-                 * @returns 副作用を完了し、値は返さない。
                  */
                 (image) => image.src === url,
               )
@@ -1003,7 +889,6 @@ function RenderedMarkdownView({
   /**
    * Markdownプレビューのイベントまたはメッセージを受け取り、状態を更新する。
    * @param event - Mermaid・数式・画像のsourceをInspectorで開くdouble-click event。
-   * @returns 副作用を完了し、値は返さない。
    */
   function onDoubleClick(event: React.MouseEvent<HTMLDivElement>): void {
     // ダブルクリックされた要素からMermaid・数式・画像の編集対象を特定して通知する。
@@ -1039,7 +924,6 @@ function RenderedMarkdownView({
   /**
    * Markdownプレビューのイベントまたはメッセージを受け取り、状態を更新する。
    * @param event - コードコピーまたはMarkdown linkの遷移を処理するpreview click event。
-   * @returns 副作用を完了し、値は返さない。
    */
   function onClick(event: React.MouseEvent<HTMLDivElement>): void {
     // コードコピーと内部・外部リンクのクリックをプレビュー内で処理する。
@@ -1054,7 +938,6 @@ function RenderedMarkdownView({
       window.setTimeout(
         /**
          * 指定時間の経過後に後続処理を実行する。
-         * @returns 副作用を完了し、値は返さない。
          */
         () => (copy.textContent = messages.renderer.copy),
         1200,
@@ -1105,9 +988,9 @@ function RenderedMarkdownView({
 }
 
 /**
- * Markdown、HTML、設定を受け取り、描画完了後にプレビューを表示する。
+ * Markdown、変換済みHTML、設定を使い、描画完了後にプレビューを表示する。
  * @param props 描画するMarkdown、変換済みHTML、表示設定、完了通知を含むプロパティ。
- * @returns 副作用を完了し、値は返さない。
+ * @returns 変換済みHTMLの描画領域。処理中または失敗時は対応する状態表示を含む。
  */
 function RenderedMarkdownLoader(props: Props): React.JSX.Element {
   const { markdown, html, settings } = props;
@@ -1123,7 +1006,7 @@ function RenderedMarkdownLoader(props: Props): React.JSX.Element {
     language: string;
 
     /**
-     * Markdownプレビューのremote・images・enabledを示す状態フラグ。
+     * ワークスペース信頼設定に基づき外部画像の読込を許可する状態。
      */
     remoteImagesEnabled: boolean;
 
@@ -1137,7 +1020,6 @@ function RenderedMarkdownLoader(props: Props): React.JSX.Element {
   useEffect(
     /**
      * 依存状態の変化に応じて購読を更新し、解除処理を返す。
-     * @returns Markdownプレビューのコールバックが生成する結果。
      */
     () => {
       if (html !== undefined) return;
@@ -1149,9 +1031,7 @@ function RenderedMarkdownLoader(props: Props): React.JSX.Element {
       })
         .then(
           /**
-           * 値をifへ渡し、Markdownプレビューの結果または副作用を処理する。
            * @param value - Markdown本文から生成されたプレビューHTML。
-           * @returns Markdownプレビューのコールバックが生成する結果。
            */
           (value) => {
             if (cancelled) return;
@@ -1165,18 +1045,13 @@ function RenderedMarkdownLoader(props: Props): React.JSX.Element {
         )
         .catch(
           /**
-           * reasonをifへ渡し、Markdownプレビューの結果または副作用を処理する。
            * @param reason - 処理を中断または失敗させた理由。
-           * @returns Markdownプレビューのコールバックが生成する結果。
            */
           (reason: unknown) => {
             if (!cancelled) setError(reason);
           },
         );
-      /**
-       * Markdownプレビューのreturnを処理し、呼び出し側へ結果または副作用を返す。
-       * @returns Markdownプレビューに対応する要素の一覧。
-       */
+      // 入力または設定が変わって古い非同期結果が戻っても、破棄済みstateを更新しない。
       return () => {
         cancelled = true;
       };
@@ -1211,7 +1086,7 @@ function RenderedMarkdownLoader(props: Props): React.JSX.Element {
 export const RenderedMarkdown = React.memo(RenderedMarkdownLoader);
 
 /**
- * Markdownプレビューで共有するデータ形状を表すインターフェース。
+ * 表示済みDOM要素と対応するMarkdown本文範囲を結び付けます。
  */
 interface RenderedDomBlock {
   /**
@@ -1220,17 +1095,17 @@ interface RenderedDomBlock {
   signature: string;
 
   /**
-   * Markdownプレビューのnodeに関する状態または設定。
+   * 描画済みブロックに対応する既存DOM要素。
    */
   node: Element;
 }
 
 /**
- * Markdownプレビューのreconcile・rendered・blocksを処理し、呼び出し側へ結果または副作用を返す。
+ * 新しいトップレベルHTML要素を署名化し、既存DOMと比較して変更箇所だけを更新する。
  * @param root - 前回描画済みブロックを含むプレビューのルート要素。
  * @param previous - 前回DOMと対応させて差分再描画するsignature付きブロック一覧。
  * @param html - 表示または出力するHTML本文。
- * @returns Markdownプレビューに対応する要素の一覧。
+ * @returns HTMLから作成したトップレベルDOMブロックと各ブロックの署名一覧。
  */
 function reconcileRenderedBlocks(
   root: HTMLElement,
@@ -1240,11 +1115,6 @@ function reconcileRenderedBlocks(
   const template = document.createElement("template");
   template.innerHTML = html;
   const next = Array.from(template.content.children).map(
-    /**
-     * 各DOMノードをrendered・block・signatureへ渡し、変換結果を一覧化する。
-     * @param node - Markdownプレビューで走査または更新する要素。
-     * @returns 入力要素から生成した変換結果の一覧。
-     */
     (node) => ({
       signature: renderedBlockSignature(node),
       node,
@@ -1256,10 +1126,9 @@ function reconcileRenderedBlocks(
     previous.length !== root.children.length ||
     previous.some(
       /**
-       * Markdownプレビューのコールバックとしてエントリを処理する。
+
        * @param entry - Markdownプレビューで走査または更新する要素。
-       * @param index - 配列・行列・文字列の要素位置を示す番号。
-       * @returns Markdownプレビューのコールバックが生成する結果。
+       * @param index - 走査中の配列における0始まりの要素位置。
        */
       (entry, index) => root.children[index] !== entry.node,
     )
@@ -1356,7 +1225,6 @@ function reconcileRenderedBlocks(
  * 再描画後も同じソースの完了済みMermaidノードを再利用する。
  * @param previousBlocks - 完了済みMermaid DOMを再利用する前回描画ブロック一覧。
  * @param nextBlocks 再利用候補を探す新しい描画ブロック。
- * @returns 副作用を完了し、値は返さない。
  */
 function reuseCompletedMermaidNodes(
   previousBlocks: Element[],
@@ -1398,9 +1266,9 @@ function reuseCompletedMermaidNodes(
 }
 
 /**
- * Markdownプレビューを表示用の結果へ変換する。
+ * プレビュー内のブロック要素と属性から差分判定用の署名を作る。
  * @param node - Markdownプレビューで走査または更新する要素。
- * @returns Markdownプレビューで利用する文字列。
+
  */
 function renderedBlockSignature(node: Element): string {
   if (node.classList.contains("markdown-source-block")) {
@@ -1413,50 +1281,23 @@ function renderedBlockSignature(node: Element): string {
  * 新しい描画ブロックの属性を現在のDOMブロックへ反映し、ランタイム属性は保持する。
  * @param current - Mermaidのランタイム属性を維持しながら更新する既存DOMブロック。
  * @param next 属性を反映する新しい描画ブロック。
- * @returns 副作用を完了し、値は返さない。
  */
 function syncRenderedBlockAttributes(current: Element, next: Element): void {
   const preservedRuntimeAttributes = current.classList.contains("mermaid")
     ? ["data-mermaid-status", "data-mve-export-svg"]
-        .map(
-          /**
-           * 各nameをget・attributeへ渡し、変換結果を一覧化する。
-           * @param name - Markdownプレビューの対象や分岐を識別する値。
-           * @returns 入力要素から生成した変換結果の一覧。
-           */
-          (name) => [name, current.getAttribute(name)] as const,
-        )
+        .map((name) => [name, current.getAttribute(name)] as const)
         .filter(
-          /**
-           * 条件を満たすエントリだけを残す。
-           * @param entry - 走査中の要素。
-           * @returns 条件を満たした要素だけを含む一覧。
-           */
           (entry): entry is readonly [string, string] => entry[1] !== null,
         )
     : [];
-  Array.from(current.attributes).forEach(
-    /**
-     * attributeごとにremove・attributeを実行する。
-     * @param attribute - attributeのnameを参照する走査対象。
-     * @returns 副作用を完了し、値は返さない。
-     */
-    (attribute) => current.removeAttribute(attribute.name),
+  Array.from(current.attributes).forEach((attribute) =>
+    current.removeAttribute(attribute.name),
   );
-  Array.from(next.attributes).forEach(
-    /**
-     * attributeごとにset・attributeを実行する。
-     * @param attribute - attributeのnameを参照する走査対象。
-     * @returns 副作用を完了し、値は返さない。
-     */
-    (attribute) => current.setAttribute(attribute.name, attribute.value),
+  Array.from(next.attributes).forEach((attribute) =>
+    current.setAttribute(attribute.name, attribute.value),
   );
-  preservedRuntimeAttributes.forEach(
-    /**
-     * 設定ごとにset・attributeを実行する。
-    * @returns 副作用を完了し、値は返さない。
-     */
-    ([name, value]) => current.setAttribute(name, value),
+  preservedRuntimeAttributes.forEach(([name, value]) =>
+    current.setAttribute(name, value),
   );
 }
 
@@ -1470,7 +1311,7 @@ const MERMAID_CACHE_ENTRY_LIMIT = 16;
 const MERMAID_CACHE_BYTE_LIMIT = 16 * 1024 * 1024;
 
 /**
- * Markdownプレビューの状態と操作をまとめるクラス。
+   * 描画結果をLRU順で検索し、エントリ数・概算容量・利用中URLの参照を管理する。
  */
 class MermaidResultCache {
   /**
@@ -1479,31 +1320,31 @@ class MermaidResultCache {
   private readonly entries = new Map<string, MermaidRenderResult>();
 
   /**
-   * Markdownプレビューのretainedに関する状態または設定。
+    * LRUから外れた後も利用中のSVG/blob URLを解放しないための参照情報。
    */
   private readonly retained = new Map<
     MermaidRenderResult,
     {
       /**
-       * Markdownプレビューの位置・寸法・件数・時間を表す数値。
+       * SVGとPNGのBlob URLを合わせた概算バイト数。
        */
       bytes: number;
       /**
-       * Markdownプレビューのreferencesを表す数値。
+        * 同じ描画結果を利用中のキャッシュ参照数。0になると容量計測から外す。
        */
       references: number;
     }
   >();
 
   /**
-   * Markdownプレビューの位置・寸法・件数・時間を表す数値。
+    * retainedに記録された描画結果の概算総容量。上限判定に使う。
    */
   private totalBytes = 0;
 
   /**
-   * Markdownプレビューのコールバックとしてkeyを処理する。
+   * キャッシュキーに対応する完了済みMermaid描画結果を取得する。
    * @param key - Markdownプレビューの対象や分岐を識別する値。
-   * @returns 副作用を完了し、値は返さない。
+   * @returns キャッシュ済み描画結果。キーがなければundefined。
    */
   get(key: string): MermaidRenderResult | undefined {
     const result = this.entries.get(key);
@@ -1514,10 +1355,9 @@ class MermaidResultCache {
   }
 
   /**
-   * Markdownプレビューのコールバックとしてkeyを処理する。
+
    * @param key - Markdownプレビューの対象や分岐を識別する値。
    * @param result - LRUキャッシュへ登録するMermaid描画結果。
-   * @returns 副作用を完了し、値は返さない。
    */
   set(key: string, result: MermaidRenderResult): void {
     const previous = this.entries.get(key);
@@ -1540,9 +1380,8 @@ class MermaidResultCache {
   }
 
   /**
-   * Markdownプレビューのretainを処理し、呼び出し側へ結果または副作用を返す。
+    * LRUから外れても参照中のURLを解放しないよう保持数を加算する。
    * @param result - 保持参照を1件増やすMermaid描画結果。
-   * @returns 副作用を完了し、値は返さない。
    */
   private retain(result: MermaidRenderResult): void {
     const retained = this.retained.get(result);
@@ -1558,7 +1397,6 @@ class MermaidResultCache {
   /**
    * Markdownプレビューの処理またはリソースを終了し、後続利用可能な状態へ戻す。
    * @param result - 保持参照を1件減らし、不要なら容量計測から除くMermaid描画結果。
-   * @returns 副作用を完了し、値は返さない。
    */
   private release(result: MermaidRenderResult): void {
     const retained = this.retained.get(result);
@@ -1573,7 +1411,7 @@ class MermaidResultCache {
 /**
  * Markdownプレビューの寸法、容量、位置、または計測値を求める。
  * @param result - キャッシュ容量を見積もるMermaid描画結果。
- * @returns Markdownプレビューで利用する数値。
+
  */
 function estimateMermaidResultBytes(result: MermaidRenderResult): number {
   return (
@@ -1598,9 +1436,9 @@ function estimateMermaidResultBytes(result: MermaidRenderResult): number {
 }
 
 /**
- * Markdownプレビューの入力を構造化した値へ変換する。
+ * PNGのBase64データをチャンク単位でデコードし、画像Blobを作る。
  * @param base64 - 画像または出力データをBase64で表した本文。
- * @returns Markdownプレビューの非同期処理で得られる結果。
+ * @returns デコードしたPNG画像を含むBlob。
  */
 async function decodeBase64Png(base64: string): Promise<Blob> {
   const chunks: ArrayBuffer[] = [];
@@ -1619,7 +1457,6 @@ async function decodeBase64Png(base64: string): Promise<Blob> {
         /**
          * 遅延処理の完了または失敗を待機側へ通知する。
          * @param resolve - Promiseの成功を通知する関数。
-         * @returns 非同期処理の完了値。
          */
         (resolve) => window.setTimeout(resolve, 0),
       );
@@ -1639,7 +1476,6 @@ function isPreviewInputActive(): boolean {
 /**
  * Markdownプレビューが指定条件を満たすまで待機する。
  * @param signal - 呼び出し側のキャンセルを通知するAbortSignal。
- * @returns 副作用を完了し、値は返さない。
  */
 function waitForPreviewInputIdle(signal?: AbortSignal): Promise<void> {
   if (!isPreviewInputActive() || signal?.aborted) return Promise.resolve();
@@ -1647,13 +1483,9 @@ function waitForPreviewInputIdle(signal?: AbortSignal): Promise<void> {
     /**
      * 非同期処理の成功結果を待機側へ通知する。
      * @param resolve - Promiseの成功を通知する関数。
-     * @returns 非同期処理の完了値。
      */
     (resolve) => {
-      const finish = /**
-       * Markdownプレビューのfinishを処理し、呼び出し側へ結果または副作用を返す。
-       * @returns 副作用を完了し、値は返さない。
-       */ () => {
+      const finish =  () => {
         window.removeEventListener("mve-preview-input-settled", finish);
         signal?.removeEventListener("abort", finish);
         resolve();
@@ -1667,9 +1499,9 @@ function waitForPreviewInputIdle(signal?: AbortSignal): Promise<void> {
 }
 
 /**
- * 上位のスクロール領域のうち、実際にスクロールする要素を探す。
+ * rootから祖先をたどり、実際にスクロールする要素を探す。
  * @param root スクロール領域をたどり始めるプレビュー要素。
- * @returns 副作用を完了し、値は返さない。
+ * @returns スクロール可能な祖先要素。見つからない場合はundefined。
  */
 function findScrollContainer(root: HTMLElement): HTMLElement | undefined {
   let parent = root.parentElement;
@@ -1753,9 +1585,9 @@ async function rasterizeMermaidPreview(
 }
 
 /**
- * Markdownプレビューから必要な値またはリソースを取得する。
+ * MermaidのSVG寸法から縦横比を読み、画像レイアウトに使う範囲へ制限する。
  * @param svg - Mermaidが生成したSVG本文。
- * @returns Markdownプレビューで利用する数値。
+ * @returns viewBoxまたはwidth/heightの比率。寸法が読めない場合は16:9。
  */
 function readSvgAspectRatio(svg: string): number {
   const tag = svg.match(/<svg\b[^>]*>/i)?.[0] ?? "";
@@ -1790,12 +1622,12 @@ function readSvgAspectRatio(svg: string): number {
 }
 
 /**
- * Markdownプレビューのattach・virtual・mermaid・interactionsを処理し、呼び出し側へ結果または副作用を返す。
+ * Mermaid図中のリンク・文字操作領域を可視範囲に応じて仮想化し、監視解除関数を返す。
  * @param frame - 図中操作領域を配置するMermaid frame要素。
  * @param layer - 図中操作要素を配置するレイヤー要素。
  * @param interactions - 図中の文字・リンク操作領域の一覧。
  * @param scrollContainer - 図中操作の可視判定とスクロール監視に使う領域。未指定ならwindow。
- * @returns Markdownプレビューのattach・virtual・mermaid・interactionsが生成する結果。
+ * @returns スクロール・resize監視と描画待ちを解除する関数。
  */
 function attachVirtualMermaidInteractions(
   frame: HTMLElement,
@@ -1810,10 +1642,10 @@ function attachVirtualMermaidInteractions(
   let generation = 0;
 
   const createElement = /**
-   * Markdownプレビューで使う値または実行環境を組み立てる。
+   * interactionの座標と内容を配置したリンクまたは選択可能な文字領域を生成する。
    * @param interaction - DOM操作要素へ変換するMermaid interaction定義。
-   * @param index - 配列・行列・文字列の要素位置を示す番号。
-   * @returns Markdownプレビューで生成または変換した値。
+   * @param index - 描画結果との対応付けに使うinteractionの配列位置。
+   * @returns アクセシブルなリンク、または装飾用文字領域。
    */ (interaction: MermaidInteraction, index: number): HTMLElement => {
     const element =
       interaction.type === "link"
@@ -1836,10 +1668,9 @@ function attachVirtualMermaidInteractions(
   };
 
   const appendChunk = /**
-   * Markdownプレビューのappend・chunkを処理し、呼び出し側へ結果または副作用を返す。
+   * 世代が有効な間、操作領域を最大8件かつ短い描画時間内でDOMへ追加し、残りを次tickへ送る。
    * @param expectedGeneration - この追加処理を開始したMarkdown描画世代番号。
    * @param pending - 後続フレームで追加するMermaid操作領域のインデックス一覧。
-   * @returns Markdownプレビューのappend・chunkが生成する結果。
    */ (expectedGeneration: number, pending: number[]) => {
     appendTimer = undefined;
     if (expectedGeneration !== generation || !frame.isConnected) return;
@@ -1863,7 +1694,6 @@ function attachVirtualMermaidInteractions(
       appendTimer = window.setTimeout(
         /**
          * 指定時間の経過後に後続処理を実行する。
-         * @returns 副作用を完了し、値は返さない。
          */
         () => appendChunk(expectedGeneration, pending),
         0,
@@ -1873,7 +1703,6 @@ function attachVirtualMermaidInteractions(
 
   const update = /**
    * Markdownプレビューの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-   * @returns 副作用を完了し、値は返さない。
    */ () => {
     frameRequest = 0;
     if (!frame.isConnected || isPreviewInputActive()) return;
@@ -1891,8 +1720,7 @@ function attachVirtualMermaidInteractions(
       /**
        * interactionごとにmaxを実行する。
        * @param interaction - interactionのtopを参照する走査対象。
-       * @param index - 配列・行列・文字列の要素位置を示す番号。
-       * @returns 副作用を完了し、値は返さない。
+       * @param index - 走査中の配列における0始まりの要素位置。
        */
       (interaction, index) => {
         const top = frameBounds.top + interaction.top * frameBounds.height;
@@ -1908,8 +1736,7 @@ function attachVirtualMermaidInteractions(
       /**
        * 要素ごとにifを実行する。
        * @param element - 要素のcontainsを参照する走査対象。
-       * @param index - 配列・行列・文字列の要素位置を示す番号。
-       * @returns 副作用を完了し、値は返さない。
+       * @param index - 走査中の配列における0始まりの要素位置。
        */
       (element, index) => {
         if (desired.has(index)) return;
@@ -1926,26 +1753,22 @@ function attachVirtualMermaidInteractions(
     const pending = Array.from(desired).filter(
       /**
        * 条件を満たす位置だけを残す。
-       * @param index - 配列・行列・文字列の要素位置を示す番号。
-       * @returns 条件を満たした要素だけを含む一覧。
+       * @param index - 走査中の配列における0始まりの要素位置。
+
        */
       (index) => !elements.has(index),
     );
     if (pending.length) appendChunk(generation, pending);
   };
 
-  const schedule = /**
-   * Markdownプレビューの処理順序と完了状態を管理する。
-   * @returns Markdownプレビューのscheduleが生成する結果。
-   */ () => {
+  const schedule = () => {
+    // scroll/resizeごとの連続呼び出しを1回のanimation frameへまとめる。
     if (frameRequest || isPreviewInputActive()) return;
     frameRequest = window.requestAnimationFrame(update);
   };
 
-  const pauseForInput = /**
-   * Markdownプレビューのpause・for・inputを処理し、呼び出し側へ結果または副作用を返す。
-   * @returns Markdownプレビューのpause・for・inputが生成する結果。
-   */ () => {
+  const pauseForInput = () => {
+    // 入力が始まったら待機中の描画フレームとDOM追加タイマーを取り消す。
     if (frameRequest) {
       window.cancelAnimationFrame(frameRequest);
       frameRequest = 0;
@@ -1957,8 +1780,7 @@ function attachVirtualMermaidInteractions(
   };
 
   const cleanup = /**
-   * Markdownプレビューから不要または危険な情報を除去する。
-   * @returns 副作用を完了し、値は返さない。
+   * 監視・描画待ちを解除し、仮想化した操作要素の参照を破棄する。
    */ () => {
     if (frameRequest) window.cancelAnimationFrame(frameRequest);
     if (appendTimer !== undefined) window.clearTimeout(appendTimer);
@@ -1976,6 +1798,7 @@ function attachVirtualMermaidInteractions(
   return cleanup;
 }
 
+/** 親へプレビュー画像の幅変更を通知する関数を保持するRef。未設定なら通知しない。 */
 type ImageCallbackRef = React.MutableRefObject<{
   /**
    * 親へ変更後の画像幅を通知する。
@@ -1984,6 +1807,7 @@ type ImageCallbackRef = React.MutableRefObject<{
    */
   (imageIndex: number, width: number): void;
 } | undefined>;
+/** 親へプレビュー画像のサイズリセットを通知する関数を保持するRef。 */
 type ResetCallbackRef = React.MutableRefObject<{
   /**
    * 親へ画像サイズのリセットを通知する。
@@ -1991,6 +1815,7 @@ type ResetCallbackRef = React.MutableRefObject<{
    */
   (imageIndex: number): void;
 } | undefined>;
+/** 親へプレビュー画像の配置変更を通知する関数を保持するRef。 */
 type AlignmentCallbackRef = React.MutableRefObject<{
   /**
    * 親へ画像配置の変更を通知する。
@@ -2009,7 +1834,7 @@ type AlignmentCallbackRef = React.MutableRefObject<{
  * @param onAlignRef - 画像配置の変更を親へ通知するコールバックRef。
  * @param onlyNearViewport - trueならスクロール表示領域付近の画像だけを拡張する。
  * @param candidates - 拡張対象を事前に限定する画像一覧。省略時はroot内から検索する。
- * @returns Markdownプレビューのenhance・resizable・imagesが生成する結果。
+ * @returns 追加した各画像コントロールのイベントと監視を解除する関数。対象なしならundefined。
  */
 function enhanceResizableImages(
   root: HTMLElement,
@@ -2035,7 +1860,7 @@ function enhanceResizableImages(
     /**
      * 条件を満たす画像だけを残す。
      * @param image - 表示領域への近接を判定する画像要素。
-     * @returns 条件を満たした要素だけを含む一覧。
+
      */
     (image) => !onlyNearViewport || isNearViewport(image, scrollContainer),
   );
@@ -2044,7 +1869,6 @@ function enhanceResizableImages(
     /**
      * 画像ごとにifを実行する。
      * @param image - 画像のdatasetを参照する走査対象。
-     * @returns 副作用を完了し、値は返さない。
      */
     (image) => {
       if (image.dataset.mveEnhanced === "true" || !image.parentElement) return;
@@ -2095,7 +1919,6 @@ function enhanceResizableImages(
 
       const updateBadge = /**
        * Markdownプレビューの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-       * @returns 副作用を完了し、値は返さない。
        */ () => {
         badge.textContent = `${getLogicalElementWidth(image, root) || preferredWidth}px`;
       };
@@ -2124,12 +1947,7 @@ function enhanceResizableImages(
         ["center", messages.alignCenter, messages.alignCenterShort],
         ["right", messages.alignRight, messages.alignRightShort],
       ];
-      alignmentLabels.forEach(
-        /**
-         * 設定ごとにcreate・elementを実行する。
-        * @returns 副作用を完了し、値は返さない。
-         */
-        ([alignment, label, text]) => {
+      alignmentLabels.forEach(([alignment, label, text]) => {
           const button = document.createElement("button");
           button.type = "button";
           button.className = "mve-image-align-button";
@@ -2142,7 +1960,6 @@ function enhanceResizableImages(
           const applyAlignment = /**
            * Markdownプレビューの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
            * @param event - 画像配置ボタンのnative click event。
-           * @returns 副作用を完了し、値は返さない。
            */ (event: Event) => {
             mveDebug("image-alignment-event", {
               eventType: event.type,
@@ -2159,7 +1976,6 @@ function enhanceResizableImages(
                 /**
                  * candidateごとに必要な副作用を実行する。
                  * @param candidate - candidateのdatasetを参照する走査対象。
-                 * @returns 副作用を完了し、値は返さない。
                  */
                 (candidate) => {
                   candidate.dataset.active =
@@ -2170,8 +1986,7 @@ function enhanceResizableImages(
           };
           button.addEventListener("click", applyAlignment);
           alignmentActions.appendChild(button);
-        },
-      );
+      });
       frame.appendChild(alignmentActions);
 
       let resetButton: HTMLButtonElement | undefined;
@@ -2187,7 +2002,6 @@ function enhanceResizableImages(
           /**
            * UIイベントを表示または編集状態へ反映する。
            * @param event - 画像サイズを初期化するbutton click event。
-           * @returns 副作用を完了し、値は返さない。
            */
           (event) => {
             event.preventDefault();
@@ -2200,7 +2014,6 @@ function enhanceResizableImages(
 
       const handleImageLoad = /**
        * Markdownプレビューのイベントまたはメッセージを受け取り、状態を更新する。
-       * @returns 副作用を完了し、値は返さない。
        */ () => {
         // width属性を持つ画像は、loadイベント後も明示幅を維持する。
         const nextWidth = Math.max(
@@ -2221,7 +2034,6 @@ function enhanceResizableImages(
       cleanups.push(
         /**
          * UIイベントを表示または編集状態へ反映する。
-         * @returns 副作用を完了し、値は返さない。
          */
         () => {
           pointerCleanup();
@@ -2243,16 +2055,12 @@ function enhanceResizableImages(
   );
 
   return cleanups.length
-    ? /**
-       * 要素をfor・eachへ渡し、Markdownプレビューの結果または副作用を処理する。
-       * @returns 副作用を完了し、値は返さない。
-       */
+    ?
       () =>
         cleanups.forEach(
           /**
            * cleanupごとにcleanupを実行する。
            * @param cleanup - 画像リサイズ用イベントとobserverの登録を解除する関数。
-           * @returns 副作用を完了し、値は返さない。
            */
           (cleanup) => cleanup(),
         )
@@ -2260,15 +2068,15 @@ function enhanceResizableImages(
 }
 
 /**
- * ポインタードラッグによる画像幅変更を開始し、終了時の後処理を登録する。
+ * ポインター操作で画像幅を仮変更し、確定時だけ親へ通知するハンドラーを登録する。
  * @param handle - 画像幅変更のpointer操作を受けるハンドルボタン。
  * @param frame - 画像とバッジを含むリサイズ対象frame。
  * @param image - ドラッグで幅を変更する画像要素。
  * @param imageIndex - 親コンポーネントへ通知する画像の0始まりインデックス。
  * @param root - 表示倍率と論理幅の基準となるプレビュー要素。
  * @param updateBadge - 現在幅の表示バッジを更新する関数。
- * @param onResizeRef ドラッグ後の画像幅を親コンポーネントへ通知するコールバックRef。
- * @returns Markdownプレビューのattach・resize・pointerが生成する結果。
+ * @param onResizeRef - ドラッグ確定後の画像幅を親コンポーネントへ通知するコールバックRef。
+ * @returns pointerdown登録を解除し、実行中のdragも中断する関数。
  */
 function attachResizePointer(
   handle: HTMLButtonElement,
@@ -2282,9 +2090,8 @@ function attachResizePointer(
   let activeCleanup: (() => void) | undefined;
 
   const onPointerDown = /**
-   * Markdownプレビューのイベントまたはメッセージを受け取り、状態を更新する。
+   * 画像幅変更を開始し、現在の倍率・幅・ポインターIDをドラッグ中の基準として固定する。
    * @param event - プレビュー画像のresize handle dragを開始するpointer event。
-   * @returns Markdownプレビューのon・pointer・downが生成する結果。
    */ (event: PointerEvent) => {
     event.preventDefault();
     event.stopPropagation();
@@ -2301,9 +2108,8 @@ function attachResizePointer(
     handle.setPointerCapture(pointerId);
 
     const onPointerMove = /**
-     * Markdownプレビューのイベントまたはメッセージを受け取り、状態を更新する。
-     * @param moveEvent - Markdownプレビューへ届いたユーザー操作またはDOMイベント。
-     * @returns Markdownプレビューのon・pointer・moveが生成する結果。
+     * 同じpointerの移動量をプレビュー倍率で補正して一時幅へ反映する。
+     * @param moveEvent - 現在のドラッグと同じpointerかを判定する移動イベント。
      */ (moveEvent: PointerEvent) => {
       if (moveEvent.pointerId !== pointerId) return;
       const nextWidth = Math.min(
@@ -2320,14 +2126,11 @@ function attachResizePointer(
     };
 
     const finish = /**
-     * Markdownプレビューのfinishを処理し、呼び出し側へ結果または副作用を返す。
-     * @param commit - Markdownプレビューの条件を示すフラグ。
-     * @returns Markdownプレビューのfinishが生成する結果。
+     * pointerupなら幅を確定し、pointercancelなら開始時の幅へ戻す終了イベントを作る。
+     * @param commit - 通常終了ならtrue、キャンセル終了ならfalse。
      */ (commit: boolean) =>
       /**
-       * finish・eventをifへ渡し、Markdownプレビューの結果または副作用を処理する。
-       * @param finishEvent - Markdownプレビューへ届いたユーザー操作またはDOMイベント。
-       * @returns Markdownプレビューのコールバックが生成する結果。
+       * @param finishEvent - 対象pointerの終了またはキャンセルイベント。
        */
       (finishEvent: PointerEvent) => {
         if (finishEvent.pointerId !== pointerId) return;
@@ -2354,10 +2157,7 @@ function attachResizePointer(
     handle.addEventListener("pointerup", onPointerUp);
     handle.addEventListener("pointercancel", onPointerCancel);
     activeCleanup =
-      /**
-       * イベントでremove・event・listenerを実行する。
-       * @returns 副作用を完了し、値は返さない。
-       */
+      /** 一時的なdrag listenerを外し、保持中のpointer captureを解放する。 */
       () => {
         handle.removeEventListener("pointermove", onPointerMove);
         handle.removeEventListener("pointerup", onPointerUp);
@@ -2368,10 +2168,7 @@ function attachResizePointer(
   };
 
   handle.addEventListener("pointerdown", onPointerDown);
-  /**
-   * イベントでremove・event・listenerを実行する。
-   * @returns 副作用を完了し、値は返さない。
-   */
+  /** pointerdown listenerと、進行中ならそのdrag listenerを解除する。 */
   return () => {
     handle.removeEventListener("pointerdown", onPointerDown);
     activeCleanup?.();
@@ -2379,10 +2176,10 @@ function attachResizePointer(
 }
 
 /**
- * Markdownプレビューから必要な値またはリソースを取得する。
+ * レンダリング後の画像幅をズーム倍率を除いた論理幅で返す。
  * @param image - 表示幅を論理幅へ変換する画像要素。
  * @param root - ズーム倍率の基準となるプレビュー要素。
- * @returns Markdownプレビューで利用する数値。
+ * @returns CSS論理ピクセル単位の画像幅。
  */
 function getRenderedImageWidth(
   image: HTMLImageElement,
@@ -2392,9 +2189,9 @@ function getRenderedImageWidth(
 }
 
 /**
- * Markdownプレビューから必要な値またはリソースを取得する。
+ * プレビューのdata属性から正の画像ズーム倍率を読み取る。
  * @param root - 画像ズームを示すdata属性を持つプレビュー要素。
- * @returns Markdownプレビューで利用する数値。
+ * @returns 有効な倍率。未設定または不正値なら1。
  */
 function getPreviewImageZoom(root: HTMLElement): number {
   const value = Number.parseFloat(root.dataset.mveImageZoom ?? "");
@@ -2402,10 +2199,10 @@ function getPreviewImageZoom(root: HTMLElement): number {
 }
 
 /**
- * Markdownプレビューから必要な値またはリソースを取得する。
+ * DOM上の表示幅をズーム倍率で割り、保存・編集に使う論理幅へ戻す。
  * @param element - 寸法または属性を読み取るDOM要素。
  * @param root - 要素幅の論理値を算出するプレビュー要素。
- * @returns Markdownプレビューで利用する数値。
+ * @returns CSS論理ピクセル単位の幅。要素が未描画なら0。
  */
 function getLogicalElementWidth(
   element: HTMLElement,
@@ -2417,9 +2214,9 @@ function getLogicalElementWidth(
 }
 
 /**
- * Markdownプレビューから必要な値またはリソースを取得する。
+ * Markdown画像のwidth属性を数値として読み取り、明示幅の有無を判定する。
  * @param image - width属性から明示幅を読む画像要素。
- * @returns Markdownプレビューで利用する数値。
+ * @returns 有効な明示幅。不在または不正値なら0。
  */
 function getExplicitImageWidth(image: HTMLImageElement): number {
   const value = Number.parseFloat(image.getAttribute("width") ?? "");
@@ -2427,9 +2224,9 @@ function getExplicitImageWidth(image: HTMLImageElement): number {
 }
 
 /**
- * Markdownプレビューから必要な値またはリソースを取得する。
+ * スクロールバーと左右paddingを除いた画像配置可能幅を求める。
  * @param root - 画像配置可能幅を測るプレビュー要素。
- * @returns Markdownプレビューで利用する数値。
+ * @returns 配置可能幅。狭いコンテナでも最低120pxを返す。
  */
 function getAvailableImageWidth(root: HTMLElement): number {
   const styles = window.getComputedStyle(root);
@@ -2441,9 +2238,9 @@ function getAvailableImageWidth(root: HTMLElement): number {
 }
 
 /**
- * Markdownプレビューの入力を許可された形式へ整える。
+ * 画像配置をleft、center、rightの有効値へ正規化する。
  * @param value - HTML画像タグから読み取った配置属性値。
- * @returns Markdownプレビューで生成または変換した値。
+ * @returns 画像配置として有効なleft、center、rightのいずれか。
  */
 function normalizeImageAlignment(value: string | undefined): ImageAlignment {
   return value === "center" || value === "right" ? value : "left";

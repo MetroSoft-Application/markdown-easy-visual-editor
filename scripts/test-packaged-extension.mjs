@@ -1,5 +1,5 @@
 /**
- * @fileoverview テスト・パッケージ・拡張機能を開発・検証環境で実行する。前提条件や失敗条件を終了コードとログで示す。
+ * @fileoverview パッケージ済みVSIXを隔離したExtension Hostへ導入し、起動と主要コマンドを確認する。
  */
 import { runTests, runVSCodeCommand } from '@vscode/test-electron';
 import { execFile } from 'node:child_process';
@@ -88,9 +88,8 @@ try {
 }
 
 /**
- * テスト・パッケージ・拡張機能の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
- * @param directory - テスト・パッケージ・拡張機能で読み書きするリソースの場所。
- * @returns テスト・パッケージ・拡張機能のremove・temporary・rootが生成する結果。
+ * 一時的な拡張機能インストール用ディレクトリを削除する。
+ * @param directory - テスト実行中に作成した一時ディレクトリ。
  */
 async function removeTemporaryRoot(directory) {
   for (let attempt = 0; attempt < 8; attempt += 1) {
@@ -106,7 +105,6 @@ async function removeTemporaryRoot(directory) {
       /**
        * 遅延処理の完了または失敗を待機側へ通知する。
        * @param resolve - Promiseの成功を通知する関数。
-       * @returns 非同期処理の完了値。
        */
       (resolve) => setTimeout(resolve, 250));
     }

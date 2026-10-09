@@ -58,9 +58,9 @@ export type ResourceLinkTarget =
     };
 
 /**
- * resourcelinkのclassify・resource・linkを処理し、呼び出し側へ結果または副作用を返す。
+ * リンクをローカルファイル、Webview内資源、外部URL、未対応形式へ分類する。
  * @param href - Markdown内のリンク先文字列。相対参照、ファイルパス、file URI、Webview URL、外部URLを受け取る。
- * @returns resourcelinkのclassify・resource・linkが生成する結果。
+ * @returns リンク種別と、開く先を決める情報。
  */
 export function classifyResourceLink(href: string): ResourceLinkTarget {
     const localWebviewPath = resolveWebviewResourcePath(href);
@@ -73,7 +73,11 @@ export function classifyResourceLink(href: string): ResourceLinkTarget {
     return { kind: 'relative', href };
 }
 
-/** ワークスペース基準の単一スラッシュパスを、ルートからの安全なパス要素へ変換する。 */
+/**
+ * ワークスペースルート相対パスを安全な各パス要素へ分解する。ルート外へ出る `..` は拒否する。
+ * @param source 先頭が単一スラッシュのワークスペース相対パス。
+ * @returns ルートからの各パス要素。形式が不正、またはルートを越える場合はundefined。
+ */
 export function workspaceRootPathSegments(source: string): string[] | undefined {
     if (!source.startsWith('/') || source.startsWith('//') || /^\/[A-Za-z]:[\\/]/.test(source)) {
         return undefined;
@@ -108,9 +112,9 @@ function isWebviewResourceUrl(href: string): boolean {
 }
 
 /**
- * resourcelinkから必要な値またはリソースを取得する。
+ * URI参照をWebview内で解決し、拡張機能のルート相対パスを返す。
  * @param href - WebviewリソースURLかを調べる文字列。
- * @returns 条件に一致する値。未検出時はundefinedまたはnull。
+ * @returns Webview内で参照できる相対パス。無効なURLや対象外リソースはundefined。
  */
 export function resolveWebviewResourcePath(href: string): string | undefined {
     let url: URL;

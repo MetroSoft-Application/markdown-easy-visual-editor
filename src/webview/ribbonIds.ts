@@ -1,8 +1,8 @@
 /**
- * @fileoverview Webviewのリボン項目IDを管理する。Hostとの通信、ユーザー操作、表示状態の契約を保つ。
+ * @fileoverview リボンタブ、グループ、項目を識別する安定したIDと対応関係を定義する。
  */
 /**
- * リボン項目IDで対象や分岐を識別する値の型。
+ * リボンのタブを識別するIDの文字列型です。
  */
 export type RibbonTabId =
     | "home"
@@ -14,7 +14,7 @@ export type RibbonTabId =
     | "help";
 
 /**
- * リボン項目IDで対象や分岐を識別する値の型。
+ * タブ内のリボングループを識別するIDの文字列型です。
  */
 export type RibbonGroupId =
     | "history"
@@ -39,7 +39,7 @@ export type RibbonGroupId =
     | "help";
 
 /**
- * リボン項目IDで対象や分岐を識別する値の型。
+ * リボン上のボタンや入力項目を識別するIDの文字列型です。
  */
 export type RibbonItemId =
     | "undo"
@@ -113,7 +113,7 @@ export type RibbonItemId =
     | "features";
 
 /**
- * リボン項目IDで対象や分岐を識別する値の型。
+ * リボンヘッダーに表示するボタンを識別するIDの文字列型です。
  */
 export type RibbonHeaderButtonId =
     | "search"
@@ -122,16 +122,16 @@ export type RibbonHeaderButtonId =
     | "previewOnly";
 
 /**
- * リボン項目IDで対象や分岐を識別する値の型。
+ * リボンヘッダー項目を識別するIDの文字列型です。
  */
 export type RibbonHeaderItemId = RibbonHeaderButtonId | "collapse";
 
 /**
- * リボン項目IDで対象や分岐を識別する値の型。
+ * リボン内のコンテナーを識別するIDの文字列型です。
  */
 export type RibbonContainerId = "tableInsertForm";
 
 /**
- * リボン項目IDで対象や分岐を識別する値の型。
+ * リボンヘッダーのグループを識別するIDの文字列型です。
  */
 export type RibbonHeaderGroupId = "viewModes";

@@ -1,5 +1,5 @@
 /**
- * @fileoverview 導入・PDF・ブラウザーを開発・検証環境で実行する。前提条件や失敗条件を終了コードとログで示す。
+ * @fileoverview PDF出力に使うChromium実行ファイルを所定のローカルディレクトリへ導入し、起動可能性を確認する。
  */
 import { spawnSync } from 'node:child_process';
 import path from 'node:path';
@@ -9,7 +9,7 @@ import path from 'node:path';
  */
 const browserPath = path.resolve('.chromium');
 /**
- * 導入・PDF・ブラウザーのresultに関する状態または設定。
+ * PlaywrightのChromiumインストーラーを実行したプロセス結果。
  */
 const result = spawnSync(
   process.execPath,

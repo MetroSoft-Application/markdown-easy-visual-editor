@@ -1,5 +1,5 @@
 /**
- * @fileoverview PDF・テストの回帰の仕様と回帰条件を検証する。失敗時は期待値と実装差分を示す。
+ * @fileoverview PDFオプションの正規化、Chromiumの取得と解放、出力HTMLや画像データの処理を検証する。
  */
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
@@ -13,22 +13,22 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 class TestUri {
 
     /**
-     * PDF・テストの回帰のauthorityに関する状態または設定。
+     * テスト用URIでは権限部分を使わないため常に空文字。
      */
     readonly authority = '';
 
     /**
-     * PDF・テストの回帰のqueryに関する状態または設定。
+     * テスト用URIではクエリ部分を使わないため常に空文字。
      */
     readonly query = '';
 
     /**
-     * PDF・テストの回帰のfragmentに関する状態または設定。
+     * テスト用URIではフラグメント部分を使わないため常に空文字。
      */
     readonly fragment = '';
 
     /**
-     * PDF・テストの回帰で使う値または実行環境を組み立てる。
+     * 指定scheme、path、filesystem pathを持つテスト用URIを初期化する。
      * @param scheme - URIのスキーム部分。
      * @param path - 読み書きするファイルまたはリソースの場所。
      * @param fsPath - テスト対象のファイルパス。
@@ -41,9 +41,9 @@ class TestUri {
     ) { }
 
     /**
-     * PDF・テストの回帰のwithを処理し、呼び出し側へ結果または副作用を返す。
+     * URIの一部変更を適用した新しいテスト用URIを作る。
      * @param change - 本文上の1件の変更範囲。
-     * @returns PDF・テストの回帰のwithが生成する結果。
+     * @returns 変更を反映したURI。
      */
     with(change: {
         /**
@@ -56,8 +56,8 @@ class TestUri {
     }
 
     /**
-     * PDF・テストの回帰のto・jsonを処理し、呼び出し側へ結果または副作用を返す。
-     * @returns PDF・テストの回帰のto・jsonが生成する結果。
+     * VS Code URIと同じプロパティを持つJSON表現を返す。
+     * @returns URIの文字列表現とパス要素。
      */
     toJSON(): object {
         return { scheme: this.scheme, path: this.path, fsPath: this.fsPath };
@@ -66,27 +66,18 @@ class TestUri {
 
 // Vitestの仮想モジュール指定は型定義にないため、実行時APIを保ったまま検証する。
 vi.mock('vscode',
-    /**
-     * 要素をtest・uriへ渡し、PDF・テストの回帰の結果または副作用を処理する。
-     * @returns PDF・テストの回帰のコールバックが生成する結果。
-     */
+
     () => ({
         Uri: {
 
 
             file: /**
-     * PDF・テストの回帰のfileを処理し、呼び出し側へ結果または副作用を返す。
      * @param filePath - 読み書きするファイルのパス。
      * @returns PDF・テストの回帰のfileが生成する結果。
      */ (filePath: string) => new TestUri('file', filePath.replace(/\\/g, '/'), filePath),
 
 
-            joinPath: /**
-     * PDF・テストの回帰のjoin・pathを処理し、呼び出し側へ結果または副作用を返す。
-     * @param base - PDF・テストの回帰へ渡す入力。
-     * @param segments - PDF・テストの回帰へ渡す入力。
-     * @returns PDF・テストの回帰のjoin・pathが生成する結果。
-     */ (base: TestUri, ...segments: string[]) => new TestUri(
+             joinPath: (base: TestUri, ...segments: string[]) => new TestUri(
                 base.scheme,
                 path.posix.join(base.path, ...segments),
                 path.join(base.fsPath, ...segments)
@@ -94,48 +85,34 @@ vi.mock('vscode',
 
 
             parse: /**
-     * PDF・テストの回帰の入力を構造化した値へ変換する。
+     * file URI形式の入力からテスト用URIを生成する。
      * @param value - file URIへ変換するテスト用のパス文字列。
-     * @returns PDF・テストの回帰で生成または変換した値。
+     * @returns 指定scheme、path、filesystem pathを持つテスト用URI。
      */ (value: string) => new TestUri('file', value, value.replace(/^file:\/\//i, ''))
         },
         workspace: {
             fs: {
 
-                readFile: /**
-     * PDF・テストの回帰から必要な値またはリソースを取得する。
-     * @param uri - VS Codeまたはブラウザーが扱うリソースURI。
-     * @returns PDF・テストの回帰のread・fileが生成する結果。
-     */ (uri: TestUri) => fs.readFile(uri.fsPath)
+                readFile: (uri: TestUri) => fs.readFile(uri.fsPath)
             },
 
 
-            getConfiguration: /**
-     * PDF・テストの回帰から必要な値またはリソースを取得する。
-     * @returns PDF・テストの回帰のget・configurationが生成する結果。
-     */ () => ({
+            getConfiguration: () => ({
 
-                    get: /**
-     * PDF・テストの回帰から必要な値またはリソースを取得する。
-     * @param _key - PDF・テストの回帰の対象や分岐を識別する値。
-     * @param fallback - PDF・テストの回帰で受け渡す文字列。
-     * @returns PDF・テストの回帰のgetが生成する結果。
-     */ (_key: string, fallback: string) => fallback
+                    get:  (_key: string, fallback: string) => fallback
                 })
         },
         window: {
 
             showSaveDialog: /**
    * PDF・テストの回帰の表示または操作を開始する。
-   * @returns 副作用を完了し、値は返さない。
    */ async () => undefined
         }
         // @ts-ignore Vitest supports a third virtual-module option at runtime.
     }), { virtual: true });
 vi.mock('dompurify',
     /**
-     * PDF・テストの回帰のコールバックとして要素を処理する。
-     * @returns PDF・テストの回帰のコールバックが生成する結果。
+     * PDF出力テスト用のDOMPurifyサニタイザーを返す。
      */
     () => ({
         default: {
@@ -164,14 +141,13 @@ const temporaryServers: Server[] = [];
 afterEach(
     /**
      * PDF・テストの回帰の前提条件を準備し、回帰条件を検証するテストケース。
-     * @returns テストケースを実行し、値は返さない。
      */
     async () => {
         await Promise.all(temporaryDirectories.splice(0).map(
             /**
              * 各directoryをrmへ渡し、変換結果を一覧化する。
              * @param directory - PDF・テストの回帰で読み書きするリソースの場所。
-             * @returns 入力要素から生成した変換結果の一覧。
+
              */
             (directory) => fs.rm(directory, { recursive: true, force: true })));
         await Promise.all(temporaryServers.splice(0).map(
@@ -184,30 +160,18 @@ afterEach(
                 /**
                  * 非同期処理の成功結果を待機側へ通知する。
                  * @param resolve - Promiseの成功を通知する関数。
-                 * @returns 非同期処理の完了値。
                  */
                 (resolve) => {
                     server.close(
-                        /**
-                         * 要素を成功結果通知へ渡し、PDF・テストの回帰の結果または副作用を処理する。
-                         * @returns 通知処理を完了し、値は返さない。
-                         */
+
                         () => resolve());
                     server.closeAllConnections();
                 })));
     });
 
 describe('PDF local images',
-    /**
-     * 「PDF local images」の仕様と回帰条件を検証するテストケース。
-     * @returns テストケースを実行し、値は返さない。
-     */
     () => {
         it('normalizes typography settings and includes them in the standalone print HTML',
-            /**
-             * 「normalizes typography settings and includes them in the standalone print HTML」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             async () => {
                 expect(normalizePdfOptions({ format: 'Letter' }).format).toBe('A4');
                 expect(normalizePdfOptions({ format: 'B5' }).format).toBe('B5');
@@ -250,10 +214,6 @@ describe('PDF local images',
             });
 
         it('embeds a relative local image and produces a PDF with it',
-            /**
-             * 「embeds a relative local image and produces a PDF with it」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             async () => {
                 const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markdown-easy-visual-editor-pdf-'));
                 temporaryDirectories.push(directory);
@@ -289,20 +249,11 @@ describe('PDF local images',
             }, 30_000);
 
         it('does not wait indefinitely for a remote image that never finishes',
-            /**
-             * 「does not wait indefinitely for a remote image that never finishes」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             async () => {
                 const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markdown-easy-visual-editor-pdf-'));
                 temporaryDirectories.push(directory);
                 const server = createServer(
-                    /**
-                     * ・requestをwrite・headへ渡し、PDF・テストの回帰の結果または副作用を処理する。
-                     * @param _request - PDF・テストの回帰へ渡す入力。
-                     * @param response - PDF・テストの回帰へ渡す入力。
-                     * @returns PDF・テストの回帰のコールバックが生成する結果。
-                     */
+
                     (_request, response) => {
                         response.writeHead(200, { 'Content-Type': 'image/png' });
                         // 画像レスポンスを完了させず、応答待ちが無期限にならないことを検証する。
@@ -312,13 +263,9 @@ describe('PDF local images',
                     /**
                      * 非同期処理の成功結果を待機側へ通知する。
                      * @param resolve - Promiseの成功を通知する関数。
-                     * @returns 非同期処理の完了値。
                      */
                     (resolve) => server.listen(0, '127.0.0.1',
-                        /**
-                         * 要素を成功結果通知へ渡し、PDF・テストの回帰の結果または副作用を処理する。
-                         * @returns 通知処理を完了し、値は返さない。
-                         */
+
                         () => resolve()));
                 const address = server.address();
                 if (!address || typeof address === 'string') throw new Error('Test server did not start.');
@@ -348,10 +295,6 @@ describe('PDF local images',
             }, 20_000);
 
         it('renders sample/03-images.md within the preview budget',
-            /**
-             * 「renders sample/03-images.md within the preview budget」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             async () => {
                 const documentPath = path.resolve('sample/03-images.md');
                 const documentUri = new TestUri('file', documentPath.replace(/\\/g, '/'), documentPath);

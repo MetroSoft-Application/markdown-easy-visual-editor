@@ -59,7 +59,7 @@ import {
 } from "../shared/tableEditorSizing";
 
 /**
- * 表編集オーバーレイのopen・eventに関する状態または設定。
+ * 表編集オーバーレイを開く要求を通知するカスタムイベント名。
  */
 const OPEN_EVENT = "mve-open-table-editor";
 
@@ -89,7 +89,7 @@ const MAX_AUTO_COLUMN_WIDTH = TABLE_EDITOR_MAX_AUTO_COLUMN_WIDTH;
 const DEFAULT_COLUMN_WIDTH = 160;
 
 /**
- * 表編集オーバーレイの位置・寸法・件数・時間を表す数値。
+ * 行見出し列に確保する幅をCSSピクセル単位で指定します。
  */
 const ROW_HEADER_WIDTH = 42;
 
@@ -136,7 +136,7 @@ const ROW_RESIZE_CLICK_MOVEMENT_THRESHOLD = 3;
  */
 let overlayRoot: Root | undefined;
 /**
- * 表編集オーバーレイのoverlay・hostに関する状態または設定。
+ * Reactの表編集ルートをマウントしているDOM要素。
  */
 let overlayHost: HTMLDivElement | undefined;
 
@@ -145,11 +145,11 @@ let overlayHost: HTMLDivElement | undefined;
  */
 type CellSelection = {
   /**
-   * 表編集オーバーレイのfromを表す数値。
+   * 選択範囲内の先頭セルを示す0始まりのセル番号です。
    */
   from: number;
   /**
-   * 表編集オーバーレイのtoを表す数値。
+   * 選択範囲内の末尾セルを示す0始まりのセル番号です。
    */
   to: number;
 };
@@ -158,17 +158,15 @@ type CellSelection = {
  */
 type ColumnResizeState = {
   /**
-   * 表編集オーバーレイの位置・寸法・件数・時間を表す数値。
+   * リサイズ対象列の0始まりの列番号です。
    */
   column: number;
 
-  /**
-   * 表編集オーバーレイのstart・xを表す数値。
-   */
+  /** リサイズ開始時のポインターX座標。 */
   startX: number;
 
   /**
-   * 表編集オーバーレイの位置・寸法・件数・時間を表す数値。
+   * 列幅変更を始めた時点の幅をCSSピクセル単位で記録します。
    */
   startWidth: number;
 
@@ -182,22 +180,18 @@ type ColumnResizeState = {
  */
 type RowResizeState = {
   /**
-   * 表編集オーバーレイの位置・寸法・件数・時間を表す数値。
+   * リサイズ対象行の0始まりの行番号です。
    */
   row: number;
 
-  /**
-   * 表編集オーバーレイのpointer・idを表す数値。
-   */
+  /** 行リサイズを開始したポインターを識別するID。 */
   pointerId: number;
 
-  /**
-   * 表編集オーバーレイのstart・yを表す数値。
-   */
+  /** 行リサイズ開始時のポインターY座標。 */
   startY: number;
 
   /**
-   * 表編集オーバーレイの位置・寸法・件数・時間を表す数値。
+   * 行高変更を始めた時点の高さをCSSピクセル単位で記録します。
    */
   startHeight: number;
 
@@ -223,19 +217,13 @@ type EditorSize = {
  * 表編集オーバーレイの現在状態または履歴を保持するデータ形状。
  */
 type EditorDragState = {
-  /**
-   * 表編集オーバーレイのpointer・idを表す数値。
-   */
+  /** オーバーレイ操作を開始したポインターを識別するID。 */
   pointerId: number;
 
-  /**
-   * 表編集オーバーレイのstart・xを表す数値。
-   */
+  /** ドラッグまたはリサイズ開始時のポインターX座標。 */
   startX: number;
 
-  /**
-   * 表編集オーバーレイのstart・yを表す数値。
-   */
+  /** ドラッグまたはリサイズ開始時のポインターY座標。 */
   startY: number;
 
   /**
@@ -263,27 +251,27 @@ type EditorDragState = {
  */
 type EditorResizeState = {
   /**
-   * 表編集オーバーレイのpointer・idを表す数値。
+   * ドラッグを開始したポインターのID。
    */
   pointerId: number;
 
   /**
-   * 表編集オーバーレイのstart・xを表す数値。
+   * ドラッグ開始点の画面X座標。
    */
   startX: number;
 
   /**
-   * 表編集オーバーレイのstart・yを表す数値。
+   * ドラッグ開始点の画面Y座標。
    */
   startY: number;
 
   /**
-   * 表編集オーバーレイの位置・寸法・件数・時間を表す数値。
+   * 列幅変更を開始したときの幅をCSSピクセル単位で記録します。
    */
   startWidth: number;
 
   /**
-   * 表編集オーバーレイの位置・寸法・件数・時間を表す数値。
+   * 行高変更を開始したときの高さをCSSピクセル単位で記録します。
    */
   startHeight: number;
 
@@ -298,7 +286,7 @@ type EditorResizeState = {
   top: number;
 };
 /**
- * 表編集オーバーレイで対象や分岐を識別する値の型。
+ * グリッド選択対象がセル、行、列、全体のどれかを示します。
  */
 type GridSelectionKind = "cells" | "row" | "column" | "all";
 /**
@@ -328,28 +316,28 @@ type GridDropTarget = {
   index: number;
 };
 /**
- * 表編集オーバーレイのcell・keyを処理し、呼び出し側へ結果または副作用を返す。
+ * 行と列の組を、セル選択状態のMapで使う一意なキーにする。
  * @param row - セル操作の対象となる表行インデックス。
  * @param column - セル操作の対象となる表列インデックス。
- * @returns 表編集オーバーレイで利用する文字列。
+ * @returns 行番号と列番号をコロンで連結したセルキー。
  */
 function cellKey(row: number, column: number): string {
   return `${row}:${column}`;
 }
 
 /**
- * 表編集オーバーレイの入力を構造化した値へ変換する。
+ * 行:列形式のセルアドレスを行番号と列番号へ解析する。
  * @param value - 行番号と列番号をコロンで区切ったセルアドレス文字列。未指定時はundefined。
- * @returns 表編集オーバーレイで生成または変換した値。
+ * @returns セルの行番号と列番号。形式が異なる場合はundefined。
  */
 function parseTableCellAddress(value: string | undefined):
   | {
       /**
-       * 表編集オーバーレイの位置・寸法・件数・時間を表す数値。
+       * セル範囲の始点を示す0始まりの行番号です。
        */
       row: number;
       /**
-       * 表編集オーバーレイの位置・寸法・件数・時間を表す数値。
+       * セル範囲の始点を示す0始まりの列番号です。
        */
       column: number;
     }
@@ -360,9 +348,9 @@ function parseTableCellAddress(value: string | undefined):
 }
 
 /**
- * 表編集オーバーレイのrow・textarea・styleを処理し、呼び出し側へ結果または副作用を返す。
+ * 行高に合わせたセルtextareaの高さと垂直位置を計算する。
  * @param rowHeight - textareaを収める行の高さ（CSS px）。
- * @returns 副作用を完了し、値は返さない。
+ * @returns 高さを適用できる行ではCSSスタイル、行高が無効な場合はundefined。
  */
 function rowTextareaStyle(
   rowHeight: number | undefined,
@@ -373,19 +361,15 @@ function rowTextareaStyle(
 }
 
 /**
- * 表編集オーバーレイのinstall・table・editor・overlayを処理し、呼び出し側へ結果または副作用を返す。
- * @returns 表編集オーバーレイのinstall・table・editor・overlayが生成する結果。
+ * 表編集を開くイベントを登録し、呼び出し側へ解除関数を返す。
+ * @returns イベントリスナーを解除して、開いている表編集オーバーレイを閉じる関数。
  */
 export function installTableEditorOverlay(): () => void {
   const open = /**
    * 表編集オーバーレイの表示または操作を開始する。
-   * @returns 副作用を完了し、値は返さない。
    */ () => openTableEditor();
   window.addEventListener(OPEN_EVENT, open);
-  /**
-   * イベントでremove・event・listenerを実行する。
-   * @returns 副作用を完了し、値は返さない。
-   */
+  /** 登録したイベントを解除し、オーバーレイのDOMと状態を破棄する。 */
   return () => {
     window.removeEventListener(OPEN_EVENT, open);
     closeOverlay();
@@ -393,8 +377,8 @@ export function installTableEditorOverlay(): () => void {
 }
 
 /**
- * 表編集オーバーレイから必要な値またはリソースを取得する。
- * @returns 条件に一致する値。未検出時はundefinedまたはnull。
+ * ソースエディターのDOMからCodeMirrorのviewを検索する。
+ * @returns エディターが見つかった場合はそのview、未表示の場合はundefined。
  */
 function findEditorView(): EditorView | undefined {
   const editor = document.querySelector<HTMLElement>(
@@ -405,7 +389,6 @@ function findEditorView(): EditorView | undefined {
 
 /**
  * 表編集オーバーレイの表示または操作を開始する。
- * @returns 副作用を完了し、値は返さない。
  */
 function openTableEditor(): void {
   const messages = getMessages(document.documentElement.lang);
@@ -437,7 +420,6 @@ function openTableEditor(): void {
 
 /**
  * 表編集オーバーレイの処理またはリソースを終了し、後続利用可能な状態へ戻す。
- * @returns 副作用を完了し、値は返さない。
  */
 function closeOverlay(): void {
   overlayRoot?.unmount();
@@ -449,7 +431,6 @@ function closeOverlay(): void {
 /**
  * 表編集オーバーレイの表示または操作を開始する。
  * @param message - HostとWebviewの間で受け渡すメッセージ。
- * @returns 副作用を完了し、値は返さない。
  */
 function showOverlayToast(message: string): void {
   const toast = document.createElement("div");
@@ -459,7 +440,6 @@ function showOverlayToast(message: string): void {
   window.setTimeout(
     /**
      * 指定時間の経過後に後続処理を実行する。
-     * @returns 副作用を完了し、値は返さない。
      */
     () => toast.remove(),
     2400,
@@ -497,10 +477,7 @@ function TableEditorOverlay(props: {
 }): React.JSX.Element {
   const { view, initial, messages, onClose } = props;
   const [rows, setRows] = useState(
-    /**
-     * 要素をmapへ渡し、表編集オーバーレイの結果または副作用を処理する。
-     * @returns 表編集オーバーレイのコールバックが生成する結果。
-     */
+
     () =>
       initial.rows.map(
         /**
@@ -512,10 +489,7 @@ function TableEditorOverlay(props: {
       ),
   );
   const [alignments, setAlignments] = useState<TableEditorAlignment[]>(
-    /**
-     * 要素をsliceへ渡し、表編集オーバーレイの結果または副作用を処理する。
-     * @returns 表編集オーバーレイのコールバックが生成する結果。
-     */
+
     () => initial.alignments.slice(),
   );
   const [activeRow, setActiveRow] = useState(initial.activeRow);
@@ -523,8 +497,7 @@ function TableEditorOverlay(props: {
   const [sortState, setSortState] = useState<TableEditorSortState | null>(null);
   const [gridSelection, setGridSelection] = useState<TableGridRange>(
     /**
-     * 表編集オーバーレイのコールバックとして要素を処理する。
-     * @returns 表編集オーバーレイのコールバックが生成する結果。
+     * 初期アクティブセルを選択範囲の両端に設定する。
      */
     () => ({
       anchorRow: initial.activeRow,
@@ -555,15 +528,13 @@ function TableEditorOverlay(props: {
   }>();
   const [rowHeights, setRowHeights] = useState<Array<number | undefined>>(
     /**
-     * 要素をfromへ渡し、表編集オーバーレイの結果または副作用を処理する。
-     * @returns 表編集オーバーレイに対応する要素の一覧。
+     * @returns 各表行の高さを未指定にした初期配列。
      */
     () =>
       Array.from(
         { length: initial.rows.length },
         /**
-         * 表編集オーバーレイのコールバックとして要素を処理する。
-         * @returns 副作用を完了し、値は返さない。
+         * 初期列幅を既定値でそろえる。
          */
         () => undefined,
       ),
@@ -582,15 +553,13 @@ function TableEditorOverlay(props: {
   );
   const [columnWidths, setColumnWidths] = useState<number[]>(
     /**
-     * 要素をfromへ渡し、表編集オーバーレイの結果または副作用を処理する。
-     * @returns 表編集オーバーレイに対応する要素の一覧。
+     * @returns 各列へ既定幅を設定した初期配列。
      */
     () =>
       Array.from(
         { length: initialColumnCount },
         /**
-         * 表編集オーバーレイのコールバックとして要素を処理する。
-         * @returns 表編集オーバーレイのコールバックが生成する結果。
+         * 各行に高さ未指定の状態を設定する。
          */
         () => DEFAULT_COLUMN_WIDTH,
       ),
@@ -604,11 +573,11 @@ function TableEditorOverlay(props: {
   const selectionDragRef = useRef<
     | {
         /**
-         * 表編集オーバーレイの位置・寸法・件数・時間を表す数値。
+         * セル範囲の終点を示す0始まりの行番号です。
          */
         row: number;
         /**
-         * 表編集オーバーレイの位置・寸法・件数・時間を表す数値。
+         * セル範囲の終点を示す0始まりの列番号です。
          */
         column: number;
       }
@@ -641,27 +610,16 @@ function TableEditorOverlay(props: {
       length: normalizedSelection.toColumn - normalizedSelection.fromColumn + 1,
     },
 
-    /**
-     * 表編集オーバーレイのコールバックとして・を処理する。
-     * @param _ - 引数位置を維持するための未使用値。
-     * @param index - 配列・行列・文字列の要素位置を示す番号。
-     * @returns 表編集オーバーレイのコールバックが生成する結果。
-     */
+
     (_, index) => normalizedSelection.fromColumn + index,
   );
   const selectedAlignmentValues = selectedColumns.map(
-    /**
-     * selected・columnsの各要素を変換して一覧化する。
-     * @param column - セル操作の対象となる表列インデックス。
-     * @returns 入力要素から生成した変換結果の一覧。
-     */
     (column) => alignments[column] ?? "none",
   );
   const currentAlignment = selectedAlignmentValues.every(
     /**
-     * 表編集オーバーレイのコールバックとして値を処理する。
+
      * @param value - 現在の列配置と選択中配置候補。
-     * @returns 表編集オーバーレイのコールバックが生成する結果。
      */
     (value) => value === selectedAlignmentValues[0],
   )
@@ -672,12 +630,7 @@ function TableEditorOverlay(props: {
     Array.from(
       { length: columnCount },
 
-      /**
-       * 表編集オーバーレイのコールバックとして・を処理する。
-       * @param _ - 引数位置を維持するための未使用値。
-       * @param index - 配列・行列・文字列の要素位置を示す番号。
-       * @returns 表編集オーバーレイのコールバックが生成する結果。
-       */
+
       (_, index) => columnWidths[index] ?? DEFAULT_COLUMN_WIDTH,
     ).reduce(
       /**
@@ -710,21 +663,16 @@ function TableEditorOverlay(props: {
   useEffect(
     /**
      * 依存状態の変化に応じて購読を更新し、解除処理を返す。
-     * @returns 表編集オーバーレイのコールバックが生成する結果。
      */
     () => {
       const frame = requestAnimationFrame(
         /**
          * 次の描画フレームで表示更新を実行する。
-         * @returns 表編集オーバーレイのコールバックが生成する結果。
          */
         () => focusCell(activeRow, activeColumn, false),
       );
-      /**
-       * 表編集オーバーレイのreturnを処理し、呼び出し側へ結果または副作用を返す。
-       * @returns 表編集オーバーレイのreturnが生成する結果。
-       */
-      return () => cancelAnimationFrame(frame);
+       /** フォーカス予約のアニメーションフレームを解除する。 */
+       return () => cancelAnimationFrame(frame);
     },
     [],
   );
@@ -732,13 +680,11 @@ function TableEditorOverlay(props: {
   useEffect(
     /**
      * 依存状態の変化に応じて表示または購読を更新する。
-     * @returns 表編集オーバーレイのコールバックが生成する結果。
      */
     () => {
-      const onKeyDown = /**
-       * keydownイベントでto・lower・caseを実行する。
+       const onKeyDown = /**
+        * グリッド内のコピー、Undo/Redo、消去、適用、閉じる操作を処理する。
        * @param event - セルTSVコピー、undo/redo、消去、適用、閉じるショートカットを処理するkeydown event。
-       * @returns 副作用を完了し、値は返さない。
        */ (event: KeyboardEvent) => {
         const accelerator = event.ctrlKey || event.metaKey;
         const key = event.key.toLowerCase();
@@ -788,7 +734,6 @@ function TableEditorOverlay(props: {
       window.addEventListener("keydown", onKeyDown, true);
       /**
        * UIイベントを表示または編集状態へ反映する。
-       * @returns 副作用を完了し、値は返さない。
        */
       return () => window.removeEventListener("keydown", onKeyDown, true);
     },
@@ -797,13 +742,11 @@ function TableEditorOverlay(props: {
   useEffect(
     /**
      * 依存状態の変化に応じて表示または購読を更新する。
-     * @returns 表編集オーバーレイのコールバックが生成する結果。
      */
     () => {
-      const onMouseMove = /**
-       * 表編集オーバーレイのイベントまたはメッセージを受け取り、状態を更新する。
-       * @param event - 列リサイズ中のmousemove位置を列幅へ反映するevent。
-       * @returns 表編集オーバーレイのon・mouse・moveが生成する結果。
+       const onMouseMove = /**
+        * 列リサイズ中のポインター位置から対象列の幅を更新する。
+        * @param event - 列リサイズ中のmousemove位置を列幅へ反映するevent。
        */ (event: MouseEvent) => {
         const resize = columnResizeRef.current;
         if (!resize) return;
@@ -814,9 +757,7 @@ function TableEditorOverlay(props: {
         );
         setColumnWidths(
           /**
-           * previousをifへ渡し、表編集オーバーレイの結果または副作用を処理する。
            * @param previous - リサイズ前の列幅一覧。対象列を更新し、不足列に既定幅を補う基準値。
-           * @returns 表編集オーバーレイのコールバックが生成する結果。
            */
           (previous) => {
             if (previous[resize.column] === width) return previous;
@@ -829,9 +770,8 @@ function TableEditorOverlay(props: {
         );
       };
 
-      const onMouseUp = /**
-       * 表編集オーバーレイのイベントまたはメッセージを受け取り、状態を更新する。
-       * @returns 表編集オーバーレイのon・mouse・upが生成する結果。
+       const onMouseUp = /**
+        * 列リサイズ状態とドラッグ中に変更したbodyスタイルを初期化する。
        */ () => {
         columnResizeRef.current = undefined;
         document.body.style.cursor = "";
@@ -839,10 +779,7 @@ function TableEditorOverlay(props: {
       };
       window.addEventListener("mousemove", onMouseMove);
       window.addEventListener("mouseup", onMouseUp);
-      /**
-       * イベントでremove・event・listenerを実行する。
-       * @returns 副作用を完了し、値は返さない。
-       */
+      /** リサイズ終了後にwindowの監視を解除し、bodyの操作制限を戻す。 */
       return () => {
         window.removeEventListener("mousemove", onMouseMove);
         window.removeEventListener("mouseup", onMouseUp);
@@ -856,13 +793,11 @@ function TableEditorOverlay(props: {
   useEffect(
     /**
      * 依存状態の変化に応じて表示または購読を更新する。
-     * @returns 表編集オーバーレイのコールバックが生成する結果。
      */
     () => {
-      const onPointerMove = /**
-       * 表編集オーバーレイのイベントまたはメッセージを受け取り、状態を更新する。
-       * @param event - 表エディターの移動・サイズ変更または行リサイズ中のpointer位置を反映するevent。
-       * @returns 表編集オーバーレイのon・pointer・moveが生成する結果。
+       const onPointerMove = /**
+        * ポインター操作に応じてオーバーレイの位置、寸法、行高を更新する。
+        * @param event - 表エディターの移動・サイズ変更または行リサイズ中のpointer位置を反映するevent。
        */ (event: PointerEvent) => {
         const editorResize = editorResizeRef.current;
         if (editorResize && event.pointerId === editorResize.pointerId) {
@@ -892,9 +827,8 @@ function TableEditorOverlay(props: {
           );
           setEditorSize(
             /**
-             * 表編集オーバーレイのコールバックとしてpreviousを処理する。
+
              * @param previous - ドラッグ前の表エディター幅と高さ。新寸法と比較する状態。
-             * @returns 表編集オーバーレイのコールバックが生成する結果。
              */
             (previous) =>
               previous.width === width && previous.height === height
@@ -923,9 +857,8 @@ function TableEditorOverlay(props: {
           );
           setEditorPosition(
             /**
-             * 表編集オーバーレイのコールバックとしてpreviousを処理する。
+
              * @param previous - 移動前の表エディター左上座標。新しい座標と比較する状態。
-             * @returns 表編集オーバーレイのコールバックが生成する結果。
              */
             (previous) =>
               previous?.left === left && previous.top === top
@@ -948,9 +881,7 @@ function TableEditorOverlay(props: {
         );
         setRowHeights(
           /**
-           * previousをifへ渡し、表編集オーバーレイの結果または副作用を処理する。
            * @param previous - リサイズ前の行高一覧。対象行を更新し、不足位置に項目を補う基準値。
-           * @returns 表編集オーバーレイのコールバックが生成する結果。
            */
           (previous) => {
             if (previous[rowResize.row] === height) return previous;
@@ -962,11 +893,7 @@ function TableEditorOverlay(props: {
         );
       };
 
-      const onPointerUp = /**
-       * 表編集オーバーレイのイベントまたはメッセージを受け取り、状態を更新する。
-       * @param event - pointer操作終了時にセル選択ドラッグとoverlay操作状態を解放するevent。
-       * @returns 表編集オーバーレイのon・pointer・upが生成する結果。
-       */ (event: PointerEvent) => {
+      const onPointerUp = (event: PointerEvent) => {
         selectionDragRef.current = undefined;
         if (editorResizeRef.current?.pointerId === event.pointerId) {
           editorResizeRef.current = undefined;
@@ -987,10 +914,7 @@ function TableEditorOverlay(props: {
       window.addEventListener("pointermove", onPointerMove);
       window.addEventListener("pointerup", onPointerUp);
       window.addEventListener("pointercancel", onPointerUp);
-      /**
-       * イベントでremove・event・listenerを実行する。
-       * @returns 副作用を完了し、値は返さない。
-       */
+      /** ポインター操作終了後にwindowの監視とドラッグ状態を解除する。 */
       return () => {
         window.removeEventListener("pointermove", onPointerMove);
         window.removeEventListener("pointerup", onPointerUp);
@@ -1007,10 +931,7 @@ function TableEditorOverlay(props: {
   );
 
   const tsv = useMemo(
-    /**
-     * 要素をrender・table・editor・draftへ渡し、表編集オーバーレイの結果または副作用を処理する。
-     * @returns 表編集オーバーレイのコールバックが生成する結果。
-     */
+
     () => {
       const rendered = renderTableEditorDraft(currentDraft());
       return (
@@ -1024,8 +945,8 @@ function TableEditorOverlay(props: {
   );
 
   /**
-   * 表編集オーバーレイのcurrent・draftを処理し、呼び出し側へ結果または副作用を返す。
-   * @returns 表編集オーバーレイのcurrent・draftが生成する結果。
+   * 現在のセル値、列幅、行高を履歴へ保存できるdraft形式にまとめる。
+   * @returns undo/redo履歴へ渡す表編集draft。
    */
   function currentDraft(): TableEditorDraft {
     return {
@@ -1034,12 +955,7 @@ function TableEditorOverlay(props: {
       alignments: Array.from(
         { length: columnCount },
 
-        /**
-         * 表編集オーバーレイのコールバックとして・を処理する。
-         * @param _ - 引数位置を維持するための未使用値。
-         * @param index - 配列・行列・文字列の要素位置を示す番号。
-         * @returns 表編集オーバーレイのコールバックが生成する結果。
-         */
+
         (_, index) => alignments[index] ?? "none",
       ),
       activeRow,
@@ -1064,12 +980,7 @@ function TableEditorOverlay(props: {
       alignments: Array.from(
         { length: columnCount },
 
-        /**
-         * 表編集オーバーレイのコールバックとして・を処理する。
-         * @param _ - 引数位置を維持するための未使用値。
-         * @param index - 配列・行列・文字列の要素位置を示す番号。
-         * @returns 副作用を完了し、値は返さない。
-         */
+
         (_, index) => alignments[index] ?? "none",
       ),
       activeRow,
@@ -1079,12 +990,7 @@ function TableEditorOverlay(props: {
       columnWidths: Array.from(
         { length: columnCount },
 
-        /**
-         * 表編集オーバーレイのコールバックとして・を処理する。
-         * @param _ - 引数位置を維持するための未使用値。
-         * @param index - 配列・行列・文字列の要素位置を示す番号。
-         * @returns 副作用を完了し、値は返さない。
-         */
+
         (_, index) => columnWidths[index] ?? DEFAULT_COLUMN_WIDTH,
       ),
       gridSelection: { ...gridSelection },
@@ -1092,26 +998,19 @@ function TableEditorOverlay(props: {
     };
   }
 
-  /**
-   * 表編集オーバーレイのrecord・historyを処理し、呼び出し側へ結果または副作用を返す。
-   * @returns 副作用を完了し、値は返さない。
-   */
+  /** 現在のdraftと選択状態を履歴へ記録する。 */
   function recordHistory(): void {
     recordTableEditorHistory(historyRef.current, currentHistorySnapshot());
     setHistoryRevision(
       /**
        * 表編集履歴の更新番号を加算する。
        * @param value - 加算前の表編集履歴の更新番号。
-       * @returns 副作用を完了し、値は返さない。
        */
       (value) => value + 1,
     );
   }
 
-  /**
-   * 表編集オーバーレイのundo・draftを処理し、呼び出し側へ結果または副作用を返す。
-   * @returns 副作用を完了し、値は返さない。
-   */
+  /** 履歴を一段戻し、復元したdraftと選択状態を画面へ反映する。 */
   function undoDraft(): void {
     const previous = undoTableEditorHistory(
       historyRef.current,
@@ -1123,16 +1022,12 @@ function TableEditorOverlay(props: {
         /**
          * 表編集履歴の更新番号を加算する。
          * @param value - 加算前の表編集履歴の更新番号。
-       * @returns 副作用を完了し、値は返さない。
        */
       (value) => value + 1,
     );
   }
 
-  /**
-   * 表編集オーバーレイのredo・draftを処理し、呼び出し側へ結果または副作用を返す。
-   * @returns 副作用を完了し、値は返さない。
-   */
+  /** 履歴を一段進め、復元したdraftと選択状態を画面へ反映する。 */
   function redoDraft(): void {
     const next = redoTableEditorHistory(
       historyRef.current,
@@ -1144,7 +1039,6 @@ function TableEditorOverlay(props: {
         /**
          * 表編集履歴の更新番号を加算する。
          * @param value - 加算前の表編集履歴の更新番号。
-       * @returns 副作用を完了し、値は返さない。
        */
       (value) => value + 1,
     );
@@ -1153,7 +1047,6 @@ function TableEditorOverlay(props: {
   /**
    * 表編集オーバーレイの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
    * @param snapshot - 復元する表編集履歴。セル、配置、選択、ソート、行高、列幅を含む。
-   * @returns 副作用を完了し、値は返さない。
    */
   function restoreHistorySnapshot(snapshot: TableEditorHistorySnapshot): void {
     const nextRows = snapshot.rows.map(
@@ -1188,14 +1081,14 @@ function TableEditorOverlay(props: {
     const clampRow = /**
       * 復元するアクティブ行を表の範囲内に収める。
       * @param row - 行数の範囲内へ丸めるアクティブ行インデックス。
-     * @returns 表編集オーバーレイで利用する数値。
+
      */ (row: number): number =>
       Math.max(0, Math.min(nextRows.length - 1, row));
 
     const clampColumn = /**
       * 復元するアクティブ列を表の範囲内に収める。
       * @param column - 列数の範囲内へ丸めるアクティブ列インデックス。
-     * @returns 表編集オーバーレイで利用する数値。
+
      */ (column: number): number =>
       Math.max(0, Math.min(nextColumns - 1, column));
     setRows(nextRows);
@@ -1203,12 +1096,7 @@ function TableEditorOverlay(props: {
       Array.from(
         { length: nextColumns },
 
-        /**
-         * 表編集オーバーレイのコールバックとして・を処理する。
-         * @param _ - 引数位置を維持するための未使用値。
-         * @param index - 配列・行列・文字列の要素位置を示す番号。
-         * @returns 表編集オーバーレイのコールバックが生成する結果。
-         */
+
         (_, index) => snapshot.alignments[index] ?? "none",
       ),
     );
@@ -1216,12 +1104,7 @@ function TableEditorOverlay(props: {
       Array.from(
         { length: nextColumns },
 
-        /**
-         * 表編集オーバーレイのコールバックとして・を処理する。
-         * @param _ - 引数位置を維持するための未使用値。
-         * @param index - 配列・行列・文字列の要素位置を示す番号。
-         * @returns 副作用を完了し、値は返さない。
-         */
+
         (_, index) => snapshot.columnWidths[index] ?? DEFAULT_COLUMN_WIDTH,
       ),
     );
@@ -1229,12 +1112,7 @@ function TableEditorOverlay(props: {
       Array.from(
         { length: nextRows.length },
 
-        /**
-         * 表編集オーバーレイのコールバックとして・を処理する。
-         * @param _ - 引数位置を維持するための未使用値。
-         * @param index - 配列・行列・文字列の要素位置を示す番号。
-         * @returns 副作用を完了し、値は返さない。
-         */
+
         (_, index) => snapshot.rowHeights[index],
       ),
     );
@@ -1253,10 +1131,9 @@ function TableEditorOverlay(props: {
   }
 
   /**
-   * 表編集オーバーレイのsingle・cell・selectionを処理し、呼び出し側へ結果または副作用を返す。
+   * 指定セルだけを選択し、選択範囲の開始位置と終了位置を同じセルにする。
    * @param row - セル操作の対象となる表行インデックス。
    * @param column - セル操作の対象となる表列インデックス。
-   * @returns 副作用を完了し、値は返さない。
    */
   function singleCellSelection(row: number, column: number): void {
     setGridSelection({
@@ -1275,7 +1152,6 @@ function TableEditorOverlay(props: {
    * @param select - focus時に入力欄の値全体を選択する場合true。
    * @param rowCount - 有効行indexを制限する現在の表行数。
    * @param columns - 有効列indexを制限する現在の表列数。
-   * @returns 副作用を完了し、値は返さない。
    */
   function focusCell(
     row: number,
@@ -1292,7 +1168,6 @@ function TableEditorOverlay(props: {
     requestAnimationFrame(
       /**
        * 次の描画フレームで表示更新を実行する。
-       * @returns 副作用を完了し、値は返さない。
        */
       () => {
         const element = overlayRef.current?.querySelector<HTMLTextAreaElement>(
@@ -1314,7 +1189,6 @@ function TableEditorOverlay(props: {
    * 表ドラフトを画面へ反映し、必要に応じて置換前の状態をundo履歴へ保存する。
    * @param next 画面へ反映する次の表編集ドラフト。
    * @param captureHistory 置換前のドラフトをundo履歴へ追加する場合はtrue。
-   * @returns 副作用を完了し、値は返さない。
    */
   function replaceDraft(next: TableEditorDraft, captureHistory = true): void {
     const nextRows = next.rows.map(
@@ -1347,12 +1221,7 @@ function TableEditorOverlay(props: {
       alignments: Array.from(
         { length: nextColumns },
 
-        /**
-         * 表編集オーバーレイのコールバックとして・を処理する。
-         * @param _ - 引数位置を維持するための未使用値。
-         * @param index - 配列・行列・文字列の要素位置を示す番号。
-         * @returns 表編集オーバーレイのコールバックが生成する結果。
-         */
+
         (_, index) => next.alignments[index] ?? "none",
       ),
     };
@@ -1366,38 +1235,24 @@ function TableEditorOverlay(props: {
     setAlignments(normalizedNext.alignments);
     setColumnWidths(
       /**
-       * previousをfromへ渡し、表編集オーバーレイの結果または副作用を処理する。
        * @param previous - 変更前の列幅一覧。新しい列数に合わせて調整し、既存位置の幅を保つ基準値。
-       * @returns 副作用を完了し、値は返さない。
        */
       (previous) =>
         Array.from(
           { length: nextColumns },
 
-          /**
-           * 表編集オーバーレイのコールバックとして・を処理する。
-           * @param _ - 引数位置を維持するための未使用値。
-           * @param index - 配列・行列・文字列の要素位置を示す番号。
-           * @returns 副作用を完了し、値は返さない。
-           */
+
           (_, index) => previous[index] ?? DEFAULT_COLUMN_WIDTH,
         ),
     );
     setRowHeights(
       /**
-       * previousをfromへ渡し、表編集オーバーレイの結果または副作用を処理する。
        * @param previous - 変更前の行高一覧。新しい行数に合わせて調整し、既存位置の高さを保つ基準値。
-       * @returns 副作用を完了し、値は返さない。
        */
       (previous) =>
         Array.from(
           { length: nextRows.length },
-          /**
-           * 表編集オーバーレイのコールバックとして・を処理する。
-           * @param _ - 引数位置を維持するための未使用値。
-           * @param index - 配列・行列・文字列の要素位置を示す番号。
-           * @returns 副作用を完了し、値は返さない。
-           */
+
           (_, index) => previous[index],
         ),
     );
@@ -1419,7 +1274,6 @@ function TableEditorOverlay(props: {
     * @param row - 編集するセルを含む表行のインデックス。
     * @param column - 編集するセルの列インデックス。
     * @param value - セル入力欄から受け取った表示文字列。
-   * @returns 副作用を完了し、値は返さない。
    */
   function updateCell(row: number, column: number, value: string): void {
     const normalized = tableEditorCellStoredValue(
@@ -1430,9 +1284,7 @@ function TableEditorOverlay(props: {
     recordHistory();
     setRows(
       /**
-       * previousをmapへ渡し、表編集オーバーレイの結果または副作用を処理する。
        * @param previous - 更新前の表セル行列。対象行のセル値を置き換える基準値。
-       * @returns 副作用を完了し、値は返さない。
        */
       (previous) =>
         previous.map(
@@ -1440,19 +1292,14 @@ function TableEditorOverlay(props: {
            * 各currentをifへ渡し、変換結果を一覧化する。
            * @param current - 走査中の表行にあるセル文字列一覧。対象行なら複製してセル変更を反映する。
            * @param rowIndex - 走査中の表行インデックス。
-           * @returns 入力要素から生成した変換結果の一覧。
+
            */
           (current, rowIndex) => {
             if (rowIndex !== row) return current;
             const next = Array.from(
               { length: columnCount },
 
-              /**
-               * 表編集オーバーレイのコールバックとして・を処理する。
-               * @param _ - 引数位置を維持するための未使用値。
-               * @param index - 配列・行列・文字列の要素位置を示す番号。
-               * @returns 副作用を完了し、値は返さない。
-               */
+
               (_, index) => current[index] ?? "",
             );
             next[column] = normalized;
@@ -1467,7 +1314,6 @@ function TableEditorOverlay(props: {
    * @param row - 選択位置を記録する表行インデックス。
    * @param column - 選択位置を記録する表列インデックス。
    * @param element - 寸法または属性を読み取るDOM要素。
-   * @returns 副作用を完了し、値は返さない。
    */
   function rememberCellSelection(
     row: number,
@@ -1488,7 +1334,6 @@ function TableEditorOverlay(props: {
    * @param event - pointerdownによる表セル選択開始event。
    * @param row - セル操作の対象となる表行インデックス。
    * @param column - セル操作の対象となる表列インデックス。
-   * @returns 副作用を完了し、値は返さない。
    */
   function beginCellSelection(
     event: React.PointerEvent<HTMLTableCellElement>,
@@ -1510,9 +1355,8 @@ function TableEditorOverlay(props: {
       selectionDragRef.current = undefined;
       setGridSelection(
         /**
-         * 表編集オーバーレイのコールバックとしてpreviousを処理する。
+
          * @param previous - Shiftクリック前の表セル選択範囲。アンカーを保ちフォーカスセルを移す基準値。
-         * @returns 副作用を完了し、値は返さない。
          */
         (previous) => ({
           ...previous,
@@ -1527,11 +1371,10 @@ function TableEditorOverlay(props: {
   }
 
   /**
-   * 表編集オーバーレイのextend・cell・selectionを処理し、呼び出し側へ結果または副作用を返す。
+   * ドラッグの起点を保ったまま、指定セルまで選択範囲を広げる。
    * @param event - セル範囲ドラッグ中に選択終端を更新するpointer event。
    * @param row - セル操作の対象となる表行インデックス。
    * @param column - セル操作の対象となる表列インデックス。
-   * @returns 副作用を完了し、値は返さない。
    */
   function extendCellSelection(
     event: React.PointerEvent<HTMLTableCellElement>,
@@ -1552,9 +1395,8 @@ function TableEditorOverlay(props: {
   }
 
   /**
-   * 表編集オーバーレイのselect・rowを処理し、呼び出し側へ結果または副作用を返す。
+   * 指定行のすべての列を選択範囲にする。
    * @param row - セル操作の対象となる表行インデックス。
-   * @returns 副作用を完了し、値は返さない。
    */
   function selectRow(row: number): void {
     setActiveRow(row);
@@ -1569,9 +1411,8 @@ function TableEditorOverlay(props: {
   }
 
   /**
-   * 表編集オーバーレイのselect・columnを処理し、呼び出し側へ結果または副作用を返す。
+   * 指定列のすべての行を選択範囲にする。
    * @param column - セル操作の対象となる表列インデックス。
-   * @returns 副作用を完了し、値は返さない。
    */
   function selectColumn(column: number): void {
     setActiveColumn(column);
@@ -1585,10 +1426,7 @@ function TableEditorOverlay(props: {
     setSelectionKind("column");
   }
 
-  /**
-   * 表編集オーバーレイのselect・all・cellsを処理し、呼び出し側へ結果または副作用を返す。
-   * @returns 副作用を完了し、値は返さない。
-   */
+  /** 表全体を選択範囲にし、フォーカスを左上セルへ移す。 */
   function selectAllCells(): void {
     setActiveRow(0);
     setActiveColumn(0);
@@ -1603,7 +1441,6 @@ function TableEditorOverlay(props: {
 
   /**
    * 表編集オーバーレイの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-   * @returns 副作用を完了し、値は返さない。
    */
   function clearSelectedCells(): void {
     let changed = false;
@@ -1634,7 +1471,6 @@ function TableEditorOverlay(props: {
    * 表編集オーバーレイの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
    * @param row - セル操作の対象となる表行インデックス。
    * @param column - セル操作の対象となる表列インデックス。
-   * @returns 副作用を完了し、値は返さない。
    */
   function insertLineBreak(row = activeRow, column = activeColumn): void {
     const value = rows[row]?.[column] ?? "";
@@ -1655,9 +1491,7 @@ function TableEditorOverlay(props: {
     const key = cellKey(row, column);
     setRows(
       /**
-       * previousをmapへ渡し、表編集オーバーレイの結果または副作用を処理する。
        * @param previous - 編集前の表セル行列。対象行のセル値を更新する基準値。
-       * @returns 表編集オーバーレイのコールバックが生成する結果。
        */
       (previous) =>
         previous.map(
@@ -1665,19 +1499,14 @@ function TableEditorOverlay(props: {
            * 各currentをifへ渡し、変換結果を一覧化する。
            * @param current - 走査中の表行にあるセル文字列一覧。対象行なら複製してセル変更を反映する。
            * @param rowIndex - 走査中の表行インデックス。
-           * @returns 入力要素から生成した変換結果の一覧。
+
            */
           (current, rowIndex) => {
             if (rowIndex !== row) return current;
             const next = Array.from(
               { length: columnCount },
 
-              /**
-               * 表編集オーバーレイのコールバックとして・を処理する。
-               * @param _ - 引数位置を維持するための未使用値。
-               * @param index - 配列・行列・文字列の要素位置を示す番号。
-               * @returns 条件が成立したかを示す真偽値。
-               */
+
               (_, index) => current[index] ?? "",
             );
             next[column] = edit.value;
@@ -1734,9 +1563,7 @@ function TableEditorOverlay(props: {
     recordHistory();
     setRows(
       /**
-       * previousをmapへ渡し、表編集オーバーレイの結果または副作用を処理する。
        * @param previous - 編集前の表セル行列。対象行の変更後セル値を反映する基準値。
-       * @returns 表編集オーバーレイのコールバックが生成する結果。
        */
       (previous) =>
         previous.map(
@@ -1744,19 +1571,14 @@ function TableEditorOverlay(props: {
            * 各currentをifへ渡し、変換結果を一覧化する。
            * @param current - 走査中の表行にあるセル文字列一覧。対象行なら複製してセル変更を反映する。
            * @param rowIndex - 走査中の表行インデックス。
-           * @returns 入力要素から生成した変換結果の一覧。
+
            */
           (current, rowIndex) => {
             if (rowIndex !== row) return current;
             const next = Array.from(
               { length: columnCount },
 
-              /**
-               * 表編集オーバーレイのコールバックとして・を処理する。
-               * @param _ - 引数位置を維持するための未使用値。
-               * @param index - 配列・行列・文字列の要素位置を示す番号。
-               * @returns 副作用を完了し、値は返さない。
-               */
+
               (_, index) => current[index] ?? "",
             );
             next[column] = edit.value;
@@ -1775,7 +1597,6 @@ function TableEditorOverlay(props: {
     requestAnimationFrame(
       /**
        * 次の描画フレームで表示更新を実行する。
-       * @returns 副作用を完了し、値は返さない。
        */
       () => {
         const element = overlayRef.current?.querySelector<HTMLTextAreaElement>(
@@ -1793,7 +1614,6 @@ function TableEditorOverlay(props: {
    * 表編集オーバーレイの表示または操作を開始する。
    * @param event - 列リサイズハンドルのmousedown event。
    * @param column - セル操作の対象となる表列インデックス。
-   * @returns 副作用を完了し、値は返さない。
    */
   function startColumnResize(
     event: React.MouseEvent<HTMLDivElement>,
@@ -1813,9 +1633,8 @@ function TableEditorOverlay(props: {
   }
 
   /**
-   * 表編集オーバーレイのauto・fit・columnを処理し、呼び出し側へ結果または副作用を返す。
+   * 各セルの表示幅を測り、指定列に必要な幅を設定する。
    * @param column - セル操作の対象となる表列インデックス。
-   * @returns 副作用を完了し、値は返さない。
    */
   function autoFitColumn(column: number): void {
     const editor = overlayRef.current;
@@ -1826,7 +1645,7 @@ function TableEditorOverlay(props: {
       /**
        * datasetの条件を満たすセルだけを残す。
        * @param cell - セルのdatasetを参照する走査対象。
-       * @returns 条件を満たした要素だけを含む一覧。
+
        */
       (cell) =>
         parseTableCellAddress(cell.dataset.tableCell)?.column === column,
@@ -1842,7 +1661,7 @@ function TableEditorOverlay(props: {
     const measure = /**
      * 表編集オーバーレイの寸法、容量、位置、または計測値を求める。
       * @param value - Canvasで幅を測定するセル表示文字列。
-     * @returns 表編集オーバーレイで利用する数値。
+
      */ (value: string): number => {
       if (!context) return Array.from(value).length * 8;
       context.font = [
@@ -1877,9 +1696,7 @@ function TableEditorOverlay(props: {
     );
     setColumnWidths(
       /**
-       * previousをsliceへ渡し、表編集オーバーレイの結果または副作用を処理する。
        * @param previous - 自動調整前の列幅一覧。計測した対象列の幅を反映し、他列を保つ基準値。
-       * @returns 副作用を完了し、値は返さない。
        */
       (previous) => {
         const next = previous.slice();
@@ -1892,10 +1709,9 @@ function TableEditorOverlay(props: {
   }
 
   /**
-   * 表編集オーバーレイのauto・fit・column・on・mouse・upを処理し、呼び出し側へ結果または副作用を返す。
+   * 列幅がドラッグで変わらなかった場合に列内容へ自動フィットする。
    * @param event - ドラッグされなかった列リサイズハンドルのmouseup event。
    * @param column - セル操作の対象となる表列インデックス。
-   * @returns 副作用を完了し、値は返さない。
    */
   function autoFitColumnOnMouseUp(
     event: React.MouseEvent<HTMLDivElement>,
@@ -1908,10 +1724,9 @@ function TableEditorOverlay(props: {
   }
 
   /**
-   * 表編集オーバーレイのresize・column・by・keyboardを処理し、呼び出し側へ結果または副作用を返す。
+   * 列リサイズハンドルの左右矢印キーで列幅を調整する。
    * @param event - 列リサイズハンドルの矢印キーによる幅調整keydown event。
    * @param column - セル操作の対象となる表列インデックス。
-   * @returns 副作用を完了し、値は返さない。
    */
   function resizeColumnByKeyboard(
     event: React.KeyboardEvent<HTMLDivElement>,
@@ -1923,9 +1738,7 @@ function TableEditorOverlay(props: {
     event.preventDefault();
     setColumnWidths(
       /**
-       * previousをsliceへ渡し、表編集オーバーレイの結果または副作用を処理する。
        * @param previous - キーボード調整前の列幅一覧。対象列の幅を増減する基準値。
-       * @returns 副作用を完了し、値は返さない。
        */
       (previous) => {
         const next = previous.slice();
@@ -1940,7 +1753,6 @@ function TableEditorOverlay(props: {
    * 表編集オーバーレイの表示または操作を開始する。
    * @param event - pointer captureで行リサイズを始めるpointerdown event。
    * @param row - セル操作の対象となる表行インデックス。
-   * @returns 副作用を完了し、値は返さない。
    */
   function startRowResize(
     event: React.PointerEvent<HTMLDivElement>,
@@ -1966,9 +1778,8 @@ function TableEditorOverlay(props: {
   }
 
   /**
-   * 表編集オーバーレイのauto・fit・rowを処理し、呼び出し側へ結果または副作用を返す。
+   * セル内の折り返し表示を測り、指定行に必要な高さを設定する。
    * @param row - セル操作の対象となる表行インデックス。
-   * @returns 副作用を完了し、値は返さない。
    */
   function autoFitRow(row: number): void {
     const editor = overlayRef.current;
@@ -1979,19 +1790,14 @@ function TableEditorOverlay(props: {
       /**
        * datasetの条件を満たすセルだけを残す。
        * @param cell - セルのdatasetを参照する走査対象。
-       * @returns 条件を満たした要素だけを含む一覧。
+
        */
       (cell) => parseTableCellAddress(cell.dataset.tableCell)?.row === row,
     );
     if (!cells.length) return;
 
     const heights = cells.map(
-      /**
-       * 各セルからclone・nodeを取り出して一覧化する。
-       * @param cell - セルのclone・nodeを参照する走査対象。
-       * @returns clone・nodeを取り出した変換結果の一覧。
-       */
-      (cell) => {
+       (cell) => {
         const clone = cell.cloneNode(false) as HTMLTextAreaElement;
         const parent = cell.parentElement;
         if (!parent) return MIN_ROW_HEIGHT;
@@ -2016,9 +1822,7 @@ function TableEditorOverlay(props: {
     const height = calculateAutoFitRowHeight(heights);
     setRowHeights(
       /**
-       * previousをsliceへ渡し、表編集オーバーレイの結果または副作用を処理する。
        * @param previous - 自動調整前の行高一覧。計測した対象行の高さを反映する基準値。
-       * @returns 副作用を完了し、値は返さない。
        */
       (previous) => {
         const next = previous.slice();
@@ -2031,10 +1835,9 @@ function TableEditorOverlay(props: {
   }
 
   /**
-   * 表編集オーバーレイのauto・fit・row・on・pointer・upを処理し、呼び出し側へ結果または副作用を返す。
+   * 行高がドラッグで変わらなかった場合にセル内容へ自動フィットする。
    * @param event - 行リサイズ終了時にauto-fitを判定するpointerup event。
    * @param row - セル操作の対象となる表行インデックス。
-   * @returns 副作用を完了し、値は返さない。
    */
   function autoFitRowOnPointerUp(
     event: React.PointerEvent<HTMLDivElement>,
@@ -2055,10 +1858,9 @@ function TableEditorOverlay(props: {
   }
 
   /**
-   * 表編集オーバーレイのresize・row・by・keyboardを処理し、呼び出し側へ結果または副作用を返す。
+   * 行リサイズハンドルの上下矢印キーで行高を調整する。
    * @param event - 行リサイズハンドルの矢印キーによる高さ調整keydown event。
    * @param row - セル操作の対象となる表行インデックス。
-   * @returns 副作用を完了し、値は返さない。
    */
   function resizeRowByKeyboard(
     event: React.KeyboardEvent<HTMLDivElement>,
@@ -2077,9 +1879,7 @@ function TableEditorOverlay(props: {
     );
     setRowHeights(
       /**
-       * previousをsliceへ渡し、表編集オーバーレイの結果または副作用を処理する。
        * @param previous - キーボード調整前の行高一覧。対象行の高さを増減する基準値。
-       * @returns 副作用を完了し、値は返さない。
        */
       (previous) => {
         const next = previous.slice();
@@ -2093,7 +1893,6 @@ function TableEditorOverlay(props: {
   /**
    * 表編集オーバーレイの表示または操作を開始する。
    * @param event - 表エディタータイトル部からoverlay移動を始めるpointerdown event。
-   * @returns 副作用を完了し、値は返さない。
    */
   function startEditorDrag(event: React.PointerEvent<HTMLElement>): void {
     if (event.button !== 0) return;
@@ -2122,7 +1921,6 @@ function TableEditorOverlay(props: {
   /**
    * 表編集オーバーレイの表示または操作を開始する。
    * @param event - 表エディターresize handleからoverlayサイズ変更を始めるpointerdown event。
-   * @returns 副作用を完了し、値は返さない。
    */
   function startEditorResize(event: React.PointerEvent<HTMLDivElement>): void {
     if (event.button !== 0) return;
@@ -2148,9 +1946,8 @@ function TableEditorOverlay(props: {
   }
 
   /**
-   * 表編集オーバーレイのresize・editor・by・keyboardを処理し、呼び出し側へ結果または副作用を返す。
+   * 矢印キーでオーバーレイの幅または高さを調整する。
    * @param event - 矢印キーによるoverlay幅・高さの調整keydown event。
-   * @returns 副作用を完了し、値は返さない。
    */
   function resizeEditorByKeyboard(
     event: React.KeyboardEvent<HTMLDivElement>,
@@ -2182,7 +1979,6 @@ function TableEditorOverlay(props: {
   /**
    * 表編集オーバーレイの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
    * @param action - 選択中の表へ再適用する共有Markdown行・列操作。
-   * @returns 副作用を完了し、値は返さない。
    */
   function applySharedTableAction(action: MarkdownTableAction): void {
     const rendered = renderTableEditorDraft(currentDraft());
@@ -2236,7 +2032,6 @@ function TableEditorOverlay(props: {
   /**
    * 表編集オーバーレイの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
    * @param action - 選択列へ適用する左・中央・右揃え操作。
-   * @returns 副作用を完了し、値は返さない。
    */
   function applySharedAlignmentAction(
     action: "alignLeft" | "alignCenter" | "alignRight",
@@ -2285,15 +2080,13 @@ function TableEditorOverlay(props: {
 
   /**
    * 表編集オーバーレイの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-   * @returns 副作用を完了し、値は返さない。
    */
   function clearAlignment(): void {
     if (
       selectedColumns.every(
         /**
-         * 表編集オーバーレイのコールバックとして列を処理する。
+
          * @param column - セル操作の対象となる表列インデックス。
-         * @returns 副作用を完了し、値は返さない。
          */
         (column) => (alignments[column] ?? "none") === "none",
       )
@@ -2304,19 +2097,12 @@ function TableEditorOverlay(props: {
     const selected = new Set(selectedColumns);
     setAlignments(
       /**
-       * previousをfromへ渡し、表編集オーバーレイの結果または副作用を処理する。
        * @param previous - 変更前の列配置一覧。選択列をnoneにし、他列を保つ基準値。
-       * @returns 副作用を完了し、値は返さない。
        */
       (previous) =>
         Array.from(
           { length: columnCount },
-          /**
-           * ・をhasへ渡し、表編集オーバーレイの結果または副作用を処理する。
-           * @param _ - 引数位置を維持するための未使用値。
-           * @param index - 配列・行列・文字列の要素位置を示す番号。
-           * @returns 副作用を完了し、値は返さない。
-           */
+
           (_, index) =>
             selected.has(index) ? "none" : (previous[index] ?? "none"),
         ),
@@ -2326,7 +2112,6 @@ function TableEditorOverlay(props: {
   /**
    * 表編集オーバーレイの要素を規則に従って並べ替える。
    * @param direction - 現在のセル選択から前後へ移動する符号付きセル数。
-   * @returns 副作用を完了し、値は返さない。
    */
   function moveCell(direction: 1 | -1): void {
     const flat = activeRow * columnCount + activeColumn + direction;
@@ -2338,7 +2123,6 @@ function TableEditorOverlay(props: {
   /**
     * 現在のセルから上下の行へフォーカスを移す。
     * @param direction - 下へ移動する場合は1、上へ移動する場合は-1。
-   * @returns 副作用を完了し、値は返さない。
    */
   function moveVertical(direction: 1 | -1): void {
     focusCell(
@@ -2351,7 +2135,6 @@ function TableEditorOverlay(props: {
     * 指定したデータ行を別の行位置へ移動する。
    * @param source - 移動元の行インデックス。
    * @param target - 移動先の行インデックス。
-   * @returns 副作用を完了し、値は返さない。
    */
   function moveRow(source: number, target: number): void {
     const safeTarget = Math.max(1, Math.min(rows.length - 1, target));
@@ -2360,9 +2143,7 @@ function TableEditorOverlay(props: {
     setRows(moveTableGridRow(rows, source, safeTarget));
     setRowHeights(
       /**
-       * previousをmove・table・grid・itemへ渡し、表編集オーバーレイの結果または副作用を処理する。
        * @param previous - 変更前の行高一覧。行移動元と移動先に合わせて並べ替える対象。
-       * @returns 副作用を完了し、値は返さない。
        */
       (previous) => moveTableGridItem(previous, source, safeTarget),
     );
@@ -2381,7 +2162,6 @@ function TableEditorOverlay(props: {
   /**
    * 指定列を基準に全データ行を並べ替える。
    * @param column - ソート対象の列番号。
-   * @returns 副作用を完了し、値は返さない。
    */
   function sortRowsByColumn(column: number): void {
     if (rows.length <= 2 || column < 0 || column >= columnCount) return;
@@ -2427,7 +2207,6 @@ function TableEditorOverlay(props: {
     * 指定した列を別の列位置へ移動する。
    * @param source - 移動元の列インデックス。
    * @param target - 移動先の列インデックス。
-   * @returns 副作用を完了し、値は返さない。
    */
   function moveColumn(source: number, target: number): void {
     const safeTarget = Math.max(0, Math.min(columnCount - 1, target));
@@ -2445,9 +2224,7 @@ function TableEditorOverlay(props: {
     setAlignments(moved.alignments as TableEditorAlignment[]);
     setColumnWidths(
       /**
-       * previousをmove・table・grid・itemへ渡し、表編集オーバーレイの結果または副作用を処理する。
        * @param previous - 変更前の列幅一覧。列移動元と移動先に合わせて並べ替える対象。
-       * @returns 副作用を完了し、値は返さない。
        */
       (previous) => moveTableGridItem(previous, source, safeTarget),
     );
@@ -2463,10 +2240,7 @@ function TableEditorOverlay(props: {
     setStatus("");
   }
 
-  /**
-   * 表編集オーバーレイのduplicate・selected・rowsを処理し、呼び出し側へ結果または副作用を返す。
-   * @returns 副作用を完了し、値は返さない。
-   */
+  /** 選択したデータ行を複製し、表ヘッダーより後ろへ挿入する。 */
   function duplicateSelectedRows(): void {
     const fromRow = normalizedSelection.fromRow;
     const toRow = normalizedSelection.toRow;
@@ -2487,12 +2261,7 @@ function TableEditorOverlay(props: {
     setRowHeights(
       Array.from(
         { length: nextRows.length },
-        /**
-         * 表編集オーバーレイのコールバックとして・を処理する。
-         * @param _ - 引数位置を維持するための未使用値。
-         * @param index - 配列・行列・文字列の要素位置を示す番号。
-         * @returns 副作用を完了し、値は返さない。
-         */
+
         (_, index) => nextHeights[index],
       ),
     );
@@ -2509,10 +2278,7 @@ function TableEditorOverlay(props: {
     setStatus("");
   }
 
-  /**
-   * 表編集オーバーレイのduplicate・selected・columnsを処理し、呼び出し側へ結果または副作用を返す。
-   * @returns 副作用を完了し、値は返さない。
-   */
+  /** 選択列を複製し、元の列範囲の直後へ挿入する。 */
   function duplicateSelectedColumns(): void {
     const fromColumn = normalizedSelection.fromColumn;
     const toColumn = normalizedSelection.toColumn;
@@ -2532,12 +2298,7 @@ function TableEditorOverlay(props: {
     const nextWidths = Array.from(
       { length: columnCount },
 
-      /**
-       * 表編集オーバーレイのコールバックとして・を処理する。
-       * @param _ - 引数位置を維持するための未使用値。
-       * @param index - 配列・行列・文字列の要素位置を示す番号。
-       * @returns 副作用を完了し、値は返さない。
-       */
+
       (_, index) => columnWidths[index] ?? DEFAULT_COLUMN_WIDTH,
     );
     nextWidths.splice(
@@ -2573,7 +2334,6 @@ function TableEditorOverlay(props: {
    * 表編集オーバーレイの表示または操作を開始する。
    * @param event - 見出し行以外の表データ行dragを開始するevent。
    * @param row - セル操作の対象となる表行インデックス。
-   * @returns 副作用を完了し、値は返さない。
    */
   function startRowDrag(
     event: React.DragEvent<HTMLElement>,
@@ -2591,7 +2351,6 @@ function TableEditorOverlay(props: {
    * 表編集オーバーレイの表示または操作を開始する。
    * @param event - 表列dragを開始するevent。
    * @param column - セル操作の対象となる表列インデックス。
-   * @returns 副作用を完了し、値は返さない。
    */
   function startColumnDrag(
     event: React.DragEvent<HTMLElement>,
@@ -2608,7 +2367,6 @@ function TableEditorOverlay(props: {
    * 表編集オーバーレイの条件を判定する。
    * @param event - 表行dragの有効なdrop先を許可するdragover event。
    * @param row - セル操作の対象となる表行インデックス。
-   * @returns 副作用を完了し、値は返さない。
    */
   function allowRowDrop(event: React.DragEvent, row: number): void {
     if (row <= 0 || gridDragRef.current?.kind !== "row") return;
@@ -2616,9 +2374,8 @@ function TableEditorOverlay(props: {
     event.dataTransfer.dropEffect = "move";
     setDragTarget(
       /**
-       * 表編集オーバーレイのコールバックとしてpreviousを処理する。
+
        * @param previous - 行ドラッグ中のdrop対象。新しい対象行と比較して更新する状態。
-       * @returns 副作用を完了し、値は返さない。
        */
       (previous) =>
         previous?.kind === "row" && previous.index === row
@@ -2631,7 +2388,6 @@ function TableEditorOverlay(props: {
    * 表編集オーバーレイの条件を判定する。
    * @param event - 表列dragの有効なdrop先を許可するdragover event。
    * @param column - セル操作の対象となる表列インデックス。
-   * @returns 副作用を完了し、値は返さない。
    */
   function allowColumnDrop(event: React.DragEvent, column: number): void {
     if (gridDragRef.current?.kind !== "column") return;
@@ -2639,9 +2395,8 @@ function TableEditorOverlay(props: {
     event.dataTransfer.dropEffect = "move";
     setDragTarget(
       /**
-       * 表編集オーバーレイのコールバックとしてpreviousを処理する。
+
        * @param previous - 列ドラッグ中のdrop対象。新しい対象列と比較して更新する状態。
-       * @returns 副作用を完了し、値は返さない。
        */
       (previous) =>
         previous?.kind === "column" && previous.index === column
@@ -2651,10 +2406,9 @@ function TableEditorOverlay(props: {
   }
 
   /**
-   * 表編集オーバーレイのdrop・rowを処理し、呼び出し側へ結果または副作用を返す。
+   * ドラッグ中のデータ行を指定位置へ移動し、選択状態を保つ。
    * @param event - ドラッグ中の表行を指定位置へ移動するdrop event。
    * @param row - セル操作の対象となる表行インデックス。
-   * @returns 副作用を完了し、値は返さない。
    */
   function dropRow(event: React.DragEvent, row: number): void {
     const drag = gridDragRef.current;
@@ -2665,10 +2419,9 @@ function TableEditorOverlay(props: {
   }
 
   /**
-   * 表編集オーバーレイのdrop・columnを処理し、呼び出し側へ結果または副作用を返す。
+   * ドラッグ中の列を指定位置へ移動し、列に紐づく幅と配置を保つ。
    * @param event - ドラッグ中の表列を指定位置へ移動するdrop event。
    * @param column - セル操作の対象となる表列インデックス。
-   * @returns 副作用を完了し、値は返さない。
    */
   function dropColumn(event: React.DragEvent, column: number): void {
     const drag = gridDragRef.current;
@@ -2678,10 +2431,7 @@ function TableEditorOverlay(props: {
     endGridDrag();
   }
 
-  /**
-   * 表編集オーバーレイのend・grid・dragを処理し、呼び出し側へ結果または副作用を返す。
-   * @returns 副作用を完了し、値は返さない。
-   */
+  /** 行・列のドラッグ先表示とドラッグ状態を解除する。 */
   function endGridDrag(): void {
     gridDragRef.current = undefined;
     setDragTarget(undefined);
@@ -2691,7 +2441,6 @@ function TableEditorOverlay(props: {
    * 表編集オーバーレイのイベントまたはメッセージを受け取り、状態を更新する。
    * @param event - Alt+上下矢印による行移動を処理するkeydown event。
    * @param row - セル操作の対象となる表行インデックス。
-   * @returns 副作用を完了し、値は返さない。
    */
   function handleRowDragKey(
     event: React.KeyboardEvent<HTMLElement>,
@@ -2713,7 +2462,6 @@ function TableEditorOverlay(props: {
    * 表編集オーバーレイのイベントまたはメッセージを受け取り、状態を更新する。
    * @param event - Alt+左右矢印による列移動を処理するkeydown event。
    * @param column - セル操作の対象となる表列インデックス。
-   * @returns 副作用を完了し、値は返さない。
    */
   function handleColumnDragKey(
     event: React.KeyboardEvent<HTMLElement>,
@@ -2732,9 +2480,8 @@ function TableEditorOverlay(props: {
   }
 
   /**
-   * 表編集オーバーレイのpaste・tsvを処理し、呼び出し側へ結果または副作用を返す。
+   * タブまたは改行を含むクリップボード内容を選択範囲へ表として貼り付ける。
    * @param event - セルtextareaへのTSV貼り付けを処理するclipboard event。
-   * @returns 副作用を完了し、値は返さない。
    */
   function pasteTsv(event: React.ClipboardEvent<HTMLTextAreaElement>): void {
     const value = event.clipboardData.getData("text/plain");
@@ -2761,9 +2508,9 @@ function TableEditorOverlay(props: {
   }
 
   /**
-   * 表編集オーバーレイのtsv・for・rangeを処理し、呼び出し側へ結果または副作用を返す。
+   * 指定セル範囲をTSV形式へ直列化する。
    * @param range - TSVコピーする正規化済み表セル範囲。開始・終了行と列を含む。
-   * @returns 表編集オーバーレイで利用する文字列。
+
    */
   function tsvForRange(range: NormalizedTableGridRange): string {
     const selectedRows = rows.slice(range.fromRow, range.toRow + 1).map(
@@ -2794,8 +2541,8 @@ function TableEditorOverlay(props: {
   }
 
   /**
-   * 表編集オーバーレイのselected・tsvを処理し、呼び出し側へ結果または副作用を返す。
-   * @returns 表編集オーバーレイで利用する文字列。
+   * 現在のセル選択範囲をTSV文字列にする。
+
    */
   function selectedTsv(): string {
     return tsvForRange(normalizedSelection);
@@ -2804,7 +2551,6 @@ function TableEditorOverlay(props: {
   /**
    * 表編集オーバーレイの入力または状態を走査・複製する。
    * @param forceSelection - グリッド範囲がなくても選択中のセル・行・列をコピーする場合true。
-   * @returns 副作用を完了し、値は返さない。
    */
   async function copyTsv(forceSelection = false): Promise<void> {
     try {
@@ -2816,7 +2562,6 @@ function TableEditorOverlay(props: {
       window.setTimeout(
         /**
          * 指定時間の経過後に後続処理を実行する。
-         * @returns 副作用を完了し、値は返さない。
          */
         () => setStatus(""),
         1200,
@@ -2829,7 +2574,7 @@ function TableEditorOverlay(props: {
   }
 
   /**
-   * 表編集オーバーレイのrow・is・selectedを処理し、呼び出し側へ結果または副作用を返す。
+   * 指定行が全列を含む現在の選択範囲に入っているかを判定する。
    * @param row - セル操作の対象となる表行インデックス。
    * @returns 条件が成立したかを示す真偽値。
    */
@@ -2843,7 +2588,7 @@ function TableEditorOverlay(props: {
   }
 
   /**
-   * 表編集オーバーレイのcolumn・is・selectedを処理し、呼び出し側へ結果または副作用を返す。
+   * 指定列が全行を含む現在の選択範囲に入っているかを判定する。
    * @param column - セル操作の対象となる表列インデックス。
    * @returns 条件が成立したかを示す真偽値。
    */
@@ -2857,8 +2602,8 @@ function TableEditorOverlay(props: {
   }
 
   /**
-   * 表編集オーバーレイで使う値または実行環境を組み立てる。
-   * @returns 表編集オーバーレイで利用する文字列。
+   * 選択セルまたはセル範囲の位置と件数を示すサマリー文字列を作る。
+
    */
   function createSelectionSummary(): string {
     const from = cellAddress(
@@ -2874,10 +2619,10 @@ function TableEditorOverlay(props: {
   }
 
   /**
-   * 表編集オーバーレイのcell・addressを処理し、呼び出し側へ結果または副作用を返す。
+   * 行と列の番号を、選択範囲表示に使う表アドレスへ変換する。
    * @param row - セル操作の対象となる表行インデックス。
    * @param column - セル操作の対象となる表列インデックス。
-   * @returns 表編集オーバーレイで利用する文字列。
+
    */
   function cellAddress(row: number, column: number): string {
     return `${tableGridColumnLabel(column)}:${row === 0 ? "H" : row}`;
@@ -2885,22 +2630,19 @@ function TableEditorOverlay(props: {
 
   /**
    * 表編集オーバーレイの処理またはリソースを終了し、後続利用可能な状態へ戻す。
-   * @returns 副作用を完了し、値は返さない。
    */
   function closeAndRestoreFocus(): void {
     onClose();
     requestAnimationFrame(
       /**
        * 次の描画フレームで表示更新を実行する。
-       * @returns 副作用を完了し、値は返さない。
        */
       () => view.focus(),
     );
   }
 
   /**
-   * 表編集オーバーレイの変更または要求をHost・Webview間へ通知する。
-   * @returns 副作用を完了し、値は返さない。
+   * 未保存変更を確認し、破棄が許可された場合に表編集を閉じる。
    */
   function requestClose(): void {
     if (isDirty && !window.confirm(messages.app.tableEditor.discard)) return;
@@ -2909,7 +2651,6 @@ function TableEditorOverlay(props: {
 
   /**
    * 表編集オーバーレイの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-   * @returns 副作用を完了し、値は返さない。
    */
   function apply(): void {
     if (!view.dom.isConnected) {
@@ -3000,10 +2741,7 @@ function TableEditorOverlay(props: {
           <button
             type="button"
             onClick={
-              /**
-               * clickイベントでapply・shared・table・actionを実行する。
-               * @returns 副作用を完了し、値は返さない。
-               */
+
               () => applySharedTableAction("rowAfter")
             }
             disabled={rows.length >= MAX_ROWS}
@@ -3013,10 +2751,7 @@ function TableEditorOverlay(props: {
           <button
             type="button"
             onClick={
-              /**
-               * clickイベントでapply・shared・table・actionを実行する。
-               * @returns 副作用を完了し、値は返さない。
-               */
+
               () => applySharedTableAction("deleteRow")
             }
             disabled={activeRow === 0 || rows.length <= 1}
@@ -3062,10 +2797,7 @@ function TableEditorOverlay(props: {
           <button
             type="button"
             onClick={
-              /**
-               * clickイベントでapply・shared・table・actionを実行する。
-               * @returns 副作用を完了し、値は返さない。
-               */
+
               () => applySharedTableAction("colAfter")
             }
             disabled={columnCount >= MAX_COLUMNS}
@@ -3075,10 +2807,7 @@ function TableEditorOverlay(props: {
           <button
             type="button"
             onClick={
-              /**
-               * clickイベントでapply・shared・table・actionを実行する。
-               * @returns 副作用を完了し、値は返さない。
-               */
+
               () => applySharedTableAction("deleteColumn")
             }
             disabled={columnCount <= 1}
@@ -3124,10 +2853,7 @@ function TableEditorOverlay(props: {
             label={messages.app.tableEditor.alignLeft}
             active={currentAlignment === "left"}
             onClick={
-              /**
-               * clickイベントでapply・shared・alignment・actionを実行する。
-               * @returns 副作用を完了し、値は返さない。
-               */
+
               () => applySharedAlignmentAction("alignLeft")
             }
           />
@@ -3135,10 +2861,7 @@ function TableEditorOverlay(props: {
             label={messages.app.tableEditor.alignCenter}
             active={currentAlignment === "center"}
             onClick={
-              /**
-               * clickイベントでapply・shared・alignment・actionを実行する。
-               * @returns 副作用を完了し、値は返さない。
-               */
+
               () => applySharedAlignmentAction("alignCenter")
             }
           />
@@ -3146,10 +2869,7 @@ function TableEditorOverlay(props: {
             label={messages.app.tableEditor.alignRight}
             active={currentAlignment === "right"}
             onClick={
-              /**
-               * clickイベントでapply・shared・alignment・actionを実行する。
-               * @returns 副作用を完了し、値は返さない。
-               */
+
               () => applySharedAlignmentAction("alignRight")
             }
           />
@@ -3163,10 +2883,7 @@ function TableEditorOverlay(props: {
           <button
             type="button"
             onClick={
-              /**
-               * clickイベントでcopy・tsvを実行する。
-               * @returns 副作用を完了し、値は返さない。
-               */
+              /** 選択セルをクリップボードへTSV形式でコピーする。 */
               () => void copyTsv()
             }
           >
@@ -3177,10 +2894,7 @@ function TableEditorOverlay(props: {
             title={`${messages.ribbon.labels.cellBreak} (Alt+Enter)`}
             aria-keyshortcuts="Alt+Enter"
             onClick={
-              /**
-               * clickイベントでinsert・line・breakを実行する。
-               * @returns 副作用を完了し、値は返さない。
-               */
+              /** 選択範囲がない場合、アクティブセルへ強制改行を挿入する。 */
               () => insertLineBreak()
             }
             disabled={hasGridRange}
@@ -3198,12 +2912,7 @@ function TableEditorOverlay(props: {
             <col style={{ width: `${ROW_HEADER_WIDTH}px` }} />
             {Array.from(
               { length: columnCount },
-              /**
-               * 表編集オーバーレイのコールバックとして・を処理する。
-               * @param _ - 引数位置を維持するための未使用値。
-               * @param columnIndex - 表編集オーバーレイで走査または更新する要素。
-               * @returns 表編集オーバーレイのコールバックが生成する結果。
-               */
+
               (_, columnIndex) => (
                 <col
                   key={columnIndex}
@@ -3229,7 +2938,6 @@ function TableEditorOverlay(props: {
                   /**
                    * keydownイベントでifを実行する。
                    * @param event - header cellのkeyboard操作で全セルを選択するevent。
-                   * @returns 副作用を完了し、値は返さない。
                    */
                   (event) => {
                     if (event.key === "Enter" || event.key === " ") {
@@ -3243,12 +2951,7 @@ function TableEditorOverlay(props: {
               </th>
               {Array.from(
                 { length: columnCount },
-                /**
-                 * ・をcolumn・is・selectedへ渡し、表編集オーバーレイの結果または副作用を処理する。
-                 * @param _ - 引数位置を維持するための未使用値。
-                 * @param columnIndex - 表編集オーバーレイで走査または更新する要素。
-                 * @returns 表編集オーバーレイのコールバックが生成する結果。
-                 */
+
                 (_, columnIndex) => (
                   <th
                     key={columnIndex}
@@ -3271,17 +2974,13 @@ function TableEditorOverlay(props: {
                         : "false"
                     }
                     onClick={
-                      /**
-                       * clickイベントでselect・columnを実行する。
-                       * @returns 副作用を完了し、値は返さない。
-                       */
+                      /** 列見出しを押したとき、その列全体を選択する。 */
                       () => selectColumn(columnIndex)
                     }
                     onKeyDown={
                       /**
                        * keydownイベントでifを実行する。
                        * @param event - column selectorをkeyboard操作して列を選択するevent。
-                       * @returns 副作用を完了し、値は返さない。
                        */
                       (event) => {
                         if (event.key === "Enter" || event.key === " ") {
@@ -3292,17 +2991,14 @@ function TableEditorOverlay(props: {
                     }
                     onDragOver={
                       /**
-                       * イベントをallow・column・dropへ渡し、表編集オーバーレイの結果または副作用を処理する。
                        * @param event - 列dragのdrop先を許可するdragover event。
-                       * @returns 表編集オーバーレイのコールバックが生成する結果。
                        */
                       (event) => allowColumnDrop(event, columnIndex)
                     }
                     onDrop={
                       /**
-                       * dropイベントでdrop・columnを実行する。
+                       * 列ドラッグをこの列の位置で確定する。
                        * @param event - ドラッグ中の列移動を確定するdrop event。
-                       * @returns 副作用を完了し、値は返さない。
                        */
                       (event) => dropColumn(event, columnIndex)
                     }
@@ -3338,34 +3034,27 @@ function TableEditorOverlay(props: {
                       aria-label={`${messages.app.tableEditor.dragColumn} ${tableGridColumnLabel(columnIndex)}`}
                       onPointerDown={
                         /**
-                         * イベントをstop・propagationへ渡し、表編集オーバーレイの結果または副作用を処理する。
                          * @param event - 列drag handle上のpointerdown伝播を止めるevent。
-                         * @returns 表編集オーバーレイのコールバックが生成する結果。
                          */
                         (event) => event.stopPropagation()
                       }
                       onClick={
-                        /**
-                         * clickイベントでstop・propagationを実行する。
+                       /**
+                        * ドラッグ用ハンドルの操作で行・列選択を誤発火させない。
                          * @param event - 列drag handle上のmousedown伝播を止めるevent。
-                         * @returns 副作用を完了し、値は返さない。
                          */
                         (event) => event.stopPropagation()
                       }
                       onDragStart={
                         /**
-                         * イベントをstart・column・dragへ渡し、表編集オーバーレイの結果または副作用を処理する。
                          * @param event - 列drag handleから列dragを開始するevent。
-                         * @returns 表編集オーバーレイのコールバックが生成する結果。
                          */
                         (event) => startColumnDrag(event, columnIndex)
                       }
                       onDragEnd={endGridDrag}
                       onKeyDown={
                         /**
-                         * keydownイベントでhandle・column・drag・keyを実行する。
                          * @param event - Alt+左右矢印による列移動を処理するkeydown event。
-                         * @returns 副作用を完了し、値は返さない。
                          */
                         (event) => handleColumnDragKey(event, columnIndex)
                       }
@@ -3398,17 +3087,14 @@ function TableEditorOverlay(props: {
                   }
                   onDragOver={
                     /**
-                     * イベントをallow・row・dropへ渡し、表編集オーバーレイの結果または副作用を処理する。
                      * @param event - 行dragのdrop先を許可するdragover event。
-                     * @returns 表編集オーバーレイのコールバックが生成する結果。
                      */
                     (event) => allowRowDrop(event, rowIndex)
                   }
                   onDrop={
                     /**
-                     * dropイベントでdrop・rowを実行する。
+                     * 行ドラッグをこの行の位置で確定する。
                      * @param event - ドラッグ中の行移動を確定するdrop event。
-                     * @returns 副作用を完了し、値は返さない。
                      */
                     (event) => dropRow(event, rowIndex)
                   }
@@ -3420,17 +3106,13 @@ function TableEditorOverlay(props: {
                     aria-selected={rowIsSelected(rowIndex)}
                     data-selected={rowIsSelected(rowIndex) ? "true" : "false"}
                     onClick={
-                      /**
-                       * clickイベントでselect・rowを実行する。
-                       * @returns 副作用を完了し、値は返さない。
-                       */
+                      /** 行見出しを押したとき、その行全体を選択する。 */
                       () => selectRow(rowIndex)
                     }
                     onKeyDown={
                       /**
                        * keydownイベントでifを実行する。
                        * @param event - 行selectorをkeyboard操作して行を選択するevent。
-                       * @returns 副作用を完了し、値は返さない。
                        */
                       (event) => {
                         if (event.key === "Enter" || event.key === " ") {
@@ -3451,34 +3133,27 @@ function TableEditorOverlay(props: {
                         aria-label={`${messages.app.tableEditor.dragRow} ${rowIndex}`}
                         onPointerDown={
                           /**
-                           * イベントをstop・propagationへ渡し、表編集オーバーレイの結果または副作用を処理する。
                            * @param event - 行drag handle上のpointerdown伝播を止めるevent。
-                           * @returns 表編集オーバーレイのコールバックが生成する結果。
                            */
                           (event) => event.stopPropagation()
                         }
                         onClick={
                           /**
-                           * clickイベントでstop・propagationを実行する。
+                           * ドラッグ用ハンドルの操作で行選択を誤発火させない。
                            * @param event - 行drag handle上のmousedown伝播を止めるevent。
-                           * @returns 副作用を完了し、値は返さない。
                            */
                           (event) => event.stopPropagation()
                         }
                         onDragStart={
                           /**
-                           * イベントをstart・row・dragへ渡し、表編集オーバーレイの結果または副作用を処理する。
                            * @param event - 行drag handleから行dragを開始するevent。
-                           * @returns 表編集オーバーレイのコールバックが生成する結果。
                            */
                           (event) => startRowDrag(event, rowIndex)
                         }
                         onDragEnd={endGridDrag}
                         onKeyDown={
                           /**
-                           * keydownイベントでhandle・row・drag・keyを実行する。
                            * @param event - Alt+上下矢印による行移動を処理するkeydown event。
-                           * @returns 副作用を完了し、値は返さない。
                            */
                           (event) => handleRowDragKey(event, rowIndex)
                         }
@@ -3497,25 +3172,19 @@ function TableEditorOverlay(props: {
                       title={messages.app.tableEditor.resizeRow}
                       onPointerDown={
                         /**
-                         * イベントをstart・row・resizeへ渡し、表編集オーバーレイの結果または副作用を処理する。
                          * @param event - 行resize handleのpointerdownで行高さ調整を始めるevent。
-                         * @returns 表編集オーバーレイのコールバックが生成する結果。
                          */
                         (event) => startRowResize(event, rowIndex)
                       }
                       onPointerUp={
                         /**
-                         * イベントをauto・fit・row・on・pointer・upへ渡し、表編集オーバーレイの結果または副作用を処理する。
                          * @param event - 行リサイズ終了時にauto-fitを判定するpointerup event。
-                         * @returns 表編集オーバーレイのコールバックが生成する結果。
                          */
                         (event) => autoFitRowOnPointerUp(event, rowIndex)
                       }
                       onKeyDown={
                         /**
-                         * keydownイベントでresize・row・by・keyboardを実行する。
                          * @param event - 矢印キーによる行高さ調整keydown event。
-                         * @returns 副作用を完了し、値は返さない。
                          */
                         (event) => resizeRowByKeyboard(event, rowIndex)
                       }
@@ -3523,12 +3192,7 @@ function TableEditorOverlay(props: {
                   </th>
                   {Array.from(
                     { length: columnCount },
-                    /**
-                     * ・をtable・grid・range・containsへ渡し、表編集オーバーレイの結果または副作用を処理する。
-                     * @param _ - 引数位置を維持するための未使用値。
-                     * @param columnIndex - 表編集オーバーレイで走査または更新する要素。
-                     * @returns 表編集オーバーレイのコールバックが生成する結果。
-                     */
+
                     (_, columnIndex) => {
                       const alignment = alignments[columnIndex] ?? "none";
                       const active =
@@ -3546,18 +3210,14 @@ function TableEditorOverlay(props: {
                           data-selected={selected ? "true" : "false"}
                           onPointerDown={
                             /**
-                             * イベントをbegin・cell・selectionへ渡し、表編集オーバーレイの結果または副作用を処理する。
                              * @param event - pointerdownで表セル選択を開始するevent。
-                             * @returns 表編集オーバーレイのコールバックが生成する結果。
                              */
                             (event) =>
                               beginCellSelection(event, rowIndex, columnIndex)
                           }
                           onPointerEnter={
                             /**
-                             * イベントをextend・cell・selectionへ渡し、表編集オーバーレイの結果または副作用を処理する。
                              * @param event - セル範囲ドラッグ中に選択終端を更新するpointer event。
-                             * @returns 表編集オーバーレイのコールバックが生成する結果。
                              */
                             (event) =>
                               extendCellSelection(event, rowIndex, columnIndex)
@@ -3573,9 +3233,7 @@ function TableEditorOverlay(props: {
                             data-table-cell={`${rowIndex}:${columnIndex}`}
                             onFocus={
                               /**
-                               * イベントをremember・cell・selectionへ渡し、表編集オーバーレイの結果または副作用を処理する。
                                * @param event - focus時にセルtextareaの選択範囲を記録するevent。
-                               * @returns 表編集オーバーレイのコールバックが生成する結果。
                                */
                               (event) =>
                                 rememberCellSelection(
@@ -3586,9 +3244,7 @@ function TableEditorOverlay(props: {
                             }
                             onSelect={
                               /**
-                               * イベントを状態設定へ渡し、表編集オーバーレイの結果または副作用を処理する。
                                * @param event - select時にセルtextareaの選択範囲を保存するevent。
-                               * @returns 表編集オーバーレイのコールバックが生成する結果。
                                */
                               (event) =>
                                 cellSelectionRef.current.set(
@@ -3601,9 +3257,8 @@ function TableEditorOverlay(props: {
                             }
                             onChange={
                               /**
-                               * changeイベントでupdate・cellを実行する。
+                               * セル本文を更新し、選択範囲を維持する。
                                * @param event - セル値変更後のcaret範囲を保存するchange event。
-                               * @returns 副作用を完了し、値は返さない。
                                */
                               (event) => {
                                 updateCell(
@@ -3625,7 +3280,6 @@ function TableEditorOverlay(props: {
                               /**
                                * keydownイベントでifを実行する。
                                * @param event - Backspace、Alt+Enter、Tab、Enterをセル編集規則へ振り分けるkeydown event。
-                               * @returns 副作用を完了し、値は返さない。
                                */
                               (event) => {
                                 if (
@@ -3679,26 +3333,20 @@ function TableEditorOverlay(props: {
                               title={messages.app.tableEditor.resizeColumn}
                               onMouseDown={
                                 /**
-                                 * イベントをstart・column・resizeへ渡し、表編集オーバーレイの結果または副作用を処理する。
                                  * @param event - 列resize handleのpointerdownで列幅調整を始めるevent。
-                                 * @returns 表編集オーバーレイのコールバックが生成する結果。
                                  */
                                 (event) => startColumnResize(event, columnIndex)
                               }
                               onMouseUp={
                                 /**
-                                 * イベントをauto・fit・column・on・mouse・upへ渡し、表編集オーバーレイの結果または副作用を処理する。
                                  * @param event - 列リサイズ終了時のmouseupでauto-fitを判定するevent。
-                                 * @returns 表編集オーバーレイのコールバックが生成する結果。
                                  */
                                 (event) =>
                                   autoFitColumnOnMouseUp(event, columnIndex)
                               }
                               onKeyDown={
                                 /**
-                                 * keydownイベントでresize・column・by・keyboardを実行する。
                                  * @param event - 矢印キーによる列幅調整keydown event。
-                                 * @returns 副作用を完了し、値は返さない。
                                  */
                                 (event) =>
                                   resizeColumnByKeyboard(event, columnIndex)
@@ -3768,9 +3416,7 @@ function ToolbarGroup({
    */
   label: string;
 
-  /**
-   * 表編集オーバーレイのchildrenに関する状態または設定。
-   */
+  /** グループ内に並べるボタンや入力コントロール。 */
   children: React.ReactNode;
 
   /**
@@ -3811,10 +3457,7 @@ function ToolbarToggle({
    * 表編集オーバーレイの状態を示すフラグ。
    */
   active: boolean;
-  /**
-   * 表編集オーバーレイのイベントまたはメッセージを受け取り、状態を更新する。
-   * @returns 表編集オーバーレイのon・clickが生成する結果。
-   */
+  /** ボタンが押されたときに呼び出す処理。 */
   onClick: () => void;
 }): React.JSX.Element {
   return (
@@ -3833,7 +3476,6 @@ function ToolbarToggle({
  * クリップボードAPIまたは選択テキストを使って文字列をコピーする。
  * @param text クリップボードへ書き込むテキスト。
  * @param unavailableMessage コピーできない場合に表示するエラーメッセージ。
- * @returns 副作用を完了し、値は返さない。
  */
 async function writeClipboardText(
   text: string,
@@ -3856,10 +3498,10 @@ async function writeClipboardText(
 }
 
 /**
- * 表編集オーバーレイのto・editor・insertionを処理し、呼び出し側へ結果または副作用を返す。
+ * 改行を挿入先CodeMirror文書の改行形式へ揃える。
  * @param state - 挿入先CodeMirror文書の改行形式を持つEditorState。
  * @param value - エディターの改行形式へ変換して挿入する本文。
- * @returns 表編集オーバーレイで利用する文字列。
+ * @returns 行区切りを挿入先文書に合わせた本文。
  */
 function toEditorInsertion(state: EditorState, value: string): string {
   const separator = state.facet(EditorState.lineSeparator) ?? "\n";

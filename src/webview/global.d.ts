@@ -1,20 +1,18 @@
 /**
- * @fileoverview Webviewのglobal・dを管理する。Hostとの通信、ユーザー操作、表示状態の契約を保つ。
+ * @fileoverview Webviewで読み込むCSSとturndown-plugin-gfmのモジュール型宣言を補う。
  */
 /**
- * global・dのコールバックとして要素を処理する。
- * @returns global・dのコールバックが生成する結果。
+ * CSS importを型検査できるよう、CSSモジュールを宣言する。
  */
 declare module '*.css';
 
 /**
- * global・dのコールバックとして要素を処理する。
- * @returns global・dのコールバックが生成する結果。
+ * turndown-plugin-gfmが公開するGFMプラグインの型を宣言する。
  */
 declare module 'turndown-plugin-gfm' {
     import type { Plugin } from 'turndown';
     /**
-     * global・dのgfmに関する状態または設定。
+     * GitHub Flavored Markdownの変換ルールを追加するTurndownプラグイン。
      */
     export const gfm: Plugin;
 }

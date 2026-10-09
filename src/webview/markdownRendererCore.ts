@@ -19,23 +19,23 @@ import { getMessages, type Messages, type SupportedLanguage } from '../shared/me
 export interface RenderOptions {
 
     /**
-     * Markdown変換のremote・images・enabledを示す状態フラグ。
+     * trueならhttp(s)画像を読み込み、falseなら画像本体の代わりにブロック表示する。
      */
     remoteImagesEnabled: boolean;
 
     /**
-     * Markdown変換のlanguageに関する状態または設定。
+     * メッセージとKaTeXエラー表示に使う言語。省略時は日本語。
      */
     language?: SupportedLanguage;
 }
 
 /**
- * Markdown変換で共有するデータ形状を表すインターフェース。
+ * 独自Markdownトークンの種別と解析済み内容を表します。
  */
 interface CustomToken {
 
     /**
-     * Markdown変換で対象や分岐を識別する値の型。
+     * Markdown parserが付けたカスタムトークンの種別名です。
      */
     type: string;
 
@@ -50,13 +50,13 @@ interface CustomToken {
     text: string;
 
     /**
-     * Markdown変換のtokensに関する状態または設定。
+     * ネストしたMarkdown inline token。rendererで装飾内の内容を再帰描画する。
      */
     tokens?: Token[];
 }
 
 /**
- * Markdown変換で共有するデータ形状を表すインターフェース。
+ * 脚注ラベルと脚注として表示する本文を表します。
  */
 interface FootnoteDefinition {
 
@@ -71,18 +71,18 @@ interface FootnoteDefinition {
     text: string;
 
     /**
-     * Markdown変換のfromを表す数値。
+     * トークン範囲の先頭を示すMarkdown本文内UTF-16オフセットです。
      */
     from: number;
 
     /**
-     * Markdown変換のtoを表す数値。
+     * トークン範囲の末尾を示すMarkdown本文内UTF-16オフセットです。
      */
     to: number;
 }
 
 /**
- * Markdown変換で共有するデータ形状を表すインターフェース。
+ * 安全でない要素を除去する対象ブロックの範囲と本文です。
  */
 export interface UnsafeMarkdownBlock {
 
@@ -96,12 +96,17 @@ export interface UnsafeMarkdownBlock {
     headingId?: string;
 
     /**
-     * Markdown変換のrequires・sanitizationを切り替えるフラグ。
+     * trueならHTML出力をサニタイズする必要がある。Markdown由来の非HTML変換結果ではfalse。
      */
     requiresSanitization: boolean;
 }
 
-/** 描画済み見出しのIDをアウトラインへ反映し、Setext見出しとの重複時もリンク先を一致させる。 */
+/**
+ * 描画済み見出しのIDをアウトラインへ反映し、Setext見出しでもリンク先を一致させる。
+ * @param outline 表示する見出し一覧。
+ * @param blocks 描画後の見出しIDを含むMarkdownブロック一覧。
+ * @returns 描画済みIDを反映したアウトライン。対応するブロックがない項目は除く。
+ */
 export function alignOutlineHeadingIds(
     outline: OutlineItem[],
     blocks: UnsafeMarkdownBlock[]
@@ -120,10 +125,10 @@ export function alignOutlineHeadingIds(
 }
 
 /**
- * Markdown変換のcode・highlighterを処理し、呼び出し側へ結果または副作用を返す。
+ * fenced code blockの本文を表示用HTMLへ変換する。
  * @param text - 表示・解析・変換の対象となる本文。
- * @param language - コードブロックと通知文の表示に使うロケールコード。
- * @returns Markdown変換に対応する要素の一覧。
+ * @param language - 言語判定と表示文言の選択に使うロケールコード。
+ * @returns 強調表示したHTML。未対応言語などで変換しない場合はundefined。
  */
 export type CodeHighlighter = (text: string, language: string) => string | undefined;
 
@@ -132,7 +137,7 @@ export type CodeHighlighter = (text: string, language: string) => string | undef
  * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
  * @param options 言語、表示モード、HTML許可設定などの変換オプション。
  * @param highlightCode fenced code blockの本文と言語から強調表示HTMLを作る関数。
- * @returns Markdown変換に対応する要素の一覧。
+ * @returns 強調表示HTMLを含む安全化前ブロックの一覧。
  */
 export function renderMarkdownUnsafeBlocks(
     markdown: string,
@@ -154,8 +159,10 @@ export function renderMarkdownUnsafeBlocks(
      */
     renderer.heading =
         /**
-         * Markdown変換のfunctionを処理し、呼び出し側へ結果または副作用を返す。
-        * @returns Markdown変換のfunctionが生成する結果。
+         * heading IDを重複回避付きで決め、タイトル属性を除いた見出しHTMLを生成する。
+         * @param tokens - 見出し文字列を構成するMarked token一覧。
+         * @param depth - h1からh6までの見出しレベル。
+         * @returns mve見出しIDを付与した見出し要素。
          */
         function ({ tokens, depth }) {
             const content = this.parser.parseInline(tokens);
@@ -169,8 +176,11 @@ export function renderMarkdownUnsafeBlocks(
      */
     renderer.link =
         /**
-         * Markdown変換のfunctionを処理し、呼び出し側へ結果または副作用を返す。
-        * @returns Markdown変換のfunctionが生成する結果。
+         * ローカルMarkdownリンクをHost処理用のdata属性へ変換し、外部リンクは通常のhrefで出力する。
+         * @param href - リンク先。
+         * @param title - Markdownリンクに指定された任意のtitle属性。
+         * @param tokens - リンク本文を構成するMarked inline token一覧。
+         * @returns ローカル遷移属性または通常のhrefを持つリンク要素。
          */
         function ({ href, title, tokens }) {
             const content = this.parser.parseInline(tokens);
@@ -233,7 +243,6 @@ export function renderMarkdownUnsafeBlocks(
             return decorateHtmlImages(text,
                 /**
                  * Markdown変換の前提条件を準備し、回帰条件を検証するテストケース。
-                 * @returns テストケースを実行し、値は返さない。
                  */
                 () => imageIndex++);
         };
@@ -268,7 +277,7 @@ export function renderMarkdownUnsafeBlocks(
         /**
          * 各tokenからlistを取り出して一覧化する。
          * @param token - tokenのlistを参照する走査対象。
-         * @param index - 配列・行列・文字列の要素位置を示す番号。
+         * @param index - 走査中の配列における0始まりの要素位置。
          * @returns listを取り出した変換結果の一覧。
          */
         (token, index): UnsafeMarkdownBlock | undefined => {
@@ -288,7 +297,7 @@ export function renderMarkdownUnsafeBlocks(
             /**
              * 条件を満たすblockだけを残す。
              * @param block - トークンから生成したHTMLブロック。対象外トークンの場合はundefined。
-             * @returns 条件を満たした要素だけを含む一覧。
+
              */
             (block): block is UnsafeMarkdownBlock => block !== undefined);
     const footnotes = renderFootnoteSection(footnoteDefinitions, messages);
@@ -308,7 +317,7 @@ export function renderMarkdownUnsafeBlocks(
  * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
  * @param options 言語、表示モード、HTML許可設定などの変換オプション。
  * @param highlightCode fenced code blockの本文と言語から強調表示HTMLを作る関数。
- * @returns Markdown変換で利用する文字列。
+ * @returns 安全化前HTMLへ結合したMarkdown描画結果。
  */
 export function renderMarkdownUnsafe(
     markdown: string,
@@ -347,7 +356,6 @@ function decorateHtmlImages(html: string, nextIndex: () => number): string {
         /**
          * Markdown変換の前提条件を準備し、回帰条件を検証するテストケース。
          * @param tag - 正規表現に一致したHTMLのimg開始タグ。
-         * @returns テストケースを実行し、値は返さない。
          */
         (tag) => {
             const source = readHtmlAttribute(tag, 'src') ?? '';
@@ -365,19 +373,19 @@ function decorateHtmlImages(html: string, nextIndex: () => number): string {
 }
 
 /**
- * Markdown変換の入力を許可された形式へ整える。
+ * 画像配置をleft、center、rightの有効値へ正規化する。
  * @param value - HTML画像タグから読み取った配置属性値。
- * @returns Markdown変換で生成または変換した値。
+ * @returns left、center、rightのいずれか。
  */
 function normalizeImageAlignment(value: string | undefined): 'left' | 'center' | 'right' {
     return value === 'center' || value === 'right' ? value : 'left';
 }
 
 /**
- * Markdown変換から必要な値またはリソースを取得する。
+ * HTMLタグから指定属性の引用符付きまたは引用符なしの値を読み取る。
  * @param tag - HTML属性を読み取る画像要素タグ全体。
  * @param name - 読み取るHTML属性名。
- * @returns 副作用を完了し、値は返さない。
+ * @returns 属性値。属性がない場合はundefined。
  */
 function readHtmlAttribute(tag: string, name: string): string | undefined {
     const pattern = new RegExp(`\\s${escapeRegExp(name)}\\s*=\\s*(?:"([^"]*)"|'([^']*)'|([^\\s>]+))`, 'i');
@@ -386,11 +394,11 @@ function readHtmlAttribute(tag: string, name: string): string | undefined {
 }
 
 /**
- * Markdown変換のupsert・html・attributeを処理し、呼び出し側へ結果または副作用を返す。
+ * 指定属性があれば値を置換し、なければ閉じ括弧の直前へ追加する。
  * @param tag - 属性を書き換えるHTML要素タグ全体。
  * @param name - 更新するHTML属性名。
  * @param value - HTML属性へ設定する未エスケープの値。
- * @returns Markdown変換で利用する文字列。
+ * @returns 属性値をHTMLエスケープして反映したタグ文字列。
  */
 function upsertHtmlAttribute(tag: string, name: string, value: string): string {
     const pattern = new RegExp(`\\s${escapeRegExp(name)}\\s*=\\s*(?:"[^"]*"|'[^']*'|[^\\s>]+)`, 'i');
@@ -411,20 +419,20 @@ function hasHtmlAttribute(tag: string, name: string): boolean {
 }
 
 /**
- * Markdown変換の入力を許可された形式へ整える。
+ * 正規表現のメタ文字をリテラルとして扱えるようにエスケープする。
  * @param value - 正規表現へ埋め込む前にメタ文字をエスケープする文字列。
- * @returns Markdown変換で利用する文字列。
+
  */
 function escapeRegExp(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 }
 
 /**
- * Markdown変換のinline・delimitedを処理し、呼び出し側へ結果または副作用を返す。
+ * 強調・挿入・上付き・下付き記法用のMarked inline extensionを生成する。
  * @param name - Markdown tokenを囲む出力HTML要素名。
  * @param rule - 対象のインライン区切り記法を検出する正規表現。
- * @param tag - Markdown変換で受け渡す文字列。
- * @returns Markdown変換のinline・delimitedが生成する結果。
+ * @param tag - tokenizerが認識した本文を囲むHTML要素名。
+ * @returns 開始位置検索・token生成・装飾描画を行うextension。
  */
 function inlineDelimited(name: string, rule: RegExp, tag: string): any {
     return {
@@ -433,7 +441,7 @@ function inlineDelimited(name: string, rule: RegExp, tag: string): any {
         /**
          * Markdown変換の表示または操作を開始する。
          * @param source - 解析・描画・変換の起点となる本文。
-         * @returns Markdown変換で利用する文字列。
+
          */
         start(source: string) {
             const markers: Record<string, string> = { highlight: '==', inserted: '++', superscript: '^', subscript: '~' };
@@ -441,7 +449,7 @@ function inlineDelimited(name: string, rule: RegExp, tag: string): any {
             return found >= 0 ? found : undefined;
         },
         /**
-         * Markdown変換の入力を構造化した値へ変換する。
+         * カスタム記法に一致した本文からMarked inline tokenを生成する。
          * @param source - 解析・描画・変換の起点となる本文。
          * @returns Markdown変換のtokenizerが生成する結果。
          */
@@ -453,16 +461,16 @@ function inlineDelimited(name: string, rule: RegExp, tag: string): any {
             return token;
         },
         /**
-         * Markdown変換を表示用の結果へ変換する。
+         * カスタムinline tokenの内容をHTMLへ描画する。
          * @param this - インライン解析を実行するMarked rendererのthisコンテキスト。
          * @param token - Markdown変換で走査または更新する要素。
-         * @returns Markdown変換で生成または変換した値。
+         * @returns カスタムinline tokenから生成したHTML。
          */
         renderer(this: {
             /** Custom inline tokenをMarkdown HTMLへ変換するMarked parser。 */
             parser: {
                 /**
-                 * Markdown変換の入力を構造化した値へ変換する。
+                 * Marked inline token列をHTMLへ変換する。
                  * @param tokens - HTMLへ変換するMarked inline tokenの一覧。
                  * @returns 変換後のHTML文字列。
                  */
@@ -475,17 +483,17 @@ function inlineDelimited(name: string, rule: RegExp, tag: string): any {
 }
 
 /**
- * Markdown変換のmath・block・extensionを処理し、呼び出し側へ結果または副作用を返す。
- * @param messages Markdown出力で使う翻訳済みメッセージと書式関数。
- * @returns Markdown変換のmath・block・extensionが生成する結果。
+ * ブロック数式tokenをKaTeXで描画するMarked extensionを作る。
+ * @param messages - KaTeX描画失敗時の文言を選ぶローカライズ済みメッセージ。
+ * @returns block math syntaxを保持し、KaTeX rendererを追加したextension。
  */
 function mathBlockExtension(messages: Messages): any {
     return {
         ...mathBlockSyntax(),
         /**
-         * Markdown変換を表示用の結果へ変換する。
+         * ブロック数式をKaTeXで描画し、失敗時はエラー表示を返す。
          * @param token - Markdown変換で走査または更新する要素。
-         * @returns Markdown変換で生成または変換した値。
+         * @returns KaTeXの数式HTML、または数式エラーを示すHTML。
          */
         renderer(token: CustomToken) {
             const source = token.text;
@@ -495,9 +503,9 @@ function mathBlockExtension(messages: Messages): any {
 }
 
 /**
- * Markdown変換のmath・inline・extensionを処理し、呼び出し側へ結果または副作用を返す。
- * @param messages Markdown出力で使う翻訳済みメッセージと書式関数。
- * @returns Markdown変換のmath・inline・extensionが生成する結果。
+ * 単一行の$...$数式を認識してKaTeXで描画するMarked inline extensionを作る。
+ * @param messages - KaTeX描画失敗時の文言を選ぶローカライズ済みメッセージ。
+ * @returns $区切りを検索し、数式tokenを描画するextension。
  */
 function mathInlineExtension(messages: Messages): any {
     return {
@@ -513,7 +521,7 @@ function mathInlineExtension(messages: Messages): any {
             return found >= 0 ? found : undefined;
         },
         /**
-         * Markdown変換の入力を構造化した値へ変換する。
+         * $...$形式のインライン数式をtokenizerで認識する。
          * @param source - 解析・描画・変換の起点となる本文。
          * @returns Markdown変換のtokenizerが生成する結果。
          */
@@ -523,9 +531,9 @@ function mathInlineExtension(messages: Messages): any {
             return { type: 'mathInline', raw: match[0], text: match[1] } as CustomToken;
         },
         /**
-         * Markdown変換を表示用の結果へ変換する。
+         * インライン数式をKaTeXで描画する。
          * @param token - Markdown変換で走査または更新する要素。
-         * @returns Markdown変換で生成または変換した値。
+         * @returns KaTeXのインライン数式HTML。
          */
         renderer(token: CustomToken) {
             return renderKatex(token.text, false, messages);
@@ -534,17 +542,17 @@ function mathInlineExtension(messages: Messages): any {
 }
 
 /**
- * Markdown変換のtoc・extensionを処理し、呼び出し側へ結果または副作用を返す。
+ * 現在のMarkdownから作った目次を描画するMarked extensionを生成する。
  * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
  * @param messages Markdown出力で使う翻訳済みメッセージと書式関数。
- * @returns Markdown変換のtoc・extensionが生成する結果。
+ * @returns TOC tokenを目次HTMLへ置き換えるextension。
  */
 function tocExtension(markdown: string, messages: Messages): any {
     return {
         ...tableOfContentsSyntax(),
         /**
-         * Markdown変換を表示用の結果へ変換する。
-         * @returns Markdown変換で生成または変換した値。
+         * Markdown見出しから目次HTMLを生成するrenderer。
+         * @returns Markdown見出しから生成した目次HTML。
          */
         renderer() {
             return buildToc(markdown, messages);
@@ -553,15 +561,15 @@ function tocExtension(markdown: string, messages: Messages): any {
 }
 
 /**
- * Markdown変換のfootnote・definition・extensionを処理し、呼び出し側へ結果または副作用を返す。
- * @returns Markdown変換のfootnote・definition・extensionが生成する結果。
+ * 別処理で抽出した脚注定義を本文中へ重複表示しないためのMarked extensionを作る。
+ * @returns 脚注定義tokenの描画結果を空文字にするextension。
  */
 function footnoteDefinitionExtension(): any {
     return {
         ...footnoteDefinitionSyntax(),
         /**
-         * Markdown変換を表示用の結果へ変換する。
-         * @returns Markdown変換で生成または変換した値。
+         * 脚注定義本文を通常の描画結果へ出さないrenderer。
+         * @returns 空文字列。
          */
         renderer() {
             return '';
@@ -585,16 +593,16 @@ function footnoteReferenceExtension(
         /**
          * Markdown変換の表示または操作を開始する。
          * @param source - 解析・描画・変換の起点となる本文。
-         * @returns Markdown変換で利用する文字列。
+
          */
         start(source: string) {
             const found = source.indexOf('[^');
             return found >= 0 ? found : undefined;
         },
         /**
-         * Markdown変換の入力を構造化した値へ変換する。
+         * 対応する脚注定義がある[^label]参照をtokenizerで認識する。
          * @param source - 解析・描画・変換の起点となる本文。
-         * @returns Markdown変換で利用する文字列。
+
          */
         tokenizer(source: string) {
             const match = /^\[\^([^\]]+)]/.exec(source);
@@ -602,9 +610,9 @@ function footnoteReferenceExtension(
             return { type: 'footnoteReference', raw: match[0], text: match[1] } as CustomToken;
         },
         /**
-         * Markdown変換を表示用の結果へ変換する。
+         * 脚注参照tokenを脚注本文へのリンクHTMLへ描画する。
          * @param token - Markdown変換で走査または更新する要素。
-         * @returns Markdown変換で利用する文字列。
+
          */
         renderer(token: CustomToken) {
             const safeId = slugify(token.text);
@@ -616,11 +624,11 @@ function footnoteReferenceExtension(
 }
 
 /**
- * Markdown変換を表示用の結果へ変換する。
+ * KaTeXで数式をHTMLへ描画し、描画失敗時はエラー要素を返す。
  * @param source - HTMLへ変換するMarkdown本文。
  * @param displayMode - 出力先に応じて適用するMarkdown表示モード。
  * @param messages Markdown出力で使う翻訳済みメッセージと書式関数。
- * @returns Markdown変換で利用する文字列。
+
  */
 function renderKatex(source: string, displayMode: boolean, messages: Messages): string {
     try {
@@ -632,10 +640,10 @@ function renderKatex(source: string, displayMode: boolean, messages: Messages): 
 }
 
 /**
- * Markdown変換で使う値または実行環境を組み立てる。
+ * Markdown見出しを解析して階層付き目次HTMLを生成する。
  * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
  * @param messages Markdown出力で使う翻訳済みメッセージと書式関数。
- * @returns Markdown変換で利用する文字列。
+
  */
 function buildToc(markdown: string, messages: Messages): string {
     const items = getOutline(markdown);
@@ -655,22 +663,16 @@ function buildToc(markdown: string, messages: Messages): string {
 }
 
 /**
- * Markdown変換を表示用の結果へ変換する。
+ * HTML内のGitHub形式alert blockquoteをalert表示用HTMLへ変換する。
  * @param html - 表示または出力するHTML本文。
  * @param messages Markdown出力で使う翻訳済みメッセージと書式関数。
- * @returns Markdown変換で利用する文字列。
+
  */
 function renderAlerts(html: string, messages: Messages): string {
     return html.replace(
         /<blockquote>\s*<p>\[!(NOTE|TIP|IMPORTANT|WARNING|CAUTION)\]\s*<br>?(?:\n)?([\s\S]*?)<\/p>\s*<\/blockquote>/gi,
 
-        /**
-         * ・matchをto・lower・caseへ渡し、Markdown変換の結果または副作用を処理する。
-         * @param _match - 変換対象blockquote全体。キャプチャ群を使うため未使用。
-         * @param type - blockquoteから抽出したアラート種別。
-         * @param content - アラート本文としてblockquoteから抽出したHTML。
-         * @returns Markdown変換で利用する文字列。
-         */
+
         (_match, type: string, content: string) => {
             const label = messages.renderer.alerts[type.toLowerCase() as keyof Messages['renderer']['alerts']] ?? type;
             return `<aside class="markdown-alert alert-${type.toLowerCase()}"><strong>${escapeHtml(label)}</strong><div>${content}</div></aside>`;
@@ -679,9 +681,9 @@ function renderAlerts(html: string, messages: Messages): string {
 }
 
 /**
- * Markdown変換から必要な値またはリソースを取得する。
+ * Markdown本文から脚注定義行と元テキスト上の範囲を収集する。
  * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
- * @returns Markdown変換で利用する文字列。
+ * 脚注IDから定義本文と元テキスト範囲を引けるMap。
  */
 function collectFootnoteDefinitions(markdown: string): Map<string, FootnoteDefinition> {
     const definitions = new Map<string, FootnoteDefinition>();
@@ -702,10 +704,10 @@ function collectFootnoteDefinitions(markdown: string): Map<string, FootnoteDefin
 }
 
 /**
- * Markdown変換を表示用の結果へ変換する。
+ * 脚注定義から脚注セクションと本文への戻りリンクを生成する。
  * @param definitions Markdown本文中の脚注IDと脚注定義を結ぶ対応表。
  * @param messages Markdown出力で使う翻訳済みメッセージと書式関数。
- * @returns Markdown変換で利用する文字列。
+
  */
 function renderFootnoteSection(definitions: Map<string, FootnoteDefinition>, messages: Messages): string {
     if (!definitions.size) return '';
@@ -713,7 +715,7 @@ function renderFootnoteSection(definitions: Map<string, FootnoteDefinition>, mes
     const notes = entries.map(
         /**
          * 各設定をslugifyへ渡し、変換結果を一覧化する。
-        * @returns 入力要素から生成した変換結果の一覧。
+
          */
         ({ id, text }) => {
             const safeId = slugify(id);
@@ -737,18 +739,18 @@ function renderFootnoteSection(definitions: Map<string, FootnoteDefinition>, mes
 }
 
 /**
- * Markdown変換のlocate・token・rangesを処理し、呼び出し側へ結果または副作用を返す。
+ * Markdown本文中で各トークンが占める元ソース範囲を特定する。
  * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
  * @param tokens - Markdown変換で走査または更新する要素。
- * @returns Markdown変換に対応する要素の一覧。
+ * @returns トークン順の半開オフセット範囲一覧。位置を対応付けられないトークンは含めない。
  */
 function locateTokenRanges(markdown: string, tokens: Token[]): Array<{
     /**
-     * Markdown変換のfromを表す数値。
+     * トークン範囲の先頭を示すMarkdown本文内UTF-16オフセットです。
      */
     from: number;
     /**
-     * Markdown変換のtoを表す数値。
+     * トークン範囲の末尾を示すMarkdown本文内UTF-16オフセットです。
      */
     to: number
 }> {
@@ -774,9 +776,9 @@ function locateTokenRanges(markdown: string, tokens: Token[]): Array<{
 }
 
 /**
- * Markdown変換の入力を許可された形式へ整える。
+ * 改行コードをLFへ統一し、正規化後の各オフセットに対応する元位置を記録する。
  * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
- * @returns Markdown変換で生成または変換した値。
+ * @returns LFへ正規化した本文と、各位置に対応する原文オフセット配列。
  */
 function normalizeWithOriginalOffsets(markdown: string): {
     /**
@@ -805,33 +807,33 @@ function normalizeWithOriginalOffsets(markdown: string): {
 }
 
 /**
- * Markdown変換の入力を許可された形式へ整える。
+ * CRLFとCRをLFへ変換して改行コードを統一する。
  * @param value - 改行コードをLFへ統一するMarkdown本文。
- * @returns Markdown変換で利用する文字列。
+
  */
 function normalizeLineEndings(value: string): string {
     return value.replace(/\r\n?|\n/g, '\n');
 }
 
 /**
- * Markdown変換の入力を許可された形式へ整える。
+ * HTML本文・属性値の予約文字をHTML文字参照へ置換する。
  * @param value - HTMLテキストとして出力する前の文字列。
- * @returns Markdown変換で利用する文字列。
+ * @returns 予約文字をescapeしたHTML文字列。
  */
 export function escapeHtml(value: string): string {
     return value.replace(/[&<>"']/g,
         /**
-         * Markdown変換のコールバックとしてcharacterを処理する。
+
          * @param character - Markdown変換へ渡す入力。
-         * @returns Markdown変換で利用する文字列。
+
          */
         (character) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]!);
 }
 
 /**
- * Markdown変換の入力を許可された形式へ整える。
+ * HTML属性値へ埋め込む文字列の予約文字をエスケープする。
  * @param value - HTML属性値として出力する前の文字列。
- * @returns Markdown変換で利用する文字列。
+
  */
 function escapeAttribute(value: string): string {
     return escapeHtml(value).replace(/`/g, '&#96;');

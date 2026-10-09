@@ -1,11 +1,8 @@
-/*
+/**
  * @fileoverview 画像リサイズハンドルとガイドの配置、操作状態、テーマ色を定義する。
  * スタイルだけを変更し、本文データと編集状態を変更しない。
  */
-/*
- * @style html[data-mve-image-resize-controls='hidden'] .split-preview .mve-image-badge, html[data-mve-image-resize-controls='hidden'] .split-preview .mve-image-handle, html[data-mve-image-resize-controls='hidden'] .split-preview .mve-image-align-actions, html[data-mve-image-resize-controls='hidden'] .split-preview .mve-image-reset
- * プレビュー画像とリサイズ操作を表示する。
- */
+/* 設定がhiddenの間だけ分割プレビューの画像操作部品を隠し、本文値は変更しない。 */
 html[data-mve-image-resize-controls='hidden'] .split-preview .mve-image-badge,
 html[data-mve-image-resize-controls='hidden'] .split-preview .mve-image-handle,
 html[data-mve-image-resize-controls='hidden'] .split-preview .mve-image-align-actions,

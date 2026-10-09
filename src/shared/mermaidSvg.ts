@@ -2,10 +2,10 @@
  * @fileoverview Mermaidが生成したSVGを検証し、画像領域・リンク領域・アクセシビリティ情報を抽出する。
  */
 /**
- * mermaidsvgのnamespace・mermaid・svgを処理し、呼び出し側へ結果または副作用を返す。
+ * Mermaid SVG内のIDと参照先へ固有の接頭辞を付け、同一文書内のID重複を防ぐ。
  * @param svg - Mermaidが生成したSVG本文。
  * @param namespace - 生成するSVG IDへ付ける固有の接頭辞。
- * @returns mermaidsvgで利用する文字列。
+ * @returns ID参照とARIA参照も接頭辞に合わせて更新したSVG。
  */
 export function namespaceMermaidSvg(svg: string, namespace: string): string {
     const safeNamespace = namespace.replace(/[^a-zA-Z0-9_-]/g, '-');
@@ -13,7 +13,7 @@ export function namespaceMermaidSvg(svg: string, namespace: string): string {
         /**
          * 各matchを変換して一覧化する。
          * @param match - SVGのid属性に一致した正規表現結果。match[2]がid値。
-         * @returns 入力要素から生成した変換結果の一覧。
+
          */
         (match) => match[2]);
     let result = svg;
@@ -38,9 +38,9 @@ export function namespaceMermaidSvg(svg: string, namespace: string): string {
 }
 
 /**
- * mermaidsvgの入力を許可された形式へ整える。
+ * 正規表現のメタ文字をリテラルとして扱えるようにエスケープする。
  * @param value - 正規表現へ埋め込むためにエスケープする文字列。
- * @returns mermaidsvgで利用する文字列。
+
  */
 function escapeRegExp(value: string): string {
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');

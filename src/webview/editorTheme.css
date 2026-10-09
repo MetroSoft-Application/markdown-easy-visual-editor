@@ -1,4 +1,4 @@
-/*
+/**
  * @fileoverview CodeMirrorと編集面の基本テーマ変数、選択色、カーソル、診断表示を定義する。
  * スタイルだけを変更し、本文データと編集状態を変更しない。
  */
@@ -229,11 +229,6 @@ body[data-editor-theme="dark"] {
     --vscode-inputValidation-errorBackground: #3d1f1f !important;
 }
 
-/*
- * @style body[data-editor-theme], body[data-editor-theme] #root, body[data-editor-theme] .app, body[data-editor-theme] .workspace, body[data-editor-theme] .editor-area, body[data-editor-theme] .split-editor, body[data-editor-theme] .split-source-pane, body[data-editor-theme] .split-preview, body[data-editor-theme] .startup
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 body[data-editor-theme],
 body[data-editor-theme] #root,
 body[data-editor-theme] .app,
@@ -266,11 +261,6 @@ body[data-editor-theme] .status-bar {
     background: var(--mve-theme-surface-alt) !important;
     border-color: var(--mve-theme-border) !important;
 }
-
-/*
- * @style body[data-editor-theme] .outline-resizer, body[data-editor-theme] .split-divider
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 
 body[data-editor-theme] .outline-resizer,
@@ -320,11 +310,6 @@ body[data-editor-theme] .outline-children > .outline-node::before {
     border-color: var(--mve-theme-border) !important;
 }
 
-/*
- * @style body[data-editor-theme] .ribbon-tool.active, body[data-editor-theme] .ribbon-tabs button.active, body[data-editor-theme] .ribbon-source-button.active
- * リボンの操作項目と無効・選択状態を表示する。
- */
-
 
 body[data-editor-theme] .ribbon-tool.active,
 body[data-editor-theme] .ribbon-tabs button.active,
@@ -333,22 +318,12 @@ body[data-editor-theme] .ribbon-source-button.active {
     border-color: var(--mve-theme-accent) !important;
 }
 
-/*
- * @style body[data-editor-theme] .ribbon-tabs button.active, body[data-editor-theme] .ribbon-tabs .ribbon-source-button, body[data-editor-theme] .rendered-markdown a
- * リボンの操作項目と無効・選択状態を表示する。
- */
-
 
 body[data-editor-theme] .ribbon-tabs button.active,
 body[data-editor-theme] .ribbon-tabs .ribbon-source-button,
 body[data-editor-theme] .rendered-markdown a {
     color: var(--mve-theme-accent) !important;
 }
-
-/*
- * @style body[data-editor-theme] .ribbon-group-label, body[data-editor-theme] .ribbon-select-label, body[data-editor-theme] .ribbon-form label, body[data-editor-theme] .outline-panel p, body[data-editor-theme] .search-count, body[data-editor-theme] .diagnostic-help, body[data-editor-theme] .pdf-preview-status, body[data-editor-theme] .pdf-preview-note
- * リボンの操作項目と無効・選択状態を表示する。
- */
 
 
 body[data-editor-theme] .ribbon-group-label,
@@ -362,11 +337,6 @@ body[data-editor-theme] .pdf-preview-note {
     color: var(--mve-theme-muted) !important;
 }
 
-/*
- * @style body[data-editor-theme] .search-panel, body[data-editor-theme] .help-dialog, body[data-editor-theme] .link-dialog, body[data-editor-theme] .inspector-preview, body[data-editor-theme] .cm-tooltip, body[data-editor-theme] .cm-panels
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 body[data-editor-theme] .search-panel,
 body[data-editor-theme] .help-dialog,
 body[data-editor-theme] .link-dialog,
@@ -379,20 +349,10 @@ body[data-editor-theme] .cm-panels {
     box-shadow: 0 8px 24px var(--mve-theme-shadow) !important;
 }
 
-/*
- * @style body[data-editor-theme] .modal-backdrop
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 
 body[data-editor-theme] .modal-backdrop {
     background: rgba(0, 0, 0, 0.38) !important;
 }
-
-/*
- * @style body[data-editor-theme] .diagnostic, body[data-editor-theme] .panel-title, body[data-editor-theme] .pdf-margin-fields
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 
 body[data-editor-theme] .diagnostic,
@@ -405,7 +365,7 @@ body[data-editor-theme] .pdf-margin-fields {
 
 /*
  * @style body[data-editor-theme] .app input, body[data-editor-theme] .app textarea
- * 設定ダイアログと操作コントロールの状態を整える。
+ * 入力欄の文字、背景、境界、キャレットを選択中のエディターテーマへ合わせる。
  */
 
 body[data-editor-theme] .app input,
@@ -418,7 +378,7 @@ body[data-editor-theme] .app textarea {
 
 /*
  * @style body[data-editor-theme] .app input::placeholder, body[data-editor-theme] .app textarea::placeholder
- * 設定ダイアログと操作コントロールの状態を整える。
+ * プレースホルダーを通常の入力文字より弱いテーマ色で表示する。
  */
 
 
@@ -429,7 +389,7 @@ body[data-editor-theme] .app textarea::placeholder {
 
 /*
  * @style body[data-editor-theme] .search-panel button, body[data-editor-theme] .diagnostics-panel button, body[data-editor-theme] .inspector-panel button, body[data-editor-theme] .pdf-settings-panel button, body[data-editor-theme] .help-dialog button, body[data-editor-theme] .link-dialog button
- * 設定ダイアログと操作コントロールの状態を整える。
+ * 検索・診断・設定・ヘルプ・リンク操作の文字色と背景色をテーマへ合わせる。
  */
 
 
@@ -446,7 +406,7 @@ body[data-editor-theme] .link-dialog button {
 
 /*
  * @style body[data-editor-theme] .search-panel button:hover:not(:disabled), body[data-editor-theme] .diagnostics-panel button:hover:not(:disabled), body[data-editor-theme] .inspector-panel button:hover:not(:disabled), body[data-editor-theme] .pdf-settings-panel button:hover:not(:disabled), body[data-editor-theme] .help-dialog button:hover:not(:disabled), body[data-editor-theme] .link-dialog button:hover:not(:disabled)
- * 設定ダイアログと操作コントロールの状態を整える。
+ * 有効な各操作ボタンのホバー背景を現在のテーマのアクティブ色へ切り替える。
  */
 
 
@@ -459,11 +419,6 @@ body[data-editor-theme] .link-dialog button:hover:not(:disabled) {
     background: var(--mve-theme-active) !important;
 }
 
-/*
- * @style body[data-editor-theme] .primary
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 
 body[data-editor-theme] .primary {
     color: #ffffff !important;
@@ -473,7 +428,7 @@ body[data-editor-theme] .primary {
 
 /*
  * @style body[data-editor-theme] .cm-editor, body[data-editor-theme] .cm-scroller, body[data-editor-theme] .cm-content
- * CodeMirror編集面の入力、選択、診断状態を整える。
+ * CodeMirror本文領域にテーマの本文色とエディター背景を適用する。
  */
 
 body[data-editor-theme] .cm-editor,
@@ -485,7 +440,7 @@ body[data-editor-theme] .cm-content {
 
 /*
  * @style body[data-editor-theme] .cm-gutters, body[data-editor-theme] .cm-gutter, body[data-editor-theme] .cm-lineNumbers
- * CodeMirror編集面の入力、選択、診断状態を整える。
+ * 行番号欄を補助背景・控えめな文字色・境界色で本文と区別する。
  */
 
 
@@ -499,7 +454,7 @@ body[data-editor-theme] .cm-lineNumbers {
 
 /*
  * @style body[data-editor-theme] .cm-activeLine, body[data-editor-theme] .cm-activeLineGutter
- * CodeMirror編集面の入力、選択、診断状態を整える。
+ * 入力中の行と対応する行番号を補助背景で示す。
  */
 
 
@@ -511,7 +466,7 @@ body[data-editor-theme] .cm-activeLineGutter {
 
 /*
  * @style body[data-editor-theme] .cm-selectionBackground, body[data-editor-theme] .cm-content ::selection
- * CodeMirror編集面の入力、選択、診断状態を整える。
+ * 選択範囲にVS Codeの選択色を適用する。
  */
 
 
@@ -522,7 +477,7 @@ body[data-editor-theme] .cm-content ::selection {
 
 /*
  * @style body[data-editor-theme] .cm-cursor, body[data-editor-theme] .cm-dropCursor
- * CodeMirror編集面の入力、選択、診断状態を整える。
+ * 入力カーソルとドラッグ挿入位置をテーマの本文色で視認できるようにする。
  */
 
 
@@ -531,22 +486,12 @@ body[data-editor-theme] .cm-dropCursor {
     border-left-color: var(--mve-theme-text) !important;
 }
 
-/*
- * @style body[data-editor-theme] .split-preview .rendered-markdown, body[data-editor-theme] .editor-area>.rendered-markdown, body[data-editor-theme] .inspector-preview .rendered-markdown
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 body[data-editor-theme] .split-preview .rendered-markdown,
 body[data-editor-theme] .editor-area>.rendered-markdown,
 body[data-editor-theme] .inspector-preview .rendered-markdown {
     color: var(--mve-theme-text) !important;
     background: var(--mve-theme-bg) !important;
 }
-
-/*
- * @style body[data-editor-theme] .rendered-markdown pre, body[data-editor-theme] .rendered-markdown code, body[data-editor-theme] .rendered-markdown .code-figure, body[data-editor-theme] .rendered-markdown figcaption, body[data-editor-theme] .rendered-markdown blockquote, body[data-editor-theme] .rendered-markdown .markdown-alert
- * Markdownプレビューの本文とブロック要素を整える。
- */
 
 
 body[data-editor-theme] .rendered-markdown pre,
@@ -560,11 +505,6 @@ body[data-editor-theme] .rendered-markdown .markdown-alert {
     border-color: var(--mve-theme-border) !important;
 }
 
-/*
- * @style body[data-editor-theme] .rendered-markdown table, body[data-editor-theme] .rendered-markdown th, body[data-editor-theme] .rendered-markdown td
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
-
 
 body[data-editor-theme] .rendered-markdown table,
 body[data-editor-theme] .rendered-markdown th,
@@ -573,20 +513,10 @@ body[data-editor-theme] .rendered-markdown td {
     border-color: var(--mve-theme-border) !important;
 }
 
-/*
- * @style body[data-editor-theme] .rendered-markdown th
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 
 body[data-editor-theme] .rendered-markdown th {
     background: var(--mve-theme-surface-alt) !important;
 }
-
-/*
- * @style body[data-editor-theme] .pdf-preview-shell, body[data-editor-theme] .pdf-preview-toolbar, body[data-editor-theme] .pdf-preview-pdf-layer
- * Markdownプレビューの本文とブロック要素を整える。
- */
 
 body[data-editor-theme] .pdf-preview-shell,
 body[data-editor-theme] .pdf-preview-toolbar,
@@ -596,22 +526,12 @@ body[data-editor-theme] .pdf-preview-pdf-layer {
     border-color: var(--mve-theme-border) !important;
 }
 
-/*
- * @style body[data-editor-theme] .pdf-preview-toolbar button
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 
 body[data-editor-theme] .pdf-preview-toolbar button {
     color: var(--mve-theme-text) !important;
     background: var(--mve-theme-hover) !important;
     border-color: var(--mve-theme-border) !important;
 }
-
-/*
- * @style body[data-editor-theme] .pdf-preview-live-content, body[data-editor-theme] .pdf-preview-live-content .rendered-markdown, body[data-editor-theme] .pdf-preview-content
- * Markdownプレビューの本文とブロック要素を整える。
- */
 
 
 body[data-editor-theme] .pdf-preview-live-content,
@@ -622,21 +542,11 @@ body[data-editor-theme] .pdf-preview-content {
     color-scheme: light !important;
 }
 
-/*
- * @style body[data-editor-theme] .status-bar
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 body[data-editor-theme] .status-bar {
     color: var(--mve-theme-muted) !important;
     background: var(--mve-theme-surface-alt) !important;
     border-top-color: var(--mve-theme-border) !important;
 }
-
-/*
- * @style body[data-editor-theme] .toast
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 
 body[data-editor-theme] .toast {
@@ -646,20 +556,10 @@ body[data-editor-theme] .toast {
     box-shadow: 0 8px 24px var(--mve-theme-shadow) !important;
 }
 
-/*
- * @style body[data-editor-theme]
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 
 body[data-editor-theme] {
     scrollbar-color: var(--vscode-scrollbarSlider-background) transparent;
 }
-
-/*
- * @style body[data-editor-theme] .app select:not(.mve-text-color-select)
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 
 body[data-editor-theme] .app select:not(.mve-text-color-select) {

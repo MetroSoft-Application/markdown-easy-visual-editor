@@ -4,13 +4,14 @@
 import type { TextChange } from './protocol';
 import { getMessages } from './messages';
 
+/** HostとWebview間で共有する変更範囲の型を再公開する。 */
 export type { TextChange } from './protocol';
 
 /**
  * textchangesの寸法、容量、位置、または計測値を求める。
  * @param before - 差分計算前の本文文字列。
  * @param after - 差分計算後の本文文字列。
- * @returns textchangesに対応する要素の一覧。
+ * @returns beforeからafterへ変換する、元本文オフセット順のテキスト変更一覧。
  */
 export function computeTextChanges(before: string, after: string): TextChange[] {
     // 先頭と末尾の共通部分を除外し、中央の差分を1件の置換として返す。
@@ -48,11 +49,11 @@ type ComposedSegment =
          */
         kind: 'original';
         /**
-         * textchangesのfromを表す数値。
+         * 変更前本文で保持する範囲の先頭UTF-16オフセットです。
          */
         from: number;
         /**
-         * textchangesのtoを表す数値。
+         * 変更前本文で保持する範囲の末尾UTF-16オフセットです。
          */
         to: number
     }
@@ -68,11 +69,11 @@ type ComposedSegment =
     };
 
 /**
- * textchangesのcompose・text・changesを処理し、呼び出し側へ結果または副作用を返す。
+  * 同じ基準本文に対する2組の変更を、逐次適用した結果と等価な1組へ合成する。
  * @param first - 合成変更へ変換する先行テキスト変更一覧。
  * @param second - 先行変更の後に適用するテキスト変更一覧。
  * @param baseLength - 変更範囲を制限する基準本文のUTF-16長。
- * @returns textchangesに対応する要素の一覧。
+  * @returns 2組の変更を合成した、重複しない変更範囲一覧。
  */
 export function composeTextChanges(
     first: readonly TextChange[],
@@ -96,14 +97,14 @@ export function composeTextChanges(
         /**
          * secondの各要素を変換して一覧化する。
          * @param change - 本文上の1件の変更範囲。
-         * @returns 入力要素から生成した変換結果の一覧。
+
          */
         (change) => ({ ...change }));
     if (!second.length) return first.map(
         /**
          * firstの各要素を変換して一覧化する。
          * @param change - 本文上の1件の変更範囲。
-         * @returns 入力要素から生成した変換結果の一覧。
+
          */
         (change) => ({ ...change }));
 
@@ -172,10 +173,10 @@ export function composeTextChanges(
 }
 
 /**
- * textchangesのsplit・composed・segments・atを処理し、呼び出し側へ結果または副作用を返す。
+  * 合成変更セグメントを指定オフセットで分割し、前半のセグメント数を返す。
  * @param segments - UTF-16オフセットで分割する合成変更セグメント一覧。
  * @param offset - 合成後の本文内で分割するUTF-16オフセット。
- * @returns textchangesで利用する数値。
+  * @returns 分割後の先頭側セグメント数。
  */
 function splitComposedSegmentsAt(segments: ComposedSegment[], offset: number): number {
     let position = 0;
@@ -203,9 +204,8 @@ function splitComposedSegmentsAt(segments: ComposedSegment[], offset: number): n
 }
 
 /**
- * textchangesの入力を許可された形式へ整える。
+ * 隣接する変更セグメントを結合し、合成変更列を正規化する。
  * @param segments - 隣接区間を結合して正規化する合成変更セグメント一覧。
- * @returns 副作用を完了し、値は返さない。
  */
 function normalizeComposedSegments(segments: ComposedSegment[]): void {
     for (let index = segments.length - 1; index >= 0; index -= 1) {
@@ -230,7 +230,7 @@ function normalizeComposedSegments(segments: ComposedSegment[]): void {
  * 本文変更を元の座標と順序に従って適用し、競合する範囲を拒否する。
  * @param value - 変更範囲を適用する基準本文。
  * @param changes - 本文へ適用する変更範囲の一覧。
- * @returns textchangesで利用する文字列。
+ * @returns すべての変更を適用した本文。
  * @throws {RangeError} 変更範囲が本文に対して不正な場合。
  */
 export function applyTextChanges(value: string, changes: readonly TextChange[]): string {
@@ -253,12 +253,12 @@ export function applyTextChanges(value: string, changes: readonly TextChange[]):
 }
 
 /**
- * textchangesのmap・text・changesを処理し、呼び出し側へ結果または副作用を返す。
+  * 一方の変更範囲をもう一方の変更適用後へ移し、重なりや不正範囲は例外にする。
  * @param changes - 他方の変更後へ位置を写像する変更範囲。
  * @param over - 同じ基準本文に対して計算した、位置写像に使う他方の変更範囲。
  * @param baseLength - 両方の変更範囲を計算した基準本文のUTF-16文字数。
  * @param before - 同じ位置にある他方の挿入より前へ配置する場合はtrue。
- * @returns textchangesに対応する要素の一覧。
+  * @returns 他方の変更適用後に対応する変更範囲一覧。
  * @throws {Error} 変更範囲が重なって安全に写像できない場合。
  * @throws {RangeError} 変更範囲が基準本文に対して不正な場合。
  */
@@ -274,7 +274,7 @@ export function mapTextChanges(
         /**
          * changesの各要素を変換して一覧化する。
          * @param change - 本文上の1件の変更範囲。
-         * @returns 入力要素から生成した変換結果の一覧。
+
          */
         (change) => ({ ...change }));
     validateTextChanges(changes, baseLength);
@@ -298,9 +298,7 @@ export function mapTextChanges(
             (left, right) => left.rangeOffset - right.rangeOffset)
         .map(
             /**
-             * 各changeからrange・offsetを取り出して一覧化する。
-             * @param change - changeのrange・offsetを参照する走査対象。
-             * @returns range・offsetを取り出した変換結果の一覧。
+              * 入力変更を走査し、変更範囲と合成本文上の開始位置を記録する。
              */
             (change) => {
                 // 現在の変更とリモート変更の範囲が重なる場合は、安全に統合できないため失敗させる。
@@ -354,12 +352,12 @@ export function mapTextChanges(
 }
 
 /**
- * textchangesのmap・text・offsetを処理し、呼び出し側へ結果または副作用を返す。
+  * 指定オフセットを変更範囲に沿って写像し、挿入境界の所属側も反映する。
  * @param offset - 変更前本文内で対応位置を求めるUTF-16オフセット。
  * @param changes - オフセットを変更後本文へ移す変更範囲。
  * @param baseLength - 変更範囲を計算した元本文のUTF-16文字数。
  * @param association - 変更境界上の位置を前側へ寄せる場合は-1、後側へ寄せる場合は1。
- * @returns textchangesで利用する数値。
+  * @returns 変更後本文内のUTF-16オフセット。
  * @throws {RangeError} オフセットまたは変更範囲が不正な場合。
  */
 export function mapTextOffset(
@@ -402,7 +400,6 @@ export function mapTextOffset(
  * textchangesの入力と不変条件を検証し、違反時に失敗を通知する。
  * @param changes - 本文へ適用する変更範囲の一覧。
  * @param baseLength - 変更範囲を制限する基準本文のUTF-16長。
- * @returns 条件が成立したかを示す真偽値。
  * @throws {RangeError} 位置・長さ・本文境界・重複のいずれかが不正な場合。
  */
 export function validateTextChanges(changes: readonly TextChange[], baseLength: number): void {

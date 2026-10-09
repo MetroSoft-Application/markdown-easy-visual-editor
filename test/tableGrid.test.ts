@@ -1,5 +1,5 @@
 /**
- * @fileoverview tablegrid・テストの回帰の仕様と回帰条件を検証する。失敗時は期待値と実装差分を示す。
+ * @fileoverview 表グリッドの選択範囲補正、行列移動・複製、配置メタデータ維持、列ラベル生成を検証する。
  */
 import { describe, expect, it } from "vitest";
 import {
@@ -15,16 +15,8 @@ import {
 } from "../src/shared/tableGrid";
 
 describe("table grid helpers",
-    /**
-     * 「table grid helpers」の仕様と回帰条件を検証するテストケース。
-     * @returns テストケースを実行し、値は返さない。
-     */
     () => {
         it("normalizes reverse rectangular selections and clamps them to the grid",
-            /**
-             * 「normalizes reverse rectangular selections and clamps them to the grid」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const range = normalizeTableGridRange(
                     { anchorRow: 5, anchorColumn: 4, focusRow: -2, focusColumn: 1 },
@@ -43,10 +35,6 @@ describe("table grid helpers",
             });
 
         it("moves data rows without mutating the source matrix",
-            /**
-             * 「moves data rows without mutating the source matrix」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const rows = [["H"], ["1"], ["2"], ["3"]];
                 const moved = moveTableGridRow(rows, 1, 3);
@@ -55,10 +43,6 @@ describe("table grid helpers",
             });
 
         it("moves columns and their alignment metadata together",
-            /**
-             * 「moves columns and their alignment metadata together」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const moved = moveTableGridColumn(
                     [
@@ -77,10 +61,6 @@ describe("table grid helpers",
             });
 
         it("duplicates a row range after the source range",
-            /**
-             * 「duplicates a row range after the source range」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const rows = [["H"], ["1"], ["2"]];
                 const duplicated = duplicateTableGridRows(rows, 1, 1);
@@ -89,10 +69,6 @@ describe("table grid helpers",
             });
 
         it("duplicates columns and their alignment metadata after the source range",
-            /**
-             * 「duplicates columns and their alignment metadata after the source range」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const duplicated = duplicateTableGridColumns(
                     [
@@ -116,10 +92,6 @@ describe("table grid helpers",
             });
 
         it("clears only the requested rectangular range",
-            /**
-             * 「clears only the requested rectangular range」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const cleared = clearTableGridRange(
                     [
@@ -137,10 +109,6 @@ describe("table grid helpers",
             });
 
         it("uses spreadsheet-style column labels",
-            /**
-             * 「uses spreadsheet-style column labels」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 expect(tableGridColumnLabel(0)).toBe("A");
                 expect(tableGridColumnLabel(25)).toBe("Z");

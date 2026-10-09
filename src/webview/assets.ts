@@ -1,11 +1,11 @@
 /**
- * @fileoverview Webviewのassetsを管理する。Hostとの通信、ユーザー操作、表示状態の契約を保つ。
+ * @fileoverview Webviewと出力HTMLが参照するローカルのスクリプト、スタイル、フォント資産のURIを構築する。
  */
 /**
- * assetsのwebview・asset・urlを処理し、呼び出し側へ結果または副作用を返す。
- * @param fileName - assetsで読み書きするリソースの場所。
- * @param configuredUrl - assetsへ渡す設定または境界値。
- * @returns assetsで利用する文字列。
+ * 設定済みURLまたはWebviewスクリプトの位置を基準に、資産URLを構築する。
+ * @param fileName - URLへ追加する資産ファイル名。
+ * @param configuredUrl - 明示設定されたURL。指定された場合はその値を返す。
+ * @returns 資産ファイルの絶対URL。
  */
 export function webviewAssetUrl(
     fileName: string,
@@ -25,8 +25,8 @@ export function webviewAssetUrl(
 }
 
 /**
- * assetsのwebview・script・nonceを処理し、呼び出し側へ結果または副作用を返す。
- * @returns 副作用を完了し、値は返さない。
+ * 初期HTMLに埋め込まれたCSP nonceを取得する。
+ * @returns meta要素のnonce値。nonceが見つからない場合はundefined。
  */
 export function webviewScriptNonce(): string | undefined {
     const script = Array.from(document.scripts).find(

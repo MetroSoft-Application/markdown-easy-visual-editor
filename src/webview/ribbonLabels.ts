@@ -1,5 +1,5 @@
 /**
- * @fileoverview Webviewのribbonlabelsを管理する。Hostとの通信、ユーザー操作、表示状態の契約を保つ。
+ * @fileoverview リボン項目IDごとの表示文言をローカライズメッセージから解決する。
  */
 import type { Messages } from "../shared/messages";
 import type { RibbonLabelSpec } from "./ribbonDefinitionTypes";
@@ -16,10 +16,10 @@ export function resolveRibbonLabel(
 ): string {
     const value = spec.path.split(".").reduce<unknown>(
         /**
-         * currentをifへ渡し、ribbonlabelsの結果または副作用を処理する。
-         * @param current - メッセージパスの走査中に参照している現在の値。
-         * @param key - ribbonlabelsの対象や分岐を識別する値。
-         * @returns ribbonlabelsのコールバックが生成する結果。
+         * 途中の値がオブジェクトなら指定キーへ進み、異なる場合は解決を中断する。
+         * @param current - パスの直前まで辿った翻訳値。
+         * @param key - 次に読むプロパティ名。
+         * @returns 指定プロパティの値。途中の値がオブジェクトでなければundefined。
          */
         (current, key) => {
             if (!current || typeof current !== "object") return undefined;

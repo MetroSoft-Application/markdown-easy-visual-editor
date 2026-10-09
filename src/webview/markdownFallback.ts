@@ -1,18 +1,18 @@
 /**
- * @fileoverview Webviewのmarkdownfallbackを管理する。Hostとの通信、ユーザー操作、表示状態の契約を保つ。
+ * @fileoverview Markdown Workerが利用できない場合に、基本的な本文をエスケープ済みHTMLへ変換する。
  */
 import type { RenderOptions } from "./markdownRendererCore";
 import { webviewAssetUrl, webviewScriptNonce } from "./assets";
 
 /**
- * markdownfallbackで共有するデータ形状を表すインターフェース。
+ * Workerが使えない場合のMarkdown描画関数と依存機能です。
  */
 interface MarkdownFallbackRuntime {
     /**
      * Markdownを表示用HTMLへ変換し、見出し・画像・表などの付加情報をまとめる。
      * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
      * @param options - 呼び出し側が指定する処理設定。
-     * @returns markdownfallbackで利用する文字列。
+
      */
     renderMarkdown(markdown: string, options: RenderOptions): string;
 }
@@ -31,10 +31,10 @@ declare global {
 let runtimePromise: Promise<MarkdownFallbackRuntime> | undefined;
 
 /**
- * markdownfallbackを表示用の結果へ変換する。
+ * 代替Markdown runtimeで本文をHTMLへ描画する。
  * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
  * @param options - 呼び出し側が指定する処理設定。
- * @returns markdownfallbackで利用する文字列。
+ * @returns 代替Markdown runtimeが生成したHTML文字列。
  */
 export async function renderMarkdownFallback(
     markdown: string,
@@ -45,8 +45,8 @@ export async function renderMarkdownFallback(
 }
 
 /**
- * markdownfallbackから必要な値またはリソースを取得する。
- * @returns markdownfallbackの非同期処理で得られる結果。
+ * グローバル注入済みの代替Markdownランタイムを取得し、未注入時はscriptを読み込む。
+ * @returns グローバルに注入済み、またはscript読み込み後のMarkdown runtime。
  */
 function loadMarkdownFallback(): Promise<MarkdownFallbackRuntime> {
     if (globalThis.mveMarkdownFallback) {
@@ -57,7 +57,6 @@ function loadMarkdownFallback(): Promise<MarkdownFallbackRuntime> {
          * 非同期処理の成功結果と失敗理由を待機側へ通知する。
          * @param resolve - Promiseの成功を通知する関数。
          * @param reject - Promiseの失敗を通知する関数。
-         * @returns 非同期処理の完了値。
          */
         (resolve, reject) => {
             const script = document.createElement("script");
@@ -73,7 +72,6 @@ function loadMarkdownFallback(): Promise<MarkdownFallbackRuntime> {
 
                 /**
                  * イベントでifを実行する。
-                 * @returns 副作用を完了し、値は返さない。
                  */
                 () => {
                     if (globalThis.mveMarkdownFallback) {
@@ -90,7 +88,6 @@ function loadMarkdownFallback(): Promise<MarkdownFallbackRuntime> {
 
                 /**
                  * イベントで失敗通知を実行する。
-                 * @returns 副作用を完了し、値は返さない。
                  */
                 () => {
                     runtimePromise = undefined;

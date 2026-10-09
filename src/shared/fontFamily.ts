@@ -35,7 +35,7 @@ export const DEFAULT_FONT_FAMILY_SETTINGS: FontFamilySettings = {
 /**
  * フォント入力をCSSで扱える形式へ整え、空値・不正値を既定スタックへ戻す。
  * @param value - CSSへ設定する候補フォント名またはフォントスタック。
- * @returns fontfamilyで利用する文字列。
+ * @returns 空白を正規化したフォントスタック。不正値なら空文字。
  */
 export function normalizeFontFamily(value: unknown): string {
     if (typeof value !== 'string') return '';
@@ -45,10 +45,10 @@ export function normalizeFontFamily(value: unknown): string {
 }
 
 /**
- * fontfamilyのfont・family・for・cssを処理し、呼び出し側へ結果または副作用を返す。
+ * 要求されたフォントと予備フォントをCSSのfont-family値に整える。
  * @param value - CSSフォント指定からフォールバック込みで抽出した候補名。
  * @param fallback - valueをCSS用に正規化できない場合に使う予備フォント指定。
- * @returns fontfamilyで利用する文字列。
+ * @returns 不正な値を除き、必要な場合は予備フォントを加えたCSS値。
  */
 export function fontFamilyForCss(value: unknown, fallback: string): string {
     const normalizedValue = normalizeFontFamily(value);
@@ -65,9 +65,9 @@ export function fontFamilyForCss(value: unknown, fallback: string): string {
 }
 
 /**
- * fontfamilyの入力を許可された形式へ整える。
+ * 永続化値から有効なエディター用とプレビュー用フォント設定を復元する。
  * @param value - 永続化済みフォント設定の候補オブジェクト。
- * @returns 副作用を完了し、値は返さない。
+ * @returns 少なくとも一方の設定キーが存在すれば正規化済み設定、設定オブジェクトでなければundefined。
  */
 export function normalizeFontFamilySettings(value: unknown): FontFamilySettings | undefined {
     if (!value || typeof value !== 'object') return undefined;

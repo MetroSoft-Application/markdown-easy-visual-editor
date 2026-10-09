@@ -4,9 +4,9 @@
 import DOMPurify from "dompurify";
 
 /**
- * HTMLサニタイズの入力を許可された形式へ整える。
+ * Markdown描画HTMLから許可されない要素と属性を除去する。
  * @param html - 表示または出力するHTML本文。
- * @returns HTMLサニタイズで利用する文字列。
+ * @returns DOMPurifyで危険な要素・属性を除去したHTML。
  */
 export function sanitizeRenderedMarkdown(html: string): string {
     return DOMPurify.sanitize(html, {

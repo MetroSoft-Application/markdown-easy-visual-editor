@@ -1,5 +1,5 @@
 /**
- * @fileoverview Webviewの表編集履歴を管理する。Hostとの通信、ユーザー操作、表示状態の契約を保つ。
+ * @fileoverview 表編集ドラフトの変更履歴を保持し、上限付きUndo/Redoと新規編集時のRedo破棄を行う。
  */
 import type { TableEditorAlignment, TableEditorSortState } from './tableEditorModel';
 import type { TableGridRange } from '../shared/tableGrid';
@@ -15,7 +15,7 @@ export interface TableEditorHistorySnapshot {
     rows: string[][];
 
     /**
-     * 表編集履歴のalignmentsに関する状態または設定。
+     * 履歴時点で各列に適用されていた配置設定。
      */
     alignments: TableEditorAlignment[];
 
@@ -45,12 +45,12 @@ export interface TableEditorHistorySnapshot {
     columnWidths: number[];
 
     /**
-     * 表編集履歴のgrid・selectionに関する状態または設定。
+     * 履歴時点で選択されていたセル範囲。
      */
     gridSelection: TableGridRange;
 
     /**
-     * 表編集履歴のselection・kindに関する状態または設定。
+     * 履歴時点の選択単位。セル範囲、行、列、表全体のいずれか。
      */
     selectionKind: 'cells' | 'row' | 'column' | 'all';
 }
@@ -61,39 +61,34 @@ export interface TableEditorHistorySnapshot {
 export interface TableEditorHistoryState {
 
     /**
-     * 表編集履歴のundoに関する状態または設定。
+     * Undoで復元できる編集状態。末尾が次に復元される状態。
      */
     undo: TableEditorHistorySnapshot[];
 
     /**
-     * 表編集履歴のredoに関する状態または設定。
+     * Redoで復元できる編集状態。末尾が次に復元される状態。
      */
     redo: TableEditorHistorySnapshot[];
 }
 
 /**
- * 表編集履歴で使う値または実行環境を組み立てる。
- * @returns 表編集履歴で生成または変換した値。
+ * Undo/Redoの保存先として使える空の履歴を作成する。
+ * @returns Undo/Redo状態の配列が空の履歴。
  */
 export function createTableEditorHistory(): TableEditorHistoryState {
     return { undo: [], redo: [] };
 }
 
 /**
- * 表編集履歴の入力または状態を走査・複製する。
+ * スナップショットを複製し、可変配列と選択範囲を現在状態から切り離す。
  * @param snapshot - 複製する表編集状態スナップショット。
- * @returns 表編集履歴のclone・table・editor・history・snapshotが生成する結果。
+ * @returns 配列と選択範囲を複製したスナップショット。
  */
 export function cloneTableEditorHistorySnapshot(
     snapshot: TableEditorHistorySnapshot,
 ): TableEditorHistorySnapshot {
     return {
         rows: snapshot.rows.map(
-            /**
-             * 各行からsliceを取り出して一覧化する。
-             * @param row - 行のsliceを参照する走査対象。
-             * @returns sliceを取り出した変換結果の一覧。
-             */
             (row) => row.slice()),
         alignments: snapshot.alignments.slice(),
         activeRow: snapshot.activeRow,
@@ -107,11 +102,10 @@ export function cloneTableEditorHistorySnapshot(
 }
 
 /**
- * 表編集履歴のrecord・table・editor・historyを処理し、呼び出し側へ結果または副作用を返す。
+ * 現在状態をUndo履歴に追加し、上限より古い状態とRedo履歴を破棄する。
  * @param state - 現在の編集・表示状態。
  * @param current - 新しい操作前の現在状態。undoへ追加してredoを消去する。
- * @param limit - 表編集履歴へ渡す設定または境界値。
- * @returns 副作用を完了し、値は返さない。
+ * @param limit - Undoに保持する最大スナップショット数。1未満でも最低1件を保持する。
  */
 export function recordTableEditorHistory(
     state: TableEditorHistoryState,
@@ -125,10 +119,10 @@ export function recordTableEditorHistory(
 }
 
 /**
- * 表編集履歴のundo・table・editor・historyを処理し、呼び出し側へ結果または副作用を返す。
+ * 直前のUndo状態を復元し、現在状態をRedo履歴へ追加する。
  * @param state - 現在の編集・表示状態。
  * @param current - undo適用前の現在状態。redo履歴へ退避する。
- * @returns 副作用を完了し、値は返さない。
+ * @returns 復元後の表編集状態。Undo履歴が空の場合はundefined。
  */
 export function undoTableEditorHistory(
     state: TableEditorHistoryState,
@@ -141,10 +135,10 @@ export function undoTableEditorHistory(
 }
 
 /**
- * 表編集履歴のredo・table・editor・historyを処理し、呼び出し側へ結果または副作用を返す。
+ * 次のRedo状態を復元し、現在状態をUndo履歴へ追加する。
  * @param state - 現在の編集・表示状態。
  * @param current - redo適用前の現在状態。undo履歴へ退避する。
- * @returns 副作用を完了し、値は返さない。
+ * @returns 復元後の表編集状態。Redo履歴が空の場合はundefined。
  */
 export function redoTableEditorHistory(
     state: TableEditorHistoryState,

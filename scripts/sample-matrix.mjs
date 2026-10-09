@@ -1,5 +1,5 @@
 /**
- * @fileoverview サンプル検証・マトリクスを開発・検証環境で実行する。前提条件や失敗条件を終了コードとログで示す。
+ * @fileoverview サンプルMarkdown文書群をプレビューへ読み込み、描画完了と診断結果をまとめて確認する。
  */
 import { chromium } from 'playwright-core';
 import { readFile, readdir } from 'node:fs/promises';
@@ -7,9 +7,9 @@ import path from 'node:path';
 
 /**
  * 指定した名前のファイルを検証用ディレクトリから再帰的に探す。
- * @param root - サンプル検証・マトリクスへ渡す入力。
- * @param name - サンプル検証・マトリクスの対象や分岐を識別する値。
- * @returns サンプル検証・マトリクスのfind・fileが生成する結果。
+ * @param root - 再帰検索を開始するディレクトリ。
+ * @param name - 検索するファイル名。
+ * @returns 見つかったファイルの絶対パス。該当なしならundefined。
  */
 async function findFile(root, name) {
   for (const entry of await readdir(root, { withFileTypes: true })) {
@@ -37,17 +37,12 @@ const entries = await readdir(path.resolve('sample'));
 const samples = {};
 for (
   /**
-   * サンプル検証・マトリクスの位置・寸法・件数・時間を表す数値。
+   * 今回の反復で確認する番号付きMarkdownサンプル番号です。
    */
   const index of [1, 2, 3, 4, 5, 6, 7, 9, 11]
 ) {
   const prefix = String(index).padStart(2, '0');
   const file = entries.find(
-  /**
-   * starts・withが条件に一致する最初のエントリを取得する。
-   * @param entry - エントリのstarts・withを参照する走査対象。
-   * @returns 条件に一致した最初の要素。未検出時はundefined。
-   */
   (entry) => entry.startsWith(`${prefix}-`) && entry.endsWith('.md'));
   if (!file) throw new Error(`sample/${prefix} がありません。`);
   samples[index] = (await readFile(path.resolve('sample', file), 'utf8')).replace(/\r\n?/g, '\n');
@@ -65,15 +60,15 @@ const markdownWorkerScript = await readFile(path.resolve('dist/markdown-worker.j
  */
 const markdownRichWorkerScript = await readFile(path.resolve('dist/markdown-rich-worker.js'));
 /**
- * サンプル検証・マトリクスのmermaid・png・placeholderとして利用する実行環境または外部資源。
+ * Host描画の大きなMermaid応答をPNG経路へ通すための1x1透明PNGデータ。
  */
 const mermaidPngPlaceholder = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
 /**
- * サンプル検証・マトリクスの位置・寸法・件数・時間を表す数値。
+ * Webviewを使うプレビュー確認用のChromiumインスタンスです。
  */
 const browser = await chromium.launch({ executablePath, headless: true });
 /**
- * サンプル検証・マトリクスの位置・寸法・件数・時間を表す数値。
+ * 描画確認を行うレンダラー用のChromiumインスタンスです。
  */
 const rendererBrowser = await chromium.launch({ executablePath, headless: true });
 try {
@@ -81,10 +76,7 @@ try {
   const rendererContext = await rendererBrowser.newContext();
   const pageErrors = [];
   await context.addInitScript(
-  /**
-   * 要素を一覧追加へ渡し、サンプル検証・マトリクスの結果または副作用を処理する。
-   * @returns サンプル検証・マトリクスのコールバックが生成する結果。
-   */
+
   () => {
     window.__mveMessages = [];
     window.__mveHostVersion = 1;
@@ -101,9 +93,8 @@ try {
 
       
       postMessage: /**
-       * サンプル検証・マトリクスの変更または要求をHost・Webview間へ通知する。
-       * @param message - HostとWebviewの間で受け渡すメッセージ。
-       * @returns サンプル検証・マトリクスのpost・messageが生成する結果。
+       * Webview要求を記録し、編集要求はシミュレートしたHost本文へ適用してackを返す。
+       * @param message - サンプル検証中のWebviewから送られたHost要求。
        */ (message) => {
         window.__mveMessages.push(message);
         if (message.type === 'localChanges') {
@@ -129,7 +120,6 @@ try {
           setTimeout(
           /**
            * 指定時間の経過後に後続処理を実行する。
-           * @returns 副作用を完了し、値は返さない。
            */
           () => {
             window.__mveOutstandingOperations = Math.max(0, window.__mveOutstandingOperations - 1);
@@ -150,14 +140,12 @@ try {
 
       
       getState: /**
-       * サンプル検証・マトリクスから必要な値またはリソースを取得する。
        * @returns 条件に一致する値。未検出時はundefinedまたはnull。
        */ () => undefined,
 
       
       setState: /**
        * サンプル検証・マトリクスの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-       * @returns 副作用を完了し、値は返さない。
        */ () => undefined
     });
   });
@@ -172,22 +160,18 @@ try {
   /**
    * pageerrorイベントで一覧追加を実行する。
    * @param error - ユーザー操作またはDOMから通知されたイベント。
-   * @returns 副作用を完了し、値は返さない。
    */
   (error) => pageErrors.push(error.message));
   page.on('console',
   /**
    * consoleイベントでifを実行する。
    * @param message - ユーザー操作またはDOMから通知されたイベント。
-   * @returns 副作用を完了し、値は返さない。
    */
   (message) => { if (message.type() === 'error') pageErrors.push(message.text()); });
   let closingContext = false;
   await page.exposeFunction('__mveHostPostMessage',
   /**
-   * メッセージをifへ渡し、サンプル検証・マトリクスの結果または副作用を処理する。
    * @param message - HostとWebviewの間で受け渡すメッセージ。
-   * @returns サンプル検証・マトリクスのコールバックが生成する結果。
    */
   (message) => {
     if (closingContext) return;
@@ -198,8 +182,7 @@ try {
     if (message.type !== 'renderMermaid') return;
     rendererQueue = rendererQueue.then(
     /**
-     * 要素をifへ渡し、サンプル検証・マトリクスの結果または副作用を処理する。
-     * @returns サンプル検証・マトリクスのコールバックが生成する結果。
+      * キューを直列処理し、要求が未取消しの場合だけMermaidを描画して結果を返す。
      */
     async () => {
       if (cancelledRenderRequests.delete(message.requestId)) return;
@@ -209,12 +192,10 @@ try {
           /**
            * 遅延処理の完了または失敗を待機側へ通知する。
            * @param resolve - Promiseの成功を通知する関数。
-           * @returns 非同期処理の完了値。
            */
           (resolve) => setTimeout(
           /**
            * 指定時間の経過後に後続処理を実行する。
-           * @returns 副作用を完了し、値は返さない。
            */
           () => resolve({
               svg: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 320 80"><text x="8" y="42">Mermaid host result</text></svg>',
@@ -237,11 +218,7 @@ try {
               const root = container.querySelector('svg');
               const rootRect = root.getBoundingClientRect();
               const interactions = [...root.querySelectorAll('text, foreignObject')].slice(0, 500).map(
-              /**
-               * 各要素からget・bounding・client・rectを取り出して一覧化する。
-               * @param element - 要素のget・bounding・client・rectを参照する走査対象。
-               * @returns get・bounding・client・rectを取り出した変換結果の一覧。
-               */
+
               (element) => {
                 const rect = element.getBoundingClientRect();
                 return {
@@ -256,7 +233,7 @@ try {
               /**
                * 本文の条件を満たす項目だけを残す。
                * @param item - 項目の本文を参照する走査対象。
-               * @returns 条件を満たした要素だけを含む一覧。
+
                */
               (item) => item.text && item.width > 0 && item.height > 0);
               container.remove();
@@ -272,10 +249,6 @@ try {
         if (rendered.svg.length >= 80_000) rendered.pngBase64 = mermaidPngPlaceholder;
         if (closingContext || page.isClosed()) return;
         await page.evaluate(
-        /**
-         * Webviewの実行状態のdispatch・event結果を読み取り、検証用の値へ変換する。
-        * @returns ブラウザー内で読み取った値または変換結果。
-         */
         ({ requestId, result }) => {
           window.dispatchEvent(new MessageEvent('message', {
             data: { type: 'mermaidRendered', requestId, ...result }
@@ -284,10 +257,6 @@ try {
       } catch (error) {
         if (closingContext || page.isClosed()) return;
         await page.evaluate(
-        /**
-         * Webviewの実行状態のdispatch・event結果を読み取り、検証用の値へ変換する。
-        * @returns ブラウザー内で読み取った値または変換結果。
-         */
         ({ requestId, text }) => {
           window.dispatchEvent(new MessageEvent('message', {
             data: { type: 'mermaidRendered', requestId, error: text }
@@ -298,9 +267,8 @@ try {
   });
   page.setDefaultTimeout(7_000);
   await page.route('https://mve.test/sample/assets/**
-   * routeをifへ渡し、サンプル検証・マトリクスの結果または副作用を処理する。
-   * @param route - サンプル検証・マトリクスへ渡す入力。
-   * @returns サンプル検証・マトリクスのコールバックが生成する結果。
+    * ローカルSVG fixtureだけを返し、その他のsample asset要求は404にする。
+    * @param route - Playwrightが横取りしたsample asset要求。
    */
   async (route) => {
     if (route.request().url().endsWith('/local-sample.svg')) {
@@ -311,18 +279,16 @@ try {
   });
   await page.route('https://mve.test/dist/markdown-worker.js',
   /**
-   * routeをfulfillへ渡し、サンプル検証・マトリクスの結果または副作用を処理する。
-   * @param route - サンプル検証・マトリクスへ渡す入力。
-   * @returns サンプル検証・マトリクスのコールバックが生成する結果。
+   * ビルド済みMarkdown workerを固定URLから配信する。
+   * @param route - Playwrightが横取りしたMarkdown worker要求。
    */
   async (route) => {
     await route.fulfill({ status: 200, contentType: 'text/javascript', body: markdownWorkerScript });
   });
   await page.route('https://mve.test/dist/markdown-rich-worker.js',
   /**
-   * routeをfulfillへ渡し、サンプル検証・マトリクスの結果または副作用を処理する。
-   * @param route - サンプル検証・マトリクスへ渡す入力。
-   * @returns サンプル検証・マトリクスのコールバックが生成する結果。
+   * ビルド済みrich Markdown workerを固定URLから配信する。
+   * @param route - Playwrightが横取りしたrich worker要求。
    */
   async (route) => {
     await route.fulfill({
@@ -333,9 +299,8 @@ try {
   });
   await page.route('https://mve.test/sample/',
   /**
-   * routeをfulfillへ渡し、サンプル検証・マトリクスの結果または副作用を処理する。
-   * @param route - サンプル検証・マトリクスへ渡す入力。
-   * @returns サンプル検証・マトリクスのコールバックが生成する結果。
+   * テスト対象のWebview shell HTMLを固定URLへ返す。
+   * @param route - Playwrightが横取りしたsample page要求。
    */
   async (route) => {
     await route.fulfill({
@@ -351,13 +316,11 @@ try {
     await page.waitForFunction(
     /**
      * HostとWebviewのメッセージ状態が完了条件を満たすまで待機する。
-     * @returns サンプル検証・マトリクスのコールバックが生成する結果。
      */
     () => window.__mveMessages.some(
     /**
-     * サンプル検証・マトリクスのコールバックとしてメッセージを処理する。
+
      * @param message - HostとWebviewの間で受け渡すメッセージ。
-     * @returns サンプル検証・マトリクスのコールバックが生成する結果。
      */
     (message) => message.type === 'ready'));
   } catch (error) {
@@ -372,17 +335,12 @@ try {
    */
   (value) => { window.__mveHostText = value; }, samples[1]);
   await page.evaluate(
-  /**
-   * Webviewの実行状態のdispatch・event結果を読み取り、検証用の値へ変換する。
-  * @returns ブラウザー内で読み取った値または変換結果。
-   */
   ({ value, settings: initSettings }) => window.dispatchEvent(new MessageEvent('message', { data: { type: 'init', text: value, version: 1, uri: 'file:///C:/sample.md', settings: initSettings } })), { value: samples[1], settings });
   await page.locator('.split-editor').waitFor();
 
   /**
-   * サンプル検証・マトリクスから必要な値またはリソースを取得する。
-   * @param index - 配列・行列・文字列の要素位置を示す番号。
-   * @returns サンプル検証・マトリクスのloadが生成する結果。
+   * 指定したサンプル本文をHost/Webviewへ送り、プレビューとソース長が同期するまで待つ。
+   * @param index - 表示するサンプル本文の配列位置。
    */
   async function load(index) {
     const value = samples[index];
@@ -415,7 +373,6 @@ try {
     /**
      * ブラウザー内に「.split-preview」が現れるまで待機する。
      * @param text - プレビュー内に含まれるか調べる文字列。
-     * @returns サンプル検証・マトリクスのコールバックが生成する結果。
      */
     (text) => document.querySelector('.split-preview')?.textContent?.includes(text), heading);
     try {
@@ -423,7 +380,6 @@ try {
       /**
        * ブラウザー内に「.source-editor」が現れるまで待機する。
        * @param expectedLength - ソースエディターで期待する本文長。
-       * @returns サンプル検証・マトリクスのコールバックが生成する結果。
        */
       (expectedLength) => (
         Number(document.querySelector('.source-editor')?.getAttribute('data-document-length')) === expectedLength
@@ -443,7 +399,6 @@ try {
   await page.waitForFunction(
   /**
    * ブラウザー内に「.split-preview img[src*=」が現れるまで待機する。
-   * @returns サンプル検証・マトリクスのコールバックが生成する結果。
    */
   () => document.querySelector('.split-preview img[src*="local-sample.svg"]')?.naturalWidth > 0);
   if (!(await page.locator('.split-preview .blocked-image').count())) throw new Error('sample/03 のリモート画像制御を確認できません。');
@@ -454,7 +409,6 @@ try {
   await page.waitForFunction(
   /**
    * ブラウザーのDOM状態が完了条件を満たすまで待機する。
-   * @returns サンプル検証・マトリクスのコールバックが生成する結果。
    */
   () => document.body.dataset.mveMarkdownWorkerStatus === 'ready');
   if (!(await page.locator('.split-preview code .hljs-keyword, .split-preview code .hljs-built_in, .split-preview code .hljs-selector-tag').count())) {
@@ -464,7 +418,6 @@ try {
   await page.waitForFunction(
   /**
    * ブラウザー内に「.split-preview .mermaid[data-mermaid-status=」が現れるまで待機する。
-   * @returns サンプル検証・マトリクスのコールバックが生成する結果。
    */
   () => document.querySelectorAll('.split-preview .mermaid[data-mermaid-status="ready"]').length >= 1);
   await load(6);
@@ -472,7 +425,6 @@ try {
   await page.waitForFunction(
   /**
    * ブラウザー内に「.split-preview .mermaid[data-mermaid-status=」が現れるまで待機する。
-   * @returns サンプル検証・マトリクスのコールバックが生成する結果。
    */
   () => document.querySelectorAll('.split-preview .mermaid[data-mermaid-status="ready"]').length >= 1);
   if (!(await page.locator('.split-preview .katex').count()) || !(await page.locator('.split-preview table').count())) throw new Error('sample/06 の数式・表を確認できません。');
@@ -490,7 +442,7 @@ try {
   /**
    * 種別「renderMermaid」のメッセージだけを残す。
    * @param message - メッセージのtypeを参照する走査対象。
-   * @returns 条件を満たした要素だけを含む一覧。
+
    */
   (message) => message.type === 'renderMermaid').length);
   await load(11);
@@ -499,24 +451,17 @@ try {
   await page.waitForFunction(
   /**
    * ブラウザー内に「.cm-scroller」が現れるまで待機する。
-   * @returns サンプル検証・マトリクスのコールバックが生成する結果。
    */
   () => (document.querySelector('.cm-scroller')?.scrollTop ?? 0) < 80);
   // scrollIntoViewだけでは直前のソース→プレビュー同期に上書きされ得る。
   // 実際のホイール操作と同じ意図を先に通知し、大規模図を確実に可視範囲へ入れる。
   await page.locator('.split-preview').dispatchEvent('wheel', { deltaY: 1 });
   await page.locator('.split-preview .mermaid').first().evaluate(
-  /**
-   * ブラウザー内の状態のscroll・into・view結果を読み取り、検証用の値へ変換する。
-   * @param node - 画面中央へスクロールする見出しDOM要素。
-   * @returns ブラウザー内で読み取った値または変換結果。
-   */
   (node) => node.scrollIntoView({ block: 'center' }));
   try {
     await page.waitForFunction(
     /**
      * ブラウザー内に「.split-preview」が現れるまで待機する。
-     * @returns サンプル検証・マトリクスのコールバックが生成する結果。
      */
     () => {
       const container = document.querySelector('.split-preview');
@@ -548,25 +493,15 @@ try {
     window.__mveLongTasks = [];
     window.__mveLongTaskObserver = new PerformanceObserver(
     /**
-     * listを一覧追加へ渡し、サンプル検証・マトリクスの結果または副作用を処理する。
      * @param list - サンプル検証・マトリクスへ渡す入力。
-     * @returns サンプル検証・マトリクスのコールバックが生成する結果。
      */
     (list) => {
       window.__mveLongTasks.push(...list.getEntries().map(
-      /**
-       * 各エントリからstart・timeを取り出して一覧化する。
-       * @param entry - エントリのstart・timeを参照する走査対象。
-       * @returns start・timeを取り出した変換結果の一覧。
-       */
       (entry) => ({ startTime: entry.startTime, duration: entry.duration })));
     });
     window.__mveLongTaskObserver.observe({ type: 'longtask', buffered: false });
     window.__mveResponsivenessTimer = setInterval(
-    /**
-     * 要素をnowへ渡し、サンプル検証・マトリクスの結果または副作用を処理する。
-     * @returns サンプル検証・マトリクスのコールバックが生成する結果。
-     */
+
     () => {
       const state = window.__mveResponsiveness;
       const now = performance.now();
@@ -580,13 +515,12 @@ try {
     /**
      * HostとWebviewのメッセージ状態が完了条件を満たすまで待機する。
      * @param start - 操作前のMermaid描画要求数のスナップショット。
-     * @returns サンプル検証・マトリクスのコールバックが生成する結果。
      */
     (start) => window.__mveMessages.filter(
     /**
      * 種別「renderMermaid」のメッセージだけを残す。
      * @param message - メッセージのtypeを参照する走査対象。
-     * @returns 条件を満たした要素だけを含む一覧。
+
      */
     (message) => message.type === 'renderMermaid').length > start, renderRequestStart);
   } catch (error) {
@@ -598,20 +532,12 @@ try {
     () => ({
       inputActive: document.body.dataset.mveInputActive,
       preview: (
-      /**
-       * 要素をquery・selectorへ渡し、サンプル検証・マトリクスの結果または副作用を処理する。
-       * @returns サンプル検証・マトリクスのコールバックが生成する結果。
-       */
+
       () => {
         const element = document.querySelector('.split-preview');
         return element ? { scrollTop: element.scrollTop, clientHeight: element.clientHeight, scrollHeight: element.scrollHeight } : undefined;
       })(),
       nodes: [...document.querySelectorAll('.split-preview .mermaid')].slice(0, 5).map(
-      /**
-       * 各DOMノードからis・connectedを取り出して一覧化する。
-       * @param node - DOMノードのis・connectedを参照する走査対象。
-       * @returns is・connectedを取り出した変換結果の一覧。
-       */
       (node) => ({
         connected: node.isConnected,
         status: node.getAttribute('data-mermaid-status'),
@@ -622,7 +548,7 @@ try {
       /**
        * 種別「renderMermaid」のメッセージだけを残す。
        * @param message - メッセージのtypeを参照する走査対象。
-       * @returns 条件を満たした要素だけを含む一覧。
+
        */
       (message) => message.type === 'renderMermaid').length,
       lastMessages: window.__mveMessages.slice(-5).map(
@@ -651,10 +577,6 @@ try {
   });
   await page.waitForTimeout(2_500);
   const responsiveness = await page.evaluate(
-  /**
-   * Webviewの実行状態のclear・interval結果を読み取り、検証用の値へ変換する。
-   * @returns ブラウザー内で読み取った値または変換結果。
-   */
   () => {
     clearInterval(window.__mveResponsivenessTimer);
     window.__mveLongTaskObserver.disconnect();
@@ -671,7 +593,7 @@ try {
         /**
          * nameの条件を満たすエントリだけを残す。
          * @param entry - エントリのnameを参照する走査対象。
-         * @returns 条件を満たした要素だけを含む一覧。
+
          */
         (entry) => entry.name.startsWith('mve-preview-'))
         .slice(-12)
@@ -691,7 +613,6 @@ try {
     await page.waitForFunction(
     /**
      * ブラウザー内に「.split-preview .mermaid-svg-image」が現れるまで待機する。
-     * @returns 副作用を完了し、値は返さない。
      */
     () => document.querySelectorAll('.split-preview .mermaid-svg-image').length >= 1, undefined, { timeout: 15_000 });
   } catch (error) {
@@ -705,31 +626,21 @@ try {
       /**
        * 種別「renderMermaid」のメッセージだけを残す。
        * @param message - メッセージのtypeを参照する走査対象。
-       * @returns 条件を満たした要素だけを含む一覧。
+
        */
       (message) => message.type === 'renderMermaid'),
       cancellations: window.__mveMessages.filter(
       /**
        * 種別「cancelMermaidRender」のメッセージだけを残す。
        * @param message - メッセージのtypeを参照する走査対象。
-       * @returns 条件を満たした要素だけを含む一覧。
+
        */
       (message) => message.type === 'cancelMermaidRender'),
       previewLength: document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-document-length'),
       nodes: [...document.querySelectorAll('.split-preview .mermaid')].map(
-      /**
-       * 各DOMノードからget・attributeを取り出して一覧化する。
-       * @param node - DOMノードのget・attributeを参照する走査対象。
-       * @returns get・attributeを取り出した変換結果の一覧。
-       */
       (node) => ({
         status: node.getAttribute('data-mermaid-status'),
         children: [...node.children].map(
-        /**
-         * 各childからclass・nameを取り出して一覧化する。
-         * @param child - childのclass・nameを参照する走査対象。
-         * @returns class・nameを取り出した変換結果の一覧。
-         */
         (child) => child.className || child.tagName),
         text: node.textContent?.slice(0, 120)
       }))
@@ -739,7 +650,6 @@ try {
   await page.waitForFunction(
   /**
    * ブラウザー内に「.split-preview .mermaid-svg-frame[data-mve-rasterized=」が現れるまで待機する。
-   * @returns サンプル検証・マトリクスのコールバックが生成する結果。
    */
   () => document.querySelector(
     '.split-preview .mermaid-svg-frame[data-mve-rasterized="true"]'
@@ -748,28 +658,22 @@ try {
   await page.waitForFunction(
   /**
    * ブラウザー内に「.split-preview .mermaid-interaction-text」が現れるまで待機する。
-   * @returns 副作用を完了し、値は返さない。
    */
   () => document.querySelectorAll('.split-preview .mermaid-interaction-text').length >= 1, undefined, { timeout: 15_000 });
   await page.waitForFunction(
   /**
    * ブラウザー内に「.split-preview .mermaid」が現れるまで待機する。
-   * @returns サンプル検証・マトリクスのコールバックが生成する結果。
    */
   () => {
     const diagrams = [...document.querySelectorAll('.split-preview .mermaid')];
     return diagrams.some(
     /**
-     * DOMノードをincludesへ渡し、サンプル検証・マトリクスの結果または副作用を処理する。
      * @param node - サンプル検証・マトリクスで走査または更新する要素。
-     * @returns サンプル検証・マトリクスのコールバックが生成する結果。
      */
     (node) => ['ready', 'error'].includes(node.getAttribute('data-mermaid-status')))
       && !diagrams.some(
       /**
-       * DOMノードをget・attributeへ渡し、サンプル検証・マトリクスの結果または副作用を処理する。
        * @param node - サンプル検証・マトリクスで走査または更新する要素。
-       * @returns サンプル検証・マトリクスのコールバックが生成する結果。
        */
       (node) => node.getAttribute('data-mermaid-status') === 'rendering');
   }, undefined, { timeout: 30_000 });
@@ -785,17 +689,10 @@ try {
     window.__mveSustainedLongTasks = [];
     window.__mveSustainedLongTaskObserver = new PerformanceObserver(
     /**
-     * listを一覧追加へ渡し、サンプル検証・マトリクスの結果または副作用を処理する。
      * @param list - サンプル検証・マトリクスへ渡す入力。
-     * @returns サンプル検証・マトリクスのコールバックが生成する結果。
      */
     (list) => {
       window.__mveSustainedLongTasks.push(...list.getEntries().map(
-      /**
-       * 各エントリからstart・timeを取り出して一覧化する。
-       * @param entry - エントリのstart・timeを参照する走査対象。
-       * @returns start・timeを取り出した変換結果の一覧。
-       */
       (entry) => ({
         startTime: entry.startTime,
         duration: entry.duration
@@ -803,10 +700,7 @@ try {
     });
     window.__mveSustainedLongTaskObserver.observe({ type: 'longtask', buffered: false });
     window.__mveSustainedTimer = setInterval(
-    /**
-     * 要素をnowへ渡し、サンプル検証・マトリクスの結果または副作用を処理する。
-     * @returns サンプル検証・マトリクスのコールバックが生成する結果。
-     */
+
     () => {
       const state = window.__mveSustainedResponsiveness;
       const now = performance.now();
@@ -820,7 +714,7 @@ try {
       /**
        * 種別「renderMermaid」のメッセージだけを残す。
        * @param message - メッセージのtypeを参照する走査対象。
-       * @returns 条件を満たした要素だけを含む一覧。
+
        */
       (message) => message.type === 'renderMermaid').length,
       mermaidNodes: document.querySelectorAll('.split-preview .mermaid').length,
@@ -870,7 +764,6 @@ try {
   /**
    * ブラウザー内に「.split-preview .rendered-markdown」が現れるまで待機する。
    * @param expectedLength - プレビューで期待するMarkdown本文長。
-   * @returns サンプル検証・マトリクスのコールバックが生成する結果。
    */
   (expectedLength) => (
     Number(document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-document-length')) === expectedLength
@@ -879,22 +772,17 @@ try {
     await page.waitForFunction(
     /**
      * ブラウザー内に「.split-preview .mermaid」が現れるまで待機する。
-     * @returns サンプル検証・マトリクスのコールバックが生成する結果。
      */
     () => {
       const diagrams = [...document.querySelectorAll('.split-preview .mermaid')];
       return diagrams.some(
       /**
-       * DOMノードをincludesへ渡し、サンプル検証・マトリクスの結果または副作用を処理する。
        * @param node - サンプル検証・マトリクスで走査または更新する要素。
-       * @returns サンプル検証・マトリクスのコールバックが生成する結果。
        */
       (node) => ['ready', 'error'].includes(node.getAttribute('data-mermaid-status')))
         && !diagrams.some(
         /**
-         * DOMノードをget・attributeへ渡し、サンプル検証・マトリクスの結果または副作用を処理する。
          * @param node - サンプル検証・マトリクスで走査または更新する要素。
-         * @returns サンプル検証・マトリクスのコールバックが生成する結果。
          */
         (node) => node.getAttribute('data-mermaid-status') === 'rendering');
     }, undefined, { timeout: 30_000 });
@@ -907,11 +795,6 @@ try {
     () => ({
       workerStatus: document.body.dataset.mveMarkdownWorkerStatus,
       diagrams: [...document.querySelectorAll('.split-preview .mermaid')].map(
-      /**
-       * 各DOMノードからget・attributeを取り出して一覧化する。
-       * @param node - DOMノードのget・attributeを参照する走査対象。
-       * @returns get・attributeを取り出した変換結果の一覧。
-       */
       (node) => ({
         status: node.getAttribute('data-mermaid-status'),
         source: decodeURIComponent(node.getAttribute('data-mermaid-source') ?? '').slice(0, 80)
@@ -950,7 +833,7 @@ try {
       /**
        * 種別「localChanges」のメッセージだけを残す。
        * @param message - メッセージのtypeを参照する走査対象。
-       * @returns 条件を満たした要素だけを含む一覧。
+
        */
       (message) => message.type === 'localChanges').length,
       maximumOutstandingOperations: window.__mveMaximumOutstandingOperations,
@@ -959,7 +842,7 @@ try {
       /**
        * 種別「renderMermaid」のメッセージだけを残す。
        * @param message - メッセージのtypeを参照する走査対象。
-       * @returns 条件を満たした要素だけを含む一覧。
+
        */
       (message) => message.type === 'renderMermaid').length - start.mermaidRequests,
       mermaidNodes: document.querySelectorAll('.split-preview .mermaid').length,
@@ -969,7 +852,7 @@ try {
         /**
          * nameの条件を満たすエントリだけを残す。
          * @param entry - エントリのnameを参照する走査対象。
-         * @returns 条件を満たした要素だけを含む一覧。
+
          */
         (entry) => entry.name.startsWith('mve-preview-')).length
         + performance.getEntriesByType('measure')
@@ -977,23 +860,13 @@ try {
           /**
            * nameの条件を満たすエントリだけを残す。
            * @param entry - エントリのnameを参照する走査対象。
-           * @returns 条件を満たした要素だけを含む一覧。
+
            */
           (entry) => entry.name.startsWith('mve-preview-') || entry.name.startsWith('mve-source-')).length,
       mermaidStates: [...document.querySelectorAll('.split-preview .mermaid')].map(
-      /**
-       * 各DOMノードからget・attributeを取り出して一覧化する。
-       * @param node - DOMノードのget・attributeを参照する走査対象。
-       * @returns get・attributeを取り出した変換結果の一覧。
-       */
       (node) => ({
         status: node.getAttribute('data-mermaid-status'),
         children: [...node.children].map(
-        /**
-         * 各childからclass・nameを取り出して一覧化する。
-         * @param child - childのclass・nameを参照する走査対象。
-         * @returns class・nameを取り出した変換結果の一覧。
-         */
         (child) => child.className || child.tagName),
         text: node.textContent?.slice(0, 120)
       }))
@@ -1003,7 +876,6 @@ try {
     await page.waitForFunction(
     /**
      * Host側の本文状態が完了条件を満たすまで待機する。
-    * @returns サンプル検証・マトリクスのコールバックが生成する結果。
      */
     ({ prefix, length }) => (
       window.__mveHostText.length === length && window.__mveHostText.startsWith(prefix)
@@ -1023,31 +895,21 @@ try {
       /**
        * 種別「requestResync」のメッセージだけを残す。
        * @param message - メッセージのtypeを参照する走査対象。
-       * @returns 条件を満たした要素だけを含む一覧。
+
        */
       (message) => message.type === 'requestResync'),
       localOperations: window.__mveMessages.filter(
       /**
        * 種別「localChanges」のメッセージだけを残す。
        * @param message - メッセージのtypeを参照する走査対象。
-       * @returns 条件を満たした要素だけを含む一覧。
+
        */
       (message) => message.type === 'localChanges').map(
-      /**
-       * 各メッセージからclient・idを取り出して一覧化する。
-       * @param message - メッセージのclient・idを参照する走査対象。
-       * @returns client・idを取り出した変換結果の一覧。
-       */
       (message) => ({
         clientId: message.clientId,
         opId: message.opId,
         baseVersion: message.baseVersion,
         changes: message.changes.map(
-        /**
-         * 各changeからrange・offsetを取り出して一覧化する。
-         * @param change - changeのrange・offsetを参照する走査対象。
-         * @returns range・offsetを取り出した変換結果の一覧。
-         */
         (change) => ({
           offset: change.rangeOffset,
           removed: change.rangeLength,
@@ -1061,7 +923,6 @@ try {
   await page.waitForFunction(
   /**
    * Webviewの実行状態が完了条件を満たすまで待機する。
-   * @returns 副作用を完了し、値は返さない。
    */
   () => window.__mveOutstandingOperations === 0, undefined, { timeout: 10_000 });
   const workerStatus = await page.evaluate(
@@ -1127,17 +988,10 @@ try {
     const longTasks = [];
     const longTaskObserver = new PerformanceObserver(
     /**
-     * listを一覧追加へ渡し、サンプル検証・マトリクスの結果または副作用を処理する。
      * @param list - サンプル検証・マトリクスへ渡す入力。
-     * @returns サンプル検証・マトリクスのコールバックが生成する結果。
      */
     (list) => {
       longTasks.push(...list.getEntries().map(
-      /**
-       * 各エントリからstart・timeを取り出して一覧化する。
-       * @param entry - エントリのstart・timeを参照する走査対象。
-       * @returns start・timeを取り出した変換結果の一覧。
-       */
       (entry) => ({
         startTime: entry.startTime,
         duration: entry.duration
@@ -1152,13 +1006,11 @@ try {
       /**
        * 非同期処理の成功結果を待機側へ通知する。
        * @param resolve - Promiseの成功を通知する関数。
-       * @returns 非同期処理の完了値。
        */
       (resolve) => requestAnimationFrame(
       /**
        * 次の描画フレームで表示更新を実行する。
        * @param now - 次の描画フレームで実行するコールバック。
-       * @returns サンプル検証・マトリクスのコールバックが生成する結果。
        */
       (now) => {
         frameIntervals.push(now - previousFrame);
@@ -1196,7 +1048,7 @@ try {
         /**
          * 種別「renderMermaid」のメッセージだけを残す。
          * @param message - メッセージのtypeを参照する走査対象。
-         * @returns 条件を満たした要素だけを含む一覧。
+
          */
         (message) => message.type === 'renderMermaid').length
       });
@@ -1211,11 +1063,6 @@ try {
      */
     (left, right) => left - right);
     const maximumHandlerDuration = Math.max(0, ...samples.map(
-    /**
-     * 各sampleからapp・scroll・durationを取り出して一覧化する。
-     * @param sample - sampleのapp・scroll・durationを参照する走査対象。
-     * @returns app・scroll・durationを取り出した変換結果の一覧。
-     */
     (sample) => Math.max(
       sample.appScrollDuration,
       sample.previewSyncDuration,
@@ -1258,10 +1105,7 @@ try {
   () => {
     window.__mveSelectionResponsiveness = { previous: performance.now(), maximumGap: 0, ticks: 0 };
     window.__mveSelectionTimer = setInterval(
-    /**
-     * 要素をnowへ渡し、サンプル検証・マトリクスの結果または副作用を処理する。
-     * @returns サンプル検証・マトリクスのコールバックが生成する結果。
-     */
+
     () => {
       const state = window.__mveSelectionResponsiveness;
       const now = performance.now();
@@ -1306,11 +1150,6 @@ try {
   }
   if (!rendererQueueSettled) throw new Error('Mermaid renderer queue did not settle after scrolling');
   console.log(`continuous waves=${waveAverages.map(
-  /**
-   * 各値からto・fixedを取り出して一覧化する。
-   * @param value - 値のto・fixedを参照する走査対象。
-   * @returns to・fixedを取り出した変換結果の一覧。
-   */
   (value) => value.toFixed(1)).join('/')}ms; first4=${firstWaveAverage.toFixed(1)}ms; last4=${lastWaveAverage.toFixed(1)}ms; worst=${worstInput.toFixed(1)}ms; loop-gap=${sustained.responsiveness.maximumGap.toFixed(1)}ms; blur=${sustainedBlurDuration.toFixed(1)}ms; scroll-handler-max=${scrollPerformance.maximumHandlerDuration.toFixed(1)}ms; scroll-frame-p95=${scrollPerformance.p95FrameInterval.toFixed(1)}ms; scroll-frame-p99=${scrollPerformance.p99FrameInterval.toFixed(1)}ms; selection-gap=${selectionPerformance.maximumGap.toFixed(1)}ms; operations=${sustained.localOperations}; perf-entries=${sustained.previewPerformanceEntries}; Mermaid requests=${sustained.mermaidRequests}`);
   closingContext = true;
   await context.close();

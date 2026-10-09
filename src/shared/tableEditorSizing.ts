@@ -49,11 +49,11 @@ export function calculateAutoFitColumnWidth(
 }
 
 /**
- * tableeditorsizingの寸法、容量、位置、または計測値を求める。
+ * セル内容に合わせて行高を求め、上下限で制限する。
  * @param heights - 同じ表行にある各セルの計測高さ一覧。
  * @param minimum - 自動調整後に許可する行高の下限。
  * @param maximum - 自動調整後に許可する行高の上限。
- * @returns tableeditorsizingで利用する数値。
+ * @returns 計測高さと上下限から求めた行高。
  */
 export function calculateAutoFitRowHeight(
     heights: readonly number[],

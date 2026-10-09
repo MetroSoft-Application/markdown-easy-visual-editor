@@ -61,7 +61,7 @@ export interface RibbonButtonOptions {
 }
 
 /**
- * リボン定義型で共有するデータ形状を表すインターフェース。
+ * リボン入力コントロールの項目名、初期値、属性定義です。
  */
 export interface RibbonControlFieldDefinition {
 
@@ -92,7 +92,7 @@ export interface RibbonControlFieldDefinition {
 }
 
 /**
- * リボン定義型で共有するデータ形状を表すインターフェース。
+ * 選択式リボンコントロールの表示名と値です。
  */
 export interface RibbonControlChoiceDefinition {
 
@@ -118,7 +118,7 @@ export interface RibbonControlOptions {
     readonly values?: readonly string[];
 
     /**
-     * リボン定義型のfieldsに関する状態または設定。
+     * このcontrolが受け取る入力欄のID・表示名・範囲を定義する一覧。
      */
     readonly fields?: readonly RibbonControlFieldDefinition[];
 
@@ -128,13 +128,13 @@ export interface RibbonControlOptions {
     readonly choices?: readonly RibbonControlChoiceDefinition[];
 
     /**
-     * リボン定義型のhintに関する状態または設定。
+     * controlの下に表示する補足または入力条件の説明。
      */
     readonly hint?: RibbonLabelSpec;
 }
 
 /**
- * リボン定義型で共有するデータ形状を表すインターフェース。
+ * リボン上のボタンまたは選択項目の表示と動作定義です。
  */
 export interface RibbonItemDefinition {
 
@@ -149,13 +149,13 @@ export interface RibbonItemDefinition {
     readonly options?: RibbonButtonOptions & RibbonControlOptions;
 
     /**
-     * リボン定義型のcontainerに関する状態または設定。
+     * 項目を配置するリボン上の領域ID。省略時は既定領域を使う。
      */
     readonly container?: RibbonContainerId;
 }
 
 /**
- * リボン定義型で共有するデータ形状を表すインターフェース。
+ * タブ内に並べるリボン項目のグループ定義です。
  */
 export interface RibbonGroupDefinition {
 
@@ -165,18 +165,18 @@ export interface RibbonGroupDefinition {
     readonly label: RibbonLabelSpec;
 
     /**
-     * リボン定義型で扱うclass・nameの文字列。
+     * このgroupの要素に付与するレイアウト用CSS class。
      */
     readonly className?: string;
 }
 
 /**
- * リボン定義型で共有するデータ形状を表すインターフェース。
+ * タブとヘッダーに表示するリボン群の定義です。
  */
 export interface RibbonContainerDefinition {
 
     /**
-     * リボン定義型で扱うclass・nameの文字列。
+     * このcontainerの配置とスタイルを選ぶCSS class。
      */
     readonly className: string;
 
@@ -187,12 +187,12 @@ export interface RibbonContainerDefinition {
 }
 
 /**
- * リボン定義型で共有するデータ形状を表すインターフェース。
+ * リボンヘッダーに並べる項目群の定義です。
  */
 export interface RibbonHeaderGroupDefinition {
 
     /**
-     * リボン定義型で扱うclass・nameの文字列。
+     * ヘッダーgroupの配置とスタイルを選ぶCSS class。
      */
     readonly className: string;
 
@@ -203,7 +203,7 @@ export interface RibbonHeaderGroupDefinition {
 }
 
 /**
- * リボン定義型で共有するデータ形状を表すインターフェース。
+ * リボンヘッダーに表示する単一項目の定義です。
  */
 export interface RibbonHeaderItemDefinition {
 
@@ -218,7 +218,7 @@ export interface RibbonHeaderItemDefinition {
     readonly collapsedLabel?: RibbonLabelSpec;
 
     /**
-     * リボン定義型のexpanded・labelに関する状態または設定。
+     * リボン展開時に項目へ表示する長いラベル。省略時はlabelを使う。
      */
     readonly expandedLabel?: RibbonLabelSpec;
 
@@ -228,23 +228,23 @@ export interface RibbonHeaderItemDefinition {
     readonly options?: RibbonButtonOptions;
 
     /**
-     * リボン定義型のgroupに関する状態または設定。
+     * ヘッダー項目をまとめるgroup ID。省略時は個別配置する。
      */
     readonly group?: RibbonHeaderGroupId;
 }
 
 /**
- * リボン定義型で共有するデータ形状を表すインターフェース。
+ * 各タブとヘッダーで使用するリボン定義全体です。
  */
 export interface RibbonDefinitions {
 
     /**
-     * リボン定義型のtabsに関する状態または設定。
+     * タブIDごとのローカライズ済み表示ラベル。
      */
     readonly tabs: Record<RibbonTabId, RibbonLabelSpec>;
 
     /**
-     * リボン定義型のgroupsに関する状態または設定。
+     * group IDごとの見出しとレイアウト定義。
      */
     readonly groups: Record<RibbonGroupId, RibbonGroupDefinition>;
 
@@ -254,7 +254,7 @@ export interface RibbonDefinitions {
     readonly items: Record<RibbonItemId, RibbonItemDefinition>;
 
     /**
-     * リボン定義型のcontainersに関する状態または設定。
+     * container IDごとのCSS classとアクセシビリティラベル。
      */
     readonly containers: Record<RibbonContainerId, RibbonContainerDefinition>;
 
@@ -264,7 +264,7 @@ export interface RibbonDefinitions {
     readonly headerItems: Record<RibbonHeaderItemId, RibbonHeaderItemDefinition>;
 
     /**
-     * リボン定義型のheader・groupsに関する状態または設定。
+     * ヘッダーgroup IDごとのCSS classとアクセシビリティラベル。
      */
     readonly headerGroups: Record<
         RibbonHeaderGroupId,
@@ -272,7 +272,7 @@ export interface RibbonDefinitions {
     >;
 
     /**
-     * リボン定義型のtab・list・labelに関する状態または設定。
+     * タブ一覧ボタンに表示するローカライズ済みラベル。
      */
     readonly tabListLabel: RibbonLabelSpec;
 }

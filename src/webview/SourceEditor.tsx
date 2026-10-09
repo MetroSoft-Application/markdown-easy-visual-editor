@@ -97,7 +97,7 @@ export type SourceAction =
   | "unlink";
 
 /**
- * 本文編集面の位置・寸法・件数・時間を表す数値。
+ * 行単位の書式を適用してもキャレットを保持する操作種別の集合です。
  */
 const CARET_PRESERVING_LINE_ACTIONS = new Set<SourceAction>([
   "quote",
@@ -112,103 +112,94 @@ const CARET_PRESERVING_LINE_ACTIONS = new Set<SourceAction>([
 ]);
 
 /**
- * 本文編集面で共有するデータ形状を表すインターフェース。
+ * 親コンポーネントから本文エディターを操作するための参照です。
  */
 export interface TextEditorHandle {
   /**
-   * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+    * 現在の選択範囲へMarkdownを挿入し、指定時はインライン内容として扱う。
    * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
    * @param inline 挿入するMarkdown内容をインライン形式として扱う場合はtrue。
    * @returns なし。エディター文書を直接更新する。
    */
   insert(markdown: string, inline?: boolean): void;
   /**
-   * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+    * 変更後のMarkdown本文と選択範囲を一度に反映する。
    * @param edit - 編集後の本文と適用後の選択範囲。
-   * @returns 副作用を完了し、値は返さない。
    */
   applyEdit(edit: SourceEdit): void;
   /**
-   * 本文編集面のactionを処理し、呼び出し側へ結果または副作用を返す。
+   * 選択範囲に指定された書式・リスト・ブロック操作を適用する。
    * @param action - 適用する装飾、リスト、ブロック挿入などの操作種別。
-   * @returns 本文編集面のactionが生成する結果。
    */
   action(action: SourceAction): void;
   /**
-   * 本文編集面のcode・blockを処理し、呼び出し側へ結果または副作用を返す。
+   * 選択範囲を指定言語のコードブロックで囲む。
    * @param language - 挿入するコードブロックの言語識別子。
-   * @returns 副作用を完了し、値は返さない。
    */
   codeBlock(language?: string): void;
   /**
-   * 本文編集面のheadingを処理し、呼び出し側へ結果または副作用を返す。
+   * 選択行へ指定レベルのMarkdown見出し記号を適用する。
    * @param level - 挿入する見出しのレベル（1から6）。
-   * @returns 副作用を完了し、値は返さない。
    */
   heading(level: number): void;
   /**
-   * 本文編集面のlinkを処理し、呼び出し側へ結果または副作用を返す。
+   * 選択範囲を指定URLのMarkdownリンクにする。
    * @param href - リンク操作領域の遷移先URI。
    * @param label - 画面または検証結果に表示する説明文。
-   * @returns 副作用を完了し、値は返さない。
    */
   link(href: string, label?: string): void;
   /**
-   * 本文編集面から必要な値またはリソースを取得する。
-   * @returns 条件に一致する値。未検出時はundefinedまたはnull。
+   * 現在のCodeMirror選択範囲を取得する。
+   * @returns Markdown本文内のUTF-16オフセットで表す選択範囲。
    */
   getSelection(): TextSelection;
   /**
-   * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+    * 指定した本文範囲をCodeMirrorの選択状態にする。
    * @param selection - 本文上の開始・終了オフセットで指定する選択範囲。
-   * @returns 副作用を完了し、値は返さない。
    */
   setSelection(selection: TextSelection): void;
   /**
-   * 本文編集面の表示または操作を開始する。
+    * 指定範囲がエディター内に見えるようスクロールする。
    * @param selection - 表示位置へ移動する本文上の選択範囲。
-   * @returns 副作用を完了し、値は返さない。
    */
   revealRange(selection: TextSelection): void;
   /**
-   * 本文編集面から必要な値またはリソースを取得する。
-   * @returns 条件に一致する値。未検出時はundefinedまたはnull。
+   * エディターの表示位置を文書内アンカーとして取得する。
+   * @returns 表示領域が有効なら復元用アンカー、未配置ならundefined。
    */
   getViewport(): EditorViewportAnchor | undefined;
   /**
-   * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+    * 保存したアンカーに対応する本文位置をエディターへ表示する。
    * @param anchor - 本文編集面で復元する可視位置アンカー。
-   * @returns 副作用を完了し、値は返さない。
    */
   restoreViewport(anchor: EditorViewportAnchor): void;
   /**
    * 保存した縦スクロール位置の比率へ本文編集面を戻す。
    * @param ratio - 復元先として正規化された縦スクロール位置（0から1）。
-   * @returns 副作用を完了し、値は返さない。
    */
   restoreScrollRatio(ratio: number): void;
 }
 
 /**
- * 本文編集面で共有するデータ形状を表すインターフェース。
+ * ソースエディターで復元する本文位置と画面内オフセットです。
  */
 export interface EditorViewportAnchor {
   /**
-   * 本文編集面の位置・寸法・件数・時間を表す数値。
+   * 復元対象の本文内UTF-16オフセットです。
    */
   offset: number;
 
   /**
-   * 本文編集面の位置・寸法・件数・時間を表す数値。
+   * 対象行の画面上端と編集領域上端との距離をCSSピクセル単位で示します。
    */
   topOffset: number;
 
   /**
-   * 本文編集面の位置・寸法・件数・時間を表す数値。
+   * 復元する本文範囲の終端UTF-16オフセットです。
    */
   endOffset?: number;
   /**
-   * 本文編集面のscroll・ratioを表す数値。
+   * LFへ正規化した本文に対する縦スクロール比率（0から1）。
    */
   scrollRatio?: number;
 }
@@ -285,7 +276,7 @@ const sourceCodeLanguages = [
 ] as const;
 
 /**
- * 本文編集面のvscode・syntax・highlight・styleに関する状態または設定。
+ * VS CodeテーマのCSS変数を使ってMarkdown・コードの色を定義するCodeMirrorスタイル。
  */
 const vscodeSyntaxHighlightStyle = HighlightStyle.define([
   { tag: tags.meta, color: "var(--vscode-descriptionForeground)" },
@@ -378,11 +369,11 @@ const vscodeSyntaxHighlightStyle = HighlightStyle.define([
 ]);
 
 /**
- * 本文編集面で共有するデータ形状を表すインターフェース。
+ * 検索語と一致箇所を装飾するためのエディター状態です。
  */
 interface SearchHighlightData {
   /**
-   * 本文編集面のhitsに関する状態または設定。
+   * 検索クエリに一致した本文範囲。
    */
   hits: readonly TextSelection[];
 
@@ -397,7 +388,7 @@ interface SearchHighlightData {
  */
 interface SearchHighlightState extends SearchHighlightData {
   /**
-   * 本文編集面のdecorationsに関する状態または設定。
+   * 検索一致範囲に表示するCodeMirror装飾。
    */
   decorations: DecorationSet;
 }
@@ -408,12 +399,12 @@ interface SearchHighlightState extends SearchHighlightData {
 const setSearchHighlights = StateEffect.define<SearchHighlightData>();
 
 /**
- * 本文編集面のsearch・highlight・fieldに関する状態または設定。
+ * 検索一致範囲と装飾を保持し、文書変更に合わせて位置を追従させるStateField。
  */
 const searchHighlightField = StateField.define<SearchHighlightState>({
   create: /**
-   * 本文編集面で使う値または実行環境を組み立てる。
-   * @returns 本文編集面で生成または変換した値。
+   * 検索一致一覧と空の装飾を持つ初期状態を作る。
+   * @returns 空の検索一致一覧と装飾を持つ初期状態。
    */ () => ({ hits: [], decorations: Decoration.none }),
   /**
    * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
@@ -437,7 +428,6 @@ const searchHighlightField = StateField.define<SearchHighlightState>({
   },
 
   provide: /**
-   * 本文編集面のprovideを処理し、呼び出し側へ結果または副作用を返す。
    * @param field - 検索ハイライト状態とデコレーションを保持するStateField。
    * @returns 本文編集面のprovideが生成する結果。
    */ (field) =>
@@ -453,10 +443,10 @@ const searchHighlightField = StateField.define<SearchHighlightState>({
 });
 
 /**
- * 本文編集面で使う値または実行環境を組み立てる。
+ * 検索一致範囲をCodeMirrorの装飾へ変換する。
  * @param state - 現在の編集・表示状態。
  * @param data - 検索一致範囲と現在選択中の一致を含むハイライトデータ。
- * @returns 本文編集面で生成または変換した値。
+ * @returns 検索一致箇所を表すCodeMirror装飾。
  */
 function createSearchDecorations(
   state: EditorState,
@@ -487,7 +477,7 @@ function createSearchDecorations(
       /**
        * 未定義または無効な範囲を除外する。
        * @param range - 有効性を判定する範囲。
-       * @returns 条件を満たした要素だけを含む一覧。
+
        */
       (range): range is Range<Decoration> => Boolean(range),
     );
@@ -495,18 +485,18 @@ function createSearchDecorations(
 }
 
 /**
- * 本文編集面のvisible・space・decorationsを処理し、呼び出し側へ結果または副作用を返す。
+ * 可視範囲内の半角空白だけを装飾し、文書全体の走査を避ける。
  * @param view - 文書と可視範囲を参照して空白装飾を作るCodeMirrorビュー。
- * @returns 本文編集面のvisible・space・decorationsが生成する結果。
+ * @returns 可視範囲内の空白に印を付けるCodeMirror装飾。
  */
 function visibleSpaceDecorations(view: EditorView): DecorationSet {
   const ranges = [] as Array<{
     /**
-     * 本文編集面のfromを表す数値。
+     * 装飾対象範囲の開始を示す本文内UTF-16オフセットです。
      */
     from: number;
     /**
-     * 本文編集面のtoを表す数値。
+     * 装飾対象範囲の終了を示す本文内UTF-16オフセットです。
      */
     to: number;
   }>;
@@ -522,7 +512,7 @@ function visibleSpaceDecorations(view: EditorView): DecorationSet {
     ranges.map(
       /**
        * 各設定をmarkへ渡し、変換結果を一覧化する。
-       * @returns 入力要素から生成した変換結果の一覧。
+
        */
       ({ from, to }) =>
         Decoration.mark({ class: "cm-visible-space" }).range(from, to),
@@ -531,10 +521,10 @@ function visibleSpaceDecorations(view: EditorView): DecorationSet {
 }
 
 /**
- * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+ * 文書変更に装飾位置を追従させ、表示範囲が変わった場合だけ装飾を再計算する。
  * @param decorations - 文書変更前の可視空白装飾セット。
  * @param update - 可視範囲・文書変更・新しい文書状態を含むCodeMirror更新通知。
- * @returns 本文編集面のupdate・visible・space・decorationsが生成する結果。
+ * @returns 現在の可視範囲に対応する空白装飾。
  */
 function updateVisibleSpaceDecorations(
   decorations: DecorationSet,
@@ -543,14 +533,7 @@ function updateVisibleSpaceDecorations(
   if (update.viewportChanged) return visibleSpaceDecorations(update.view);
   let next = decorations.map(update.changes);
   update.changes.iterChangedRanges(
-    /**
-     * ・from・aをifへ渡し、本文編集面の結果または副作用を処理する。
-     * @param _fromA - 変更前文書で置換される範囲の開始位置。
-     * @param _toA - 変更前文書で置換される範囲の終了位置。
-     * @param fromB - 変更後文書で置換された範囲の開始位置。
-     * @param toB - 変更後文書で置換された範囲の終了位置。
-     * @returns 本文編集面のコールバックが生成する結果。
-     */
+
     (_fromA, _toA, fromB, toB) => {
       const additions: Range<Decoration>[] = [];
       if (toB > fromB) {
@@ -575,10 +558,7 @@ function updateVisibleSpaceDecorations(
           filterFrom: fromB,
           filterTo: toB,
 
-          filter: /**
-           * 本文編集面のfilterを処理し、呼び出し側へ結果または副作用を返す。
-           * @returns 副作用を完了し、値は返さない。
-           */ () => false,
+          filter:  () => false,
           add: additions,
           sort: true,
         });
@@ -594,12 +574,12 @@ function updateVisibleSpaceDecorations(
 const visibleSpaces: Extension = ViewPlugin.fromClass(
   class {
     /**
-     * 本文編集面のdecorationsに関する状態または設定。
+     * 検索一致範囲に表示するCodeMirror装飾。
      */
     decorations: DecorationSet;
 
     /**
-     * 本文編集面で使う値または実行環境を組み立てる。
+     * 現在表示中の空白文字を示す装飾プラグインを初期化する。
      * @param view - 初期空白装飾を計算するCodeMirrorビュー。
      * @returns 初期化したインスタンス。
      */
@@ -610,7 +590,6 @@ const visibleSpaces: Extension = ViewPlugin.fromClass(
     /**
      * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
      * @param update - 文書または表示範囲の変更を知らせるCodeMirror更新通知。
-     * @returns 副作用を完了し、値は返さない。
      */
     update(update: ViewUpdate): void {
       if (update.docChanged) {
@@ -625,7 +604,6 @@ const visibleSpaces: Extension = ViewPlugin.fromClass(
   },
   {
     decorations: /**
-     * 本文編集面のdecorationsを処理し、呼び出し側へ結果または副作用を返す。
      * @param value - 検索一致範囲とデコレーションを持つ現在の状態。
      * @returns 本文編集面のdecorationsが生成する結果。
      */ (value) => value.decorations,
@@ -633,7 +611,7 @@ const visibleSpaces: Extension = ViewPlugin.fromClass(
 );
 
 /**
- * 本文編集面で共有するデータ形状を表すインターフェース。
+ * ソースエディターに渡す本文、設定値、編集イベントです。
  */
 interface Props {
   /**
@@ -647,12 +625,12 @@ interface Props {
   value: string;
 
   /**
-   * 本文編集面のinitial・selectionに関する状態または設定。
+   * エディター初期表示時に選択する本文範囲。
    */
   initialSelection?: TextSelection;
 
   /**
-   * 本文編集面のsearch・hitsに関する状態または設定。
+   * 本文内で検索一致として強調する範囲の一覧。
    */
   searchHits?: readonly TextSelection[];
 
@@ -666,7 +644,6 @@ interface Props {
    * @param value - 編集後のMarkdown本文。
    * @param changes - 編集前本文に対する変更範囲と挿入文字列の一覧。
    * @param isCompositionCommit - IME変換を確定した変更ならtrue。
-   * @returns 副作用を完了し、値は返さない。
    */
   onChange: (
     beforeValue: string,
@@ -676,23 +653,20 @@ interface Props {
   ) => void;
   /**
    * 本文編集面のイベントまたはメッセージを受け取り、状態を更新する。
-   * @returns 副作用を完了し、値は返さない。
    */
   onInputActivity?: () => void;
   /**
    * 本文編集面のイベントまたはメッセージを受け取り、状態を更新する。
-   * @returns 副作用を完了し、値は返さない。
    */
   onSettled?: () => void;
   /**
    * 本文編集面のイベントまたはメッセージを受け取り、状態を更新する。
    * @param selection - 本文上の開始・終了オフセットで表す選択範囲。
-   * @returns 副作用を完了し、値は返さない。
    */
   onSelectionChange?: (selection: TextSelection) => void;
 
   /**
-   * 本文編集面で扱うclass・nameの文字列。
+   * エディーターの外側要素へ追加するCSSクラス名。
    */
   className?: string;
 
@@ -704,7 +678,6 @@ interface Props {
    * 本文編集面のイベントまたはメッセージを受け取り、状態を更新する。
    * @param anchor - 本文エディターで取得した可視位置アンカー。
    * @param userInitiated - スクロールがユーザー操作で始まった場合はtrue。
-   * @returns 副作用を完了し、値は返さない。
    */
   onViewportChange?: (
     anchor: EditorViewportAnchor,
@@ -712,7 +685,6 @@ interface Props {
   ) => void;
   /**
    * 本文編集面のイベントまたはメッセージを受け取り、状態を更新する。
-   * @returns 副作用を完了し、値は返さない。
    */
   onUserScrollIntent?: () => void;
 }
@@ -737,7 +709,7 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
    * @param onViewportChange - エディターの表示位置とユーザー操作状態を親へ通知する処理。
    * @param onUserScrollIntent - ユーザー起点のスクロールを親へ通知する処理。
    * @param ref - 親からエディターの公開メソッドを呼び出すRef。
-   * @returns 本文編集面のsource・editorが生成する結果。
+    * @returns CodeMirrorの本文編集領域と入力・選択・スクロール連携を含む要素。
    */
   function SourceEditor(
     {
@@ -779,17 +751,17 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
     const compositionSessionRef = useRef<
       | {
           /**
-           * 本文編集面で扱うbefore・valueの文字列。
+           * 外部更新前にエディターが保持していた本文。
            */
           beforeValue: string;
 
           /**
-           * 本文編集面のfromを表す数値。
+           * 選択範囲の先頭を示す本文内UTF-16オフセットです。
            */
           from: number;
 
           /**
-           * 本文編集面のtoを表す数値。
+           * 選択範囲の末尾を示す本文内UTF-16オフセットです。
            */
           to: number;
 
@@ -803,12 +775,12 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
     const compositionHandoffRef = useRef<
       | {
           /**
-           * 本文編集面で扱うbefore・valueの文字列。
+           * 外部更新前にエディターが保持していた本文。
            */
           beforeValue: string;
 
           /**
-           * 本文編集面で扱うdeferred・valueの文字列。
+           * 入力中に遅延している外部本文。入力確定後に反映する。
            */
           deferredValue?: string;
         }
@@ -830,7 +802,6 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
     useEffect(
       /**
        * 依存状態の変化に応じて表示または購読を更新する。
-       * @returns 副作用を完了し、値は返さない。
        */
       () => {
         if (!hostRef.current) return;
@@ -840,14 +811,12 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
         const publishSelection = /**
          * 選択範囲を一時保存し、次の描画フレームで親へ通知する。
          * @param nextSelection 次の描画フレームで通知する選択範囲。
-         * @returns 副作用を完了し、値は返さない。
          */ (nextSelection: TextSelection) => {
           pendingSelection = nextSelection;
           if (selectionFrame) return;
           selectionFrame = window.requestAnimationFrame(
             /**
              * 次の描画フレームで表示更新を実行する。
-             * @returns 副作用を完了し、値は返さない。
              */
             () => {
               selectionFrame = 0;
@@ -882,16 +851,12 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
             EditorView.lineWrapping,
             EditorView.updateListener.of(
               /**
-               * 状態更新をsomeへ渡し、本文編集面の結果または副作用を処理する。
                * @param update - 文書・選択・トランザクション・変更範囲を含むCodeMirror更新通知。
-               * @returns 本文編集面のコールバックが生成する結果。
                */
               (update) => {
                 const isExternalSync = update.transactions.some(
                   /**
-                   * transactionをannotationへ渡し、本文編集面の結果または副作用を処理する。
                    * @param transaction - 外部同期annotationの有無を調べるトランザクション。
-                   * @returns 本文編集面のコールバックが生成する結果。
                    */
                   (transaction) =>
                     transaction.annotation(externalSyncTransaction) === true,
@@ -944,7 +909,6 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
                   inputSettledTimerRef.current = window.setTimeout(
                     /**
                      * 指定時間の経過後に後続処理を実行する。
-                     * @returns 副作用を完了し、値は返さない。
                      */
                     () => {
                       inputSettledTimerRef.current = undefined;
@@ -956,15 +920,7 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
                   viewportRestoreGenerationRef.current += 1;
                   let changes: TextChange[] = [];
                   update.changes.iterChanges(
-                    /**
-                     * from・aを一覧追加へ渡し、本文編集面の結果または副作用を処理する。
-                     * @param fromA - 変更前文書で置換される範囲の開始位置。
-                     * @param toA - 変更前文書で置換される範囲の終了位置。
-                     * @param _fromB - 変更後文書で挿入範囲の開始位置。
-                     * @param _toB - 変更後文書で挿入範囲の終了位置。
-                     * @param inserted - 変更範囲へ挿入されたCodeMirrorテキスト。
-                     * @returns 本文編集面のコールバックが生成する結果。
-                     */
+
                     (fromA, toA, _fromB, _toB, inserted) => {
                       changes.push({
                         rangeOffset: editorOffsetToExternal(
@@ -1051,7 +1007,6 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
 
         const markUserScrollIntent = /**
          * 本文編集面の変更または利用者の操作意図を記録し、後続処理へ渡す。
-         * @returns 本文編集面のmark・user・scroll・intentが生成する結果。
          */ () => {
           viewportRestoreGenerationRef.current += 1;
           viewportRestoreAnchorRef.current = undefined;
@@ -1061,39 +1016,34 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
           viewportIntentRef.current?.();
         };
 
-        const beginPointerScroll = /**
-         * 本文編集面の表示または操作を開始する。
-         * @returns 本文編集面のbegin・pointer・scrollが生成する結果。
+         const beginPointerScroll = /**
+          * ポインター操作をユーザー起点として記録し、スクロール同期を始める。
          */ () => {
           markUserScrollIntent();
           pointerScrollActiveRef.current = true;
         };
 
-        const endPointerScroll = /**
-         * 本文編集面のend・pointer・scrollを処理し、呼び出し側へ結果または副作用を返す。
-         * @returns 本文編集面のend・pointer・scrollが生成する結果。
+         const endPointerScroll = /**
+          * ポインター操作によるスクロール状態を解除する。
          */ () => {
           pointerScrollActiveRef.current = false;
         };
 
-        const beginTouchScroll = /**
-         * 本文編集面の表示または操作を開始する。
-         * @returns 本文編集面のbegin・touch・scrollが生成する結果。
+         const beginTouchScroll = /**
+          * タッチ操作をユーザー起点として記録し、スクロール同期を始める。
          */ () => {
           markUserScrollIntent();
           touchScrollActiveRef.current = true;
         };
 
-        const endTouchScroll = /**
-         * 本文編集面のend・touch・scrollを処理し、呼び出し側へ結果または副作用を返す。
-         * @returns 本文編集面のend・touch・scrollが生成する結果。
+         const endTouchScroll = /**
+          * タッチ操作によるスクロール状態を解除する。
          */ () => {
           touchScrollActiveRef.current = false;
         };
 
-        const scheduleInputSettled = /**
-         * 本文編集面の処理順序と完了状態を管理する。
-         * @returns 本文編集面のschedule・input・settledが生成する結果。
+         const scheduleInputSettled = /**
+          * 直前の入力通知を置き換え、入力が止まってから確定通知を遅延実行する。
          */ () => {
           inputActivityRef.current?.();
           if (inputSettledTimerRef.current !== undefined)
@@ -1101,7 +1051,6 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
           inputSettledTimerRef.current = window.setTimeout(
             /**
              * 指定時間の経過後に後続処理を実行する。
-             * @returns 副作用を完了し、値は返さない。
              */
             () => {
               inputSettledTimerRef.current = undefined;
@@ -1111,9 +1060,8 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
           );
         };
 
-        const settleComposition = /**
-         * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-         * @returns 本文編集面のsettle・compositionが生成する結果。
+         const settleComposition = /**
+          * IME入力を確定し、確定本文と選択範囲をHostへ渡す。
          */ () => {
           if (!compositionActiveRef.current) return;
           if (compositionEndTimerRef.current !== undefined)
@@ -1184,17 +1132,15 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
           });
           setCompositionNonce(
             /**
-             * 本文編集面のコールバックとして値を処理する。
+
              * @param value - 検索一致範囲とデコレーションを持つ現在の状態。
-             * @returns 本文編集面のコールバックが生成する結果。
              */
             (value) => value + 1,
           );
         };
 
-        const beginComposition = /**
-         * 本文編集面の表示または操作を開始する。
-         * @returns 本文編集面のbegin・compositionが生成する結果。
+         const beginComposition = /**
+          * IME変換前の本文と選択範囲を保存し、親から届く古い本文の上書きを防ぐ。
          */ () => {
           // 直前のcompositionendと次の入力開始が連続した場合も、前回分を失わず先に確定する。
           if (compositionEndTimerRef.current !== undefined) settleComposition();
@@ -1209,16 +1155,14 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
           };
         };
 
-        const endComposition = /**
-         * 本文編集面のend・compositionを処理し、呼び出し側へ結果または副作用を返す。
-         * @returns 本文編集面のend・compositionが生成する結果。
+         const endComposition = /**
+          * compositionend直後のブラウザー更新後にIME入力を確定する。
          */ () => {
           if (compositionEndTimerRef.current !== undefined)
             window.clearTimeout(compositionEndTimerRef.current);
           compositionEndTimerRef.current = window.setTimeout(
             /**
              * 指定時間の経過後に後続処理を実行する。
-             * @returns 副作用を完了し、値は返さない。
              */
             () => {
               settleComposition();
@@ -1230,17 +1174,15 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
         const settleBeforeNextKey = /**
          * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
          * @param event - 確定待ちIME compositionを次の非合成keydown前に確定するkeyboard event。
-         * @returns 副作用を完了し、値は返さない。
          */ (event: KeyboardEvent) => {
           if (compositionEndTimerRef.current === undefined || event.isComposing)
             return;
           settleComposition();
         };
 
-        const publishViewport = /**
-         * 本文編集面のpublish・viewportを処理し、呼び出し側へ結果または副作用を返す。
-         * @param anchor - 復元後に上位へ通知する可視位置アンカー。
-         * @returns 本文編集面のpublish・viewportが生成する結果。
+         const publishViewport = /**
+          * 可視位置アンカーをDOM属性と親コンポーネントへ通知する。
+          * @param anchor - 復元後に上位へ通知する可視位置アンカー。
          */ (anchor: EditorViewportAnchor) =>
           publishViewportData(hostRef.current, anchor);
         let scrollFrame = 0;
@@ -1248,7 +1190,6 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
 
         const handleScroll = /**
          * ユーザー起点のスクロールを識別し、反対側の表示位置へ同期する。
-         * @returns 副作用を完了し、値は返さない。
          */ () => {
           const programmatic = programmaticScrollPendingRef.current;
           // CodeMirrorの差分写像・復元は複数の遅延scrollイベントを発生させる。
@@ -1262,7 +1203,6 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
           scrollFrame = window.requestAnimationFrame(
             /**
              * 次の描画フレームで表示更新を実行する。
-             * @returns 本文編集面のコールバックが生成する結果。
              */
             () => {
               const startedAt = performance.now();
@@ -1304,10 +1244,7 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
         window.addEventListener("touchend", endTouchScroll);
         window.addEventListener("touchcancel", endTouchScroll);
         const resizeObserver = new ResizeObserver(
-          /**
-           * 要素をifへ渡し、本文編集面の結果または副作用を処理する。
-           * @returns 本文編集面のコールバックが生成する結果。
-           */
+
           () => {
             // レイアウトサイズ変更後に保存済み表示位置を復元し、復元対象がなければ現在位置を再通知する。
             const restoreAnchor = viewportRestoreAnchorRef.current;
@@ -1320,21 +1257,18 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
                 programmaticScrollPendingRef,
 
                 /**
-                 * 本文編集面のコールバックとして要素を処理する。
-                 * @returns 本文編集面のコールバックが生成する結果。
+                 * 復元要求が最新世代のままかを確認する。
                  */
                 () => viewportRestoreGenerationRef.current === generation,
 
                 /**
-                 * 本文編集面のコールバックとしてrestoredを処理する。
+
                  * @param restored - 復元処理が確定した本文編集面の可視位置アンカー。
-                 * @returns 本文編集面のコールバックが生成する結果。
                  */
                 (restored) => viewportRef.current?.(restored, false),
 
                 /**
-                 * 本文編集面のコールバックとして要素を処理する。
-                 * @returns 本文編集面のコールバックが生成する結果。
+                 * ビューポート復元中の状態を解除する。
                  */
                 () => {
                   viewportRestoreActiveRef.current = false;
@@ -1344,14 +1278,13 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
             }
             view.requestMeasure({
               read: /**
-               * 本文編集面から必要な値またはリソースを取得する。
-               * @returns 本文編集面のreadが生成する結果。
+               * 現在のスクロール位置から本文内の可視アンカーを計測する。
+               * @returns 計測できた場合は文書内オフセット付きアンカー、未表示の場合はundefined。
                */ () => readViewport(view),
 
               write: /**
                * 本文編集面の値を保存先または共有状態へ書き出す。
                * @param anchor - read段階で計測した可視位置アンカー。未計測時はundefined。
-               * @returns 副作用を完了し、値は返さない。
                */ (anchor) => {
                 if (anchor) publishViewport(anchor);
               },
@@ -1362,22 +1295,20 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
         viewRef.current = view;
         publishSelectionData(hostRef.current, view.state);
         view.requestMeasure({
-          read: /**
-           * 本文編集面から必要な値またはリソースを取得する。
-           * @returns 本文編集面のreadが生成する結果。
+           read: /**
+            * 初期表示位置から本文内の可視アンカーを計測する。
+            * @returns 計測できた場合は文書内オフセット付きアンカー、未表示の場合はundefined。
            */ () => readViewport(view),
 
           write: /**
            * 本文編集面の値を保存先または共有状態へ書き出す。
            * @param anchor - 初回計測で得た可視位置アンカー。未計測時はundefined。
-           * @returns 副作用を完了し、値は返さない。
            */ (anchor) => {
             if (anchor) publishViewport(anchor);
           },
         });
         /**
-         * 本文編集面のreturnを処理し、呼び出し側へ結果または副作用を返す。
-         * @returns 本文編集面のreturnが生成する結果。
+         * ビュー破棄時にタイマー、イベント、Observer、CodeMirror viewを解放する。
          */
         return () => {
           // 入力settledタイマーを破棄する前に親へ完了通知し、ビュー切替直前の入力で
@@ -1423,7 +1354,6 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
     useEffect(
       /**
        * 依存状態の変化に応じて表示または購読を更新する。
-       * @returns 本文編集面のコールバックが生成する結果。
        */
       () => {
         // 親から本文が変わったとき、IME入力中でなければ外部同期トランザクションとして反映する。
@@ -1465,11 +1395,6 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
         const nextEditorValue = normalizeLineEndings(value);
         const changes = computeTextChanges(currentEditorValue, nextEditorValue);
         const editorChanges = changes.map(
-          /**
-           * 各changeからrange・offsetを取り出して一覧化する。
-           * @param change - changeのrange・offsetを参照する走査対象。
-           * @returns range・offsetを取り出した変換結果の一覧。
-           */
           (change) => ({
             from: change.rangeOffset,
             to: change.rangeOffset + change.rangeLength,
@@ -1516,14 +1441,12 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
         }
         view.requestMeasure({
           read: /**
-           * 本文編集面から必要な値またはリソースを取得する。
            * @returns 本文編集面のreadが生成する結果。
            */ () => readViewport(view),
 
           write: /**
            * 本文編集面の値を保存先または共有状態へ書き出す。
            * @param anchor - 更新後に計測した可視位置アンカー。未計測時はundefined。
-           * @returns 副作用を完了し、値は返さない。
            */ (anchor) => {
             if (anchor) publishViewportData(hostRef.current, anchor);
           },
@@ -1541,7 +1464,6 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
     useEffect(
       /**
        * 依存状態の変化に応じて表示または購読を更新する。
-       * @returns 本文編集面のコールバックが生成する結果。
        */
       () => {
         // composition中は編集DOMへ装飾トランザクションを割り込ませず、確定後に最新結果だけを反映する。
@@ -1559,46 +1481,33 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
 
     useImperativeHandle(
       ref,
-      /**
-       * 要素をreplace・selectionへ渡し、本文編集面の結果または副作用を処理する。
-       * @returns 本文編集面のコールバックが生成する結果。
-       */
+
       () => ({
         insert: /**
-         * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+         * 挿入本文の改行をエディター文書の形式へ揃えてから選択位置へ挿入する。
          * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
-         * @returns 本文編集面のinsertが生成する結果。
          */ (markdown) => replaceSelection(markdown),
 
         applyEdit: /**
-         * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+         * Hostが保持する本文形式の改行をCodeMirror本文へ変換し、編集を適用する。
          * @param edit - 編集後の本文と適用後の選択範囲。
-         * @returns 本文編集面のapply・editが生成する結果。
          */ (edit) => applyEdit(edit),
 
         action: /**
-         * 本文編集面のactionを処理し、呼び出し側へ結果または副作用を返す。
          * @param action - 適用する装飾、リスト、ブロック挿入などの操作種別。
-         * @returns 本文編集面のactionが生成する結果。
          */ (action) => applyAction(action),
 
         codeBlock: /**
-         * 本文編集面のcode・blockを処理し、呼び出し側へ結果または副作用を返す。
-         * @param language - 本文編集面の対象や分岐を識別する値。
-         * @returns 本文編集面のcode・blockが生成する結果。
+         * @param language - コードフェンスへ付ける言語名。未指定時は言語名なしで挿入する。
          */ (language = "") => applyCodeBlock(language),
 
         heading: /**
-         * 本文編集面のheadingを処理し、呼び出し側へ結果または副作用を返す。
          * @param level - 挿入する見出しのレベル（1から6）。
-         * @returns 本文編集面のheadingが生成する結果。
          */ (level) => applyHeading(level),
 
         link: /**
-         * 本文編集面のlinkを処理し、呼び出し側へ結果または副作用を返す。
          * @param href - リンク操作領域の遷移先URI。
          * @param label - 画面または検証結果に表示する説明文。
-         * @returns 本文編集面のlinkが生成する結果。
          */ (href, label = messages.editor.defaultLinkLabel) => {
           const view = viewRef.current;
           if (!view) return;
@@ -1615,8 +1524,8 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
         },
 
         getSelection: /**
-         * 本文編集面から必要な値またはリソースを取得する。
-         * @returns 本文編集面のget・selectionが生成する結果。
+          * CodeMirror内の選択範囲を外部本文のUTF-16オフセットへ変換する。
+          * @returns エディターが未マウントの場合は空範囲。
          */ () => {
           const view = viewRef.current;
           const main = view?.state.selection.main;
@@ -1631,7 +1540,6 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
         setSelection: /**
          * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
          * @param selection - 本文上の開始・終了オフセットで指定する選択範囲。
-         * @returns 副作用を完了し、値は返さない。
          */ (selection) => {
           const view = viewRef.current;
           if (!view) return;
@@ -1646,7 +1554,6 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
         revealRange: /**
          * 本文編集面の表示または操作を開始する。
          * @param selection - 表示位置へ移動する本文上の選択範囲。
-         * @returns 副作用を完了し、値は返さない。
          */ (selection) => {
           const view = viewRef.current;
           if (!view) return;
@@ -1667,17 +1574,16 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
         },
 
         getViewport: /**
-         * 本文編集面から必要な値またはリソースを取得する。
-         * @returns 条件に一致する値。未検出時はundefinedまたはnull。
+          * 現在のスクロール位置を文書内アンカーへ変換する。
+          * @returns エディターが表示中なら可視アンカー、未マウントならundefined。
          */ () => {
           const view = viewRef.current;
           return view ? readViewport(view) : undefined;
         },
 
         restoreViewport: /**
-         * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+         * 世代番号を付けて表示位置を復元し、レイアウトが落ち着くまで位置を保つ。
          * @param anchor - 本文編集面で復元する可視位置アンカー。
-         * @returns 本文編集面のrestore・viewportが生成する結果。
          */ (anchor) => {
           const view = viewRef.current;
           if (!view || view.scrollDOM.clientHeight === 0) return;
@@ -1691,21 +1597,18 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
             programmaticScrollPendingRef,
 
             /**
-             * 本文編集面のコールバックとして要素を処理する。
-             * @returns 本文編集面のコールバックが生成する結果。
+             * 復元要求が最新世代のままかを確認する。
              */
             () => viewportRestoreGenerationRef.current === generation,
 
             /**
-             * 本文編集面のコールバックとしてrestoredを処理する。
+
              * @param restored - 復元処理が確定した本文編集面の可視位置アンカー。
-             * @returns 本文編集面のコールバックが生成する結果。
              */
             (restored) => viewportRef.current?.(restored, false),
 
             /**
-             * 本文編集面のコールバックとして要素を処理する。
-             * @returns 本文編集面のコールバックが生成する結果。
+             * ビューポート復元中の状態を解除する。
              */
             () => {
               viewportRestoreActiveRef.current = false;
@@ -1714,9 +1617,8 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
         },
 
         restoreScrollRatio: /**
-         * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+         * 0から1の比率を現在のスクロール可能範囲に変換して復元する。
          * @param ratio - 復元先として正規化された縦スクロール位置（0から1）。
-         * @returns 本文編集面のrestore・scroll・ratioが生成する結果。
          */ (ratio) => {
           const view = viewRef.current;
           if (
@@ -1749,21 +1651,18 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
             programmaticScrollPendingRef,
 
             /**
-             * 本文編集面のコールバックとして要素を処理する。
-             * @returns 副作用を完了し、値は返さない。
+             * 復元要求が最新世代のままかを確認する。
              */
             () => viewportRestoreGenerationRef.current === generation,
 
             /**
-             * 本文編集面のコールバックとしてrestoredを処理する。
+
              * @param restored - 比率に基づく復元後に確定した可視位置アンカー。
-             * @returns 副作用を完了し、値は返さない。
              */
             (restored) => viewportRef.current?.(restored, false),
 
             /**
-             * 本文編集面のコールバックとして要素を処理する。
-             * @returns 副作用を完了し、値は返さない。
+             * ビューポート復元中の状態を解除する。
              */
             () => {
               viewportRestoreActiveRef.current = false;
@@ -1776,7 +1675,6 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
     /**
      * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
      * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
-     * @returns 副作用を完了し、値は返さない。
      */
     function replaceSelection(markdown: string): void {
       const view = viewRef.current;
@@ -1796,7 +1694,6 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
     /**
      * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
      * @param language - 本文編集面の対象や分岐を識別する値。
-     * @returns 副作用を完了し、値は返さない。
      */
     function applyCodeBlock(language = ""): void {
       const view = viewRef.current;
@@ -1822,7 +1719,6 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
     /**
      * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
      * @param action - 適用する装飾、リスト、ブロック挿入などの操作種別。
-     * @returns 副作用を完了し、値は返さない。
      */
     function applyAction(action: SourceAction): void {
       const view = viewRef.current;
@@ -1988,7 +1884,6 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
     /**
      * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
      * @param level - 見出しに設定する#の数。0の場合は見出し記号を除去する。
-     * @returns 副作用を完了し、値は返さない。
      */
     function applyHeading(level: number): void {
       const view = viewRef.current;
@@ -2012,7 +1907,6 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
     /**
      * 本文編集面の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
      * @param edit - 編集後の本文と適用後の選択範囲。
-     * @returns 副作用を完了し、値は返さない。
      */
     function applyEdit(edit: SourceEdit): void {
       const view = viewRef.current;
@@ -2028,9 +1922,6 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
       });
       const editorChanges = changes.map(
         /**
-         * 各changeからrange・offsetを取り出して一覧化する。
-         * @param change - changeのrange・offsetを参照する走査対象。
-         * @returns range・offsetを取り出した変換結果の一覧。
          */
         (change) => ({
           from: externalOffsetToEditor(view.state, change.rangeOffset),
@@ -2081,7 +1972,6 @@ export const SourceEditor = React.memo(
    * 前回と次回のpropsを比較し、エディターを再描画するか判定する。
    * @param previous - 前回レンダーで使った本文エディターProps。
    * @param next - 再描画の必要性を判定する新しい本文エディターProps。
-   * @returns 本文編集面のコールバックが生成する結果。
    */
   (previous, next) =>
     previous.value === next.value &&
@@ -2099,10 +1989,10 @@ export const SourceEditor = React.memo(
 );
 
 /**
- * 本文編集面のcurrent・line・selectionを処理し、呼び出し側へ結果または副作用を返す。
+ * オフセットを本文範囲へ制限し、その位置を含む行全体の選択範囲を求める。
  * @param source - 現在行の範囲を求めるMarkdown本文。
  * @param offset - 現在行を判定する本文文字オフセット。
- * @returns 本文編集面のcurrent・line・selectionが生成する結果。
+ * @returns 指定オフセットを含む行の開始・終了オフセット。
  */
 function currentLineSelection(source: string, offset: number): TextSelection {
   const safeOffset = Math.max(0, Math.min(offset, source.length));
@@ -2113,10 +2003,10 @@ function currentLineSelection(source: string, offset: number): TextSelection {
 }
 
 /**
- * 本文編集面のlink・selection・atを処理し、呼び出し側へ結果または副作用を返す。
+ * キャレットがMarkdownリンクのラベル内にある場合、そのラベル範囲を求める。
  * @param source - Markdownリンクの範囲を検索する本文。
  * @param offset - キャレット位置の本文文字オフセット。
- * @returns 副作用を完了し、値は返さない。
+ * @returns リンクラベル範囲。キャレットがラベル内にない場合はundefined。
  */
 function linkSelectionAt(
   source: string,
@@ -2132,19 +2022,18 @@ function linkSelectionAt(
 }
 
 /**
- * 本文編集面のdetect・line・separatorを処理し、呼び出し側へ結果または副作用を返す。
+ * 本文内にある改行コードを検出し、存在しなければLFを既定値にする。
  * @param value - 改行コードを検出する本文。
- * @returns 本文編集面で利用する文字列。
+ * @returns CRLF、CR、LFのいずれか。
  */
 function detectLineSeparator(value: string): string {
   return value.includes("\r\n") ? "\r\n" : value.includes("\r") ? "\r" : "\n";
 }
 
 /**
- * 本文編集面のpublish・viewport・dataを処理し、呼び出し側へ結果または副作用を返す。
+ * 可視位置アンカーをHostが読むDOM data属性へ書き込む。
  * @param host - 可視位置データを書き込むエディターのホスト要素。未マウント時はnull。
  * @param anchor - ホスト要素へ保存する本文編集面の可視位置アンカー。
- * @returns 副作用を完了し、値は返さない。
  */
 function publishViewportData(
   host: HTMLElement | null,
@@ -2181,19 +2070,19 @@ function publishSelectionData(
 }
 
 /**
- * 本文編集面の入力を許可された形式へ整える。
+ * CRLFとCRをLFへ変換して改行コードを統一する。
  * @param value - LFへ正規化する本文。
- * @returns 本文編集面で利用する文字列。
+
  */
 function normalizeLineEndings(value: string): string {
   return value.replace(/\r\n?|\n/g, "\n");
 }
 
 /**
- * 本文編集面のto・editor・insertionを処理し、呼び出し側へ結果または副作用を返す。
+ * 改行をCodeMirror文書の区切りへ揃えてから挿入する。
  * @param state - 現在の編集・表示状態。
  * @param value - CodeMirrorへ挿入する本文。
- * @returns 本文編集面で利用する文字列。
+ * @returns 挿入先文書の改行形式に変換した本文。
  */
 function toEditorInsertion(state: EditorState, value: string): string {
   const separator = state.facet(EditorState.lineSeparator) ?? "\n";
@@ -2201,9 +2090,9 @@ function toEditorInsertion(state: EditorState, value: string): string {
 }
 
 /**
- * 本文編集面のexternal・document・lengthを処理し、呼び出し側へ結果または副作用を返す。
+ * CodeMirror内部長に、各改行の外部表現で増える文字数を加算する。
  * @param state - 現在の編集・表示状態。
- * @returns 本文編集面で利用する数値。
+ * @returns 改行形式を含む外部本文のUTF-16長。
  */
 function externalDocumentLength(state: EditorState): number {
   const separatorLength = (state.facet(EditorState.lineSeparator) ?? "\n")
@@ -2214,9 +2103,9 @@ function externalDocumentLength(state: EditorState): number {
 }
 
 /**
- * 本文編集面のexternal・document・valueを処理し、呼び出し側へ結果または副作用を返す。
+ * CodeMirror文書を現在の改行区切りで連結して外部本文を作る。
  * @param state - 現在の編集・表示状態。
- * @returns 本文編集面で利用する文字列。
+ * @returns 文書の改行形式を保持した本文。
  */
 function externalDocumentValue(state: EditorState): string {
   return state.doc.sliceString(
@@ -2227,10 +2116,10 @@ function externalDocumentValue(state: EditorState): string {
 }
 
 /**
- * 本文編集面のeditor・offset・to・externalを処理し、呼び出し側へ結果または副作用を返す。
+ * CodeMirror内オフセットに先行改行の追加文字数を加えて外部位置へ変換する。
  * @param state - 現在の編集・表示状態。
  * @param offset - CodeMirror本文内の文字オフセット。
- * @returns 本文編集面で利用する数値。
+ * @returns 改行コードを含む外部本文内のUTF-16オフセット。
  */
 function editorOffsetToExternal(state: EditorState, offset: number): number {
   const safeOffset = Math.max(0, Math.min(offset, state.doc.length));
@@ -2242,10 +2131,10 @@ function editorOffsetToExternal(state: EditorState, offset: number): number {
 }
 
 /**
- * 本文編集面のexternal・offset・to・editorを処理し、呼び出し側へ結果または副作用を返す。
+ * 外部本文の位置をCodeMirror位置へ変換し、CRLFの途中は次行先頭へ寄せる。
  * @param state - 現在の編集・表示状態。
  * @param offset - 改行を含む本文での外部文字オフセット。
- * @returns 本文編集面で利用する数値。
+ * @returns CodeMirror文書内のUTF-16オフセット。
  */
 function externalOffsetToEditor(state: EditorState, offset: number): number {
   const separatorLength = (state.facet(EditorState.lineSeparator) ?? "\n")
@@ -2269,10 +2158,10 @@ function externalOffsetToEditor(state: EditorState, offset: number): number {
 }
 
 /**
- * 本文編集面のexternal・offset・to・editor・valueを処理し、呼び出し側へ結果または副作用を返す。
+ * 改行をLFへ揃えながら元本文のオフセットを変換後の本文位置へ写す。
  * @param value - LF正規化前のMarkdown本文。
  * @param offset - 元本文内の文字オフセット。
- * @returns 本文編集面で利用する数値。
+ * @returns LFへ正規化した本文内のUTF-16オフセット。
  */
 function externalOffsetToEditorValue(value: string, offset: number): number {
   const safeOffset = Math.max(0, Math.min(offset, value.length));
@@ -2280,9 +2169,9 @@ function externalOffsetToEditorValue(value: string, offset: number): number {
 }
 
 /**
- * 本文編集面から必要な値またはリソースを取得する。
+ * CodeMirrorの可視範囲から、画面位置と対応する本文位置を記録する。
  * @param view - スクロール位置と可視行を読み取るCodeMirrorビュー。
- * @returns 副作用を完了し、値は返さない。
+ * @returns 復元に使える本文範囲と画面内相対位置。可視範囲が空ならundefined。
  */
 function readViewport(view: EditorView): EditorViewportAnchor | undefined {
   if (view.scrollDOM.clientHeight === 0) return undefined;
@@ -2321,7 +2210,6 @@ function readViewport(view: EditorView): EditorViewportAnchor | undefined {
  * @param onRestored 復元完了時にアンカーを通知するコールバック。
  * @param onSettled 復元試行の終了時に呼び出すコールバック。
  * @param attempt 現在の復元試行回数。
- * @returns 副作用を完了し、値は返さない。
  */
 function restoreViewportUntilSettled(
   view: EditorView,
@@ -2337,7 +2225,6 @@ function restoreViewportUntilSettled(
   window.requestAnimationFrame(
     /**
      * 次の描画フレームで表示更新を実行する。
-     * @returns 本文編集面のコールバックが生成する結果。
      */
     () => {
       if (!isCurrent()) return;

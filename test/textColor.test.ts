@@ -1,5 +1,5 @@
 /**
- * @fileoverview 文字色・テストの回帰の仕様と回帰条件を検証する。失敗時は期待値と実装差分を示す。
+ * @fileoverview 選択範囲の文字色適用・解除でMarkdown構造、リンク、コード、見出しID、表を壊さないことを検証する。
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -18,25 +18,17 @@ import { prepareExportHtml } from '../src/shared/exportHtml';
 import { renderMarkdownUnsafe } from '../src/webview/markdownRendererCore';
 
 /**
- * 文字色・テストの回帰のspan・countを処理し、呼び出し側へ結果または副作用を返す。
+ * HTML文字列に含まれるspan開始タグの件数を数える。
  * @param value - span要素数を数えるHTML文字列。
- * @returns 文字色・テストの回帰で利用する数値。
+ * @returns span開始タグの件数。
  */
 function spanCount(value: string): number {
     return (value.match(/<span\b/g) ?? []).length;
 }
 
 describe('text color formatting',
-    /**
-     * 「text color formatting」の仕様と回帰条件を検証するテストケース。
-     * @returns テストケースを実行し、値は返さない。
-     */
     () => {
         it('applies a fixed text color to the selected text',
-            /**
-             * 「applies a fixed text color to the selected text」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const result = applyTextColorFormatting('alpha beta', { from: 6, to: 10 }, 'red');
 
@@ -48,10 +40,6 @@ describe('text color formatting',
             });
 
         it('replaces an existing color without nesting text-color spans',
-            /**
-             * 「replaces an existing color without nesting text-color spans」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const original = `${textColorOpenTag('red')}beta</span>`;
                 const betaFrom = textColorOpenTag('red').length;
@@ -69,10 +57,6 @@ describe('text color formatting',
             });
 
         it('clears only the selected text color and preserves surrounding colors',
-            /**
-             * 「clears only the selected text color and preserves surrounding colors」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const original = `${textColorOpenTag('red')}beta</span>`;
                 const betaFrom = textColorOpenTag('red').length;
@@ -88,10 +72,6 @@ describe('text color formatting',
             });
 
         it('clears text color together with other inline formatting for the text-format clear command',
-            /**
-             * 「clears text color together with other inline formatting for the text-format clear command」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const original = `${textColorOpenTag('red')}**bold** and ++underlined++</span>`;
                 const inlineCleared = clearInlineFormatting(original, {
@@ -110,10 +90,6 @@ describe('text color formatting',
             });
 
         it('splits a multi-line selection so no color span crosses a newline',
-            /**
-             * 「splits a multi-line selection so no color span crosses a newline」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const result = applyTextColorFormatting('one\ntwo\nthree', { from: 0, to: 13 }, 'green');
 
@@ -126,10 +102,6 @@ describe('text color formatting',
             });
 
         it('colors third-level and deeper nested list items without treating them as indented code',
-            /**
-             * 「colors third-level and deeper nested list items without treating them as indented code」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const source = [
                     '- 箇条書き',
@@ -162,10 +134,6 @@ describe('text color formatting',
             });
 
         it('preserves Markdown block structure across headings, lists, tables and fences',
-            /**
-             * 「preserves Markdown block structure across headings, lists, tables and fences」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const source = [
                     '# Heading',
@@ -194,10 +162,6 @@ describe('text color formatting',
             });
 
         it('reports a single color or mixed state for ribbon selection',
-            /**
-             * 「reports a single color or mixed state for ribbon selection」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const red = `${textColorOpenTag('red')}red</span>`;
                 expect(detectTextColorFormatting(red, { from: 0, to: red.length })).toBe('red');
@@ -207,10 +171,6 @@ describe('text color formatting',
             });
 
         it('does not rewrite literal MVE markup in unselected code',
-            /**
-             * 「does not rewrite literal MVE markup in unselected code」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const literal = textColorOpenTag('red') + 'literal</span>';
                 const source = 'outside\n    ' + literal + '\ntarget';
@@ -227,10 +187,6 @@ describe('text color formatting',
             });
 
         it('keeps code fenced inside block quotes unchanged',
-            /**
-             * 「keeps code fenced inside block quotes unchanged」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const fence = String.fromCharCode(96).repeat(3);
                 const source = '> ' + fence + 'js\n> const value = 1;\n> ' + fence;
@@ -248,10 +204,6 @@ describe('text color formatting',
             });
 
         it('colors link labels without breaking their Markdown syntax',
-            /**
-             * 「colors link labels without breaking their Markdown syntax」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const source = '[label](https://example.com)';
                 const result = applyTextColorFormatting(
@@ -270,10 +222,6 @@ describe('text color formatting',
             });
 
         it('preserves nested and escaped Markdown link syntax',
-            /**
-             * 「preserves nested and escaped Markdown link syntax」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const source = [
                     '[label](https://example.com/foo_(bar))',
@@ -296,10 +244,6 @@ describe('text color formatting',
             });
 
         it('preserves reference definitions inside block quotes',
-            /**
-             * 「preserves reference definitions inside block quotes」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const source = '> [foo][ref]\n>\n> [ref]: https://example.com/x';
                 const result = applyTextColorFormatting(source, { from: 0, to: source.length }, 'green').text;
@@ -312,10 +256,6 @@ describe('text color formatting',
             });
 
         it('preserves multiline Markdown links, images, and inline code',
-            /**
-             * 「preserves multiline Markdown links, images, and inline code」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const literal = '`' + textColorOpenTag('red') + '\nA</span>`';
                 const codeSource = literal + '\ntarget';
@@ -344,10 +284,6 @@ describe('text color formatting',
             });
 
         it('keeps heading IDs, outline labels, and word statistics semantic',
-            /**
-             * 「keeps heading IDs, outline labels, and word statistics semantic」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const source = '# Heading {#custom}\n\n[Jump](#custom)\n\nhello';
                 const result = applyTextColorFormatting(
@@ -367,10 +303,6 @@ describe('text color formatting',
             });
 
         it('preserves explicit heading IDs before and after applying text color',
-            /**
-             * 「preserves explicit heading IDs before and after applying text color」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const source = '# Heading {#custom}';
                 const colored = applyTextColorFormatting(source, { from: 0, to: source.length }, 'purple').text;
@@ -389,10 +321,6 @@ describe('text color formatting',
             });
 
         it('does not interpret literal MVE spans in inline code as text color markup',
-            /**
-             * 「does not interpret literal MVE spans in inline code as text color markup」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const literal = '`' + textColorOpenTag('red') + 'A</span>`';
                 const source = '# ' + literal;
@@ -416,16 +344,11 @@ describe('text color formatting',
             });
 
         it('handles deeply nested text-color spans without a quadratic slowdown',
-            /**
-             * 「handles deeply nested text-color spans without a quadratic slowdown」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const depth = 20_000;
                 const source = Array.from({ length: depth },
                     /**
                      * 文字色・テストの回帰の前提条件を準備し、回帰条件を検証するテストケース。
-                     * @returns テストケースを実行し、値は返さない。
                      */
                     () => textColorOpenTag('red') + 'x').join('') + '</span>'.repeat(depth);
                 const startedAt = Date.now();
@@ -438,10 +361,6 @@ describe('text color formatting',
             });
 
         it('handles incomplete HTML and link-like text without a quadratic slowdown',
-            /**
-             * 「handles incomplete HTML and link-like text without a quadratic slowdown」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const source = '<span'.repeat(16_000) + '['.repeat(40_000) + '[^'.repeat(20_000);
                 const startedAt = Date.now();
@@ -454,20 +373,11 @@ describe('text color formatting',
             });
 
         it('handles many protected multiline ranges without a quadratic slowdown',
-            /**
-             * 「handles many protected multiline ranges without a quadratic slowdown」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const source = Array.from(
                     { length: 24_000 },
 
-                    /**
-                     * 文字色・テストの回帰の前提条件を準備し、回帰条件を検証するテストケース。
-                      * @param _ - Array.fromの各反復で渡される未使用の値。
-                      * @param index - 生成するMarkdownリンク番号（0始まり）。
-                     * @returns テストケースを実行し、値は返さない。
-                     */
+
                     (_, index) => '[label ' + index + '](https://example.com/' + index + ')',
                 ).join('\n');
                 const startedAt = Date.now();
@@ -479,10 +389,6 @@ describe('text color formatting',
             });
 
         it('uses visible text width when aligning a colored table cell',
-            /**
-             * 「uses visible text width when aligning a colored table cell」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const source = '| A | B |\n| --- | --- |\n| 1 | 2 |';
                 const cell = source.indexOf('A');
@@ -502,10 +408,6 @@ describe('text color formatting',
             });
 
         it('keeps fixed text-color markup through Markdown rendering and HTML export preparation',
-            /**
-             * 「keeps fixed text-color markup through Markdown rendering and HTML export preparation」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const markup = `${textColorOpenTag('blue')}Exported color</span>`;
                 const rendered = renderMarkdownUnsafe(markup, {

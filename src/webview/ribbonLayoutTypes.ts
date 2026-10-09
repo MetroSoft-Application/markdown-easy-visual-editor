@@ -8,6 +8,7 @@ import type {
     RibbonTabId,
 } from "./ribbonIds";
 
+/** リボン配置ファイル間で使うID型をまとめて再公開する。 */
 export type {
     RibbonContainerId,
     RibbonGroupId,
@@ -19,60 +20,60 @@ export type {
 } from "./ribbonIds";
 
 /**
- * リボン配置型で共有するデータ形状を表すインターフェース。
+ * リボングループの幅とタブ内配置位置です。
  */
 export interface RibbonGroupLayout {
 
     /**
-     * リボン配置型のidに関する状態または設定。
+     * このグループを識別するID。
      */
     readonly id: RibbonGroupId;
 
     /**
-     * リボン配置型で扱うitem・idsの一覧。
+     * このグループに表示するリボン項目IDの順序付き一覧。
      */
     readonly itemIds: readonly RibbonItemId[];
 }
 
 /**
- * リボン配置型で共有するデータ形状を表すインターフェース。
+ * タブ内のグループ順と各グループの配置です。
  */
 export interface RibbonTabLayout {
 
     /**
-     * リボン配置型のidに関する状態または設定。
+     * このタブを識別するID。
      */
     readonly id: RibbonTabId;
 
     /**
-     * リボン配置型のgroupsに関する状態または設定。
+     * タブ内に表示するグループとその順序。
      */
     readonly groups: readonly RibbonGroupLayout[];
 }
 
 /**
- * リボン配置型で共有するデータ形状を表すインターフェース。
+ * ヘッダー領域の幅と項目配置です。
  */
 export interface RibbonHeaderLayout {
 
     /**
-     * リボン配置型で扱うitem・idsの一覧。
+     * ヘッダーに表示するリボン項目IDの順序付き一覧。
      */
     readonly itemIds: readonly RibbonHeaderItemId[];
 }
 
 /**
- * リボン配置型で共有するデータ形状を表すインターフェース。
+ * タブとヘッダーを含むリボン全体の配置定義です。
  */
 export interface RibbonLayoutDefinition {
 
     /**
-     * リボン配置型のtabsに関する状態または設定。
+     * リボン内のタブとその表示順。
      */
     readonly tabs: readonly RibbonTabLayout[];
 
     /**
-     * リボン配置型のheaderに関する状態または設定。
+     * タブ外に固定表示するヘッダー項目の配置。
      */
     readonly header: RibbonHeaderLayout;
 }

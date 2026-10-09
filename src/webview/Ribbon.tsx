@@ -36,7 +36,9 @@ import type {
 } from "./ribbonTypes";
 import type { RibbonCommand } from "./ribbonTypes";
 
+/** リボンがHostへ通知するコマンドと表操作の型を再公開する。 */
 export type { RibbonCommand, TableAction } from "./ribbonTypes";
+/** リボン表示で使うタブ識別子を既存名RibbonTabとして再公開する。 */
 export type { RibbonTabId as RibbonTab } from "./ribbonIds";
 
 validateRibbonConfiguration(
@@ -47,7 +49,7 @@ validateRibbonConfiguration(
 );
 
 /**
- * リボンで共有するデータ形状を表すインターフェース。
+ * リボンに表示する状態、操作項目、イベントハンドラーです。
  */
 interface Props {
   /**
@@ -71,7 +73,7 @@ interface Props {
   activeMarks: Record<string, boolean>;
 
   /**
-   * リボンのoutline・visibleを示す状態フラグ。
+   * アウトラインパネルを現在表示している場合にtrue。
    */
   outlineVisible: boolean;
 
@@ -81,7 +83,7 @@ interface Props {
   scrollSyncEnabled: boolean;
 
   /**
-   * リボンのsplit・viewに関する状態または設定。
+   * 分割表示の構成。両ペイン、テキストのみ、プレビューのみのいずれか。
    */
   splitView: "both" | "text" | "preview";
 
@@ -108,22 +110,19 @@ interface Props {
    */
   previewFontFamily: string;
   /**
-   * リボンのイベントまたはメッセージを受け取り、状態を更新する。
+    * HTML出力設定の変更をHostへ通知し、永続化とプレビュー反映を依頼する。
    * @param options - 呼び出し側が指定する処理設定。
-   * @returns リボンのon・html・options・changeが生成する結果。
    */
   onHtmlOptionsChange: (options: HtmlExportOptions) => void;
 
   /**
    * PDFの保存先ダイアログ設定を変更し、親コンポーネントへ反映する。
    * @param enabled 保存時にダイアログを省略するかどうか。
-   * @returns 副作用を完了し、値は返さない。
    */
   onPdfSaveWithoutDialogChange: (enabled: boolean) => void;
   /**
-   * リボンのイベントまたはメッセージを受け取り、状態を更新する。
-   * @param command - リボンへ渡す入力。
-   * @returns リボンのon・commandが生成する結果。
+    * リボン操作をHostへ送り、登録済みコマンドの実行を依頼する。
+    * @param command - Hostへ送信するリボンコマンド。
    */
   onCommand: (command: RibbonCommand) => void;
 }
@@ -131,6 +130,21 @@ interface Props {
 /**
  * 編集コマンドと設定項目をまとめて表示し、操作を親の文書・設定状態へ委譲する。
  * PDFの保存ダイアログ設定もこのコンテキストを通じて更新し、他のPDF値を保持する。
+ * @param messages リボン内のラベルと操作説明に使うローカライズ済み文言。
+ * @param mode 本文編集面とプレビューの現在の表示モード。
+ * @param readOnly 編集コマンドを無効にする読み取り専用状態。
+ * @param activeMarks 選択範囲に適用されている書式マーク。
+ * @param outlineVisible 目次パネルの表示状態。
+ * @param scrollSyncEnabled 本文とプレビューのスクロール同期状態。
+ * @param splitView 本文とプレビューを並べて表示する状態。
+ * @param htmlOptions HTML出力で使うフォントと余白の設定。
+ * @param pdfSaveWithoutDialog PDF保存先ダイアログを省略する設定。
+ * @param imageDirectory ローカル画像を保存するディレクトリ。
+ * @param editorFontFamily 本文編集面に使うフォント名。
+ * @param previewFontFamily プレビューに使うフォント名。
+ * @param onHtmlOptionsChange HTML出力設定の変更を親へ通知する処理。
+ * @param onPdfSaveWithoutDialogChange PDF保存ダイアログ設定の変更を親へ通知する処理。
+ * @param onCommand 選択された編集または出力コマンドを親へ通知する処理。
  * @returns タブ・設定欄・コマンドボタンを含むリボン。
  */
 export function Ribbon({
@@ -219,8 +233,7 @@ export function Ribbon({
 
   useEffect(
     /**
-     * 依存状態の変化に応じて表示または購読を更新する。
-     * @returns リボンのコールバックが生成する結果。
+      * プレビュー画像のサイズ操作UIが表示されたことをstateへ反映する購読を登録する。
      */
     () =>
       subscribePreviewImageResizeControlsVisible(setImageResizeControlsVisible),
@@ -229,24 +242,21 @@ export function Ribbon({
 
   useEffect(
     /**
-     * 依存状態の変化に応じて表示または購読を更新する。
-     * @returns リボンのコールバックが生成する結果。
+      * Hostから受け取った画像保存先を編集欄へ同期する。
      */
     () => setImageDirectoryDraft(imageDirectory),
     [imageDirectory],
   );
   useEffect(
     /**
-     * 依存状態の変化に応じて表示または購読を更新する。
-     * @returns リボンのコールバックが生成する結果。
+      * Hostから受け取ったエディターフォントを編集欄へ同期する。
      */
     () => setEditorFontFamilyDraft(editorFontFamily),
     [editorFontFamily],
   );
   useEffect(
     /**
-     * 依存状態の変化に応じて表示または購読を更新する。
-     * @returns リボンのコールバックが生成する結果。
+      * Hostから受け取ったプレビューフォントを編集欄へ同期する。
      */
     () => setPreviewFontFamilyDraft(previewFontFamily),
     [previewFontFamily],
@@ -279,10 +289,6 @@ export function Ribbon({
           disabled={disabled}
           title={title ?? label}
           onClick={
-            /**
-             * clickイベントでon・clickを実行する。
-             * @returns 副作用を完了し、値は返さない。
-             */
             () => implementation.onClick(context)
           }
         >
@@ -300,10 +306,6 @@ export function Ribbon({
           disabled={disabled}
           title={title}
           onClick={
-            /**
-             * clickイベントでon・clickを実行する。
-             * @returns 副作用を完了し、値は返さない。
-             */
             () => implementation.onClick(context)
           }
         >
@@ -320,10 +322,6 @@ export function Ribbon({
         disabled={disabled}
         title={title}
         onClick={
-          /**
-           * clickイベントでon・clickを実行する。
-           * @returns 副作用を完了し、値は返さない。
-           */
           () => implementation.onClick(context)
         }
       />
@@ -331,9 +329,9 @@ export function Ribbon({
   }
 
   /**
-   * リボンを表示用の結果へ変換する。
-   * @param id - リボンの対象や分岐を識別する値。
-   * @returns リボンで生成または変換した値。
+   * 項目IDに対応する定義と状態に従ってリボン項目を描画する。
+   * @param id - 描画するリボン項目のID。
+   * @returns 定義と状態に従って描画したリボン項目。
    */
   function renderItem(id: RibbonItemId): React.JSX.Element {
     const definition = getItemDefinition(id);
@@ -353,9 +351,9 @@ export function Ribbon({
           definition,
 
           /**
-           * specをresolve・ribbon・labelへ渡し、リボンの結果または副作用を処理する。
+           * 各ラベル定義を現在の言語の表示文字列へ解決する。
            * @param spec - ローカライズ済み表示文字列へ解決するラベル定義。
-           * @returns リボンに対応する要素の一覧。
+           * @returns 現在の言語で解決したラベル文字列。
            */
           (spec) => resolveRibbonLabel(spec, messages),
         )}
@@ -364,9 +362,9 @@ export function Ribbon({
   }
 
   /**
-   * リボンを表示用の結果へ変換する。
+   * 指定したIDのリボン項目を、定義されたグループ単位で描画する。
     * @param itemIds - 表示するグループ内リボン項目のID一覧。
-   * @returns リボンに対応する要素の一覧。
+   * @returns 各グループを含むリボン項目のReact node一覧。
    */
   function renderGroupItems(
     itemIds: readonly RibbonItemId[],
@@ -406,9 +404,9 @@ export function Ribbon({
   }
 
   /**
-   * リボンを表示用の結果へ変換する。
+   * 指定したIDのヘッダー項目を、定義されたグループ単位で描画する。
     * @param itemIds - 表示するリボンヘッダー項目のID一覧。
-   * @returns リボンに対応する要素の一覧。
+   * @returns 各グループを含むヘッダー項目のReact node一覧。
    */
   function renderHeaderItems(
     itemIds: readonly RibbonHeaderItemId[],
@@ -449,9 +447,9 @@ export function Ribbon({
   }
 
   /**
-   * リボンを表示用の結果へ変換する。
-   * @param id - リボンの対象や分岐を識別する値。
-   * @returns リボンで生成または変換した値。
+   * ヘッダー項目IDに対応する定義と状態に従ってボタンを描画する。
+   * @param id - 描画するリボンヘッダー項目のID。
+   * @returns 定義と折りたたみ状態に従って描画したヘッダーボタン。
    */
   function renderHeaderButton(id: RibbonHeaderItemId): React.JSX.Element {
     const definition = RIBBON_DEFINITIONS.headerItems[id];
@@ -471,9 +469,8 @@ export function Ribbon({
       className={`ribbon ${collapsed ? "collapsed" : ""}`}
       onClickCapture={
         /**
-         * イベントをclosestへ渡し、リボンの結果または副作用を処理する。
+         * button内の子要素から押されたリボン項目を特定して対応する選択状態を更新する。
          * @param event - リボン内buttonのcapture-phase click event。
-         * @returns リボンのコールバックが生成する結果。
          */
         (event) => {
           const target =
@@ -514,7 +511,6 @@ export function Ribbon({
               onClick={
                 /**
                  * click操作を表示または編集状態へ反映する。
-                 * @returns 副作用を完了し、値は返さない。
                  */
                 () => {
                   setTab(definition.id);
@@ -560,9 +556,9 @@ export function Ribbon({
 }
 
 /**
- * リボンから必要な値またはリソースを取得する。
- * @param id - リボンの対象や分岐を識別する値。
- * @returns リボンのget・item・definitionが生成する結果。
+ * IDに対応する項目定義を取得し、定義漏れを設定エラーとして報告する。
+ * @param id - 定義を取得するリボン項目ID。
+ * @returns 表示名・型・実装IDを含む項目定義。
  */
 function getItemDefinition(id: RibbonItemId): RibbonItemDefinition {
   const definition = RIBBON_DEFINITIONS.items[id];
@@ -573,9 +569,9 @@ function getItemDefinition(id: RibbonItemId): RibbonItemDefinition {
 }
 
 /**
- * リボンから必要な値またはリソースを取得する。
- * @param id - リボンの対象や分岐を識別する値。
- * @returns リボンのget・item・implementationが生成する結果。
+ * IDに対応する操作実装を取得し、登録漏れを設定エラーとして報告する。
+ * @param id - 実装を取得するリボン項目ID。
+ * @returns 項目を実行するための実装。
  */
 function getItemImplementation(id: RibbonItemId): RibbonItemImplementation {
   const implementation = RIBBON_IMPLEMENTATIONS[id];
@@ -586,9 +582,9 @@ function getItemImplementation(id: RibbonItemId): RibbonItemImplementation {
 }
 
 /**
- * リボンから必要な値またはリソースを取得する。
- * @param id - リボンの対象や分岐を識別する値。
- * @returns リボンのget・header・implementationが生成する結果。
+ * ヘッダー操作IDに対応するボタン実装を取得し、登録漏れを報告する。
+ * @param id - 実装を取得するヘッダー操作ID。
+ * @returns ヘッダー操作のボタン実装。
  */
 function getHeaderImplementation(
   id: RibbonHeaderImplementationId,
@@ -601,8 +597,7 @@ function getHeaderImplementation(
 }
 
 /**
- * リボンのgroupを処理し、呼び出し側へ結果または副作用を返す。
- * @returns リボンのgroupが生成する結果。
+ * 関連する操作をラベル付きのfieldsetへまとめる。
  */
 function Group({
   label,
@@ -615,12 +610,12 @@ function Group({
   label: string;
 
   /**
-   * リボンのchildrenに関する状態または設定。
+    * グループ内に表示する操作要素。
    */
   children: React.ReactNode;
 
   /**
-   * リボンで扱うclass・nameの文字列。
+    * レイアウト調整に使う追加CSSクラス。
    */
   className?: string;
 }): React.JSX.Element {
@@ -633,8 +628,7 @@ function Group({
 }
 
 /**
- * リボンのtoolを処理し、呼び出し側へ結果または副作用を返す。
- * @returns リボンのtoolが生成する結果。
+ * ラベルとショートカットを添えた補助ツール領域を描画する。
  */
 function Tool({
   label,
@@ -669,8 +663,7 @@ function Tool({
    */
   title?: string;
   /**
-   * リボンのイベントまたはメッセージを受け取り、状態を更新する。
-   * @returns リボンのon・clickが生成する結果。
+    * ボタン押下時に実行する操作。
    */
   onClick: () => void;
 }): React.JSX.Element {

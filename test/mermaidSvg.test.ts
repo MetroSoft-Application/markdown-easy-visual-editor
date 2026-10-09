@@ -1,20 +1,12 @@
 /**
- * @fileoverview mermaidsvg・テストの回帰の仕様と回帰条件を検証する。失敗時は期待値と実装差分を示す。
+ * @fileoverview Mermaid SVG内のIDと参照の名前空間化、およびSVG内容の安全な正規化を検証する。
  */
 import { describe, expect, it } from 'vitest';
 import { namespaceMermaidSvg } from '../src/shared/mermaidSvg';
 
 describe('namespaceMermaidSvg',
-    /**
-     * 「namespaceMermaidSvg」の仕様と回帰条件を検証するテストケース。
-     * @returns テストケースを実行し、値は返さない。
-     */
     () => {
         it('SVG内のIDと全参照を出現単位で名前空間化する',
-            /**
-             * 「SVG内のIDと全参照を出現単位で名前空間化する」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const svg = `<svg id="root" aria-labelledby="title description">
       <title id="title">図</title><desc id="description">説明</desc>

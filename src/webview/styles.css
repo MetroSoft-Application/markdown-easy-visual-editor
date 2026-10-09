@@ -1,10 +1,6 @@
-/*
+/**
  * @fileoverview Webview全体のレイアウト、操作部品、プレビュー、状態表示の基礎スタイルを定義する。
  * スタイルだけを変更し、本文データと編集状態を変更しない。
- */
-/*
- * @style :root
- * 対象UIの配置、状態、テーマ色を整える。
  */
 
 :root {
@@ -17,19 +13,9 @@
     font-family: var(--vscode-font-family, "Segoe UI", sans-serif);
 }
 
-/*
- * @style *
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 * {
     box-sizing: border-box;
 }
-
-/*
- * @style html, body, #root
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 html,
 body,
@@ -40,11 +26,6 @@ body,
     overflow: hidden;
 }
 
-/*
- * @style body
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 body {
     color: var(--vscode-editor-foreground);
     background: var(--vscode-editor-background);
@@ -52,7 +33,7 @@ body {
 
 /*
  * @style button, select, input, textarea
- * 設定ダイアログと操作コントロールの状態を整える。
+ * VS Codeと同じ文字設定を使い、個別コントロールのフォーカスや選択を妨げない。
  */
 
 button,
@@ -65,7 +46,7 @@ textarea {
 
 /*
  * @style button
- * 設定ダイアログと操作コントロールの状態を整える。
+ * 有効なボタンにクリック可能であることを示すカーソルを付ける。
  */
 
 button {
@@ -74,7 +55,7 @@ button {
 
 /*
  * @style button:disabled
- * 設定ダイアログと操作コントロールの状態を整える。
+ * 無効な操作を薄く表示し、クリックできないカーソルに切り替える。
  */
 
 button:disabled {
@@ -82,21 +63,14 @@ button:disabled {
     opacity: 0.48;
 }
 
-/*
- * @style .app
- * 対象UIの配置、状態、テーマ色を整える。
+/* @style .app, .startup
+ * Webviewの高さをアプリ領域へ割り当て、初期化中は状態表示を中央に置く。
  */
-
 .app {
     display: grid;
     grid-template-rows: auto minmax(0, 1fr) 24px;
     height: 100%;
 }
-
-/*
- * @style .startup
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 .startup {
     display: grid;
@@ -105,11 +79,9 @@ button:disabled {
     color: var(--vscode-descriptionForeground);
 }
 
-/*
- * @style .ribbon
- * リボンの操作項目と無効・選択状態を表示する。
+/* @style .ribbon, .ribbon-tabs, .ribbon-content
+ * コマンドタブと各タブの操作群を編集領域の上へ配置する。
  */
-
 .ribbon {
     z-index: 20;
     background: var(--vscode-editorGroupHeader-tabsBackground, var(--vscode-editor-background));
@@ -117,11 +89,6 @@ button:disabled {
     box-shadow: 0 1px 3px rgba(0, 0, 0, .08);
     font-size: 12px;
 }
-
-/*
- * @style .ribbon-tabs
- * リボンの操作項目と無効・選択状態を表示する。
- */
 
 .ribbon-tabs {
     display: flex;
@@ -131,11 +98,6 @@ button:disabled {
     border-bottom: 1px solid var(--mve-border);
 }
 
-/*
- * @style .ribbon-tabs button
- * リボンの操作項目と無効・選択状態を表示する。
- */
-
 .ribbon-tabs button {
     border: 0;
     border-bottom: 2px solid transparent;
@@ -143,69 +105,34 @@ button:disabled {
     padding: 5px 10px;
 }
 
-/*
- * @style .ribbon-tabs button:hover
- * リボンの操作項目と無効・選択状態を表示する。
- */
-
 .ribbon-tabs button:hover {
     background: var(--mve-hover);
 }
-
-/*
- * @style .ribbon-tabs button.active
- * リボンの操作項目と無効・選択状態を表示する。
- */
 
 .ribbon-tabs button.active {
     border-bottom-color: var(--vscode-focusBorder);
     color: #4ec9b0;
 }
 
-/*
- * @style .ribbon-tabs .ribbon-source-button
- * リボンの操作項目と無効・選択状態を表示する。
- */
-
 .ribbon-tabs .ribbon-source-button {
     color: #4ec9b0;
     font-weight: 600;
 }
-
-/*
- * @style .ribbon-tabs .ribbon-source-button.active
- * リボンの操作項目と無効・選択状態を表示する。
- */
 
 .ribbon-tabs .ribbon-source-button.active {
     border-bottom-color: var(--vscode-focusBorder);
     background: var(--mve-active);
 }
 
-/*
- * @style .ribbon-spacer
- * リボンの操作項目と無効・選択状態を表示する。
- */
-
 .ribbon-spacer {
     flex: 1;
 }
-
-/*
- * @style .ribbon-view-controls
- * リボンの操作項目と無効・選択状態を表示する。
- */
 
 .ribbon-view-controls {
     display: flex;
     align-items: stretch;
     flex: 0 0 auto;
 }
-
-/*
- * @style .ribbon-content
- * リボンの操作項目と無効・選択状態を表示する。
- */
 
 .ribbon-content {
     display: flex;
@@ -217,11 +144,6 @@ button:disabled {
     overflow-y: hidden;
 }
 
-/*
- * @style .ribbon-group
- * リボンの操作項目と無効・選択状態を表示する。
- */
-
 .ribbon-group {
     display: grid;
     grid-template-rows: 1fr auto;
@@ -230,11 +152,6 @@ button:disabled {
     padding: 0 5px;
     border-right: 1px solid var(--mve-border);
 }
-
-/*
- * @style .ribbon-controls
- * リボンの操作項目と無効・選択状態を表示する。
- */
 
 .ribbon-controls {
     display: flex;
@@ -245,11 +162,6 @@ button:disabled {
     max-width: 330px;
 }
 
-/*
- * @style .ribbon-group-label
- * リボンの操作項目と無効・選択状態を表示する。
- */
-
 .ribbon-group-label {
     align-self: end;
     padding-top: 3px;
@@ -257,11 +169,6 @@ button:disabled {
     font-size: 10px;
     color: var(--vscode-descriptionForeground);
 }
-
-/*
- * @style .ribbon-tool
- * リボンの操作項目と無効・選択状態を表示する。
- */
 
 .ribbon-tool {
     display: flex;
@@ -276,40 +183,20 @@ button:disabled {
     white-space: nowrap;
 }
 
-/*
- * @style .ribbon-tool:hover:not(:disabled)
- * リボンの操作項目と無効・選択状態を表示する。
- */
-
 .ribbon-tool:hover:not(:disabled) {
     border-color: var(--mve-border);
     background: var(--mve-hover);
 }
-
-/*
- * @style .ribbon-tool.active
- * リボンの操作項目と無効・選択状態を表示する。
- */
 
 .ribbon-tool.active {
     border-color: var(--vscode-focusBorder);
     background: var(--mve-active);
 }
 
-/*
- * @style .ribbon-tool small
- * リボンの操作項目と無効・選択状態を表示する。
- */
-
 .ribbon-tool small {
     font-size: 9px;
     color: var(--vscode-descriptionForeground);
 }
-
-/*
- * @style .ribbon-select-label
- * リボンの操作項目と無効・選択状態を表示する。
- */
 
 .ribbon-select-label {
     display: flex;
@@ -320,11 +207,6 @@ button:disabled {
     color: var(--vscode-descriptionForeground);
 }
 
-/*
- * @style .ribbon-select-label select
- * リボンの操作項目と無効・選択状態を表示する。
- */
-
 .ribbon-select-label select {
     min-width: 90px;
     height: 26px;
@@ -333,21 +215,11 @@ button:disabled {
     background: var(--vscode-dropdown-background);
 }
 
-/*
- * @style .ribbon-form
- * リボンの操作項目と無効・選択状態を表示する。
- */
-
 .ribbon-form {
     display: flex;
     align-items: flex-end;
     gap: 3px;
 }
-
-/*
- * @style .ribbon-form label
- * リボンの操作項目と無効・選択状態を表示する。
- */
 
 .ribbon-form label {
     display: flex;
@@ -357,11 +229,6 @@ button:disabled {
     color: var(--vscode-descriptionForeground);
     font-size: 10px;
 }
-
-/*
- * @style .ribbon-form input, .ribbon-select-label input
- * リボンの操作項目と無効・選択状態を表示する。
- */
 
 .ribbon-form input,
 .ribbon-select-label input {
@@ -373,28 +240,13 @@ button:disabled {
     background: var(--vscode-input-background);
 }
 
-/*
- * @style .ribbon-form input[type="number"]
- * リボンの操作項目と無効・選択状態を表示する。
- */
-
 .ribbon-form input[type="number"] {
     width: 48px;
 }
 
-/*
- * @style .ribbon-setting-form
- * リボンの操作項目と無効・選択状態を表示する。
- */
-
 .ribbon-setting-form {
     display: block;
 }
-
-/*
- * @style .ribbon-setting-form label
- * リボンの操作項目と無効・選択状態を表示する。
- */
 
 
 .ribbon-setting-form label {
@@ -406,11 +258,6 @@ button:disabled {
     font-size: 10px;
 }
 
-/*
- * @style .ribbon-setting-form input
- * リボンの操作項目と無効・選択状態を表示する。
- */
-
 
 .ribbon-setting-form input {
     width: 280px;
@@ -421,21 +268,11 @@ button:disabled {
     background: var(--vscode-input-background);
 }
 
-/*
- * @style .ribbon-setting-form input:focus
- * リボンの操作項目と無効・選択状態を表示する。
- */
-
 
 .ribbon-setting-form input:focus {
     outline: 1px solid var(--vscode-focusBorder);
     outline-offset: -1px;
 }
-
-/*
- * @style .ribbon-setting-hint
- * リボンの操作項目と無効・選択状態を表示する。
- */
 
 
 .ribbon-setting-hint {
@@ -447,20 +284,10 @@ button:disabled {
     white-space: normal;
 }
 
-/*
- * @style .ribbon-settings-group
- * リボンの操作項目と無効・選択状態を表示する。
- */
-
 
 .ribbon-settings-group {
     flex: 0 0 auto;
 }
-
-/*
- * @style .ribbon-settings-group .ribbon-controls
- * リボンの操作項目と無効・選択状態を表示する。
- */
 
 
 .ribbon-settings-group .ribbon-controls {
@@ -471,11 +298,9 @@ button:disabled {
     max-width: 334px;
 }
 
-/*
- * @style .workspace
- * 対象UIの配置、状態、テーマ色を整える。
+/* @style .workspace, .outline-panel, .editor-area
+ * 目次と本文ペインを残りの高さへ配置し、目次の幅をドラッグで調整できるようにする。
  */
-
 .workspace {
     display: flex;
     width: 100%;
@@ -484,22 +309,12 @@ button:disabled {
     min-height: 0;
 }
 
-/*
- * @style .outline-panel
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .outline-panel {
     flex: 0 0 220px;
     overflow: auto;
     background: var(--mve-panel);
     border-right: 1px solid var(--mve-border);
 }
-
-/*
- * @style .outline-resizer
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 .outline-resizer {
     flex: 0 0 6px;
@@ -518,11 +333,6 @@ button:disabled {
     outline: none;
     background: var(--vscode-focusBorder);
 }
-
-/*
- * @style .outline-reopen
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 .outline-reopen {
     flex: 0 0 22px;
@@ -547,22 +357,12 @@ button:disabled {
     background: var(--mve-hover);
 }
 
-/*
- * @style .outline-header
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .outline-header {
     display: flex;
     align-items: center;
     justify-content: space-between;
     border-bottom: 1px solid var(--mve-border);
 }
-
-/*
- * @style .outline-header h2
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 .outline-header h2 {
     flex: 1;
@@ -592,11 +392,6 @@ button:disabled {
     border-color: var(--mve-border);
     background: var(--mve-hover);
 }
-
-/*
- * @style .outline-panel h2, .panel-title h2
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 .outline-panel h2,
 .panel-title h2 {
@@ -903,20 +698,10 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     user-select: none;
 }
 
-/*
- * @style .outline-panel p
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .outline-panel p {
     padding: 0 12px;
     color: var(--vscode-descriptionForeground);
 }
-
-/*
- * @style .editor-area
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 .editor-area {
     position: relative;
@@ -928,11 +713,6 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     overflow: auto;
     background: var(--vscode-editor-background);
 }
-
-/*
- * @style .search-panel
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 .search-panel {
     position: absolute;
@@ -951,7 +731,7 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
 
 /*
  * @style .search-panel input
- * 設定ダイアログと操作コントロールの状態を整える。
+ * 検索欄を一定幅に保ち、VS Codeの入力背景・文字色を使う。
  */
 
 .search-panel input {
@@ -964,7 +744,7 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
 
 /*
  * @style .search-panel button
- * 設定ダイアログと操作コントロールの状態を整える。
+ * 検索操作を入力欄と区別し、VS Codeのセカンダリボタン色で表示する。
  */
 
 .search-panel button {
@@ -975,17 +755,12 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
 
 /*
  * @style .search-panel button:hover:not(:disabled)
- * 設定ダイアログと操作コントロールの状態を整える。
+ * 有効な検索操作のホバー時に背景色を切り替える。
  */
 
 .search-panel button:hover:not(:disabled) {
     background: var(--vscode-button-secondaryHoverBackground);
 }
-
-/*
- * @style .search-count
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 .search-count {
     min-width: 34px;
@@ -996,7 +771,7 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
 
 /*
  * @style .cm-search-match
- * CodeMirror編集面の入力、選択、診断状態を整える。
+ * 検索結果の範囲を本文上で強調し、通常の選択範囲と区別する。
  */
 
 .cm-search-match {
@@ -1006,18 +781,13 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
 
 /*
  * @style .cm-search-match-active
- * CodeMirror編集面の入力、選択、診断状態を整える。
+ * 現在の検索一致を他の一致より目立たせ、フォーカス境界を表示する。
  */
 
 .cm-search-match-active {
     background: var(--vscode-editor-findMatchHighlightBackground, #f6b73c);
     outline: 1px solid var(--vscode-focusBorder);
 }
-
-/*
- * @style .split-editor
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 .split-editor {
     display: grid;
@@ -1027,11 +797,6 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     min-width: 0;
     min-height: 0;
 }
-
-/*
- * @style .ribbon-checkbox
- * リボンの操作項目と無効・選択状態を表示する。
- */
 
 .ribbon-checkbox {
     display: flex;
@@ -1044,30 +809,15 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     line-height: 1.15;
 }
 
-/*
- * @style .ribbon-checkbox input
- * リボンの操作項目と無効・選択状態を表示する。
- */
-
 
 .ribbon-checkbox input {
     flex: 0 0 auto;
     margin: 0;
 }
 
-/*
- * @style .split-editor.single-pane
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .split-editor.single-pane {
     grid-template-rows: minmax(0, 1fr);
 }
-
-/*
- * @style .split-source-pane, .split-preview
- * Markdownプレビューの本文とブロック要素を整える。
- */
 
 .split-source-pane,
 .split-preview {
@@ -1077,39 +827,19 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     background: var(--vscode-editor-background);
 }
 
-/*
- * @style .split-source-pane.pane-hidden, .split-preview.pane-hidden
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 .split-source-pane.pane-hidden,
 .split-preview.pane-hidden {
     display: none;
 }
 
-/*
- * @style .split-divider.pane-hidden
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .split-divider.pane-hidden {
     display: none;
 }
-
-/*
- * @style .split-source-pane .source-editor
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 .split-source-pane .source-editor {
     height: 100%;
     font-family: var(--mve-editor-font-family, var(--vscode-editor-font-family, monospace));
 }
-
-/*
- * @style .split-preview
- * Markdownプレビューの本文とブロック要素を整える。
- */
 
 .split-preview {
     width: 100%;
@@ -1120,11 +850,6 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     border-left: 0;
 }
 
-/*
- * @style .split-divider
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .split-divider {
     position: relative;
     z-index: 5;
@@ -1134,11 +859,6 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     border-right: 1px solid var(--mve-border);
     background: var(--vscode-editorGroupHeader-tabsBackground);
 }
-
-/*
- * @style .split-divider::after
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 .split-divider::after {
     content: '';
@@ -1158,21 +878,11 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     background: var(--vscode-focusBorder);
 }
 
-/*
- * @style .mve-resizing-split, .mve-resizing-split *
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .mve-resizing-split,
 .mve-resizing-split * {
     cursor: col-resize !important;
     user-select: none !important;
 }
-
-/*
- * @style .split-preview .rendered-markdown, .preview-only
- * Markdownプレビューの本文とブロック要素を整える。
- */
 
 .split-preview .rendered-markdown,
 .preview-only {
@@ -1183,16 +893,7 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     padding: 24px 42px 80px;
 }
 
-/*
- * @style @container (max-width: 720px)
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 @container (max-width: 720px) {
-    /*
- * @style .split-preview .rendered-markdown
- * Markdownプレビューの本文とブロック要素を整える。
- */
 
     .split-preview .rendered-markdown {
         padding-right: 20px;
@@ -1202,7 +903,7 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
 
 /*
  * @style .cm-visible-space
- * CodeMirror編集面の入力、選択、診断状態を整える。
+ * 可視化対象の空白文字を疑似要素で示すための位置基準を作る。
  */
 
 .cm-visible-space {
@@ -1211,7 +912,7 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
 
 /*
  * @style .cm-visible-space::after
- * CodeMirror編集面の入力、選択、診断状態を整える。
+ * 空白位置に小さな点を重ね、保存される本文文字列は変更しない。
  */
 
 .cm-visible-space::after {
@@ -1226,21 +927,11 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     pointer-events: none;
 }
 
-/*
- * @style .rendered-markdown
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 .rendered-markdown {
     line-height: 1.72;
     overflow-wrap: anywhere;
     font-family: var(--mve-preview-font-family, var(--vscode-font-family, "Segoe UI", sans-serif));
 }
-
-/*
- * @style .rendered-markdown h1
- * Markdownプレビューの本文とブロック要素を整える。
- */
 
 .rendered-markdown h1 {
     margin: 1.5em 0 .7em;
@@ -1249,11 +940,6 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     font-size: 2em;
 }
 
-/*
- * @style .rendered-markdown h2
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 .rendered-markdown h2 {
     margin: 1.4em 0 .6em;
     padding-bottom: .2em;
@@ -1261,29 +947,14 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     font-size: 1.55em;
 }
 
-/*
- * @style .rendered-markdown h3
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 .rendered-markdown h3 {
     margin-top: 1.2em;
     font-size: 1.25em;
 }
 
-/*
- * @style .rendered-markdown a
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 .rendered-markdown a {
     color: #4ec9b0;
 }
-
-/*
- * @style .rendered-markdown img
- * Markdownプレビューの本文とブロック要素を整える。
- */
 
 .rendered-markdown img {
     display: block;
@@ -1292,50 +963,25 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     margin: 12px 0;
 }
 
-/*
- * @style .rendered-markdown[data-mve-image-zoom] .mve-image-frame, .rendered-markdown[data-mve-image-zoom] img:not([data-mve-enhanced="true"])
- * プレビュー画像とリサイズ操作を表示する。
- */
-
 .rendered-markdown[data-mve-image-zoom] .mve-image-frame,
 .rendered-markdown[data-mve-image-zoom] img:not([data-mve-enhanced="true"]) {
     zoom: var(--mve-preview-image-zoom, 1);
 }
-
-/*
- * @style .rendered-markdown img[data-mve-image-align="left"]
- * プレビュー画像とリサイズ操作を表示する。
- */
 
 .rendered-markdown img[data-mve-image-align="left"] {
     margin-right: auto !important;
     margin-left: 0 !important;
 }
 
-/*
- * @style .rendered-markdown img[data-mve-image-align="center"]
- * プレビュー画像とリサイズ操作を表示する。
- */
-
 .rendered-markdown img[data-mve-image-align="center"] {
     margin-right: auto !important;
     margin-left: auto !important;
 }
 
-/*
- * @style .rendered-markdown img[data-mve-image-align="right"]
- * プレビュー画像とリサイズ操作を表示する。
- */
-
 .rendered-markdown img[data-mve-image-align="right"] {
     margin-right: 0 !important;
     margin-left: auto !important;
 }
-
-/*
- * @style .rendered-markdown table
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
 
 .rendered-markdown table {
     margin: 14px 0;
@@ -1362,11 +1008,6 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     max-width: none;
 }
 
-/*
- * @style .rendered-markdown th, .rendered-markdown td
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 .rendered-markdown th,
 .rendered-markdown td {
     min-width: 60px;
@@ -1375,30 +1016,15 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     vertical-align: top;
 }
 
-/*
- * @style .rendered-markdown table th[data-mve-nowrap="true"], .rendered-markdown table td[data-mve-nowrap="true"]
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
-
 .rendered-markdown table th[data-mve-nowrap="true"],
 .rendered-markdown table td[data-mve-nowrap="true"] {
     white-space: nowrap;
 }
 
-/*
- * @style .rendered-markdown th
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 .rendered-markdown th {
     background: var(--vscode-editor-inactiveSelectionBackground);
     font-weight: 600;
 }
-
-/*
- * @style .rendered-markdown blockquote
- * Markdownプレビューの本文とブロック要素を整える。
- */
 
 .rendered-markdown blockquote {
     margin: 1em 0;
@@ -1408,11 +1034,6 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     color: var(--vscode-textBlockQuote-foreground);
 }
 
-/*
- * @style .rendered-markdown pre
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 .rendered-markdown pre {
     overflow: auto;
     padding: 12px 14px;
@@ -1421,11 +1042,6 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     background: var(--vscode-textCodeBlock-background);
 }
 
-/*
- * @style .rendered-markdown code:not(pre code)
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 .rendered-markdown code:not(pre code) {
     padding: 1px 4px;
     border-radius: 3px;
@@ -1433,30 +1049,15 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     font-family: var(--mve-preview-font-family, var(--vscode-editor-font-family, monospace));
 }
 
-/*
- * @style .rendered-markdown mark
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 .rendered-markdown mark {
     padding: 0 2px;
     color: #222;
     background: #ffe66d;
 }
 
-/*
- * @style .code-figure
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .code-figure {
     margin: 1em 0;
 }
-
-/*
- * @style .code-figure figcaption
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 .code-figure figcaption {
     display: flex;
@@ -1473,7 +1074,7 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
 
 /*
  * @style .code-figure figcaption button
- * 設定ダイアログと操作コントロールの状態を整える。
+ * コードブロックのキャプション操作を枠なしで表示し、本文から視覚的に分ける。
  */
 
 .code-figure figcaption button {
@@ -1481,20 +1082,10 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     background: transparent;
 }
 
-/*
- * @style .code-figure pre
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .code-figure pre {
     margin-top: 0;
     border-radius: 0 0 5px 5px;
 }
-
-/*
- * @style .diagram-block
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 .diagram-block {
     overflow: auto;
@@ -1502,21 +1093,11 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     text-align: center;
 }
 
-/*
- * @style .mermaid-svg-frame
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .mermaid-svg-frame {
     position: relative;
     width: 100%;
     margin: 0 auto;
 }
-
-/*
- * @style .mermaid-svg-frame[data-mve-rasterized="false"]
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 
 .mermaid-svg-frame[data-mve-rasterized="false"] {
@@ -1525,11 +1106,6 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     transform: translateZ(0);
     will-change: transform;
 }
-
-/*
- * @style .mermaid-svg-image
- * プレビュー画像とリサイズ操作を表示する。
- */
 
 
 .mermaid-svg-image {
@@ -1540,11 +1116,6 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     backface-visibility: hidden;
 }
 
-/*
- * @style .mermaid-interaction-layer
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 
 .mermaid-interaction-layer {
     position: absolute;
@@ -1552,11 +1123,6 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     overflow: hidden;
     pointer-events: none;
 }
-
-/*
- * @style .mermaid-interaction
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 
 .mermaid-interaction {
@@ -1569,20 +1135,10 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     pointer-events: auto;
 }
 
-/*
- * @style .mermaid-interaction-link
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 
 .mermaid-interaction-link {
     cursor: pointer;
 }
-
-/*
- * @style .mermaid-error-message
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 .mermaid-error-message {
     overflow: auto;
@@ -1595,11 +1151,6 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     white-space: pre-wrap;
 }
 
-/*
- * @style .math-block
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .math-block {
     display: block;
     overflow-x: auto;
@@ -1607,20 +1158,10 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     text-align: center;
 }
 
-/*
- * @style .math-error
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .math-error {
     color: var(--vscode-errorForeground);
     text-decoration: wavy underline;
 }
-
-/*
- * @style .blocked-image
- * プレビュー画像とリサイズ操作を表示する。
- */
 
 .blocked-image {
     display: inline-block;
@@ -1628,11 +1169,6 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     border: 1px dashed var(--mve-border);
     color: var(--vscode-descriptionForeground);
 }
-
-/*
- * @style .mve-image-frame
- * プレビュー画像とリサイズ操作を表示する。
- */
 
 .mve-image-frame {
     position: relative;
@@ -1642,40 +1178,20 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     margin: 12px 0;
 }
 
-/*
- * @style .mve-image-frame[data-mve-image-align="left"]
- * プレビュー画像とリサイズ操作を表示する。
- */
-
 .mve-image-frame[data-mve-image-align="left"] {
     margin-right: auto;
     margin-left: 0;
 }
-
-/*
- * @style .mve-image-frame[data-mve-image-align="center"]
- * プレビュー画像とリサイズ操作を表示する。
- */
 
 .mve-image-frame[data-mve-image-align="center"] {
     margin-right: auto;
     margin-left: auto;
 }
 
-/*
- * @style .mve-image-frame[data-mve-image-align="right"]
- * プレビュー画像とリサイズ操作を表示する。
- */
-
 .mve-image-frame[data-mve-image-align="right"] {
     margin-right: 0;
     margin-left: auto;
 }
-
-/*
- * @style .mve-image-frame>img, .mve-image-frame>picture
- * プレビュー画像とリサイズ操作を表示する。
- */
 
 .mve-image-frame>img,
 .mve-image-frame>picture {
@@ -1685,19 +1201,9 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     margin: 0;
 }
 
-/*
- * @style .mve-image-frame>picture
- * プレビュー画像とリサイズ操作を表示する。
- */
-
 .mve-image-frame>picture {
     display: block;
 }
-
-/*
- * @style .mve-image-frame>picture>img
- * プレビュー画像とリサイズ操作を表示する。
- */
 
 .mve-image-frame>picture>img {
     width: 100%;
@@ -1705,11 +1211,6 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     height: auto;
     margin: 0;
 }
-
-/*
- * @style .mve-image-badge
- * プレビュー画像とリサイズ操作を表示する。
- */
 
 .mve-image-badge {
     position: absolute;
@@ -1727,11 +1228,6 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     pointer-events: none;
 }
 
-/*
- * @style .mve-image-handle
- * プレビュー画像とリサイズ操作を表示する。
- */
-
 .mve-image-handle {
     position: absolute;
     z-index: 3;
@@ -1747,11 +1243,6 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     opacity: 0;
 }
 
-/*
- * @style .mve-image-handle::after
- * プレビュー画像とリサイズ操作を表示する。
- */
-
 .mve-image-handle::after {
     content: '';
     position: absolute;
@@ -1763,20 +1254,10 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     border-bottom: 2px solid var(--vscode-button-foreground);
 }
 
-/*
- * @style .mve-image-frame:hover .mve-image-handle, .mve-image-frame.is-resizing .mve-image-handle
- * プレビュー画像とリサイズ操作を表示する。
- */
-
 .mve-image-frame:hover .mve-image-handle,
 .mve-image-frame.is-resizing .mve-image-handle {
     opacity: 1;
 }
-
-/*
- * @style .mve-image-align-actions
- * プレビュー画像とリサイズ操作を表示する。
- */
 
 .mve-image-align-actions {
     position: absolute;
@@ -1788,20 +1269,10 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     opacity: 0;
 }
 
-/*
- * @style .mve-image-frame:hover .mve-image-align-actions, .mve-image-frame.is-resizing .mve-image-align-actions
- * プレビュー画像とリサイズ操作を表示する。
- */
-
 .mve-image-frame:hover .mve-image-align-actions,
 .mve-image-frame.is-resizing .mve-image-align-actions {
     opacity: 1;
 }
-
-/*
- * @style .mve-image-align-button
- * プレビュー画像とリサイズ操作を表示する。
- */
 
 .mve-image-align-button {
     width: 20px;
@@ -1815,20 +1286,10 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     line-height: 1;
 }
 
-/*
- * @style .mve-image-align-button[data-active="true"]
- * プレビュー画像とリサイズ操作を表示する。
- */
-
 .mve-image-align-button[data-active="true"] {
     border-color: var(--vscode-focusBorder);
     outline: 1px solid var(--vscode-focusBorder);
 }
-
-/*
- * @style .mve-image-reset
- * プレビュー画像とリサイズ操作を表示する。
- */
 
 .mve-image-reset {
     position: absolute;
@@ -1846,40 +1307,20 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     opacity: 0;
 }
 
-/*
- * @style .mve-image-frame:hover .mve-image-reset
- * プレビュー画像とリサイズ操作を表示する。
- */
-
 .mve-image-frame:hover .mve-image-reset {
     opacity: 1;
 }
-
-/*
- * @style .mve-image-frame.is-resizing, .mve-image-frame.is-resizing *
- * プレビュー画像とリサイズ操作を表示する。
- */
 
 .mve-image-frame.is-resizing,
 .mve-image-frame.is-resizing * {
     user-select: none !important;
 }
 
-/*
- * @style .page-break
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .page-break {
     height: 12px;
     margin: 30px 0;
     border-top: 2px dashed var(--vscode-descriptionForeground);
 }
-
-/*
- * @style .page-break::after
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 .page-break::after {
     content: attr(aria-label);
@@ -1891,21 +1332,11 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     font-size: 10px;
 }
 
-/*
- * @style .table-of-contents
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
-
 .table-of-contents {
     padding: 12px 16px;
     border: 1px solid var(--mve-border);
     border-radius: 5px;
 }
-
-/*
- * @style .table-of-contents ul
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
 
 .table-of-contents ul {
     margin-bottom: 0;
@@ -1913,37 +1344,17 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     list-style: none;
 }
 
-/*
- * @style .toc-level-2
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .toc-level-2 {
     padding-left: 16px;
 }
-
-/*
- * @style .toc-level-3
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 .toc-level-3 {
     padding-left: 32px;
 }
 
-/*
- * @style .toc-level-4
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .toc-level-4 {
     padding-left: 48px;
 }
-
-/*
- * @style .markdown-alert
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 .markdown-alert {
     margin: 1em 0;
@@ -1952,20 +1363,10 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     background: var(--vscode-editor-inactiveSelectionBackground);
 }
 
-/*
- * @style .alert-warning, .alert-caution
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .alert-warning,
 .alert-caution {
     border-left-color: var(--vscode-notificationsWarningIcon-foreground);
 }
-
-/*
- * @style .inspector-panel, .diagnostics-panel, .pdf-settings-panel
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 .inspector-panel,
 .diagnostics-panel,
@@ -1977,11 +1378,6 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     background: var(--mve-panel);
 }
 
-/*
- * @style .panel-title
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .panel-title {
     display: flex;
     align-items: center;
@@ -1992,7 +1388,7 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
 
 /*
  * @style .panel-title button
- * 設定ダイアログと操作コントロールの状態を整える。
+ * パネル見出し内の操作ボタンをタイトルと同じ行に配置する。
  */
 
 .panel-title button {
@@ -2000,11 +1396,6 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     border: 0;
     background: transparent;
 }
-
-/*
- * @style .inspector-panel textarea
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 .inspector-panel textarea {
     width: 100%;
@@ -2017,21 +1408,11 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     font-family: var(--vscode-editor-font-family, monospace);
 }
 
-/*
- * @style .inspector-panel img
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .inspector-panel img {
     max-width: 100%;
     max-height: 240px;
     object-fit: contain;
 }
-
-/*
- * @style .inspector-panel label, .pdf-settings-panel label
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 .inspector-panel label,
 .pdf-settings-panel label {
@@ -2042,7 +1423,7 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
 
 /*
  * @style .inspector-panel input, .pdf-settings-panel input, .pdf-settings-panel select
- * 設定ダイアログと操作コントロールの状態を整える。
+ * 設定欄をパネル幅に合わせ、VS Codeの入力色と境界色を適用する。
  */
 
 .inspector-panel input,
@@ -2055,11 +1436,6 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     background: var(--vscode-input-background);
 }
 
-/*
- * @style .pdf-margin-fields
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .pdf-margin-fields {
     display: grid;
     grid-template-columns: 1fr 1fr;
@@ -2069,22 +1445,13 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     border: 1px solid var(--mve-border);
 }
 
-/*
- * @style .pdf-typography-fields, .pdf-heading-fields
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .pdf-typography-fields,
-.pdf-heading-fields {
+.pdf-heading-fields,
+.output-text-replacement-fields {
     margin: 12px 0;
     padding: 0 8px 8px;
     border: 1px solid var(--mve-border);
 }
-
-/*
- * @style .pdf-heading-fields
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 .pdf-heading-fields {
     display: grid;
@@ -2094,22 +1461,114 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
 }
 
 /*
- * @style .pdf-typography-fields legend, .pdf-heading-fields legend
- * 対象UIの配置、状態、テーマ色を整える。
+ * @style .output-text-replacement-rule
+ * 1件の正規表現、置換文字列、削除操作を同じ行にそろえる。
+ */
+.output-text-replacement-rule {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 6px 8px;
+    margin: 6px 0;
+    padding: 6px 0;
+}
+
+.output-text-replacement-rule + .output-text-replacement-rule {
+    border-top: 1px solid var(--mve-border);
+}
+
+.output-text-replacement-rule label {
+    min-width: 0;
+    margin: 0;
+}
+
+/*
+ * @style .output-text-replacement-input, .output-text-replacement-visualization
+ * 置換文字列入力欄の半角スペースを値を変えずに可視化する。
+ */
+.output-text-replacement-input {
+    position: relative;
+    display: block;
+    width: 100%;
+    min-width: 0;
+}
+
+.output-text-replacement-input > input {
+    width: 100%;
+}
+
+.output-text-replacement-visualization {
+    position: absolute;
+    z-index: 1;
+    inset: 1px;
+    overflow: hidden;
+    padding: 5px;
+    color: transparent;
+    background: transparent;
+    font: inherit;
+    line-height: normal;
+    white-space: pre;
+    pointer-events: none;
+}
+
+/*
+ * @style .output-replacement-help, .output-replacement-error
+ * 置換の適用範囲を説明し、無効な正規表現をテーマ対応の色で示す。
  */
 
-
-.pdf-typography-fields legend,
-.pdf-heading-fields legend {
-    padding: 0 4px;
+.output-replacement-help {
+    margin: 4px 0 8px;
     color: var(--vscode-descriptionForeground);
     font-size: 11px;
 }
 
+.output-replacement-error {
+    grid-column: 1 / -1;
+    margin: 0;
+    color: var(--vscode-errorForeground, #f48771);
+    font-size: 11px;
+}
+
 /*
- * @style .pdf-typography-fields label, .pdf-heading-fields label
- * 対象UIの配置、状態、テーマ色を整える。
+ * @style .output-text-replacement-add, .output-text-replacement-remove
+ * 置換ルールの追加・削除操作を入力欄から区別して表示する。
  */
+
+.output-text-replacement-add,
+.output-text-replacement-remove {
+    color: var(--vscode-button-secondaryForeground);
+}
+
+.output-text-replacement-remove {
+    margin: 0;
+    padding: 5px 8px;
+    border: 1px solid var(--mve-border);
+    background: var(--vscode-button-secondaryBackground);
+}
+
+.output-text-replacement-remove:hover:not(:disabled) {
+    background: var(--vscode-button-secondaryHoverBackground);
+}
+
+.output-text-replacement-add {
+    margin: 4px 0;
+    padding: 5px 8px;
+    border: 1px solid var(--mve-border);
+    background: var(--vscode-button-secondaryBackground);
+}
+
+.output-text-replacement-add:hover:not(:disabled) {
+    background: var(--vscode-button-secondaryHoverBackground);
+}
+
+
+.pdf-typography-fields legend,
+.pdf-heading-fields legend,
+.output-text-replacement-fields legend {
+    padding: 0 4px;
+    color: var(--vscode-descriptionForeground);
+    font-size: 11px;
+}
 
 
 .pdf-typography-fields label,
@@ -2117,30 +1576,15 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     margin: 6px 0;
 }
 
-/*
- * @style .pdf-margin-fields legend
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .pdf-margin-fields legend {
     padding: 0 4px;
     color: var(--vscode-descriptionForeground);
     font-size: 11px;
 }
 
-/*
- * @style .pdf-margin-fields label
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .pdf-margin-fields label {
     margin: 6px 0;
 }
-
-/*
- * @style .inspector-preview
- * Markdownプレビューの本文とブロック要素を整える。
- */
 
 .inspector-preview {
     max-height: 280px;
@@ -2151,22 +1595,12 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     background: var(--vscode-editor-background);
 }
 
-/*
- * @style .primary
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .primary {
     padding: 6px 12px;
     border: 1px solid var(--vscode-button-border, transparent);
     color: var(--vscode-button-foreground);
     background: var(--vscode-button-background);
 }
-
-/*
- * @style .diagnostic
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 .diagnostic {
     display: grid;
@@ -2177,48 +1611,23 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     background: var(--vscode-editor-inactiveSelectionBackground);
 }
 
-/*
- * @style .diagnostic.error
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .diagnostic.error {
     border-color: var(--vscode-errorForeground);
 }
 
-/*
- * @style .diagnostic.warning
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .diagnostic.warning {
     border-color: var(--vscode-notificationsWarningIcon-foreground);
 }
-
-/*
- * @style .diagnostic-summary
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 .diagnostic-summary {
     margin: 8px 0 4px;
     font-weight: 600;
 }
 
-/*
- * @style .diagnostic-help
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .diagnostic-help {
     color: var(--vscode-descriptionForeground);
     font-size: 11px;
 }
-
-/*
- * @style .diagnostic-location
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 .diagnostic-location {
     justify-self: start;
@@ -2228,11 +1637,6 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     background: transparent;
     font-size: 11px;
 }
-
-/*
- * @style .status-bar
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 .status-bar {
     display: flex;
@@ -2244,11 +1648,6 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     background: var(--vscode-statusBar-background);
     font-size: 11px;
 }
-
-/*
- * @style .toast
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 .toast {
     position: fixed;
@@ -2264,11 +1663,6 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     box-shadow: 0 5px 18px rgba(0, 0, 0, .28);
 }
 
-/*
- * @style .modal-backdrop
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .modal-backdrop {
     position: fixed;
     z-index: 90;
@@ -2280,7 +1674,7 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
 
 /*
  * @style .help-dialog
- * 設定ダイアログと操作コントロールの状態を整える。
+ * ヘルプの最大幅と画面内の高さを制限し、長文はダイアログ内でスクロールする。
  */
 
 .help-dialog {
@@ -2296,7 +1690,7 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
 
 /*
  * @style .link-dialog
- * 設定ダイアログと操作コントロールの状態を整える。
+ * リンク編集欄を画面幅に収まるモーダルとして配置する。
  */
 
 .link-dialog {
@@ -2305,7 +1699,7 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
 
 /*
  * @style .link-dialog label
- * 設定ダイアログと操作コントロールの状態を整える。
+ * ラベルと入力欄を縦に並べ、補助ラベルを説明色で表示する。
  */
 
 .link-dialog label {
@@ -2318,7 +1712,7 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
 
 /*
  * @style .link-dialog input
- * 設定ダイアログと操作コントロールの状態を整える。
+ * リンク編集欄をダイアログ幅に合わせ、VS Codeの入力配色を使う。
  */
 
 .link-dialog input {
@@ -2331,7 +1725,7 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
 
 /*
  * @style .dialog-actions
- * 設定ダイアログと操作コントロールの状態を整える。
+ * ダイアログの確定・取消操作を右寄せし、ボタン間隔を保つ。
  */
 
 .dialog-actions {
@@ -2343,7 +1737,7 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
 
 /*
  * @style .dialog-actions button
- * 設定ダイアログと操作コントロールの状態を整える。
+ * ダイアログ操作をセカンダリボタンとして表示する。
  */
 
 .dialog-actions button {
@@ -2352,18 +1746,13 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     background: var(--vscode-button-secondaryBackground);
 }
 
-/*
- * @style .help-dialog table
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
-
 .help-dialog table {
     border-collapse: collapse;
 }
 
 /*
  * @style .help-dialog th, .help-dialog td
- * 設定ダイアログと操作コントロールの状態を整える。
+ * ヘルプ表のセルに余白と境界線を付け、左揃えで読み進められるようにする。
  */
 
 .help-dialog th,
@@ -2373,20 +1762,10 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     text-align: left;
 }
 
-/*
- * @style .feature-list
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .feature-list {
     display: grid;
     gap: 10px;
 }
-
-/*
- * @style .feature-list section
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 .feature-list section {
     padding: 8px 10px;
@@ -2395,20 +1774,10 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     background: var(--vscode-editorGroupHeader-tabsBackground);
 }
 
-/*
- * @style .feature-list h3
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .feature-list h3 {
     margin: 0 0 4px;
     font-size: 12px;
 }
-
-/*
- * @style .feature-list ul
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 .feature-list ul {
     display: grid;
@@ -2418,11 +1787,6 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     list-style: none;
 }
 
-/*
- * @style .feature-list li
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .feature-list li {
     display: grid;
     grid-template-columns: minmax(110px, max-content) 1fr;
@@ -2430,28 +1794,13 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     line-height: 1.5;
 }
 
-/*
- * @style .feature-list li strong
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .feature-list li strong {
     color: var(--vscode-foreground);
 }
 
-/*
- * @style .feature-list li span
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .feature-list li span {
     color: var(--vscode-descriptionForeground);
 }
-
-/*
- * @style .export-stage
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 .export-stage {
     position: fixed;
@@ -2461,28 +1810,13 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     pointer-events: none;
 }
 
-/*
- * @style .print-preview-mode .editor-area
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 .print-preview-mode .editor-area {
     background: #e5e7eb;
 }
 
-/*
- * @style .print-preview-mode .pdf-settings-panel
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 .print-preview-mode .pdf-settings-panel {
     background: var(--mve-panel);
 }
-
-/*
- * @style .pdf-preview-shell
- * Markdownプレビューの本文とブロック要素を整える。
- */
 
 .pdf-preview-shell {
     width: 100%;
@@ -2491,11 +1825,6 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     color: #202124;
     background: #e5e7eb;
 }
-
-/*
- * @style .pdf-preview-toolbar
- * Markdownプレビューの本文とブロック要素を整える。
- */
 
 .pdf-preview-toolbar {
     position: sticky;
@@ -2511,11 +1840,6 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     background: color-mix(in srgb, #e5e7eb 92%, transparent);
 }
 
-/*
- * @style .pdf-preview-toolbar button
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 
 .pdf-preview-toolbar button {
     width: 28px;
@@ -2529,20 +1853,10 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     line-height: 1;
 }
 
-/*
- * @style .pdf-preview-toolbar button:hover
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 
 .pdf-preview-toolbar button:hover {
     background: #f3f4f6;
 }
-
-/*
- * @style .pdf-preview-zoom-value
- * Markdownプレビューの本文とブロック要素を整える。
- */
 
 
 .pdf-preview-zoom-value {
@@ -2552,21 +1866,11 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     text-align: center;
 }
 
-/*
- * @style .pdf-preview-live-layer
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 .pdf-preview-live-layer {
     width: 100%;
     max-width: 900px;
     margin: 0 auto;
 }
-
-/*
- * @style .pdf-preview-live-content
- * Markdownプレビューの本文とブロック要素を整える。
- */
 
 
 .pdf-preview-live-content {
@@ -2577,11 +1881,6 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     box-shadow: 0 4px 18px rgba(0, 0, 0, .2);
 }
 
-/*
- * @style .pdf-preview-content
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 
 .pdf-preview-content {
     max-width: none;
@@ -2591,83 +1890,38 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     color: #202124;
 }
 
-/*
- * @style .pdf-preview-content h1
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 .pdf-preview-content h1 {
     font-size: var(--mve-pdf-h1-size);
 }
-
-/*
- * @style .pdf-preview-content h2
- * Markdownプレビューの本文とブロック要素を整える。
- */
 
 .pdf-preview-content h2 {
     font-size: var(--mve-pdf-h2-size);
 }
 
-/*
- * @style .pdf-preview-content h3
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 .pdf-preview-content h3 {
     font-size: var(--mve-pdf-h3-size);
 }
-
-/*
- * @style .pdf-preview-content h4
- * Markdownプレビューの本文とブロック要素を整える。
- */
 
 .pdf-preview-content h4 {
     font-size: var(--mve-pdf-h4-size);
 }
 
-/*
- * @style .pdf-preview-content h5
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 .pdf-preview-content h5 {
     font-size: var(--mve-pdf-h5-size);
 }
 
-/*
- * @style .pdf-preview-content h6
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 .pdf-preview-content h6 {
     font-size: var(--mve-pdf-h6-size);
 }
-
-/*
- * @style .pdf-preview-content pre, .pdf-preview-content code
- * Markdownプレビューの本文とブロック要素を整える。
- */
 
 .pdf-preview-content pre,
 .pdf-preview-content code {
     font-size: var(--mve-pdf-code-size);
 }
 
-/*
- * @style .pdf-preview-content p
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 .pdf-preview-content p {
     margin-bottom: var(--mve-pdf-paragraph-spacing, 6pt);
 }
-
-/*
- * @style .pdf-preview-header, .pdf-preview-footer
- * Markdownプレビューの本文とブロック要素を整える。
- */
 
 .pdf-preview-header,
 .pdf-preview-footer {
@@ -2676,32 +1930,17 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     white-space: pre-wrap;
 }
 
-/*
- * @style .pdf-preview-header
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 
 .pdf-preview-header {
     margin-bottom: 12px;
     text-align: left;
 }
 
-/*
- * @style .pdf-preview-footer
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 
 .pdf-preview-footer {
     margin-top: 12px;
     text-align: center;
 }
-
-/*
- * @style .pdf-preview-pdf-layer.is-preparing
- * Markdownプレビューの本文とブロック要素を整える。
- */
 
 .pdf-preview-pdf-layer.is-preparing {
     position: absolute;
@@ -2710,19 +1949,9 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     pointer-events: none;
 }
 
-/*
- * @style .pdf-pages
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .pdf-pages {
     padding: 24px 32px 48px;
 }
-
-/*
- * @style .pdf-page
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 .pdf-page {
     position: relative;
@@ -2733,31 +1962,16 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     box-shadow: 0 4px 18px rgba(0, 0, 0, .2);
 }
 
-/*
- * @style .pdf-page canvas
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .pdf-page canvas {
     display: block;
     width: 100%;
     height: auto;
 }
 
-/*
- * @style .pdf-page-waiting canvas, .pdf-page-rendering canvas
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .pdf-page-waiting canvas,
 .pdf-page-rendering canvas {
     opacity: 0;
 }
-
-/*
- * @style .pdf-preview-status, .pdf-preview-loading, .pdf-preview-error, .pdf-page-error
- * Markdownプレビューの本文とブロック要素を整える。
- */
 
 .pdf-preview-status,
 .pdf-preview-loading,
@@ -2767,31 +1981,16 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     text-align: center;
 }
 
-/*
- * @style .pdf-preview-status
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 
 .pdf-preview-status {
     margin: 0 0 8px;
 }
-
-/*
- * @style .pdf-page-error
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 .pdf-page-error {
     position: absolute;
     inset: 50% 0 auto;
     transform: translateY(-50%);
 }
-
-/*
- * @style .pdf-preview-note
- * Markdownプレビューの本文とブロック要素を整える。
- */
 
 .pdf-preview-note {
     max-width: 900px;
@@ -2801,21 +2000,11 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     text-align: center;
 }
 
-/*
- * @style .mve-resizing-outline, .mve-resizing-outline *
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .mve-resizing-outline,
 .mve-resizing-outline * {
     cursor: col-resize !important;
     user-select: none !important;
 }
-
-/*
- * @style .hljs-keyword, .hljs-selector-tag, .hljs-literal
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 .hljs-keyword,
 .hljs-selector-tag,
@@ -2823,83 +2012,38 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     color: #c586c0;
 }
 
-/*
- * @style .hljs-string, .hljs-attr
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .hljs-string,
 .hljs-attr {
     color: #ce9178;
 }
-
-/*
- * @style .hljs-title, .hljs-section
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 .hljs-title,
 .hljs-section {
     color: #dcdcaa;
 }
 
-/*
- * @style .hljs-comment
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 .hljs-comment {
     color: #6a9955;
 }
-
-/*
- * @style .hljs-number
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 .hljs-number {
     color: #b5cea8;
 }
 
-/*
- * @style @media (max-width: 850px)
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 @media (max-width: 850px) {
-
-    /*
-     * @style .outline-panel
-     * 対象UIの配置、状態、テーマ色を整える。
-     */
 
     .outline-panel {
         display: none;
     }
-
-    /*
-     * @style .split-editor
-     * 対象UIの配置、状態、テーマ色を整える。
-     */
 
     .split-editor {
         grid-template-columns: 1fr !important;
         grid-template-rows: minmax(280px, 1fr) 8px minmax(280px, 1fr);
     }
 
-    /*
-     * @style .split-editor.single-pane
-     * 対象UIの配置、状態、テーマ色を整える。
-     */
-
     .split-editor.single-pane {
         grid-template-rows: minmax(0, 1fr) !important;
     }
-
-    /*
-     * @style .split-divider
-     * 対象UIの配置、状態、テーマ色を整える。
-     */
 
     .split-divider {
         cursor: row-resize;
@@ -2908,11 +2052,6 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
         border-bottom: 1px solid var(--mve-border);
         border-left: 0;
     }
-
-    /*
-     * @style .inspector-panel, .diagnostics-panel, .pdf-settings-panel
-     * 対象UIの配置、状態、テーマ色を整える。
-     */
 
     .inspector-panel,
     .diagnostics-panel,
@@ -2925,27 +2064,12 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
         width: min(360px, 90vw);
     }
 
-    /*
-     * @style .ribbon-group
-     * リボンの操作項目と無効・選択状態を表示する。
-     */
-
     .ribbon-group {
         min-width: 72px;
     }
 }
 
-/*
- * @style @media print
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 @media print {
-
-    /*
-     * @style .ribbon, .outline-panel, .outline-resizer, .outline-reopen, .status-bar, .inspector-panel, .diagnostics-panel, .pdf-settings-panel, .search-panel
-     * リボンの操作項目と無効・選択状態を表示する。
-     */
 
     .ribbon,
     .outline-panel,
@@ -2959,11 +2083,6 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
         display: none !important;
     }
 
-    /*
-     * @style .app, .workspace, .editor-area
-     * 対象UIの配置、状態、テーマ色を整える。
-     */
-
     .app,
     .workspace,
     .editor-area {
@@ -2972,49 +2091,24 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
         overflow: visible !important;
     }
 
-    /*
-     * @style .pdf-preview-shell
-     * Markdownプレビューの本文とブロック要素を整える。
-     */
-
     .pdf-preview-shell {
         padding: 0;
         background: #fff;
     }
 
-    /*
-     * @style .pdf-preview-note
-     * Markdownプレビューの本文とブロック要素を整える。
-     */
-
     .pdf-preview-note {
         display: none;
     }
-
-    /*
-     * @style .pdf-preview-toolbar
-     * Markdownプレビューの本文とブロック要素を整える。
-     */
 
 
     .pdf-preview-toolbar {
         display: none;
     }
 
-    /*
-     * @style .pdf-preview-live-layer
-     * Markdownプレビューの本文とブロック要素を整える。
-     */
-
 
     .pdf-preview-live-layer {
         max-width: none;
     }
-
-    /*
-     * @style .pdf-preview-live-content
-     * Markdownプレビューの本文とブロック要素を整える。
-     */
 
 
     .pdf-preview-live-content {

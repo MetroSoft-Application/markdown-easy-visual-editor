@@ -1,12 +1,9 @@
-/*
+/**
  * @fileoverview プレビューを全幅表示する状態のレイアウト制約を定義する。
  * スタイルだけを変更し、本文データと編集状態を変更しない。
  */
-/*
- * @style .split-preview .rendered-markdown, .preview-only
- * Markdownプレビューの本文とブロック要素を整える。
- */
 
+/* 全幅表示中は左右ペインの本文幅制限を外し、通常時の分割レイアウトは維持する。 */
 .split-preview .rendered-markdown,
 .preview-only {
     max-width: none;

@@ -1,5 +1,5 @@
 /**
- * @fileoverview 起動・regressionを開発・検証環境で実行する。前提条件や失敗条件を終了コードとログで示す。
+ * @fileoverview VS Code Extension Hostで拡張機能の起動と初期化時間を計測し、過去の起動回帰を検出する。
  */
 import { readFile, readdir, stat } from 'node:fs/promises';
 import path from 'node:path';
@@ -43,9 +43,9 @@ const topLevelEntries = await readdir('dist', { withFileTypes: true });
 const topLevelFiles = topLevelEntries
   .filter(
   /**
-   * is・fileの条件を満たすエントリだけを残す。
-   * @param entry - エントリのis・fileを参照する走査対象。
-   * @returns 条件を満たした要素だけを含む一覧。
+    * 通常ファイルだけを残し、ディレクトリを計測対象から除外する。
+    * @param entry - ディレクトリ走査で検出した項目。
+
    */
   (entry) => entry.isFile())
   .map(
@@ -59,13 +59,13 @@ const topLevelFiles = topLevelEntries
 assertEqualList(topLevelFiles, requiredTopLevelFiles, 'dist のトップレベル成果物');
 
 /**
- * 起動・regressionの位置・寸法・件数・時間を表す数値。
+ * 成果物ファイル名をキー、ファイルサイズ（バイト）を値とする対応表です。
  */
 const sizes = Object.fromEntries(await Promise.all(requiredTopLevelFiles.map(
 /**
  * 各fileをstatへ渡し、変換結果を一覧化する。
  * @param file - 起動・regressionで読み書きするリソースの場所。
- * @returns 入力要素から生成した変換結果の一覧。
+
  */
 async (file) => [
   file,
@@ -82,7 +82,7 @@ const fontFiles = fontEntries.filter(
 /**
  * dist/fonts内の通常ファイルだけを残す。
  * @param entry - ファイルかどうかを判定するfontsディレクトリエントリ。
- * @returns 条件を満たした要素だけを含む一覧。
+
  */
 (entry) => entry.isFile());
 /** dist/fonts内のフォントファイルの合計サイズをバイト数で保持する。 */
@@ -103,7 +103,7 @@ async (entry) =>
  */
 (sum, size) => sum + size, 0);
 /**
- * 起動・regressionの位置・寸法・件数・時間を表す数値。
+ * distの対象ファイル全体の合計サイズをバイト単位で示します。
  */
 const totalBytes = Object.values(sizes).reduce(
 /**
@@ -180,7 +180,7 @@ function assertEqualList(actual, expected, label) {
 /**
  * バイト数を読みやすい単位へ変換し、計測ログへ表示する。
  * @param bytes - MiB単位の表示へ変換するbyte数。
- * @returns 起動・regressionのformat・bytesが生成する結果。
+ * @returns MiB単位に整形したバイト数。
  */
 function formatBytes(bytes) {
   return `${(bytes / 1024 / 1024).toFixed(2)} MiB`;

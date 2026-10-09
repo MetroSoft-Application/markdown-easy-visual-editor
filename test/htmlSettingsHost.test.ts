@@ -1,19 +1,17 @@
 /**
- * @fileoverview HTML設定Host・テストの回帰の仕様と回帰条件を検証する。失敗時は期待値と実装差分を示す。
+ * @fileoverview Extension HostがHTML出力設定を読み込み、Webviewへ通知し、更新値を保存する経路を検証する。
  */
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 /**
- * HTML設定Host・テストの回帰のvscode・mockをキーで再利用する対応表。
+ * Extension Hostのモックと同じ状態を参照するVS Code API群を生成する。
  */
 const vscodeMock = vi.hoisted(
-    /**
-     * 要素をasyncへ渡し、HTML設定Host・テストの回帰の結果または副作用を処理する。
-     * @returns 副作用を完了し、値は返さない。
-     */
+
     () => {
         const state = new Map<string, unknown>();
         const configurationValues = new Map<string, unknown>();
+        /** VS Code URIのパス・フラグメント操作を再現するテスト用オブジェクトを作る。 */
         const createUri = (scheme: string, uriPath: string, fragment = '') => ({
             scheme,
             path: uriPath,
@@ -32,21 +30,20 @@ const vscodeMock = vi.hoisted(
 
         /** globalState.updateの既定動作。旧形式の値と移行済み印を保持する。 */
         const defaultUpdate = /**
-   * HTML設定Host・テストの回帰のdefault・updateを処理し、呼び出し側へ結果または副作用を返す。
-   * @param key - globalStateモックから値を取得する設定キー。
-    * @param value - 設定モックへ保存する設定値。
-   * @returns 副作用を完了し、値は返さない。
+   * VS CodeのglobalState.updateを模倣し、値をテスト用ストアへ保存する。
+   * @param key - 保存する設定キー。
+   * @param value - 設定へ保存する値。
    */ async (key: string, value: unknown): Promise<void> => {
                 state.set(key, value);
             };
         /** VS Code設定APIのglobal値を保持し、設定の読み書きを再現する。 */
         const configuration = {
             get: vi.fn(
-                /** 保存済みglobal値がなければVS Code構成の既定値を返す。 */
+
                 (key: string, fallback: unknown) =>
                     configurationValues.has(key) ? configurationValues.get(key) : fallback),
             inspect: vi.fn(
-                /** 明示的なglobal値の有無を、VS Codeのinspect結果と同じ形で返す。 */
+
                 (key: string) => configurationValues.has(key)
                     ? { globalValue: configurationValues.get(key) }
                     : undefined),
@@ -59,19 +56,14 @@ const vscodeMock = vi.hoisted(
         const globalState = {
             get: vi.fn(
                 /**
-                 * keyをhasへ渡し、HTML設定Host・テストの回帰の結果または副作用を処理する。
                  * @param key - globalStateモックから値を取得する設定キー。
                  * @param fallback - キーが未登録の場合に返す値。
-                 * @returns HTML設定Host・テストの回帰のコールバックが生成する結果。
                  */
                 (key: string, fallback?: unknown) => state.has(key) ? state.get(key) : fallback),
             update: vi.fn(defaultUpdate),
         };
         const event = vi.fn(
-            /**
-             * 要素をfnへ渡し、HTML設定Host・テストの回帰の結果または副作用を処理する。
-             * @returns HTML設定Host・テストの回帰のコールバックが生成する結果。
-             */
+
             () => ({ dispose: vi.fn() }));
         return {
             state,
@@ -104,8 +96,7 @@ const vscodeMock = vi.hoisted(
             openExternal: vi.fn(async (_uri: unknown) => true),
             getConfiguration: vi.fn(
                 /**
-                 * HTML設定Host・テストの回帰のコールバックとして要素を処理する。
-                 * @returns HTML設定Host・テストの回帰のコールバックが生成する結果。
+                 * 呼び出し元にテスト用設定オブジェクトを返す。
                  */
                 () => configuration),
         };
@@ -113,8 +104,7 @@ const vscodeMock = vi.hoisted(
 
 vi.mock('vscode',
     /**
-     * HTML設定Host・テストの回帰のコールバックとして要素を処理する。
-     * @returns HTML設定Host・テストの回帰のコールバックが生成する結果。
+     * 拡張機能が読む設定とコマンドを持つVS Code APIスタブを作成する。
      */
     () => ({
         workspace: {
@@ -176,8 +166,8 @@ import type { HtmlExportSettings } from '../src/shared/protocol';
 const HTML_OPTIONS_STATE_KEY = 'markdownEasyVisualEditor.htmlOptions';
 
 /**
- * HTML設定Host・テストの回帰で使う値または実行環境を組み立てる。
- * @returns HTML設定Host・テストの回帰で生成または変換した値。
+ * HTML設定のHost処理が参照するVS Code拡張contextを作る。
+ * @returns HTML設定の保存とVS Code APIを模擬するcontext。
  */
 function createContext(): any {
     return {
@@ -188,9 +178,9 @@ function createContext(): any {
 }
 
 /**
- * HTML設定Host・テストの回帰で使う値または実行環境を組み立てる。
+ * 指定URIとHTML設定を持つVS Code文書のテストdoubleを作る。
  * @param uri - VS Codeまたはブラウザーが扱うリソースURI。
- * @returns HTML設定Host・テストの回帰で生成または変換した値。
+ * @returns 指定URIとHTML設定を持つ文書のテストdouble。
  */
 function createDocument(uri = 'file:///workspace/main.md'): any {
     return {
@@ -199,44 +189,35 @@ function createDocument(uri = 'file:///workspace/main.md'): any {
             fsPath: uri.replace(/^file:\/\//, ''),
 
 
-            toString: /**
-       * HTML設定Host・テストの回帰のto・stringを処理し、呼び出し側へ結果または副作用を返す。
-       * @returns HTML設定Host・テストの回帰のto・stringが生成する結果。
-       */ () => uri,
+            toString: () => uri,
         },
         version: 1,
 
 
-        getText: /**
-     * HTML設定Host・テストの回帰から必要な値またはリソースを取得する。
-     * @returns HTML設定Host・テストの回帰のget・textが生成する結果。
-     */ () => '',
+        getText: () => '',
     };
 }
 
 /**
- * HTML設定Host・テストの回帰のadd・panelを処理し、呼び出し側へ結果または副作用を返す。
+ * テスト用のWebviewパネルを生成し、指定文書と拡張プロバイダーへ関連付ける。
  * @param provider - テスト用Webviewパネルを登録するExtension Provider。
  * @param document - Webviewパネルへ関連付けるテスト用Markdown文書。
- * @returns HTML設定Host・テストの回帰のadd・panelが生成する結果。
+ * @returns プロバイダーへ追加したWebviewパネル。
  */
 function addPanel(provider: MarkdownEasyVisualEditorProvider, document: any): any {
     return addPanels(provider, document, 1)[0];
 }
 
 /**
- * HTML設定Host・テストの回帰のadd・panelsを処理し、呼び出し側へ結果または副作用を返す。
+ * 指定数のWebviewパネルを生成し、テスト文書と拡張プロバイダーへ関連付ける。
  * @param provider - 内部mapへテスト用パネルと文書を登録するExtension Provider。
  * @param document - パネル登録と文書ID生成に使うテスト用Markdown文書。
- * @param count - モックするWebview panelの件数。
- * @returns HTML設定Host・テストの回帰に対応する要素の一覧。
+ * @param count - 生成して登録するWebviewパネル数。
+ * @returns プロバイダーへ追加したパネル一覧。
  */
 function addPanels(provider: MarkdownEasyVisualEditorProvider, document: any, count: number): any[] {
     const panels = Array.from({ length: count },
-        /**
-         * 要素をfnへ渡し、HTML設定Host・テストの回帰の結果または副作用を処理する。
-         * @returns 副作用を完了し、値は返さない。
-         */
+
         () => ({ webview: { postMessage: vi.fn() } }));
     const instance = provider as any;
     const key = document.uri.toString();
@@ -251,7 +232,6 @@ function addPanels(provider: MarkdownEasyVisualEditorProvider, document: any, co
  * @param document 更新先設定の文書スコープを決めるテスト用Markdown文書。
  * @param panel 要求元となり、結果メッセージを受け取るWebviewパネル。
  * @param options 画像埋め込み、Markdownリンク変換、保存ダイアログの各設定値。
- * @returns 副作用を完了し、値は返さない。
  */
 async function setHtmlOptions(
     provider: MarkdownEasyVisualEditorProvider,
@@ -268,7 +248,6 @@ async function setHtmlOptions(
 afterEach(
     /**
      * HTML設定Host・テストの回帰の前提条件を準備し、回帰条件を検証するテストケース。
-     * @returns テストケースを実行し、値は返さない。
      */
     () => {
         vscodeMock.state.clear();
@@ -633,16 +612,8 @@ describe('section link clipboard in the extension host', () => {
 });
 
 describe('HTML export global settings in the extension host',
-    /**
-     * 「HTML export global settings in the extension host」の仕様と回帰条件を検証するテストケース。
-     * @returns テストケースを実行し、値は返さない。
-     */
     () => {
         it('persists, broadcasts, and reloads all three global choices',
-            /**
-             * 「persists, broadcasts, and reloads all three global choices」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             async () => {
                 const provider = new MarkdownEasyVisualEditorProvider(createContext());
                 await (provider as any).globalSettingsMigration;
@@ -694,10 +665,6 @@ describe('HTML export global settings in the extension host',
             });
 
         it('serializes concurrent updates and leaves the last update visible everywhere',
-            /**
-             * 「serializes concurrent updates and leaves the last update visible everywhere」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             async () => {
                 const provider = new MarkdownEasyVisualEditorProvider(createContext());
                 await (provider as any).globalSettingsMigration;
@@ -709,11 +676,11 @@ describe('HTML export global settings in the extension host',
                 /** 各global設定書き込みを保留し、要求順に解放できるよう記録する。 */
                 const delayConfigurationUpdate = (key: string, value: unknown) =>
                     new Promise<void>(
-                        /** 設定の反映後に、直列書き込みを待つテストへ完了を通知する。 */
+
                         (resolve) => {
                             started.push([key, value]);
                             releases.push(
-                                /** 保留中の設定値を反映して、次の直列書き込みを進める。 */
+
                                 () => {
                                     vscodeMock.configurationValues.set(key, value);
                                     resolve();
@@ -723,7 +690,7 @@ describe('HTML export global settings in the extension host',
                 /** 指定件数のglobal設定書き込みが開始するまで非同期キューを待つ。 */
                 const waitForStartedUpdates = async (count: number): Promise<void> => {
                     await vi.waitFor(
-                        /** 書き込み開始数が指定件数と一致するまで待ち、過不足も失敗にする。 */
+
                         () => expect(started).toHaveLength(count));
                 };
 

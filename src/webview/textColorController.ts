@@ -39,8 +39,8 @@ export function applyTextColorToActiveSource(
 }
 
 /**
- * 文字色操作から必要な値またはリソースを取得する。
- * @returns 文字色操作のread・active・source・text・colorが生成する結果。
+ * 選択中のソース本文に設定された文字色を取得する。
+ * @returns 選択範囲の文字色状態。対象がない場合や複数色が混在する場合はundefined。
  */
 export function readActiveSourceTextColor(): TextColorSelectionState {
     const view = findActiveSourceView();
@@ -65,10 +65,6 @@ export function clearInlineFormattingWithTextColor(): boolean {
     const caretOnly = selection.from === selection.to;
     const actionSelection = caretOnly
         ? (
-            /**
-             * 要素をline・atへ渡し、文字色操作の結果または副作用を処理する。
-             * @returns 文字色操作のコールバックが生成する結果。
-             */
             () => {
                 const line = view.state.doc.lineAt(selection.from);
                 return { from: line.from, to: line.to };
@@ -92,8 +88,8 @@ export function clearInlineFormattingWithTextColor(): boolean {
 }
 
 /**
- * 文字色操作から必要な値またはリソースを取得する。
- * @returns 条件に一致する値。未検出時はundefinedまたはnull。
+ * 表示中のソースエディターから、フォーカス中または可視のCodeMirrorビューを取得する。
+ * @returns 対象のエディタービュー。DOM要素に対応するビューがなければundefined。
  */
 function findActiveSourceView(): EditorView | undefined {
     const editors = [
@@ -101,18 +97,8 @@ function findActiveSourceView(): EditorView | undefined {
     ];
     if (!editors.length) return undefined;
     const focused = editors.find(
-        /**
-         * containsが条件に一致する最初のeditorを取得する。
-         * @param editor - editorのcontainsを参照する走査対象。
-         * @returns 条件に一致した最初の要素。未検出時はundefined。
-         */
         (editor) => editor.contains(document.activeElement));
     const visible = editors.find(
-        /**
-         * get・client・rectsが条件に一致する最初のeditorを取得する。
-         * @param editor - editorのget・client・rectsを参照する走査対象。
-         * @returns 条件に一致した最初の要素。未検出時はundefined。
-         */
         (editor) => editor.getClientRects().length > 0);
     const editor = focused ?? visible ?? editors[0];
     try {
@@ -123,9 +109,9 @@ function findActiveSourceView(): EditorView | undefined {
 }
 
 /**
- * 文字色操作のinternal・document・valueを処理し、呼び出し側へ結果または副作用を返す。
+ * CodeMirror文書をLF区切りの文字列にして返す。
  * @param view - CodeMirror文書本文と選択状態を提供するエディタービュー。
- * @returns 文字色操作で利用する文字列。
+ * @returns エディター内の改行をLFへ正規化した本文。
  */
 function internalDocumentValue(view: EditorView): string {
     return view.state.doc.sliceString(0, view.state.doc.length, "\n");
@@ -135,7 +121,6 @@ function internalDocumentValue(view: EditorView): string {
  * 文字色操作の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
  * @param view - テキスト変更を適用するCodeMirrorエディタービュー。
  * @param edit - 本文置換文字列と、置換後に設定する選択範囲。
- * @returns 副作用を完了し、値は返さない。
  */
 function applyEditorEdit(view: EditorView, edit: TextColorEdit): void {
     const source = internalDocumentValue(view);
@@ -151,11 +136,6 @@ function applyEditorEdit(view: EditorView, edit: TextColorEdit): void {
 
     view.dispatch({
         changes: changes.map(
-            /**
-             * 各changeからrange・offsetを取り出して一覧化する。
-             * @param change - changeのrange・offsetを参照する走査対象。
-             * @returns range・offsetを取り出した変換結果の一覧。
-             */
             (change) => ({
                 from: change.rangeOffset,
                 to: change.rangeOffset + change.rangeLength,

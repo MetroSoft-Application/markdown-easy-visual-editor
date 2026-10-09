@@ -1,5 +1,5 @@
 /**
- * @fileoverview Webviewのcodehighlighterを管理する。Hostとの通信、ユーザー操作、表示状態の契約を保つ。
+ * @fileoverview コードブロックの言語名を正規化し、highlight.jsの読み込み済み言語だけで安全に強調表示する。
  */
 import hljs from "highlight.js";
 
@@ -13,10 +13,10 @@ const highlightedCodeCache = new Map<string, string>();
 const MAX_HIGHLIGHTED_CODE_CACHE_ENTRIES = 96;
 
 /**
- * codehighlighterを表示用の結果へ変換する。
+ * 言語別のhighlight.jsモジュールが読み込まれている場合にコードをHTMLへ変換する。
  * @param text - 表示・解析・変換の対象となる本文。
  * @param language - codehighlighterの対象や分岐を識別する値。
- * @returns 副作用を完了し、値は返さない。
+ * @returns 強調表示済みHTML。言語が未登録または解析に失敗した場合はundefined。
  */
 export function highlightCode(text: string, language: string): string | undefined {
     if (language && !hljs.getLanguage(language)) return undefined;

@@ -1,19 +1,15 @@
 /**
- * @fileoverview textcolorpdf・テストの回帰の仕様と回帰条件を検証する。失敗時は期待値と実装差分を示す。
+ * @fileoverview 固定色の文字色マークアップがPDF用HTMLへ保持され、外部CSSに依存しないことを検証する。
  */
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('vscode',
-    /**
-     * 要素をjoinへ渡し、textcolorpdf・テストの回帰の結果または副作用を処理する。
-     * @returns textcolorpdf・テストの回帰のコールバックが生成する結果。
-     */
+
     () => ({
         Uri: {
 
 
             file: /**
-     * textcolorpdf・テストの回帰のfileを処理し、呼び出し側へ結果または副作用を返す。
      * @param filePath - 読み書きするファイルのパス。
      * @returns textcolorpdf・テストの回帰のfileが生成する結果。
      */ (filePath: string) => ({ scheme: 'file', path: filePath, fsPath: filePath }),
@@ -40,39 +36,27 @@ vi.mock('vscode',
 
 
             parse: /**
-     * textcolorpdf・テストの回帰の入力を構造化した値へ変換する。
+     * file URI形式の入力からテスト用URIを生成する。
      * @param value - file URIのパス部へ変換する入力パス文字列。
-     * @returns textcolorpdf・テストの回帰で生成または変換した値。
+     * @returns 入力パスを持つfile形式のテスト用URI。
      */ (value: string) => ({ scheme: 'file', path: value, fsPath: value }),
         },
         workspace: {
             fs: {
 
-                readFile: /**
-     * textcolorpdf・テストの回帰から必要な値またはリソースを取得する。
-     * @returns textcolorpdf・テストの回帰に対応する要素の一覧。
-     */ async () => new Uint8Array()
+                readFile: async () => new Uint8Array()
             },
 
 
-            getConfiguration: /**
-     * textcolorpdf・テストの回帰から必要な値またはリソースを取得する。
-     * @returns textcolorpdf・テストの回帰のget・configurationが生成する結果。
-     */ () => ({
+            getConfiguration: () => ({
 
-                    get: /**
-     * textcolorpdf・テストの回帰から必要な値またはリソースを取得する。
-     * @param _key - textcolorpdf・テストの回帰の対象や分岐を識別する値。
-     * @param fallback - textcolorpdf・テストの回帰で受け渡す文字列。
-     * @returns textcolorpdf・テストの回帰のgetが生成する結果。
-     */ (_key: string, fallback: string) => fallback
+                    get:  (_key: string, fallback: string) => fallback
                 }),
         },
         window: {
 
             showSaveDialog: /**
    * textcolorpdf・テストの回帰の表示または操作を開始する。
-   * @returns 副作用を完了し、値は返さない。
    */ async () => undefined
         },
         // @ts-ignore Vitest supports a third virtual-module option at runtime.
@@ -82,16 +66,8 @@ import { buildStandaloneHtml, type PdfExportRequest } from '../src/extension/pdf
 import { textColorOpenTag } from '../src/shared/textColor';
 
 describe('PDF text color export',
-    /**
-     * 「PDF text color export」の仕様と回帰条件を検証するテストケース。
-     * @returns テストケースを実行し、値は返さない。
-     */
     () => {
         it('preserves the fixed inline text color in the standalone print HTML',
-            /**
-             * 「preserves the fixed inline text color in the standalone print HTML」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             async () => {
                 const body = `<p>${textColorOpenTag('orange')}PDF color</span></p>`;
                 const request = {

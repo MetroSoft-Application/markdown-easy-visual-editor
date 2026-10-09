@@ -1,5 +1,5 @@
 /**
- * @fileoverview スモーク検証・高速を開発・検証環境で実行する。前提条件や失敗条件を終了コードとログで示す。
+ * @fileoverview ビルド済みWebviewをChromiumで起動し、主要UI、編集応答、描画Workerの基本経路を短時間で確認する。
  */
 import { chromium } from 'playwright-core';
 import { readFile, readdir } from 'node:fs/promises';
@@ -7,9 +7,9 @@ import path from 'node:path';
 
 /**
  * 指定した名前のファイルを検証用ディレクトリから再帰的に探す。
- * @param root - スモーク検証・高速へ渡す入力。
- * @param name - スモーク検証・高速の対象や分岐を識別する値。
- * @returns スモーク検証・高速のfind・fileが生成する結果。
+ * @param root - 再帰検索を始めるビルド出力ディレクトリ。
+ * @param name - 大文字・小文字を区別せず照合するファイル名。
+ * @returns 見つかったファイルのパス。配下にない場合はundefined。
  */
 async function findFile(root, name) {
   for (const entry of await readdir(root, { withFileTypes: true })) {
@@ -23,27 +23,27 @@ async function findFile(root, name) {
 }
 
 /**
- * スモーク検証・高速で読み書きするリソースの場所。
+ * PDF用に導入したChromiumの実行ファイル。未導入なら検証を始める前に終了する。
  */
 const executablePath = await findFile(path.resolve('.chromium'), 'chrome-headless-shell.exe');
 if (!executablePath) throw new Error('Chromium がありません。npm run pdf:install-browser を実行してください。');
 /**
- * スモーク検証・高速のwebview・bundleとして読み込んだ本文または設定。
+ * 主要UIとReactの製品バンドル混入を調べるWebview JavaScript本文。
  */
 const webviewBundle = await readFile(path.resolve('dist/webview.js'), 'utf8');
 /**
- * スモーク検証・高速で解析・表示・保存する本文。
+ * スモーク検証でWorkerの配信と読み込みを確認するMarkdown Worker本文。
  */
 const markdownWorkerBundle = await readFile(path.resolve('dist/markdown-worker.js'), 'utf8');
 /**
- * スモーク検証・高速で解析・表示・保存する本文。
+ * リッチ描画Workerの配信と読み込みを確認するJavaScript本文。
  */
 const markdownRichWorkerBundle = await readFile(path.resolve('dist/markdown-rich-worker.js'), 'utf8');
 if (/react\.development\.js|@milkdown|MILKDOWN_LISTENER/.test(webviewBundle)) {
   throw new Error('製品Webviewバンドルに開発用ReactまたはMilkdownが残っています。');
 }
 /**
- * スモーク検証・高速の位置・寸法・件数・時間を表す数値。
+ * 高速スモーク確認を実行するChromiumインスタンスです。
  */
 const browser = await chromium.launch({ executablePath, headless: true });
 /**
@@ -53,10 +53,7 @@ const errors = [];
 try {
   const context = await browser.newContext();
   await context.addInitScript(
-  /**
-   * 要素をsetへ渡し、スモーク検証・高速の結果または副作用を処理する。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
-   */
+
   () => {
     window.__mveMessages = [];
     window.__mveHostVersion = 1;
@@ -79,9 +76,8 @@ try {
 
       
       postMessage: /**
-       * スモーク検証・高速の変更または要求をHost・Webview間へ通知する。
-       * @param message - HostとWebviewの間で受け渡すメッセージ。
-       * @returns スモーク検証・高速のpost・messageが生成する結果。
+       * VS Code APIの代わりに送信を記録し、編集要求はテスト用Host状態へ適用してackを返す。
+       * @param message - WebviewからテストHostへ送られた要求。
        */ (message) => {
         window.__mveMessages.push(message);
         if (message.type === 'localChanges') {
@@ -110,7 +106,6 @@ try {
           setTimeout(
           /**
            * 指定時間の経過後に後続処理を実行する。
-           * @returns 副作用を完了し、値は返さない。
            */
           () => {
             const ack = {
@@ -139,7 +134,6 @@ try {
           setTimeout(
           /**
            * 指定時間の経過後に後続処理を実行する。
-           * @returns 副作用を完了し、値は返さない。
            */
           () => window.dispatchEvent(new MessageEvent('message', {
             data: {
@@ -153,7 +147,6 @@ try {
         if (message.type === 'requestResync') setTimeout(
         /**
          * 指定時間の経過後に後続処理を実行する。
-         * @returns 副作用を完了し、値は返さない。
          */
         () => window.dispatchEvent(new MessageEvent('message', {
           data: {
@@ -176,7 +169,6 @@ try {
           setTimeout(
           /**
            * 指定時間の経過後に後続処理を実行する。
-           * @returns 副作用を完了し、値は返さない。
            */
           () => window.dispatchEvent(new MessageEvent('message', {
             data: { type: 'settingsChanged', settings: window.__mveGlobalSettings }
@@ -190,7 +182,6 @@ try {
           setTimeout(
           /**
            * 指定時間の経過後に後続処理を実行する。
-           * @returns 副作用を完了し、値は返さない。
            */
           () => window.dispatchEvent(new MessageEvent('message', {
             data: { type: 'settingsChanged', settings: window.__mveGlobalSettings }
@@ -204,7 +195,6 @@ try {
           setTimeout(
           /**
            * 指定時間の経過後に後続処理を実行する。
-           * @returns 副作用を完了し、値は返さない。
            */
           () => window.dispatchEvent(new MessageEvent('message', {
             data: { type: 'settingsChanged', settings: window.__mveGlobalSettings }
@@ -219,7 +209,6 @@ try {
           setTimeout(
           /**
            * 指定時間の経過後に後続処理を実行する。
-           * @returns 副作用を完了し、値は返さない。
            */
           () => window.dispatchEvent(new MessageEvent('message', {
             data: { type: 'settingsChanged', settings: window.__mveGlobalSettings }
@@ -229,14 +218,12 @@ try {
 
       
       getState: /**
-       * スモーク検証・高速から必要な値またはリソースを取得する。
        * @returns 条件に一致する値。未検出時はundefinedまたはnull。
        */ () => undefined,
 
       
       setState: /**
        * スモーク検証・高速の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-       * @returns 副作用を完了し、値は返さない。
        */ () => undefined
     });
   });
@@ -247,23 +234,17 @@ try {
   /**
    * pageerrorイベントで一覧追加を実行する。
    * @param error - ユーザー操作またはDOMから通知されたイベント。
-   * @returns 副作用を完了し、値は返さない。
    */
   (error) => errors.push(error.message));
   page.on('console',
   /**
    * consoleイベントでifを実行する。
    * @param message - ユーザー操作またはDOMから通知されたイベント。
-   * @returns 副作用を完了し、値は返さない。
    */
   (message) => { if (message.type() === 'error') errors.push(message.text()); });
   await page.goto('about:blank');
   await page.setContent('<!doctype html><html lang="ja"><head><meta charset="utf-8"></head><body><div id="root"></div></body></html>');
   await page.evaluate(
-  /**
-   * ブラウザーのDOM状態のcreate・object・url結果を読み取り、検証用の値へ変換する。
-  * @returns ブラウザー内で読み取った値または変換結果。
-   */
   ({ workerSource, richWorkerSource }) => {
     document.body.dataset.mveMarkdownWorkerUri = URL.createObjectURL(new Blob([workerSource], { type: 'text/javascript' }));
     document.body.dataset.mveMarkdownRichWorkerUri = URL.createObjectURL(new Blob([richWorkerSource], { type: 'text/javascript' }));
@@ -274,22 +255,15 @@ try {
   await page.waitForFunction(
   /**
    * HostとWebviewのメッセージ状態が完了条件を満たすまで待機する。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveMessages.some(
   /**
-   * スモーク検証・高速のコールバックとしてメッセージを処理する。
+
    * @param message - HostとWebviewの間で受け渡すメッセージ。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (message) => message.type === 'ready'));
   const settings = { language: 'ja', imageDirectory: 'assets/${documentBasename}', maxPasteSizeMb: 20, remoteImagesEnabled: false, mermaidTheme: 'default', outlineVisible: true, workspaceTrusted: true, editorFontFamily: '', previewFontFamily: '' };
   await page.evaluate(
-  /**
-   * Webviewの共有設定のdispatch・event結果を読み取り、検証用の値へ変換する。
-   * @param initSettings - Webview初期化メッセージへ渡す設定一式。
-   * @returns ブラウザー内で読み取った値または変換結果。
-   */
   (initSettings) => {
     window.__mveGlobalSettings = { ...initSettings, scrollSyncEnabled: true };
     window.dispatchEvent(new MessageEvent('message', {
@@ -322,7 +296,6 @@ try {
   await page.waitForFunction(
   /**
    * Webviewの共有設定が完了条件を満たすまで待機する。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveGlobalSettings.editorFontFamily === 'Arial');
   await editorFontInput.click();
@@ -331,7 +304,6 @@ try {
   await page.waitForFunction(
   /**
    * Webviewの共有設定が完了条件を満たすまで待機する。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveGlobalSettings.editorFontFamily === 'Enter Font');
   await editorFontInput.fill('Unsaved Font');
@@ -356,7 +328,7 @@ try {
   /**
    * 種別「setFontFamilies」のメッセージだけを残す。
    * @param message - メッセージのtypeを参照する走査対象。
-   * @returns 条件を満たした要素だけを含む一覧。
+
    */
   (message) => message.type === 'setFontFamilies').length, editorFontMessageStart);
   if (editorMessagesWhileTyping !== 0) throw new Error('editor font input sent host messages while typing');
@@ -364,7 +336,6 @@ try {
   await page.waitForFunction(
   /**
    * Webviewの共有設定が完了条件を満たすまで待機する。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveGlobalSettings.editorFontFamily === 'Editor Test Font');
   const previewFontMessageStart = await page.evaluate(
@@ -384,7 +355,7 @@ try {
   /**
    * 種別「setFontFamilies」のメッセージだけを残す。
    * @param message - メッセージのtypeを参照する走査対象。
-   * @returns 条件を満たした要素だけを含む一覧。
+
    */
   (message) => message.type === 'setFontFamilies').length, previewFontMessageStart);
   if (previewMessagesWhileTyping !== 0) throw new Error('preview font input sent host messages while typing');
@@ -392,7 +363,6 @@ try {
   await page.waitForFunction(
   /**
    * Webviewの共有設定が完了条件を満たすまで待機する。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveGlobalSettings.editorFontFamily === 'Editor Test Font'
     && window.__mveGlobalSettings.previewFontFamily === 'Preview Test Font');
@@ -421,14 +391,9 @@ try {
   await page.waitForFunction(
   /**
    * Webviewの共有設定が完了条件を満たすまで待機する。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveGlobalSettings.editorFontFamily === '');
   const invalidFontFallback = await page.evaluate(
-  /**
-   * ブラウザーのDOM状態のget・computed・style結果を読み取り、検証用の値へ変換する。
-   * @returns ブラウザー内で読み取った値または変換結果。
-   */
   () => getComputedStyle(document.documentElement).getPropertyValue('--mve-editor-font-family').trim());
   await editorFontInput.fill('');
   await previewFontInput.fill('');
@@ -436,15 +401,10 @@ try {
   await page.waitForFunction(
   /**
    * Webviewの共有設定が完了条件を満たすまで待機する。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveGlobalSettings.editorFontFamily === ''
     && window.__mveGlobalSettings.previewFontFamily === '');
   const emptyFontFallback = await page.evaluate(
-  /**
-   * ブラウザーのDOM状態のget・computed・style結果を読み取り、検証用の値へ変換する。
-   * @returns ブラウザー内で読み取った値または変換結果。
-   */
   () => ({
     editor: getComputedStyle(document.documentElement).getPropertyValue('--mve-editor-font-family').trim(),
     preview: getComputedStyle(document.documentElement).getPropertyValue('--mve-preview-font-family').trim()
@@ -500,7 +460,6 @@ try {
   await page.waitForFunction(
   /**
    * Webviewの共有設定が完了条件を満たすまで待機する。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveGlobalSettings.imageDirectory === 'images/${documentBasename}');
   await page.getByRole('tab', { name: 'ホーム', exact: true }).click();
@@ -516,14 +475,14 @@ try {
     /**
      * 種別「localChanges」のメッセージだけを残す。
      * @param message - メッセージのtypeを参照する走査対象。
-     * @returns 条件を満たした要素だけを含む一覧。
+
      */
     (message) => message.type === 'localChanges').length,
     resync: window.__mveMessages.filter(
     /**
      * 種別「requestResync」のメッセージだけを残す。
      * @param message - メッセージのtypeを参照する走査対象。
-     * @returns 条件を満たした要素だけを含む一覧。
+
      */
     (message) => message.type === 'requestResync').length
   }));
@@ -531,7 +490,6 @@ try {
   await page.waitForFunction(
   /**
    * Host側の本文状態が完了条件を満たすまで待機する。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveHostText === '\n' && window.__mvePhysicalText === '\r\n');
   await page.waitForTimeout(300);
@@ -548,14 +506,14 @@ try {
     /**
      * 種別「localChanges」のメッセージだけを残す。
      * @param message - メッセージのtypeを参照する走査対象。
-     * @returns 条件を満たした要素だけを含む一覧。
+
      */
     (message) => message.type === 'localChanges').length - start.local,
     resync: window.__mveMessages.filter(
     /**
      * 種別「requestResync」のメッセージだけを残す。
      * @param message - メッセージのtypeを参照する走査対象。
-     * @returns 条件を満たした要素だけを含む一覧。
+
      */
     (message) => message.type === 'requestResync').length - start.resync
   }), emptyCrLfStart);
@@ -566,12 +524,7 @@ try {
   const zoomImageSource = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=';
   const source = ('# Smoke\n\nfirst\\\nsecond\n\nReference [link][target] and note[^note].\n\n<!-- ordinary comment -->\n\n<div>raw-one</div>\n<div>raw-two</div>\n\n[target]: https://example.com\n\n[^note]: footnote body\n\n```ts\nconst value = 1;\n```\n'
     + Array.from({ length: 220 },
-    /**
-     * ・をrepeatへ渡し、スモーク検証・高速の結果または副作用を処理する。
-     * @param _ - 引数位置を維持するための未使用値。
-     * @param index - 配列・行列・文字列の要素位置を示す番号。
-     * @returns スモーク検証・高速のコールバックが生成する結果。
-     */
+
     (_, index) => `\n## Long section ${index}\n\n${'content '.repeat(16)}${index}\n`).join('')
     + '\n| H1 | H2 |\n| --- | --- |\n| old | old2 |\n');
   const sourceVersion = await page.evaluate(
@@ -589,10 +542,6 @@ try {
     return window.__mveHostVersion;
   }, source);
   await page.evaluate(
-  /**
-   * Webviewの共有設定のdispatch・event結果を読み取り、検証用の値へ変換する。
-  * @returns ブラウザー内で読み取った値または変換結果。
-   */
   ({ text, version }) => window.dispatchEvent(new MessageEvent('message', {
     data: { type: 'init', text, version, uri: 'file:///C:/smoke.md', settings: window.__mveGlobalSettings }
   })), { text: source, version: sourceVersion });
@@ -602,7 +551,6 @@ try {
     /**
      * ブラウザー内に「.split-preview .rendered-markdown」が現れるまで待機する。
      * @param expectedLength - プレビューのdata-document-lengthと照合する期待本文長。
-     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     (expectedLength) => (
       Number(document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-document-length')) === expectedLength
@@ -620,25 +568,10 @@ try {
   (text) => {
     const reference = [...document.querySelectorAll('.split-preview .markdown-source-block')]
       .find(
-      /**
-       * text・contentが条件に一致する最初の要素を取得する。
-       * @param element - 要素のtext・contentを参照する走査対象。
-       * @returns 条件に一致した最初の要素。未検出時はundefined。
-       */
       (element) => element.textContent?.includes('Reference'));
     const rawOne = [...document.querySelectorAll('.split-preview div')].find(
-    /**
-     * text・contentが条件に一致する最初の要素を取得する。
-     * @param element - 要素のtext・contentを参照する走査対象。
-     * @returns 条件に一致した最初の要素。未検出時はundefined。
-     */
     (element) => element.textContent === 'raw-one');
     const rawTwo = [...document.querySelectorAll('.split-preview div')].find(
-    /**
-     * text・contentが条件に一致する最初の要素を取得する。
-     * @param element - 要素のtext・contentを参照する走査対象。
-     * @returns 条件に一致した最初の要素。未検出時はundefined。
-     */
     (element) => element.textContent === 'raw-two');
     const footnotes = document.querySelector('.split-preview .footnotes');
     return {
@@ -659,8 +592,7 @@ try {
 
   
   const runImageZoomSmoke = /**
-   * スモーク検証・高速の処理順序と完了状態を管理する。
-   * @returns スモーク検証・高速のrun・image・zoom・smokeが生成する結果。
+   * プレビュー画像の基準幅、ズーム倍率、保存済み幅をUI操作後に検証する。
    */ async () => {
     const zoomImage = page.locator('.split-preview img[data-mve-image-kind="html"]').first();
     await zoomImage.waitFor();
@@ -668,7 +600,6 @@ try {
     await page.waitForFunction(
     /**
      * ブラウザー内に「.split-preview img[data-mve-image-kind=」が現れるまで待機する。
-     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     () => {
       const image = document.querySelector('.split-preview img[data-mve-image-kind="html"]');
@@ -703,13 +634,11 @@ try {
     /**
      * ブラウザー内に「.status-bar」が現れるまで待機する。
      * @param value - 画像ズーム操作前のステータス表示文字列。
-     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     (value) => document.querySelector('.status-bar')?.textContent !== value, imageZoomStatusBefore);
     await page.waitForFunction(
     /**
      * ブラウザー内に「.split-preview .rendered-markdown」が現れるまで待機する。
-     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     () => document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-mve-image-zoom') === '1.1');
     const imageZoomAfter = await page.evaluate(
@@ -751,7 +680,6 @@ try {
     /**
      * Host側の本文状態が完了条件を満たすまで待機する。
      * @param text - 画像リサイズ前のHost本文。変更検出の基準にする。
-     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     (text) => window.__mveHostText !== text, imageResizeSourceBefore);
     if (!(await page.evaluate(
@@ -770,7 +698,6 @@ try {
     await page.waitForFunction(
     /**
      * ブラウザー内に「.split-preview img[data-mve-image-kind=」が現れるまで待機する。
-     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     () => {
       const image = document.querySelector('.split-preview img[data-mve-image-kind="html"]');
@@ -786,13 +713,11 @@ try {
     /**
      * ブラウザー内に「.status-bar」が現れるまで待機する。
      * @param value - 画像ズーム操作前のステータス表示文字列。
-     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     (value) => document.querySelector('.status-bar')?.textContent !== value, imageZoomStatusBeforeShrink);
     await page.waitForFunction(
     /**
      * ブラウザー内に「.split-preview .rendered-markdown」が現れるまで待機する。
-     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     () => document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-mve-image-zoom') === '1');
     const imageZoomAfterShrink = await page.evaluate(
@@ -820,13 +745,11 @@ try {
     /**
      * ブラウザー内に「.status-bar」が現れるまで待機する。
      * @param value - 画像ズーム操作前のステータス表示文字列。
-     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     (value) => document.querySelector('.status-bar')?.textContent !== value, imageZoomStatusBeforeRegrow);
     await page.waitForFunction(
     /**
      * ブラウザー内に「.split-preview .rendered-markdown」が現れるまで待機する。
-     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     () => document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-mve-image-zoom') === '1.1');
     const imageZoomAfterRegrow = await page.evaluate(
@@ -854,13 +777,11 @@ try {
     /**
      * ブラウザー内に「.status-bar」が現れるまで待機する。
      * @param value - 画像ズーム操作前のステータス表示文字列。
-     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     (value) => document.querySelector('.status-bar')?.textContent !== value, imageZoomStatusAfterRegrow);
     await page.waitForFunction(
     /**
      * ブラウザー内に「.split-preview .rendered-markdown」が現れるまで待機する。
-     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     () => document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-mve-image-zoom') === '1');
     const imageZoomRestored = await page.evaluate(
@@ -907,7 +828,6 @@ try {
   /**
    * Host側の本文状態が完了条件を満たすまで待機する。
    * @param text - 切り取り操作前のHost本文。変更検出の基準にする。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (text) => window.__mveHostText !== text, beforeCutText);
   if (await page.evaluate(
@@ -921,7 +841,6 @@ try {
   /**
    * Host側の本文状態が完了条件を満たすまで待機する。
    * @param text - 切り取り取消後にHostへ戻ることを期待する本文。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (text) => window.__mveHostText === text, beforeCutText);
   await page.locator('.split-editor .cm-line').filter({ hasText: 'Reference [link]' }).first().waitFor();
@@ -944,7 +863,6 @@ try {
   }
   const tableEditorSize = await page.locator('.mve-table-editor').evaluate(
   /**
-   * ブラウザー内の状態のget・bounding・client・rect結果を読み取り、検証用の値へ変換する。
    * @param element - 寸法を測定する表編集オーバーレイ要素。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
@@ -984,7 +902,6 @@ try {
   await page.waitForFunction(
   /**
    * ブラウザー内に「[data-table-cell=」が現れるまで待機する。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => {
     const value = document.querySelector('[data-table-cell="1:0"]')?.value ?? '';
@@ -994,7 +911,6 @@ try {
   /**
    * ブラウザー内に「.mve-table-editor-row-resizer」が現れるまで待機する。
    * @param before - Alt+Enter前に表示されている対象行の高さ（aria-valuenow）。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (before) => Number(document.querySelectorAll('.mve-table-editor-row-resizer')[1]?.getAttribute('aria-valuenow')) > before, rowHeightBeforeAltEnter);
   const altEnterCellMetrics = await altEnterCell.evaluate(
@@ -1026,7 +942,6 @@ try {
   await page.waitForFunction(
   /**
    * Host側の本文状態が完了条件を満たすまで待機する。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveHostText.includes('| old<br> | old2 |'));
   await sourceEditor.press('Control+Z');
@@ -1034,7 +949,6 @@ try {
   /**
    * Host側の本文状態が完了条件を満たすまで待機する。
    * @param text - Apply取消後に戻ることを期待するHost本文。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (text) => window.__mveHostText === text, hostBeforeAltEnter);
   await page.getByRole('button', { name: '表を編集', exact: true }).click();
@@ -1043,17 +957,10 @@ try {
   if (await page.locator('.mve-table-editor-grid tbody tr').count() !== 3) throw new Error('table editor row copy did not duplicate the selected row');
   const copiedRowState = await page.locator('.mve-table-editor-grid tbody tr').evaluateAll(
   /**
-   * table・rowsをmapへ渡し、スモーク検証・高速の結果または副作用を処理する。
    * @param tableRows - スモーク検証・高速で走査または更新する要素。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (tableRows) =>
     tableRows.map(
-    /**
-     * 各行から対象DOM要素を抽出して一覧化する。
-     * @param row - 行のquery・selector・allを参照する走査対象。
-     * @returns query・selector・allを取り出した変換結果の一覧。
-     */
     (row) => [...row.querySelectorAll('textarea')].map(
     /**
      * 各セルから値を取り出して一覧化する。
@@ -1064,10 +971,9 @@ try {
   );
   if (!copiedRowState.some(
   /**
-   * 行をstringifyへ渡し、スモーク検証・高速の結果または副作用を処理する。
    * @param row - スモーク検証・高速で走査または更新する要素。
-   * @param index - 配列・行列・文字列の要素位置を示す番号。
-   * @returns スモーク検証・高速で利用する文字列。
+   * @param index - 走査中の配列における0始まりの要素位置。
+
    */
   (row, index) => index > 0 && JSON.stringify(row) === JSON.stringify(copiedRowState[index - 1]))) {
     throw new Error(`table editor row copy did not preserve row values: ${JSON.stringify(copiedRowState)}`);
@@ -1077,9 +983,7 @@ try {
   if (copiedColumnCount !== 5) throw new Error(`table editor column copy did not duplicate the selected column range: ${copiedColumnCount}`);
   const copiedColumnState = await page.locator('.mve-table-editor-grid tbody tr').first().locator('textarea').evaluateAll(
   /**
-   * cellsをmapへ渡し、スモーク検証・高速の結果または副作用を処理する。
    * @param cells - スモーク検証・高速で走査または更新する要素。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (cells) => cells.map(
   /**
@@ -1093,9 +997,7 @@ try {
   }
   page.once('dialog',
   /**
-   * dialogをacceptへ渡し、スモーク検証・高速の結果または副作用を処理する。
    * @param dialog - スモーク検証・高速へ渡す入力。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (dialog) => dialog.accept());
   await page.getByRole('button', { name: 'キャンセル', exact: true }).click();
@@ -1114,6 +1016,7 @@ try {
   if (await page.locator('.mve-table-editor-grid tbody tr').count() !== 3) throw new Error('table editor row draft action did not apply once');
   const sortHeaderA = page.locator('th.mve-table-editor-column-selector').nth(0);
   const sortHeaderB = page.locator('th.mve-table-editor-column-selector').nth(1);
+  /** 現在のテーブル行を、ソート結果照合用のセル文字列配列として取得する。 */
   const readSortRows = async () => page.locator('.mve-table-editor-grid tbody tr').evaluateAll((tableRows) =>
     tableRows.map((row) => Array.from(row.querySelectorAll('textarea'), (cell) => cell.value)));
   await page.locator('[data-table-cell="1:0"]').fill('item10');
@@ -1218,7 +1121,6 @@ try {
   }
   const tableColumnBefore = await page.locator('.mve-table-editor-grid col').nth(1).evaluate(
   /**
-   * ブラウザー内の状態のget・bounding・client・rect結果を読み取り、検証用の値へ変換する。
    * @param element - 列リサイズ前の描画幅を測定するcol要素。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
@@ -1231,13 +1133,11 @@ try {
     /**
      * ブラウザー内に「.mve-table-editor-column-resizer」が現れるまで待機する。
      * @param expected - キー操作後に期待する列幅（px）。
-     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     (expected) => Number(document.querySelector('.mve-table-editor-column-resizer')?.getAttribute('aria-valuenow')) === expected, tableColumnStateBefore + step * 12);
   }
   const tableColumnAfter = await page.locator('.mve-table-editor-grid col').nth(1).evaluate(
   /**
-   * ブラウザー内の状態のget・bounding・client・rect結果を読み取り、検証用の値へ変換する。
    * @param element - 列リサイズ後の描画幅を測定するcol要素。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
@@ -1254,7 +1154,6 @@ try {
   /**
    * ブラウザー内に「.mve-table-editor-column-resizer」が現れるまで待機する。
    * @param before - Auto-fit前に設定されている列幅（aria-valuenow）。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (before) => Number(document.querySelector('.mve-table-editor-column-resizer')?.getAttribute('aria-valuenow')) > before, autoFitColumnBefore);
   const autoFitColumnAfter = Number(await columnResizer.getAttribute('aria-valuenow'));
@@ -1287,7 +1186,6 @@ try {
   /**
    * ブラウザー内に「.mve-table-editor-row-resizer」が現れるまで待機する。
    * @param before - Auto-fit前に設定されている行高（aria-valuenow）。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (before) => Number(document.querySelectorAll('.mve-table-editor-row-resizer')[1]?.getAttribute('aria-valuenow')) > before, rowHeightBefore);
   const rowHeightAfter = Number(await rowResizer.getAttribute('aria-valuenow'));
@@ -1371,9 +1269,7 @@ try {
   dragStartHeight);
   page.once('dialog',
   /**
-   * dialogをacceptへ渡し、スモーク検証・高速の結果または副作用を処理する。
    * @param dialog - スモーク検証・高速へ渡す入力。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (dialog) => dialog.accept());
   await page.getByRole('button', { name: 'キャンセル', exact: true }).click();
@@ -1398,7 +1294,7 @@ try {
     /**
      * 種別「localChanges」のメッセージだけを残す。
      * @param message - メッセージのtypeを参照する走査対象。
-     * @returns 条件を満たした要素だけを含む一覧。
+
      */
     (message) => message.type === 'localChanges'), noOpMessageStart);
   if (noOpLocalChanges.length !== 0) throw new Error(`untouched table apply emitted synchronization: ${JSON.stringify(noOpLocalChanges)}`);
@@ -1413,11 +1309,6 @@ try {
   const editableCell = page.locator('[data-table-cell="1:0"]');
   await editableCell.fill('alpha<br>beta');
   await editableCell.evaluate(
-  /**
-   * ブラウザー内の状態のindex・of結果を読み取り、検証用の値へ変換する。
-   * @param element - br境界のカーソルまたは選択範囲を設定するセル入力要素。
-   * @returns ブラウザー内で読み取った値または変換結果。
-   */
   (element) => {
     const start = element.value.indexOf('<br>');
     element.focus();
@@ -1430,11 +1321,6 @@ try {
   }
   await editableCell.fill('alpha<br>beta');
   await editableCell.evaluate(
-  /**
-   * ブラウザー内の状態のindex・of結果を読み取り、検証用の値へ変換する。
-   * @param element - br境界のカーソルまたは選択範囲を設定するセル入力要素。
-   * @returns ブラウザー内で読み取った値または変換結果。
-   */
   (element) => {
     const start = element.value.indexOf('<br>');
     element.focus();
@@ -1444,16 +1330,10 @@ try {
   await page.waitForFunction(
   /**
    * ブラウザー内に「[data-table-cell=」が現れるまで待機する。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => document.querySelector('[data-table-cell="1:0"]')?.value === 'alphabeta');
   await editableCell.fill('alpha<br>beta');
   await editableCell.evaluate(
-  /**
-   * ブラウザー内の状態のindex・of結果を読み取り、検証用の値へ変換する。
-   * @param element - br境界のカーソルまたは選択範囲を設定するセル入力要素。
-   * @returns ブラウザー内で読み取った値または変換結果。
-   */
   (element) => {
     const start = element.value.indexOf('<br>');
     element.focus();
@@ -1463,7 +1343,6 @@ try {
   await page.waitForFunction(
   /**
    * ブラウザー内に「[data-table-cell=」が現れるまで待機する。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => document.querySelector('[data-table-cell="1:0"]')?.value === 'alphabeta');
   if ((await editableCell.inputValue()).includes('<br><br>')) {
@@ -1482,7 +1361,6 @@ try {
     await page.waitForFunction(
     /**
      * Host側の本文状態が完了条件を満たすまで待機する。
-     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     () => window.__mveHostText.includes('| beforeafter<br> | old2 |'));
   } catch (error) {
@@ -1508,7 +1386,7 @@ try {
     /**
      * 種別「localChanges」のメッセージだけを残す。
      * @param message - メッセージのtypeを参照する走査対象。
-     * @returns 条件を満たした要素だけを含む一覧。
+
      */
     (message) => message.type === 'localChanges'), editMessageStart);
   if (tableEditMessages.length !== 1) throw new Error(`table apply emitted ${tableEditMessages.length} synchronization operations`);
@@ -1524,7 +1402,6 @@ try {
   await page.waitForFunction(
   /**
    * Host側の本文状態が完了条件を満たすまで待機する。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveHostText.includes('| new | old2 |'));
   const lineBreakMessages = await page.evaluate(
@@ -1538,7 +1415,7 @@ try {
     /**
      * 種別「localChanges」のメッセージだけを残す。
      * @param message - メッセージのtypeを参照する走査対象。
-     * @returns 条件を満たした要素だけを含む一覧。
+
      */
     (message) => message.type === 'localChanges'), lineBreakMessageStart);
   if (lineBreakMessages.length !== 1) throw new Error(`follow-up table apply emitted ${lineBreakMessages.length} synchronization operations`);
@@ -1553,7 +1430,7 @@ try {
   /**
    * 種別「localChanges」のメッセージだけを残す。
    * @param message - メッセージのtypeを参照する走査対象。
-   * @returns 条件を満たした要素だけを含む一覧。
+
    */
   (message) => message.type === 'localChanges').length);
   await sourceEditor.click();
@@ -1566,7 +1443,6 @@ try {
   await page.waitForFunction(
   /**
    * Host側の本文状態が完了条件を満たすまで待機する。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveHostText.includes('second  \n'));
   if ((await page.evaluate(
@@ -1578,7 +1454,7 @@ try {
   /**
    * 種別「localChanges」のメッセージだけを残す。
    * @param message - メッセージのtypeを参照する走査対象。
-   * @returns 条件を満たした要素だけを含む一覧。
+
    */
   (message) => message.type === 'localChanges').length)) <= sourceEditMessageStart) {
     throw new Error('source edit did not emit a synchronization operation');
@@ -1594,7 +1470,6 @@ try {
   /**
    * Host側の本文状態が完了条件を満たすまで待機する。
    * @param text - undo/redo後のHost本文長を比較する基準本文。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (text) => window.__mveHostText.length === text.length + 1, beforeRibbonUndo);
   await page.locator('button[title^="元に戻す"]').click();
@@ -1602,7 +1477,6 @@ try {
   /**
    * Host側の本文状態が完了条件を満たすまで待機する。
    * @param text - undo後にHostで復元されることを期待する本文。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (text) => window.__mveHostText === text, beforeRibbonUndo);
   await page.locator('button[title^="やり直す"]').click();
@@ -1610,7 +1484,6 @@ try {
   /**
    * Host側の本文状態が完了条件を満たすまで待機する。
    * @param text - undo/redo後のHost本文長を比較する基準本文。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (text) => window.__mveHostText.length === text.length + 1, beforeRibbonUndo);
   const beforeKeyboardUndo = await page.evaluate(
@@ -1625,7 +1498,6 @@ try {
   /**
    * Host側の本文状態が完了条件を満たすまで待機する。
    * @param text - undo/redo後のHost本文長を比較する基準本文。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (text) => window.__mveHostText.length === text.length + 1, beforeKeyboardUndo);
   await sourceEditor.press('Control+Z');
@@ -1633,7 +1505,6 @@ try {
   /**
    * Host側の本文状態が完了条件を満たすまで待機する。
    * @param text - undo後にHostで復元されることを期待する本文。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (text) => window.__mveHostText === text, beforeKeyboardUndo);
   await sourceEditor.press('Control+Shift+Z');
@@ -1641,7 +1512,6 @@ try {
   /**
    * Host側の本文状態が完了条件を満たすまで待機する。
    * @param text - undo/redo後のHost本文長を比較する基準本文。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (text) => window.__mveHostText.length === text.length + 1, beforeKeyboardUndo);
   await sourceEditor.press('Control+Z');
@@ -1649,7 +1519,6 @@ try {
   /**
    * Host側の本文状態が完了条件を満たすまで待機する。
    * @param text - undo後に本文長を比較する基準Host本文。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (text) => window.__mveHostText.length === text.length, beforeKeyboardUndo);
   await sourceEditor.press('Control+Z');
@@ -1657,7 +1526,6 @@ try {
   /**
    * Host側の本文状態が完了条件を満たすまで待機する。
    * @param text - undo後にHostで復元されることを期待する本文。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (text) => window.__mveHostText === text, beforeRibbonUndo);
   await page.evaluate(
@@ -1715,8 +1583,6 @@ try {
       ?? [...(preview?.querySelectorAll('[data-source-from]') ?? [])]
         .find(
         /**
-         * get・bounding・client・rectが条件に一致する最初の要素を取得する。
-         * @param element - 要素のget・bounding・client・rectを参照する走査対象。
          * @returns 条件に一致した最初の要素。未検出時はundefined。
          */
         (element) => element.getBoundingClientRect().bottom > (bounds?.top ?? 0) + 1);
@@ -1729,10 +1595,6 @@ try {
     };
   });
   const externalLength = await page.evaluate(
-  /**
-   * Host側の本文状態のdispatch・event結果を読み取り、検証用の値へ変換する。
-   * @returns ブラウザー内で読み取った値または変換結果。
-   */
   () => {
     const baseVersion = window.__mveHostVersion;
     const change = { rangeOffset: window.__mveHostText.length, rangeLength: 0, text: '\nexternal-host-change' };
@@ -1747,7 +1609,6 @@ try {
   /**
    * ブラウザー内に「.split-preview .rendered-markdown」が現れるまで待機する。
    * @param length - プレビューのdata-document-lengthと照合する期待本文長。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (length) => (
     Number(document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-document-length')) === length
@@ -1768,8 +1629,6 @@ try {
       ?? [...(preview?.querySelectorAll('[data-source-from]') ?? [])]
         .find(
         /**
-         * get・bounding・client・rectが条件に一致する最初の要素を取得する。
-         * @param element - 要素のget・bounding・client・rectを参照する走査対象。
          * @returns 条件に一致した最初の要素。未検出時はundefined。
          */
         (element) => element.getBoundingClientRect().bottom > (bounds?.top ?? 0) + 1);
@@ -1802,8 +1661,6 @@ try {
       ?? [...(preview?.querySelectorAll('[data-source-from]') ?? [])]
         .find(
         /**
-         * get・bounding・client・rectが条件に一致する最初の要素を取得する。
-         * @param element - 要素のget・bounding・client・rectを参照する走査対象。
          * @returns 条件に一致した最初の要素。未検出時はundefined。
          */
         (element) => element.getBoundingClientRect().bottom > (previewBounds?.top ?? 0) + 1);
@@ -1829,12 +1686,7 @@ try {
   () => {
     const baseVersion = window.__mveHostVersion;
     const prefix = Array.from({ length: 40 },
-    /**
-     * スモーク検証・高速のコールバックとして・を処理する。
-     * @param _ - 引数位置を維持するための未使用値。
-     * @param index - 配列・行列・文字列の要素位置を示す番号。
-     * @returns スモーク検証・高速のコールバックが生成する結果。
-     */
+
     (_, index) => `# inserted-${index}\n\nbody\n\n`).join('');
     const change = { rangeOffset: 0, rangeLength: 0, text: prefix };
     window.__mveHostText = prefix + window.__mveHostText;
@@ -1849,7 +1701,6 @@ try {
     /**
      * ブラウザー内に「.split-preview .rendered-markdown」が現れるまで待機する。
      * @param expectedLength - プレビューのdata-document-lengthと照合する期待本文長。
-     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     (expectedLength) => (
       Number(document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-document-length')) === expectedLength
@@ -1877,7 +1728,6 @@ try {
     await page.waitForFunction(
     /**
      * ブラウザー内に「.source-editor」が現れるまで待機する。
-    * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     ({ sourceOffset, previewOffset, insertedLength }) => {
       const currentSource = Number(document.querySelector('.source-editor')?.getAttribute('data-viewport-offset'));
@@ -1891,8 +1741,6 @@ try {
         ?? [...(preview?.querySelectorAll('[data-source-from]') ?? [])]
           .find(
           /**
-           * get・bounding・client・rectが条件に一致する最初の要素を取得する。
-           * @param element - 要素のget・bounding・client・rectを参照する走査対象。
            * @returns 条件に一致した最初の要素。未検出時はundefined。
            */
           (element) => element.getBoundingClientRect().bottom > (previewBounds?.top ?? 0) + 1);
@@ -1926,8 +1774,6 @@ try {
         ?? [...(preview?.querySelectorAll('[data-source-from]') ?? [])]
           .find(
           /**
-           * get・bounding・client・rectが条件に一致する最初の要素を取得する。
-           * @param element - 要素のget・bounding・client・rectを参照する走査対象。
            * @returns 条件に一致した最初の要素。未検出時はundefined。
            */
           (element) => element.getBoundingClientRect().bottom > (previewBounds?.top ?? 0) + 1);
@@ -1965,8 +1811,6 @@ try {
       ?? [...(preview?.querySelectorAll('[data-source-from]') ?? [])]
         .find(
         /**
-         * get・bounding・client・rectが条件に一致する最初の要素を取得する。
-         * @param element - 要素のget・bounding・client・rectを参照する走査対象。
          * @returns 条件に一致した最初の要素。未検出時はundefined。
          */
         (element) => element.getBoundingClientRect().bottom > (previewBounds?.top ?? 0) + 1);
@@ -2039,7 +1883,7 @@ try {
       /**
        * 種別「localChanges」のメッセージだけを残す。
        * @param message - メッセージのtypeを参照する走査対象。
-       * @returns 条件を満たした要素だけを含む一覧。
+
        */
       (message) => message.type === 'localChanges'),
       hostText: window.__mveHostText,
@@ -2055,10 +1899,6 @@ try {
   await page.locator('button[title^="元に戻す"]').click();
   await page.waitForTimeout(50);
   if (!(await page.evaluate(
-  /**
-   * Host側の本文状態のstarts・with結果を読み取り、検証用の値へ変換する。
-   * @returns ブラウザー内で読み取った値または変換結果。
-   */
   () => window.__mveHostText.startsWith('# inserted-0\n')))) {
     throw new Error('undo incorrectly reverted an external host change');
   }
@@ -2070,20 +1910,11 @@ try {
   await page.waitForFunction(
   /**
    * ブラウザーのDOM状態が完了条件を満たすまで待機する。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => document.activeElement?.getAttribute('aria-label') === '検索文字列');
   const activeBeforeBlurSync = await page.evaluate(
-  /**
-   * ブラウザーのDOM状態のget・attribute結果を読み取り、検証用の値へ変換する。
-   * @returns ブラウザー内で読み取った値または変換結果。
-   */
   () => document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.textContent);
   await page.evaluate(
-  /**
-   * Host側の本文状態のdispatch・event結果を読み取り、検証用の値へ変換する。
-   * @returns ブラウザー内で読み取った値または変換結果。
-   */
   () => {
     const baseVersion = window.__mveHostVersion;
     const change = { rangeOffset: window.__mveHostText.length, rangeLength: 0, text: '\nblurred-host-change' };
@@ -2095,10 +1926,6 @@ try {
   });
   await page.waitForTimeout(50);
   const activeAfterBlurSync = await page.evaluate(
-  /**
-   * ブラウザーのDOM状態のget・attribute結果を読み取り、検証用の値へ変換する。
-   * @returns ブラウザー内で読み取った値または変換結果。
-   */
   () => document.activeElement?.getAttribute('aria-label') ?? document.activeElement?.textContent);
   if (activeAfterBlurSync !== activeBeforeBlurSync) {
     throw new Error(`blurred host synchronization stole focus: before=${JSON.stringify(activeBeforeBlurSync)}, after=${JSON.stringify(activeAfterBlurSync)}`);
@@ -2115,13 +1942,11 @@ try {
   /**
    * HostとWebviewのメッセージ状態が完了条件を満たすまで待機する。
    * @param start - ソースを開く操作前のHostメッセージ配列長。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (start) => window.__mveMessages.slice(start).some(
   /**
-   * スモーク検証・高速のコールバックとしてメッセージを処理する。
+
    * @param message - HostとWebviewの間で受け渡すメッセージ。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (message) => message.type === 'openSource'), openSourceMessageStart);
   const outline = page.locator('[title="アウトラインの表示/非表示"]');
@@ -2135,7 +1960,6 @@ try {
   await page.waitForFunction(
   /**
    * Webviewの共有設定が完了条件を満たすまで待機する。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveGlobalSettings.outlineVisible === false);
   await page.waitForTimeout(300);
@@ -2144,7 +1968,6 @@ try {
   await page.waitForFunction(
   /**
    * Webviewの共有設定が完了条件を満たすまで待機する。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveGlobalSettings.outlineVisible === true);
   await page.getByRole('button', { name: '検索', exact: true }).click();
@@ -2176,10 +1999,6 @@ try {
      */
     (message) => message.type === 'localChanges'), formatMessageStart);
   const expectedFormatOffset = await page.evaluate(
-  /**
-   * Host側の本文状態のindex・of結果を読み取り、検証用の値へ変換する。
-   * @returns ブラウザー内で読み取った値または変換結果。
-   */
   () => window.__mveHostText.indexOf('**Long section 150**'));
   if (!formatOperation || formatOperation.changes.length !== 1
     || Math.abs(formatOperation.changes[0].rangeOffset - expectedFormatOffset) > 2
@@ -2202,7 +2021,6 @@ try {
   await page.waitForFunction(
   /**
    * ブラウザー内に「button[title=」が現れるまで待機する。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => document.querySelector('button[title="テキストとプレビューのスクロール位置を同期します"]')?.getAttribute('aria-pressed') === 'false');
   const scrollSyncDisabledMessage = await page.evaluate(
@@ -2253,10 +2071,6 @@ try {
     throw new Error(`scroll sync OFF still moved the other pane: ${JSON.stringify(disabledScrollPositions)}`);
   }
   await page.evaluate(
-  /**
-   * Webviewの共有設定のdispatch・event結果を読み取り、検証用の値へ変換する。
-  * @returns ブラウザー内で読み取った値または変換結果。
-   */
   ({ text, version }) => window.dispatchEvent(new MessageEvent('message', {
     data: { type: 'init', text, version, uri: 'file:///C:/another-document.md', settings: window.__mveGlobalSettings }
   })), { text: await page.evaluate(
@@ -2275,14 +2089,9 @@ try {
   await page.waitForFunction(
   /**
    * Webviewの共有設定が完了条件を満たすまで待機する。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveGlobalSettings.outlineVisible === false);
   await page.evaluate(
-  /**
-   * Webviewの共有設定のdispatch・event結果を読み取り、検証用の値へ変換する。
-  * @returns ブラウザー内で読み取った値または変換結果。
-   */
   ({ text, version }) => window.dispatchEvent(new MessageEvent('message', {
     data: { type: 'init', text, version, uri: 'file:///C:/third-document.md', settings: window.__mveGlobalSettings }
   })), { text: await page.evaluate(
@@ -2305,7 +2114,6 @@ try {
   await page.waitForFunction(
   /**
    * ブラウザー内に「button[title=」が現れるまで待機する。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => document.querySelector('button[title="テキストとプレビューのスクロール位置を同期します"]')?.getAttribute('aria-pressed') === 'true');
   await page.evaluate(
@@ -2346,10 +2154,7 @@ try {
   () => {
     window.__mveBottomScrollSamples = [];
     window.__mveBottomScrollSampler = window.setInterval(
-    /**
-     * 要素をquery・selectorへ渡し、スモーク検証・高速の結果または副作用を処理する。
-     * @returns スモーク検証・高速のコールバックが生成する結果。
-     */
+
     () => {
       const preview = document.querySelector('.split-preview');
       if (!preview) return;
@@ -2444,11 +2249,6 @@ try {
   }
   const divider = page.locator('.split-divider');
   const before = await page.locator('.split-editor').evaluate(
-  /**
-   * ブラウザー内の状態のget・computed・style結果を読み取り、検証用の値へ変換する。
-   * @param element - divider操作前の分割エディター領域。
-   * @returns ブラウザー内で読み取った値または変換結果。
-   */
   (element) => getComputedStyle(element).gridTemplateColumns);
   const bounds = await divider.boundingBox();
   if (!bounds) throw new Error('split divider is not visible');
@@ -2457,11 +2257,6 @@ try {
   await page.mouse.move(bounds.x + 60, bounds.y + 10);
   await page.mouse.up();
   const after = await page.locator('.split-editor').evaluate(
-  /**
-   * ブラウザー内の状態のget・computed・style結果を読み取り、検証用の値へ変換する。
-   * @param element - divider操作後の分割エディター領域。
-   * @returns ブラウザー内で読み取った値または変換結果。
-   */
   (element) => getComputedStyle(element).gridTemplateColumns);
   if (before === after) throw new Error('split divider did not resize');
   const zoomBefore = await page.locator('.status-bar').textContent();
@@ -2470,7 +2265,6 @@ try {
   /**
    * ブラウザー内に「.status-bar」が現れるまで待機する。
    * @param value - ズーム操作前のステータス表示文字列。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (value) => document.querySelector('.status-bar')?.textContent !== value, zoomBefore);
   await page.waitForTimeout(300);
@@ -2516,8 +2310,6 @@ try {
       ?? [...(preview?.querySelectorAll('[data-source-from]') ?? [])]
         .find(
         /**
-         * get・bounding・client・rectが条件に一致する最初の要素を取得する。
-         * @param element - 要素のget・bounding・client・rectを参照する走査対象。
          * @returns 条件に一致した最初の要素。未検出時はundefined。
          */
         (element) => element.getBoundingClientRect().bottom > (previewBounds?.top ?? 0) + 1);
@@ -2555,8 +2347,6 @@ try {
       ?? [...(preview?.querySelectorAll('[data-source-from]') ?? [])]
         .find(
         /**
-         * get・bounding・client・rectが条件に一致する最初の要素を取得する。
-         * @param element - 要素のget・bounding・client・rectを参照する走査対象。
          * @returns 条件に一致した最初の要素。未検出時はundefined。
          */
         (element) => element.getBoundingClientRect().bottom > (previewBounds?.top ?? 0) + 1);
@@ -2593,7 +2383,6 @@ try {
   /**
    * ブラウザー内に「.source-editor」が現れるまで待機する。
    * @param target - ソースビューポートに含まれるか確認する見出しの本文オフセット。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (target) => {
     const editor = document.querySelector('.source-editor');
@@ -2639,8 +2428,6 @@ try {
       ?? [...(preview?.querySelectorAll('[data-source-from]') ?? [])]
         .find(
         /**
-         * get・bounding・client・rectが条件に一致する最初の要素を取得する。
-         * @param element - 要素のget・bounding・client・rectを参照する走査対象。
          * @returns 条件に一致した最初の要素。未検出時はundefined。
          */
         (element) => element.getBoundingClientRect().bottom > (previewBounds?.top ?? 0) + 1);
@@ -2663,10 +2450,6 @@ try {
   }
 
   const previewOnlyOutlineOffset = await page.evaluate(
-  /**
-   * Host側の本文状態のindex・of結果を読み取り、検証用の値へ変換する。
-   * @returns ブラウザー内で読み取った値または変換結果。
-   */
   () => window.__mveHostText.indexOf('## Long section 120'));
   await page.getByRole('button', { name: 'Long section 120', exact: true }).click();
   await page.locator('.split-source-pane').waitFor({ state: 'hidden' });
@@ -2677,17 +2460,11 @@ try {
   /**
    * ブラウザー内に「.split-preview」が現れるまで待機する。
    * @param target - プレビュービューポート内に表示されるか確認する見出しの本文オフセット。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (target) => {
     const preview = document.querySelector('.split-preview');
     const previewBounds = preview?.getBoundingClientRect();
     const targetBlock = [...(preview?.querySelectorAll('[data-source-from]') ?? [])].find(
-    /**
-     * get・attributeが条件に一致する最初の要素を取得する。
-     * @param element - 要素のget・attributeを参照する走査対象。
-     * @returns 条件に一致した最初の要素。未検出時はundefined。
-     */
     (element) => {
       const from = Number(element.getAttribute('data-source-from'));
       const to = Math.max(from + 1, Number(element.getAttribute('data-source-to')));
@@ -2703,16 +2480,11 @@ try {
   await page.locator('.split-source-pane').waitFor();
   await page.getByRole('button', { name: 'Long section 120', exact: true }).click();
   const caretBeforePreview = await page.evaluate(
-  /**
-   * Host側の本文状態のindex・of結果を読み取り、検証用の値へ変換する。
-   * @returns ブラウザー内で読み取った値または変換結果。
-   */
   () => window.__mveHostText.indexOf('## Long section 120'));
   await page.waitForFunction(
   /**
    * ブラウザー内に「.source-editor」が現れるまで待機する。
    * @param target - ソースビューポートに含まれるか確認する見出しの本文オフセット。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (target) => {
     const from = Number(document.querySelector('.source-editor')?.getAttribute('data-viewport-offset'));
@@ -2723,17 +2495,11 @@ try {
   /**
    * ブラウザー内に「.split-preview」が現れるまで待機する。
    * @param target - プレビュービューポート内に表示されるか確認するキャレットの本文オフセット。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (target) => {
     const preview = document.querySelector('.split-preview');
     const previewBounds = preview?.getBoundingClientRect();
     const targetBlock = [...(preview?.querySelectorAll('.markdown-source-block') ?? [])].find(
-    /**
-     * get・attributeが条件に一致する最初の要素を取得する。
-     * @param element - 要素のget・attributeを参照する走査対象。
-     * @returns 条件に一致した最初の要素。未検出時はundefined。
-     */
     (element) => {
       const from = Number(element.getAttribute('data-source-from'));
       const to = Math.max(from + 1, Number(element.getAttribute('data-source-to')));
@@ -2755,11 +2521,6 @@ try {
     const preview = document.querySelector('.split-preview');
     const previewBounds = preview?.getBoundingClientRect();
     const targetBlock = [...(preview?.querySelectorAll('.markdown-source-block') ?? [])].find(
-    /**
-     * get・attributeが条件に一致する最初の要素を取得する。
-     * @param element - 要素のget・attributeを参照する走査対象。
-     * @returns 条件に一致した最初の要素。未検出時はundefined。
-     */
     (element) => {
       const from = Number(element.getAttribute('data-source-from'));
       const to = Math.max(from + 1, Number(element.getAttribute('data-source-to')));
@@ -2799,18 +2560,12 @@ try {
     const top = container?.getBoundingClientRect().top ?? 0;
     return [...document.querySelectorAll('.pdf-preview-content [data-source-from]')].find(
     /**
-     * get・bounding・client・rectが条件に一致する最初の要素を取得する。
-     * @param element - 要素のget・bounding・client・rectを参照する走査対象。
      * @returns 条件に一致した最初の要素。未検出時はundefined。
      */
     (element) => element.getBoundingClientRect().bottom > top + 1)?.getAttribute('data-source-from');
   });
   if (printPreviewAnchor !== String(caretBeforePreview)) throw new Error(`print preview mode did not preserve the preview anchor: expected=${caretBeforePreview}, actual=${printPreviewAnchor}`);
   const previewPrefixLength = await page.evaluate(
-  /**
-   * Host側の本文状態のdispatch・event結果を読み取り、検証用の値へ変換する。
-   * @returns ブラウザー内で読み取った値または変換結果。
-   */
   () => {
     const baseVersion = window.__mveHostVersion;
     const prefix = '# preview-external\n\n';
@@ -2851,7 +2606,6 @@ try {
       /**
        * イベントで一覧追加を実行する。
        * @param event - IME compositionと入力の詳細を記録するDOM event。
-       * @returns 副作用を完了し、値は返さない。
        */
       (event) => window.__mveImeEvents.push({ type, data: event.data, inputType: event.inputType }), true);
     }
@@ -2876,17 +2630,13 @@ try {
     /**
      * 種別「localChanges」のメッセージだけを残す。
      * @param message - メッセージのtypeを参照する走査対象。
-     * @returns 条件を満たした要素だけを含む一覧。
+
      */
     (message) => message.type === 'localChanges').length,
     events: window.__mveImeEvents
   }));
   await page.waitForTimeout(10);
   await page.evaluate(
-  /**
-   * Host側の本文状態のdispatch・event結果を読み取り、検証用の値へ変換する。
-   * @returns ブラウザー内で読み取った値または変換結果。
-   */
   () => {
     const baseVersion = window.__mveHostVersion;
     const change = { rangeOffset: window.__mveHostText.length, rangeLength: 0, text: '\nime-external' };
@@ -2915,7 +2665,7 @@ try {
     /**
      * 種別「requestResync」のメッセージだけを残す。
      * @param message - メッセージのtypeを参照する走査対象。
-     * @returns 条件を満たした要素だけを含む一覧。
+
      */
     (message) => message.type === 'requestResync').length,
     editorTail: document.querySelector('.cm-content')?.textContent?.slice(-80),
@@ -2942,7 +2692,7 @@ try {
     /**
      * 種別「requestResync」のメッセージだけを残す。
      * @param message - メッセージのtypeを参照する走査対象。
-     * @returns 条件を満たした要素だけを含む一覧。
+
      */
     (message) => message.type === 'requestResync').length;
   });
@@ -2950,7 +2700,6 @@ try {
   await page.waitForFunction(
   /**
    * Webviewの実行状態が完了条件を満たすまで待機する。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveHeldOperations.length === 1);
   await page.evaluate(
@@ -2975,11 +2724,6 @@ try {
       }
     }));
     const mappedChanges = operation.changes.map(
-    /**
-     * 各changeからrange・offsetを取り出して一覧化する。
-     * @param change - changeのrange・offsetを参照する走査対象。
-     * @returns range・offsetを取り出した変換結果の一覧。
-     */
     (change) => ({
       ...change,
       rangeOffset: change.rangeOffset + externalText.length
@@ -3022,7 +2766,7 @@ try {
     /**
      * 種別「requestResync」のメッセージだけを残す。
      * @param message - メッセージのtypeを参照する走査対象。
-     * @returns 条件を満たした要素だけを含む一覧。
+
      */
     (message) => message.type === 'requestResync').length - resyncStart,
     converged: window.__mveHostText.includes('unacked-external\n') && window.__mveHostText.includes('u'),
@@ -3030,7 +2774,7 @@ try {
     /**
      * 種別「requestResync」のメッセージだけを残す。
      * @param message - メッセージのtypeを参照する走査対象。
-     * @returns 条件を満たした要素だけを含む一覧。
+
      */
     (message) => message.type === 'requestResync').slice(resyncStart)
   }), unackedResyncStart);
@@ -3048,14 +2792,14 @@ try {
     /**
      * 種別「localChanges」のメッセージだけを残す。
      * @param message - メッセージのtypeを参照する走査対象。
-     * @returns 条件を満たした要素だけを含む一覧。
+
      */
     (message) => message.type === 'localChanges').length,
     resyncCount: window.__mveMessages.filter(
     /**
      * 種別「requestResync」のメッセージだけを残す。
      * @param message - メッセージのtypeを参照する走査対象。
-     * @returns 条件を満たした要素だけを含む一覧。
+
      */
     (message) => message.type === 'requestResync').length
   }));
@@ -3069,7 +2813,7 @@ try {
     /**
      * 種別「localChanges」のメッセージだけを残す。
      * @param message - メッセージのtypeを参照する走査対象。
-     * @returns 条件を満たした要素だけを含む一覧。
+
      */
     (message) => message.type === 'localChanges').length);
     await page.locator('.cm-content').press('x');
@@ -3077,13 +2821,12 @@ try {
     /**
      * HostとWebviewのメッセージ状態が完了条件を満たすまで待機する。
      * @param count - 操作前のlocalChangesメッセージ数。
-     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     (count) => window.__mveMessages.filter(
     /**
      * 種別「localChanges」のメッセージだけを残す。
      * @param message - メッセージのtypeを参照する走査対象。
-     * @returns 条件を満たした要素だけを含む一覧。
+
      */
     (message) => message.type === 'localChanges').length > count, beforeLocal);
     const localOperation = await page.evaluate(
@@ -3097,7 +2840,7 @@ try {
       /**
        * 種別「localChanges」のメッセージだけを残す。
        * @param message - メッセージのtypeを参照する走査対象。
-       * @returns 条件を満たした要素だけを含む一覧。
+
        */
       (message) => message.type === 'localChanges')[count], beforeLocal);
     if (!localOperation) throw new Error(`local operation ${index} was not captured`);
@@ -3108,21 +2851,14 @@ try {
     /**
      * Webviewの実行状態が完了条件を満たすまで待機する。
      * @param opId - ACKメッセージ内で照合するローカル操作ID。
-     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     (opId) => window.__mveAcks.some(
     /**
-     * スモーク検証・高速のコールバックとしてメッセージを処理する。
+
      * @param message - HostとWebviewの間で受け渡すメッセージ。
-     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     (message) => message.opId === opId), localOperation.opId);
     await page.evaluate(
-    /**
-     * Host側の本文状態のdispatch・event結果を読み取り、検証用の値へ変換する。
-     * @param iteration - 外部変更テキストへ含める反復番号。
-     * @returns ブラウザー内で読み取った値または変換結果。
-     */
     (iteration) => {
       const baseVersion = window.__mveHostVersion;
       const text = `mix-${iteration}\n`;
@@ -3146,14 +2882,14 @@ try {
     /**
      * 種別「localChanges」のメッセージだけを残す。
      * @param message - メッセージのtypeを参照する走査対象。
-     * @returns 条件を満たした要素だけを含む一覧。
+
      */
     (message) => message.type === 'localChanges').length - start.localCount,
     resyncCount: window.__mveMessages.filter(
     /**
      * 種別「requestResync」のメッセージだけを残す。
      * @param message - メッセージのtypeを参照する走査対象。
-     * @returns 条件を満たした要素だけを含む一覧。
+
      */
     (message) => message.type === 'requestResync').length - start.resyncCount,
     hasFirst: window.__mveHostText.includes('mix-0\n'),
@@ -3172,7 +2908,6 @@ try {
   await page.waitForFunction(
   /**
    * HostとWebviewのメッセージ状態が完了条件を満たすまで待機する。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => {
     const operation = [...window.__mveMessages].reverse().find(
@@ -3221,14 +2956,14 @@ try {
       /**
        * 種別「localChanges」のメッセージだけを残す。
        * @param message - メッセージのtypeを参照する走査対象。
-       * @returns 条件を満たした要素だけを含む一覧。
+
        */
       (message) => message.type === 'localChanges').length,
       resync: window.__mveMessages.filter(
       /**
        * 種別「requestResync」のメッセージだけを残す。
        * @param message - メッセージのtypeを参照する走査対象。
-       * @returns 条件を満たした要素だけを含む一覧。
+
        */
       (message) => message.type === 'requestResync').length
     };
@@ -3244,14 +2979,14 @@ try {
     /**
      * 種別「localChanges」のメッセージだけを残す。
      * @param message - メッセージのtypeを参照する走査対象。
-     * @returns 条件を満たした要素だけを含む一覧。
+
      */
     (message) => message.type === 'localChanges').length,
     resync: window.__mveMessages.filter(
     /**
      * 種別「requestResync」のメッセージだけを残す。
      * @param message - メッセージのtypeを参照する走査対象。
-     * @returns 条件を満たした要素だけを含む一覧。
+
      */
     (message) => message.type === 'requestResync').length
   }));
@@ -3269,14 +3004,14 @@ try {
     /**
      * 種別「localChanges」のメッセージだけを残す。
      * @param message - メッセージのtypeを参照する走査対象。
-     * @returns 条件を満たした要素だけを含む一覧。
+
      */
     (message) => message.type === 'localChanges').length,
     resync: window.__mveMessages.filter(
     /**
      * 種別「requestResync」のメッセージだけを残す。
      * @param message - メッセージのtypeを参照する走査対象。
-     * @returns 条件を満たした要素だけを含む一覧。
+
      */
     (message) => message.type === 'requestResync').length
   }));
@@ -3290,7 +3025,6 @@ try {
   await page.waitForFunction(
   /**
    * Webviewの実行状態が完了条件を満たすまで待機する。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveHeldOperations.length === 1);
   const firstHeld = await page.evaluate(
@@ -3300,11 +3034,6 @@ try {
    */
   () => window.__mveHeldOperations.shift());
   await page.evaluate(
-  /**
-   * Host側の本文状態のdispatch・event結果を読み取り、検証用の値へ変換する。
-   * @param operation - Hostの再同期通知後に再送するローカル操作メッセージ。
-   * @returns ブラウザー内で読み取った値または変換結果。
-   */
   (operation) => {
     const version = window.__mveHostVersion;
     window.dispatchEvent(new MessageEvent('message', {
@@ -3322,7 +3051,6 @@ try {
   await page.waitForFunction(
   /**
    * Webviewの実行状態が完了条件を満たすまで待機する。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveHeldOperations.length === 1);
   const secondHeld = await page.evaluate(
@@ -3332,11 +3060,6 @@ try {
    */
   () => window.__mveHeldOperations.shift());
   await page.evaluate(
-  /**
-   * Host側の本文状態のdispatch・event結果を読み取り、検証用の値へ変換する。
-   * @param operation - Hostの再同期通知後に再送するローカル操作メッセージ。
-   * @returns ブラウザー内で読み取った値または変換結果。
-   */
   (operation) => {
     window.dispatchEvent(new MessageEvent('message', {
       data: {
@@ -3362,14 +3085,14 @@ try {
     /**
      * 種別「localChanges」のメッセージだけを残す。
      * @param message - メッセージのtypeを参照する走査対象。
-     * @returns 条件を満たした要素だけを含む一覧。
+
      */
     (message) => message.type === 'localChanges').length - start.local,
     resync: window.__mveMessages.filter(
     /**
      * 種別「requestResync」のメッセージだけを残す。
      * @param message - メッセージのtypeを参照する走査対象。
-     * @returns 条件を満たした要素だけを含む一覧。
+
      */
     (message) => message.type === 'requestResync').length - start.resync,
     held: window.__mveHeldOperations.length,
@@ -3388,7 +3111,6 @@ try {
   await page.waitForFunction(
   /**
    * Host側の本文状態が完了条件を満たすまで待機する。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => window.__mveHostText.includes('retry-loop-input recovered'));
   await page.evaluate(
@@ -3418,14 +3140,12 @@ try {
     /**
      * ブラウザー内に「.split-preview .rendered-markdown」が現れるまで待機する。
      * @param value - 操作前に設定されている画像ズーム属性値。
-     * @returns スモーク検証・高速のコールバックが生成する結果。
      */
     (value) => document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-mve-image-zoom') !== value, previousZoom);
   }
   await page.waitForFunction(
   /**
    * ブラウザー内に「.split-preview .rendered-markdown」が現れるまで待機する。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   () => document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-mve-image-zoom') === '1');
   const imageSmokeSource = `# Image zoom smoke\n\n<img src="${zoomImageSource}" width="160" alt="zoom image">\n`;
@@ -3454,14 +3174,12 @@ try {
   /**
    * Host側の本文状態が完了条件を満たすまで待機する。
    * @param text - Hostへ反映されることを期待するMarkdown本文。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (text) => window.__mveHostText === text, imageSmokeSource);
   await page.waitForFunction(
   /**
    * ブラウザー内に「.split-preview .rendered-markdown」が現れるまで待機する。
    * @param length - プレビューのdata-document-lengthと照合する期待本文長。
-   * @returns スモーク検証・高速のコールバックが生成する結果。
    */
   (length) => Number(
     document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-document-length'),

@@ -22,44 +22,44 @@ export function fingerprintText(text: string): string {
 }
 
 /**
- * canonicaltextで共有するデータ形状を表すインターフェース。
+ * 行番号と行内文字位置を持つ、エディター互換のテキスト位置です。
  */
 export interface TextPositionLike {
 
     /**
-     * canonicaltextの位置・寸法・件数・時間を表す数値。
+     * 0始まりの行番号です。
      */
     line: number;
 
     /**
-     * canonicaltextのcharacterを表す数値。
+     * 行内の0始まりUTF-16文字オフセットです。
      */
     character: number;
 }
 
 /**
- * canonicaltextで共有するデータ形状を表すインターフェース。
+ * テキスト範囲の開始位置と終了位置を表します。
  */
 export interface TextRangeLike {
 
     /**
-     * canonicaltextのstartに関する状態または設定。
+     * 変更範囲の開始位置。lineとcharacterは0始まりのUTF-16位置。
      */
     start: TextPositionLike;
 
     /**
-     * canonicaltextのendに関する状態または設定。
+     * 変更範囲の終了位置。end位置の文字は置換範囲に含めない。
      */
     end: TextPositionLike;
 }
 
 /**
- * canonicaltextで共有するデータ形状を表すインターフェース。
+ * 文書内の置換範囲と挿入テキストを表す変更情報です。
  */
 export interface TextContentChangeLike {
 
     /**
-     * canonicaltextのrangeに関する状態または設定。
+     * 変更を適用する正規化済み本文上の範囲。
      */
     range: TextRangeLike;
 
@@ -70,12 +70,12 @@ export interface TextContentChangeLike {
 }
 
 /**
- * canonicaltextで共有するデータ形状を表すインターフェース。
+ * 文書内の置換範囲と置換後テキストを持つワークスペース編集です。
  */
 export interface CanonicalWorkspaceEditLike {
 
     /**
-     * canonicaltextのrangeに関する状態または設定。
+     * WorkspaceEditへ出力する元文書上の行・文字範囲。
      */
     range: TextRangeLike;
 
@@ -86,7 +86,7 @@ export interface CanonicalWorkspaceEditLike {
 }
 
 /**
- * canonicaltextで共有するデータ形状を表すインターフェース。
+ * 文書本文から行・文字位置とUTF-16オフセットを相互変換する索引です。
  */
 export interface CanonicalTextPositionIndex {
     /**
@@ -96,36 +96,36 @@ export interface CanonicalTextPositionIndex {
      */
     offsetAt(position: TextPositionLike): number;
     /**
-     * canonicaltextのposition・atを処理し、呼び出し側へ結果または副作用を返す。
+     * LF正規化本文のオフセットを行と文字位置に変換する。
      * @param offset - LF正規化本文内のUTF-16オフセット。
-     * @returns canonicaltextで利用する文字列。
+     * @returns 0始まりの行番号とUTF-16文字位置。
      */
     positionAt(offset: number): TextPositionLike;
 }
 
 /**
- * canonicaltextのto・canonical・textを処理し、呼び出し側へ結果または副作用を返す。
+ * CRLFとCRをLFへ統一し、本文を正規化座標系へ変換する。
  * @param value - 改行コードをLFへ統一する本文。
- * @returns canonicaltextで利用する文字列。
+ * @returns すべての改行をLFで表した本文。
  */
 export function toCanonicalText(value: string): string {
     return value.replace(/\r\n?|\n/g, '\n');
 }
 
 /**
- * canonicaltextのfrom・canonical・textを処理し、呼び出し側へ結果または副作用を返す。
+ * LF正規化本文の改行を、出力先文書で使われている改行形式へ戻す。
  * @param value - 改行コードをLFに統一した本文。
  * @param eol - LFを変換する出力改行コード。
- * @returns canonicaltextで利用する文字列。
+ * @returns 指定された改行形式を使う本文。
  */
 export function fromCanonicalText(value: string, eol: '\n' | '\r\n'): string {
     return toCanonicalText(value).replace(/\n/g, eol);
 }
 
 /**
- * canonicaltextのindex・canonical・textを処理し、呼び出し側へ結果または副作用を返す。
- * @param canonicalText - canonicaltextで扱う文字列または本文。
- * @returns canonicaltextのindex・canonical・textが生成する結果。
+ * 行開始オフセットを前計算し、行・文字位置とUTF-16オフセットの相互変換を作る。
+ * @param canonicalText - 改行がLFへ正規化済みの本文。
+ * @returns `offsetAt`と`positionAt`を持つ位置index。
  */
 export function indexCanonicalText(canonicalText: string): CanonicalTextPositionIndex {
     const lineStarts = [0];
@@ -139,7 +139,7 @@ export function indexCanonicalText(canonicalText: string): CanonicalTextPosition
         /**
         * 行番号と行内文字位置を、正規化済み本文のオフセットへ変換する。
         * @param position 正規化済み本文に対する行番号と行内文字位置。
-         * @returns canonicaltextで利用する数値。
+
          */
         offsetAt(position: TextPositionLike): number {
             if (!Number.isInteger(position.line) || !Number.isInteger(position.character)
@@ -158,9 +158,9 @@ export function indexCanonicalText(canonicalText: string): CanonicalTextPosition
             return lineStart + position.character;
         },
         /**
-         * canonicaltextのposition・atを処理し、呼び出し側へ結果または副作用を返す。
+         * LF正規化本文のオフセットを行と文字位置に変換する。
          * @param offset - LF正規化本文内のUTF-16オフセット。
-         * @returns canonicaltextのposition・atが生成する結果。
+         * @returns 0始まりの行番号とUTF-16文字位置。
          */
         positionAt(offset: number): TextPositionLike {
             if (!Number.isInteger(offset) || offset < 0 || offset > canonicalText.length) {
@@ -193,10 +193,10 @@ export function canonicalOffsetAt(
 }
 
 /**
- * canonicaltextの条件を判定する。
+ * 正規化本文内のUTF-16オフセットに対応する元本文の行と文字位置を求める。
  * @param canonicalText - canonicaltextで扱う文字列または本文。
  * @param offset - LF正規化本文内のUTF-16オフセット。
- * @returns 条件が成立したかを示す真偽値。
+ * @returns 元本文上の0始まり行番号と文字位置。
  */
 export function canonicalPositionAt(
     canonicalText: string,
@@ -236,11 +236,11 @@ export function canonicalizeContentChanges(
 }
 
 /**
- * canonicaltextのmaterialize・canonical・changesを処理し、呼び出し側へ結果または副作用を返す。
- * @param canonicalBaseText - canonicaltextで扱う文字列または本文。
+ * 正規化本文に対するoffset変更をWorkspaceEditの行・文字範囲へ変換し、出力改行を復元する。
+ * @param canonicalBaseText - 変更を計算したLF正規化済み本文。
  * @param changes - 本文へ適用する変更範囲の一覧。
  * @param eol - 生成する本文へ使う改行コード。
- * @returns canonicaltextに対応する要素の一覧。
+ * @returns 行・文字範囲へ変換し、出力改行を復元したWorkspaceEdit一覧。
  */
 export function materializeCanonicalChanges(
     canonicalBaseText: string,
@@ -249,13 +249,7 @@ export function materializeCanonicalChanges(
 ): CanonicalWorkspaceEditLike[] {
     validateTextChanges(changes, canonicalBaseText.length);
     const positionIndex = indexCanonicalText(canonicalBaseText);
-    return changes.map(
-        /**
-         * 各changeからrange・offsetを取り出して一覧化する。
-         * @param change - changeのrange・offsetを参照する走査対象。
-         * @returns range・offsetを取り出した変換結果の一覧。
-         */
-        (change) => ({
+    return changes.map((change) => ({
             range: {
                 start: positionIndex.positionAt(change.rangeOffset),
                 end: positionIndex.positionAt(change.rangeOffset + change.rangeLength)

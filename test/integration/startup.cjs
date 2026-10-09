@@ -1,8 +1,8 @@
 /**
- * @fileoverview 起動の回帰の仕様と回帰条件を検証する。失敗時は期待値と実装差分を示す。
+ * @fileoverview 統合テスト用Extension Hostで拡張機能を起動し、初期化と起動計測の対象を準備する。
  */
 /**
- * 起動の回帰のassertに関する状態または設定。
+ * 起動計測の期待値を検証するNode.jsの厳密なアサーション関数。
  */
 const assert = require('node:assert/strict');
 /**
@@ -10,7 +10,7 @@ const assert = require('node:assert/strict');
  */
 const fs = require('node:fs/promises');
 /**
- * 起動の回帰のvscodeに関する状態または設定。
+ * Extension Hostから提供されるVS Code API。
  */
 const vscode = require('vscode');
 
@@ -49,14 +49,14 @@ async function run() {
 }
 
 /**
- * 起動の回帰が指定条件を満たすまで待機する。
- * @param uri - VS Codeまたはブラウザーが扱うリソースURI。
+ * 起動計測コマンドが必須のタイミングを返すまで結果ファイルを更新しながら待機する。
+ * @param uri - 計測対象のMarkdown文書URI。
  * @param resultPath - 計測結果を書き出すJSONファイルのパス。
- * @param filePath - 読み書きするファイルのパス。
- * @param editorOpenedMs - 起動の回帰へ渡す入力。
- * @param expectsMermaid - 起動の回帰の対象や分岐を識別する値。
+ * @param filePath - 起動計測結果に記録する文書パス。
+ * @param editorOpenedMs - エディターが開くまでに経過したミリ秒数。
+ * @param expectsMermaid - Mermaid描画の完了も要求する場合はtrue。
  * @param expectsPreview - previewReadyMsの取得も待つ場合true。
- * @returns 起動の回帰のwait・for・timingが生成する結果。
+ * @returns 初期化、プレビュー、必要な場合はMermaid描画の計測値。
  */
 async function waitForTiming(uri, resultPath, filePath, editorOpenedMs, expectsMermaid, expectsPreview) {
   const deadline = Date.now() + 30_000;
@@ -86,7 +86,6 @@ async function waitForTiming(uri, resultPath, filePath, editorOpenedMs, expectsM
     /**
      * 遅延処理の完了または失敗を待機側へ通知する。
      * @param resolve - Promiseの成功を通知する関数。
-     * @returns 非同期処理の完了値。
      */
     (resolve) => setTimeout(resolve, 50));
   }

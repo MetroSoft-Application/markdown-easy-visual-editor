@@ -1,5 +1,5 @@
 /**
- * @fileoverview Webviewのcmmarkdownautocompleteを管理する。Hostとの通信、ユーザー操作、表示状態の契約を保つ。
+ * @fileoverview CodeMirrorのMarkdown入力補完候補を検出し、文脈に応じた候補と適用動作を定義する。
  */
 import { autocompletion, type Completion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
 import { StateEffect, type Extension } from '@codemirror/state';
@@ -26,9 +26,9 @@ const allMarkdownOptions: readonly Completion[] = [
 ];
 
 /**
- * cmmarkdownautocompleteのoptions・for・triggerを処理し、呼び出し側へ結果または副作用を返す。
- * @param trigger - cmmarkdownautocompleteで受け渡す文字列。
- * @returns cmmarkdownautocompleteに対応する要素の一覧。
+ * 入力中のMarkdown記号に応じた補完候補一覧を返す。
+ * @param trigger - 候補を選ぶ入力記号。
+ * @returns 入力記号に対応するCodeMirror補完候補。
  */
 function optionsForTrigger(trigger: string): readonly Completion[] {
     if (trigger.startsWith('#')) return allMarkdownOptions.slice(0, 3);
@@ -63,22 +63,13 @@ function markdownCompletionSource(context: CompletionContext): CompletionResult 
 /**
  * CodeMirror拡張機能をMarkdown補完用ビューへ追加する。
  * @param extension エディターへ追加するCodeMirror拡張機能。
- * @returns 副作用を完了し、値は返さない。
  */
 function attachExtension(extension: Extension): void {
     const configured = new WeakSet<EditorView>();
 
 
-    const install = /**
-     * cmmarkdownautocompleteのinstallを処理し、呼び出し側へ結果または副作用を返す。
-     * @returns cmmarkdownautocompleteのinstallが生成する結果。
-     */ () => {
+    const install = () => {
             document.querySelectorAll<HTMLElement>('.source-editor .cm-editor').forEach(
-                /**
-                 * 要素ごとにfind・from・domを実行する。
-                 * @param element - 寸法または属性を読み取るDOM要素。
-                 * @returns 副作用を完了し、値は返さない。
-                 */
                 (element) => {
                     const view = EditorView.findFromDOM(element);
                     if (!view || configured.has(view)) return;

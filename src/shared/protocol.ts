@@ -49,7 +49,21 @@ export interface ImagePayload {
 }
 
 /**
- * PDF生成に使う用紙、向き、余白、本文スタイルの設定。
+ * 印刷プレビュー、PDF出力、HTML出力の本文に適用する検索・置換ルール。PDFではヘッダーとフッターにも適用する。
+ */
+export interface TextReplacementRule {
+    /**
+     * 正規表現として扱う検索文字列。空欄は無効で、全一致を置換するためのフラグは内部で付与する。
+     */
+    pattern: string;
+    /**
+     * 一致箇所へ挿入する文字列。空文字なら一致箇所を削除し、$記号も展開せずそのまま挿入する。
+     */
+    replacement: string;
+}
+
+/**
+ * PDF生成に使う用紙、向き、余白、本文スタイル、文字列置換の設定。
  */
 export interface PdfOptions {
     /**
@@ -93,6 +107,11 @@ export interface PdfOptions {
      * PDFフッターに挿入する文字列。
      */
     footer: string;
+
+    /**
+     * 印刷プレビュー、PDF出力、HTML出力の本文に上から順に適用する文字列置換ルール。PDFではヘッダーとフッターにも適用する。
+     */
+    textReplacements: TextReplacementRule[];
     /**
      * PDF本文に適用するフォント指定。
      */
@@ -251,13 +270,14 @@ export const DEFAULT_PDF_OPTIONS: NormalizedPdfOptions = {
     codeFontSize: 9,
     lineHeight: 1.6,
     paragraphSpacing: 6,
+    textReplacements: [],
     saveWithoutDialog: true
 };
 
 /**
- * PDF設定を許可値へ正規化し、範囲外の寸法や余白を境界値へ収める。
+ * PDF設定候補を既定値へ補完し、数値を出力で許可する範囲へ収める。
  * @param value - 用紙、余白、文字組版などを含むPDF設定候補。
- * @returns 共有プロトコルで生成または変換した値。
+ * @returns 用紙と向きの有効値、余白0〜50mm、本文6〜48pt、見出し6〜72pt、コード6〜36pt、行間0.8〜3、段落間隔0〜48ptへ収めた設定。形式不正の置換ルールは除き、正規表現の妥当性は別途検証する。
  */
 export function normalizePdfOptions(value: unknown): NormalizedPdfOptions {
     const candidate = value && typeof value === 'object' ? value as Partial<PdfOptions> : {};
@@ -269,24 +289,24 @@ export function normalizePdfOptions(value: unknown): NormalizedPdfOptions {
         : {}) as Partial<NonNullable<PdfOptions['headingFontSizes']>>;
 
     const numberInRange = /**
-     * 共有プロトコルのnumber・in・rangeを処理し、呼び出し側へ結果または副作用を返す。
+     * 数値候補を有限値へ変換し、指定範囲内に収める。
      * @param input - 数値または数値文字列として変換する設定値候補。
      * @param fallback - inputを有限数へ変換できない場合に返す既定値。
      * @param min - 正規化後に許可する最小値。
      * @param max - 正規化後に許可する最大値。
-     * @returns 共有プロトコルで利用する数値。
+     * @returns 範囲内へ補正した値。不正値や有限値にできない候補にはfallbackを返す。
      */ (input: unknown, fallback: number, min: number, max: number): number => {
             const parsed = typeof input === 'number' ? input : Number(input);
             return Number.isFinite(parsed) ? Math.max(min, Math.min(max, parsed)) : fallback;
         };
 
     const integerInRange = /**
-     * 共有プロトコルのinteger・in・rangeを処理し、呼び出し側へ結果または副作用を返す。
+     * 範囲内へ補正した数値を整数へ丸める。
      * @param input - 数値または数値文字列として変換する設定値候補。
      * @param fallback - inputを有限数へ変換できない場合に返す既定値。
      * @param min - 正規化後に許可する最小値。
      * @param max - 正規化後に許可する最大値。
-     * @returns 共有プロトコルで利用する数値。
+     * @returns numberInRangeで補正した値を最も近い整数へ丸めた結果。
      */ (input: unknown, fallback: number, min: number, max: number): number =>
             Math.round(numberInRange(input, fallback, min, max));
     const format = typeof candidate.format === 'string' && (PDF_PAPER_FORMATS as readonly string[]).includes(candidate.format)
@@ -304,6 +324,22 @@ export function normalizePdfOptions(value: unknown): NormalizedPdfOptions {
         },
         header: typeof candidate.header === 'string' ? candidate.header : DEFAULT_PDF_OPTIONS.header,
         footer: typeof candidate.footer === 'string' ? candidate.footer : DEFAULT_PDF_OPTIONS.footer,
+        textReplacements: Array.isArray(candidate.textReplacements)
+            ? candidate.textReplacements.flatMap(
+                /**
+                 * 保存値の各要素から、文字列で構成された置換ルールだけを復元する。
+                 * @param value VS Code設定または旧保存値に含まれる要素。
+                 * @returns 型を満たす場合は正規化したルール1件、それ以外は空配列。
+                */
+                (value) => {
+                    if (!value || typeof value !== 'object') return [];
+                    const rule = value as Partial<TextReplacementRule>;
+                    return typeof rule.pattern === 'string' && typeof rule.replacement === 'string'
+                        ? [{ pattern: rule.pattern, replacement: rule.replacement }]
+                        : [];
+                }
+            )
+            : [],
         fontFamily: typeof candidate.fontFamily === 'string' && candidate.fontFamily.trim()
             ? candidate.fontFamily.trim()
             : DEFAULT_PDF_OPTIONS.fontFamily,
@@ -326,6 +362,21 @@ export function normalizePdfOptions(value: unknown): NormalizedPdfOptions {
 }
 
 /**
+ * 置換ルールのパターンが空でなく、正規表現としてコンパイルできるか検証する。
+ * @param pattern 設定された正規表現パターン。
+ * @returns PDFとHTMLの出力へ適用できるパターンの場合はtrue。
+ */
+export function isTextReplacementPatternValid(pattern: string): boolean {
+    if (!pattern) return false;
+    try {
+        new RegExp(pattern, 'g');
+        return true;
+    } catch {
+        return false;
+    }
+}
+
+/**
  * HTML出力の永続設定がないときに使う既定値。
  */
 export const DEFAULT_HTML_EXPORT_SETTINGS: HtmlExportSettings = {
@@ -344,7 +395,7 @@ export const DEFAULT_HTML_EXPORT_OPTIONS: HtmlExportOptions = {
 /**
  * HTML出力設定を許可値へ正規化し、未指定項目へ既定値を補う。
  * @param value - HTML出力用の見出し、画像、表などの設定候補。
- * @returns 共有プロトコルで生成または変換した値。
+ * @returns 不正値を除き、既定値を補ったHTML出力設定。
  */
 export function normalizeHtmlExportSettings(value: unknown): HtmlExportSettings {
     const candidate = value && typeof value === 'object'
@@ -364,10 +415,10 @@ export function normalizeHtmlExportSettings(value: unknown): HtmlExportSettings 
 }
 
 /**
- * 共有プロトコルのmerge・html・export・optionsを処理し、呼び出し側へ結果または副作用を返す。
+ * 現在のHTML出力設定へ指定値を重ね、未指定項目は既定値に正規化する。
  * @param current - 更新後も保持する現在のHTML出力設定。
  * @param next 現在のHTML出力設定へマージする新しい設定値。
- * @returns 共有プロトコルのmerge・html・export・optionsが生成する結果。
+ * @returns すべての出力項目が補完されたHTML出力設定。
  */
 export function mergeHtmlExportOptions(
     current: HtmlExportOptions,
@@ -444,27 +495,27 @@ export interface WebviewSettings extends FontFamilySettings {
     htmlOptions: HtmlExportSettings;
 
     /**
-     * 共有プロトコルのworkspace・trustedを制御する同期設定。
+ * Webviewでワークスペース内リソースを許可するかを示す信頼状態。
      */
     workspaceTrusted: boolean;
     /**
-     * 共有プロトコルのstartup・probeを制御する同期設定。
+ * 起動性能計測用の要求を送るかどうかを示す任意フラグ。
      */
     startupProbe?: boolean;
 }
 
 /**
- * 共有プロトコルで共有するデータ形状を表すインターフェース。
+ * 本文置換1件の開始オフセット、削除する長さ、挿入文字列を表します。
  */
 export interface TextChange {
 
     /**
-     * 共有プロトコルの位置・寸法・件数・時間を表す数値。
+     * 文書本文の先頭から置換範囲が始まるUTF-16オフセットです。
      */
     rangeOffset: number;
 
     /**
-     * 共有プロトコルの位置・寸法・件数・時間を表す数値。
+     * 置換対象から削除するUTF-16コード単位数です。
      */
     rangeLength: number;
 
@@ -480,7 +531,7 @@ export interface TextChange {
 export interface MermaidInteraction {
 
     /**
-     * 共有プロトコルで対象や分岐を識別する値の型。
+     * 操作対象を示し、'text'なら文字列選択、'link'ならリンク領域です。
      */
     type: 'text' | 'link';
 
@@ -522,7 +573,7 @@ export type HostToWebviewMessage =
     | {
 
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * Webviewへ初期化状態を渡すメッセージです。
          */
         type: 'init';
         /**
@@ -531,7 +582,7 @@ export type HostToWebviewMessage =
         text: string;
 
         /**
-         * 共有プロトコルのversionを表す数値。
+         * 拡張機能とWebview間で使用するメッセージ形式のバージョンです。
          */
         version: number;
 
@@ -549,23 +600,23 @@ export type HostToWebviewMessage =
     | { type: 'workspaceSectionLinkUnavailable' }
     | {
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * 本文編集の適用結果を返すメッセージです。
          */
         type: 'editAck';
         /**
-         * 共有プロトコルで受け渡すclient・idの文字列。
+ * Webviewクライアントを識別し、編集要求と応答を対応づけるID。
          */
         clientId: string;
         /**
-         * 共有プロトコルで受け渡すop・idの文字列。
+ * 編集操作を識別し、再送された変更の二重適用を防ぐID。
          */
         opId: string;
         /**
-         * 共有プロトコルのbase・versionを表す数値。
+ * 変更を作成した時点で基準にした文書版。Hostとの不一致時は再同期する。
          */
         baseVersion: number;
         /**
-         * 共有プロトコルのversionを表す数値。
+ * メッセージが参照する文書版番号。
          */
         version: number;
         /**
@@ -575,15 +626,15 @@ export type HostToWebviewMessage =
     }
     | {
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * 外部で変更された本文差分をWebviewへ通知するメッセージです。
          */
         type: 'externalChanges';
         /**
-         * 共有プロトコルのbase・versionを表す数値。
+         * 変更を作成した時点で基準にした文書版。不一致時はHostが再同期する。
          */
         baseVersion: number;
         /**
-         * 共有プロトコルのversionを表す数値。
+         * 変更が適用される本文の現在のバージョン番号です。
          */
         version: number;
         /**
@@ -591,33 +642,33 @@ export type HostToWebviewMessage =
          */
         changes: TextChange[];
         /**
-         * 共有プロトコルで受け渡すclient・idの文字列。
+         * Webviewクライアントを識別し、編集要求と応答を対応づけるID。
          */
         clientId?: string;
         /**
-         * 共有プロトコルで受け渡すop・idの文字列。
+         * 編集操作を識別し、再送された変更の二重適用を防ぐID。
          */
         opId?: string
     }
     | {
 
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * 本文状態の再同期をWebviewへ要求するメッセージです。
          */
         type: 'resyncRequired';
 
         /**
-         * 共有プロトコルで受け渡すclient・idの文字列。
+         * Webviewクライアントを識別し、編集要求と応答を対応づけるID。
          */
         clientId: string;
 
         /**
-         * 共有プロトコルで受け渡すop・idの文字列。
+         * 編集操作を識別し、再送された変更の二重適用を防ぐID。
          */
         opId?: string;
 
         /**
-         * 共有プロトコルのoperation・appliedを制御する同期設定。
+ * Hostがこの操作をすでに文書へ適用したかを示す任意フラグ。
          */
         operationApplied?: boolean;
         /**
@@ -626,7 +677,7 @@ export type HostToWebviewMessage =
         text: string;
 
         /**
-         * 共有プロトコルのversionを表す数値。
+         * 送受信するメッセージ形式のバージョンです。
          */
         version: number;
 
@@ -637,7 +688,7 @@ export type HostToWebviewMessage =
     }
     | {
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * 更新後の設定をWebviewへ通知するメッセージです。
          */
         type: 'settingsChanged';
         /**
@@ -647,11 +698,11 @@ export type HostToWebviewMessage =
     }
     | {
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * 画像保存結果を要求元へ返すメッセージです。
          */
         type: 'imagesSaved';
         /**
-         * 共有プロトコルで受け渡すrequest・idの文字列。
+ * 非同期要求と対応する応答を照合するID。
          */
         requestId: string;
         /**
@@ -661,25 +712,25 @@ export type HostToWebviewMessage =
     }
     | {
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * ローカル参照検査の診断結果を返すメッセージです。
          */
         type: 'localResourcesChecked';
         /**
-         * 共有プロトコルで受け渡すrequest・idの文字列。
+         * 非同期要求と対応する応答を照合するID。
          */
         requestId: string;
         /**
-         * 共有プロトコルのdiagnosticsに関する状態または設定。
+ * Markdown解析で検出した診断の一覧。
          */
         diagnostics: Diagnostic[]
     }
     | {
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * 要求された操作の失敗情報を返すメッセージです。
          */
         type: 'operationFailed';
         /**
-         * 共有プロトコルで受け渡すrequest・idの文字列。
+         * 非同期要求と対応する応答を照合するID。
          */
         requestId?: string;
         /**
@@ -689,11 +740,11 @@ export type HostToWebviewMessage =
     }
     | {
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * PDF出力の完了または失敗を返すメッセージです。
          */
         type: 'pdfExported';
         /**
-         * 共有プロトコルで受け渡すrequest・idの文字列。
+         * 非同期要求と対応する応答を照合するID。
          */
         requestId: string;
         /**
@@ -703,11 +754,11 @@ export type HostToWebviewMessage =
     }
     | {
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * HTML出力の完了または失敗を返すメッセージです。
          */
         type: 'htmlExported';
         /**
-         * 共有プロトコルで受け渡すrequest・idの文字列。
+         * 非同期要求と対応する応答を照合するID。
          */
         requestId: string;
         /**
@@ -718,12 +769,12 @@ export type HostToWebviewMessage =
     | {
 
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * 関連HTML文書の描画を要求するメッセージです。
          */
         type: 'renderHtmlDocuments';
 
         /**
-         * 共有プロトコルで受け渡すrequest・idの文字列。
+         * 非同期要求と対応する応答を照合するID。
          */
         requestId: string;
 
@@ -740,30 +791,32 @@ export type HostToWebviewMessage =
              */
             markdown: string
         }>;
+        /** 出力本文へ適用する置換ルール。 */
+        textReplacements: TextReplacementRule[];
     }
     | {
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * PDFプレビューの読み込み完了を通知するメッセージです。
          */
         type: 'pdfPreviewReady';
         /**
-         * 共有プロトコルで受け渡すrequest・idの文字列。
+         * 非同期要求と対応する応答を照合するID。
          */
         requestId: string;
         /**
-         * 共有プロトコルで受け渡すpdf・base64の文字列。
+ * PDFファイル全体をBase64で符号化したデータ。
          */
         pdfBase64: string
     }
     | {
 
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * Mermaid図の描画結果を返すメッセージです。
          */
         type: 'mermaidRendered';
 
         /**
-         * 共有プロトコルで受け渡すrequest・idの文字列。
+         * 非同期要求と対応する応答を照合するID。
          */
         requestId: string;
 
@@ -773,7 +826,7 @@ export type HostToWebviewMessage =
         svg?: string;
 
         /**
-         * 共有プロトコルで受け渡すpng・base64の文字列。
+ * プレビュー用PNGをBase64で符号化したデータ。
          */
         pngBase64?: string;
 
@@ -783,7 +836,7 @@ export type HostToWebviewMessage =
         interactions?: MermaidInteraction[];
 
         /**
-         * 共有プロトコルで受け渡すaria・labelの文字列。
+ * Webviewへ表示するコントロールのアクセシブル名。
          */
         ariaLabel?: string;
 
@@ -793,17 +846,17 @@ export type HostToWebviewMessage =
         error?: string;
 
         /**
-         * 共有プロトコルのrenderer・unavailableを制御する同期設定。
+ * Mermaid描画環境を利用できず、Host側処理へ切り替えたことを示すフラグ。
          */
         rendererUnavailable?: boolean;
     }
     | {
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * Webviewから拡張機能ホストへ操作を要求するメッセージです。
          */
         type: 'hostCommand';
         /**
-         * 共有プロトコルのcommandに関する状態または設定。
+ * Hostで実行する挿入、出力、Undo/Redo操作の種別。
         */
         command: 'insertImage' | 'exportPdf' | 'exportHtml' | 'undo' | 'redo'
     }
@@ -819,38 +872,38 @@ export type HostToWebviewMessage =
 export type WebviewToHostMessage =
     | {
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * Webviewのクライアント登録完了を通知するメッセージです。
          */
         type: 'ready';
         /**
-         * 共有プロトコルで受け渡すclient・idの文字列。
+         * Webviewクライアントを識別し、編集要求と応答を対応づけるID。
          */
         clientId: string
     }
     | {
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * Webviewの初期化完了を通知するメッセージです。
          */
         type: 'initialized';
         /**
-         * 共有プロトコルで受け渡すclient・idの文字列。
+         * Webviewクライアントを識別し、編集要求と応答を対応づけるID。
          */
         clientId: string
     }
     | {
 
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * Webviewの初期表示準備完了を通知するメッセージです。
          */
         type: 'startupReady';
 
         /**
-         * 共有プロトコルで受け渡すclient・idの文字列。
+         * Webviewクライアントを識別し、編集要求と応答を対応づけるID。
          */
         clientId: string;
 
         /**
-         * 共有プロトコルの位置・寸法・件数・時間を表す数値。
+         * 同期するMarkdown本文のUTF-16コード単位数です。
          */
         markdownLength: number;
 
@@ -861,29 +914,29 @@ export type WebviewToHostMessage =
     }
     | {
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * Mermaid描画環境の起動完了を通知するメッセージです。
          */
         type: 'startupMermaidReady';
         /**
-         * 共有プロトコルで受け渡すclient・idの文字列。
+         * Webviewクライアントを識別し、編集要求と応答を対応づけるID。
          */
         clientId: string
     }
     | {
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * Webviewで編集した本文差分をホストへ送るメッセージです。
          */
         type: 'localChanges';
         /**
-         * 共有プロトコルで受け渡すclient・idの文字列。
+         * Webviewクライアントを識別し、編集要求と応答を対応づけるID。
          */
         clientId: string;
         /**
-         * 共有プロトコルで受け渡すop・idの文字列。
+         * 編集操作を識別し、再送された変更の二重適用を防ぐID。
          */
         opId: string;
         /**
-         * 共有プロトコルのbase・versionを表す数値。
+         * 変更を作成した時点で基準にした文書版。不一致時はHostが再同期する。
          */
         baseVersion: number;
         /**
@@ -893,25 +946,25 @@ export type WebviewToHostMessage =
     }
     | {
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * UndoまたはRedoの実行をホストへ要求するメッセージです。
          */
         type: 'historyCommand';
         /**
-         * 共有プロトコルで受け渡すclient・idの文字列。
+         * Webviewクライアントを識別し、編集要求と応答を対応づけるID。
          */
         clientId: string;
         /**
-         * 共有プロトコルのcommandに関する状態または設定。
+         * 実行するHostコマンドの種別を示す識別子。
          */
         command: 'undo' | 'redo'
     }
     | {
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * 貼り付け画像の保存をホストへ要求するメッセージです。
          */
         type: 'saveImages';
         /**
-         * 共有プロトコルで受け渡すrequest・idの文字列。
+         * 非同期要求と対応する応答を照合するID。
          */
         requestId: string;
         /**
@@ -919,31 +972,31 @@ export type WebviewToHostMessage =
          */
         images: ImagePayload[];
         /**
-         * 共有プロトコルで受け渡すimage・directoryの文字列。
+ * 画像を保存するワークスペース内の相対ディレクトリ。
          */
         imageDirectory: string
     }
     | {
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * 画像選択と文書への保存をホストへ要求するメッセージです。
          */
         type: 'pickImage';
         /**
-         * 共有プロトコルで受け渡すrequest・idの文字列。
+         * 非同期要求と対応する応答を照合するID。
          */
         requestId: string;
         /**
-         * 共有プロトコルで受け渡すimage・directoryの文字列。
+         * 画像を保存するワークスペース内の相対ディレクトリ。
          */
         imageDirectory: string
     }
     | {
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * 本文中のローカル参照検査をホストへ要求するメッセージです。
          */
         type: 'checkLocalResources';
         /**
-         * 共有プロトコルで受け渡すrequest・idの文字列。
+         * 非同期要求と対応する応答を照合するID。
          */
         requestId: string;
         /**
@@ -953,7 +1006,7 @@ export type WebviewToHostMessage =
     }
     | {
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * エディターの配色テーマ変更をホストへ要求するメッセージです。
          */
         type: 'setEditorTheme';
         /**
@@ -963,7 +1016,7 @@ export type WebviewToHostMessage =
     }
     | {
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * 画像保存先ルールの変更をホストへ要求するメッセージです。
          */
         type: 'setImageDirectory';
         /**
@@ -973,31 +1026,31 @@ export type WebviewToHostMessage =
     }
     | {
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * 編集面とプレビューのフォント設定変更を送るメッセージです。
          */
         type: 'setFontFamilies';
         /**
-         * 共有プロトコルで受け渡すeditor・font・familyの文字列。
+ * ソースエディターに適用するフォントファミリー設定。
          */
         editorFontFamily: string;
         /**
-         * 共有プロトコルで受け渡すpreview・font・familyの文字列。
+ * Markdownプレビューに適用するフォントファミリー設定。
          */
         previewFontFamily: string
     }
     | {
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * 編集面とプレビューの表示モード変更を送るメッセージです。
          */
         type: 'setViewMode';
         /**
-         * 共有プロトコルのview・modeに関する状態または設定。
+ * Webviewで復元する編集・プレビューの表示モード。
          */
         viewMode: ViewMode
     }
     | {
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * 目次ペインの表示切替を送るメッセージです。
          */
         type: 'setOutlineVisible';
         /**
@@ -1023,7 +1076,7 @@ export type WebviewToHostMessage =
     }
     | {
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * スクロール同期の有効状態を送るメッセージです。
          */
         type: 'setScrollSyncEnabled';
         /**
@@ -1033,7 +1086,7 @@ export type WebviewToHostMessage =
     }
     | {
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * プレビュー画像のリサイズ操作表示を切り替えるメッセージです。
          */
         type: 'setPreviewImageResizeControlsVisible';
         /**
@@ -1043,7 +1096,7 @@ export type WebviewToHostMessage =
     }
     | {
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * PDF出力設定の変更をホストへ送るメッセージです。
          */
         type: 'setPdfOptions';
         /**
@@ -1053,7 +1106,7 @@ export type WebviewToHostMessage =
     }
     | {
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * HTML出力設定の変更をホストへ送るメッセージです。
          */
         type: 'setHtmlOptions';
         /**
@@ -1064,12 +1117,12 @@ export type WebviewToHostMessage =
     | {
 
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * 現在の本文のPDF出力をホストへ要求するメッセージです。
          */
         type: 'exportPdf';
 
         /**
-         * 共有プロトコルで受け渡すrequest・idの文字列。
+         * 非同期要求と対応する応答を照合するID。
          */
         requestId: string;
 
@@ -1091,12 +1144,12 @@ export type WebviewToHostMessage =
     | {
 
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * 現在の本文のHTML出力をホストへ要求するメッセージです。
          */
         type: 'exportHtml';
 
         /**
-         * 共有プロトコルで受け渡すrequest・idの文字列。
+         * 非同期要求と対応する応答を照合するID。
          */
         requestId: string;
 
@@ -1119,16 +1172,21 @@ export type WebviewToHostMessage =
          * 呼び出し側が指定する処理設定。
          */
         options: HtmlExportOptions;
+
+        /**
+         * HTML出力対象の本文へ上から順に適用する置換ルール。
+         */
+        textReplacements: TextReplacementRule[];
     }
     | {
 
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * 関連文書を含むHTML描画結果を返すメッセージです。
          */
         type: 'htmlDocumentsRendered';
 
         /**
-         * 共有プロトコルで受け渡すrequest・idの文字列。
+         * 非同期要求と対応する応答を照合するID。
          */
         requestId: string;
 
@@ -1145,16 +1203,18 @@ export type WebviewToHostMessage =
              */
             html: string
         }>;
+        /** レンダリングに失敗した場合にHostへ返す説明。 */
+        error?: string;
     }
     | {
 
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * PDFプレビューの生成をホストへ要求するメッセージです。
          */
         type: 'renderPdfPreview';
 
         /**
-         * 共有プロトコルで受け渡すrequest・idの文字列。
+         * 非同期要求と対応する応答を照合するID。
          */
         requestId: string;
 
@@ -1176,12 +1236,12 @@ export type WebviewToHostMessage =
     | {
 
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * Mermaid図の描画をホストへ要求するメッセージです。
          */
         type: 'renderMermaid';
 
         /**
-         * 共有プロトコルで受け渡すrequest・idの文字列。
+         * 非同期要求と対応する応答を照合するID。
          */
         requestId: string;
 
@@ -1197,23 +1257,23 @@ export type WebviewToHostMessage =
     }
     | {
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * 実行中のMermaid描画のキャンセルを要求するメッセージです。
          */
         type: 'cancelMermaidRender';
         /**
-         * 共有プロトコルで受け渡すrequest・idの文字列。
+         * 非同期要求と対応する応答を照合するID。
          */
         requestId: string
     }
     | {
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * 指定位置のソース本文を開くようホストへ要求するメッセージです。
          */
         type: 'openSource'
     }
     | {
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * 参照先リソースを開くようホストへ要求するメッセージです。
          */
         type: 'openResource';
         /**
@@ -1225,19 +1285,19 @@ export type WebviewToHostMessage =
     }
     | {
         /**
-         * 共有プロトコルで対象や分岐を識別する値の型。
+         * ホストから現在の本文を再同期するよう要求するメッセージです。
          */
         type: 'requestResync';
         /**
-         * 共有プロトコルで受け渡すclient・idの文字列。
+         * Webviewクライアントを識別し、編集要求と応答を対応づけるID。
          */
         clientId: string;
         /**
-         * 共有プロトコルで受け渡すop・idの文字列。
+         * 編集操作を識別し、再送された変更の二重適用を防ぐID。
          */
         opId?: string;
         /**
-         * 共有プロトコルのversionを表す数値。
+         * 応答の対象となる操作時点の文書バージョンです。
          */
         version: number;
         /**
@@ -1247,24 +1307,22 @@ export type WebviewToHostMessage =
     };
 
 /**
- * 共有プロトコルで共有するデータ形状を表すインターフェース。
+ * Webviewから状態の取得・保存と拡張機能へのメッセージ送信を行うAPIです。
  */
 export interface VsCodeApi<State = unknown> {
     /**
-     * 共有プロトコルの変更または要求をHost・Webview間へ通知する。
+ * Extension Hostへ型付きメッセージを送信する。
      * @param message - HostとWebviewの間で受け渡すメッセージ。
-     * @returns 共有プロトコルのpost・messageが生成する結果。
      */
     postMessage(message: WebviewToHostMessage): void;
     /**
-     * 共有プロトコルから必要な値またはリソースを取得する。
-     * @returns 共有プロトコルのget・stateが生成する結果。
+ * VS CodeがWebview用に保存した状態を読み取る。
+ * @returns 保存状態。初回起動など保存値がない場合はundefined。
      */
     getState(): State | undefined;
     /**
      * 共有プロトコルの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
      * @param newState - 永続化するVS Code Webviewの共有状態。
-     * @returns 副作用を完了し、値は返さない。
      */
     setState(newState: State): void;
 }

@@ -25,7 +25,7 @@ import { installTableEditorOverlay } from "./tableEditorOverlay";
 (
   globalThis as typeof globalThis & {
     /**
-     * indexの・mve・bundle・executed・atを表す数値。
+     * Webviewスクリプトの実行開始時刻。診断ログの遅延計測に使う。
      */
     __mveBundleExecutedAt?: number;
   }
@@ -35,7 +35,6 @@ preloadMarkdownWorker();
 /**
  * indexのイベントまたはメッセージを受け取り、状態を更新する。
  * @param event - CodeMirror行番号gutterのclick event。
- * @returns 副作用を完了し、値は返さない。
  */
 function handleLineNumberClick(event: MouseEvent): void {
   if (event.button !== 0 || !(event.target instanceof Element)) return;
@@ -63,8 +62,8 @@ function handleLineNumberClick(event: MouseEvent): void {
 }
 
 /**
- * indexのinstall・table・editor・toolbar・activation・guardを処理し、呼び出し側へ結果または副作用を返す。
- * @returns indexのinstall・table・editor・toolbar・activation・guardが生成する結果。
+ * 表編集ツールバーの連続clickを抑止し、pointer開始後の正当なクリックは通すイベントガードを登録する。
+ * @returns 登録したイベントリスナーを取り除く関数。
  */
 function installTableEditorToolbarActivationGuard(): () => void {
   let activationSerial = 0;
@@ -72,9 +71,9 @@ function installTableEditorToolbarActivationGuard(): () => void {
   let activationButton: HTMLButtonElement | undefined;
 
   const toolbarButton = /**
-   * indexのtoolbar・buttonを処理し、呼び出し側へ結果または副作用を返す。
+   * イベント対象またはその祖先にあるツールバーボタンを探す。
    * @param target - クリック対象またはその子要素。要素内のtoolbar buttonを検索する。
-   * @returns 副作用を完了し、値は返さない。
+   * @returns 見つかったツールバーボタン。対象外の要素またはボタン外ならundefined。
    */ (target: EventTarget | null): HTMLButtonElement | undefined => {
     if (!(target instanceof Element)) return undefined;
     return (
@@ -83,20 +82,12 @@ function installTableEditorToolbarActivationGuard(): () => void {
     );
   };
 
-  const arm = /**
-   * indexのarmを処理し、呼び出し側へ結果または副作用を返す。
-   * @param button - 重複clickを抑制するHTML button。
-   * @returns indexのarmが生成する結果。
-   */ (button: HTMLButtonElement) => {
+  const arm = (button: HTMLButtonElement) => {
     activationSerial += 1;
     activationButton = button;
   };
 
-  const onPointerDown = /**
-   * indexのイベントまたはメッセージを受け取り、状態を更新する。
-   * @param event - toolbar buttonのpointer押下を記録するevent。
-   * @returns indexのon・pointer・downが生成する結果。
-   */ (event: PointerEvent) => {
+  const onPointerDown = (event: PointerEvent) => {
     if (event.button !== 0) return;
     const button = toolbarButton(event.target);
     if (button && !button.disabled) arm(button);
@@ -105,18 +96,13 @@ function installTableEditorToolbarActivationGuard(): () => void {
   const onKeyDown = /**
    * keydownイベントでifを実行する。
    * @param event - EnterまたはSpaceによるtoolbar button操作を記録するkeydown event。
-   * @returns 副作用を完了し、値は返さない。
    */ (event: KeyboardEvent) => {
     if (event.repeat || (event.key !== "Enter" && event.key !== " ")) return;
     const button = toolbarButton(event.target);
     if (button && !button.disabled) arm(button);
   };
 
-  const onClick = /**
-   * clickイベントでtoolbar・buttonを実行する。
-   * @param event - toolbar buttonのclick activation guardを実行するevent。
-   * @returns 副作用を完了し、値は返さない。
-   */ (event: MouseEvent) => {
+  const onClick = (event: MouseEvent) => {
     const button = toolbarButton(event.target);
     if (!button || button.disabled) return;
 
@@ -136,10 +122,6 @@ function installTableEditorToolbarActivationGuard(): () => void {
   document.addEventListener("pointerdown", onPointerDown, true);
   document.addEventListener("keydown", onKeyDown, true);
   document.addEventListener("click", onClick, true);
-  /**
-   * イベントでremove・event・listenerを実行する。
-   * @returns 副作用を完了し、値は返さない。
-   */
   return () => {
     document.removeEventListener("pointerdown", onPointerDown, true);
     document.removeEventListener("keydown", onKeyDown, true);
@@ -162,8 +144,7 @@ installTableEditorToolbarActivationGuard();
 installTableEditorOverlay();
 
 /**
- * indexで使う値または実行環境を組み立てる。
- * @returns indexで生成または変換した値。
+ * ReactアプリをWebviewのroot要素へマウントする。
  */
 createRoot(root).render(
   <React.StrictMode>

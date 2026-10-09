@@ -138,7 +138,7 @@ export interface Messages {
         expand: string;
 
         /**
-         * 表示文言のgroupsに関する状態または設定。
+         * リボンの各タブに属する操作グループの翻訳文言をまとめる。
          */
         groups: {
 
@@ -234,7 +234,7 @@ export interface Messages {
         };
 
         /**
-         * 表示文言のlabelsに関する状態または設定。
+         * リボンの操作に付ける表示ラベルの翻訳文言をまとめる。
          */
         labels: {
 
@@ -258,9 +258,9 @@ export interface Messages {
              */
             body: string;
             /**
-             * 表示文言のheadingを処理し、呼び出し側へ結果または副作用を返す。
+             * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              * @param level - 見出しレベル1から6。
-             * @returns 表示文言で利用する文字列。
+
              */
             heading: (level: number) => string;
 
@@ -345,7 +345,7 @@ export interface Messages {
             clearBlock: string;
 
             /**
-             * clear・all操作のラベルとして表示するローカライズ済み文言。
+             * すべてクリア操作のラベルとして表示するローカライズ済み文言。
              */
             clearAll: string;
 
@@ -365,7 +365,7 @@ export interface Messages {
             image: string;
 
             /**
-             * 表示項目「table・size」の文言として表示するローカライズ済み文言。
+             * 表示項目「表サイズ」の文言として表示するローカライズ済み文言。
              */
             tableSize: string;
 
@@ -380,17 +380,17 @@ export interface Messages {
             columns: string;
 
             /**
-             * insert・table操作のラベルとして表示するローカライズ済み文言。
+             * 表を挿入操作のラベルとして表示するローカライズ済み文言。
              */
             insertTable: string;
 
             /**
-             * 表示項目「horizontal・rule」の文言として表示するローカライズ済み文言。
+             * 表示項目「水平線」の文言として表示するローカライズ済み文言。
              */
             horizontalRule: string;
 
             /**
-             * 表示項目「hard・break」の文言として表示するローカライズ済み文言。
+             * 表示項目「強制改行」の文言として表示するローカライズ済み文言。
              */
             hardBreak: string;
 
@@ -400,7 +400,7 @@ export interface Messages {
             language: string;
 
             /**
-             * code・block書式コマンドのラベルとして表示するローカライズ済み文言。
+             * コードブロック書式コマンドのラベルとして表示するローカライズ済み文言。
              */
             codeBlock: string;
 
@@ -450,7 +450,7 @@ export interface Messages {
             dark: string;
 
             /**
-             * 表示項目「page・break」の文言として表示するローカライズ済み文言。
+             * 表示項目「改ページ」の文言として表示するローカライズ済み文言。
              */
             pageBreak: string;
 
@@ -460,102 +460,102 @@ export interface Messages {
             emoji: string;
 
             /**
-             * insert・emoji操作のラベルとして表示するローカライズ済み文言。
+             * 絵文字を挿入操作のラベルとして表示するローカライズ済み文言。
              */
             insertEmoji: string;
 
             /**
-             * add・before操作のラベルとして表示するローカライズ済み文言。
+             * 前へ追加操作のラベルとして表示するローカライズ済み文言。
              */
             addBefore: string;
 
             /**
-             * add・after操作のラベルとして表示するローカライズ済み文言。
+             * 後ろへ追加操作のラベルとして表示するローカライズ済み文言。
              */
             addAfter: string;
 
             /**
-             * add・left操作のラベルとして表示するローカライズ済み文言。
+             * 左へ追加操作のラベルとして表示するローカライズ済み文言。
              */
             addLeft: string;
 
             /**
-             * add・right操作のラベルとして表示するローカライズ済み文言。
+             * 右へ追加操作のラベルとして表示するローカライズ済み文言。
              */
             addRight: string;
 
             /**
-             * delete・row操作のラベルとして表示するローカライズ済み文言。
+             * 行を削除操作のラベルとして表示するローカライズ済み文言。
              */
             deleteRow: string;
 
             /**
-             * 表示項目「toggle・header」の文言として表示するローカライズ済み文言。
+             * 表示項目「見出し行を切り替え」の文言として表示するローカライズ済み文言。
              */
             toggleHeader: string;
 
             /**
-             * delete・column操作のラベルとして表示するローカライズ済み文言。
+             * 列を削除操作のラベルとして表示するローカライズ済み文言。
              */
             deleteColumn: string;
 
             /**
-             * 表示項目「align・left」の文言として表示するローカライズ済み文言。
+             * 表示項目「左揃え」の文言として表示するローカライズ済み文言。
              */
             alignLeft: string;
 
             /**
-             * 表示項目「align・center」の文言として表示するローカライズ済み文言。
+             * 表示項目「中央揃え」の文言として表示するローカライズ済み文言。
              */
             alignCenter: string;
 
             /**
-             * 表示項目「align・right」の文言として表示するローカライズ済み文言。
+             * 表示項目「右揃え」の文言として表示するローカライズ済み文言。
              */
             alignRight: string;
 
             /**
-             * 表示項目「align・columns」の文言として表示するローカライズ済み文言。
+             * 表示項目「列幅を揃える」の文言として表示するローカライズ済み文言。
              */
             alignColumns: string;
 
             /**
-             * 表示項目「cell・break」の文言として表示するローカライズ済み文言。
+             * 表示項目「セル内改行」の文言として表示するローカライズ済み文言。
              */
             cellBreak: string;
 
             /**
-             * copy・tsv操作のラベルとして表示するローカライズ済み文言。
+             * TSVをコピー操作のラベルとして表示するローカライズ済み文言。
              */
             copyTsv: string;
 
             /**
-             * print・preview設定の表示文言として表示するローカライズ済み文言。
+             * 印刷プレビュー設定の表示文言として表示するローカライズ済み文言。
              */
             printPreview: string;
 
             /**
-             * 表示項目「export・pdf」の文言として表示するローカライズ済み文言。
+             * 表示項目「PDF出力」の文言として表示するローカライズ済み文言。
              */
             exportPdf: string;
 
             /**
-             * 表示項目「export・html」の文言として表示するローカライズ済み文言。
+             * 表示項目「HTML出力」の文言として表示するローカライズ済み文言。
              */
             exportHtml: string;
 
             /**
-             * embed・images書式コマンドのラベルとして表示するローカライズ済み文言。
+             * 画像を埋め込む書式コマンドのラベルとして表示するローカライズ済み文言。
              */
             embedImages: string;
 
             /**
-             * convert・linked・markdown書式コマンドのラベルとして表示するローカライズ済み文言。
+             * リンク形式へ変換・markdown書式コマンドのラベルとして表示するローカライズ済み文言。
              */
             convertLinkedMarkdown: string;
 
             /**
-             * save・without・dialog操作のラベルとして表示するローカライズ済み文言。
+             * ダイアログなしで保存・dialog操作のラベルとして表示するローカライズ済み文言。
              */
             saveWithoutDialog: string;
 
@@ -575,7 +575,7 @@ export interface Messages {
             features: string;
 
             /**
-             * 表示項目「markdown・support」の文言として表示するローカライズ済み文言。
+             * 表示項目「Markdownの対応範囲」の文言として表示するローカライズ済み文言。
              */
             markdownSupport: string;
 
@@ -595,9 +595,7 @@ export interface Messages {
             headerPlaceholder: string;
         };
 
-        /**
-         * 表示文言のfeature・descriptionsに関する状態または設定。
-         */
+        /** 利用者向けヘルプに表示する機能説明文をまとめる。 */
         featureDescriptions: {
 
             /**
@@ -641,12 +639,12 @@ export interface Messages {
             image: string;
 
             /**
-             * insert・table操作のラベルとして表示するローカライズ済み文言。
+             * 表を挿入操作のラベルとして表示するローカライズ済み文言。
              */
             insertTable: string;
 
             /**
-             * code・block書式コマンドのラベルとして表示するローカライズ済み文言。
+             * コードブロック書式コマンドのラベルとして表示するローカライズ済み文言。
              */
             codeBlock: string;
 
@@ -666,57 +664,57 @@ export interface Messages {
             toc: string;
 
             /**
-             * add・before操作のラベルとして表示するローカライズ済み文言。
+             * 前へ追加操作のラベルとして表示するローカライズ済み文言。
              */
             addBefore: string;
 
             /**
-             * delete・row操作のラベルとして表示するローカライズ済み文言。
+             * 行を削除操作のラベルとして表示するローカライズ済み文言。
              */
             deleteRow: string;
 
             /**
-             * delete・column操作のラベルとして表示するローカライズ済み文言。
+             * 列を削除操作のラベルとして表示するローカライズ済み文言。
              */
             deleteColumn: string;
 
             /**
-             * 表示項目「align・left」の文言として表示するローカライズ済み文言。
+             * 表示項目「左揃え」の文言として表示するローカライズ済み文言。
              */
             alignLeft: string;
 
             /**
-             * 表示項目「align・center」の文言として表示するローカライズ済み文言。
+             * 表示項目「中央揃え」の文言として表示するローカライズ済み文言。
              */
             alignCenter: string;
 
             /**
-             * 表示項目「align・right」の文言として表示するローカライズ済み文言。
+             * 表示項目「右揃え」の文言として表示するローカライズ済み文言。
              */
             alignRight: string;
 
             /**
-             * copy・tsv操作のラベルとして表示するローカライズ済み文言。
+             * TSVをコピー操作のラベルとして表示するローカライズ済み文言。
              */
             copyTsv: string;
 
             /**
-             * table・editor設定の表示文言として表示するローカライズ済み文言。
+             * 表エディター設定の表示文言として表示するローカライズ済み文言。
              */
             tableEditor: string;
 
             /**
-             * table・editor・column・resize設定の表示文言として表示するローカライズ済み文言。
+             * 表エディター・列幅の変更設定の表示文言として表示するローカライズ済み文言。
              */
             tableEditorColumnResize: string;
 
             /**
-             * table・editor・row・resize設定の表示文言として表示するローカライズ済み文言。
+             * 表エディター・行高の変更設定の表示文言として表示するローカライズ済み文言。
              */
             tableEditorRowResize: string;
 
             /**
-             * table・editor・layout設定の表示文言として表示するローカライズ済み文言。
+             * 表エディター・layout設定の表示文言として表示するローカライズ済み文言。
              */
             tableEditorLayout: string;
 
@@ -746,12 +744,12 @@ export interface Messages {
             previewOnly: string;
 
             /**
-             * print・preview設定の表示文言として表示するローカライズ済み文言。
+             * 印刷プレビュー設定の表示文言として表示するローカライズ済み文言。
              */
             printPreview: string;
 
             /**
-             * 表示項目「export・pdf」の文言として表示するローカライズ済み文言。
+             * 表示項目「PDF出力」の文言として表示するローカライズ済み文言。
              */
             exportPdf: string;
 
@@ -761,9 +759,7 @@ export interface Messages {
             preflight: string;
         };
 
-        /**
-         * 表示文言のcode・languagesに関する状態または設定。
-         */
+        /** コード挿入UIで選べる言語名をまとめる。 */
         codeLanguages: ReadonlyArray<{
             /**
              * 表示項目「値」の文言として表示するローカライズ済み文言。
@@ -775,9 +771,7 @@ export interface Messages {
             label: string
         }>;
 
-        /**
-         * 表示文言のsnippetsに関する状態または設定。
-         */
+        /** 定型入力候補とその挿入内容をまとめる。 */
         snippets: {
             /**
              * 表示項目「mermaid」の文言として表示するローカライズ済み文言。
@@ -808,7 +802,7 @@ export interface Messages {
             images: string;
 
             /**
-             * image・directory書式コマンドのラベルとして表示するローカライズ済み文言。
+             * 画像の保存先書式コマンドのラベルとして表示するローカライズ済み文言。
              */
             imageDirectory: string;
 
@@ -828,17 +822,17 @@ export interface Messages {
             fonts: string;
 
             /**
-             * font・settings設定の表示文言として表示するローカライズ済み文言。
+             * フォント設定設定の表示文言として表示するローカライズ済み文言。
              */
             fontSettings: string;
 
             /**
-             * editor・font・family設定の表示文言として表示するローカライズ済み文言。
+             * 編集フォント・family設定の表示文言として表示するローカライズ済み文言。
              */
             editorFontFamily: string;
 
             /**
-             * preview・font・family設定の表示文言として表示するローカライズ済み文言。
+             * preview・フォントファミリー設定の表示文言として表示するローカライズ済み文言。
              */
             previewFontFamily: string;
 
@@ -859,9 +853,7 @@ export interface Messages {
         };
     };
 
-    /**
-     * 表示文言のappに関する状態または設定。
-     */
+    /** アプリ全体の操作説明、通知、エラーに使う文言をまとめる。 */
     app: {
 
         /**
@@ -875,17 +867,17 @@ export interface Messages {
         outline: string;
 
         /**
-         * hide・outline設定の表示文言として表示するローカライズ済み文言。
+         * 目次を隠す設定の表示文言として表示するローカライズ済み文言。
          */
         hideOutline: string;
 
         /**
-         * show・outline設定の表示文言として表示するローカライズ済み文言。
+         * 目次を表示設定の表示文言として表示するローカライズ済み文言。
          */
         showOutline: string;
 
         /**
-         * outline・width設定の表示文言として表示するローカライズ済み文言。
+         * 目次の幅設定の表示文言として表示するローカライズ済み文言。
          */
         outlineWidth: string;
 
@@ -905,22 +897,22 @@ export interface Messages {
         sectionLinkCopied: string;
 
         /**
-         * no・headings書式コマンドのラベルとして表示するローカライズ済み文言。
+         * 見出しなし書式コマンドのラベルとして表示するローカライズ済み文言。
          */
         noHeadings: string;
 
         /**
-         * 表示項目「search・and・replace」の文言として表示するローカライズ済み文言。
+         * 表示項目「検索と・replace」の文言として表示するローカライズ済み文言。
          */
         searchAndReplace: string;
 
         /**
-         * 表示項目「search・text」の文言として表示するローカライズ済み文言。
+         * 表示項目「検索文字列」の文言として表示するローカライズ済み文言。
          */
         searchText: string;
 
         /**
-         * 表示項目「replacement・text」の文言として表示するローカライズ済み文言。
+         * 表示項目「置換文字列」の文言として表示するローカライズ済み文言。
          */
         replacementText: string;
 
@@ -930,17 +922,17 @@ export interface Messages {
         replacement: string;
 
         /**
-         * 表示項目「previous・match」の文言として表示するローカライズ済み文言。
+         * 表示項目「前の検索結果」の文言として表示するローカライズ済み文言。
          */
         previousMatch: string;
 
         /**
-         * 表示項目「next・match」の文言として表示するローカライズ済み文言。
+         * 表示項目「次の検索結果」の文言として表示するローカライズ済み文言。
          */
         nextMatch: string;
 
         /**
-         * 表示項目「replace・all」の文言として表示するローカライズ済み文言。
+         * 表示項目「すべて置換」の文言として表示するローカライズ済み文言。
          */
         replaceAll: string;
 
@@ -950,12 +942,12 @@ export interface Messages {
         close: string;
 
         /**
-         * split・boundary設定の表示文言として表示するローカライズ済み文言。
+         * 分割位置設定の表示文言として表示するローカライズ済み文言。
          */
         splitBoundary: string;
 
         /**
-         * 表示項目「selection・formatting」の文言として表示するローカライズ済み文言。
+         * 表示項目「選択範囲の書式」の文言として表示するローカライズ済み文言。
          */
         selectionFormatting: string;
 
@@ -970,13 +962,11 @@ export interface Messages {
         diagnosticHelp: string;
 
         /**
-         * 表示項目「no・problems」の文言として表示するローカライズ済み文言。
+         * 表示項目「問題なし」の文言として表示するローカライズ済み文言。
          */
         noProblems: string;
 
-        /**
-         * 表示文言のseverityに関する状態または設定。
-         */
+        /** 診断の重大度ごとに表示する名称をまとめる。 */
         severity: {
             /**
              * 失敗または入力エラーの説明として表示するローカライズ済み文言。
@@ -992,14 +982,14 @@ export interface Messages {
             info: string
         };
         /**
-         * 表示文言のlineを処理し、呼び出し側へ結果または副作用を返す。
+         * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
          * @param line - 表示する行番号（1始まり）。
-         * @returns 表示文言で利用する文字列。
+
          */
         line: (line: number) => string;
 
         /**
-         * 表示項目「print・settings」の文言として表示するローカライズ済み文言。
+         * 表示項目「印刷設定」の文言として表示するローカライズ済み文言。
          */
         printSettings: string;
 
@@ -1064,7 +1054,7 @@ export interface Messages {
         left: string;
 
         /**
-         * 表示項目「without・dialog」の文言として表示するローカライズ済み文言。
+         * 表示項目「ダイアログなし」の文言として表示するローカライズ済み文言。
          */
         withoutDialog: string;
         /**
@@ -1073,71 +1063,113 @@ export interface Messages {
         typography: string;
 
         /**
-         * font・family設定の表示文言として表示するローカライズ済み文言。
+         * フォントファミリー設定の表示文言として表示するローカライズ済み文言。
          */
         fontFamily: string;
 
         /**
-         * body・font・size設定の表示文言として表示するローカライズ済み文言。
+         * 本文フォント・size設定の表示文言として表示するローカライズ済み文言。
          */
         bodyFontSize: string;
 
         /**
-         * heading・font・sizes書式コマンドのラベルとして表示するローカライズ済み文言。
+         * 見出しフォント・sizes書式コマンドのラベルとして表示するローカライズ済み文言。
          */
         headingFontSizes: string;
 
         /**
-         * code・font・size書式コマンドのラベルとして表示するローカライズ済み文言。
+         * コードフォント・size書式コマンドのラベルとして表示するローカライズ済み文言。
          */
         codeFontSize: string;
 
         /**
-         * 表示項目「line・height」の文言として表示するローカライズ済み文言。
+         * 表示項目「行の高さ」の文言として表示するローカライズ済み文言。
          */
         lineHeight: string;
 
         /**
-         * 表示項目「paragraph・spacing」の文言として表示するローカライズ済み文言。
+         * 表示項目「段落間隔」の文言として表示するローカライズ済み文言。
          */
         paragraphSpacing: string;
 
         /**
-         * 表示文言のstatusに関する状態または設定。
+         * 出力時の置換ルールをまとめる見出し。
          */
+        outputReplacementRules: string;
+
+        /**
+         * PDFとHTMLの出力対象・順序・Markdown本文を変更しないことの説明。
+         */
+        outputReplacementHelp: string;
+
+        /**
+         * 置換ルールの検索文字列欄のラベル。
+         */
+        outputReplacementPattern: string;
+
+        /**
+         * 置換ルールで挿入する文字列欄のラベル。
+         */
+        outputReplacementText: string;
+
+        /**
+         * 置換ルールの追加ボタンに表示する文言。
+         */
+        addOutputReplacementRule: string;
+
+        /**
+         * 置換ルールの削除ボタンに表示する文言とアクセシブルな名前。
+         */
+        removeOutputReplacementRule: string;
+
+        /** 置換ルールの削除ボタンに表示する短い文言。 */
+        removeOutputReplacementRuleShort: string;
+
+        /**
+         * 空または無効な置換正規表現を示す文言。
+         */
+        invalidOutputReplacementPattern: string;
+
+        /** 出力時の置換処理が制限時間を超えた場合に表示する文言。 */
+        outputReplacementTimeout: string;
+
+        /** 出力時の置換処理が失敗した場合に表示する文言。 */
+        outputReplacementFailed: string;
+
+        /** 文書処理や保存の進行状態を伝える文言をまとめる。 */
         status: {
 
             /**
-             * mode・split設定の表示文言として表示するローカライズ済み文言。
+             * 分割表示モード設定の表示文言として表示するローカライズ済み文言。
              */
             modeSplit: string;
 
             /**
-             * mode・preview設定の表示文言として表示するローカライズ済み文言。
+             * プレビューモード設定の表示文言として表示するローカライズ済み文言。
              */
             modePreview: string;
             /**
-             * 表示文言のlinesを処理し、呼び出し側へ結果または副作用を返す。
+             * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              * @param count - 文書内の行数。
-             * @returns 表示文言で利用する文字列。
+
              */
             lines: (count: number) => string;
             /**
-             * 表示文言のtext・charactersを処理し、呼び出し側へ結果または副作用を返す。
+             * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              * @param count - 編集本文の文字数。
-             * @returns 表示文言で利用する文字列。
+
              */
             textCharacters: (count: number) => string;
             /**
              * 表示文言の変更または利用者の操作意図を記録し、後続処理へ渡す。
              * @param count - Markdown本文の文字数。
-             * @returns 表示文言で利用する文字列。
+
              */
             markdownCharacters: (count: number) => string;
             /**
-             * 表示文言のzoomを処理し、呼び出し側へ結果または副作用を返す。
+             * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              * @param percent - 表示するズーム倍率（パーセント）。
-             * @returns 表示文言で利用する文字列。
+
              */
             zoom: (percent: number) => string;
 
@@ -1152,9 +1184,7 @@ export interface Messages {
             synced: string;
         };
 
-        /**
-         * 表示文言のinspectorに関する状態または設定。
-         */
+        /** 文書診断パネルの見出しと操作文言をまとめる。 */
         inspector: {
             /**
              * 表示項目「mermaid」の文言として表示するローカライズ済み文言。
@@ -1177,7 +1207,7 @@ export interface Messages {
              */
             reference: string;
             /**
-             * open・file操作のラベルとして表示するローカライズ済み文言。
+             * ファイルを開く操作のラベルとして表示するローカライズ済み文言。
              */
             openFile: string;
             /**
@@ -1186,9 +1216,7 @@ export interface Messages {
             apply: string
         };
 
-        /**
-         * 表示文言のlinkに関する状態または設定。
-         */
+        /** リンク編集欄に表示するラベルと説明をまとめる。 */
         link: {
             /**
              * 画面または設定項目の見出しとして表示するローカライズ済み文言。
@@ -1358,9 +1386,7 @@ export interface Messages {
             pageLabel: (page: number) => string;
         };
 
-        /**
-         * 表示文言のtable・editorに関する状態または設定。
-         */
+        /** 表の編集操作とセル状態を説明する文言をまとめる。 */
         tableEditor: {
 
             /**
@@ -1374,57 +1400,57 @@ export interface Messages {
             close: string;
 
             /**
-             * add・row操作のラベルとして表示するローカライズ済み文言。
+             * 行を追加操作のラベルとして表示するローカライズ済み文言。
              */
             addRow: string;
 
             /**
-             * delete・row操作のラベルとして表示するローカライズ済み文言。
+             * 行を削除操作のラベルとして表示するローカライズ済み文言。
              */
             deleteRow: string;
 
             /**
-             * add・column操作のラベルとして表示するローカライズ済み文言。
+             * 列を追加操作のラベルとして表示するローカライズ済み文言。
              */
             addColumn: string;
 
             /**
-             * delete・column操作のラベルとして表示するローカライズ済み文言。
+             * 列を削除操作のラベルとして表示するローカライズ済み文言。
              */
             deleteColumn: string;
 
             /**
-             * 表示項目「align・left」の文言として表示するローカライズ済み文言。
+             * 表示項目「左揃え」の文言として表示するローカライズ済み文言。
              */
             alignLeft: string;
 
             /**
-             * 表示項目「align・center」の文言として表示するローカライズ済み文言。
+             * 表示項目「中央揃え」の文言として表示するローカライズ済み文言。
              */
             alignCenter: string;
 
             /**
-             * 表示項目「align・right」の文言として表示するローカライズ済み文言。
+             * 表示項目「右揃え」の文言として表示するローカライズ済み文言。
              */
             alignRight: string;
 
             /**
-             * clear・alignment操作のラベルとして表示するローカライズ済み文言。
+             * 配置を解除操作のラベルとして表示するローカライズ済み文言。
              */
             clearAlignment: string;
 
             /**
-             * copy・tsv操作のラベルとして表示するローカライズ済み文言。
+             * TSVをコピー操作のラベルとして表示するローカライズ済み文言。
              */
             copyTsv: string;
 
             /**
-             * copy・column操作のラベルとして表示するローカライズ済み文言。
+             * 列をコピー操作のラベルとして表示するローカライズ済み文言。
              */
             copyColumn: string;
 
             /**
-             * copy・row操作のラベルとして表示するローカライズ済み文言。
+             * 行をコピー操作のラベルとして表示するローカライズ済み文言。
              */
             copyRow: string;
 
@@ -1444,19 +1470,19 @@ export interface Messages {
             navigationHint: string;
 
             /**
-             * source・editor・required設定の表示文言として表示するローカライズ済み文言。
+             * 本文編集面・required設定の表示文言として表示するローカライズ済み文言。
              */
             sourceEditorRequired: string;
 
             /**
-             * 表示項目「table・required」の文言として表示するローカライズ済み文言。
+             * 表示項目「表が必要」の文言として表示するローカライズ済み文言。
              */
             tableRequired: string;
             /**
-             * 表示文言のrow・column・limitを処理し、呼び出し側へ結果または副作用を返す。
+             * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              * @param rows - 表編集で許可する最大行数。
              * @param columns - 表編集で許可する最大列数。
-             * @returns 表示文言で利用する文字列。
+
              */
             rowColumnLimit: (rows: number, columns: number) => string;
 
@@ -1466,27 +1492,27 @@ export interface Messages {
             copied: string;
 
             /**
-             * source・editor・closed操作のラベルとして表示するローカライズ済み文言。
+             * 本文編集面・closed操作のラベルとして表示するローカライズ済み文言。
              */
             sourceEditorClosed: string;
 
             /**
-             * 表示項目「document・changed」の文言として表示するローカライズ済み文言。
+             * 表示項目「文書の変更」の文言として表示するローカライズ済み文言。
              */
             documentChanged: string;
 
             /**
-             * 表示項目「resize・column」の文言として表示するローカライズ済み文言。
+             * 表示項目「列幅を変更」の文言として表示するローカライズ済み文言。
              */
             resizeColumn: string;
 
             /**
-             * 表示項目「resize・row」の文言として表示するローカライズ済み文言。
+             * 表示項目「行高を変更」の文言として表示するローカライズ済み文言。
              */
             resizeRow: string;
 
             /**
-             * resize・editor設定の表示文言として表示するローカライズ済み文言。
+             * エディターのサイズ変更設定の表示文言として表示するローカライズ済み文言。
              */
             resizeEditor: string;
 
@@ -1544,9 +1570,7 @@ export interface Messages {
             sortDescending: string;
         };
 
-        /**
-         * 表示文言のhelpに関する状態または設定。
-         */
+        /** ヘルプ画面と操作ヒントに表示する文言をまとめる。 */
         help: {
 
             /**
@@ -1565,22 +1589,22 @@ export interface Messages {
             about: string;
 
             /**
-             * shortcut・image書式コマンドのラベルとして表示するローカライズ済み文言。
+             * 画像操作のショートカット書式コマンドのラベルとして表示するローカライズ済み文言。
              */
             shortcutImage: string;
 
             /**
-             * 表示項目「shortcut・table・break」の文言として表示するローカライズ済み文言。
+             * 表示項目「表操作のショートカット・break」の文言として表示するローカライズ済み文言。
              */
             shortcutTableBreak: string;
 
             /**
-             * 表示項目「markdown・intro」の文言として表示するローカライズ済み文言。
+             * 表示項目「Markdownの紹介」の文言として表示するローカライズ済み文言。
              */
             markdownIntro: string;
 
             /**
-             * 表示項目「markdown・features」の文言として表示するローカライズ済み文言。
+             * 表示項目「Markdown機能」の文言として表示するローカライズ済み文言。
              */
             markdownFeatures: string;
 
@@ -1600,81 +1624,81 @@ export interface Messages {
             /**
              * 表示文言の入力を検証し、表示または保存に使う形式へ変換する。
              * @param count - 保存した画像ファイル数。
-             * @returns 表示文言で利用する文字列。
+
              */
             imagesSaved: (count: number) => string;
             /**
-             * 表示文言のpdf・resource・warningsを処理し、呼び出し側へ結果または副作用を返す。
+             * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              * @param count - PDF出力前に検出したローカルリソース警告数。
              * @param detail - 警告の概要として通知に追加する文字列。
-             * @returns 表示文言で利用する文字列。
+
              */
             pdfResourceWarnings: (count: number, detail: string) => string;
             /**
-             * 表示文言のpreflight・summaryを処理し、呼び出し側へ結果または副作用を返す。
+             * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              * @param errors - PDF事前確認で見つかったエラー数。
              * @param warnings - PDF事前確認で見つかった警告数。
              * @param infos - PDF事前確認で見つかった情報項目数。
-             * @returns 表示文言で利用する文字列。
+
              */
             preflightSummary: (errors: number, warnings: number, infos: number) => string;
             /**
              * 表示文言の入力を検証し、表示または保存に使う形式へ変換する。
              * @param detail - 画像保存失敗の理由として通知に追加する詳細。
-             * @returns 表示文言で利用する文字列。
+
              */
             imageSaveFailed: (detail: string) => string;
             /**
-             * 表示文言のpdf・export・failedを処理し、呼び出し側へ結果または副作用を返す。
+             * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              * @param detail - PDF出力失敗の理由として通知に追加する詳細。
-             * @returns 表示文言で利用する文字列。
+
              */
             pdfExportFailed: (detail: string) => string;
             /**
-             * 表示文言のresource・check・failedを処理し、呼び出し側へ結果または副作用を返す。
+             * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              * @param detail - ローカルリソース検査失敗の理由として通知に追加する詳細。
              * @param duringPdf - PDF出力中の検査ならtrue。
-             * @returns 表示文言で利用する文字列。
+
              */
             resourceCheckFailed: (detail: string, duringPdf: boolean) => string;
             /**
-             * 表示文言のoperation・failedを処理し、呼び出し側へ結果または副作用を返す。
+             * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              * @param detail - 操作失敗の理由として通知に追加する詳細。
-             * @returns 表示文言で利用する文字列。
+
              */
             operationFailed: (detail: string) => string;
             /**
-             * 表示文言のpdf・exportedを処理し、呼び出し側へ結果または副作用を返す。
+             * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              * @param path - 読み書きするファイルまたはリソースの場所。
-             * @returns 表示文言で利用する文字列。
+
              */
             pdfExported: (path: string) => string;
             /**
-             * 表示文言のhtml・exportedを処理し、呼び出し側へ結果または副作用を返す。
+             * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              * @param path - 読み書きするファイルまたはリソースの場所。
              * @param count - 書き出したHTML文書数。
-             * @returns 表示文言で利用する文字列。
+
              */
             htmlExported: (path: string, count: number) => string;
             /**
-             * 表示文言のhtml・export・failedを処理し、呼び出し側へ結果または副作用を返す。
+             * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              * @param detail - HTML出力失敗の理由として通知に追加する詳細。
-             * @returns 表示文言で利用する文字列。
+
              */
             htmlExportFailed: (detail: string) => string;
 
             /**
-             * 表示項目「table・cell・required」の文言として表示するローカライズ済み文言。
+             * 表示項目「表セル・required」の文言として表示するローカライズ済み文言。
              */
             tableCellRequired: string;
 
             /**
-             * cannot・paste・tsv操作のラベルとして表示するローカライズ済み文言。
+             * 貼り付け不可・tsv操作のラベルとして表示するローカライズ済み文言。
              */
             cannotPasteTsv: string;
 
             /**
-             * 表示項目「table・copied」の文言として表示するローカライズ済み文言。
+             * 表示項目「表をコピー済み」の文言として表示するローカライズ済み文言。
              */
             tableCopied: string;
             /**
@@ -1685,65 +1709,61 @@ export interface Messages {
             cannotCopyTsv: (detail?: string) => string;
 
             /**
-             * 表示項目「workspace・trust・required」の文言として表示するローカライズ済み文言。
+             * 表示項目「ワークスペースの信頼状態・required」の文言として表示するローカライズ済み文言。
              */
             workspaceTrustRequired: string;
             /**
-             * 表示文言のpdf・started・with・diagnosticsを処理し、呼び出し側へ結果または副作用を返す。
+             * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              * @param count - PDF出力前に検出した警告数。
              * @param detail - 診断内容の概要として通知に追加する文字列。
-             * @returns 表示文言で利用する文字列。
+
              */
             pdfStartedWithDiagnostics: (count: number, detail: string) => string;
             /**
-             * 表示文言のpdf・fallback・to・markdownを処理し、呼び出し側へ結果または副作用を返す。
+             * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              * @param detail - Markdownへのフォールバック理由。指定時は進捗文言の前へ付ける。
-             * @returns 表示文言で利用する文字列。
+
              */
             pdfFallbackToMarkdown: (detail?: string) => string;
         };
 
-        /**
-         * 表示文言のerrorsに関する状態または設定。
-         */
+        /** 利用者へエラー原因を伝える文言をまとめる。 */
         errors: {
 
             /**
-             * 表示項目「ack・mismatch」の文言として表示するローカライズ済み文言。
+             * 表示項目「ACKの不一致」の文言として表示するローカライズ済み文言。
              */
             ackMismatch: string;
             /**
-             * 表示文言のpending・operation・chainを処理し、呼び出し側へ結果または副作用を返す。
+             * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              * @param opId - 完了を待っている操作の識別子。
-             * @returns 表示文言で利用する文字列。
+
              */
             pendingOperationChain: (opId: string) => string;
 
             /**
-             * 表示項目「clipboard・unavailable」の文言として表示するローカライズ済み文言。
+             * 表示項目「クリップボードが利用不可」の文言として表示するローカライズ済み文言。
              */
             clipboardUnavailable: string;
 
             /**
-             * 表示項目「bmp・conversion」の文言として表示するローカライズ済み文言。
+             * 表示項目「BMP変換」の文言として表示するローカライズ済み文言。
              */
             bmpConversion: string;
             /**
              * 表示文言の入力を検証し、表示または保存に使う形式へ変換する。
              * @param maxSizeMb - 許可する画像ファイルの最大サイズ（MB）。
-             * @returns 表示文言で利用する文字列。
+
              */
             imageSize: (maxSizeMb: number) => string;
         };
     };
 
-    /**
-     * 表示文言のrendererに関する状態または設定。
-     */
+    /** Markdown描画結果に付ける補助ラベルをまとめる。 */
     renderer: {
 
         /**
-         * remote・image・disabled書式コマンドのラベルとして表示するローカライズ済み文言。
+         * 外部画像・disabled書式コマンドのラベルとして表示するローカライズ済み文言。
          */
         remoteImageDisabled: string;
 
@@ -1758,7 +1778,7 @@ export interface Messages {
         copied: string;
 
         /**
-         * 表示項目「page・break」の文言として表示するローカライズ済み文言。
+         * 表示項目「改ページ」の文言として表示するローカライズ済み文言。
          */
         pageBreak: string;
 
@@ -1768,7 +1788,7 @@ export interface Messages {
         toc: string;
 
         /**
-         * 表示項目「back・to・text」の文言として表示するローカライズ済み文言。
+         * 表示項目「戻る・text」の文言として表示するローカライズ済み文言。
          */
         backToText: string;
 
@@ -1788,9 +1808,7 @@ export interface Messages {
          */
         mermaidDiagramLabel: (description: string) => string;
 
-        /**
-         * 表示文言のalertsに関する状態または設定。
-         */
+        /** 操作完了や失敗を知らせる通知文言をまとめる。 */
         alerts: {
             /**
              * 表示項目「note」の文言として表示するローカライズ済み文言。
@@ -1818,15 +1836,15 @@ export interface Messages {
     /** 診断項目の説明に使うローカライズ済み文言。 */
     diagnostics: {
         /**
-         * 表示文言のunclosed・fenceを処理し、呼び出し側へ結果または副作用を返す。
+         * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
          * @param marker - 表示文言で受け渡す文字列。
-         * @returns 表示文言で利用する文字列。
+
          */
         unclosedFence: (marker: string) => string;
         /**
-         * 表示文言のduplicate・headingを処理し、呼び出し側へ結果または副作用を返す。
+         * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
          * @param id - 重複が検出された見出しanchor ID。
-         * @returns 表示文言で利用する文字列。
+
          */
         duplicateHeading: (id: string) => string;
 
@@ -1836,84 +1854,82 @@ export interface Messages {
         invalidTableSeparator: string;
 
         /**
-         * empty・image・alt書式コマンドのラベルとして表示するローカライズ済み文言。
+         * 画像が空・alt書式コマンドのラベルとして表示するローカライズ済み文言。
          */
         emptyImageAlt: string;
         /**
-         * 表示文言のlocal・image・checkを処理し、呼び出し側へ結果または副作用を返す。
+         * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
          * @param source - ローカル画像として検査する参照文字列。
-         * @returns 表示文言で利用する文字列。
+
          */
         localImageCheck: (source: string) => string;
 
         /**
-         * 表示項目「empty・table・header」の文言として表示するローカライズ済み文言。
+         * 表示項目「表が空・header」の文言として表示するローカライズ済み文言。
          */
         emptyTableHeader: string;
         /**
-         * 表示文言のtable・column・mismatchを処理し、呼び出し側へ結果または副作用を返す。
+         * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
          * @param header - Markdown表ヘッダー行の列数。
          * @param separator - 区切り行または本文行で見つかった列数。
          * @param kind - 列数が一致しない行の種別。
-         * @returns 表示文言で利用する文字列。
+
          */
         tableColumnMismatch: (header: number, separator: number, kind: 'separator' | 'body') => string;
         /**
-         * 表示文言のmissing・referenceを処理し、呼び出し側へ結果または副作用を返す。
+         * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
          * @param label - エラーメッセージに埋め込む未定義参照ラベル。
-         * @returns 表示文言で利用する文字列。
+
          */
         missingReference: (label: string) => string;
         /**
-         * 表示文言のlocal・resourceを処理し、呼び出し側へ結果または副作用を返す。
+         * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
          * @param kind - 検査対象が画像参照かリンク参照かを示す種別。
          * @param missing - 参照先が存在しない場合true。
          * @param source - 検査する画像またはリンクの参照文字列。
          * @param detail - 参照先検査の結果または失敗理由を補う詳細文。
-         * @returns 表示文言で利用する文字列。
+
          */
         localResource: (kind: 'image' | 'link', missing: boolean, source: string, detail: string) => string;
     };
 
-    /**
-     * 表示文言のhostに関する状態または設定。
-     */
+    /** Extension Hostから通知する出力状態とエラーの文言をまとめる。 */
     host: {
 
         /**
-         * 表示項目「pdf・trust・required」の文言として表示するローカライズ済み文言。
+         * 表示項目「PDF出力の信頼状態・required」の文言として表示するローカライズ済み文言。
          */
         pdfTrustRequired: string;
 
         /**
-         * 表示項目「pdf・progress」の文言として表示するローカライズ済み文言。
+         * 表示項目「PDF出力の進捗」の文言として表示するローカライズ済み文言。
          */
         pdfProgress: string;
         /**
-         * 表示文言のpdf・exportedを処理し、呼び出し側へ結果または副作用を返す。
+         * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
          * @param path - 読み書きするファイルまたはリソースの場所。
-         * @returns 表示文言で利用する文字列。
+
          */
         pdfExported: (path: string) => string;
 
         /**
-         * 表示項目「html・trust・required」の文言として表示するローカライズ済み文言。
+         * 表示項目「HTML出力の信頼状態・required」の文言として表示するローカライズ済み文言。
          */
         htmlTrustRequired: string;
 
         /**
-         * 表示項目「html・progress」の文言として表示するローカライズ済み文言。
+         * 表示項目「HTML出力の進捗」の文言として表示するローカライズ済み文言。
          */
         htmlProgress: string;
         /**
-         * 表示文言のhtml・exportedを処理し、呼び出し側へ結果または副作用を返す。
+         * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
          * @param path - 読み書きするファイルまたはリソースの場所。
-         * @returns 表示文言で利用する文字列。
+
          */
         htmlExported: (path: string) => string;
 
         /**
-         * 表示項目「html・render・timeout」の文言として表示するローカライズ済み文言。
+         * 表示項目「HTMLの描画・timeout」の文言として表示するローカライズ済み文言。
          */
         htmlRenderTimeout: string;
 
@@ -1923,18 +1939,18 @@ export interface Messages {
         open: string;
 
         /**
-         * save・canceled操作のラベルとして表示するローカライズ済み文言。
+         * 保存をキャンセル操作のラベルとして表示するローカライズ済み文言。
          */
         saveCanceled: string;
 
         /**
-         * image・document・must・be・saved操作のラベルとして表示するローカライズ済み文言。
+         * 画像文書・である必要がある・saved操作のラベルとして表示するローカライズ済み文言。
          */
         imageDocumentMustBeSaved: string;
         /**
-         * 表示文言のunsupported・imageを処理し、呼び出し側へ結果または副作用を返す。
+         * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
          * @param mime - 未対応と判定された貼り付け画像のMIMEタイプ。
-         * @returns 表示文言で利用する文字列。
+
          */
         unsupportedImage: (mime: string) => string;
 
@@ -1944,7 +1960,7 @@ export interface Messages {
         invalidImageDirectory: string;
 
         /**
-         * 表示項目「pdf・browser・unavailable」の文言として表示するローカライズ済み文言。
+         * 表示項目「PDF用ブラウザー・unavailable」の文言として表示するローカライズ済み文言。
          */
         pdfBrowserUnavailable: string;
 
@@ -1954,7 +1970,7 @@ export interface Messages {
         errorPrefix: string;
 
         /**
-         * 表示項目「client・id・mismatch」の文言として表示するローカライズ済み文言。
+         * クライアントIDが一致しない場合に表示するローカライズ済み文言。
          */
         clientIdMismatch: string;
 
@@ -1968,9 +1984,7 @@ export interface Messages {
         copilotChatEditorUnavailable: string;
     };
 
-    /**
-     * 表示文言のeditorに関する状態または設定。
-     */
+    /** エディターと編集コマンドの表示文言をまとめる。 */
     editor: {
         /**
          * 入力欄のプレースホルダーとして表示するローカライズ済み文言。
@@ -1981,29 +1995,27 @@ export interface Messages {
          */
         codePlaceholder: string;
         /**
-         * default・link・label書式コマンドのラベルとして表示するローカライズ済み文言。
+         * 既定のリンク・label書式コマンドのラベルとして表示するローカライズ済み文言。
          */
         defaultLinkLabel: string;
         /**
-         * default・image・alt書式コマンドのラベルとして表示するローカライズ済み文言。
+         * 既定の画像・alt書式コマンドのラベルとして表示するローカライズ済み文言。
          */
         defaultImageAlt: string;
         /**
-         * 表示項目「plain・text」の文言として表示するローカライズ済み文言。
+         * 表示項目「プレーンテキスト」の文言として表示するローカライズ済み文言。
          */
         plainText: string
     };
 
-    /**
-     * 表示文言のinternalに関する状態または設定。
-     */
+    /** UIには表示しない内部通知の文言をまとめる。 */
     internal: {
         /**
-         * 表示項目「concurrent・edits・overlap」の文言として表示するローカライズ済み文言。
+         * 表示項目「同時編集・overlap」の文言として表示するローカライズ済み文言。
          */
         concurrentEditsOverlap: string;
         /**
-         * 表示項目「root・not・found」の文言として表示するローカライズ済み文言。
+         * 表示項目「ルートが見つからない・found」の文言として表示するローカライズ済み文言。
          */
         rootNotFound: string
     };
@@ -2029,18 +2041,18 @@ type Values = Record<string, string | number>;
 const rawLocales = localeCatalog as RawLocales;
 
 /**
- * 表示文言の入力を許可された形式へ整える。
+ * ロケールコードの空白、大文字、区切り記号を正規化する。
  * @param value - 言語コードへ整形するロケール文字列。
- * @returns 表示文言で利用する文字列。
+
  */
 function normalizeLanguage(value: string | undefined): string {
     return (value ?? '').trim().toLowerCase().replace(/_/g, '-');
 }
 
 /**
- * 表示文言のlanguage・from・localeを処理し、呼び出し側へ結果または副作用を返す。
+ * VS Codeのlocale文字列から対応する表示言語を選ぶ。
  * @param value - 対応するUI言語を判定するロケール文字列。
- * @returns 副作用を完了し、値は返さない。
+ * @returns 対応する日本語・英語・中国語の言語コード。その他のlocaleではundefined。
  */
 function languageFromLocale(value: string | undefined): SupportedLanguage | undefined {
     const normalized = normalizeLanguage(value);
@@ -2051,10 +2063,10 @@ function languageFromLocale(value: string | undefined): SupportedLanguage | unde
 }
 
 /**
- * 設定値と利用可能な辞書から表示言語を決める。
+ * 設定値とVS Codeのlocaleから使用する表示言語を選ぶ。
  * @param setting - ユーザーが選択した表示言語設定。
  * @param vscodeLanguage - 設定がautoまたは未指定の場合に使うVS Code表示言語。
- * @returns 表示文言のresolve・languageが生成する結果。
+ * @returns 対応する表示言語。明示設定が不正なら英語へフォールバックする。
  */
 export function resolveLanguage(setting: string | undefined, vscodeLanguage?: string): SupportedLanguage {
     const normalized = normalizeLanguage(setting);
@@ -2063,19 +2075,19 @@ export function resolveLanguage(setting: string | undefined, vscodeLanguage?: st
 }
 
 /**
- * 表示文言から必要な値またはリソースを取得する。
+ * 選択した言語のローカライズ辞書を返す。
  * @param language - 読み込むロケールコード。
- * @returns 表示文言のresolve・catalogが生成する結果。
+ * @returns 指定ロケールに対応するメッセージ辞書。
  */
 function resolveCatalog(language: SupportedLanguage): RawCatalog {
     return rawLocales[language];
 }
 
 /**
- * 表示文言から必要な値またはリソースを取得する。
+ * ドット区切りキーで辞書を辿り、文字列値を返す。
  * @param catalog - dot区切りメッセージキーから文字列を取得するロケールカタログ。
  * @param key - ロケールカタログ内のdot区切りメッセージキー。
- * @returns 表示文言で利用する文字列。
+ * @returns 取得したメッセージ。キーがない場合や値が文字列でない場合は空文字。
  */
 function read(catalog: RawCatalog, key: string): string {
     let value: unknown = catalog;
@@ -2087,18 +2099,18 @@ function read(catalog: RawCatalog, key: string): string {
 }
 
 /**
- * 表示文言のinterpolateを処理し、呼び出し側へ結果または副作用を返す。
+ * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
  * @param template - {name}形式のプレースホルダーを含むメッセージテンプレート。
  * @param values - テンプレート内placeholder名に対応する補間値辞書。
- * @returns 表示文言で利用する文字列。
+
  */
 function interpolate(template: string, values: Values = {}): string {
     return template.replace(/\{([A-Za-z][A-Za-z0-9]*)\}/g,
         /**
-         * matchをcallへ渡し、表示文言の結果または副作用を処理する。
+         * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
          * @param match - {name}形式で正規表現に一致したplaceholder全体。
          * @param key - 波括弧内から取り出した補間値キー。
-         * @returns 表示文言のコールバックが生成する結果。
+         * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
          */
         (match, key: string) => (
             Object.prototype.hasOwnProperty.call(values, key) ? String(values[key]) : match
@@ -2106,19 +2118,19 @@ function interpolate(template: string, values: Values = {}): string {
 }
 
 /**
- * 表示文言で使う値または実行環境を組み立てる。
+ * 指定言語のカタログから補間関数を含むメッセージ群を生成する。
  * @param language - メッセージを生成する対象ロケールコード。
- * @returns 表示文言で生成または変換した値。
+ * @returns 指定言語のカタログから生成したMessages一式。
  */
 function createMessages(language: SupportedLanguage): Messages {
     const raw = resolveCatalog(language) as Record<string, any>;
 
 
     const text = /**
-     * 表示文言のtextを処理し、呼び出し側へ結果または副作用を返す。
+     * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
      * @param key - ロケールカタログから取得するdot区切りメッセージキー。
      * @param values - 読み取ったメッセージ内placeholderへ埋め込む値辞書。
-     * @returns 表示文言で利用する文字列。
+
      */ (key: string, values?: Values): string => interpolate(read(raw, key), values);
     return {
         ribbon: {
@@ -2144,9 +2156,9 @@ function createMessages(language: SupportedLanguage): Messages {
 
 
                 heading: /**
-                 * 表示文言のheadingを処理し、呼び出し側へ結果または副作用を返す。
+                 * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
                  * @param level - 表示する見出しレベル1から6。
-                 * @returns 表示文言のheadingが生成する結果。
+                 * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
                  */ (level: number) => text('ribbon.labels.heading', { level }),
                 exportHtml: raw.ribbon.labels.exportHtml,
                 embedImages: raw.ribbon.labels.embedImages,
@@ -2189,9 +2201,9 @@ function createMessages(language: SupportedLanguage): Messages {
 
 
             line: /**
-             * 表示文言のlineを処理し、呼び出し側へ結果または副作用を返す。
+             * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              * @param line - 表示する行番号（1始まり）。
-             * @returns 表示文言のlineが生成する結果。
+             * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              */ (line: number) => text('app.line', { line }),
             printSettings: raw.app.printSettings,
             printSettingsHelp: raw.app.printSettingsHelp,
@@ -2214,36 +2226,46 @@ function createMessages(language: SupportedLanguage): Messages {
             codeFontSize: raw.app.codeFontSize,
             lineHeight: raw.app.lineHeight,
             paragraphSpacing: raw.app.paragraphSpacing,
+            outputReplacementRules: raw.app.outputReplacementRules,
+            outputReplacementHelp: raw.app.outputReplacementHelp,
+            outputReplacementPattern: raw.app.outputReplacementPattern,
+            outputReplacementText: raw.app.outputReplacementText,
+            addOutputReplacementRule: raw.app.addOutputReplacementRule,
+            removeOutputReplacementRule: raw.app.removeOutputReplacementRule,
+            removeOutputReplacementRuleShort: raw.app.removeOutputReplacementRuleShort,
+            invalidOutputReplacementPattern: raw.app.invalidOutputReplacementPattern,
+            outputReplacementTimeout: raw.app.outputReplacementTimeout,
+            outputReplacementFailed: raw.app.outputReplacementFailed,
             status: {
                 modeSplit: raw.app.status.modeSplit,
                 modePreview: raw.app.status.modePreview,
 
 
                 lines: /**
-                 * 表示文言のlinesを処理し、呼び出し側へ結果または副作用を返す。
+                 * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
                  * @param count - 文書内の行数。
-                 * @returns 表示文言のlinesが生成する結果。
+                 * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
                  */ (count: number) => text('app.status.lines', { count }),
 
 
                 textCharacters: /**
-                 * 表示文言のtext・charactersを処理し、呼び出し側へ結果または副作用を返す。
+                 * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
                  * @param count - 編集本文の文字数。
-                 * @returns 表示文言のtext・charactersが生成する結果。
+                 * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
                  */ (count: number) => text('app.status.textCharacters', { count }),
 
 
                 markdownCharacters: /**
                  * 表示文言の変更または利用者の操作意図を記録し、後続処理へ渡す。
                  * @param count - Markdown本文の文字数。
-                 * @returns 表示文言のmarkdown・charactersが生成する結果。
+                 * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
                  */ (count: number) => text('app.status.markdownCharacters', { count }),
 
 
                 zoom: /**
-                 * 表示文言のzoomを処理し、呼び出し側へ結果または副作用を返す。
+                 * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
                  * @param percent - ステータスに表示するズーム倍率（百分率）。
-                 * @returns 表示文言のzoomが生成する結果。
+                 * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
                  */ (percent: number) => text('app.status.zoom', { percent }),
                 syncing: raw.app.status.syncing,
                 synced: raw.app.status.synced
@@ -2288,10 +2310,10 @@ function createMessages(language: SupportedLanguage): Messages {
 
 
                 rowColumnLimit: /**
-                 * 表示文言のrow・column・limitを処理し、呼び出し側へ結果または副作用を返す。
+                 * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
                  * @param rows - 表編集で許可する最大行数。
                  * @param columns - 表編集で許可する最大列数。
-                 * @returns 表示文言のrow・column・limitが生成する結果。
+                 * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
                  */ (rows: number, columns: number) => text('app.tableEditor.rowColumnLimit', { rows, columns }),
                 copied: raw.app.tableEditor.copied,
                 sourceEditorClosed: raw.app.tableEditor.sourceEditorClosed,
@@ -2320,75 +2342,75 @@ function createMessages(language: SupportedLanguage): Messages {
                 imagesSaved: /**
                  * 表示文言の入力を検証し、表示または保存に使う形式へ変換する。
                  * @param count - 保存した画像ファイル数。
-                 * @returns 表示文言のimages・savedが生成する結果。
+                 * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
                  */ (count: number) => text('app.toast.imagesSaved', { count }),
 
 
                 pdfResourceWarnings: /**
-                 * 表示文言のpdf・resource・warningsを処理し、呼び出し側へ結果または副作用を返す。
+                 * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
                  * @param count - PDF出力前に検出したローカルリソース警告数。
                  * @param detail - 警告の概要として通知に追加する文字列。
-                 * @returns 表示文言のpdf・resource・warningsが生成する結果。
+                 * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
                  */ (count: number, detail: string) => text('app.toast.pdfResourceWarnings', { count, detail }),
 
 
                 preflightSummary: /**
-                 * 表示文言のpreflight・summaryを処理し、呼び出し側へ結果または副作用を返す。
+                 * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
                  * @param errors - 事前検査で検出したエラーの件数。
                  * @param warnings - 事前検査で検出した警告の件数。
                  * @param infos - 事前検査で検出した情報項目の件数。
-                 * @returns 表示文言のpreflight・summaryが生成する結果。
+                 * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
                  */ (errors: number, warnings: number, infos: number) => text('app.toast.preflightSummary', { errors, warnings, infos }),
 
 
                 imageSaveFailed: /**
                  * 表示文言の入力を検証し、表示または保存に使う形式へ変換する。
                  * @param detail - 画像保存失敗の理由として通知に追加する詳細。
-                 * @returns 表示文言のimage・save・failedが生成する結果。
+                 * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
                  */ (detail: string) => text('app.toast.imageSaveFailed', { detail }),
 
 
                 pdfExportFailed: /**
-                 * 表示文言のpdf・export・failedを処理し、呼び出し側へ結果または副作用を返す。
+                 * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
                  * @param detail - PDF出力失敗の理由として通知に追加する詳細。
-                 * @returns 表示文言のpdf・export・failedが生成する結果。
+                 * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
                  */ (detail: string) => text('app.toast.pdfExportFailed', { detail }),
 
 
                 resourceCheckFailed: /**
-                 * 表示文言のresource・check・failedを処理し、呼び出し側へ結果または副作用を返す。
+                 * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
                  * @param detail - ローカルリソース検査失敗の理由として通知に追加する詳細。
                  * @param duringPdf - PDF出力中の検査ならtrue。
-                 * @returns 表示文言のresource・check・failedが生成する結果。
+                 * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
                  */ (detail: string, duringPdf: boolean) => text('app.toast.resourceCheckFailed', { prefix: duringPdf ? `${raw.host.pdfProgress} ` : '', detail }),
 
 
                 operationFailed: /**
-                 * 表示文言のoperation・failedを処理し、呼び出し側へ結果または副作用を返す。
+                 * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
                  * @param detail - 操作失敗の理由として通知に追加する詳細。
-                 * @returns 表示文言のoperation・failedが生成する結果。
+                 * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
                  */ (detail: string) => text('app.toast.operationFailed', { detail }),
 
 
                 pdfExported: /**
-                 * 表示文言のpdf・exportedを処理し、呼び出し側へ結果または副作用を返す。
+                 * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
                  * @param path - 読み書きするファイルまたはリソースの場所。
-                 * @returns 表示文言のpdf・exportedが生成する結果。
+                 * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
                  */ (path: string) => text('app.toast.pdfExported', { path }),
 
 
                 htmlExported: /**
-                 * 表示文言のhtml・exportedを処理し、呼び出し側へ結果または副作用を返す。
+                 * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
                  * @param path - 読み書きするファイルまたはリソースの場所。
                  * @param count - 書き出したHTML文書数。
-                 * @returns 表示文言で利用する文字列。
+
                  */ (path: string, count: number) => text('app.toast.htmlExported', { path, count }),
 
 
                 htmlExportFailed: /**
-                 * 表示文言のhtml・export・failedを処理し、呼び出し側へ結果または副作用を返す。
+                 * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
                  * @param detail - HTML出力失敗の理由として通知に追加する詳細。
-                 * @returns 表示文言で利用する文字列。
+
                  */ (detail: string) => text('app.toast.htmlExportFailed', { detail }),
                 tableCellRequired: raw.app.toast.tableCellRequired,
                 cannotPasteTsv: raw.app.toast.cannotPasteTsv,
@@ -2404,17 +2426,17 @@ function createMessages(language: SupportedLanguage): Messages {
 
 
                 pdfStartedWithDiagnostics: /**
-                 * 表示文言のpdf・started・with・diagnosticsを処理し、呼び出し側へ結果または副作用を返す。
+                 * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
                  * @param count - PDF出力前に検出した警告数。
                  * @param detail - 診断内容の概要として通知に追加する文字列。
-                 * @returns 表示文言のpdf・started・with・diagnosticsが生成する結果。
+                 * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
                  */ (count: number, detail: string) => text('app.toast.pdfStartedWithDiagnostics', { count, detail }),
 
 
                 pdfFallbackToMarkdown: /**
-                 * 表示文言のpdf・fallback・to・markdownを処理し、呼び出し側へ結果または副作用を返す。
+                 * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
                  * @param detail - Markdownへのフォールバック理由。指定時は進捗文言の前へ付ける。
-                 * @returns 表示文言のpdf・fallback・to・markdownが生成する結果。
+                 * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
                  */ (detail?: string) => text('app.toast.pdfFallbackToMarkdown', { prefix: detail ? `${detail} ` : '' })
             },
             errors: {
@@ -2422,9 +2444,9 @@ function createMessages(language: SupportedLanguage): Messages {
 
 
                 pendingOperationChain: /**
-                 * 表示文言のpending・operation・chainを処理し、呼び出し側へ結果または副作用を返す。
+                 * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
                  * @param opId - 完了を待っている操作の識別子。
-                 * @returns 表示文言のpending・operation・chainが生成する結果。
+                 * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
                  */ (opId: string) => text('app.errors.pendingOperationChain', { opId }),
                 clipboardUnavailable: raw.app.errors.clipboardUnavailable,
                 bmpConversion: raw.app.errors.bmpConversion,
@@ -2433,7 +2455,7 @@ function createMessages(language: SupportedLanguage): Messages {
                 imageSize: /**
                  * 表示文言の入力を検証し、表示または保存に使う形式へ変換する。
                  * @param maxSizeMb - 許可する画像ファイルの最大サイズ（MB）。
-                 * @returns 表示文言のimage・sizeが生成する結果。
+                 * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
                  */ (maxSizeMb: number) => text('app.errors.imageSize', { maxSizeMb })
             }
         },
@@ -2445,52 +2467,52 @@ function createMessages(language: SupportedLanguage): Messages {
 
 
             unclosedFence: /**
-             * 表示文言のunclosed・fenceを処理し、呼び出し側へ結果または副作用を返す。
+             * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              * @param marker - 表示文言で受け渡す文字列。
-             * @returns 表示文言のunclosed・fenceが生成する結果。
+             * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              */ (marker: string) => text('diagnostics.unclosedFence', { marker }),
 
 
             duplicateHeading: /**
-             * 表示文言のduplicate・headingを処理し、呼び出し側へ結果または副作用を返す。
+             * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              * @param id - 重複が検出された見出しanchor ID。
-             * @returns 表示文言のduplicate・headingが生成する結果。
+             * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              */ (id: string) => text('diagnostics.duplicateHeading', { id }),
             invalidTableSeparator: raw.diagnostics.invalidTableSeparator,
             emptyImageAlt: raw.diagnostics.emptyImageAlt,
 
 
             localImageCheck: /**
-             * 表示文言のlocal・image・checkを処理し、呼び出し側へ結果または副作用を返す。
+             * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              * @param source - ローカル画像として検査する参照文字列。
-             * @returns 表示文言のlocal・image・checkが生成する結果。
+             * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              */ (source: string) => text('diagnostics.localImageCheck', { source }),
             emptyTableHeader: raw.diagnostics.emptyTableHeader,
 
 
             tableColumnMismatch: /**
-             * 表示文言のtable・column・mismatchを処理し、呼び出し側へ結果または副作用を返す。
+             * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              * @param header - Markdown表ヘッダー行の列数。
              * @param count - 区切り行または本文行で見つかった列数。
              * @param kind - 列数が一致しない行の種別。
-             * @returns 表示文言のtable・column・mismatchが生成する結果。
+             * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              */ (header: number, count: number, kind: 'separator' | 'body') => text('diagnostics.tableColumnMismatch', { header, count, kind: raw.diagnostics.tableKind[kind] }),
 
 
             missingReference: /**
-             * 表示文言のmissing・referenceを処理し、呼び出し側へ結果または副作用を返す。
+             * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              * @param label - エラーメッセージに埋め込む未定義参照ラベル。
-             * @returns 表示文言のmissing・referenceが生成する結果。
+             * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              */ (label: string) => text('diagnostics.missingReference', { label }),
 
 
             localResource: /**
-             * 表示文言のlocal・resourceを処理し、呼び出し側へ結果または副作用を返す。
+             * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              * @param kind - 検査対象が画像参照かリンク参照かを示す種別。
              * @param missing - 参照先が存在しない場合true。
              * @param source - 診断対象のローカルリソース参照。
              * @param detail - 参照先検査の結果または失敗理由を補う詳細文。
-             * @returns 表示文言のlocal・resourceが生成する結果。
+             * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              */ (kind: 'image' | 'link', missing: boolean, source: string, detail: string) => {
                     const suffix = kind === 'image' ? (missing ? 'imageMissing' : 'imageCheckFailed') : (missing ? 'linkMissing' : 'linkCheckFailed');
                     return text(`diagnostics.localResource.${suffix}`, { source, detail });
@@ -2502,18 +2524,18 @@ function createMessages(language: SupportedLanguage): Messages {
 
 
             pdfExported: /**
-             * 表示文言のpdf・exportedを処理し、呼び出し側へ結果または副作用を返す。
+             * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              * @param path - 読み書きするファイルまたはリソースの場所。
-             * @returns 表示文言のpdf・exportedが生成する結果。
+             * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              */ (path: string) => text('host.pdfExported', { path }),
             htmlTrustRequired: raw.host.htmlTrustRequired,
             htmlProgress: raw.host.htmlProgress,
 
 
             htmlExported: /**
-             * 表示文言のhtml・exportedを処理し、呼び出し側へ結果または副作用を返す。
+             * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              * @param path - 読み書きするファイルまたはリソースの場所。
-             * @returns 表示文言のhtml・exportedが生成する結果。
+             * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              */ (path: string) => text('host.htmlExported', { path }),
             htmlRenderTimeout: raw.host.htmlRenderTimeout,
             open: raw.host.open,
@@ -2522,9 +2544,9 @@ function createMessages(language: SupportedLanguage): Messages {
 
 
             unsupportedImage: /**
-             * 表示文言のunsupported・imageを処理し、呼び出し側へ結果または副作用を返す。
+             * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              * @param mime - 未対応と判定された貼り付け画像のMIMEタイプ。
-             * @returns 表示文言のunsupported・imageが生成する結果。
+             * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              */ (mime: string) => text('host.unsupportedImage', { mime }),
             invalidImageDirectory: raw.host.invalidImageDirectory,
             pdfBrowserUnavailable: raw.host.pdfBrowserUnavailable,
@@ -2540,10 +2562,10 @@ function createMessages(language: SupportedLanguage): Messages {
 }
 
 /**
- * 選択した言語のローカライズ辞書を読み込み、未登録キーをフォールバックで補う。
- * @param language - 表示文言の対象や分岐を識別する値。
- * @param vscodeLanguage - 表示文言の対象や分岐を識別する値。
- * @returns 表示文言のget・messagesが生成する結果。
+ * 選択した言語の文言辞書を返し、未登録キーは日本語、英語、キー名の順に補う。
+ * @param language - 優先する表示言語。未指定またはautoならVS Codeの言語を参照する。
+ * @param vscodeLanguage - 明示設定がない場合に使うVS Codeの表示言語。
+ * @returns 表示文言と、引数を補間するメッセージ関数を含む辞書。
  */
 export function getMessages(language: SupportedLanguage | string | undefined, vscodeLanguage?: string): Messages {
     return MESSAGE_CATALOG[resolveLanguage(language, vscodeLanguage)];
@@ -2551,14 +2573,15 @@ export function getMessages(language: SupportedLanguage | string | undefined, vs
 
 
 /**
- * 表示文言のmessage・catalogに関する状態または設定。
+ * 対応する全言語の表示文言を保持する辞書。
  */
 export const MESSAGE_CATALOG: Record<SupportedLanguage, Messages> = Object.fromEntries(
     SUPPORTED_LANGUAGES.map(
         /**
-         * 各languageをcreate・messagesへ渡し、変換結果を一覧化する。
-         * @param language - 表示文言の対象や分岐を識別する値。
-         * @returns 入力要素から生成した変換結果の一覧。
+         * 各言語のメッセージ群を生成し、言語コードとの組にする。
+         * @param language - メッセージ群を生成する言語コード。
+         * @returns 言語コードとMessagesの組。
+
          */
         (language) => [language, createMessages(language)])
 ) as Record<SupportedLanguage, Messages>;

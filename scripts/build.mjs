@@ -1,12 +1,12 @@
 /**
- * @fileoverview ビルドを開発・検証環境で実行する。前提条件や失敗条件を終了コードとログで示す。
+ * @fileoverview esbuildでExtension Host、Webview、Markdown Workerを個別にbundleし、配布用リソースをdistへまとめる。
  */
 import * as esbuild from 'esbuild';
 import { copyFile, mkdir, rm } from 'node:fs/promises';
 
 
 /**
- * ビルドのwatchに関する状態または設定。
+ * コマンドラインにwatchが指定されているか示すビルドモード。
  */
 const watch = process.argv.includes('--watch');
 
@@ -33,8 +33,7 @@ const extensionOptions = {
     setup(build) {
       build.onResolve({ filter: /^playwright-core$/ },
       /**
-       * ビルドのコールバックとして要素を処理する。
-       * @returns ビルドのコールバックが生成する結果。
+       * playwright-coreを外部依存として扱い、実行時スタブへ解決する。
        */
       () => ({
         path: './playwright.js',
@@ -130,8 +129,7 @@ const playwrightOptions = {
 };
 
 /**
- * ビルドの入力または状態を走査・複製する。
- * @returns ビルドのcopy・assetsが生成する結果。
+ * 拡張機能の出力先へWebview用CSSと実行時に必要なライブラリをコピーする。
  */
 async function copyAssets() {
   await mkdir('dist', { recursive: true });

@@ -56,7 +56,7 @@ export interface MermaidBrowserResult {
  */
 const svgCache = new Map<string, MermaidBrowserResult>();
 /**
- * Mermaidで共有するデータ形状を表すインターフェース。
+ * Mermaid図のソース、描画ID、完了通知をまとめた要求です。
  */
 interface RenderTask {
 
@@ -85,20 +85,18 @@ interface RenderTask {
      */
     settled: boolean;
     /**
-     * Mermaidのoperationを処理し、呼び出し側へ結果または副作用を返す。
-     * @returns Mermaidの非同期処理で得られる描画または変換結果。
+     * キャンセル可能なHost描画処理。結果のキャッシュと同一要求の共有に使う。
+     * @returns SVG・PNG・操作領域を含む描画結果Promise。
      */
     operation: () => Promise<MermaidBrowserResult>;
     /**
      * 描画タスクのPromiseを生成結果で完了させる。
      * @param result - 描画処理で生成したSVG、任意のPNG、操作領域を含む結果。
-     * @returns 副作用を完了し、値は返さない。
      */
     resolve: (result: MermaidBrowserResult) => void;
     /**
-     * Mermaidのrejectを処理し、呼び出し側へ結果または副作用を返す。
+     * 描画失敗または全consumerのcancel時に描画結果Promiseを拒否する。
      * @param error - 処理に失敗した理由または例外。
-     * @returns 副作用を完了し、値は返さない。
      */
     reject: (error: unknown) => void;
 }
@@ -158,7 +156,7 @@ export class MermaidRendererUnavailableError extends Error {
  */
 class MermaidRenderCancelledError extends Error {
     /**
-     * Mermaidで使う値または実行環境を組み立てる。
+     * Mermaid描画のキャンセルを表すエラーを初期化する。
      * @returns 初期化したインスタンス。
      */
     constructor() {
@@ -191,11 +189,11 @@ export function renderMermaidInBrowser(
     if (current) return consumeTask(key, current, signal);
 
     /**
-     * Mermaidのresolve・taskに関する状態または設定。
+     * 新規描画Promiseを正常完了させるresolver。
      */
     let resolveTask!: (result: MermaidBrowserResult) => void;
     /**
-     * Mermaidのreject・taskに関する状態または設定。
+     * 新規描画Promiseを失敗完了させるrejecter。
      */
     let rejectTask!: (error: unknown) => void;
     const task = {
@@ -213,7 +211,6 @@ export function renderMermaidInBrowser(
 
 
         reject: /**
-         * Mermaidのrejectを処理し、呼び出し側へ結果または副作用を返す。
          * @param error - 処理に失敗した理由または例外。
          * @returns SVG、PNG、操作領域をまとめたMermaid描画結果。
          */ (error: unknown) => rejectTask(error)
@@ -223,17 +220,13 @@ export function renderMermaidInBrowser(
          * 非同期処理の完了条件と失敗条件を待機側へ通知する。
          * @param resolve - Promiseの成功を通知する関数。
          * @param reject - Promiseの失敗を通知する関数。
-         * @returns 非同期処理の完了値。
          */
         (resolve, reject) => {
             resolveTask = resolve;
             rejectTask = reject;
         });
     task.operation =
-        /**
-         * Mermaidのoperationを処理し、呼び出し側へ結果または副作用を返す。
-         * @returns Mermaidの非同期処理で得られる描画または変換結果。
-         */
+        /** Browser pageを確保し、要求をキャンセルできる状態でMermaidを描画する。 */
         async () => {
             if (task.cancelled) throw new MermaidRenderCancelledError();
             const page = await acquireRendererPage(runtimePath, acquireBrowser);
@@ -241,10 +234,7 @@ export function renderMermaidInBrowser(
             const renderId = `mve-host-mermaid-${Date.now()}-${Math.random().toString(36).slice(2)}`;
             const containerId = `${renderId}-container`;
             const operation = (
-                /**
-                 * 要素をevaluateへ渡し、Mermaidの結果または副作用を処理する。
-                 * @returns SVG、PNG、操作領域をまとめたMermaid描画結果。
-                 */
+                /** 描画を時間制限付きで実行し、完了後にPDF資源とBrowser pageを解放する。 */
                 async (): Promise<MermaidBrowserResult> => {
                     const rendered = await page.evaluate(
                         /**
@@ -261,22 +251,21 @@ export function renderMermaidInBrowser(
                                  */
                                 mermaid?: {
                                     /**
-                                     * Mermaidのinitializeを処理し、呼び出し側へ結果または副作用を返す。
+                                     * browser page内のMermaidを指定テーマと安全設定で初期化する。
                                      * @param config - Mermaidの初期化に適用する設定。
-                                     * @returns 副作用を完了し、値は返さない。
                                      */
                                     initialize(config: Record<string, unknown>): void;
                                     /**
-                                     * Mermaidの入力を構造化した値へ変換する。
+                                     * Mermaid図ソースの構文を検証する。
                                      * @param value - Mermaid構文を検証する図ソース。
-                                     * @returns Mermaidで利用する文字列。
+
                                      */
                                     parse(value: string): Promise<unknown>;
                                     /**
-                                     * Mermaidを表示用の結果へ変換する。
+                                     * Mermaid図をSVGへ描画する。
                                      * @param renderId - ブラウザー内の描画要素を識別するID。
                                      * @param value - Mermaidで描画する図ソース。
-                                     * @returns Mermaidの非同期処理で得られる結果。
+                                     * @returns Mermaidが生成したSVG本文。
                                      */
                                     render(renderId: string, value: string): Promise<{
                                         /**
@@ -322,32 +311,25 @@ export function renderMermaidInBrowser(
                                 };
                             const textInteractions = Array.from(svgNode.querySelectorAll('text, foreignObject'))
                                 .filter(
-                                    /**
-                                     * tag・nameの条件を満たす要素だけを残す。
+                                    /** foreignObject内の子textを除き、領域の重複収集を防ぐ。
                                      * @param element - foreignObject内かを判定するSVGテキスト領域の候補要素。
-                                     * @returns 条件を満たした要素だけを含む一覧。
+
                                      */
                                     (element) => element.tagName.toLowerCase() !== 'text' || !element.closest('foreignObject'))
                                 .map(
-                                    /**
-                                     * 各要素をto・interactionへ渡し、変換結果を一覧化する。
-                                     * @param element - テキスト操作領域へ変換するSVG要素。
-                                     * @returns 入力要素から生成した変換結果の一覧。
-                                     */
                                     (element) => toInteraction(element, 'text'))
                                 .filter(
                                     /**
                                      * 条件を満たす項目だけを残す。
                                      * @param item - toInteractionが生成したテキスト操作情報。undefinedでなければ一覧に残す。
-                                     * @returns 条件を満たした要素だけを含む一覧。
+
                                      */
                                     (item): item is MermaidInteraction => item !== undefined);
                             const linkInteractions = Array.from(svgNode.querySelectorAll('a'))
                                 .map(
-                                    /**
-                                     * 各要素からget・attributeを取り出して一覧化する。
+                                     /** SVGリンク要素を、リンク先を保持した操作領域へ変換する。
                                      * @param element - hrefまたはxlink:hrefを読むSVGリンク要素。
-                                     * @returns get・attributeを取り出した変換結果の一覧。
+                                      * @returns SVGリンクの操作領域。
                                      */
                                     (element) => toInteraction(
                                         element,
@@ -358,7 +340,7 @@ export function renderMermaidInBrowser(
                                     /**
                                      * 未定義または無効な項目を除外する。
                                      * @param item - hrefを持つMermaidリンク操作情報。リンク領域一覧へ残す候補。
-                                     * @returns 条件を満たした要素だけを含む一覧。
+
                                      */
                                     (item): item is MermaidInteraction => item !== undefined && Boolean(item.href));
                             const ariaLabel = svgNode.querySelector('title')?.textContent?.trim()
@@ -389,12 +371,10 @@ export function renderMermaidInBrowser(
                             /**
                              * 描画後に一時DOM要素を削除する。
                              * @param id - 削除対象となる描画コンテナーのDOM id。
-                             * @returns 副作用を完了し、値は返さない。
                              */
                             (id) => document.getElementById(id)?.remove(), containerId).catch(
                                 /**
-                                 * Mermaidのコールバックとして要素を処理する。
-                                 * @returns 副作用を完了し、値は返さない。
+                                 * 一時コンテナーの削除失敗は描画結果に影響しないため無視する。
                                  */
                                 () => undefined);
                     }
@@ -407,16 +387,12 @@ export function renderMermaidInBrowser(
     inFlight.set(key, task);
     enqueue(task);
     void task.promise.finally(
-        /**
-         * 要素をifへ渡し、Mermaidの結果または副作用を処理する。
-         * @returns 副作用を完了し、値は返さない。
-         */
+
         () => {
             if (inFlight.get(key) === task) inFlight.delete(key);
         }).catch(
             /**
-             * Mermaidのコールバックとして要素を処理する。
-             * @returns 副作用を完了し、値は返さない。
+             * 呼び出し元へ返した失敗の再拒否を消費し、未処理拒否を防ぐ。
              */
             () => undefined);
     return consumeTask(key, task, signal);
@@ -424,7 +400,6 @@ export function renderMermaidInBrowser(
 
 /**
  * Mermaid描画の待機列、キャッシュ、ページ、ブラウザーコンテキストを解放する。
- * @returns 副作用を完了し、値は返さない。
  */
 export async function closeMermaidRenderer(): Promise<void> {
     for (const task of inFlight.values()) cancelTask(task);
@@ -438,8 +413,7 @@ export async function closeMermaidRenderer(): Promise<void> {
     browserContext = undefined;
     if (context) await context.close().catch(
         /**
-         * Mermaidのコールバックとして要素を処理する。
-         * @returns SVG、PNG、操作領域をまとめたMermaid描画結果。
+         * 描画後のブラウザーコンテキスト終了失敗を無視する。
          */
         () => undefined);
 }
@@ -458,7 +432,6 @@ function consumeTask(key: string, task: RenderTask, signal?: AbortSignal): Promi
 
     const release = /**
      * Mermaidの処理またはリソースを終了し、後続利用可能な状態へ戻す。
-     * @returns 副作用を完了し、値は返さない。
      */ () => {
             if (settled) return;
             settled = true;
@@ -473,14 +446,12 @@ function consumeTask(key: string, task: RenderTask, signal?: AbortSignal): Promi
          * 非同期処理の成功結果と失敗理由を待機側へ通知する。
          * @param resolve - Promiseの成功を通知する関数。
          * @param reject - Promiseの失敗を通知する関数。
-         * @returns 非同期処理の完了値。
          */
         (resolve, reject) => {
 
 
             const onAbort = /**
          * Mermaidのイベントまたはメッセージを受け取り、状態を更新する。
-         * @returns 副作用を完了し、値は返さない。
          */ () => {
                     release();
                     reject(new MermaidRenderCancelledError());
@@ -495,7 +466,6 @@ function consumeTask(key: string, task: RenderTask, signal?: AbortSignal): Promi
                 /**
                  * 完了した描画結果を呼び出し元へ返す。
                  * @param rendered - 描画処理で生成したSVG、任意のPNG、操作領域を含む結果。
-                 * @returns 副作用を完了し、値は返さない。
                  */
                 (rendered) => {
                     if (settled) return;
@@ -505,9 +475,7 @@ function consumeTask(key: string, task: RenderTask, signal?: AbortSignal): Promi
                 },
 
                 /**
-                 * errorをifへ渡し、Mermaidの結果または副作用を処理する。
                  * @param error - 処理に失敗した理由または例外。
-                 * @returns 副作用を完了し、値は返さない。
                  */
                 (error) => {
                     if (settled) return;
@@ -522,7 +490,6 @@ function consumeTask(key: string, task: RenderTask, signal?: AbortSignal): Promi
 /**
  * Mermaidの処理順序と完了状態を管理する。
  * @param task - 実行待ちキューへ追加する描画タスク。
- * @returns 副作用を完了し、値は返さない。
  */
 function enqueue(task: RenderTask): void {
     renderQueue.push(task);
@@ -531,7 +498,6 @@ function enqueue(task: RenderTask): void {
 
 /**
  * Mermaid描画キューをFIFO順に1件ずつ実行し、成功・失敗を待機側へ通知する。
- * @returns 副作用を完了し、値は返さない。
  */
 async function drainRenderQueue(): Promise<void> {
     if (activeRenderTask) return;
@@ -576,7 +542,6 @@ function cancelTask(task: RenderTask): void {
  * @param task - 完了状態を更新する描画タスク。
  * @param result - 成功時に購読者へ返す描画結果。失敗時は省略する。
  * @param error - 処理に失敗した理由または例外。
- * @returns 副作用を完了し、値は返さない。
  */
 function settleTask(task: RenderTask, result?: MermaidBrowserResult, error?: unknown): void {
     if (task.settled) return;
@@ -589,7 +554,7 @@ function settleTask(task: RenderTask, result?: MermaidBrowserResult, error?: unk
  * Mermaidランタイムを読み込んだ再利用可能なPlaywrightページを取得する。
  * @param runtimePath - Mermaidランタイムを読み込むファイルのパス。
  * @param acquireBrowser - 描画用ブラウザーを取得する非同期関数。
- * @returns Mermaidの非同期処理で得られる結果。
+ * @returns 再利用または新規作成したPlaywright Page。
  */
 async function acquireRendererPage(runtimePath: string, acquireBrowser: () => Promise<Browser>): Promise<Page> {
     if (rendererPage && !rendererPage.isClosed()) return rendererPage;
@@ -597,8 +562,7 @@ async function acquireRendererPage(runtimePath: string, acquireBrowser: () => Pr
     if (rendererPage?.isClosed() || browserContext) await resetRendererPage();
     pagePromise = createRendererPage(runtimePath, acquireBrowser).finally(
         /**
-         * Mermaidのコールバックとして要素を処理する。
-         * @returns Mermaidの非同期処理で得られる結果。
+         * ページ作成完了後に共有Promiseを消し、次回の作成を可能にする。
          */
         () => {
             pagePromise = undefined;
@@ -607,10 +571,10 @@ async function acquireRendererPage(runtimePath: string, acquireBrowser: () => Pr
 }
 
 /**
- * Mermaidで使う値または実行環境を組み立てる。
+ * 外部通信を遮断したブラウザーPageへMermaidランタイムを読み込む。
  * @param runtimePath - Mermaidランタイムを読み込むファイルのパス。
  * @param acquireBrowser - 描画用ブラウザーを取得する非同期関数。
- * @returns Mermaidの非同期処理で得られる結果。
+ * @returns Mermaidランタイムを読み込み、外部通信を遮断したPlaywright Page。
  */
 async function createRendererPage(runtimePath: string, acquireBrowser: () => Promise<Browser>): Promise<Page> {
     try {
@@ -621,7 +585,6 @@ async function createRendererPage(runtimePath: string, acquireBrowser: () => Pro
             /**
              * 外部通信要求をPlaywrightルート経由で遮断する。
              * @param route - 要求をabortするPlaywright Route。
-             * @returns 副作用を完了し、値は返さない。
              */
             (route) => route.abort('blockedbyclient'));
         const page = await context.newPage();
@@ -637,7 +600,6 @@ async function createRendererPage(runtimePath: string, acquireBrowser: () => Pro
 
 /**
  * 描画ページとコンテキストを破棄し、次回要求で再初期化できる状態へ戻す。
- * @returns 副作用を完了し、値は返さない。
  */
 async function resetRendererPage(): Promise<void> {
     pagePromise = undefined;
@@ -646,8 +608,7 @@ async function resetRendererPage(): Promise<void> {
     browserContext = undefined;
     if (context) await context.close().catch(
         /**
-         * Mermaidのコールバックとして要素を処理する。
-         * @returns 副作用を完了し、値は返さない。
+         * ブラウザーコンテキストの終了失敗を無視して後始末を完了する。
          */
         () => undefined);
 }
@@ -669,7 +630,6 @@ function readCache(key: string): MermaidBrowserResult | undefined {
  * 描画結果を容量制限付きキャッシュへ追加し、古い項目を削除する。
  * @param key - Mermaidソースとテーマから生成したキャッシュキー。
  * @param rendered - キャッシュへ登録するSVG、任意のPNG、操作領域を含む描画結果。
- * @returns 副作用を完了し、値は返さない。
  */
 function writeCache(key: string, rendered: MermaidBrowserResult): void {
     const previous = svgCache.get(key);
@@ -710,22 +670,16 @@ function estimateResultBytes(rendered: MermaidBrowserResult): number {
  * @param operation - 描画処理をすでに開始した非同期Promise。
  * @param timeoutMs - タイムアウトまで待つ時間（ミリ秒）。
  * @param onTimeout - 時間超過時にブラウザー描画環境をリセットする非同期処理。
- * @returns Mermaidの非同期処理で得られる結果。
+ * @returns operationの完了値。期限超過時はonTimeout実行後に拒否する。
  */
 async function withTimeout<T>(operation: Promise<T>, timeoutMs: number, onTimeout: () => Promise<void>): Promise<T> {
     let timer: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<never>(
-        /**
-         * 遅延処理の完了または失敗を待機側へ通知する。
-         * @param _ - reject専用Promiseの第1引数として渡される未使用のresolve関数。
-         * @param reject - Promiseの失敗を通知する関数。
-         * @returns 非同期処理の完了値。
-         */
+
         (_, reject) => {
             timer = setTimeout(
                 /**
                  * 指定時間の経過後に後続処理を実行する。
-                 * @returns 副作用を完了し、値は返さない。
                  */
                 () => {
                     void onTimeout();
@@ -738,8 +692,7 @@ async function withTimeout<T>(operation: Promise<T>, timeoutMs: number, onTimeou
         if (timer) clearTimeout(timer);
         void operation.catch(
             /**
-             * Mermaidのコールバックとして要素を処理する。
-             * @returns 副作用を完了し、値は返さない。
+             * 呼び出し元へ返した失敗の再拒否を消費し、未処理拒否を防ぐ。
              */
             () => undefined);
     }

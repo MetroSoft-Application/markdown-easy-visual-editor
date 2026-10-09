@@ -1,5 +1,5 @@
 /**
- * @fileoverview Webviewのmarkdownrenderlight・Workerを管理する。Hostとの通信、ユーザー操作、表示状態の契約を保つ。
+ * @fileoverview Web Worker内で軽量なMarkdown解析を実行し、要求ID付きでプレビュー結果を返す。
  */
 import { collectDiagnostics, getOutline, wordStats } from "../shared/markdown";
 import {
@@ -9,12 +9,12 @@ import {
 } from "./markdownRendererCore";
 
 /**
- * markdownrenderlight・Workerで送受信するメッセージまたは要求のデータ形状。
+ * Workerで送受信するMarkdown描画要求と応答のデータ形状。
  */
 interface RenderRequest {
 
     /**
-     * markdownrenderlight・Workerのidを表す数値。
+     * Hostから届いた描画要求のID。結果を返す際も同じ値を使います。
      */
     id: number;
 
@@ -31,9 +31,8 @@ interface RenderRequest {
 
 self.addEventListener("message",
     /**
-     * UIイベントをHostまたはWebviewへ通知する。
+     * Hostから描画要求を受け取り、描画結果またはエラーを同じ要求IDで返す。
      * @param event - Markdown本文の描画要求を受信するworker message event。
-     * @returns 副作用を完了し、値は返さない。
      */
     (event: MessageEvent<RenderRequest>) => {
         const { id, markdown, options } = event.data;

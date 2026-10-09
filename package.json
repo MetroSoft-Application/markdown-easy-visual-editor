@@ -2,7 +2,7 @@
   "name": "markdown-easy-visual-editor",
   "displayName": "Markdown Easy Visual Editor",
   "description": "A visual Markdown editor for VS Code with live preview, source editing, formatting tools, image support, and PDF export.",
-  "version": "1.2.8",
+  "version": "1.2.9",
   "publisher": "MetroSoft-Application",
   "icon": "resources/icon.png",
   "repository": {
@@ -369,6 +369,27 @@
           "default": "{page}/{pages}",
           "scope": "application",
           "description": "Text printed in the PDF page footer."
+        },
+        "markdownEasyVisualEditor.output.textReplacements": {
+          "type": "array",
+          "default": [],
+          "scope": "application",
+          "description": "Replace matching text in PDF preview, PDF output, and HTML output using regular expressions. Leave a replacement empty to omit the match.",
+          "items": {
+            "type": "object",
+            "properties": {
+              "pattern": {
+                "type": "string",
+                "description": "Regular expression pattern. All matches are replaced."
+              },
+              "replacement": {
+                "type": "string",
+                "description": "Literal text inserted for each match."
+              }
+            },
+            "required": ["pattern", "replacement"],
+            "additionalProperties": false
+          }
         },
         "markdownEasyVisualEditor.pdf.bodyFontSize": {
           "type": "number",

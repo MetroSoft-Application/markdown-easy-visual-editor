@@ -38,3 +38,7 @@
 ## 1.2.8
 
 - Added a collapsible outline tree that shows heading hierarchy.
+
+## 1.2.9
+
+- Added configurable regular-expression search and replacement rules to print settings for PDF previews and PDF/HTML output.

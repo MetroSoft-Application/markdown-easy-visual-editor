@@ -11,7 +11,7 @@ import type { Messages } from "../shared/messages";
 type PdfJsModule = typeof import("pdfjs-dist");
 
 /**
- * PDFプレビューで共有するデータ形状を表すインターフェース。
+ * PDFプレビューに渡す文書URIと表示状態です。
  */
 interface Props {
   /**
@@ -25,7 +25,7 @@ interface Props {
   messages: Messages["app"]["pdfPreview"];
 
   /**
-   * PDFプレビューのpage・ratioを表す数値。
+    * ページ幅に対するページ高の比率。Canvasと用紙レイアウトの寸法を合わせる。
    */
   pageRatio: number;
 
@@ -34,8 +34,7 @@ interface Props {
    */
   zoom?: number;
   /**
-   * PDFプレビューのイベントまたはメッセージを受け取り、状態を更新する。
-   * @returns PDFプレビューの非同期処理で得られる結果。
+    * 最初のPDFページが描画できた時点で親へ完了を通知する。
    */
   onRendered?: () => void;
 }
@@ -51,8 +50,8 @@ let pdfJsPromise: Promise<PdfJsModule> | undefined;
 const PDF_PREVIEW_SCRIPT_MISSING = "PDF_PREVIEW_SCRIPT_MISSING";
 
 /**
- * PDFプレビューから必要な値またはリソースを取得する。
- * @returns PDFプレビューの非同期処理で得られる結果。
+ * Webview内のVite script URLを基準にPDF.js moduleを遅延読込し、Promiseを共有する。
+ * @returns 読み込んだPDF.js module。script URLがなければ識別可能なErrorで拒否する。
  */
 function loadPdfJs(): Promise<PdfJsModule> {
   if (pdfJsPromise) return pdfJsPromise;
@@ -67,9 +66,9 @@ function loadPdfJs(): Promise<PdfJsModule> {
 }
 
 /**
- * PDFプレビューの入力を構造化した値へ変換する。
+ * Base64形式のPDF本文をPDF.jsへ渡せるバイト配列に変換する。
  * @param value - PDF.jsへ渡すBase64形式のPDFバイト列。
- * @returns PDFプレビューに対応する要素の一覧。
+ * @returns Base64をデコードしたPDFバイト配列。
  */
 function decodeBase64(value: string): Uint8Array {
   const binary = window.atob(value);
@@ -104,8 +103,7 @@ export function PdfDocumentPreview({
 
   useEffect(
     /**
-     * 依存状態の変化に応じて表示または購読を更新する。
-     * @returns PDFプレビューのコールバックが生成する結果。
+      * 倍率変更後に新しい最初のページ描画を完了通知できるようフラグを戻す。
      */
     () => {
       firstPageRenderedRef.current = false;
@@ -115,8 +113,7 @@ export function PdfDocumentPreview({
 
   useEffect(
     /**
-     * 依存状態の変化に応じて表示または購読を更新する。
-     * @returns PDFプレビューのコールバックが生成する結果。
+      * Base64文書を読み込み、data変更後の旧タスクをキャンセルしながら文書状態を更新する。
      */
     () => {
       let cancelled = false;
@@ -129,9 +126,8 @@ export function PdfDocumentPreview({
       void loadPdfJs()
         .then(
           /**
-           * pdfjsをifへ渡し、PDFプレビューの結果または副作用を処理する。
-           * @param pdfjs - getDocumentとGlobalWorkerOptionsを提供するPDF.jsモジュール。
-           * @returns PDFプレビューのコールバックが生成する結果。
+            * PDF.js worker URLを設定し、未破棄なら読み込みタスクを開始する。
+             * @param pdfjs - getDocumentとGlobalWorkerOptionsを提供するPDF.jsモジュール。
            */
           (pdfjs) => {
             if (cancelled) return;
@@ -146,9 +142,8 @@ export function PdfDocumentPreview({
             loadingTask = pdfjs.getDocument({ data: decodeBase64(data) });
             return loadingTask.promise.then(
               /**
-               * pdfをifへ渡し、PDFプレビューの結果または副作用を処理する。
+               * 読込中にeffectが破棄されていない場合だけPDF文書とページ数をstateへ保存する。
                * @param pdf - ページ取得と破棄に使う読み込み済みPDF文書。
-               * @returns PDFプレビューのコールバックが生成する結果。
                */
               (pdf) => {
                 if (cancelled) {
@@ -163,9 +158,8 @@ export function PdfDocumentPreview({
         )
         .catch(
           /**
-           * reasonをifへ渡し、PDFプレビューの結果または副作用を処理する。
-           * @param reason - 処理を中断または失敗させた理由。
-           * @returns PDFプレビューのコールバックが生成する結果。
+            * 現在のeffectで起きた読込失敗だけをエラーstateへ反映する。
+            * @param reason - 処理を中断または失敗させた理由。
            */
           (reason: unknown) => {
             if (cancelled) return;
@@ -175,18 +169,14 @@ export function PdfDocumentPreview({
           },
         );
 
-      /**
-       * PDFプレビューのreturnを処理し、呼び出し側へ結果または副作用を返す。
-       * @returns PDFプレビューのreturnが生成する結果。
-       */
+      // 古い読込結果を無視し、PDF.jsの非同期処理と確定済み文書を解放する。
       return () => {
         cancelled = true;
         void loadingTask?.destroy();
         setDocumentState(
-          /**
-           * previousをifへ渡し、PDFプレビューの結果または副作用を処理する。
-           * @param previous - effect再実行時に破棄する前回のPDF文書。初回は未定義。
-           * @returns PDFプレビューのコールバックが生成する結果。
+            /**
+             * effect破棄時に表示中の文書を解放してstateから外す。
+             * @param previous - effect再実行時に破棄する前回のPDF文書。初回は未定義。
            */
           (previous) => {
             if (previous) void previous.cleanup();
@@ -215,12 +205,7 @@ export function PdfDocumentPreview({
     <div className="pdf-pages" data-page-count={pageCount}>
       {Array.from(
         { length: pageCount },
-        /**
-         * ・をifへ渡し、PDFプレビューの結果または副作用を処理する。
-         * @param _ - 引数位置を維持するための未使用値。
-         * @param index - 配列・行列・文字列の要素位置を示す番号。
-         * @returns PDFプレビューのコールバックが生成する結果。
-         */
+        // ページごとに独立した遅延描画コンポーネントを作る。
         (_, index) => (
           <PdfPage
             key={`${data.length}-${index + 1}-${zoom}`}
@@ -230,10 +215,6 @@ export function PdfDocumentPreview({
             pageRatio={pageRatio}
             zoom={zoom}
             onRendered={
-              /**
-               * 要素をifへ渡し、PDFプレビューの結果または副作用を処理する。
-               * @returns PDFプレビューのコールバックが生成する結果。
-               */
               () => {
                 if (firstPageRenderedRef.current) return;
                 firstPageRenderedRef.current = true;
@@ -266,7 +247,7 @@ function PdfPage({
   onRendered,
 }: {
   /**
-   * PDFプレビューのdocumentに関する状態または設定。
+    * ページ取得とページ数の上限値を提供する読み込み済みPDF文書。
    */
   document: PDFDocumentProxy;
 
@@ -276,12 +257,12 @@ function PdfPage({
   messages: Messages["app"]["pdfPreview"];
 
   /**
-   * PDFプレビューのpage・numberを表す数値。
+    * PDF内で表示する1始まりのページ番号。
    */
   pageNumber: number;
 
   /**
-   * PDFプレビューのpage・ratioを表す数値。
+    * ページ幅に対するページ高の比率。
    */
   pageRatio: number;
 
@@ -290,8 +271,7 @@ function PdfPage({
    */
   zoom: number;
   /**
-   * PDFプレビューのイベントまたはメッセージを受け取り、状態を更新する。
-   * @returns PDFプレビューのon・renderedが生成する結果。
+    * このページのCanvas描画が成功したことを親へ通知する。
    */
   onRendered: () => void;
 }): React.JSX.Element {
@@ -310,8 +290,7 @@ function PdfPage({
 
   useEffect(
     /**
-     * 依存状態の変化に応じて表示または購読を更新する。
-     * @returns PDFプレビューのコールバックが生成する結果。
+      * ページが表示範囲へ近づいた時だけCanvasへ描画し、effect破棄時には描画を中断する。
      */
     () => {
       const container = pageRef.current;
@@ -321,8 +300,7 @@ function PdfPage({
       let observer: IntersectionObserver | undefined;
 
       const render = /**
-       * PDFプレビューを表示用の結果へ変換する。
-       * @returns PDFプレビューで生成または変換した値。
+       * PDF.jsで未描画ページをCanvasへ描画し、表示状態を更新する。
        */ async () => {
         if (
           cancelled ||
@@ -368,19 +346,12 @@ function PdfPage({
       };
 
       observer = new IntersectionObserver(
-        /**
-         * entriesをifへ渡し、PDFプレビューの結果または副作用を処理する。
+        /** 可視範囲に入ったページだけを一度描画し、以降の交差監視を止める。
          * @param entries - PDF表示領域との交差状態を報告するobserver entry一覧。
-         * @returns PDFプレビューのコールバックが生成する結果。
          */
         (entries) => {
           if (
             !entries.some(
-              /**
-               * PDFプレビューのコールバックとしてエントリを処理する。
-               * @param entry - PDFプレビューで走査または更新する要素。
-               * @returns PDFプレビューのコールバックが生成する結果。
-               */
               (entry) => entry.isIntersecting,
             )
           )
@@ -392,10 +363,7 @@ function PdfPage({
       );
       observer.observe(container);
 
-      /**
-       * PDFプレビューのreturnを処理し、呼び出し側へ結果または副作用を返す。
-       * @returns PDFプレビューのreturnが生成する結果。
-       */
+      // 画面から外れたページの監視と実行中Canvas描画を停止する。
       return () => {
         cancelled = true;
         observer?.disconnect();

@@ -2,59 +2,59 @@
  * @fileoverview 表の行列とセルを移動・追加・削除する純粋なモデル操作を提供し、選択範囲との整合性を保つ。
  */
 /**
- * tablegridで共有するデータ形状を表すインターフェース。
+ * 表で選択された行・列の開始位置と終了位置です。
  */
 export interface TableGridRange {
 
     /**
-     * tablegridの位置・寸法・件数・時間を表す数値。
+     * 選択操作を開始したセルの0始まりの行番号です。
      */
     anchorRow: number;
 
     /**
-     * tablegridの位置・寸法・件数・時間を表す数値。
+     * 選択操作を開始したセルの0始まりの列番号です。
      */
     anchorColumn: number;
 
     /**
-     * tablegridの位置・寸法・件数・時間を表す数値。
+     * 選択カーソルが最後に到達したセルの0始まりの行番号です。
      */
     focusRow: number;
 
     /**
-     * tablegridの位置・寸法・件数・時間を表す数値。
+     * 選択カーソルが最後に到達したセルの0始まりの列番号です。
      */
     focusColumn: number;
 }
 
 /**
- * tablegridで共有するデータ形状を表すインターフェース。
+ * 表範囲の端点を開始側と終了側に揃えた正規化済みの範囲です。
  */
 export interface NormalizedTableGridRange {
 
     /**
-     * tablegridの位置・寸法・件数・時間を表す数値。
+     * 正規化後の開始行インデックスです。
      */
     fromRow: number;
 
     /**
-     * tablegridの位置・寸法・件数・時間を表す数値。
+     * 正規化後の終了行インデックスです。
      */
     toRow: number;
 
     /**
-     * tablegridの位置・寸法・件数・時間を表す数値。
+     * 正規化後の開始列インデックスです。
      */
     fromColumn: number;
 
     /**
-     * tablegridの位置・寸法・件数・時間を表す数値。
+     * 正規化後の終了列インデックスです。
      */
     toColumn: number;
 }
 
 /**
- * tablegridで共有するデータ形状を表すインターフェース。
+ * 列移動で移動元と移動先になった列番号を表します。
  */
 export interface MovedTableGridColumn {
 
@@ -70,11 +70,11 @@ export interface MovedTableGridColumn {
 }
 
 /**
- * tablegridの入力を許可された形式へ整える。
+ * 表サイズを超えるセル選択範囲の端点を有効範囲へ収める。
  * @param range - 行列数で端点を制限する表セル選択範囲。
  * @param rowCount - 選択範囲を収める表の行数。
  * @param columnCount - 選択範囲を収める表の列数。
- * @returns tablegridで生成または変換した値。
+ * @returns 行列数で各端点を制限したセル選択範囲。
  */
 export function normalizeTableGridRange(
     range: TableGridRange,
@@ -96,11 +96,11 @@ export function normalizeTableGridRange(
 }
 
 /**
- * tablegridのtable・grid・range・containsを処理し、呼び出し側へ結果または副作用を返す。
+  * セル位置が正規化済み選択範囲の内側にあるか判定する。
  * @param range - 表内で選択されたfrom/to row/columnを含む正規化済みセル範囲。
  * @param row - 範囲内か判定する表行の0始まりインデックス。
  * @param column - 範囲内か判定する表列の0始まりインデックス。
- * @returns 条件が成立したかを示す真偽値。
+  * @returns 行と列の両方が選択範囲内ならtrue。
  */
 export function tableGridRangeContains(
     range: NormalizedTableGridRange,
@@ -116,9 +116,9 @@ export function tableGridRangeContains(
 }
 
 /**
- * tablegridのtable・grid・range・cell・countを処理し、呼び出し側へ結果または副作用を返す。
+  * 正規化済みセル範囲が含むセル数を計算する。
  * @param range - 表内で選択されたfrom/to row/columnを含む正規化済みセル範囲。
- * @returns tablegridで利用する数値。
+  * @returns 選択範囲に含まれるセル数。
  */
 export function tableGridRangeCellCount(
     range: NormalizedTableGridRange,
@@ -134,7 +134,7 @@ export function tableGridRangeCellCount(
  * @param values - 指定要素を移動する元の配列。
  * @param sourceIndex 移動元となる配列要素の0始まりインデックス。
  * @param targetIndex 移動後の配列位置を示す0始まりインデックス。
- * @returns tablegridに対応する要素の一覧。
+ * @returns itemを移動後の位置へ並べた新しい配列。
  */
 export function moveTableGridItem<T>(
     values: readonly T[],
@@ -161,7 +161,7 @@ export function moveTableGridItem<T>(
  * @param rows - 移動対象のセル文字列を行ごとに並べた表データ。
  * @param sourceIndex 移動元となる行の0始まりインデックス。
  * @param targetIndex 移動後の行位置を示す0始まりインデックス。
- * @returns tablegridで利用する文字列。
+ * @returns 行順を変更した新しい表データ。元の行列は変更しない。
  */
 export function moveTableGridRow(
     rows: readonly (readonly string[])[],
@@ -187,7 +187,7 @@ export function moveTableGridRow(
  * @param alignments - 各表列に対応する配置設定一覧。
  * @param sourceIndex 移動元となる列の0始まりインデックス。
  * @param targetIndex 移動後の列位置を示す0始まりインデックス。
- * @returns tablegridのmove・table・grid・columnが生成する結果。
+  * @returns 指定列を移動した表行と列配置の組。
  */
 export function moveTableGridColumn(
     rows: readonly (readonly string[])[],
@@ -227,35 +227,25 @@ export function moveTableGridColumn(
         /**
          * 各行をfromへ渡し、変換結果を一覧化する。
          * @param row - 列移動用の正規化行を作る元セル行。
-         * @returns 入力要素から生成した変換結果の一覧。
+
          */
         (row) =>
             Array.from({ length: columnCount },
-                /**
-                 * tablegridのコールバックとして・を処理する。
-                 * @param _ - 引数位置を維持するための未使用値。
-                 * @param index - 配列・行列・文字列の要素位置を示す番号。
-                 * @returns tablegridで利用する文字列。
-                 */
+
                 (_, index) => row[index] ?? ""),
     );
     const normalizedAlignments = Array.from(
         { length: columnCount },
 
-        /**
-         * tablegridのコールバックとして・を処理する。
-         * @param _ - 引数位置を維持するための未使用値。
-         * @param index - 配列・行列・文字列の要素位置を示す番号。
-         * @returns tablegridで利用する文字列。
-         */
+
         (_, index) => alignments[index] ?? "none",
     );
     return {
         rows: normalizedRows.map(
             /**
-             * 各行をmove・table・grid・itemへ渡し、変換結果を一覧化する。
+              * 移動後の列順に合わせて各行のセルを並べ替える。
              * @param row - 移動後の表行セル配列。
-             * @returns 入力要素から生成した変換結果の一覧。
+
              */
             (row) =>
                 moveTableGridItem(row, sourceIndex, targetIndex),
@@ -273,7 +263,7 @@ export function moveTableGridColumn(
  * @param rows - 複製元となるセル文字列の表行一覧。
  * @param fromRow - 複製範囲の開始行インデックス。
  * @param toRow - 複製範囲の終了行インデックス。
- * @returns tablegridで利用する文字列。
+ * @returns 行範囲を複製した新しい表データ。範囲が無効なら元行列のコピー。
  */
 export function duplicateTableGridRows(
     rows: readonly (readonly string[])[],
@@ -318,7 +308,7 @@ export function duplicateTableGridRows(
  * @param alignments - 各表列に対応する配置設定一覧。
  * @param fromColumn - 複製範囲の開始列インデックス。
  * @param toColumn - 複製範囲の終了列インデックス。
- * @returns tablegridのduplicate・table・grid・columnsが生成する結果。
+  * @returns 指定列範囲を直後へ複製した表行と列配置の組。
  */
 export function duplicateTableGridColumns(
     rows: readonly (readonly string[])[],
@@ -358,27 +348,17 @@ export function duplicateTableGridColumns(
         /**
          * 各行をfromへ渡し、変換結果を一覧化する。
          * @param row - 列複製用の正規化行を作る元セル行。
-         * @returns 入力要素から生成した変換結果の一覧。
+
          */
         (row) =>
             Array.from({ length: columnCount },
-                /**
-                 * tablegridのコールバックとして・を処理する。
-                 * @param _ - 引数位置を維持するための未使用値。
-                 * @param index - 配列・行列・文字列の要素位置を示す番号。
-                 * @returns tablegridで利用する文字列。
-                 */
+
                 (_, index) => row[index] ?? ""),
     );
     const normalizedAlignments = Array.from(
         { length: columnCount },
 
-        /**
-         * tablegridのコールバックとして・を処理する。
-         * @param _ - 引数位置を維持するための未使用値。
-         * @param index - 配列・行列・文字列の要素位置を示す番号。
-         * @returns tablegridで利用する文字列。
-         */
+
         (_, index) => alignments[index] ?? "none",
     );
     const insertAt = toColumn + 1;
@@ -403,10 +383,10 @@ export function duplicateTableGridColumns(
 }
 
 /**
- * tablegridの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+ * 正規化済み選択範囲のセル内容を消去する。
  * @param rows - 選択範囲に含まれるセル文字列を空にする表行一覧。
  * @param range - 表内で選択されたfrom/to row/columnを含む正規化済みセル範囲。
- * @returns tablegridで利用する文字列。
+ * @returns 対象セルを空にした新しい表データ。元の行列は変更しない。
  */
 export function clearTableGridRange(
     rows: readonly (readonly string[])[],
@@ -422,10 +402,10 @@ export function clearTableGridRange(
         (row, rowIndex) =>
             row.map(
                 /**
-                 * 各値をtable・grid・range・containsへ渡し、変換結果を一覧化する。
+                  * 選択範囲内のセルだけを空文字にし、ほかのセルは維持する。
                  * @param value - 選択範囲に含まれる場合クリアするセル文字列。
                  * @param columnIndex - 選択範囲と照合する0始まりの列インデックス。
-                 * @returns 入力要素から生成した変換結果の一覧。
+
                  */
                 (value, columnIndex) =>
                     tableGridRangeContains(range, rowIndex, columnIndex) ? "" : value,
@@ -434,9 +414,9 @@ export function clearTableGridRange(
 }
 
 /**
- * tablegridのtable・grid・column・labelを処理し、呼び出し側へ結果または副作用を返す。
+  * 0始まりの列番号を表ヘッダー表示用のA、B、…形式へ変換する。
  * @param column - 列見出しラベルへ変換する0始まり列インデックス。
- * @returns tablegridで利用する文字列。
+  * @returns Excel形式の列ラベル。
  */
 export function tableGridColumnLabel(column: number): string {
     let value = Math.max(0, Math.trunc(column)) + 1;
@@ -454,7 +434,7 @@ export function tableGridColumnLabel(column: number): string {
  * @param value - 指定範囲へ収める整数候補。
  * @param min - 入力または寸法に許可する下限値。
  * @param max - 入力または寸法に許可する上限値。
- * @returns tablegridで利用する数値。
+
  */
 function clampInteger(value: number, min: number, max: number): number {
     if (!Number.isFinite(value)) return min;

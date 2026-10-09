@@ -14,7 +14,7 @@ let visible = true;
 const listeners = new Set<(value: boolean) => void>();
 
 /**
- * 画像リサイズ操作から必要な値またはリソースを取得する。
+ * プレビュー画像のリサイズ操作を表示する設定値を返す。
  * @returns 条件が成立したかを示す真偽値。
  */
 export function getPreviewImageResizeControlsVisible(): boolean {
@@ -24,7 +24,6 @@ export function getPreviewImageResizeControlsVisible(): boolean {
 /**
  * 画像プレビュー上にリサイズ操作を表示するか設定する。
  * @param next リサイズ操作を表示する場合はtrue。
- * @returns 副作用を完了し、値は返さない。
  */
 export function setPreviewImageResizeControlsVisible(next: boolean): void {
     applyPreviewImageResizeControlsVisibility(next);
@@ -40,15 +39,13 @@ export function subscribePreviewImageResizeControlsVisible(listener: (value: boo
     listeners.add(listener);
     listener(visible);
     /**
-     * 画像リサイズ操作のreturnを処理し、呼び出し側へ結果または副作用を返す。
-     * @returns 副作用を完了し、値は返さない。
+     * この表示状態リスナーを購読対象から外す。
      */
     return () => listeners.delete(listener);
 }
 
 /**
- * 画像リサイズ操作のinstall・preview・image・resize・controlsを処理し、呼び出し側へ結果または副作用を返す。
- * @returns 副作用を完了し、値は返さない。
+ * Hostから届く表示設定を監視し、プレビュー画像のリサイズ操作へ反映する。
  */
 export function installPreviewImageResizeControls(): void {
     window.addEventListener('message', handleHostSettings);
@@ -58,7 +55,6 @@ export function installPreviewImageResizeControls(): void {
 /**
  * Extension Hostから画像リサイズ操作の表示設定を受信して適用する。
  * @param event windowへ送られたHostメッセージを含むMessageEvent。
- * @returns 副作用を完了し、値は返さない。
  */
 function handleHostSettings(event: MessageEvent): void {
     const message = event.data as HostToWebviewMessage | undefined;
@@ -69,7 +65,6 @@ function handleHostSettings(event: MessageEvent): void {
 /**
  * 画像リサイズ操作の表示状態をDOMへ反映し、状態が変わった場合は購読者へ通知する。
  * @param next リサイズ操作を表示する場合はtrue。
- * @returns 副作用を完了し、値は返さない。
  */
 function applyPreviewImageResizeControlsVisibility(next: boolean): void {
     const changed = visible !== next;

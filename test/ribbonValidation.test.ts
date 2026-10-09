@@ -1,5 +1,5 @@
 /**
- * @fileoverview リボン検証・テストの回帰の仕様と回帰条件を検証する。失敗時は期待値と実装差分を示す。
+ * @fileoverview リボン設定の完全性、ID重複、グループ連続性、未使用定義や参照漏れを検証する。
  */
 import { describe, expect, it } from "vitest";
 import type { RibbonDefinitions } from "../src/webview/ribbonDefinitionTypes";
@@ -11,26 +11,26 @@ import {
 } from "../src/webview/ribbonValidation";
 
 /**
- * リボン検証・テストの回帰のlabelに関する状態または設定。
+ * テスト用のラベル参照。検証対象の項目はすべてこのラベルを共有する。
  */
 const label = { kind: "message", path: "ribbon.groups.preview" } as const;
 
 /**
- * リボン検証・テストの回帰のconfigurationを処理し、呼び出し側へ結果または副作用を返す。
+ * テスト対象IDから有効な最小リボン配置と実装定義を組み立てる。
  * @param itemIds - リボン項目として定義するID一覧。
- * @returns リボン検証・テストの回帰のconfigurationが生成する結果。
+ * @returns 指定IDを含む配置と対応する実装定義。
  */
 function configuration(
     itemIds: readonly string[] = ["undo"],
 ): {
 
     /**
-     * リボン検証・テストの回帰のlayoutに関する状態または設定。
+     * 検証対象となるタブ・グループ・項目の配置。
      */
     layout: RibbonLayoutDefinition;
 
     /**
-     * リボン検証・テストの回帰のdefinitionsに関する状態または設定。
+     * 各項目のラベルと選択肢のテスト用定義。
      */
     definitions: RibbonDefinitions;
 
@@ -40,7 +40,7 @@ function configuration(
     implementations: Record<string, RibbonValidationItemImplementation>;
 
     /**
-     * リボン検証・テストの回帰で扱うheader・implementationsの文字列。
+     * 各ヘッダー項目へ割り当てるテスト用の実装関数。
      */
     headerImplementations: Record<string, RibbonValidationHeaderImplementation>;
 } {
@@ -54,11 +54,6 @@ function configuration(
             groups: { history: { label } },
             items: Object.fromEntries(
                 itemIds.map(
-                    /**
-                     * item・idsの各要素を変換して一覧化する。
-                     * @param id - テスト対象として定義するリボン項目ID。
-                     * @returns 入力要素から生成した変換結果の一覧。
-                     */
                     (id) => [id, { label }]),
             ),
             containers: {},
@@ -68,17 +63,11 @@ function configuration(
         } as unknown as RibbonDefinitions,
         implementations: Object.fromEntries(
             itemIds.map(
-                /**
-                 * item・idsの各要素を変換して一覧化する。
-                 * @param id - テスト対象として定義するリボン項目ID。
-                 * @returns 入力要素から生成した変換結果の一覧。
-                 */
                 (id) => [id, {
                     kind: "button",
 
                     onClick: /**
        * リボン検証・テストの回帰のイベントまたはメッセージを受け取り、状態を更新する。
-       * @returns 副作用を完了し、値は返さない。
        */ () => undefined
                 }]),
         ),
@@ -89,24 +78,13 @@ function configuration(
 }
 
 describe("validateRibbonConfiguration",
-    /**
-     * 「validateRibbonConfiguration」の仕様と回帰条件を検証するテストケース。
-     * @returns テストケースを実行し、値は返さない。
-     */
     () => {
         it("accepts a complete configuration",
-            /**
-             * 「accepts a complete configuration」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const value = configuration();
 
                 expect(
-                    /**
-                     * 要素をvalidate・ribbon・configurationへ渡し、リボン検証・テストの回帰の結果または副作用を処理する。
-                     * @returns リボン検証・テストの回帰のコールバックが生成する結果。
-                     */
+
                     () => validateRibbonConfiguration(
                         value.layout,
                         value.definitions,
@@ -116,18 +94,11 @@ describe("validateRibbonConfiguration",
             });
 
         it("rejects duplicate layout IDs",
-            /**
-             * 「rejects duplicate layout IDs」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const value = configuration(["undo", "undo"]);
 
                 expect(
-                    /**
-                     * 要素をvalidate・ribbon・configurationへ渡し、リボン検証・テストの回帰の結果または副作用を処理する。
-                     * @returns リボン検証・テストの回帰のコールバックが生成する結果。
-                     */
+
                     () => validateRibbonConfiguration(
                         value.layout,
                         value.definitions,
@@ -137,10 +108,6 @@ describe("validateRibbonConfiguration",
             });
 
         it("rejects non-contiguous visual containers",
-            /**
-             * 「rejects non-contiguous visual containers」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const value = configuration(["first", "middle", "last"]);
                 const definitions = {
@@ -156,10 +123,7 @@ describe("validateRibbonConfiguration",
                 } as unknown as RibbonDefinitions;
 
                 expect(
-                    /**
-                     * 要素をvalidate・ribbon・configurationへ渡し、リボン検証・テストの回帰の結果または副作用を処理する。
-                     * @returns リボン検証・テストの回帰のコールバックが生成する結果。
-                     */
+
                     () => validateRibbonConfiguration(
                         value.layout,
                         definitions,
@@ -169,10 +133,6 @@ describe("validateRibbonConfiguration",
             });
 
         it("rejects an empty tab, group, or header",
-            /**
-             * 「rejects an empty tab, group, or header」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const value = configuration();
                 const emptyTab = {
@@ -193,10 +153,7 @@ describe("validateRibbonConfiguration",
                 } as unknown as RibbonLayoutDefinition;
 
                 expect(
-                    /**
-                     * 要素をvalidate・ribbon・configurationへ渡し、リボン検証・テストの回帰の結果または副作用を処理する。
-                     * @returns リボン検証・テストの回帰のコールバックが生成する結果。
-                     */
+
                     () => validateRibbonConfiguration(
                         emptyTab,
                         value.definitions,
@@ -204,10 +161,7 @@ describe("validateRibbonConfiguration",
                         value.headerImplementations,
                     )).toThrow("at least one tab");
                 expect(
-                    /**
-                     * 要素をvalidate・ribbon・configurationへ渡し、リボン検証・テストの回帰の結果または副作用を処理する。
-                     * @returns リボン検証・テストの回帰のコールバックが生成する結果。
-                     */
+
                     () => validateRibbonConfiguration(
                         emptyGroup,
                         value.definitions,
@@ -215,10 +169,7 @@ describe("validateRibbonConfiguration",
                         value.headerImplementations,
                     )).toThrow("has no groups");
                 expect(
-                    /**
-                     * 要素をvalidate・ribbon・configurationへ渡し、リボン検証・テストの回帰の結果または副作用を処理する。
-                     * @returns リボン検証・テストの回帰のコールバックが生成する結果。
-                     */
+
                     () => validateRibbonConfiguration(
                         emptyItems,
                         value.definitions,
@@ -226,10 +177,7 @@ describe("validateRibbonConfiguration",
                         value.headerImplementations,
                     )).toThrow("has no items");
                 expect(
-                    /**
-                     * 要素をvalidate・ribbon・configurationへ渡し、リボン検証・テストの回帰の結果または副作用を処理する。
-                     * @returns リボン検証・テストの回帰のコールバックが生成する結果。
-                     */
+
                     () => validateRibbonConfiguration(
                         emptyHeader,
                         value.definitions,
@@ -239,10 +187,6 @@ describe("validateRibbonConfiguration",
             });
 
         it("rejects missing definitions and implementations",
-            /**
-             * 「rejects missing definitions and implementations」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const value = configuration();
                 const missingDefinition = {
@@ -251,10 +195,7 @@ describe("validateRibbonConfiguration",
                 } as unknown as RibbonDefinitions;
 
                 expect(
-                    /**
-                     * 要素をvalidate・ribbon・configurationへ渡し、リボン検証・テストの回帰の結果または副作用を処理する。
-                     * @returns リボン検証・テストの回帰のコールバックが生成する結果。
-                     */
+
                     () => validateRibbonConfiguration(
                         value.layout,
                         missingDefinition,
@@ -262,10 +203,7 @@ describe("validateRibbonConfiguration",
                         value.headerImplementations,
                     )).toThrow("item definitions do not match");
                 expect(
-                    /**
-                     * 要素をvalidate・ribbon・configurationへ渡し、リボン検証・テストの回帰の結果または副作用を処理する。
-                     * @returns リボン検証・テストの回帰のコールバックが生成する結果。
-                     */
+
                     () => validateRibbonConfiguration(
                         value.layout,
                         value.definitions,
@@ -285,10 +223,7 @@ describe("validateRibbonConfiguration",
                     },
                 } as unknown as RibbonDefinitions;
                 expect(
-                    /**
-                     * 要素をvalidate・ribbon・configurationへ渡し、リボン検証・テストの回帰の結果または副作用を処理する。
-                     * @returns リボン検証・テストの回帰のコールバックが生成する結果。
-                     */
+
                     () => validateRibbonConfiguration(
                         nonContiguous.layout,
                         missingMiddle,
@@ -298,10 +233,6 @@ describe("validateRibbonConfiguration",
             });
 
         it("rejects non-contiguous header groups",
-            /**
-             * 「rejects non-contiguous header groups」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const value = configuration();
                 const headerIds = ["search", "splitView", "collapse", "textOnly", "previewOnly"];
@@ -324,26 +255,17 @@ describe("validateRibbonConfiguration",
                 } as unknown as RibbonLayoutDefinition;
                 const headerImplementations = Object.fromEntries(
                     headerIds.map(
-                        /**
-                         * header・idsの各要素を変換して一覧化する。
-                         * @param id - テスト対象として定義するリボンヘッダーID。
-                         * @returns 入力要素から生成した変換結果の一覧。
-                         */
                         (id) => [id, {
                             kind: "button",
 
                             onClick: /**
        * リボン検証・テストの回帰のイベントまたはメッセージを受け取り、状態を更新する。
-       * @returns 副作用を完了し、値は返さない。
        */ () => undefined
                         }]),
                 ) as Record<string, RibbonValidationHeaderImplementation>;
 
                 expect(
-                    /**
-                     * 要素をvalidate・ribbon・configurationへ渡し、リボン検証・テストの回帰の結果または副作用を処理する。
-                     * @returns リボン検証・テストの回帰のコールバックが生成する結果。
-                     */
+
                     () => validateRibbonConfiguration(
                         layout,
                         definitions,
@@ -353,10 +275,6 @@ describe("validateRibbonConfiguration",
             });
 
         it("rejects unused container and header group definitions",
-            /**
-             * 「rejects unused container and header group definitions」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const value = configuration();
                 const definitions = {
@@ -370,10 +288,7 @@ describe("validateRibbonConfiguration",
                 } as unknown as RibbonDefinitions;
 
                 expect(
-                    /**
-                     * 要素をvalidate・ribbon・configurationへ渡し、リボン検証・テストの回帰の結果または副作用を処理する。
-                     * @returns リボン検証・テストの回帰のコールバックが生成する結果。
-                     */
+
                     () => validateRibbonConfiguration(
                         value.layout,
                         definitions,
@@ -388,10 +303,7 @@ describe("validateRibbonConfiguration",
                     },
                 } as unknown as RibbonDefinitions;
                 expect(
-                    /**
-                     * 要素をvalidate・ribbon・configurationへ渡し、リボン検証・テストの回帰の結果または副作用を処理する。
-                     * @returns リボン検証・テストの回帰のコールバックが生成する結果。
-                     */
+
                     () => validateRibbonConfiguration(
                         value.layout,
                         headerGroupDefinitions,

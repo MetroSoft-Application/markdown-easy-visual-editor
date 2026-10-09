@@ -15,7 +15,9 @@ export type TableEditorSortDirection = 'ascending' | 'descending';
  * 表編集UIで最後に実行したソート条件。
  */
 export interface TableEditorSortState {
+    /** ソート対象の列インデックス。0から始まる。 */
     column: number;
+    /** 適用する昇順・降順。 */
     direction: TableEditorSortDirection;
 }
 
@@ -31,7 +33,9 @@ export type TableEditorColumnChange =
  * ソート後の行一覧と、各行の変更前インデックスを表す。
  */
 export interface TableEditorSortedRows {
+    /** 見出し行を先頭に保った、並べ替え後の行データ。 */
     rows: string[][];
+    /** 各行がソート前にあった位置。見出し行を含むため、0は見出し行を指す。 */
     sourceRowIndexes: number[];
 }
 
@@ -91,7 +95,7 @@ export interface TableEditorDraft {
 }
 
 /**
- * tableeditormodelで共有するデータ形状を表すインターフェース。
+ * 表編集ダイアログで表示・編集中の一時的な表データです。
  */
 export interface RenderedTableDraft {
 
@@ -101,7 +105,7 @@ export interface RenderedTableDraft {
     text: string;
 
     /**
-     * tableeditormodelの位置・寸法・件数・時間を表す数値。
+     * 編集対象文字列内の0始まりのキャレット位置です。
      */
     caretOffset: number;
 }
@@ -132,13 +136,13 @@ export type TableEditorApplyResult =
          */
         text: string;
         /**
-         * tableeditormodelの位置・寸法・件数・時間を表す数値。
+         * 編集対象文字列内の0始まりのキャレット位置です。
          */
         caretOffset: number
     };
 
 /**
- * tableeditormodelで共有するデータ形状を表すインターフェース。
+ * セル内改行を追加する位置と入力文字列です。
  */
 export interface TableEditorLineBreakEdit {
 
@@ -148,13 +152,13 @@ export interface TableEditorLineBreakEdit {
     value: string;
 
     /**
-     * tableeditormodelの位置・寸法・件数・時間を表す数値。
+     * 編集対象文字列内の0始まりのキャレット位置です。
      */
     caretOffset: number;
 }
 
 /**
- * tableeditormodelで共有するデータ形状を表すインターフェース。
+ * セル内の指定した改行を削除する位置情報です。
  */
 export interface TableEditorLineBreakDelete {
 
@@ -164,31 +168,31 @@ export interface TableEditorLineBreakDelete {
     value: string;
 
     /**
-     * tableeditormodelの位置・寸法・件数・時間を表す数値。
+     * 編集対象文字列内の0始まりのキャレット位置です。
      */
     caretOffset: number;
 }
 
 /**
- * tableeditormodelのtable・editor・cell・display・valueを処理し、呼び出し側へ結果または副作用を返す。
+ * 保存形式の`<br>`タグを表示用の改行文字へ展開する。
  * @param value - 保存形式の`<br>`を表示用改行へ展開するセル値。
- * @returns tableeditormodelで利用する文字列。
+ * @returns 各`<br>`を改行文字へ置き換えたセル表示値。
  */
 export function tableEditorCellDisplayValue(value: string): string {
     return value.replace(/<br\s*\/?>/gi,
         /**
          * 表示用の改行を付けてセル内のHTML改行タグを置換する。
          * @param lineBreak 表示用改行を付加する元のHTML改行タグ文字列。
-         * @returns tableeditormodelで利用する文字列。
+
          */
         (lineBreak) => `${lineBreak}\n`);
 }
 
 /**
- * tableeditormodelのtable・editor・cell・stored・valueを処理し、呼び出し側へ結果または副作用を返す。
+ * 表示文字列を保存用セル値へ戻し、編集前の`<br>`位置を維持できる場合はその位置を優先する。
  * @param value - 保存形式へ変換するエディター上のセル表示値。
  * @param previousStoredValue - 編集前の保存形式セル値。既存br位置と表示改行の対応確認に使う。
- * @returns tableeditormodelで利用する文字列。
+ * @returns 表示改行を`<br>`へ変換し、既存の保存位置を保ったセル値。
  */
 export function tableEditorCellStoredValue(value: string, previousStoredValue?: string): string {
     const valueWithoutDeletedBreakNewline = previousStoredValue === undefined
@@ -206,22 +210,22 @@ export function tableEditorCellStoredValue(value: string, previousStoredValue?: 
 }
 
 /**
- * tableeditormodelで共有するデータ形状を表すインターフェース。
+ * 編集画面の表示文字列をMarkdown表のセル値へ反映する変更です。
  */
 interface TableEditorDisplayEdit {
 
     /**
-     * tableeditormodelの位置・寸法・件数・時間を表す数値。
+     * セル先頭のMarkdown装飾を除いた後に残る接頭部の文字数です。
      */
     prefixLength: number;
 
     /**
-     * tableeditormodelのprevious・endを表す数値。
+     * 編集前文字列で最後の対応済み範囲が終わるUTF-16オフセット。
      */
     previousEnd: number;
 
     /**
-     * tableeditormodelのnext・endを表す数値。
+     * 編集後文字列で同じ対応済み範囲が終わるUTF-16オフセット。
      */
     nextEnd: number;
 }
@@ -230,7 +234,7 @@ interface TableEditorDisplayEdit {
  * セル表示文字列の編集結果から、削除されたHTML改行タグ由来の改行を取り除く。
  * @param nextDisplayValue 編集後のセル表示文字列。
  * @param previousDisplayValue 編集前のセル表示文字列。
- * @returns tableeditormodelで利用する文字列。
+
  */
 function removeDeletedBreakNewline(nextDisplayValue: string, previousDisplayValue: string): string {
     const edit = findTableEditorDisplayEdit(previousDisplayValue, nextDisplayValue);
@@ -296,10 +300,10 @@ function findTableEditorDisplayEdit(previousValue: string, nextValue: string): T
 }
 
 /**
- * tableeditormodelのtable・editor・cell・stored・offset・from・displayを処理し、呼び出し側へ結果または副作用を返す。
+ * 表示側のcaret位置を保存形式のオフセットへ写し、`<br>`タグ内部を指す位置は境界へ丸める。
  * @param value - 表示オフセットに対応する保存形式のセル値。
  * @param displayOffset - 表示側セル文字列内のUTF-16 caretオフセット。
- * @returns tableeditormodelで利用する数値。
+ * @returns 表示側caret位置に対応する保存形式内UTF-16オフセット。
  */
 export function tableEditorCellStoredOffsetFromDisplay(value: string, displayOffset: number): number {
     const displayValue = tableEditorCellDisplayValue(value);
@@ -329,10 +333,10 @@ export function tableEditorCellStoredOffsetFromDisplay(value: string, displayOff
 }
 
 /**
- * tableeditormodelのtable・editor・cell・display・offset・from・storedを処理し、呼び出し側へ結果または副作用を返す。
+ * 保存形式のオフセットを、`<br>`を1文字の改行として数える表示側caret位置へ写す。
  * @param value - 保存オフセットから表示位置を求めるセル値。
  * @param storedOffset - 保存形式セル値内のUTF-16オフセット。
- * @returns tableeditormodelで利用する数値。
+ * @returns 保存形式内caret位置に対応する表示側UTF-16オフセット。
  */
 export function tableEditorCellDisplayOffsetFromStored(value: string, storedOffset: number): number {
     const target = clampOffset(storedOffset, value.length);
@@ -356,11 +360,11 @@ export function tableEditorCellDisplayOffsetFromStored(value: string, storedOffs
 }
 
 /**
- * tableeditormodelの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+ * 表示オフセット直前のMarkdown改行を削除し、キャレット位置を返す。
  * @param value - 改行を挿入する保存形式のセル値。
  * @param selectionStart - 改行を挿入する保存形式セル値内の選択開始オフセット。
  * @param selectionEnd - 改行を挿入する保存形式セル値内の選択終了オフセット。
- * @returns tableeditormodelのinsert・table・editor・line・breakが生成する結果。
+ * @returns 選択範囲を置換した保存形式の値と、挿入直後のcaretオフセット。
  */
 export function insertTableEditorLineBreak(value: string, selectionStart = value.length, selectionEnd = selectionStart): TableEditorLineBreakEdit {
     const from = Math.max(0, Math.min(selectionStart, value.length));
@@ -376,7 +380,7 @@ export function insertTableEditorLineBreak(value: string, selectionStart = value
  * tableeditormodelの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
  * @param value - 指定表示位置より前にある改行を削除する保存形式のセル値。
  * @param displayOffset - 削除キー操作後のセル表示文字列内caretオフセット。
- * @returns 副作用を完了し、値は返さない。
+ * @returns 改行を削除した保存値とキャレット位置。削除対象の改行がなければundefined。
  */
 export function deleteTableEditorLineBreakBeforeDisplayOffset(
     value: string,
@@ -410,7 +414,7 @@ export function deleteTableEditorLineBreakBeforeDisplayOffset(
  * tableeditormodelの寸法、容量、位置、または計測値を求める。
  * @param value - 文字列長の範囲へ収めるオフセット候補。
  * @param maximum - オフセットを収める対象文字列の長さ。
- * @returns tableeditormodelで利用する数値。
+
  */
 function clampOffset(value: number, maximum: number): number {
     if (!Number.isFinite(value)) return maximum;
@@ -418,17 +422,17 @@ function clampOffset(value: number, maximum: number): number {
 }
 
 /**
- * tableeditormodelから必要な値またはリソースを取得する。
+ * 指定位置にあるMarkdown表を編集用ドラフトへ読み込む。
  * @param source - 編集対象の表を含むMarkdown本文。
  * @param offset - 編集対象表を含むMarkdown本文内オフセット。
- * @returns 副作用を完了し、値は返さない。
+ * @returns 表のセル、列幅、配置、元範囲を持つ編集ドラフト。表がない場合はundefined。
  */
 export function readTableEditorDraft(source: string, offset: number): TableEditorDraft | undefined {
     const lineBreaks = [...source.matchAll(/\r\n|\r|\n/g)].map(
         /**
          * 各matchを変換して一覧化する。
          * @param match - Markdown本文から取り出した改行一致（match[0]はCRLF/CR/LF）。
-         * @returns 入力要素から生成した変換結果の一覧。
+
          */
         (match) => match[0]);
     const eol = lineBreaks[0] ?? '\n';
@@ -486,9 +490,9 @@ export function readTableEditorDraft(source: string, offset: number): TableEdito
 }
 
 /**
- * tableeditormodelを表示用の結果へ変換する。
+ * 表編集draftをMarkdown本文とセル位置情報を含む描画結果へ変換する。
  * @param draft - 編集開始時の基準本文を保持した適用対象draft。
- * @returns tableeditormodelで生成または変換した値。
+ * @returns Markdown本文、セル位置、選択セル位置を含む描画結果。
  */
 export function renderTableEditorDraft(draft: TableEditorDraft): RenderedTableDraft {
     const sourceRows = draft.rows.length ? draft.rows : [[]];
@@ -504,34 +508,18 @@ export function renderTableEditorDraft(draft: TableEditorDraft): RenderedTableDr
         /**
          * 各行をfromへ渡し、変換結果を一覧化する。
          * @param row - 走査中の要素。
-         * @returns 入力要素から生成した変換結果の一覧。
+
          */
         (row) => Array.from(
             { length: columnCount },
 
-            /**
-             * ・をescape・unescaped・pipesへ渡し、tableeditormodelの結果または副作用を処理する。
-             * @param _ - 引数位置を維持するための未使用値。
-             * @param index - 配列・行列・文字列の要素位置を示す番号。
-             * @returns tableeditormodelのコールバックが生成する結果。
-             */
+
             (_, index) => escapeUnescapedPipes(row[index] ?? '')
         ));
     const alignments = Array.from({ length: columnCount },
-        /**
-         * tableeditormodelのコールバックとして・を処理する。
-         * @param _ - 引数位置を維持するための未使用値。
-         * @param index - 配列・行列・文字列の要素位置を示す番号。
-         * @returns tableeditormodelのコールバックが生成する結果。
-         */
+
         (_, index) => draft.alignments[index] ?? 'none');
-    const renderedRows = rows.map(
-        /**
-         * 各行をrender・rowへ渡し、変換結果を一覧化する。
-         * @param row - 走査中の要素。
-         * @returns 入力要素から生成した変換結果の一覧。
-         */
-        (row) => renderRow(draft.indent, row));
+    const renderedRows = rows.map((row) => renderRow(draft.indent, row));
     const separator = renderRow(draft.indent, alignments.map(alignmentSeparator));
     const lines = [renderedRows[0], separator, ...renderedRows.slice(1)];
     const activeRow = Math.max(0, Math.min(draft.activeRow, rows.length - 1));
@@ -683,9 +671,8 @@ function isSeparatorRow(line: string): boolean {
     const cells = splitTableCells(line);
     return cells.length > 0 && cells.every(
         /**
-         * セルをtestへ渡し、tableeditormodelの結果または副作用を処理する。
          * @param cell - trim後のセル内容。Markdown表の必須空白行判定に使う。
-         * @returns tableeditormodelで利用する文字列。
+
          */
         (cell) => /^:?-{3,}:?$/.test(cell.trim()));
 }
@@ -693,7 +680,7 @@ function isSeparatorRow(line: string): boolean {
 /**
  * Markdown表の行をエスケープされていない縦棒でセルに分割する。
  * @param line セル分割するMarkdown表の行。
- * @returns tableeditormodelで利用する文字列。
+ * @returns 行に含まれるセル文字列の一覧。
  */
 function splitTableCells(line: string): string[] {
     let body = line.trim();
@@ -719,7 +706,7 @@ function splitTableCells(line: string): string[] {
  * @param line 列位置を算出するMarkdown表の行。
  * @param offset 列を判定する本文内の文字オフセット。
  * @param columnCount - 表にある総列数。判定結果を有効範囲内に収める。
- * @returns tableeditormodelで利用する数値。
+
  */
 function tableColumnAt(line: string, offset: number, columnCount: number): number {
     const before = line.slice(0, Math.max(0, offset));
@@ -731,9 +718,9 @@ function tableColumnAt(line: string, offset: number, columnCount: number): numbe
 }
 
 /**
- * tableeditormodelのseparator・alignmentを処理し、呼び出し側へ結果または副作用を返す。
+ * Markdown table separatorの左右コロンから列配置を判定する。
  * @param value - 左右のコロンから列配置を読み取るMarkdown区切りセル。
- * @returns tableeditormodelのseparator・alignmentが生成する結果。
+ * @returns 左寄せ・中央寄せ・右寄せ・指定なしのいずれか。
  */
 function separatorAlignment(value: string): TableEditorAlignment {
     const trimmed = value.trim();
@@ -746,9 +733,9 @@ function separatorAlignment(value: string): TableEditorAlignment {
 }
 
 /**
- * tableeditormodelのalignment・separatorを処理し、呼び出し側へ結果または副作用を返す。
+ * 列配置をMarkdown table separatorのセル表記へ変換する。
  * @param alignment - Markdown区切り行へ変換する列配置（left/center/right/none）。
- * @returns tableeditormodelで利用する文字列。
+
  */
 function alignmentSeparator(alignment: TableEditorAlignment): string {
     if (alignment === 'left') return ':---';
@@ -758,20 +745,20 @@ function alignmentSeparator(alignment: TableEditorAlignment): string {
 }
 
 /**
- * tableeditormodelを表示用の結果へ変換する。
+ * インデントとセル列からMarkdown表の1行を生成する。
  * @param indent - 表行の前に維持するインデント文字列。
  * @param cells - Markdown表行として出力するセル文字列一覧。
- * @returns tableeditormodelで利用する文字列。
+
  */
 function renderRow(indent: string, cells: string[]): string {
     return `${indent}| ${cells.join(' | ')} |`;
 }
 
 /**
- * tableeditormodelのcount・trailing・backslashesを処理し、呼び出し側へ結果または副作用を返す。
+ * 指定境界の直前に連続するバックスラッシュ数を数え、縦棒がエスケープ済みか判定できるようにする。
  * @param value - end位置より前にある連続バックスラッシュを数える本文。
  * @param end - 連続するバックスラッシュを数える文字列の終端排他オフセット。
- * @returns tableeditormodelで利用する数値。
+
  */
 function countTrailingBackslashes(value: string, end: number): number {
     let count = 0;
@@ -780,9 +767,9 @@ function countTrailingBackslashes(value: string, end: number): number {
 }
 
 /**
- * tableeditormodelの入力を許可された形式へ整える。
+ * Markdown表セル内の未エスケープ縦棒をエスケープする。
  * @param value - 未エスケープの縦棒を処理するMarkdown表セル。
- * @returns tableeditormodelで利用する文字列。
+
  */
 function escapeUnescapedPipes(value: string): string {
     let result = '';

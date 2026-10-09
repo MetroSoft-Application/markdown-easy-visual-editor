@@ -18,7 +18,7 @@ import type { RibbonHeaderItemId } from "./ribbonIds";
  */
 export type TableAction = "insert" | MarkdownTableAction;
 /**
- * リボン型で対象や分岐を識別する値の型。
+ * リボンヘッダー項目に対応する実装を選ぶ識別子型です。
  */
 export type RibbonHeaderImplementationId = RibbonHeaderItemId;
 
@@ -28,37 +28,37 @@ export type RibbonHeaderImplementationId = RibbonHeaderItemId;
 export type RibbonCommand =
     | {
         /**
-         * リボン型で対象や分岐を識別する値の型。
+         * ソース本文の編集操作を実行するコマンドです。
          */
         type: "sourceAction";
         /**
-         * リボン型のactionに関する状態または設定。
+         * リンク・画像・書式などのソース編集操作。
          */
         action: SourceAction
     }
     | {
         /**
-         * リボン型で対象や分岐を識別する値の型。
+         * UndoまたはRedoを実行する履歴コマンドです。
          */
         type: "historyCommand";
         /**
-         * リボン型のcommandに関する状態または設定。
+         * Hostから本文を戻すundo、またはredoの履歴操作。
          */
         command: "undo" | "redo"
     }
     | {
         /**
-         * リボン型で対象や分岐を識別する値の型。
+         * 指定したレベルの見出しを挿入するコマンドです。
          */
         type: "heading";
         /**
-         * リボン型のlevelを表す数値。
+         * 挿入する見出しレベルを示す1から6までの整数です。
          */
         level: number
     }
     | {
         /**
-         * リボン型で対象や分岐を識別する値の型。
+         * 指定したMarkdown文字列を挿入するコマンドです。
          */
         type: "insert";
         /**
@@ -68,39 +68,39 @@ export type RibbonCommand =
     }
     | {
         /**
-         * リボン型で対象や分岐を識別する値の型。
+         * リンクの追加または編集を起動するコマンドです。
          */
         type: "link"
     }
     | {
         /**
-         * リボン型で対象や分岐を識別する値の型。
+         * 画像の挿入を起動するコマンドです。
          */
         type: "image"
     }
     | {
         /**
-         * リボン型で対象や分岐を識別する値の型。
+         * 選択中の表範囲をTSVとしてコピーするコマンドです。
          */
         type: "copyTableTsv"
     }
     | {
         /**
-         * リボン型で対象や分岐を識別する値の型。
+         * 表編集画面の表示または表操作を選ぶコマンドです。
          */
         type: "table";
         /**
-         * リボン型のactionに関する状態または設定。
+         * 表へ適用する挿入・行列操作。
          */
         action: TableAction;
         /**
-         * リボン型で扱うheader・nameの文字列。
+         * 表挿入時のヘッダー行へ入れる任意の見出し名。
          */
         headerName?: string
     }
     | {
         /**
-         * リボン型で対象や分岐を識別する値の型。
+         * 指定した行数・列数のMarkdown表を挿入するコマンドです。
          */
         type: "tableInsert";
         /**
@@ -114,7 +114,7 @@ export type RibbonCommand =
     }
     | {
         /**
-         * リボン型で対象や分岐を識別する値の型。
+         * コードブロックを挿入するコマンドです。
          */
         type: "codeBlock";
         /**
@@ -124,18 +124,18 @@ export type RibbonCommand =
     }
     | {
         /**
-         * リボン型で対象や分岐を識別する値の型。
+         * 編集面とプレビューの表示モードを切り替えるコマンドです。
          */
         type: "splitView";
         /**
-         * リボン型のviewに関する状態または設定。
+         * 編集とプレビューの表示状態。両方、テキストのみ、プレビューのみ。
          */
         view: "both" | "text" | "preview"
     }
     | {
 
         /**
-         * リボン型で対象や分岐を識別する値の型。
+         * 目次、スクロール同期、画像リサイズ操作の表示状態を切り替えるコマンドです。
          */
         type:
         | "toggleOutline"
@@ -146,25 +146,25 @@ export type RibbonCommand =
     }
     | {
         /**
-         * リボン型で対象や分岐を識別する値の型。
+         * 事前検査を実行するコマンドです。
          */
         type: "runPreflightCheck"
     }
     | {
         /**
-         * リボン型で対象や分岐を識別する値の型。
+         * ショートカットまたは機能一覧を表示するコマンドです。
          */
         type: "showShortcuts" | "showFeatures"
     }
     | {
         /**
-         * リボン型で対象や分岐を識別する値の型。
+         * ソースへの移動、PDF出力、検索のいずれかを実行するコマンドです。
          */
         type: "openSource" | "exportPdf" | "find"
     }
     | {
         /**
-         * リボン型で対象や分岐を識別する値の型。
+         * 画像保存先ルールを変更するコマンドです。
          */
         type: "setImageDirectory";
         /**
@@ -175,7 +175,7 @@ export type RibbonCommand =
     | {
 
         /**
-         * リボン型で対象や分岐を識別する値の型。
+         * 編集面とプレビューのフォントを変更するコマンドです。
          */
         type: "setFontFamilies";
 
@@ -191,7 +191,7 @@ export type RibbonCommand =
     }
     | {
         /**
-         * リボン型で対象や分岐を識別する値の型。
+         * HTML出力を開始するコマンドです。
          */
         type: "exportHtml";
         /**
@@ -231,7 +231,7 @@ export interface RibbonButtonState {
     activeMarks: Record<string, boolean>;
 
     /**
-     * リボン型のoutline・visibleを示す状態フラグ。
+     * アウトラインパネルを現在表示している場合にtrue。
      */
     outlineVisible: boolean;
 
@@ -241,18 +241,18 @@ export interface RibbonButtonState {
     scrollSyncEnabled: boolean;
 
     /**
-     * リボン型のsplit・viewに関する状態または設定。
+     * 分割表示の構成。両ペイン、テキストのみ、プレビューのみのいずれか。
      */
     splitView: "both" | "text" | "preview";
 
     /**
-     * リボン型のimage・resize・controls・visibleを示す状態フラグ。
+     * プレビュー内画像のサイズ操作UIが表示された場合にtrue。
      */
     imageResizeControlsVisible: boolean;
 }
 
 /**
- * リボン型で共有するデータ形状を表すインターフェース。
+ * リボン実装が参照する設定値、状態、更新関数です。
  */
 export interface RibbonImplementationContext extends RibbonButtonState {
 
@@ -268,7 +268,6 @@ export interface RibbonImplementationContext extends RibbonButtonState {
     /**
      * リボン型の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
      * @param value - リボンを折りたたむ場合はtrue、展開する場合はfalse。
-     * @returns 副作用を完了し、値は返さない。
      */
     setCollapsed: (value: boolean) => void;
 
@@ -302,20 +301,17 @@ export interface RibbonImplementationContext extends RibbonButtonState {
     /**
      * リボン型のイベントまたはメッセージを受け取り、状態を更新する。
      * @param options - 呼び出し側が指定する処理設定。
-     * @returns 副作用を完了し、値は返さない。
      */
     onHtmlOptionsChange: (options: HtmlExportOptions) => void;
 
     /**
      * PDFの保存先ダイアログ設定を変更し、設定を保持する所有者へ通知する。
      * @param enabled 保存時にダイアログを省略するかどうか。
-     * @returns 副作用を完了し、値は返さない。
      */
     onPdfSaveWithoutDialogChange: (enabled: boolean) => void;
     /**
      * リボン型のイベントまたはメッセージを受け取り、状態を更新する。
      * @param command - 実行するリボンコマンドとその引数。
-     * @returns 副作用を完了し、値は返さない。
      */
     onCommand: (command: RibbonCommand) => void;
 
@@ -326,7 +322,6 @@ export interface RibbonImplementationContext extends RibbonButtonState {
     /**
      * リボン型の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
      * @param value - 表挿入UIへ設定する行数。
-     * @returns 副作用を完了し、値は返さない。
      */
     setTableRows: (value: number) => void;
 
@@ -337,18 +332,16 @@ export interface RibbonImplementationContext extends RibbonButtonState {
     /**
      * リボン型の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
      * @param value - 表挿入UIへ設定する列数。
-     * @returns 副作用を完了し、値は返さない。
      */
     setTableColumns: (value: number) => void;
 
     /**
-     * リボン型で扱うcode・languageの文字列。
+     * コードブロックへ設定する言語識別子。
      */
     codeLanguage: string;
     /**
      * リボン型の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
      * @param value - コードブロックへ設定する言語識別子。
-     * @returns 副作用を完了し、値は返さない。
      */
     setCodeLanguage: (value: string) => void;
 
@@ -359,40 +352,36 @@ export interface RibbonImplementationContext extends RibbonButtonState {
     /**
      * リボン型の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
      * @param value - Markdownへ挿入する絵文字。
-     * @returns 副作用を完了し、値は返さない。
      */
     setEmoji: (value: string) => void;
 
     /**
-     * リボン型で扱うheader・nameの文字列。
+     * 表のヘッダー名入力欄に現在入力されている値。
      */
     headerName: string;
     /**
      * リボン型の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
      * @param value - 表へ挿入するヘッダー名。
-     * @returns 副作用を完了し、値は返さない。
      */
     setHeaderName: (value: string) => void;
 
     /**
-     * リボン型のtext・color・choiceに関する状態または設定。
+     * リボンで選択中の文字色プリセット。
      */
     textColorChoice: TextColorChoice;
     /**
      * リボン型の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
      * @param value - 選択する文字色プリセット。
-     * @returns 副作用を完了し、値は返さない。
      */
     setTextColorChoice: (value: TextColorChoice) => void;
 
     /**
-     * リボン型で扱うimage・directory・draftの文字列。
+     * 画像保存先ルール入力欄の編集中ドラフト。
      */
     imageDirectoryDraft: string;
     /**
      * リボン型の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
      * @param value - 画像保存先ルールの編集中ドラフト。
-     * @returns 副作用を完了し、値は返さない。
      */
     setImageDirectoryDraft: (value: string) => void;
 
@@ -403,7 +392,6 @@ export interface RibbonImplementationContext extends RibbonButtonState {
     /**
      * リボン型の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
      * @param value - 編集面へ適用するフォント名の編集中ドラフト。
-     * @returns 副作用を完了し、値は返さない。
      */
     setEditorFontFamilyDraft: (value: string) => void;
 
@@ -414,13 +402,12 @@ export interface RibbonImplementationContext extends RibbonButtonState {
     /**
      * リボン型の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
      * @param value - プレビューへ適用するフォント名の編集中ドラフト。
-     * @returns 副作用を完了し、値は返さない。
      */
     setPreviewFontFamilyDraft: (value: string) => void;
 }
 
 /**
- * リボン型で共有するデータ形状を表すインターフェース。
+ * リボンのボタンを描画し、操作を通知する実装関数です。
  */
 export interface RibbonButtonImplementation {
 
@@ -443,7 +430,7 @@ export interface RibbonButtonImplementation {
 }
 
 /**
- * リボン型で共有するデータ形状を表すインターフェース。
+ * リボンの入力コントロールを描画する実装関数です。
  */
 export interface RibbonControlImplementation {
 

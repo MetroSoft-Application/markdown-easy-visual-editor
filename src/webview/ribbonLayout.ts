@@ -5,7 +5,7 @@ import type { RibbonLayoutDefinition } from "./ribbonLayoutTypes";
 
 
 /**
- * リボン配置のribbon・layoutに関する状態または設定。
+ * リボンのタブ、グループ、項目と表示順を定義する。
  */
 export const RIBBON_LAYOUT: RibbonLayoutDefinition = {
     tabs: [

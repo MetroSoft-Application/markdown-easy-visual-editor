@@ -1,5 +1,5 @@
 /**
- * @fileoverview HTML・テストの回帰の仕様と回帰条件を検証する。失敗時は期待値と実装差分を示す。
+ * @fileoverview プレビューHTMLの生成、CSP、WebviewリソースURI、本文や属性値のエスケープを検証する。
  */
 import { promises as fs } from 'node:fs';
 import path from 'node:path';
@@ -24,7 +24,7 @@ class TestUri {
     readonly path: string;
 
     /**
-     * HTML・テストの回帰で使う値または実行環境を組み立てる。
+     * テスト用URIのfilesystem pathをNode.js形式へ正規化する。
      * @param fsPath - テスト対象のファイルパス。
      * @returns 初期化したインスタンス。
      */
@@ -34,34 +34,27 @@ class TestUri {
 }
 
 /**
- * HTML・テストの回帰のvscode・mockに関する状態または設定。
+ * Extension Hostのモックへ渡す保存先とワークスペース情報。
  */
 const vscodeMock = vi.hoisted(
-    /**
-     * 要素をfnへ渡し、HTML・テストの回帰の結果または副作用を処理する。
-     * @returns HTML・テストの回帰のコールバックが生成する結果。
-     */
+
     () => ({ showSaveDialog: vi.fn(), getWorkspaceFolder: vi.fn() }));
 vi.mock('vscode',
-    /**
-     * 要素をtest・uriへ渡し、HTML・テストの回帰の結果または副作用を処理する。
-     * @returns HTML・テストの回帰のコールバックが生成する結果。
-     */
+
     () => ({
         Uri: {
 
 
             file: /**
-     * HTML・テストの回帰のfileを処理し、呼び出し側へ結果または副作用を返す。
      * @param filePath - 読み書きするファイルのパス。
      * @returns HTML・テストの回帰のfileが生成する結果。
      */ (filePath: string) => new TestUri(filePath),
 
 
             parse: /**
-     * HTML・テストの回帰の入力を構造化した値へ変換する。
+     * file URI形式の入力からテスト用URIを生成する。
      * @param value - テスト用file URIへ変換するパス文字列。
-     * @returns HTML・テストの回帰で生成または変換した値。
+     * @returns 入力したfile pathを持つテスト用URI。
      */ (value: string) => new TestUri(value.replace(/^file:\/\//i, ''))
         },
         window: { showSaveDialog: vscodeMock.showSaveDialog },
@@ -69,11 +62,7 @@ vi.mock('vscode',
             getWorkspaceFolder: vscodeMock.getWorkspaceFolder,
             fs: {
 
-                readFile: /**
-   * HTML・テストの回帰から必要な値またはリソースを取得する。
-   * @param uri - VS Codeまたはブラウザーが扱うリソースURI。
-   * @returns HTML・テストの回帰のread・fileが生成する結果。
-   */ (uri: TestUri) => fs.readFile(uri.fsPath)
+                readFile: (uri: TestUri) => fs.readFile(uri.fsPath)
             }
         }
     }));
@@ -88,7 +77,6 @@ const temporaryDirectories: string[] = [];
 afterEach(
     /**
      * HTML・テストの回帰の前提条件を準備し、回帰条件を検証するテストケース。
-     * @returns テストケースを実行し、値は返さない。
      */
     async () => {
         vscodeMock.showSaveDialog.mockReset();
@@ -97,22 +85,14 @@ afterEach(
             /**
              * 各directoryをrmへ渡し、変換結果を一覧化する。
              * @param directory - HTML・テストの回帰で読み書きするリソースの場所。
-             * @returns 入力要素から生成した変換結果の一覧。
+
              */
             (directory) => fs.rm(directory, { recursive: true, force: true })));
     });
 
 describe('HTML export',
-    /**
-     * 「HTML export」の仕様と回帰条件を検証するテストケース。
-     * @returns テストケースを実行し、値は返さない。
-     */
     () => {
         it('recursively converts linked Markdown and embeds local images',
-            /**
-             * 「recursively converts linked Markdown and embeds local images」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             async () => {
                 const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markdown-easy-visual-editor-html-'));
                 temporaryDirectories.push(directory);
@@ -135,11 +115,6 @@ describe('HTML export',
                 });
 
                 expect(result?.paths.map(
-                    /**
-                     * 各uriからfs・pathを取り出して一覧化する。
-                     * @param uri - uriのfs・pathを参照する走査対象。
-                     * @returns fs・pathを取り出した変換結果の一覧。
-                     */
                     (uri) => uri.fsPath)).toEqual([
                         target,
                         path.join(directory, 'out', 'child.html'),
@@ -155,10 +130,6 @@ describe('HTML export',
             });
 
         it('rewrites local image paths when embedding is disabled',
-            /**
-             * 「rewrites local image paths when embedding is disabled」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             async () => {
                 const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markdown-easy-visual-editor-html-'));
                 temporaryDirectories.push(directory);
@@ -182,10 +153,6 @@ describe('HTML export',
             });
 
         it('uses Webview-rendered HTML for recursive documents',
-            /**
-             * 「uses Webview-rendered HTML for recursive documents」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             async () => {
                 const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markdown-easy-visual-editor-html-'));
                 temporaryDirectories.push(directory);
@@ -472,10 +439,6 @@ describe('HTML export',
         });
 
         it('exports beside the Markdown file without opening a save dialog by default',
-            /**
-             * 「exports beside the Markdown file without opening a save dialog by default」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             async () => {
                 const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markdown-easy-visual-editor-html-'));
                 temporaryDirectories.push(directory);

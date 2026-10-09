@@ -184,7 +184,8 @@ flowchart TD
 2. Choose **Print settings** and configure the paper (A0–A6, B4, or B5), orientation, margins, header/footer, and typography.
    - Body, H1–H6, and code font sizes can be set independently.
    - Font family, line height, and paragraph spacing can also be adjusted.
-   - These settings are saved globally and reused for every Markdown document.
+   - Add any number of regular-expression rules and replacement strings to change text in PDF previews, PDF output, and HTML output without modifying the Markdown source.
+   - Body matches can span inline formatting, but do not cross paragraph, line-break, or link boundaries.
 3. Choose **Print preview** to review the result.
 4. Choose **Export PDF**.
 5. Leave **Export to the same folder without a dialog** enabled to save beside the Markdown file, or disable it to select the destination.

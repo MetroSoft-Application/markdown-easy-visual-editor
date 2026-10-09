@@ -1,5 +1,5 @@
 /**
- * @fileoverview tableeditormodel・テストの回帰の仕様と回帰条件を検証する。失敗時は期待値と実装差分を示す。
+ * @fileoverview Markdown表ドラフトの読込、セル編集、改行オフセット、外部変更拒否、ソート列の維持を検証する。
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -22,16 +22,8 @@ import {
 } from '../src/webview/tableEditorModel';
 
 describe('table editor model',
-    /**
-     * 「table editor model」の仕様と回帰条件を検証するテストケース。
-     * @returns テストケースを実行し、値は返さない。
-     */
     () => {
         it('reads the active table and preserves CRLF plus alignment markers',
-            /**
-             * 「reads the active table and preserves CRLF plus alignment markers」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const source = [
                     'before',
@@ -63,10 +55,6 @@ describe('table editor model',
             });
 
         it('keeps escaped pipes inside a single cell and escapes newly typed pipes',
-            /**
-             * 「keeps escaped pipes inside a single cell and escapes newly typed pipes」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const source = '| A | B |\n| --- | --- |\n| a\\|b | c |';
                 const draft = readTableEditorDraft(source, source.indexOf('a\\|b') + 2)!;
@@ -82,10 +70,6 @@ describe('table editor model',
             });
 
         it('supports indented tables and rows without outer pipes',
-            /**
-             * 「supports indented tables and rows without outer pipes」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const source = '  A | B\n  --- | ---\n  1 | 2';
                 const draft = readTableEditorDraft(source, source.indexOf('2'));
@@ -96,10 +80,6 @@ describe('table editor model',
             });
 
         it('rejects fenced table-like text',
-            /**
-             * 「rejects fenced table-like text」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const backtick = '```text\n| A | B |\n| --- | --- |\n| 1 | 2 |\n```';
                 const tilde = '~~~text\n| A | B |\n| --- | --- |\n| 1 | 2 |\n~~~';
@@ -109,20 +89,12 @@ describe('table editor model',
             });
 
         it('rejects a non-table row and a missing separator row',
-            /**
-             * 「rejects a non-table row and a missing separator row」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 expect(readTableEditorDraft('plain text', 2)).toBeUndefined();
                 expect(readTableEditorDraft('| A | B |\n| not a separator |\n| 1 | 2 |', 4)).toBeUndefined();
             });
 
         it('normalizes ragged rows to the widest table column count',
-            /**
-             * 「normalizes ragged rows to the widest table column count」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const source = '| A | B |\n| --- | --- | --- |\n| 1 | 2 | 3 |';
                 const draft = readTableEditorDraft(source, source.indexOf('2'))!;
@@ -133,10 +105,6 @@ describe('table editor model',
             });
 
         it('returns a no-op for an untouched draft and a single replacement for an edit',
-            /**
-             * 「returns a no-op for an untouched draft and a single replacement for an edit」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const source = 'before\n| A | B |\n| --- | --- |\n| 1 | 2 |\nafter';
                 const draft = readTableEditorDraft(source, source.indexOf('1'))!;
@@ -153,10 +121,6 @@ describe('table editor model',
             });
 
         it('inserts a Markdown line break at the cell selection without adding a table row',
-            /**
-             * 「inserts a Markdown line break at the cell selection without adding a table row」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 expect(insertTableEditorLineBreak('beforeafter', 6, 6)).toEqual({ value: 'before<br>after', caretOffset: 10 });
                 expect(insertTableEditorLineBreak('beforeafter', 0, 6)).toEqual({ value: '<br>after', caretOffset: 4 });
@@ -164,10 +128,6 @@ describe('table editor model',
             });
 
         it('maps stored Markdown breaks to visual cell offsets',
-            /**
-             * 「maps stored Markdown breaks to visual cell offsets」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const stored = 'before<br>after';
                 const display = tableEditorCellDisplayValue(stored);
@@ -191,10 +151,6 @@ describe('table editor model',
             });
 
         it('round-trips multiple visual breaks and preserves the caret boundary',
-            /**
-             * 「round-trips multiple visual breaks and preserves the caret boundary」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const stored = 'before<br>after<br>end';
                 const display = tableEditorCellDisplayValue(stored);
@@ -225,10 +181,6 @@ describe('table editor model',
             });
 
         it('rejects applying a draft after any external document change',
-            /**
-             * 「rejects applying a draft after any external document change」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const source = '| A | B |\n| --- | --- |\n| 1 | 2 |';
                 const draft = readTableEditorDraft(source, source.indexOf('1'))!;
@@ -240,7 +192,6 @@ describe('table editor model',
         it('sorts numeric columns, preserves blank placement, and keeps whole rows stable',
             /**
              * 数値列を昇順・降順に並べ替え、空欄と行データの対応を検証する。
-             * @returns テストケースを実行し、値は返さない。
              */
             () => {
                 const rows = [
@@ -275,7 +226,6 @@ describe('table editor model',
         it('uses natural string order when a column mixes text and numbers',
             /**
              * 数値以外が混在する列をロケール対応の自然順で比較する。
-             * @returns テストケースを実行し、値は返さない。
              */
             () => {
                 const rows = [
@@ -301,7 +251,6 @@ describe('table editor model',
         it('uses natural order instead of parsing comma-separated values as numbers',
             /**
              * カンマを含む値を数値として解釈せず自然順で比較する。
-             * @returns テストケースを実行し、値は返さない。
              */
             () => {
                 const rows = [['Value'], ['2'], ['1,000']];
@@ -313,7 +262,6 @@ describe('table editor model',
         it('remaps the active sort column when columns move, insert, or delete',
             /**
              * 列構成変更後もソート状態が同じ列データを参照することを検証する。
-             * @returns テストケースを実行し、値は返さない。
              */
             () => {
                 const state = { column: 2, direction: 'ascending' as const };
@@ -328,10 +276,6 @@ describe('table editor model',
             });
 
         it('uses the shared table actions and TSV rules used by the ribbon',
-            /**
-             * 「uses the shared table actions and TSV rules used by the ribbon」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const source = '| A | B |\n| --- | --- |\n| 1 | 2 |';
                 const draft = readTableEditorDraft(source, source.indexOf('1'))!;

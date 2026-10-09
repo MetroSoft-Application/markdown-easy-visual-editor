@@ -1,5 +1,5 @@
 /**
- * @fileoverview fontfamily・テストの回帰の仕様と回帰条件を検証する。失敗時は期待値と実装差分を示す。
+ * @fileoverview フォントファミリー設定の許可形式、既定値への復元、CSS向け引用と設定の正規化を検証する。
  */
 import { describe, expect, it } from 'vitest';
 import {
@@ -10,16 +10,8 @@ import {
 } from '../src/shared/fontFamily';
 
 describe('font family settings',
-    /**
-     * 「font family settings」の仕様と回帰条件を検証するテストケース。
-     * @returns テストケースを実行し、値は返さない。
-     */
     () => {
         it('normalizes values without changing valid family lists',
-            /**
-             * 「normalizes values without changing valid family lists」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 expect(normalizeFontFamily('  "Test Font", sans-serif  ')).toBe('"Test Font", sans-serif');
                 expect(normalizeFontFamily('Test; color: red')).toBe('');
@@ -38,10 +30,6 @@ describe('font family settings',
             });
 
         it('normalizes independently configured editor and preview families',
-            /**
-             * 「normalizes independently configured editor and preview families」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 expect(normalizeFontFamilySettings({
                     editorFontFamily: ' Editor Font ',

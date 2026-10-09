@@ -1,4 +1,4 @@
-/*
+/**
  * @fileoverview テーマ適用後のリボン、プレビュー、ダイアログの色と細部を補正する。
  * スタイルだけを変更し、本文データと編集状態を変更しない。
  */
@@ -33,22 +33,12 @@ body[data-editor-theme="dark"] {
     --vscode-button-border: #30363d !important;
 }
 
-/*
- * @style body[data-editor-theme] .ribbon-checkbox, body[data-editor-theme] .link-dialog label, body[data-editor-theme] .pdf-margin-fields legend
- * リボンの操作項目と無効・選択状態を表示する。
- */
-
 
 body[data-editor-theme] .ribbon-checkbox,
 body[data-editor-theme] .link-dialog label,
 body[data-editor-theme] .pdf-margin-fields legend {
     color: var(--mve-theme-muted) !important;
 }
-
-/*
- * @style body[data-editor-theme] .feature-list section, body[data-editor-theme] .table-of-contents
- * 表編集グリッドのセル、選択範囲、行列操作を表示する。
- */
 
 
 body[data-editor-theme] .feature-list section,
@@ -58,30 +48,15 @@ body[data-editor-theme] .table-of-contents {
     border-color: var(--mve-theme-border) !important;
 }
 
-/*
- * @style body[data-editor-theme] .feature-list li strong
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 
 body[data-editor-theme] .feature-list li strong {
     color: var(--mve-theme-text) !important;
 }
 
-/*
- * @style body[data-editor-theme] .feature-list li span
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 
 body[data-editor-theme] .feature-list li span {
     color: var(--mve-theme-muted) !important;
 }
-
-/*
- * @style body[data-editor-theme] .diagnostic
- * 対象UIの配置、状態、テーマ色を整える。
- */
 
 
 body[data-editor-theme] .diagnostic {
@@ -89,21 +64,11 @@ body[data-editor-theme] .diagnostic {
     background: var(--mve-theme-active) !important;
 }
 
-/*
- * @style body[data-editor-theme] .diagnostic-location
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 
 body[data-editor-theme] .diagnostic-location {
     color: var(--mve-theme-accent) !important;
     background: transparent !important;
 }
-
-/*
- * @style body[data-editor-theme] .mve-image-badge
- * プレビュー画像とリサイズ操作を表示する。
- */
 
 
 body[data-editor-theme] .mve-image-badge {
@@ -111,11 +76,6 @@ body[data-editor-theme] .mve-image-badge {
     background: var(--vscode-badge-background) !important;
     border-color: var(--mve-theme-border) !important;
 }
-
-/*
- * @style body[data-editor-theme] .mve-image-align-button, body[data-editor-theme] .mve-image-reset, body[data-editor-theme] .mve-image-handle
- * プレビュー画像とリサイズ操作を表示する。
- */
 
 
 body[data-editor-theme] .mve-image-align-button,
@@ -126,21 +86,11 @@ body[data-editor-theme] .mve-image-handle {
     border-color: var(--mve-theme-accent) !important;
 }
 
-/*
- * @style body[data-editor-theme] .page-break::after
- * 対象UIの配置、状態、テーマ色を整える。
- */
-
 
 body[data-editor-theme] .page-break::after {
     color: var(--mve-theme-muted) !important;
     background: var(--mve-theme-bg) !important;
 }
-
-/*
- * @style body[data-editor-theme] .blocked-image
- * プレビュー画像とリサイズ操作を表示する。
- */
 
 
 body[data-editor-theme] .blocked-image {
@@ -149,30 +99,15 @@ body[data-editor-theme] .blocked-image {
     background: var(--mve-theme-surface-alt) !important;
 }
 
-/*
- * @style body[data-editor-theme] .print-preview-mode .editor-area
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 
 body[data-editor-theme] .print-preview-mode .editor-area {
     background: var(--mve-theme-surface-alt) !important;
 }
 
-/*
- * @style body[data-editor-theme] .pdf-preview-toolbar
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 
 body[data-editor-theme] .pdf-preview-toolbar {
     background: var(--mve-theme-surface-alt) !important;
 }
-
-/*
- * @style body[data-editor-theme] .pdf-preview-zoom-value, body[data-editor-theme] .pdf-preview-loading, body[data-editor-theme] .pdf-preview-error, body[data-editor-theme] .pdf-page-error
- * Markdownプレビューの本文とブロック要素を整える。
- */
 
 
 body[data-editor-theme] .pdf-preview-zoom-value,
@@ -182,20 +117,10 @@ body[data-editor-theme] .pdf-page-error {
     color: var(--mve-theme-text) !important;
 }
 
-/*
- * @style body[data-editor-theme] .pdf-preview-toolbar button:hover
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 
 body[data-editor-theme] .pdf-preview-toolbar button:hover {
     background: var(--mve-theme-active) !important;
 }
-
-/*
- * @style body[data-editor-theme] .pdf-preview-live-content, body[data-editor-theme] .pdf-preview-live-content .rendered-markdown, body[data-editor-theme] .pdf-preview-content, body[data-editor-theme] .pdf-page
- * Markdownプレビューの本文とブロック要素を整える。
- */
 
 body[data-editor-theme] .pdf-preview-live-content,
 body[data-editor-theme] .pdf-preview-live-content .rendered-markdown,
@@ -206,20 +131,10 @@ body[data-editor-theme] .pdf-page {
     color-scheme: light !important;
 }
 
-/*
- * @style body[data-editor-theme] .pdf-preview-live-content .rendered-markdown a
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 
 body[data-editor-theme] .pdf-preview-live-content .rendered-markdown a {
     color: #0969da !important;
 }
-
-/*
- * @style body[data-editor-theme] .pdf-preview-live-content .rendered-markdown pre, body[data-editor-theme] .pdf-preview-live-content .rendered-markdown code, body[data-editor-theme] .pdf-preview-live-content .rendered-markdown blockquote, body[data-editor-theme] .pdf-preview-live-content .rendered-markdown .markdown-alert
- * Markdownプレビューの本文とブロック要素を整える。
- */
 
 
 body[data-editor-theme] .pdf-preview-live-content .rendered-markdown pre,
@@ -231,21 +146,11 @@ body[data-editor-theme] .pdf-preview-live-content .rendered-markdown .markdown-a
     border-color: #d0d7de !important;
 }
 
-/*
- * @style body[data-editor-theme] .pdf-preview-live-content .rendered-markdown th
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 
 body[data-editor-theme] .pdf-preview-live-content .rendered-markdown th {
     color: #202124 !important;
     background: #eaf1fb !important;
 }
-
-/*
- * @style body[data-editor-theme] .pdf-preview-live-content .rendered-markdown th, body[data-editor-theme] .pdf-preview-live-content .rendered-markdown td
- * Markdownプレビューの本文とブロック要素を整える。
- */
 
 
 body[data-editor-theme] .pdf-preview-live-content .rendered-markdown th,
@@ -253,21 +158,11 @@ body[data-editor-theme] .pdf-preview-live-content .rendered-markdown td {
     border-color: #888 !important;
 }
 
-/*
- * @style body[data-editor-theme="light"] .rendered-markdown .hljs-keyword, body[data-editor-theme="light"] .rendered-markdown .hljs-selector-tag, body[data-editor-theme="light"] .rendered-markdown .hljs-literal
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 body[data-editor-theme="light"] .rendered-markdown .hljs-keyword,
 body[data-editor-theme="light"] .rendered-markdown .hljs-selector-tag,
 body[data-editor-theme="light"] .rendered-markdown .hljs-literal {
     color: #8250df !important;
 }
-
-/*
- * @style body[data-editor-theme="light"] .rendered-markdown .hljs-string, body[data-editor-theme="light"] .rendered-markdown .hljs-attr
- * Markdownプレビューの本文とブロック要素を整える。
- */
 
 
 body[data-editor-theme="light"] .rendered-markdown .hljs-string,
@@ -275,41 +170,21 @@ body[data-editor-theme="light"] .rendered-markdown .hljs-attr {
     color: #0a3069 !important;
 }
 
-/*
- * @style body[data-editor-theme="light"] .rendered-markdown .hljs-title, body[data-editor-theme="light"] .rendered-markdown .hljs-section
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 
 body[data-editor-theme="light"] .rendered-markdown .hljs-title,
 body[data-editor-theme="light"] .rendered-markdown .hljs-section {
     color: #953800 !important;
 }
 
-/*
- * @style body[data-editor-theme="light"] .rendered-markdown .hljs-comment
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 
 body[data-editor-theme="light"] .rendered-markdown .hljs-comment {
     color: #6e7781 !important;
 }
 
-/*
- * @style body[data-editor-theme="light"] .rendered-markdown .hljs-number
- * Markdownプレビューの本文とブロック要素を整える。
- */
-
 
 body[data-editor-theme="light"] .rendered-markdown .hljs-number {
     color: #0550ae !important;
 }
-
-/*
- * @style body[data-editor-theme] .rendered-markdown mark
- * Markdownプレビューの本文とブロック要素を整える。
- */
 
 body[data-editor-theme] .rendered-markdown mark {
     color: #24292f !important;
@@ -318,7 +193,7 @@ body[data-editor-theme] .rendered-markdown mark {
 
 /*
  * @style body[data-editor-theme] input, body[data-editor-theme] select, body[data-editor-theme] textarea, body[data-editor-theme] button
- * 設定ダイアログと操作コントロールの状態を整える。
+ * ネイティブ入力コントロールの配色モードをWebviewのテーマ設定へそろえる。
  */
 
 body[data-editor-theme] input,

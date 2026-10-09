@@ -1,5 +1,5 @@
 /**
- * @fileoverview markdownrenderstages・テストの回帰の仕様と回帰条件を検証する。失敗時は期待値と実装差分を示す。
+ * @fileoverview 段階別Markdown描画での見出しID、リンク先、コード内容、リッチ描画と軽量描画の整合性を検証する。
  */
 import { describe, expect, it } from 'vitest';
 import { highlightCode } from '../src/webview/codeHighlighter';
@@ -18,16 +18,16 @@ import {
 const options = { remoteImagesEnabled: false, language: 'ja' as const };
 
 /**
- * markdownrenderstages・テストの回帰のcode・bodiesを処理し、呼び出し側へ結果または副作用を返す。
+ * HTML内のpre/codeブロックからエスケープ済みコード本文を抽出する。
  * @param html - 表示または出力するHTML本文。
- * @returns markdownrenderstages・テストの回帰で利用する文字列。
+ * @returns 文書順のコードブロック本文一覧。
  */
 function codeBodies(html: string): string[] {
     return Array.from(html.matchAll(/<pre><code\b[^>]*>([\s\S]*?)<\/code><\/pre>/g),
         /**
-         * markdownrenderstages・テストの回帰のコールバックとしてmatchを処理する。
+
          * @param match - markdownrenderstages・テストの回帰へ渡す入力。
-         * @returns markdownrenderstages・テストの回帰で利用する文字列。
+
          */
         (match) => match[1]);
 }
@@ -35,17 +35,13 @@ function codeBodies(html: string): string[] {
 /**
  * markdownrenderstages・テストの回帰の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
  * @param value - ハイライトspanを含むHTML文字列。
- * @returns markdownrenderstages・テストの回帰で利用する文字列。
+
  */
 function removeHighlightMarkup(value: string): string {
     return value.replace(/<\/?span\b[^>]*>/g, '');
 }
 
 describe('staged Markdown rendering',
-    /**
-     * 「staged Markdown rendering」の仕様と回帰条件を検証するテストケース。
-     * @returns テストケースを実行し、値は返さない。
-     */
     () => {
         it('copies a readable Markdown link within the current document', () => {
             expect(sectionMarkdownLink('拡張構文', '拡張構文')).toBe('[拡張構文](#拡張構文)');
@@ -158,10 +154,6 @@ describe('staged Markdown rendering',
         });
 
         it('keeps code text and document structure identical between preliminary and rich rendering',
-            /**
-             * 「keeps code text and document structure identical between preliminary and rich rendering」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const markdown = [
                     '# Heading',
@@ -206,10 +198,6 @@ describe('staged Markdown rendering',
             });
 
         it('falls back to escaped plain code for unsupported explicit languages',
-            /**
-             * 「falls back to escaped plain code for unsupported explicit languages」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 const markdown = '```not-a-real-language\n<script>& value\n```';
                 const richHtml = renderMarkdownUnsafeBlocks(markdown, options, highlightCode)

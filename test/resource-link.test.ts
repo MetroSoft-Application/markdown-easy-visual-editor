@@ -1,21 +1,13 @@
 /**
- * @fileoverview リソース・link・テストの回帰の仕様と回帰条件を検証する。失敗時は期待値と実装差分を示す。
+ * @fileoverview Webview URL、相対リンク、file URI、Windows絶対パスの振り分けとルート外拒否を検証する。
  */
 import { describe, expect, it } from 'vitest';
 import { classifyResourceLink, resolveWebviewResourcePath, workspaceRootPathSegments } from '../src/extension/resourceLink';
 import { collectLocalResourceReferences } from '../src/shared/markdown';
 
 describe('Webview resource links',
-    /**
-     * 「Webview resource links」の仕様と回帰条件を検証するテストケース。
-     * @returns テストケースを実行し、値は返さない。
-     */
     () => {
         it('converts a local Webview URL to a local path',
-            /**
-             * 「converts a local Webview URL to a local path」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 expect(resolveWebviewResourcePath(
                     'https://file+.vscode-resource.vscode-cdn.net/e%3A/source/markdown-easy-visual-editor/guide.md'
@@ -23,19 +15,11 @@ describe('Webview resource links',
             });
 
         it('does not classify an ordinary HTTPS URL as a local resource',
-            /**
-             * 「does not classify an ordinary HTTPS URL as a local resource」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 expect(resolveWebviewResourcePath('https://example.com/guide.md')).toBeUndefined();
             });
 
         it('routes an ordinary HTTPS URL to the browser',
-            /**
-             * 「routes an ordinary HTTPS URL to the browser」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 expect(classifyResourceLink('https://example.com/guide.md')).toEqual({
                     kind: 'external',
@@ -44,10 +28,6 @@ describe('Webview resource links',
             });
 
         it('routes a relative local link to VS Code',
-            /**
-             * 「routes a relative local link to VS Code」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 expect(classifyResourceLink('guide.md#section')).toEqual({
                     kind: 'relative',
@@ -121,10 +101,6 @@ describe('Webview resource links',
         });
 
         it('routes a Webview local URL to VS Code instead of the browser',
-            /**
-             * 「routes a Webview local URL to VS Code instead of the browser」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 expect(classifyResourceLink(
                     'https://file+.vscode-resource.vscode-cdn.net/e%3A/source/guide.md'
@@ -135,10 +111,6 @@ describe('Webview resource links',
             });
 
         it('decodes spaces and ignores a Webview URL fragment',
-            /**
-             * 「decodes spaces and ignores a Webview URL fragment」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 expect(resolveWebviewResourcePath(
                     'https://file+.vscode-resource.vscode-cdn.net/e%3A/source/my%20guide.md?view=preview#section'
@@ -146,10 +118,6 @@ describe('Webview resource links',
             });
 
         it('routes file URIs and Windows absolute paths to VS Code',
-            /**
-             * 「routes file URIs and Windows absolute paths to VS Code」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 expect(classifyResourceLink('file:///E:/source/guide.md')).toEqual({
                     kind: 'absoluteFile',
@@ -166,10 +134,6 @@ describe('Webview resource links',
             });
 
         it('rejects malformed local resource URLs',
-            /**
-             * 「rejects malformed local resource URLs」の仕様と回帰条件を検証するテストケース。
-             * @returns テストケースを実行し、値は返さない。
-             */
             () => {
                 expect(resolveWebviewResourcePath(
                     'https://file+.vscode-resource.vscode-cdn.net/e%ZZ/source/guide.md'

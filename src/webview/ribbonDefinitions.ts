@@ -98,7 +98,7 @@ const documentEmojiValues = [
 
 
 /**
- * リボン定義のribbon・definitionsに関する状態または設定。
+ * 各タブ項目のラベル、選択肢、説明文をローカライズキーで定義する。
  */
 export const RIBBON_DEFINITIONS: RibbonDefinitions = {
     tabs: {

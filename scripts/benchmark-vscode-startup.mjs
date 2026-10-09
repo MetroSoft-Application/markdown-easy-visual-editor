@@ -1,5 +1,5 @@
 /**
- * @fileoverview 性能・VS Code・起動を開発・検証環境で実行する。前提条件や失敗条件を終了コードとログで示す。
+ * @fileoverview VS Code上で拡張機能を起動し、起動時間を反復計測して回帰を検出する。
  */
 import { runTests } from '@vscode/test-electron';
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
@@ -54,13 +54,7 @@ try {
       const resultPath = path.join(temporaryRoot, `${name}-${iteration}.json`);
       const childOutput = [];
       const outputSink = new Writable({
-        /**
-         * 性能・VS Code・起動の値を保存先または共有状態へ書き出す。
-         * @param chunk - ストリームから受け取ったデータ片。
-         * @param _encoding - ストリームが通知する文字エンコーディング。
-         * @param callback - ストリーム処理の完了を通知する関数。
-         * @returns 副作用を完了し、値は返さない。
-         */
+
         write(chunk, _encoding, callback) {
           childOutput.push(String(chunk));
           callback();
@@ -111,7 +105,7 @@ try {
 /**
  * 複数回の起動計測から各指標の中央値を計算する。
  * @param samples - 起動または描画計測の結果一覧。
- * @returns 性能・VS Code・起動のmedian・timingが生成する結果。
+ * @returns 指標ごとの中央値を含む起動時間レコード。
  */
 function medianTiming(samples) {
   const result = { runs: samples.length };
@@ -120,7 +114,7 @@ function medianTiming(samples) {
     /**
      * samplesの各要素を変換して一覧化する。
      * @param sample - 性能・VS Code・起動へ渡す入力。
-     * @returns 入力要素から生成した変換結果の一覧。
+
      */
     (sample) => sample[key]).filter(Number.isFinite).sort(
     /**
@@ -156,7 +150,6 @@ function assertStartupLimits(name, timing, limits) {
 /**
  * 統合テスト用VS Codeプロファイルを削除し、失敗時も後始末を再試行する。
  * @param profileRoot - 統合テスト用プロファイルの一時ディレクトリ。
- * @returns 性能・VS Code・起動のremove・profileが生成する結果。
  */
 async function removeProfile(profileRoot) {
   for (let attempt = 0; attempt < 8; attempt++) {
@@ -172,7 +165,6 @@ async function removeProfile(profileRoot) {
       /**
        * 遅延処理の完了または失敗を待機側へ通知する。
        * @param resolve - Promiseの成功を通知する関数。
-       * @returns 非同期処理の完了値。
        */
       (resolve) => setTimeout(resolve, 250));
     }

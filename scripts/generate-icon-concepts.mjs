@@ -1,20 +1,20 @@
 /**
- * @fileoverview 生成・icon・コンセプトを開発・検証環境で実行する。前提条件や失敗条件を終了コードとログで示す。
+ * @fileoverview 拡張機能アイコンの候補画像を生成し、比較用の出力先へ書き出す。
  */
 import fs from 'node:fs/promises';
 import path from 'node:path';
 
 /**
- * 生成・icon・コンセプトで一時生成物または検証対象を置くディレクトリ。
+ * アイコン案のXMLと比較画像を配置する、このリポジトリのルート。
  */
 const root = path.resolve('E:/source/markdown-easy-visual-editor');
 /**
- * 生成・icon・コンセプトのoutに関する状態または設定。
+ * アイコン案の出力ファイルを配置するresourcesディレクトリ。
  */
 const out = path.join(root, 'resources');
 
 /**
- * 生成・icon・コンセプトのcに関する状態または設定。
+ * 10案の図形描画で共有する線、背景、Markdown、プレビューの色。
  */
 const C = {
   ink: '#273444',
@@ -40,7 +40,7 @@ const esc = /**
   .replaceAll('>', '&gt;');
 
 /**
- * 生成・icon・コンセプトのnext・idに関する状態または設定。
+ * Draw.io内で次に割り当てる図形ID。
  */
 let nextId = 2;
 /**
@@ -227,10 +227,6 @@ const variants = [
     id: '01-dual-sheet',
     title: 'Dual Sheet',
     purpose: '左右2枚の文書を均等に見せる王道型。最も説明不要。',
-    /**
-     * 生成・icon・コンセプトで使う値または実行環境を組み立てる。
-     * @returns 生成・icon・コンセプトで生成または変換した値。
-     */
     build() {
       commonCanvas();
       paperPane(12, 28, 47, 72, 'source');
@@ -244,10 +240,6 @@ const variants = [
     id: '02-markdown-flag',
     title: 'Markdown Flag',
     purpose: '左の大きな#を識別子にし、右の整形面を従属させる。',
-    /**
-     * 生成・icon・コンセプトで使う値または実行環境を組み立てる。
-     * @returns 生成・icon・コンセプトで生成または変換した値。
-     */
     build() {
       commonCanvas();
       pane(10, 27, 51, 75, 'source');
@@ -264,10 +256,6 @@ const variants = [
     id: '03-gutter-handle',
     title: 'Gutter Handle',
     purpose: 'ドラッグできる中央ガターを主役にして、この機能固有の操作性を出す。',
-    /**
-     * 生成・icon・コンセプトで使う値または実行環境を組み立てる。
-     * @returns 生成・icon・コンセプトで生成または変換した値。
-     */
     build() {
       commonCanvas();
       pane(10, 29, 49, 70, 'source');
@@ -283,10 +271,6 @@ const variants = [
     id: '04-render-flow',
     title: 'Render Flow',
     purpose: 'Markdown記法からプレビューへ変換される流れを、短い矢印で示す。',
-    /**
-     * 生成・icon・コンセプトで使う値または実行環境を組み立てる。
-     * @returns 生成・icon・コンセプトで生成または変換した値。
-     */
     build() {
       commonCanvas();
       paperPane(10, 33, 43, 63, 'source');
@@ -301,10 +285,6 @@ const variants = [
     id: '05-open-book',
     title: 'Open Book',
     purpose: '編集と結果を本の見開きに寄せ、文書ツールらしい親和性を出す。',
-    /**
-     * 生成・icon・コンセプトで使う値または実行環境を組み立てる。
-     * @returns 生成・icon・コンセプトで生成または変換した値。
-     */
     build() {
       commonCanvas();
       paperPane(11, 34, 49, 61, 'source', 'rotation=-4;');
@@ -319,10 +299,6 @@ const variants = [
     id: '06-window-split',
     title: 'Window Split',
     purpose: 'VS Codeのエディター領域に自然に見える、窓枠ベースの構成。',
-    /**
-     * 生成・icon・コンセプトで使う値または実行環境を組み立てる。
-     * @returns 生成・icon・コンセプトで生成または変換した値。
-     */
     build() {
       commonCanvas();
       rect(10, 24, 108, 80, `rounded=1;arcSize=12;fillColor=${C.paper};strokeColor=${C.ink};strokeWidth=3;`);
@@ -341,10 +317,6 @@ const variants = [
     id: '07-offset-cards',
     title: 'Offset Cards',
     purpose: '2ペインの重なりを最小限に使い、画面分割とプレビューの奥行きを出す。',
-    /**
-     * 生成・icon・コンセプトで使う値または実行環境を組み立てる。
-     * @returns 生成・icon・コンセプトで生成または変換した値。
-     */
     build() {
       commonCanvas();
       paperPane(13, 34, 55, 64, 'source');
@@ -359,10 +331,6 @@ const variants = [
     id: '08-bracket-pair',
     title: 'Bracket Pair',
     purpose: '左右の面を角括弧のようなシルエットで包み、32pxで輪郭を優先する。',
-    /**
-     * 生成・icon・コンセプトで使う値または実行環境を組み立てる。
-     * @returns 生成・icon・コンセプトで生成または変換した値。
-     */
     build() {
       commonCanvas();
       edge(18, 32, 12, 32, `strokeColor=${C.source};strokeWidth=5;`);
@@ -380,10 +348,6 @@ const variants = [
     id: '09-cursor-to-page',
     title: 'Cursor to Page',
     purpose: '左の編集カーソルと右のページを対比し、編集→結果を直感化する。',
-    /**
-     * 生成・icon・コンセプトで使う値または実行環境を組み立てる。
-     * @returns 生成・icon・コンセプトで生成または変換した値。
-     */
     build() {
       commonCanvas();
       pane(11, 29, 50, 70, 'source');
@@ -401,10 +365,6 @@ const variants = [
     id: '10-core-split',
     title: 'Core Split',
     purpose: '外形を1つにまとめ、内部の1本の分割線だけで左右2ペインを伝える最小構成。',
-    /**
-     * 生成・icon・コンセプトで使う値または実行環境を組み立てる。
-     * @returns 生成・icon・コンセプトで生成または変換した値。
-     */
     build() {
       commonCanvas();
       rect(12, 29, 104, 70, `rounded=1;arcSize=16;fillColor=${C.paper};strokeColor=${C.ink};strokeWidth=3;`);
@@ -446,7 +406,7 @@ const reviewRows = variants.map(
 }).join('\n');
 
 /**
- * 生成・icon・コンセプトのreportに関する状態または設定。
+ * アイコン案の用途、視認性、比較結果をまとめたレビュー文書。
  */
 const report = `# Markdown Easy Visual Editor 左Markdown／右Preview アイコン案レビュー
 
