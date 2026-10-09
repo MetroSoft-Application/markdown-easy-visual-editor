@@ -1,7 +1,7 @@
 /**
  * @fileoverview WebviewのVS Code APIを一度だけ取得し、メッセージ送信と永続化状態の保存に使う。
  */
-import type { VsCodeApi } from '../shared/protocol';
+import type { VsCodeApi } from '../../shared/protocol';
 
 /**
  * WebviewがVS Codeと通信するAPIを取得するホスト提供関数。

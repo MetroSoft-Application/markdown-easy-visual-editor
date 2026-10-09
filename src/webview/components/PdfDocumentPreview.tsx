@@ -3,7 +3,7 @@
  */
 import React, { useEffect, useRef, useState } from "react";
 import type { PDFDocumentProxy, PDFPageProxy } from "pdfjs-dist";
-import type { Messages } from "../shared/messages";
+import type { Messages } from "../../shared/messages";
 
 /**
  * PDFプレビューで扱う値の種類と境界を表す型。

@@ -2,16 +2,16 @@
  * @fileoverview リボン項目の実装を定義し、ボタン・入力コントロール・状態表示をReact要素へ接続する。
  */
 import React, { useRef } from "react";
-import type { EditorTheme } from "../shared/protocol";
-import { normalizeFontFamily } from "../shared/fontFamily";
-import { TEXT_COLOR_HEX, TEXT_COLOR_IDS } from "../shared/textColor";
-import { setPreviewImageResizeControlsVisible } from "./previewImageResizeControls";
+import type { EditorTheme } from "../../shared/protocol";
+import { normalizeFontFamily } from "../../shared/fontFamily";
+import { TEXT_COLOR_HEX, TEXT_COLOR_IDS } from "../../shared/textColor";
+import { setPreviewImageResizeControlsVisible } from "../preview/previewImageResizeControls";
 import {
   applyTextColorToActiveSource,
   clearInlineFormattingWithTextColor,
   readActiveSourceTextColor,
-} from "./textColorController";
-import { sharedVsCodeApi } from "./vscodeApi";
+} from "../editor/textColorController";
+import { sharedVsCodeApi } from "../runtime/vscodeApi";
 import type {
   RibbonControlFieldDefinition,
   RibbonItemDefinition,

@@ -10,8 +10,8 @@ import {
   applyMarkdownTableTsv,
   markdownTableToTsv,
   type MarkdownTableAction,
-} from "../shared/markdown";
-import { getMessages, resolveLanguage, type Messages } from "../shared/messages";
+} from "../../shared/markdown";
+import { getMessages, resolveLanguage, type Messages } from "../../shared/messages";
 import {
   clearTableGridRange,
   duplicateTableGridColumns,
@@ -25,7 +25,7 @@ import {
   tableGridRangeContains,
   type NormalizedTableGridRange,
   type TableGridRange,
-} from "../shared/tableGrid";
+} from "../../shared/tableGrid";
 import {
   createTableEditorHistory,
   recordTableEditorHistory,
@@ -56,7 +56,7 @@ import {
   TABLE_EDITOR_MAX_AUTO_COLUMN_WIDTH,
   TABLE_EDITOR_MIN_COLUMN_WIDTH,
   TABLE_EDITOR_MIN_ROW_HEIGHT,
-} from "../shared/tableEditorSizing";
+} from "../../shared/tableEditorSizing";
 
 /**
  * 表編集オーバーレイを開く要求を通知するカスタムイベント名。

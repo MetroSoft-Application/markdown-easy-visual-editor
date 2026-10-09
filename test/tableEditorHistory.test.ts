@@ -8,7 +8,7 @@ import {
     redoTableEditorHistory,
     undoTableEditorHistory,
     type TableEditorHistorySnapshot,
-} from '../src/webview/tableEditorHistory';
+} from '../src/webview/table-editor/tableEditorHistory';
 
 /**
  * 指定セル値と選択位置を持つ履歴スナップショットを作成する。

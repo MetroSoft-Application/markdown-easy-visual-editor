@@ -57,15 +57,15 @@ import {
   wrapSelection,
   type SourceEdit,
   type TextSelection,
-} from "../shared/markdown";
+} from "../../shared/markdown";
 import {
   computeTextChanges,
   mapTextOffset,
   type TextChange,
-} from "../shared/textChanges";
-import { getScrollRatio } from "../shared/scroll";
-import type { Messages } from "../shared/messages";
-import { isMveDebugEnabled, mveDebug } from "./debug";
+} from "../../shared/textChanges";
+import { getScrollRatio } from "../../shared/scroll";
+import type { Messages } from "../../shared/messages";
+import { isMveDebugEnabled, mveDebug } from "../runtime/debug";
 import { exactSelectionMatchExtension } from "./cmSelectionMatchHighlight";
 import { htmlUrlAttributeHighlightExtension } from "./cmHtmlUrlHighlight";
 

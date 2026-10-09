@@ -68,7 +68,7 @@ const webviewOptions = {
  * ビルドで解析・表示・保存する本文。
  */
 const markdownWorkerOptions = {
-  entryPoints: ['src/webview/markdownRenderLight.worker.ts'],
+  entryPoints: ['src/webview/markdown/markdownRenderLight.worker.ts'],
   bundle: true,
   outfile: 'dist/markdown-worker.js',
   platform: 'browser',
@@ -85,7 +85,7 @@ const markdownWorkerOptions = {
  */
 const markdownRichWorkerOptions = {
   ...markdownWorkerOptions,
-  entryPoints: ['src/webview/markdownRender.worker.ts'],
+  entryPoints: ['src/webview/markdown/markdownRender.worker.ts'],
   outfile: 'dist/markdown-rich-worker.js'
 };
 
@@ -95,7 +95,7 @@ const markdownRichWorkerOptions = {
  */
 const markdownFallbackOptions = {
   ...markdownWorkerOptions,
-  entryPoints: ['src/webview/markdownRenderer.ts'],
+  entryPoints: ['src/webview/markdown/markdownRenderer.ts'],
   outfile: 'dist/markdown-fallback.js',
   globalName: 'mveMarkdownFallback'
 };

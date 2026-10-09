@@ -1,7 +1,7 @@
 /**
  * @fileoverview Web Worker内で軽量なMarkdown解析を実行し、要求ID付きでプレビュー結果を返す。
  */
-import { collectDiagnostics, getOutline, wordStats } from "../shared/markdown";
+import { collectDiagnostics, getOutline, wordStats } from "../../shared/markdown";
 import {
     alignOutlineHeadingIds,
     renderMarkdownUnsafeBlocks,

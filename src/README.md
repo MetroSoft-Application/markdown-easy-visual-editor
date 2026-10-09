@@ -15,15 +15,20 @@ VS Code 拡張ホスト
    └─ extension/pdf.ts      PDF出力とローカル画像の埋め込み
 
 Webview
-└─ webview/index.tsx       Reactの起動
-   └─ webview/App.tsx       UI全体、状態管理、ホスト連携、編集同期
-      ├─ Ribbon.tsx         編集コマンドのリボンUI
-      ├─ SourceEditor.tsx   CodeMirrorベースのソースエディタ
-      ├─ RenderedMarkdown.tsx 描画結果の表示とインタラクション
-      │  ├─ markdownRenderer.ts Markdownから安全なHTMLへの変換
-      │  └─ mermaidRenderer.ts   Mermaid図のSVG描画
-      ├─ scrollAnchors.ts    プレビュー位置の保持
-      └─ styles.css          Webview全体のスタイル
+└─ webview/
+   ├─ index.tsx                       Reactの起動
+   ├─ components/
+   │  ├─ App.tsx                      UI全体、状態管理、ホスト連携、編集同期
+   │  ├─ RenderedMarkdown.tsx         描画結果の表示とインタラクション
+   │  └─ PdfDocumentPreview.tsx       PDFプレビュー表示
+   ├─ editor/SourceEditor.tsx         CodeMirrorベースのソースエディタ
+   ├─ markdown/markdownRenderer.ts    Markdownから安全なHTMLへの変換
+   ├─ markdown/mermaidRenderer.ts     Mermaid図のSVG描画
+   ├─ preview/scrollAnchors.ts        プレビュー位置の保持
+   ├─ ribbon/Ribbon.tsx               編集コマンドのリボンUI
+   ├─ runtime/id.ts                   WebviewクライアントID
+   ├─ table-editor/tableEditorOverlay.tsx 表編集UI
+   └─ styles.css                      Webview全体のスタイル
 
 共有ドメインロジック
 ├─ shared/markdown.ts       Markdown編集・解析・診断・統計
@@ -72,45 +77,47 @@ VS Code拡張ホスト側で実行されるコードです。VS Code API、フ�
 
 ReactとブラウザAPIで動作するUIです。VS Code APIを直接呼ばず、`protocol.ts`に定義されたメッセージを通じて拡張ホストと連携します。
 
+機能ごとのコードは、UIコンポーネントを `components/`、CodeMirrorと編集補助を `editor/`、Markdown描画を `markdown/`、プレビュー操作を `preview/`、リボンを `ribbon/`、Webview実行時の共通処理を `runtime/`、表編集を `table-editor/` に分けています。
+
 - [`index.tsx`](./webview/index.tsx)
   - Reactアプリケーションの起動点。
   - `App`を`React.StrictMode`でマウントし、Webview用CSS・フォント・KaTeX CSSを読み込む。
 
-- [`App.tsx`](./webview/App.tsx)
+- [`App.tsx`](./webview/components/App.tsx)
   - Webviewのオーケストレーターであり、画面全体の状態を管理する中心ファイル。
   - 編集モード、Markdown本文、設定、選択範囲、アウトライン、検索、診断、インスペクター、PDFプレビュー、ダイアログ、Toastなどを管理。
   - ホストとの初期ハンドシェイクとメッセージ処理を行う。
   - ローカル編集を楽観的に適用し、未ACK操作をキューに保持して、外部変更時にリベースする。
   - ソースエディタ、プレビュー、リボン、サイドパネル、ステータスバーを組み合わせて画面を構成する。
 
-- [`SourceEditor.tsx`](./webview/SourceEditor.tsx)
+- [`SourceEditor.tsx`](./webview/editor/SourceEditor.tsx)
   - CodeMirrorの初期化と、ソース編集に必要な命令型APIをカプセル化する。
   - 選択範囲、検索ハイライト、IME入力、外部テキスト同期、スクロール、ビューポート復元を扱う。
   - リボンからの見出し・リスト・リンク・コードブロック・表操作を、`shared/markdown.ts`の編集関数に接続する。
 
-- [`RenderedMarkdown.tsx`](./webview/RenderedMarkdown.tsx)
+- [`RenderedMarkdown.tsx`](./webview/components/RenderedMarkdown.tsx)
   - Markdown描画結果をDOMに表示するReactコンポーネント。
   - Mermaid、数式、画像の描画・ロード状態を追跡し、ダブルクリックなどのプレビュー操作をAppへ通知する。
 
-- [`markdownRenderer.ts`](./webview/markdownRenderer.ts)
+- [`markdownRenderer.ts`](./webview/markdown/markdownRenderer.ts)
   - MarkdownをHTMLへ変換する描画パイプライン。
   - `marked`、GFM、シンタックスハイライト、KaTeX、目次、脚注、アラート、Mermaidなどを組み合わせる。
   - ソース位置をHTMLの属性に保持し、アウトラインやプレビュー位置同期に利用する。
   - 出力HTMLはDOMPurifyでサニタイズする。HTMLを追加・変更するときは、表示だけでなくサニタイズ後の挙動も確認する。
 
-- [`mermaidRenderer.ts`](./webview/mermaidRenderer.ts)
+- [`mermaidRenderer.ts`](./webview/markdown/mermaidRenderer.ts)
   - Mermaidのグローバル設定と描画処理を直列化する薄いアダプター。
   - Mermaidのテーマ切り替えとエラー表示用メッセージを扱う。
 
-- [`Ribbon.tsx`](./webview/Ribbon.tsx)
+- [`Ribbon.tsx`](./webview/ribbon/Ribbon.tsx)
   - タブ、グループ、ツールからなる編集リボンを描画する。
   - 実際の文書変更は行わず、`RibbonCommand`をAppへ通知するUI層。
 
-- [`scrollAnchors.ts`](./webview/scrollAnchors.ts)
+- [`scrollAnchors.ts`](./webview/preview/scrollAnchors.ts)
   - プレビュー更新やレイアウト変更の前後で、表示位置をできるだけ維持する。
   - ソースオフセット、DOM要素、画面上の相対位置を使ってアンカーを保存・復元する。
 
-- [`id.ts`](./webview/id.ts)
+- [`id.ts`](./webview/runtime/id.ts)
   - Webviewインスタンス識別用のクライアントIDを生成する。
   - `crypto.randomUUID`、乱数API、最終フォールバックの順に利用する。
 
@@ -187,7 +194,7 @@ WebviewからVS Code APIやファイルシステムを直接扱わないこと�
 1. [`shared/protocol.ts`](./shared/protocol.ts) の型を変更する。
 2. 送信側と受信側の分岐を両方更新する。
    - ホスト側: [`extension/extension.ts`](./extension/extension.ts)
-   - Webview側: [`webview/App.tsx`](./webview/App.tsx)
+   - Webview側: [`webview/components/App.tsx`](./webview/components/App.tsx)
 3. 初期化、再接続、再同期、操作失敗時の挙動を確認する。
 4. 旧状態や未対応メッセージが来た場合に、無限待機や未処理のPromiseを残さない。
 
@@ -200,8 +207,8 @@ WebviewからVS Code APIやファイルシステムを直接扱わないこと�
 
 ### 描画を変更する場合
 
-- [`markdownRenderer.ts`](./webview/markdownRenderer.ts) の変換結果とソース位置属性を確認する。
-- [`RenderedMarkdown.tsx`](./webview/RenderedMarkdown.tsx) の画像・Mermaid・数式のライフサイクルを確認する。
+- [`markdownRenderer.ts`](./webview/markdown/markdownRenderer.ts) の変換結果とソース位置属性を確認する。
+- [`RenderedMarkdown.tsx`](./webview/components/RenderedMarkdown.tsx) の画像・Mermaid・数式のライフサイクルを確認する。
 - DOMPurify後のHTML、リンクや画像のURI、外部コンテンツの扱いを確認する。
 - 描画更新の前後で、ソースとプレビューのスクロール位置が維持されるか確認する。
 
@@ -231,22 +238,22 @@ npm run build   # 拡張機能のビルド
 | 知りたいこと | 入口 |
 | --- | --- |
 | 拡張機能がどう起動するか | [`extension/extension.ts`](./extension/extension.ts) |
-| Webviewの画面全体と状態 | [`webview/App.tsx`](./webview/App.tsx) |
-| ホストとWebviewの通信 | [`shared/protocol.ts`](./shared/protocol.ts)、`extension.ts`、`App.tsx` |
-| 同時編集・差分同期 | [`shared/textChanges.ts`](./shared/textChanges.ts)、`App.tsx`、`extension.ts` |
-| Markdownの編集操作 | [`shared/markdown.ts`](./shared/markdown.ts)、[`webview/SourceEditor.tsx`](./webview/SourceEditor.tsx) |
-| Markdownの表示 | [`webview/markdownRenderer.ts`](./webview/markdownRenderer.ts)、[`webview/RenderedMarkdown.tsx`](./webview/RenderedMarkdown.tsx) |
-| リボンの配置・順番一覧 | [`webview/ribbonLayout.ts`](./webview/ribbonLayout.ts) |
-| リボンIDの共通契約 | [`webview/ribbonIds.ts`](./webview/ribbonIds.ts) |
-| リボン配置一覧の型定義 | [`webview/ribbonLayoutTypes.ts`](./webview/ribbonLayoutTypes.ts) |
-| リボンの表示・見た目・入力定義 | [`webview/ribbonDefinitions.ts`](./webview/ribbonDefinitions.ts) |
-| リボン表示定義の型 | [`webview/ribbonDefinitionTypes.ts`](./webview/ribbonDefinitionTypes.ts) |
-| リボン項目の動作・カスタム描画 | [`webview/ribbonImplementations.tsx`](./webview/ribbonImplementations.tsx) |
-| リボンの汎用走査・描画 | [`webview/Ribbon.tsx`](./webview/Ribbon.tsx) |
-| リボン表示名の解決 | [`webview/ribbonLabels.ts`](./webview/ribbonLabels.ts) |
-| リボン配置の整合性検証 | [`webview/ribbonValidation.ts`](./webview/ribbonValidation.ts) |
-| PDF出力 | [`extension/pdf.ts`](./extension/pdf.ts)、`App.tsx` |
+| Webviewの画面全体と状態 | [`webview/components/App.tsx`](./webview/components/App.tsx) |
+| ホストとWebviewの通信 | [`shared/protocol.ts`](./shared/protocol.ts)、`extension.ts`、`webview/components/App.tsx` |
+| 同時編集・差分同期 | [`shared/textChanges.ts`](./shared/textChanges.ts)、`webview/components/App.tsx`、`extension.ts` |
+| Markdownの編集操作 | [`shared/markdown.ts`](./shared/markdown.ts)、[`webview/editor/SourceEditor.tsx`](./webview/editor/SourceEditor.tsx) |
+| Markdownの表示 | [`webview/markdown/markdownRenderer.ts`](./webview/markdown/markdownRenderer.ts)、[`webview/components/RenderedMarkdown.tsx`](./webview/components/RenderedMarkdown.tsx) |
+| リボンの配置・順番一覧 | [`webview/ribbon/ribbonLayout.ts`](./webview/ribbon/ribbonLayout.ts) |
+| リボンIDの共通契約 | [`webview/ribbon/ribbonIds.ts`](./webview/ribbon/ribbonIds.ts) |
+| リボン配置一覧の型定義 | [`webview/ribbon/ribbonLayoutTypes.ts`](./webview/ribbon/ribbonLayoutTypes.ts) |
+| リボンの表示・見た目・入力定義 | [`webview/ribbon/ribbonDefinitions.ts`](./webview/ribbon/ribbonDefinitions.ts) |
+| リボン表示定義の型 | [`webview/ribbon/ribbonDefinitionTypes.ts`](./webview/ribbon/ribbonDefinitionTypes.ts) |
+| リボン項目の動作・カスタム描画 | [`webview/ribbon/ribbonImplementations.tsx`](./webview/ribbon/ribbonImplementations.tsx) |
+| リボンの汎用走査・描画 | [`webview/ribbon/Ribbon.tsx`](./webview/ribbon/Ribbon.tsx) |
+| リボン表示名の解決 | [`webview/ribbon/ribbonLabels.ts`](./webview/ribbon/ribbonLabels.ts) |
+| リボン配置の整合性検証 | [`webview/ribbon/ribbonValidation.ts`](./webview/ribbon/ribbonValidation.ts) |
+| PDF出力 | [`extension/pdf.ts`](./extension/pdf.ts)、`webview/components/App.tsx` |
 
-`ribbonLayout.ts` はIDと親子関係と順番だけの一覧であり、表示名・描画種別・ショートカット・入力項目・イベント処理を含みません。位置や順番は同ファイルの `RIBBON_LAYOUT`、表示定義は `ribbonDefinitions.ts`、動作と描画は `ribbonImplementations.tsx`、共通走査は `Ribbon.tsx` を編集します。
+`ribbon/ribbonLayout.ts` はIDと親子関係と順番だけの一覧であり、表示名・描画種別・ショートカット・入力項目・イベント処理を含みません。位置や順番は同ファイルの `RIBBON_LAYOUT`、表示定義は `ribbon/ribbonDefinitions.ts`、動作と描画は `ribbon/ribbonImplementations.tsx`、共通走査は `ribbon/Ribbon.tsx` を編集します。
 
-リボン項目を追加する場合は、`ribbonIds.ts` にIDを追加し、`ribbonLayout.ts` に配置し、`ribbonDefinitions.ts` に表示定義を追加し、最後に `ribbonImplementations.tsx` に動作またはカスタム描画を登録します。既存項目の位置や順番だけを変える場合は `ribbonLayout.ts` だけを編集します。
+リボン項目を追加する場合は、`ribbon/ribbonIds.ts` にIDを追加し、`ribbon/ribbonLayout.ts` に配置し、`ribbon/ribbonDefinitions.ts` に表示定義を追加し、最後に `ribbon/ribbonImplementations.tsx` に動作またはカスタム描画を登録します。既存項目の位置や順番だけを変える場合は `ribbon/ribbonLayout.ts` だけを編集します。

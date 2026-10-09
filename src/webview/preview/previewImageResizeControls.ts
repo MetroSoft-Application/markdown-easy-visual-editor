@@ -1,8 +1,8 @@
 /**
  * @fileoverview プレビュー画像のドラッグリサイズを処理し、表示倍率を除いた論理幅をMarkdownへ保存する。
  */
-import type { HostToWebviewMessage } from '../shared/protocol';
-import { sharedVsCodeApi } from './vscodeApi';
+import type { HostToWebviewMessage } from '../../shared/protocol';
+import { sharedVsCodeApi } from '../runtime/vscodeApi';
 
 /**
  * 画像リサイズ操作の条件を示すフラグ。

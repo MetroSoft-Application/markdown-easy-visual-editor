@@ -21,7 +21,7 @@ import {
   normalizeHtmlExportSettings,
   normalizePdfOptions,
   isTextReplacementPatternValid,
-} from "../shared/protocol";
+} from "../../shared/protocol";
 import type {
   EditorMode,
   HostToWebviewMessage,
@@ -35,7 +35,7 @@ import type {
   ViewMode,
   WebviewSettings,
   WebviewToHostMessage,
-} from "../shared/protocol";
+} from "../../shared/protocol";
 import {
   applyMarkdownTableAction,
   applyMarkdownTableTsv,
@@ -54,51 +54,51 @@ import {
   type OutlineItem,
   type TextSelection,
   wordStats,
-} from "../shared/markdown";
+} from "../../shared/markdown";
 import {
   applyTextChanges,
   computeTextChanges,
   mapTextChanges,
   mapTextOffset,
   type TextChange,
-} from "../shared/textChanges";
-import { fingerprintText } from "../shared/canonicalText";
+} from "../../shared/textChanges";
+import { fingerprintText } from "../../shared/canonicalText";
 import {
   alignImageInMarkdown,
   resetImageSizeInMarkdown,
   resizeImageInMarkdown,
   type ImageAlignment,
-} from "../shared/imageResize";
-import { getMessages, type Messages } from "../shared/messages";
+} from "../../shared/imageResize";
+import { getMessages, type Messages } from "../../shared/messages";
 import {
   DEFAULT_FONT_FAMILY_STACK,
   DEFAULT_FONT_FAMILY_SETTINGS,
   fontFamilyForCss,
   normalizeFontFamily,
-} from "../shared/fontFamily";
-import { prepareExportHtml } from "../shared/exportHtml";
-import { createClientId } from "./id";
-import { webviewAssetUrl } from "./assets";
-import { isMveDebugEnabled, mveDebug } from "./debug";
-import { escapeHtml } from "../shared/escapeHtml";
-import { sanitizeRenderedMarkdown } from "./markdownSanitizer";
-import { renderMarkdownFallback } from "./markdownFallback";
-import type { UnsafeMarkdownBlock } from "./markdownRendererCore";
-import { acceptMermaidRenderResult } from "./mermaidRenderer";
+} from "../../shared/fontFamily";
+import { prepareExportHtml } from "../../shared/exportHtml";
+import { createClientId } from "../runtime/id";
+import { webviewAssetUrl } from "../runtime/assets";
+import { isMveDebugEnabled, mveDebug } from "../runtime/debug";
+import { escapeHtml } from "../../shared/escapeHtml";
+import { sanitizeRenderedMarkdown } from "../markdown/markdownSanitizer";
+import { renderMarkdownFallback } from "../markdown/markdownFallback";
+import type { UnsafeMarkdownBlock } from "../markdown/markdownRendererCore";
+import { acceptMermaidRenderResult } from "../markdown/mermaidRenderer";
 import { RenderedMarkdown, type InspectorTarget } from "./RenderedMarkdown";
 import { PdfDocumentPreview } from "./PdfDocumentPreview";
-import { Ribbon, type RibbonCommand } from "./Ribbon";
+import { Ribbon, type RibbonCommand } from "../ribbon/Ribbon";
 import {
   SourceEditor,
   type EditorViewportAnchor,
   type TextEditorHandle,
-} from "./SourceEditor";
+} from "../editor/SourceEditor";
 import {
   capturePreviewViewport,
   restoreScrollRatio,
   restorePreviewViewport,
   type PreviewViewportAnchor,
-} from "./scrollAnchors";
+} from "../preview/scrollAnchors";
 
 /**
  * WebviewがExtension Hostと状態を保存・送信するためのVS Code API取得関数。

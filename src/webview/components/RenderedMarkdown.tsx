@@ -2,17 +2,17 @@
  * @fileoverview 変換済みMarkdownをDOMへ描画し、画像・リンク・見出し・表の編集操作をプレビューへ接続する。
  */
 import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
-import type { ImageAlignment } from "../shared/imageResize";
-import type { MermaidInteraction, WebviewSettings } from "../shared/protocol";
-import type { Messages } from "../shared/messages";
-import { getMessages } from "../shared/messages";
-import { renderMarkdownFallback } from "./markdownFallback";
+import type { ImageAlignment } from "../../shared/imageResize";
+import type { MermaidInteraction, WebviewSettings } from "../../shared/protocol";
+import type { Messages } from "../../shared/messages";
+import { getMessages } from "../../shared/messages";
+import { renderMarkdownFallback } from "../markdown/markdownFallback";
 import {
   mermaidErrorMessage,
   renderMermaidSvg,
   type MermaidRenderResult,
-} from "./mermaidRenderer";
-import { mveDebug } from "./debug";
+} from "../markdown/mermaidRenderer";
+import { mveDebug } from "../runtime/debug";
 
 /**
  * Markdownプレビューで扱う値の種類と境界を表す型。

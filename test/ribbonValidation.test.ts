@@ -2,13 +2,13 @@
  * @fileoverview リボン設定の完全性、ID重複、グループ連続性、未使用定義や参照漏れを検証する。
  */
 import { describe, expect, it } from "vitest";
-import type { RibbonDefinitions } from "../src/webview/ribbonDefinitionTypes";
-import type { RibbonLayoutDefinition } from "../src/webview/ribbonLayoutTypes";
+import type { RibbonDefinitions } from "../src/webview/ribbon/ribbonDefinitionTypes";
+import type { RibbonLayoutDefinition } from "../src/webview/ribbon/ribbonLayoutTypes";
 import {
     type RibbonValidationHeaderImplementation,
     type RibbonValidationItemImplementation,
     validateRibbonConfiguration,
-} from "../src/webview/ribbonValidation";
+} from "../src/webview/ribbon/ribbonValidation";
 
 /**
  * テスト用のラベル参照。検証対象の項目はすべてこのラベルを共有する。

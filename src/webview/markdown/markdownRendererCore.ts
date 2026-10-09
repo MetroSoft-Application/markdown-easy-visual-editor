@@ -3,15 +3,15 @@
  */
 import katex from 'katex';
 import { Marked, Renderer, type Token } from 'marked';
-import { footnoteDefinitionSyntax, mathBlockSyntax, tableOfContentsSyntax } from '../shared/markdownBlockSyntax';
+import { footnoteDefinitionSyntax, mathBlockSyntax, tableOfContentsSyntax } from '../../shared/markdownBlockSyntax';
 import {
     getOutline,
     nextHeadingAnchorId,
     slugify,
     WORKSPACE_SECTION_LINK_TITLE,
     type OutlineItem
-} from '../shared/markdown';
-import { getMessages, type Messages, type SupportedLanguage } from '../shared/messages';
+} from '../../shared/markdown';
+import { getMessages, type Messages, type SupportedLanguage } from '../../shared/messages';
 
 /**
  * Markdown変換へ渡す設定項目と既定値のデータ形状。

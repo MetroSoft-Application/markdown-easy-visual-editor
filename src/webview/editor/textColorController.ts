@@ -3,15 +3,15 @@
  */
 import { EditorSelection } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
-import { clearInlineFormatting } from "../shared/markdown";
+import { clearInlineFormatting } from "../../shared/markdown";
 import {
     applyTextColorFormatting,
     detectTextColorFormatting,
     type TextColorEdit,
     type TextColorId,
     type TextColorSelectionState,
-} from "../shared/textColor";
-import { computeTextChanges, mapTextOffset } from "../shared/textChanges";
+} from "../../shared/textColor";
+import { computeTextChanges, mapTextOffset } from "../../shared/textChanges";
 
 /**
  * 文字色操作の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。

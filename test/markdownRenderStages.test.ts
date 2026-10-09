@@ -2,8 +2,8 @@
  * @fileoverview 段階別Markdown描画での見出しID、リンク先、コード内容、リッチ描画と軽量描画の整合性を検証する。
  */
 import { describe, expect, it } from 'vitest';
-import { highlightCode } from '../src/webview/codeHighlighter';
-import { alignOutlineHeadingIds, renderMarkdownUnsafeBlocks } from '../src/webview/markdownRendererCore';
+import { highlightCode } from '../src/webview/markdown/codeHighlighter';
+import { alignOutlineHeadingIds, renderMarkdownUnsafeBlocks } from '../src/webview/markdown/markdownRendererCore';
 import {
     collectLocalResourceReferences,
     getOutline,

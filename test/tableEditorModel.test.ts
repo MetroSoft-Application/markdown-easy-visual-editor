@@ -19,7 +19,7 @@ import {
     insertTableEditorLineBreak,
     remapTableEditorSortState,
     sortTableEditorRows
-} from '../src/webview/tableEditorModel';
+} from '../src/webview/table-editor/tableEditorModel';
 
 describe('table editor model',
     () => {

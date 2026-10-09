@@ -1,11 +1,11 @@
 /**
  * @fileoverview WebviewからMermaid描画を要求し、SVG結果・PNGフォールバック・クリック領域をプレビューへ反映する。
  */
-import { createClientId } from './id';
-import { getMessages, type SupportedLanguage } from '../shared/messages';
-import type { HostToWebviewMessage, MermaidInteraction } from '../shared/protocol';
-import { sharedVsCodeApi } from './vscodeApi';
-import { webviewAssetUrl, webviewScriptNonce } from './assets';
+import { createClientId } from '../runtime/id';
+import { getMessages, type SupportedLanguage } from '../../shared/messages';
+import type { HostToWebviewMessage, MermaidInteraction } from '../../shared/protocol';
+import { sharedVsCodeApi } from '../runtime/vscodeApi';
+import { webviewAssetUrl, webviewScriptNonce } from '../runtime/assets';
 
 /**
  * Mermaidの配色プリセットを表すリテラル型。

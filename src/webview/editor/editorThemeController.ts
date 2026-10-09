@@ -1,7 +1,7 @@
 /**
  * @fileoverview VS Codeのテーマ状態をWebviewへ反映し、テーマ変更時にエディターとプレビューの配色を更新する。
  */
-import type { EditorTheme, HostToWebviewMessage } from '../shared/protocol';
+import type { EditorTheme, HostToWebviewMessage } from '../../shared/protocol';
 
 /**
  * 編集テーマ制御のthemesとして順序を保つ一覧。

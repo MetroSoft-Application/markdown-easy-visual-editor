@@ -2,13 +2,13 @@
  * @fileoverview 編集画面のリボンを表示し、コマンド・設定・表示状態の変更をHostへ委譲する。
  */
 import React, { useEffect, useState } from "react";
-import type { EditorMode, HtmlExportOptions } from "../shared/protocol";
-import type { Messages } from "../shared/messages";
-import { mveDebug } from "./debug";
+import type { EditorMode, HtmlExportOptions } from "../../shared/protocol";
+import type { Messages } from "../../shared/messages";
+import { mveDebug } from "../runtime/debug";
 import {
   getPreviewImageResizeControlsVisible,
   subscribePreviewImageResizeControlsVisible,
-} from "./previewImageResizeControls";
+} from "../preview/previewImageResizeControls";
 import { RIBBON_LAYOUT } from "./ribbonLayout";
 import type {
   RibbonHeaderItemId,

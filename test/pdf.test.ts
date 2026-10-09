@@ -127,7 +127,7 @@ vi.mock('dompurify',
 
 import { buildStandaloneHtml, exportPdf, renderPdf, type PdfExportRequest } from '../src/extension/pdf';
 import { normalizePdfOptions } from '../src/shared/protocol';
-import { renderMarkdown } from '../src/webview/markdownRenderer';
+import { renderMarkdown } from '../src/webview/markdown/markdownRenderer';
 
 /**
  * PDF・テストの回帰で一時生成物または検証対象を置くディレクトリ。
@@ -311,6 +311,7 @@ describe('PDF local images',
                         margins: { top: 15, right: 15, bottom: 15, left: 15 },
                         header: '',
                         footer: '{page}/{pages}',
+                        textReplacements: [],
                         saveWithoutDialog: true
                     },
                     documentUri,

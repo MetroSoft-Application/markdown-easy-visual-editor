@@ -2,7 +2,7 @@
  * @fileoverview Markdown Workerが利用できない場合に、基本的な本文をエスケープ済みHTMLへ変換する。
  */
 import type { RenderOptions } from "./markdownRendererCore";
-import { webviewAssetUrl, webviewScriptNonce } from "./assets";
+import { webviewAssetUrl, webviewScriptNonce } from "../runtime/assets";
 
 /**
  * Workerが使えない場合のMarkdown描画関数と依存機能です。

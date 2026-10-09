@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import {
     findHtmlUrlAttributeRanges,
     type HtmlUrlAttributeRange
-} from '../src/webview/cmHtmlUrlHighlight';
+} from '../src/webview/editor/cmHtmlUrlHighlight';
 
 /**
  * Markdown言語を有効にしたCodeMirror状態を作る。

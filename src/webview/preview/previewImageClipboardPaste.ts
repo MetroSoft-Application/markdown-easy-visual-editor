@@ -115,9 +115,10 @@ export function readPreservedImagePaste(
     // Appの既存BMP貼り付けは image/bmp だけをPNG化するため、同義MIMEで元BMPを保持する。
     // ホスト側では image/x-ms-bmp を .bmp として正式に受け付ける。
     const fileType = parsed.type === "image/bmp" ? "image/x-ms-bmp" : parsed.type;
+    const fileBytes = new Uint8Array(parsed.bytes).buffer;
     return {
         type: parsed.type,
-        file: new File([parsed.bytes], `clipboard-image.${extension}`, {
+        file: new File([fileBytes], `clipboard-image.${extension}`, {
             type: fileType,
         }),
     };

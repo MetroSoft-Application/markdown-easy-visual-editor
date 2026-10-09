@@ -2,11 +2,11 @@
  * @fileoverview リボンの項目、表示状態、コマンド通知に共有する型を定義する。
  */
 import type React from "react";
-import type { EditorMode, HtmlExportOptions } from "../shared/protocol";
-import type { MarkdownTableAction } from "../shared/markdown";
-import type { Messages } from "../shared/messages";
-import type { TextColorId } from "../shared/textColor";
-import type { SourceAction } from "./SourceEditor";
+import type { EditorMode, HtmlExportOptions } from "../../shared/protocol";
+import type { MarkdownTableAction } from "../../shared/markdown";
+import type { Messages } from "../../shared/messages";
+import type { TextColorId } from "../../shared/textColor";
+import type { SourceAction } from "../editor/SourceEditor";
 import type {
     RibbonItemDefinition,
     RibbonLabelSpec,

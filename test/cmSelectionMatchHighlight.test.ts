@@ -2,7 +2,7 @@
  * @fileoverview 選択範囲と一致する複数の本文範囲を検出し、重複・境界・更新時の装飾を検証する。
  */
 import { describe, expect, it } from 'vitest';
-import { findExactSelectionMatches } from '../src/webview/cmSelectionMatchHighlight';
+import { findExactSelectionMatches } from '../src/webview/editor/cmSelectionMatchHighlight';
 
 describe('findExactSelectionMatches',
     () => {

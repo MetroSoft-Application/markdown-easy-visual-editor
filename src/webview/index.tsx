@@ -6,21 +6,21 @@ import { createRoot } from "react-dom/client";
 import { EditorSelection } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import "katex/dist/katex.min.css";
-import { App, preloadMarkdownWorker } from "./App";
-import "./cmMarkdownAutocomplete";
-import "./editorTheme.css";
-import "./editorThemePolish.css";
-import "./previewFullWidth.css";
-import "./previewImageResizeControls.css";
-import "./previewImageContextMenu.css";
-import "./tableEditorOverlay.css";
+import { App, preloadMarkdownWorker } from "./components/App";
+import "./editor/cmMarkdownAutocomplete";
+import "./editor/editorTheme.css";
+import "./editor/editorThemePolish.css";
+import "./preview/previewFullWidth.css";
+import "./preview/previewImageResizeControls.css";
+import "./preview/previewImageContextMenu.css";
+import "./table-editor/tableEditorOverlay.css";
 import { getMessages } from "../shared/messages";
-import { installEditorThemeController } from "./editorThemeController";
-import { installPreviewImageResizeControls } from "./previewImageResizeControls";
-import { installPreviewImageContextMenu } from "./previewImageContextMenu";
-import { installPreviewImageClipboardPaste } from "./previewImageClipboardPaste";
-import { installSelectedTextSearchTransfer } from "./searchSelectedText";
-import { installTableEditorOverlay } from "./tableEditorOverlay";
+import { installEditorThemeController } from "./editor/editorThemeController";
+import { installPreviewImageResizeControls } from "./preview/previewImageResizeControls";
+import { installPreviewImageContextMenu } from "./preview/previewImageContextMenu";
+import { installPreviewImageClipboardPaste } from "./preview/previewImageClipboardPaste";
+import { installSelectedTextSearchTransfer } from "./editor/searchSelectedText";
+import { installTableEditorOverlay } from "./table-editor/tableEditorOverlay";
 
 (
   globalThis as typeof globalThis & {

@@ -6,7 +6,7 @@ import path from 'node:path';
 import os from 'node:os';
 import { pathToFileURL } from 'node:url';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { renderMarkdownUnsafe } from '../src/webview/markdownRendererCore';
+import { renderMarkdownUnsafe } from '../src/webview/markdown/markdownRendererCore';
 
 /**
  * HTML・テストの回帰の状態と操作をまとめるクラス。

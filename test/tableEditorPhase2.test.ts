@@ -9,7 +9,7 @@ import {
 import {
     readTableEditorDraft,
     renderTableEditorDraft,
-} from "../src/webview/tableEditorModel";
+} from "../src/webview/table-editor/tableEditorModel";
 
 describe("table editor phase 2 integration",
     () => {

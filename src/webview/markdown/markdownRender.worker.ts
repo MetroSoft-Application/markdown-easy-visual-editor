@@ -1,7 +1,7 @@
 /**
  * @fileoverview Web Worker内でリッチなMarkdown解析を実行し、要求ID付きで描画結果またはエラーを返す。
  */
-import { collectDiagnostics, getOutline, wordStats } from '../shared/markdown';
+import { collectDiagnostics, getOutline, wordStats } from '../../shared/markdown';
 import { alignOutlineHeadingIds, renderMarkdownUnsafeBlocks, type RenderOptions } from './markdownRendererCore';
 import { highlightCode } from './codeHighlighter';
 

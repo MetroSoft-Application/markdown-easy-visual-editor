@@ -15,7 +15,7 @@ import {
     wordStats,
 } from '../src/shared/markdown';
 import { prepareExportHtml } from '../src/shared/exportHtml';
-import { renderMarkdownUnsafe } from '../src/webview/markdownRendererCore';
+import { renderMarkdownUnsafe } from '../src/webview/markdown/markdownRendererCore';
 
 /**
  * HTML文字列に含まれるspan開始タグの件数を数える。

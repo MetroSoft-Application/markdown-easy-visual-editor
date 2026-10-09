@@ -1,7 +1,7 @@
 /**
  * @fileoverview プレビュー画像のコンテキストメニューを生成し、コピー、リソースを開く、サイズ初期化の操作を仲介する。
  */
-import { getMessages } from "../shared/messages";
+import { getMessages } from "../../shared/messages";
 /**
  * 画像右クリックで開くコンテキストメニューに付ける識別クラス。
  */
@@ -341,8 +341,8 @@ async function prepareClipboardImage(
 async function copyPreparedImage(
     prepared: PreparedClipboardImage,
 ): Promise<boolean> {
-    const clipboard = navigator.clipboard;
-    if (clipboard?.write && typeof ClipboardItem !== "undefined") {
+    const clipboard = navigator.clipboard as Clipboard | undefined;
+    if (clipboard && "write" in clipboard && typeof ClipboardItem !== "undefined") {
         const html = new Blob([prepared.html], { type: "text/html" });
         const markdown = new Blob([prepared.markdown], { type: "text/plain" });
 

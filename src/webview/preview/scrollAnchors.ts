@@ -1,7 +1,7 @@
 /**
  * @fileoverview 本文範囲とプレビュー要素を対応付け、描画更新後のスクロール位置を復元する。
  */
-import { getScrollRatio } from '../shared/scroll';
+import { getScrollRatio } from '../../shared/scroll';
 
 /**
  * プレビューで復元する要素と画面内相対位置です。

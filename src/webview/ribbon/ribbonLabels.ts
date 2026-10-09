@@ -1,7 +1,7 @@
 /**
  * @fileoverview リボン項目IDごとの表示文言をローカライズメッセージから解決する。
  */
-import type { Messages } from "../shared/messages";
+import type { Messages } from "../../shared/messages";
 import type { RibbonLabelSpec } from "./ribbonDefinitionTypes";
 
 /**

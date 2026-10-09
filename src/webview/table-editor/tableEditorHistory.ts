@@ -2,7 +2,7 @@
  * @fileoverview 表編集ドラフトの変更履歴を保持し、上限付きUndo/Redoと新規編集時のRedo破棄を行う。
  */
 import type { TableEditorAlignment, TableEditorSortState } from './tableEditorModel';
-import type { TableGridRange } from '../shared/tableGrid';
+import type { TableGridRange } from '../../shared/tableGrid';
 
 /**
  * 表編集履歴の現在状態または履歴を保持するデータ形状。
