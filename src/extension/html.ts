@@ -14,7 +14,7 @@ import {
     nextHeadingAnchorId,
     WORKSPACE_SECTION_LINK_TITLE
 } from '../shared/markdown';
-import { workspaceRootPathSegments } from './resourceLink';
+import { isDocumentRelativeResourcePath, workspaceRootPathSegments } from './resourceLink';
 import { decodeLocalResourceSource } from './resourceCheck';
 
 /**
@@ -500,13 +500,14 @@ function rewriteLinkTag(
 function resolveLocalFileUri(baseUri: vscode.Uri, source: string, workspaceRooted = false): vscode.Uri | undefined {
     const clean = decodeLocalResourceSource(source);
     if (!clean || isRemoteResource(clean)) return undefined;
-    if (workspaceRooted) {
+    if (workspaceRooted && clean.startsWith('/')) {
         if (baseUri.scheme !== 'file') return undefined;
         const segments = workspaceRootPathSegments(clean);
         const workspaceFolder = vscode.workspace.getWorkspaceFolder(baseUri);
         if (!segments || !workspaceFolder || workspaceFolder.uri.scheme !== 'file') return undefined;
         return vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, ...segments));
     }
+    if (workspaceRooted && !isDocumentRelativeResourcePath(clean)) return undefined;
     if (/^file:/i.test(clean)) {
         try {
             const parsed = vscode.Uri.parse(clean);

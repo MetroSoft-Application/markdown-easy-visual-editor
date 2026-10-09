@@ -42,3 +42,7 @@
 ## 1.2.9
 
 - Added configurable regular-expression search and replacement rules to print settings for PDF previews and PDF/HTML output.
+
+## 1.2.10
+
+- Minor bug fix. 

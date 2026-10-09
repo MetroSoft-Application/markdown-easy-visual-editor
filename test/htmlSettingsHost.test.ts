@@ -1,6 +1,7 @@
 /**
  * @fileoverview Extension HostがHTML出力設定を読み込み、Webviewへ通知し、更新値を保存する経路を検証する。
  */
+import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 /**
@@ -436,6 +437,26 @@ describe('section link clipboard in the extension host', () => {
         expect(activeEditor.selection.start.line).toBe(0);
         expect(activeEditor.revealRange).toHaveBeenCalledOnce();
         expect(vscodeMock.showTextDocument).not.toHaveBeenCalled();
+    });
+
+    it('opens a document-relative section link when the workspace marker remains', async () => {
+        const provider = new MarkdownEasyVisualEditorProvider(createContext());
+        const document = createDocument('file:///workspace/root/sample/03-images.md');
+        document.uri.path = '/workspace/root/sample/03-images.md';
+        vscodeMock.getWorkspaceFolder.mockReturnValue(vscodeMock.workspaceFolder as any);
+        vscodeMock.joinPath.mockImplementationOnce((base: any, ...segments: string[]) =>
+            vscodeMock.file(path.posix.join(base.path, ...segments)));
+
+        await (provider as any).openResource(document, './04-tables.md#gfmテーブル総合確認', true);
+
+        expect(vscodeMock.joinPath).toHaveBeenCalledWith(document.uri, '..', '.', '04-tables.md');
+        expect(vscodeMock.openTextDocument).toHaveBeenCalledOnce();
+        expect((vscodeMock.openTextDocument.mock.calls[0][0] as any).path)
+            .toBe('/workspace/root/sample/04-tables.md');
+        expect(vscodeMock.executeCommand).toHaveBeenCalledWith(
+            'vscode.open',
+            expect.objectContaining({ path: '/workspace/root/sample/04-tables.md' })
+        );
     });
 
     it('sends the LF-normalized heading offset to the active custom editor after it becomes ready', async () => {

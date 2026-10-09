@@ -268,6 +268,32 @@ describe('HTML export',
                 .toBe(`${pathToFileURL(linkedHtmlPath).href}#${exportedFragment ?? ''}`);
         });
 
+        it('exports a document-relative link when the workspace marker remains', async () => {
+            const workspaceRoot = await fs.mkdtemp(path.join(os.tmpdir(), 'markdown-easy-visual-editor-html-'));
+            temporaryDirectories.push(workspaceRoot);
+            const sampleDirectory = path.join(workspaceRoot, 'sample');
+            await fs.mkdir(sampleDirectory, { recursive: true });
+            await fs.writeFile(path.join(sampleDirectory, '04-tables.md'), '# GFMテーブル総合確認\n', 'utf8');
+            vscodeMock.getWorkspaceFolder.mockReturnValue({ uri: new TestUri(workspaceRoot) } as any);
+
+            const markdown = '[GFMテーブル総合確認](./04-tables.md#gfmテーブル総合確認 "MVE workspace-root link")';
+            const target = path.join(sampleDirectory, '03-images.html');
+            vscodeMock.showSaveDialog.mockResolvedValue(new TestUri(target));
+            const result = await exportHtml({
+                markdown,
+                html: renderMarkdownUnsafe(markdown, { remoteImagesEnabled: true, language: 'ja' }),
+                css: '',
+                options: { embedImages: false, convertLinkedMarkdown: true, saveWithoutDialog: false },
+                documentUri: new TestUri(path.join(sampleDirectory, '03-images.md')) as any,
+                language: 'ja'
+            });
+
+            expect(result?.paths).toHaveLength(2);
+            const rootHtml = await fs.readFile(target, 'utf8');
+            expect(rootHtml).toMatch(/href="04-tables\.html#[^"]+"/u);
+            expect(rootHtml).not.toContain('data-mve-workspace-rooted');
+        });
+
         it('converts inline single-quoted and reference-style workspace links to exported HTML', async () => {
             const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markdown-easy-visual-editor-html-'));
             temporaryDirectories.push(directory);

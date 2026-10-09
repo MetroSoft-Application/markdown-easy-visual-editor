@@ -57,7 +57,7 @@ import {
     type HtmlRenderedDocument
 } from './html';
 import { decodeLocalResourceSource, isMissingResourceError } from './resourceCheck';
-import { classifyResourceLink, workspaceRootPathSegments } from './resourceLink';
+import { classifyResourceLink, isDocumentRelativeResourcePath, workspaceRootPathSegments } from './resourceLink';
 import { openHtmlPreview } from './htmlPreview';
 
 
@@ -3054,13 +3054,14 @@ function relativeUriPath(documentUri: vscode.Uri, target: vscode.Uri): string {
  */
 function resolveLocalResourceUri(documentUri: vscode.Uri, source: string, workspaceRooted = false): vscode.Uri | undefined {
     const clean = decodeLocalResourceSource(source);
-    if (workspaceRooted) {
+    if (workspaceRooted && clean.startsWith('/')) {
         const workspaceSegments = workspaceRootPathSegments(clean);
         const workspaceFolder = vscode.workspace.getWorkspaceFolder(documentUri);
         return workspaceSegments && workspaceFolder
             ? vscode.Uri.joinPath(workspaceFolder.uri, ...workspaceSegments)
             : undefined;
     }
+    if (workspaceRooted && !isDocumentRelativeResourcePath(clean)) return undefined;
     if (/^file:/i.test(clean)) return vscode.Uri.parse(clean);
     if (/^[A-Za-z]:[\\/]/.test(clean) && documentUri.scheme === 'file') {
         return vscode.Uri.file(clean.replace(/\\/g, path.sep));

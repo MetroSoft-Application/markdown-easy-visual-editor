@@ -98,6 +98,15 @@ export function workspaceRootPathSegments(source: string): string[] | undefined 
 }
 
 /**
+ * URIスキームや絶対パスを持たない文書相対参照か判定する。
+ * @param source - 復号済みのローカルリソース参照。
+ * @returns 文書の親フォルダーから解決できる参照ならtrue。
+ */
+export function isDocumentRelativeResourcePath(source: string): boolean {
+    return Boolean(source) && !/^(?:[A-Za-z][A-Za-z0-9+.-]*:|[\\/])/u.test(source);
+}
+
+/**
  * resourcelinkの条件を判定する。
  * @param href - 検査するリンク先文字列。
  * @returns 条件が成立したかを示す真偽値。

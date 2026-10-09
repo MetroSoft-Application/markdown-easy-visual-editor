@@ -2,7 +2,12 @@
  * @fileoverview Webview URL、相対リンク、file URI、Windows絶対パスの振り分けとルート外拒否を検証する。
  */
 import { describe, expect, it } from 'vitest';
-import { classifyResourceLink, resolveWebviewResourcePath, workspaceRootPathSegments } from '../src/extension/resourceLink';
+import {
+    classifyResourceLink,
+    isDocumentRelativeResourcePath,
+    resolveWebviewResourcePath,
+    workspaceRootPathSegments
+} from '../src/extension/resourceLink';
 import { collectLocalResourceReferences } from '../src/shared/markdown';
 
 describe('Webview resource links',
@@ -41,6 +46,16 @@ describe('Webview resource links',
             expect(workspaceRootPathSegments('/../../outside.md')).toBeUndefined();
             expect(workspaceRootPathSegments('//server/share.md')).toBeUndefined();
             expect(workspaceRootPathSegments('/E:/docs/setup.md')).toBeUndefined();
+        });
+
+        it('distinguishes document-relative paths from URI and absolute paths', () => {
+            expect(isDocumentRelativeResourcePath('./04-tables.md')).toBe(true);
+            expect(isDocumentRelativeResourcePath('04-tables.md')).toBe(true);
+            expect(isDocumentRelativeResourcePath('../04-tables.md')).toBe(true);
+            expect(isDocumentRelativeResourcePath('file:///E:/docs/04-tables.md')).toBe(false);
+            expect(isDocumentRelativeResourcePath('E:/docs/04-tables.md')).toBe(false);
+            expect(isDocumentRelativeResourcePath('\\\\server\\share\\04-tables.md')).toBe(false);
+            expect(isDocumentRelativeResourcePath('/04-tables.md')).toBe(false);
         });
 
         it('recognizes workspace-rooted links with inline and reference-style title quoting', () => {
