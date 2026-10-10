@@ -45,4 +45,8 @@
 
 ## 1.2.10
 
-- Minor bug fix. 
+- Minor bug fixed.
+
+## 1.2.11
+
+- `Open the current Markdown as a text editor on the right` move its position.. 
