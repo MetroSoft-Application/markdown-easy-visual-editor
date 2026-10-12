@@ -331,6 +331,14 @@
         "openFile": "ファイルを開く",
         "apply": "適用"
       },
+      "imagePreview": {
+        "title": "画像プレビュー",
+        "zoomOut": "画像を縮小",
+        "zoomIn": "画像を拡大",
+        "properties": "画像のプロパティ",
+        "dimensions": "元のサイズ",
+        "fileSize": "ファイルサイズ"
+      },
       "link": {
         "title": "リンクを挿入",
         "url": "URL",
@@ -864,6 +872,14 @@
         "reference": "Reference",
         "openFile": "Open file",
         "apply": "Apply"
+      },
+      "imagePreview": {
+        "title": "Image preview",
+        "zoomOut": "Zoom out image",
+        "zoomIn": "Zoom in image",
+        "properties": "Image properties",
+        "dimensions": "Original dimensions",
+        "fileSize": "File size"
       },
       "link": {
         "title": "Insert link",
@@ -1399,6 +1415,14 @@
         "openFile": "打开文件",
         "apply": "应用"
       },
+      "imagePreview": {
+        "title": "图像预览",
+        "zoomOut": "缩小图像",
+        "zoomIn": "放大图像",
+        "properties": "图像属性",
+        "dimensions": "原始尺寸",
+        "fileSize": "文件大小"
+      },
       "link": {
         "title": "插入链接",
         "url": "URL",
@@ -1932,6 +1956,14 @@
         "reference": "참조",
         "openFile": "파일 열기",
         "apply": "적용"
+      },
+      "imagePreview": {
+        "title": "이미지 미리보기",
+        "zoomOut": "이미지 축소",
+        "zoomIn": "이미지 확대",
+        "properties": "이미지 속성",
+        "dimensions": "원본 크기",
+        "fileSize": "파일 크기"
       },
       "link": {
         "title": "링크 삽입",
@@ -2467,6 +2499,14 @@
         "openFile": "Ouvrir le fichier",
         "apply": "Appliquer"
       },
+      "imagePreview": {
+        "title": "Aperçu de l’image",
+        "zoomOut": "Réduire l’image",
+        "zoomIn": "Agrandir l’image",
+        "properties": "Propriétés de l’image",
+        "dimensions": "Dimensions d’origine",
+        "fileSize": "Taille du fichier"
+      },
       "link": {
         "title": "Insérer un lien",
         "url": "URL",
@@ -3001,6 +3041,14 @@
         "openFile": "Datei öffnen",
         "apply": "Anwenden"
       },
+      "imagePreview": {
+        "title": "Bildvorschau",
+        "zoomOut": "Bild verkleinern",
+        "zoomIn": "Bild vergrößern",
+        "properties": "Bildeigenschaften",
+        "dimensions": "Originalabmessungen",
+        "fileSize": "Dateigröße"
+      },
       "link": {
         "title": "Link einfügen",
         "url": "URL",
@@ -3534,6 +3582,14 @@
         "reference": "Referencia",
         "openFile": "Abrir archivo",
         "apply": "Aplicar"
+      },
+      "imagePreview": {
+        "title": "Vista previa de imagen",
+        "zoomOut": "Alejar imagen",
+        "zoomIn": "Acercar imagen",
+        "properties": "Propiedades de la imagen",
+        "dimensions": "Dimensiones originales",
+        "fileSize": "Tamaño del archivo"
       },
       "link": {
         "title": "Insertar vínculo",

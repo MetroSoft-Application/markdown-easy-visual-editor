@@ -1,7 +1,13 @@
 /**
  * @fileoverview 変換済みMarkdownをDOMへ描画し、画像・リンク・見出し・表の編集操作をプレビューへ接続する。
  */
-import React, { useEffect, useLayoutEffect, useRef, useState } from "react";
+import React, {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+} from "react";
 import type { ImageAlignment } from "../../shared/imageResize";
 import type { MermaidInteraction, WebviewSettings } from "../../shared/protocol";
 import type { Messages } from "../../shared/messages";
@@ -153,6 +159,14 @@ function RenderedMarkdownView({
 }): React.JSX.Element {
   // MarkdownをHTMLへ変換し、Mermaid・画像・リンクの表示後処理を行うプレビューを描画する。
   const rootRef = useRef<HTMLDivElement>(null);
+  const [imagePreview, setImagePreview] = useState<{
+    source: string;
+    alt: string;
+  }>();
+  const closeImagePreview = useCallback(
+    () => setImagePreview(undefined),
+    [],
+  );
   const renderedBlocksRef = useRef<RenderedDomBlock[]>([]);
   const mermaidObjectUrlsRef = useRef(new Set<string>());
   const mermaidRenderControllersRef = useRef(
@@ -888,10 +902,10 @@ function RenderedMarkdownView({
 
   /**
    * Markdownプレビューのイベントまたはメッセージを受け取り、状態を更新する。
-   * @param event - Mermaid・数式・画像のsourceをInspectorで開くdouble-click event。
+   * @param event - Mermaid・数式のsourceをInspectorで開くdouble-click event。
    */
   function onDoubleClick(event: React.MouseEvent<HTMLDivElement>): void {
-    // ダブルクリックされた要素からMermaid・数式・画像の編集対象を特定して通知する。
+    // ダブルクリックされた要素からMermaidまたは数式の編集対象を特定して通知する。
     const target = event.target as HTMLElement;
     const mermaidNode = target.closest<HTMLElement>("[data-mermaid-source]");
     if (mermaidNode) {
@@ -908,16 +922,6 @@ function RenderedMarkdownView({
         source: decodeURIComponent(mathNode.dataset.mathSource ?? ""),
       });
       return;
-    }
-    const image = target.closest<HTMLImageElement>("img[data-original-src]");
-    if (image) {
-      const imageIndex = Number.parseInt(image.dataset.mveImageIndex ?? "", 10);
-      onInspect?.({
-        type: "image",
-        source: image.dataset.originalSrc ?? "",
-        alt: image.alt,
-        imageIndex: Number.isFinite(imageIndex) ? imageIndex : undefined,
-      });
     }
   }
 
@@ -942,6 +946,20 @@ function RenderedMarkdownView({
         () => (copy.textContent = messages.renderer.copy),
         1200,
       );
+      return;
+    }
+    const image = target.closest<HTMLImageElement>("img[data-original-src]");
+    const imageLink = target.closest<HTMLAnchorElement>("a[href]");
+    if (
+      image &&
+      imageZoom !== undefined &&
+      (!imageLink || (!event.ctrlKey && !event.metaKey))
+    ) {
+      event.preventDefault();
+      setImagePreview({
+        source: image.dataset.originalSrc ?? image.src,
+        alt: image.alt,
+      });
       return;
     }
     const anchor = target.closest<HTMLAnchorElement>("a[href]");
@@ -969,22 +987,426 @@ function RenderedMarkdownView({
   }
 
   return (
-    <div
-      ref={rootRef}
-      className={`rendered-markdown ${className}`}
-      data-document-length={markdown.length}
-      data-mve-image-zoom={
-        imageZoom !== undefined ? String(imageZoom) : undefined
-      }
-      style={
-        imageZoom !== undefined
-          ? ({ "--mve-preview-image-zoom": imageZoom } as React.CSSProperties)
-          : undefined
-      }
-      onDoubleClick={onDoubleClick}
-      onClick={onClick}
-    />
+    <>
+      <div
+        ref={rootRef}
+        className={`rendered-markdown ${className}`}
+        data-document-length={markdown.length}
+        data-mve-image-zoom={
+          imageZoom !== undefined ? String(imageZoom) : undefined
+        }
+        style={
+          imageZoom !== undefined
+            ? ({ "--mve-preview-image-zoom": imageZoom } as React.CSSProperties)
+            : undefined
+        }
+        onDoubleClick={onDoubleClick}
+        onClick={onClick}
+      />
+      {imagePreview && (
+        <ImagePreviewDialog
+          source={imagePreview.source}
+          alt={imagePreview.alt}
+          language={settings.language}
+          onClose={closeImagePreview}
+        />
+      )}
+    </>
   );
+}
+
+/**
+ * プレビュー画像をモーダル表示し、表示倍率を変更する。
+ * @param source - 画像の参照先。
+ * @param alt - 画像の代替テキスト。
+ * @param language - 操作ラベルに使う表示言語。
+ * @param onClose - モーダルを閉じる処理。
+ */
+function ImagePreviewDialog({
+  source,
+  alt,
+  language,
+  onClose,
+}: {
+  source: string;
+  alt: string;
+  language: WebviewSettings["language"];
+  onClose: () => void;
+}): React.JSX.Element {
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const panRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    scrollLeft: number;
+    scrollTop: number;
+  }>();
+  const [zoom, setZoom] = useState(1);
+  const [isPanning, setIsPanning] = useState(false);
+  const [stageSize, setStageSize] = useState({ width: 0, height: 0 });
+  const [naturalImageSize, setNaturalImageSize] = useState<
+    { width: number; height: number } | undefined
+  >();
+  const [loadedImageSource, setLoadedImageSource] = useState<
+    { original: string; resourceUrl: string } | undefined
+  >();
+  const [fileSizeBytes, setFileSizeBytes] = useState<number>();
+  const messages = getMessages(language);
+
+  useEffect(
+    () => {
+      const dialog = dialogRef.current;
+      if (dialog && !dialog.open) dialog.showModal();
+      const stage = stageRef.current;
+      const updateStageSize = () => {
+        if (!stage) return;
+        const width = stage.clientWidth;
+        const height = stage.clientHeight;
+        setStageSize((current) =>
+          current.width === width && current.height === height
+            ? current
+            : { width, height },
+        );
+      };
+      updateStageSize();
+      const onWheel = (event: WheelEvent) => {
+        event.stopPropagation();
+        if (
+          !stage ||
+          !(event.target instanceof Node) ||
+          !stage.contains(event.target) ||
+          event.deltaY === 0
+        ) {
+          return;
+        }
+        event.preventDefault();
+        const delta = event.deltaY < 0 ? 0.1 : -0.1;
+        setZoom((current) =>
+          Math.max(0.1, Math.min(3, Math.round((current + delta) * 10) / 10)),
+        );
+      };
+      dialog?.addEventListener("wheel", onWheel, { passive: false });
+      const resizeObserver = stage
+        ? new ResizeObserver(updateStageSize)
+        : undefined;
+      if (stage) resizeObserver?.observe(stage);
+      return () => {
+        resizeObserver?.disconnect();
+        dialog?.removeEventListener("wheel", onWheel);
+        if (dialog?.open) dialog.close();
+      };
+    },
+    [],
+  );
+
+  useEffect(() => {
+    if (!loadedImageSource) return;
+    const controller = new AbortController();
+    setFileSizeBytes(undefined);
+    void readImageFileSize(
+      loadedImageSource.original,
+      loadedImageSource.resourceUrl,
+      controller.signal,
+    ).then((fileSize) => {
+      if (!controller.signal.aborted) setFileSizeBytes(fileSize);
+    });
+    return () => controller.abort();
+  }, [loadedImageSource]);
+
+  const fittedImageSize = (() => {
+    if (
+      !naturalImageSize ||
+      stageSize.width <= 0 ||
+      stageSize.height <= 0
+    ) {
+      return undefined;
+    }
+    const fitScale = Math.min(
+      stageSize.width / naturalImageSize.width,
+      stageSize.height / naturalImageSize.height,
+    );
+    return {
+      width: naturalImageSize.width * fitScale * zoom,
+      height: naturalImageSize.height * fitScale * zoom,
+    };
+  })();
+
+  useLayoutEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    const activePan = panRef.current;
+    if (activePan) {
+      panRef.current = undefined;
+      if (stage.hasPointerCapture(activePan.pointerId)) {
+        stage.releasePointerCapture(activePan.pointerId);
+      }
+      setIsPanning(false);
+    }
+    stage.scrollLeft = (stage.scrollWidth - stage.clientWidth) / 2;
+    stage.scrollTop = (stage.scrollHeight - stage.clientHeight) / 2;
+  }, [
+    naturalImageSize?.height,
+    naturalImageSize?.width,
+    stageSize.height,
+    stageSize.width,
+    zoom,
+  ]);
+
+  /** 画像表示の倍率を10%刻みで変更する。 */
+  function adjustZoom(delta: number): void {
+    setZoom((current) =>
+      Math.max(0.1, Math.min(3, Math.round((current + delta) * 10) / 10)),
+    );
+  }
+
+  /** 拡大された画像の表示領域でパン操作を開始する。 */
+  function startPan(event: React.PointerEvent<HTMLDivElement>): void {
+    const stage = event.currentTarget;
+    if (
+      !event.isPrimary ||
+      event.button !== 0 ||
+      (stage.scrollWidth <= stage.clientWidth &&
+        stage.scrollHeight <= stage.clientHeight)
+    ) {
+      return;
+    }
+    panRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      scrollLeft: stage.scrollLeft,
+      scrollTop: stage.scrollTop,
+    };
+    stage.setPointerCapture(event.pointerId);
+    setIsPanning(true);
+    event.preventDefault();
+  }
+
+  /** ドラッグ量を表示領域のスクロール位置へ反映する。 */
+  function movePan(event: React.PointerEvent<HTMLDivElement>): void {
+    const pan = panRef.current;
+    if (!pan || pan.pointerId !== event.pointerId) return;
+    event.currentTarget.scrollLeft = pan.scrollLeft - (event.clientX - pan.startX);
+    event.currentTarget.scrollTop = pan.scrollTop - (event.clientY - pan.startY);
+  }
+
+  /** ポインター操作の終了時にドラッグ状態を解除する。 */
+  function endPan(event: React.PointerEvent<HTMLDivElement>): void {
+    const pan = panRef.current;
+    if (!pan || pan.pointerId !== event.pointerId) return;
+    panRef.current = undefined;
+    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
+      event.currentTarget.releasePointerCapture(event.pointerId);
+    }
+    setIsPanning(false);
+  }
+
+  return (
+    <dialog
+      ref={dialogRef}
+      className="image-preview-dialog"
+      aria-label={messages.app.imagePreview.title}
+      onClick={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
+    >
+      <header className="image-preview-header">
+        <h2>{messages.app.imagePreview.title}</h2>
+        <div className="image-preview-controls">
+          <button
+            type="button"
+            title={messages.app.imagePreview.zoomOut}
+            aria-label={messages.app.imagePreview.zoomOut}
+            disabled={zoom <= 0.1}
+            onClick={() => adjustZoom(-0.1)}
+          >
+            −
+          </button>
+          <span aria-live="polite">
+            {messages.app.status.zoom(Math.round(zoom * 100))}
+          </span>
+          <button
+            type="button"
+            title={messages.app.imagePreview.zoomIn}
+            aria-label={messages.app.imagePreview.zoomIn}
+            disabled={zoom >= 3}
+            onClick={() => adjustZoom(0.1)}
+          >
+            +
+          </button>
+          <button
+            type="button"
+            className="image-preview-close-button"
+            title={messages.app.close}
+            aria-label={messages.app.close}
+            autoFocus
+            onClick={onClose}
+          >
+            ×
+          </button>
+        </div>
+      </header>
+      <div className="image-preview-body">
+        <div
+          ref={stageRef}
+          className={`image-preview-stage${
+            zoom > 1 ? " is-pannable" : ""
+          }${isPanning ? " is-panning" : ""}`}
+          onPointerDown={startPan}
+          onPointerMove={movePan}
+          onPointerUp={endPan}
+          onPointerCancel={endPan}
+          onLostPointerCapture={endPan}
+        >
+          <div
+            className="image-preview-canvas"
+            style={
+              fittedImageSize
+                ? {
+                    width: `${fittedImageSize.width}px`,
+                    height: `${fittedImageSize.height}px`,
+                  }
+                : undefined
+            }
+          >
+            <img
+              src={source}
+              alt={alt}
+              draggable={false}
+              onLoad={(event) => {
+                const image = event.currentTarget;
+                if (image.naturalWidth > 0 && image.naturalHeight > 0) {
+                  setNaturalImageSize({
+                    width: image.naturalWidth,
+                    height: image.naturalHeight,
+                  });
+                }
+                setLoadedImageSource({
+                  original: source,
+                  resourceUrl: image.currentSrc || image.src,
+                });
+              }}
+            />
+          </div>
+        </div>
+        <aside
+          className="image-preview-properties"
+          aria-label={messages.app.imagePreview.properties}
+        >
+          <h3>{messages.app.imagePreview.properties}</h3>
+          <dl>
+            <div>
+              <dt>{messages.app.inspector.alt}</dt>
+              <dd title={alt}>{alt || "—"}</dd>
+            </div>
+            <div>
+              <dt>{messages.app.inspector.reference}</dt>
+              <dd title={source}>{source}</dd>
+            </div>
+            <div>
+              <dt>{messages.app.imagePreview.dimensions}</dt>
+              <dd>
+                {naturalImageSize
+                  ? `${naturalImageSize.width} × ${naturalImageSize.height} px`
+                  : "—"}
+              </dd>
+            </div>
+            <div>
+              <dt>{messages.app.imagePreview.fileSize}</dt>
+              <dd>
+                {fileSizeBytes !== undefined
+                  ? formatImageFileSize(fileSizeBytes, language)
+                  : "—"}
+              </dd>
+            </div>
+          </dl>
+        </aside>
+      </div>
+    </dialog>
+  );
+}
+
+/**
+ * 画像リソースの取得済みサイズを参照し、ローカル画像はキャッシュから補完する。
+ * @param originalSource - MarkdownまたはHTMLに記述された画像参照先。
+ * @param resourceUrl - ブラウザーで読み込んだ画像リソースのURL。
+ * @param signal - ダイアログ終了時に読み取りを中断するsignal。
+ * @returns 判定できた画像データのバイト数。取得できない場合はundefined。
+ */
+async function readImageFileSize(
+  originalSource: string,
+  resourceUrl: string,
+  signal: AbortSignal,
+): Promise<number | undefined> {
+  let absoluteResourceUrl: string;
+  let originalUrl: URL;
+  let baseUrl: URL;
+  try {
+    absoluteResourceUrl = new URL(resourceUrl, document.baseURI).href;
+    originalUrl = new URL(originalSource, document.baseURI);
+    baseUrl = new URL(document.baseURI);
+  } catch {
+    return undefined;
+  }
+
+  const resourceEntries = performance.getEntriesByName(
+    absoluteResourceUrl,
+    "resource",
+  );
+  const lastEntry = resourceEntries[resourceEntries.length - 1] as
+    | PerformanceResourceTiming
+    | undefined;
+  const measuredSize = lastEntry?.decodedBodySize || lastEntry?.encodedBodySize;
+  if (measuredSize && measuredSize > 0) return measuredSize;
+
+  const isExternalHttpResource =
+    /^https?:$/i.test(originalUrl.protocol) &&
+    originalUrl.origin !== baseUrl.origin;
+  if (isExternalHttpResource) return undefined;
+
+  try {
+    const response = await fetch(absoluteResourceUrl, {
+      cache: "force-cache",
+      credentials: "omit",
+      signal,
+    });
+    if (!response.ok) return undefined;
+    const size = (await response.blob()).size;
+    return size > 0 ? size : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+/**
+ * 画像ファイルのバイト数を読みやすい単位で表示する。
+ * @param bytes - 画像データのバイト数。
+ * @param language - 数値書式に使う表示言語。
+ * @returns B、KB、MB、GBまたはTB単位の文字列。
+ */
+function formatImageFileSize(
+  bytes: number,
+  language: WebviewSettings["language"],
+): string {
+  const units = ["B", "KB", "MB", "GB", "TB"];
+  let amount = bytes;
+  let unitIndex = 0;
+  while (amount >= 1024 && unitIndex < units.length - 1) {
+    amount /= 1024;
+    unitIndex += 1;
+  }
+  const value =
+    unitIndex === 0
+      ? String(Math.round(amount))
+      : new Intl.NumberFormat(language, { maximumFractionDigits: 1 }).format(
+          amount,
+        );
+  return `${value} ${units[unitIndex]}`;
 }
 
 /**

@@ -49,4 +49,8 @@
 
 ## 1.2.11
 
-- `Open the current Markdown as a text editor on the right` move its position.. 
+- `Open the current Markdown as a text editor on the right` move its position.
+
+## 1.2.12
+
+- Added a zoomable, pannable image preview with image details and file size.

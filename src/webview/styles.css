@@ -963,6 +963,10 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     margin: 12px 0;
 }
 
+.rendered-markdown[data-mve-image-zoom] img[data-original-src] {
+    cursor: zoom-in;
+}
+
 .rendered-markdown[data-mve-image-zoom] .mve-image-frame,
 .rendered-markdown[data-mve-image-zoom] img:not([data-mve-enhanced="true"]) {
     zoom: var(--mve-preview-image-zoom, 1);
@@ -1412,6 +1416,150 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     max-width: 100%;
     max-height: 240px;
     object-fit: contain;
+}
+
+.image-preview-dialog {
+    display: flex;
+    flex-direction: column;
+    width: min(96vw, 1280px);
+    height: min(94vh, 900px);
+    max-width: 96vw;
+    max-height: 94vh;
+    margin: auto;
+    padding: 0;
+    overflow: hidden;
+    border: 1px solid var(--mve-border);
+    color: var(--vscode-foreground);
+    background: var(--mve-panel);
+    box-shadow: 0 12px 40px rgb(0 0 0 / 45%);
+}
+
+.image-preview-dialog:not([open]) {
+    display: none;
+}
+
+.image-preview-dialog::backdrop {
+    background: rgb(0 0 0 / 72%);
+}
+
+.image-preview-header {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--mve-border);
+}
+
+.image-preview-header h2 {
+    margin: 0;
+    font-size: 14px;
+    font-weight: 600;
+}
+
+.image-preview-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.image-preview-controls span {
+    min-width: 76px;
+    text-align: center;
+    color: var(--vscode-descriptionForeground);
+}
+
+.image-preview-close-button {
+    margin-left: 8px;
+    border: 0;
+    background: transparent;
+    font-size: 22px;
+}
+
+.image-preview-body {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+}
+
+.image-preview-stage {
+    display: flex;
+    flex: 1 1 auto;
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+    overscroll-behavior: contain;
+    background: var(--vscode-editor-background);
+}
+
+.image-preview-properties {
+    flex: 0 0 clamp(180px, 24vw, 280px);
+    min-width: 0;
+    min-height: 0;
+    overflow: auto;
+    padding: 12px;
+    border-left: 1px solid var(--mve-border);
+    background: var(--mve-panel);
+}
+
+.image-preview-properties h3 {
+    margin: 0 0 12px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.image-preview-properties dl {
+    display: grid;
+    gap: 12px;
+    margin: 0;
+}
+
+.image-preview-properties dt {
+    margin-bottom: 4px;
+    color: var(--vscode-descriptionForeground);
+    font-size: 12px;
+}
+
+.image-preview-properties dd {
+    margin: 0;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+}
+
+.image-preview-stage.is-pannable {
+    cursor: grab;
+    touch-action: none;
+    user-select: none;
+}
+
+.image-preview-stage.is-panning {
+    cursor: grabbing;
+}
+
+.image-preview-canvas {
+    display: flex;
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    margin: auto;
+}
+
+.image-preview-canvas img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    max-width: none;
+    max-height: none;
+    object-fit: contain;
+}
+
+@media (max-width: 560px) {
+    .image-preview-properties {
+        flex-basis: 150px;
+        padding: 8px;
+    }
 }
 
 .inspector-panel label,

@@ -8586,7 +8586,7 @@ function clampOutlineWidth(value: number): number {
 
  */
 function clampZoom(value: number): number {
-  return Math.max(0.7, Math.min(1.6, Math.round(value * 10) / 10));
+  return Math.max(0.1, Math.min(3.0, Math.round(value * 10) / 10));
 }
 
 /**

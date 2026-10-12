@@ -1213,7 +1213,23 @@ export interface Messages {
             /**
              * 表示項目「apply」の文言として表示するローカライズ済み文言。
              */
-            apply: string
+            apply: string;
+        };
+
+        /** 画像プレビューダイアログの見出しと操作文言をまとめる。 */
+        imagePreview: {
+            /** ダイアログの見出し。 */
+            title: string;
+            /** 画像プレビューの縮小操作のラベル。 */
+            zoomOut: string;
+            /** 画像プレビューの拡大操作のラベル。 */
+            zoomIn: string;
+            /** 画像プレビューのプロパティ領域の見出し。 */
+            properties: string;
+            /** 画像の元サイズを示すラベル。 */
+            dimensions: string;
+            /** 画像ファイルのデータサイズを示すラベル。 */
+            fileSize: string;
         };
 
         /** リンク編集欄に表示するラベルと説明をまとめる。 */
@@ -2271,6 +2287,7 @@ function createMessages(language: SupportedLanguage): Messages {
                 synced: raw.app.status.synced
             },
             inspector: raw.app.inspector,
+            imagePreview: raw.app.imagePreview,
             link: raw.app.link,
             previewImageContextMenu: raw.app.previewImageContextMenu,
             textColor: raw.app.textColor,
