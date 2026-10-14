@@ -28,9 +28,15 @@ interface PreparedClipboardImage {
     type: string;
 
     /**
-     * クリップボードへ書き込む画像データ。
+     * 元形式を保持した画像データ。
      */
     blob: Blob;
+
+    /**
+     * OSクリップボードへ確実に残すためのPNG画像データ。
+     * PNG化できない形式ではundefinedとし、元形式またはHTML表現へフォールバックする。
+     */
+    clipboardPngBlob?: Blob;
 
     /**
      * プレビュー画像メニューで読み書きするリソースの場所。
@@ -322,15 +328,64 @@ async function prepareClipboardImage(
     if (!originalBlob.size) throw new Error("Image data is empty.");
 
     const dataUrl = await blobToDataUrl(originalBlob, type);
+    const clipboardPngBlob = await createClipboardPngBlob(originalBlob, type);
     const alt = image.getAttribute("alt") ?? "";
     return {
         source,
         type,
         blob: originalBlob,
+        clipboardPngBlob,
         dataUrl,
         html: `<img src="${escapeHtmlAttribute(dataUrl)}" alt="${escapeHtmlAttribute(alt)}" data-mve-original-src="${escapeHtmlAttribute(source)}">`,
         markdown: `![${escapeMarkdownAlt(alt)}](${dataUrl})`,
     };
+}
+
+/**
+ * 元画像BlobをOSクリップボード向けPNGへ変換する。
+ * 元画像がPNGなら再エンコードせず同じBlobを使う。
+ * @param blob - 元形式を保持した画像Blob。
+ * @param type - 元画像の正規化済みMIMEタイプ。
+ * @returns PNGのBlob。ブラウザーが変換できない形式ではundefined。
+ */
+async function createClipboardPngBlob(
+    blob: Blob,
+    type: string,
+): Promise<Blob | undefined> {
+    if (normalizeMimeType(type) === "image/png") return blob;
+
+    let bitmap: ImageBitmap | undefined;
+    try {
+        bitmap = await createImageBitmap(blob);
+        const canvas = document.createElement("canvas");
+        canvas.width = Math.max(1, bitmap.width);
+        canvas.height = Math.max(1, bitmap.height);
+        const context = canvas.getContext("2d");
+        if (!context) return undefined;
+        context.drawImage(bitmap, 0, 0);
+        return await new Promise<Blob | undefined>(
+            /**
+             * CanvasのPNG変換結果を呼び出し側へ返す。
+             * @param resolve - PNG Blobまたは変換失敗を通知する関数。
+             */
+            (resolve) => canvas.toBlob(
+                /**
+                 * Canvasが生成したPNG Blobを返す。
+                 * @param value - PNG変換結果。失敗時はnull。
+                 */
+                (value) => resolve(value && value.size ? value : undefined),
+                "image/png",
+            ),
+        );
+    } catch (error) {
+        console.warn(
+            "[Markdown Easy Visual Editor] Could not create persistent PNG clipboard representation.",
+            error,
+        );
+        return undefined;
+    } finally {
+        bitmap?.close();
+    }
 }
 
 /**
@@ -345,6 +400,27 @@ async function copyPreparedImage(
     if (clipboard && "write" in clipboard && typeof ClipboardItem !== "undefined") {
         const html = new Blob([prepared.html], { type: "text/html" });
         const markdown = new Blob([prepared.markdown], { type: "text/plain" });
+
+        // Chromium/ElectronのOSクリップボードではimage/pngが最も安定して永続化される。
+        // 元形式はHTML内のdata URLにも保持し、MVE間貼り付けではそちらから復元する。
+        if (prepared.clipboardPngBlob && clipboardSupportsType("image/png")) {
+            try {
+                await writeClipboardWithFocusRetry(
+                    clipboard,
+                    new ClipboardItem({
+                        "image/png": prepared.clipboardPngBlob,
+                        "text/html": html,
+                        "text/plain": markdown,
+                    }),
+                );
+                return true;
+            } catch (pngError) {
+                console.warn(
+                    "[Markdown Easy Visual Editor] PNG clipboard write with original-image fallback representations failed.",
+                    pngError,
+                );
+            }
+        }
 
         if (clipboardSupportsType(prepared.type)) {
             try {
