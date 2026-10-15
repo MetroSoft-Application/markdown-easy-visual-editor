@@ -74,9 +74,9 @@ const MAX_ROWS = 50;
 const MAX_COLUMNS = 20;
 
 /**
- * 表編集列幅の下限。
+ * 手動リサイズで許可する列幅の下限。
  */
-const MIN_COLUMN_WIDTH = TABLE_EDITOR_MIN_COLUMN_WIDTH;
+const MIN_COLUMN_RESIZE_WIDTH = 48;
 
 /**
  * 自動調整で採用する列幅の上限。
@@ -128,10 +128,6 @@ const MIN_TEXTAREA_HEIGHT = 34;
  */
 const AUTO_FIT_ROW_VERTICAL_BUFFER = 4;
 /**
- * 行高ハンドルのクリックとドラッグを区別する移動量。
- */
-const ROW_RESIZE_CLICK_MOVEMENT_THRESHOLD = 3;
-/**
  * 表編集オーバーレイで一時生成物または検証対象を置くディレクトリ。
  */
 let overlayRoot: Root | undefined;
@@ -170,10 +166,6 @@ type ColumnResizeState = {
    */
   startWidth: number;
 
-  /**
-   * 表編集オーバーレイのmovedを切り替えるフラグ。
-   */
-  moved: boolean;
 };
 /**
  * 表編集オーバーレイの現在状態または履歴を保持するデータ形状。
@@ -195,10 +187,6 @@ type RowResizeState = {
    */
   startHeight: number;
 
-  /**
-   * 表編集オーバーレイのmovedを切り替えるフラグ。
-   */
-  moved: boolean;
 };
 /**
  * 表編集オーバーレイで扱う値の種類と境界を表す型。
@@ -750,9 +738,8 @@ function TableEditorOverlay(props: {
        */ (event: MouseEvent) => {
         const resize = columnResizeRef.current;
         if (!resize) return;
-        if (event.clientX !== resize.startX) resize.moved = true;
         const width = Math.max(
-          MIN_COLUMN_WIDTH,
+          MIN_COLUMN_RESIZE_WIDTH,
           Math.round(resize.startWidth + event.clientX - resize.startX),
         );
         setColumnWidths(
@@ -869,12 +856,6 @@ function TableEditorOverlay(props: {
         }
         const rowResize = rowResizeRef.current;
         if (!rowResize || event.pointerId !== rowResize.pointerId) return;
-        if (
-          Math.abs(event.clientY - rowResize.startY) >
-          ROW_RESIZE_CLICK_MOVEMENT_THRESHOLD
-        ) {
-          rowResize.moved = true;
-        }
         const height = Math.max(
           MIN_ROW_HEIGHT,
           Math.round(rowResize.startHeight + event.clientY - rowResize.startY),
@@ -1626,7 +1607,6 @@ function TableEditorOverlay(props: {
       column,
       startX: event.clientX,
       startWidth: columnWidths[column] ?? DEFAULT_COLUMN_WIDTH,
-      moved: false,
     };
     document.body.style.cursor = "col-resize";
     document.body.style.userSelect = "none";
@@ -1691,7 +1671,7 @@ function TableEditorOverlay(props: {
       ),
       measure,
       horizontalChrome,
-      MIN_COLUMN_WIDTH,
+      TABLE_EDITOR_MIN_COLUMN_WIDTH,
       MAX_AUTO_COLUMN_WIDTH,
     );
     setColumnWidths(
@@ -1709,22 +1689,27 @@ function TableEditorOverlay(props: {
   }
 
   /**
-   * 列幅がドラッグで変わらなかった場合に列内容へ自動フィットする。
-   * @param event - ドラッグされなかった列リサイズハンドルのmouseup event。
-   * @param column - セル操作の対象となる表列インデックス。
+   * 列境界のダブルクリックで、選択中の列を内容へ自動フィットする。
+   * @param event - 列リサイズハンドルのdoubleclick event。
+   * @param column - 全列選択でない場合に自動フィットする表列インデックス。
    */
-  function autoFitColumnOnMouseUp(
+  function autoFitColumnOnDoubleClick(
     event: React.MouseEvent<HTMLDivElement>,
     column: number,
   ): void {
-    const resize = columnResizeRef.current;
-    if (!resize || resize.column !== column || resize.moved) return;
     event.preventDefault();
-    autoFitColumn(column);
+    event.stopPropagation();
+    const columnsToAutoFit =
+      selectionKind === "all"
+        ? Array.from({ length: columnCount }, (_, index) => index)
+        : [column];
+    for (const selectedColumn of columnsToAutoFit) {
+      autoFitColumn(selectedColumn);
+    }
   }
 
   /**
-   * 列リサイズハンドルの左右矢印キーで列幅を調整する。
+   * 列リサイズハンドルの左右矢印キーで対象列の幅を調整する。
    * @param event - 列リサイズハンドルの矢印キーによる幅調整keydown event。
    * @param column - セル操作の対象となる表列インデックス。
    */
@@ -1743,7 +1728,10 @@ function TableEditorOverlay(props: {
       (previous) => {
         const next = previous.slice();
         while (next.length <= column) next.push(DEFAULT_COLUMN_WIDTH);
-        next[column] = Math.max(MIN_COLUMN_WIDTH, next[column] + delta);
+        next[column] = Math.max(
+          MIN_COLUMN_RESIZE_WIDTH,
+          next[column] + delta,
+        );
         return next;
       },
     );
@@ -1770,7 +1758,6 @@ function TableEditorOverlay(props: {
       startHeight:
         rowHeights[row] ??
         Math.round(rowElement.getBoundingClientRect().height),
-      moved: false,
     };
     document.body.style.cursor = "row-resize";
     document.body.style.userSelect = "none";
@@ -1835,26 +1822,23 @@ function TableEditorOverlay(props: {
   }
 
   /**
-   * 行高がドラッグで変わらなかった場合にセル内容へ自動フィットする。
-   * @param event - 行リサイズ終了時にauto-fitを判定するpointerup event。
-   * @param row - セル操作の対象となる表行インデックス。
+   * 行境界のダブルクリックで、選択中の行をセル内容へ自動フィットする。
+   * @param event - 行リサイズハンドルのdoubleclick event。
+   * @param row - 全行選択でない場合に自動フィットする表行インデックス。
    */
-  function autoFitRowOnPointerUp(
-    event: React.PointerEvent<HTMLDivElement>,
+  function autoFitRowOnDoubleClick(
+    event: React.MouseEvent<HTMLDivElement>,
     row: number,
   ): void {
-    const resize = rowResizeRef.current;
-    if (
-      !resize ||
-      resize.row !== row ||
-      resize.pointerId !== event.pointerId ||
-      resize.moved ||
-      event.type === "pointercancel"
-    ) {
-      return;
-    }
     event.preventDefault();
-    autoFitRow(row);
+    event.stopPropagation();
+    const rowsToAutoFit =
+      selectionKind === "all"
+        ? Array.from({ length: rows.length }, (_, index) => index)
+        : [row];
+    for (const selectedRow of rowsToAutoFit) {
+      autoFitRow(selectedRow);
+    }
   }
 
   /**
@@ -2906,7 +2890,7 @@ function TableEditorOverlay(props: {
       <div className="mve-table-editor-grid-wrap">
         <table
           className="mve-table-editor-grid"
-          style={{ width: `${gridWidth}px`, minWidth: "100%" }}
+          style={{ width: `${gridWidth}px` }}
         >
           <colgroup>
             <col style={{ width: `${ROW_HEADER_WIDTH}px` }} />
@@ -3176,11 +3160,17 @@ function TableEditorOverlay(props: {
                          */
                         (event) => startRowResize(event, rowIndex)
                       }
-                      onPointerUp={
+                      onClick={
                         /**
-                         * @param event - 行リサイズ終了時にauto-fitを判定するpointerup event。
+                         * @param event - 行境界クリックから行選択へ伝播するのを防ぐevent。
                          */
-                        (event) => autoFitRowOnPointerUp(event, rowIndex)
+                        (event) => event.stopPropagation()
+                      }
+                      onDoubleClick={
+                        /**
+                         * @param event - 行境界のダブルクリックで選択行をauto-fitするevent。
+                         */
+                        (event) => autoFitRowOnDoubleClick(event, rowIndex)
                       }
                       onKeyDown={
                         /**
@@ -3325,7 +3315,7 @@ function TableEditorOverlay(props: {
                               tabIndex={0}
                               aria-orientation="vertical"
                               aria-label={`${messages.app.tableEditor.resizeColumn} ${columnIndex + 1}`}
-                              aria-valuemin={MIN_COLUMN_WIDTH}
+                              aria-valuemin={MIN_COLUMN_RESIZE_WIDTH}
                               aria-valuenow={Math.round(
                                 columnWidths[columnIndex] ??
                                   DEFAULT_COLUMN_WIDTH,
@@ -3337,12 +3327,12 @@ function TableEditorOverlay(props: {
                                  */
                                 (event) => startColumnResize(event, columnIndex)
                               }
-                              onMouseUp={
+                              onDoubleClick={
                                 /**
-                                 * @param event - 列リサイズ終了時のmouseupでauto-fitを判定するevent。
+                                 * @param event - 列境界のダブルクリックで選択列をauto-fitするevent。
                                  */
                                 (event) =>
-                                  autoFitColumnOnMouseUp(event, columnIndex)
+                                  autoFitColumnOnDoubleClick(event, columnIndex)
                               }
                               onKeyDown={
                                 /**

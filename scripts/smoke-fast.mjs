@@ -1146,10 +1146,51 @@ try {
   if (tableColumnStateAfter !== tableColumnStateBefore + 48 || tableColumnAfter <= tableColumnBefore) {
     throw new Error(`table editor column did not resize: state=${tableColumnStateBefore}->${tableColumnStateAfter}, rendered=${tableColumnBefore}->${tableColumnAfter}`);
   }
+  await page.locator('[data-table-cell="1:0"]').fill('short');
+  await page.locator('[data-table-cell="1:1"]').fill('wide content '.repeat(12));
+  await page.locator('.mve-table-editor-corner').click();
+  const allColumnWidthsBeforeAutoFit = await page.locator('.mve-table-editor-column-resizer').evaluateAll(
+    (resizers) => resizers.map((resizer) => Number(resizer.getAttribute('aria-valuenow'))),
+  );
+  const allColumnResizeBounds = await columnResizer.boundingBox();
+  if (!allColumnResizeBounds) throw new Error('table editor column resizer has no bounds after selecting all cells');
+  const allColumnResizeX = allColumnResizeBounds.x + allColumnResizeBounds.width / 2;
+  const allColumnResizeY = allColumnResizeBounds.y + allColumnResizeBounds.height / 2;
+  await page.mouse.move(allColumnResizeX, allColumnResizeY);
+  await page.mouse.down();
+  await page.mouse.move(allColumnResizeX + 24, allColumnResizeY, { steps: 4 });
+  await page.mouse.up();
+  await page.waitForFunction((width) =>
+    Number(document.querySelector('.mve-table-editor-column-resizer')?.getAttribute('aria-valuenow')) > width,
+  allColumnWidthsBeforeAutoFit[0]);
+  const allColumnWidthsAfterDrag = await page.locator('.mve-table-editor-column-resizer').evaluateAll(
+    (resizers) => resizers.map((resizer) => Number(resizer.getAttribute('aria-valuenow'))),
+  );
+  if (allColumnWidthsAfterDrag[0] <= allColumnWidthsBeforeAutoFit[0]
+    || allColumnWidthsAfterDrag[1] !== allColumnWidthsBeforeAutoFit[1]) {
+    throw new Error(`table editor drag with select-all changed columns together: before=${JSON.stringify(allColumnWidthsBeforeAutoFit)}, after=${JSON.stringify(allColumnWidthsAfterDrag)}`);
+  }
+  await columnResizer.dblclick();
+  await page.waitForFunction((before) => {
+    const widths = Array.from(document.querySelectorAll('.mve-table-editor-column-resizer'),
+      (resizer) => Number(resizer.getAttribute('aria-valuenow')));
+    return widths.length === before.length
+      && widths[0] < before[0]
+      && widths[1] > before[1];
+  }, allColumnWidthsAfterDrag);
+  const allColumnWidthsAfterAutoFit = await page.locator('.mve-table-editor-column-resizer').evaluateAll(
+    (resizers) => resizers.map((resizer) => Number(resizer.getAttribute('aria-valuenow'))),
+  );
+  if (allColumnWidthsAfterAutoFit.length !== allColumnWidthsAfterDrag.length
+    || allColumnWidthsAfterAutoFit[0] >= allColumnWidthsAfterDrag[0]
+    || allColumnWidthsAfterAutoFit[1] <= allColumnWidthsAfterDrag[1]
+    || allColumnWidthsAfterAutoFit[0] === allColumnWidthsAfterAutoFit[1]) {
+    throw new Error(`table editor select-all double-click did not auto-fit columns individually: before=${JSON.stringify(allColumnWidthsAfterDrag)}, after=${JSON.stringify(allColumnWidthsAfterAutoFit)}`);
+  }
   const autoFitCell = page.locator('[data-table-cell="1:0"]');
   await autoFitCell.fill('auto fit content '.repeat(10));
   const autoFitColumnBefore = Number(await columnResizer.getAttribute('aria-valuenow'));
-  await columnResizer.click();
+  await columnResizer.dblclick();
   await page.waitForFunction(
   /**
    * ブラウザー内に「.mve-table-editor-column-resizer」が現れるまで待機する。
@@ -1179,18 +1220,22 @@ try {
     throw new Error(`table editor column width changed after auto-fit without a pressed pointer: ${autoFitColumnAfter}->${autoFitColumnAfterIdlePointerMove}`);
   }
   const rowResizer = page.locator('.mve-table-editor-row-resizer').nth(1);
-  const rowHeightBefore = Number(await rowResizer.getAttribute('aria-valuenow'));
-  await autoFitCell.fill('line one<br>line two');
-  await rowResizer.click();
-  await page.waitForFunction(
-  /**
-   * ブラウザー内に「.mve-table-editor-row-resizer」が現れるまで待機する。
-   * @param before - Auto-fit前に設定されている行高（aria-valuenow）。
-   */
-  (before) => Number(document.querySelectorAll('.mve-table-editor-row-resizer')[1]?.getAttribute('aria-valuenow')) > before, rowHeightBefore);
+  await autoFitCell.fill('line one\nline two\nline three');
+  const rowHeightBeforeAutoFit = Number(await rowResizer.getAttribute('aria-valuenow'));
+  for (let step = 0; step < 8; step += 1) {
+    await rowResizer.press('ArrowDown');
+  }
+  const expandedRowHeight = Number(await rowResizer.getAttribute('aria-valuenow'));
+  if (expandedRowHeight <= rowHeightBeforeAutoFit) {
+    throw new Error(`table editor row keyboard resize did not expand before auto-fit: ${rowHeightBeforeAutoFit}->${expandedRowHeight}`);
+  }
+  await rowResizer.dblclick();
+  await page.waitForFunction((height) =>
+    Number(document.querySelectorAll('.mve-table-editor-row-resizer')[1]?.getAttribute('aria-valuenow')) < height,
+  expandedRowHeight);
   const rowHeightAfter = Number(await rowResizer.getAttribute('aria-valuenow'));
-  if (rowHeightAfter <= rowHeightBefore) {
-    throw new Error(`table editor row auto-fit did not apply: state=${rowHeightBefore}->${rowHeightAfter}`);
+  if (rowHeightAfter >= expandedRowHeight) {
+    throw new Error(`table editor row double-click did not auto-fit: state=${expandedRowHeight}->${rowHeightAfter}`);
   }
   const pointerStylesAfterAutoFit = await page.evaluate(() => ({
     cursor: document.body.style.cursor,
@@ -1224,42 +1269,55 @@ try {
   if (autoFitRowMetrics.scrollHeight > autoFitRowMetrics.clientHeight) {
     throw new Error(`table editor auto-fit row is clipped: ${JSON.stringify(autoFitRowMetrics)}`);
   }
-  for (let step = 0; step < 8; step += 1) {
-    await rowResizer.press('ArrowDown');
+
+  const allRowResizers = page.locator('.mve-table-editor-row-resizer');
+  for (let rowIndex = 0; rowIndex < await allRowResizers.count(); rowIndex += 1) {
+    for (let step = 0; step < 6; step += 1) {
+      await allRowResizers.nth(rowIndex).press('ArrowDown');
+    }
   }
-  const expandedRowHeight = Number(await rowResizer.getAttribute('aria-valuenow'));
-  if (expandedRowHeight <= rowHeightAfter) {
-    throw new Error(`table editor row did not expand before auto-fit: ${rowHeightAfter}->${expandedRowHeight}`);
+  const allRowHeightsBeforeAutoFit = await allRowResizers.evaluateAll(
+    (resizers) => resizers.map((resizer) => Number(resizer.getAttribute('aria-valuenow'))),
+  );
+  await page.locator('.mve-table-editor-corner').click();
+  await rowResizer.dblclick();
+  await page.waitForFunction((before) => {
+    const heights = Array.from(document.querySelectorAll('.mve-table-editor-row-resizer'),
+      (resizer) => Number(resizer.getAttribute('aria-valuenow')));
+    return heights.length === before.length
+      && heights.some((height, index) => height < before[index]);
+  }, allRowHeightsBeforeAutoFit).catch(async () => {
+    const currentHeights = await allRowResizers.evaluateAll(
+      (resizers) => resizers.map((resizer) => Number(resizer.getAttribute('aria-valuenow'))),
+    );
+    throw new Error(`table editor select-all double-click did not trigger row auto-fit: before=${JSON.stringify(allRowHeightsBeforeAutoFit)}, after=${JSON.stringify(currentHeights)}`);
+  });
+  const allRowHeightsAfterAutoFit = await allRowResizers.evaluateAll(
+    (resizers) => resizers.map((resizer) => Number(resizer.getAttribute('aria-valuenow'))),
+  );
+  if (allRowHeightsAfterAutoFit.length !== allRowHeightsBeforeAutoFit.length
+    || allRowHeightsAfterAutoFit.some((height, index) => height >= allRowHeightsBeforeAutoFit[index])
+    || allRowHeightsAfterAutoFit[1] <= allRowHeightsAfterAutoFit[0]) {
+    throw new Error(`table editor select-all double-click did not auto-fit rows individually: before=${JSON.stringify(allRowHeightsBeforeAutoFit)}, after=${JSON.stringify(allRowHeightsAfterAutoFit)}`);
   }
-  await rowResizer.click();
-  await page.waitForFunction((height) =>
-    Number(document.querySelectorAll('.mve-table-editor-row-resizer')[1]?.getAttribute('aria-valuenow')) < height,
-  expandedRowHeight);
-  const refitRowHeight = Number(await rowResizer.getAttribute('aria-valuenow'));
-  if (refitRowHeight >= expandedRowHeight) {
-    throw new Error(`table editor row click did not shrink to its content: ${expandedRowHeight}->${refitRowHeight}`);
+  const allAutoFitRowMetrics = await page.locator('.mve-table-editor-grid tbody tr').evaluateAll(
+    (tableRows) => tableRows.flatMap((tableRow) => Array.from(tableRow.querySelectorAll('textarea'),
+      (cell) => ({ value: cell.value, scrollHeight: cell.scrollHeight, clientHeight: cell.clientHeight }))),
+  );
+  if (allAutoFitRowMetrics.some((metrics) => metrics.scrollHeight > metrics.clientHeight)) {
+    throw new Error(`table editor select-all auto-fit left a clipped row: ${JSON.stringify(allAutoFitRowMetrics)}`);
   }
-  for (let step = 0; step < 3; step += 1) {
-    await rowResizer.press('ArrowDown');
-  }
-  const jitterClickStartHeight = Number(await rowResizer.getAttribute('aria-valuenow'));
+
+  const rowHeightsBeforeDrag = await allRowResizers.evaluateAll(
+    (resizers) => resizers.map((resizer) => Number(resizer.getAttribute('aria-valuenow'))),
+  );
   const rowResizerBounds = await rowResizer.boundingBox();
   if (!rowResizerBounds) throw new Error('table editor row resizer has no visible bounds');
   const resizerCenterX = rowResizerBounds.x + rowResizerBounds.width / 2;
   const resizerCenterY = rowResizerBounds.y + rowResizerBounds.height / 2;
-  await page.mouse.move(resizerCenterX, resizerCenterY);
-  await page.mouse.down();
-  await page.mouse.move(resizerCenterX, resizerCenterY + 1);
-  await page.mouse.up();
-  await page.waitForFunction((height) =>
-    Number(document.querySelectorAll('.mve-table-editor-row-resizer')[1]?.getAttribute('aria-valuenow')) < height,
-  jitterClickStartHeight);
-  const jitterClickRefitHeight = Number(await rowResizer.getAttribute('aria-valuenow'));
-  const dragStartBounds = await rowResizer.boundingBox();
-  if (!dragStartBounds) throw new Error('table editor row resizer lost its bounds after auto-fit');
-  const dragStartHeight = jitterClickRefitHeight;
-  const dragX = dragStartBounds.x + dragStartBounds.width / 2;
-  const dragY = dragStartBounds.y + dragStartBounds.height / 2;
+  const dragStartHeight = Number(await rowResizer.getAttribute('aria-valuenow'));
+  const dragX = rowResizerBounds.x + rowResizerBounds.width / 2;
+  const dragY = rowResizerBounds.y + rowResizerBounds.height / 2;
   await page.mouse.move(dragX, dragY);
   await page.mouse.down();
   await page.mouse.move(dragX, dragY + 24);
@@ -1267,6 +1325,13 @@ try {
   await page.waitForFunction((height) =>
     Number(document.querySelectorAll('.mve-table-editor-row-resizer')[1]?.getAttribute('aria-valuenow')) >= height + 20,
   dragStartHeight);
+  const rowHeightsAfterDrag = await allRowResizers.evaluateAll(
+    (resizers) => resizers.map((resizer) => Number(resizer.getAttribute('aria-valuenow'))),
+  );
+  if (rowHeightsAfterDrag.length !== rowHeightsBeforeDrag.length
+    || rowHeightsAfterDrag.some((height, index) => index !== 1 && height !== rowHeightsBeforeDrag[index])) {
+    throw new Error(`table editor row drag changed other rows: before=${JSON.stringify(rowHeightsBeforeDrag)}, after=${JSON.stringify(rowHeightsAfterDrag)}`);
+  }
   page.once('dialog',
   /**
    * @param dialog - スモーク検証・高速へ渡す入力。

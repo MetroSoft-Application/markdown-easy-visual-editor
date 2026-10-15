@@ -95,20 +95,31 @@ export function readPreservedImagePaste(
 ): PreservedImagePaste | undefined {
     if (!clipboard) return undefined;
     const html = clipboard.getData("text/html");
-    if (!html) return undefined;
+    const plainText = clipboard.getData("text/plain");
 
-    const documentNode = new DOMParser().parseFromString(html, "text/html");
-    const image = Array.from(documentNode.querySelectorAll<HTMLImageElement>("img")).find(
+    let dataUrl = "";
+    let originalSource = "";
 
-        (candidate) => /^data:image\//i.test(candidate.getAttribute("src")?.trim() ?? ""),
-    );
-    if (!image) return undefined;
+    if (html) {
+        const documentNode = new DOMParser().parseFromString(html, "text/html");
+        const image = Array.from(documentNode.querySelectorAll<HTMLImageElement>("img")).find(
 
-    const dataUrl = image.getAttribute("src")?.trim() ?? "";
+            (candidate) => /^data:image\//i.test(candidate.getAttribute("src")?.trim() ?? ""),
+        );
+        if (image) {
+            dataUrl = image.getAttribute("src")?.trim() ?? "";
+            originalSource = image.getAttribute("data-mve-original-src") ?? "";
+        }
+    }
+
+    // Webviewを切り替えた際にChromiumがtext/htmlを落としても、
+    // コピー時に併記したMarkdown data URLから元画像を復元する。
+    if (!dataUrl) dataUrl = extractMarkdownImageDataUrl(plainText) ?? "";
+    if (!dataUrl) return undefined;
+
     const parsed = decodeImageDataUrl(dataUrl);
     if (!parsed) return undefined;
 
-    const originalSource = image.getAttribute("data-mve-original-src") ?? "";
     const extension =
         imageExtensionFromSource(originalSource) ?? extensionForImageMime(parsed.type);
 
@@ -122,6 +133,19 @@ export function readPreservedImagePaste(
             type: fileType,
         }),
     };
+}
+
+/**
+ * コピー時のtext/plain表現から画像data URLだけを取り出す。
+ * 文全体が単一のMarkdown画像である場合に限定し、通常テキストを誤って画像化しない。
+ * @param value - クリップボードのtext/plain内容。
+ * @returns Markdown画像が埋め込むdata URL。対象外ならundefined。
+ */
+export function extractMarkdownImageDataUrl(value: string): string | undefined {
+    const match = /^!\[(?:\\.|[^\]])*\]\((data:image\/[a-z0-9.+-]+;base64,[A-Za-z0-9+/=\s]+)\)\s*$/i.exec(
+        value.trim(),
+    );
+    return match?.[1];
 }
 
 /**
