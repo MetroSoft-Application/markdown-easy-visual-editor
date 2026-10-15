@@ -54,3 +54,8 @@
 ## 1.2.12
 
 - Added a zoomable, pannable image preview with image details and file size.
+
+## 1.2.13
+
+- Fixed the column width adjustment feature.
+- Fixed the row height adjustment feature.
