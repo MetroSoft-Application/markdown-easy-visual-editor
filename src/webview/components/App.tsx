@@ -654,6 +654,7 @@ export function App(): React.JSX.Element {
   const scrollSyncEnabled = settings.scrollSyncEnabled !== false;
   const scrollSyncEnabledRef = useRef(scrollSyncEnabled);
   scrollSyncEnabledRef.current = scrollSyncEnabled;
+  const [exportStageRequested, setExportStageRequested] = useState(false);
   const previewVisible =
     mode === "preview" || (mode === "split" && splitView !== "text");
   const hasMarpFrontMatterCandidateValue = useMemo(
@@ -663,17 +664,30 @@ export function App(): React.JSX.Element {
   const [isMarpDetected, setIsMarpDetected] = useState(false);
   const [marpDetectionMarkdown, setMarpDetectionMarkdown] = useState<string>();
   const [marpDetectionPending, setMarpDetectionPending] = useState(false);
+  const [marpDetectionFailedMarkdown, setMarpDetectionFailedMarkdown] =
+    useState<string>();
   const marpDetectionResolvedForCurrentMarkdown =
     marpDetectionMarkdown === previewMarkdown;
+  const marpDetectionFailed =
+    hasMarpFrontMatterCandidateValue &&
+    marpDetectionFailedMarkdown === previewMarkdown;
+  const marpDetectionUnresolved =
+    hasMarpFrontMatterCandidateValue &&
+    (!marpDetectionResolvedForCurrentMarkdown || marpDetectionPending);
+  const marpDetectionLoading =
+    marpDetectionUnresolved;
   const isMarpDocument =
     hasMarpFrontMatterCandidateValue &&
+    marpDetectionResolvedForCurrentMarkdown &&
+    !marpDetectionPending &&
     isMarpDetected;
   const markdownSnapshotEnabled =
     initialized &&
-    (!previewVisible || previewMarkdown === markdown) &&
-    (!previewVisible ||
+    (!previewVisible || previewMarkdown === markdown || exportStageRequested) &&
+    (exportStageRequested || !previewVisible ||
       !hasMarpFrontMatterCandidateValue ||
-      (marpDetectionResolvedForCurrentMarkdown && !isMarpDetected));
+      (marpDetectionResolvedForCurrentMarkdown && !isMarpDetected)) &&
+    !marpDetectionFailed;
   const [previewSnapshot, cancelActivePreviewRender] =
     useMarkdownPreviewSnapshot(
       previewMarkdown,
@@ -713,6 +727,7 @@ export function App(): React.JSX.Element {
         setMarpDetectionPending(false);
         setIsMarpDetected(false);
         setMarpDetectionMarkdown(undefined);
+        setMarpDetectionFailedMarkdown(undefined);
         return;
       }
 
@@ -721,17 +736,14 @@ export function App(): React.JSX.Element {
         markdown: previewMarkdown,
       };
       marpDetectionRequestRef.current = request;
+      setMarpDetectionFailedMarkdown(undefined);
       setMarpDetectionPending(true);
-      const timer = window.setTimeout(() => {
-        if (marpDetectionRequestRef.current !== request) return;
-        vscode.postMessage({
-          type: "detectMarpMarkdown",
-          requestId: request.requestId,
-          markdown: request.markdown,
-        });
-      }, 100);
+      vscode.postMessage({
+        type: "detectMarpMarkdown",
+        requestId: request.requestId,
+        markdown: request.markdown,
+      });
       return () => {
-        window.clearTimeout(timer);
         if (marpDetectionRequestRef.current === request) {
           marpDetectionRequestRef.current = undefined;
         }
@@ -754,8 +766,21 @@ export function App(): React.JSX.Element {
         stage,
         detail,
       });
+      if (
+        stage === "preview-ready" &&
+        initialized &&
+        !startupReportedRef.current
+      ) {
+        startupReportedRef.current = true;
+        vscode.postMessage({
+          type: "startupReady",
+          clientId: clientIdRef.current,
+          markdownLength: previewMarkdown.length,
+          metrics: collectStartupMetrics(startupInitReceivedAtRef.current),
+        });
+      }
     },
-    [settings.startupProbe],
+    [initialized, previewMarkdown, settings.startupProbe],
   );
 
   useEffect(
@@ -802,6 +827,8 @@ export function App(): React.JSX.Element {
     Diagnostic[]
   >([]);
   const [printPreview, setPrintPreview] = useState(false);
+  const printPreviewRef = useRef(printPreview);
+  printPreviewRef.current = printPreview;
   const [printSettingsVisible, setPrintSettingsVisible] = useState(false);
   const [helpTopic, setHelpTopic] = useState<HelpTopic>();
   const [searchVisible, setSearchVisible] = useState(false);
@@ -856,7 +883,6 @@ export function App(): React.JSX.Element {
       }
     >[]
   >([]);
-  const [exportStageRequested, setExportStageRequested] = useState(false);
   const [toast, setToast] = useState("");
   const [sectionLinkMenu, setSectionLinkMenu] = useState<{
     id: string;
@@ -875,6 +901,7 @@ export function App(): React.JSX.Element {
   const marpPreviewRef = useRef<MarpPreviewHandle>(null);
   const editorAreaRef = useRef<HTMLElement>(null);
   const exportRootRef = useRef<HTMLDivElement>(null);
+  const exportStageRequestCountRef = useRef(0);
   const exportStageWaitersRef = useRef<
     Array<(root: HTMLDivElement | undefined) => void>
   >([]);
@@ -889,6 +916,7 @@ export function App(): React.JSX.Element {
       knownChanges?: TextChange[],
       origin?: "local" | "remote",
       updateRenderedState?: boolean,
+      trustedEditorChanges?: boolean,
     ) => void
   >(
     () => undefined,
@@ -1400,15 +1428,20 @@ export function App(): React.JSX.Element {
      * 依存状態の変化に応じて表示または購読を更新する。
      */
     () => {
-      if (!printPreview || isMarpDocument || marpDetectionPending) {
+      if (
+        !printPreview ||
+        isMarpDocument ||
+        marpDetectionUnresolved ||
+        marpDetectionFailed
+      ) {
         pdfPreviewRequestRef.current = createClientId();
         pdfPreviewSignatureRef.current = undefined;
-        if (isMarpDocument || marpDetectionPending) {
+        if (isMarpDocument || marpDetectionUnresolved || marpDetectionFailed) {
           setPdfPreview({ requestId: "", loading: false });
         }
       }
     },
-    [isMarpDocument, marpDetectionPending, printPreview],
+    [isMarpDocument, marpDetectionFailed, marpDetectionUnresolved, printPreview],
   );
 
   useEffect(
@@ -1419,7 +1452,8 @@ export function App(): React.JSX.Element {
       if (
         !printPreview ||
         isMarpDocument ||
-        marpDetectionPending ||
+        marpDetectionUnresolved ||
+        marpDetectionFailed ||
         !initialized ||
         !settings.workspaceTrusted
       ) return;
@@ -1448,7 +1482,8 @@ export function App(): React.JSX.Element {
     [
       initialized,
       isMarpDocument,
-      marpDetectionPending,
+      marpDetectionFailed,
+      marpDetectionUnresolved,
       markdown,
       pdfOptions,
       printPreview,
@@ -2098,6 +2133,7 @@ export function App(): React.JSX.Element {
         setMarpDetectionPending(false);
         setIsMarpDetected(message.isMarp);
         setMarpDetectionMarkdown(request.markdown);
+        setMarpDetectionFailedMarkdown(undefined);
         return;
       }
       case "init":
@@ -2274,6 +2310,27 @@ export function App(): React.JSX.Element {
         return;
       case "operationFailed":
         {
+          const marpDetectionRequest = marpDetectionRequestRef.current;
+          if (
+            message.requestId &&
+            marpDetectionRequest?.requestId === message.requestId
+          ) {
+            marpDetectionRequestRef.current = undefined;
+            setMarpDetectionPending(false);
+            setIsMarpDetected(false);
+            setMarpDetectionMarkdown(marpDetectionRequest.markdown);
+            if (
+              marpDetectionRequest.markdown ===
+              previewMarkdownForMarpRef.current
+            ) {
+              setMarpDetectionFailedMarkdown(marpDetectionRequest.markdown);
+            }
+            console.error(
+              "[Markdown Easy Visual Editor] Marp detection failed.",
+              message.message,
+            );
+            return;
+          }
           if (
             message.requestId &&
             message.requestId === pdfPreviewRequestRef.current
@@ -3310,6 +3367,24 @@ export function App(): React.JSX.Element {
     );
   }
 
+  /** 出力処理のDOM確保を管理し、完了後に要求数に応じて状態を戻す。 */
+  async function withExportStage(action: () => Promise<void>): Promise<void> {
+    exportStageRequestCountRef.current += 1;
+    setExportStageRequested(true);
+    try {
+      await action();
+    } finally {
+      exportStageRequestCountRef.current = Math.max(
+        0,
+        exportStageRequestCountRef.current - 1,
+      );
+      if (exportStageRequestCountRef.current === 0) {
+        if (!printPreviewRef.current) exportRootRef.current = null;
+        setExportStageRequested(false);
+      }
+    }
+  }
+
   /**
    * Webviewルートの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
    * @param update - 現在の正規化済みPDF設定を受け取り、次に保存するPDF設定を返す更新関数。
@@ -3446,6 +3521,7 @@ export function App(): React.JSX.Element {
       return;
     }
     flushPdfOptionsPersistence();
+    await withExportStage(async () => {
     if (!(await waitForCurrentPreviewSnapshot())) {
       setToast(
         messages.app.toast.operationFailed(
@@ -3485,7 +3561,6 @@ export function App(): React.JSX.Element {
     const root = await ensureExportRoot();
     if (!(await waitForHtmlMermaidRendering(root))) {
       setToast(`${messages.renderer.mermaidError}: timeout`);
-      if (!printPreview) setExportStageRequested(false);
       return;
     }
     const sourceOptions = pdfOptionsRef.current;
@@ -3500,7 +3575,6 @@ export function App(): React.JSX.Element {
           ? messages.app.outputReplacementTimeout
           : messages.app.outputReplacementFailed,
       );
-      if (!printPreview) setExportStageRequested(false);
       return;
     }
     if (!root)
@@ -3515,10 +3589,7 @@ export function App(): React.JSX.Element {
     };
     pdfRequestsRef.current.add(requestId);
     vscode.postMessage(message);
-    if (!printPreview) {
-      exportRootRef.current = null;
-      setExportStageRequested(false);
-    }
+    });
   }
 
   /**
@@ -3540,9 +3611,9 @@ export function App(): React.JSX.Element {
       )
     ) {
       setToast(messages.app.invalidOutputReplacementPattern);
-      if (!printPreview) setExportStageRequested(false);
       return;
     }
+    await withExportStage(async () => {
     if (!(await waitForCurrentPreviewSnapshot())) {
       setToast(
         messages.app.toast.operationFailed(
@@ -3554,7 +3625,6 @@ export function App(): React.JSX.Element {
     const root = await ensureExportRoot();
     if (!(await waitForHtmlMermaidRendering(root))) {
       setToast(`${messages.renderer.mermaidError}: timeout`);
-      if (!printPreview) setExportStageRequested(false);
       return;
     }
     const requestId = createClientId();
@@ -3574,7 +3644,6 @@ export function App(): React.JSX.Element {
           ? messages.app.outputReplacementTimeout
           : messages.app.outputReplacementFailed,
       );
-      if (!printPreview) setExportStageRequested(false);
       return;
     }
     htmlRequestsRef.current.add(requestId);
@@ -3587,10 +3656,7 @@ export function App(): React.JSX.Element {
       options,
       textReplacements,
     });
-    if (!printPreview) {
-      exportRootRef.current = null;
-      setExportStageRequested(false);
-    }
+    });
   }
 
   /**
@@ -3627,7 +3693,8 @@ export function App(): React.JSX.Element {
     if (
       !printPreview ||
       isMarpDocument ||
-      marpDetectionPending ||
+      marpDetectionUnresolved ||
+      marpDetectionFailed ||
       !settings.workspaceTrusted
     ) return;
     if (
@@ -3738,7 +3805,8 @@ export function App(): React.JSX.Element {
     if (
       printPreview &&
       !isMarpDocument &&
-      !marpDetectionPending &&
+      !marpDetectionUnresolved &&
+      !marpDetectionFailed &&
       settings.workspaceTrusted
     ) {
       if (pdfPreviewTimerRef.current !== undefined)
@@ -3974,6 +4042,7 @@ export function App(): React.JSX.Element {
     knownChanges?: TextChange[],
     origin: "local" | "remote" = "local",
     updateRenderedState = true,
+    trustedEditorChanges = false,
   ): void {
     const previous = localTextRef.current;
     if (previous === nextText) return;
@@ -3987,7 +4056,7 @@ export function App(): React.JSX.Element {
         changes: changes.slice(0, 8),
       });
     }
-    if (origin === "local") {
+    if (origin === "local" && !trustedEditorChanges) {
       try {
         if (applyTextChanges(previous, changes) !== nextText) {
           throw new Error(
@@ -4035,7 +4104,13 @@ export function App(): React.JSX.Element {
       stagePreviewViewportRestore();
       setMarkdown(nextText);
     }
-    if (origin === "local") sendNextLocalOperation();
+    if (origin === "local") {
+      sendNextLocalOperation(
+        trustedEditorChanges
+          ? { baseText: previous, resultText: nextText, changes }
+          : undefined,
+      );
+    }
   }
 
   updateMarkdownRef.current = updateMarkdown;
@@ -4043,12 +4118,22 @@ export function App(): React.JSX.Element {
   /**
    * ローカル本文の変更を差分操作にしてHostへ送信する。
    */
-  function sendNextLocalOperation(): void {
+  function sendNextLocalOperation(
+    changeHint?: {
+      baseText: string;
+      resultText: string;
+      changes: TextChange[];
+    },
+  ): void {
     if (resyncInFlightRef.current || inFlightOperationRef.current) return;
     const baseText = hostTextRef.current;
     const resultText = localTextRef.current;
     if (baseText === resultText) return;
-    const changes = computeTextChanges(baseText, resultText);
+    const changes =
+      changeHint?.baseText === baseText &&
+      changeHint.resultText === resultText
+        ? changeHint.changes
+        : computeTextChanges(baseText, resultText);
     const current: PendingLocalOperation = {
       opId: createClientId(),
       baseVersion: versionRef.current,
@@ -4219,11 +4304,13 @@ export function App(): React.JSX.Element {
       return;
     const preview = splitPreviewRef.current;
     if (!preview) return;
-    const previewAnchor = {
-      offset: anchor.offset,
-      topOffset: anchor.topOffset,
-      scrollRatio: anchor.scrollRatio,
-    };
+    const previewAnchor = isMarpDocument
+      ? { offset: anchor.offset, topOffset: 0 }
+      : {
+          offset: anchor.offset,
+          topOffset: anchor.topOffset,
+          scrollRatio: anchor.scrollRatio,
+        };
     viewportStateRef.current.splitPreview = previewAnchor;
     scheduleSourceToPreviewSync(previewAnchor);
   }
@@ -4477,7 +4564,7 @@ export function App(): React.JSX.Element {
         const preview = splitPreviewRef.current;
         if (!scrollSyncEnabledRef.current || !pending || !preview) return;
         if (isMarpDocument) {
-          marpPreviewRef.current?.scrollToOffset(pending.offset, pending.topOffset);
+          marpPreviewRef.current?.scrollToOffset(pending.offset, 0, true);
           return;
         }
         programmaticPreviewScrollsRef.current.add(preview);
@@ -4645,17 +4732,20 @@ export function App(): React.JSX.Element {
    * @param kind - メッセージ、項目、または処理の種類を識別する値。
    */
   function handlePreviewRendered(kind: "splitPreview" | "previewOnly"): void {
+    const currentRenderedMarkdown = isMarpDocument
+      ? previewMarkdown
+      : renderedPreviewMarkdown;
     if (
       settings.startupProbe &&
       initialized &&
       !startupReportedRef.current &&
-      renderedPreviewMarkdown === localTextRef.current
+      (isMarpDocument || currentRenderedMarkdown === localTextRef.current)
     ) {
       startupReportedRef.current = true;
       vscode.postMessage({
         type: "startupReady",
         clientId: clientIdRef.current,
-        markdownLength: renderedPreviewMarkdown.length,
+        markdownLength: currentRenderedMarkdown.length,
         metrics: collectStartupMetrics(startupInitReceivedAtRef.current),
       });
     }
@@ -5150,6 +5240,7 @@ export function App(): React.JSX.Element {
       const previous = localTextRef.current;
       let effectiveText = nextText;
       let effectiveChanges = changes;
+      let trustedEditorChanges = false;
       try {
         if (beforeText !== previous) {
           // 外部変更がReact/CodeMirrorへ届く途中でも、ユーザー入力を破棄しない。
@@ -5171,9 +5262,8 @@ export function App(): React.JSX.Element {
             );
           }
           effectiveText = applyTextChanges(previous, effectiveChanges);
-        } else if (applyTextChanges(previous, changes) !== nextText) {
-          // CodeMirror差分の基準が一致しない場合は、現在値同士から安全に再計算する。
-          effectiveChanges = computeTextChanges(previous, nextText);
+        } else {
+          trustedEditorChanges = true;
         }
       } catch {
         // 競合写像の一次経路で例外が出ても、古いCodeMirror全文をそのまま
@@ -5200,6 +5290,7 @@ export function App(): React.JSX.Element {
         effectiveChanges,
         "local",
         isCompositionCommit || beforeText !== previous,
+        trustedEditorChanges,
       );
     },
     [],
@@ -5634,27 +5725,41 @@ export function App(): React.JSX.Element {
                     onRendered={splitPreviewRendered}
                     onActiveSlide={splitMarpActiveSlide}
                   />
+                ) : marpDetectionFailed ? (
+                  <p className="mve-marp-preview-error" role="alert">
+                    {messages.app.marpPreview.detectionFailed}
+                  </p>
                 ) : (
-                  <RenderedMarkdown
-                    markdown={renderedPreviewMarkdown}
-                    html={previewHtml}
-                    settings={settings}
-                    imageZoom={zoom}
-                    onImageResize={
-                      imageResizeEnabled ? splitPreviewImageResize : undefined
-                    }
-                    onImageReset={
-                      imageResizeEnabled ? splitPreviewImageReset : undefined
-                    }
-                    onImageAlign={
-                      imageResizeEnabled ? splitPreviewImageAlign : undefined
-                    }
-                    onInspect={splitPreviewInspect}
-                    onNavigate={splitPreviewNavigate}
-                    onRendered={splitPreviewRendered}
-                    onMermaidRendered={handleStartupMermaidRendered}
-                    deferMermaid
-                  />
+                  marpDetectionLoading ? (
+                    <p
+                      className="mve-marp-preview-loading mve-marp-detection-loading"
+                      role="status"
+                      aria-live="polite"
+                    >
+                      {messages.app.marpPreview.loading}
+                    </p>
+                  ) : (
+                    <RenderedMarkdown
+                      markdown={renderedPreviewMarkdown}
+                      html={previewHtml}
+                      settings={settings}
+                      imageZoom={zoom}
+                      onImageResize={
+                        imageResizeEnabled ? splitPreviewImageResize : undefined
+                      }
+                      onImageReset={
+                        imageResizeEnabled ? splitPreviewImageReset : undefined
+                      }
+                      onImageAlign={
+                        imageResizeEnabled ? splitPreviewImageAlign : undefined
+                      }
+                      onInspect={splitPreviewInspect}
+                      onNavigate={splitPreviewNavigate}
+                      onRendered={splitPreviewRendered}
+                      onMermaidRendered={handleStartupMermaidRendered}
+                      deferMermaid
+                    />
+                  )
                 )}
               </div>
             </div>
@@ -5677,6 +5782,18 @@ export function App(): React.JSX.Element {
               onRendered={() => handlePreviewRendered("previewOnly")}
               onActiveSlide={previewOnlyMarpActiveSlide}
             />
+          ) : marpDetectionFailed ? (
+            <p className="mve-marp-preview-error" role="alert">
+              {messages.app.marpPreview.detectionFailed}
+            </p>
+          ) : marpDetectionLoading ? (
+            <p
+              className="mve-marp-preview-loading mve-marp-detection-loading"
+              role="status"
+              aria-live="polite"
+            >
+              {messages.app.marpPreview.loading}
+            </p>
           ) : (
             <PdfPreview
               markdown={renderedPreviewMarkdown}
@@ -7108,9 +7225,16 @@ function collectStartupMetrics(
     if (entry.name.includes("markdown-worker.js")) {
       metrics.markdownWorkerFetchStartedAt = entry.startTime;
       metrics.markdownWorkerFetchDuration = entry.duration;
+      metrics.markdownWorkerResourceCount =
+        (metrics.markdownWorkerResourceCount ?? 0) + 1;
     } else if (entry.name.includes("webview.js")) {
       metrics.webviewFetchStartedAt = entry.startTime;
       metrics.webviewFetchDuration = entry.duration;
+    } else if (entry.name.includes("mermaid.min.js")) {
+      metrics.mermaidRuntimeFetchStartedAt = entry.startTime;
+      metrics.mermaidRuntimeFetchDuration = entry.duration;
+      metrics.mermaidRuntimeResourceCount =
+        (metrics.mermaidRuntimeResourceCount ?? 0) + 1;
     }
   }
   return metrics;

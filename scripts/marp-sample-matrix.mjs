@@ -326,7 +326,7 @@ try {
     throw new Error(`Marp Workerの初回取得回数が1ではありません: ${marpWorkerRequests.length}`);
   }
   await verifySample(page, renderOrder[0], '.split-preview .mve-marp-preview', themeCssByName);
-  await verifySplitMarpScrollSync(page);
+  await verifySplitMarpScrollSync(page, renderOrder[0]);
   await verifyNoPdfRequest(page, () => clickPrintPreview(page),
     '.mve-marp-preview-print', renderOrder[0].slideCount);
   await verifyPrintPreviewInteractions(page, renderOrder[0].slideCount);
@@ -371,6 +371,39 @@ try {
   await page.locator('.mve-marp-preview-print').screenshot({ path: screenshotPath });
   const slideScreenshotPath = path.join(os.tmpdir(), 'markdown-easy-visual-editor-marp-first-slide.png');
   await firstPrintSlide.screenshot({ path: slideScreenshotPath });
+  const individualSlideScreenshotPaths = [];
+  const printableSlides = page.frameLocator('.mve-marp-preview-print iframe').locator('.mve-marp-slide');
+  for (let index = 0; index < Math.min(3, renderOrder[0].slideCount); index += 1) {
+    const slidePath = path.join(os.tmpdir(), `markdown-easy-visual-editor-marp-slide-${index + 1}.png`);
+    await printableSlides.nth(index).screenshot({ path: slidePath });
+    individualSlideScreenshotPaths.push(slidePath);
+  }
+  await setPrintSlideViewportTop(page, 1, 22);
+  const visibleDeckSlides = await printableSlides.evaluateAll((slides) => slides.slice(0, 3).map((slide) => {
+    const rect = slide.getBoundingClientRect();
+    const heading = slide.querySelector('h1, h2, h3, h4, h5, h6');
+    return {
+      heading: heading?.textContent?.replace(/\s+/g, ' ').trim() ?? '',
+      top: rect.top,
+      bottom: rect.bottom,
+      height: rect.height,
+      outline: getComputedStyle(slide).outlineStyle,
+      outlineWidth: parseFloat(getComputedStyle(slide).outlineWidth),
+    };
+  }));
+  if (visibleDeckSlides.length < 2 ||
+    visibleDeckSlides[0].top >= visibleDeckSlides[1].top ||
+    visibleDeckSlides[1].top - visibleDeckSlides[0].bottom < 24 ||
+    visibleDeckSlides.slice(0, 2).some((slide) => !slide.heading || slide.height < 200 ||
+      slide.outline === 'none' || slide.outlineWidth < 1)) {
+    throw new Error(`後続スライドの表示位置またはページ区切りが不正です: ${JSON.stringify(visibleDeckSlides)}`);
+  }
+  const visibleSecondSlideTop = await getPrintSlideViewportTop(page, 1);
+  if (Math.abs(visibleSecondSlideTop - 22) > 8) {
+    throw new Error(`後続スライドがプレビュー領域内の指定位置に表示されません: ${visibleSecondSlideTop}px`);
+  }
+  const deckViewportScreenshotPath = path.join(os.tmpdir(), 'markdown-easy-visual-editor-marp-deck-viewport.png');
+  await page.screenshot({ path: deckViewportScreenshotPath });
   const printPreviewText = await page.frameLocator('.mve-marp-preview-print iframe').locator('body').innerText();
   if (!printPreviewText.includes('Performance deck 01') || printPreviewText.includes('div.marpit > svg')) {
     throw new Error(`印刷プレビューにテーマCSSが文字として表示されるか、スライド本文がありません: ${printPreviewText.slice(0, 300)}`);
@@ -445,7 +478,7 @@ try {
     lastMarkdown = changed;
     lastVersion += 1;
   }
-  await waitForRenderCount(page, '.split-preview .mve-marp-preview', beforeRapidRenderCount);
+  await waitForRenderTransition(page, '.split-preview .mve-marp-preview', beforeRapidRenderCount);
   await waitForRenderedDeck(page, '.split-preview .mve-marp-preview', performanceBase.slideCount);
   const finalText = await page.locator('.split-preview .mve-marp-preview iframe').contentFrame()
     .locator('.mve-marp-slide').last().textContent();
@@ -532,7 +565,7 @@ try {
   const beforeRemoteEnableCount = Number(await page.locator('.split-preview .mve-marp-preview')
     .getAttribute('data-mve-marp-render-count'));
   await sendRemoteImagesSetting(page, true);
-  await waitForRenderCount(page, '.split-preview .mve-marp-preview', beforeRemoteEnableCount);
+  await waitForRenderTransition(page, '.split-preview .mve-marp-preview', beforeRemoteEnableCount);
   await waitForRenderedDeck(page, '.split-preview .mve-marp-preview', 1);
   await page.waitForFunction(() => {
     const frame = document.querySelector('.split-preview .mve-marp-preview iframe');
@@ -551,7 +584,7 @@ try {
   const beforeRemoteDisableCount = Number(await page.locator('.split-preview .mve-marp-preview')
     .getAttribute('data-mve-marp-render-count'));
   await sendRemoteImagesSetting(page, false);
-  await waitForRenderCount(page, '.split-preview .mve-marp-preview', beforeRemoteDisableCount);
+  await waitForRenderTransition(page, '.split-preview .mve-marp-preview', beforeRemoteDisableCount);
   await waitForRenderedDeck(page, '.split-preview .mve-marp-preview', 1);
   await page.waitForFunction(() => {
     const frame = document.querySelector('.split-preview .mve-marp-preview iframe');
@@ -596,7 +629,7 @@ try {
   if (marpWorkerRequests.length !== 1 || workerLifecycle.created !== 1 || workerLifecycle.revoked !== 1) {
     throw new Error(`Webview内でMarp Workerが再利用されません: ${JSON.stringify({ requests: marpWorkerRequests.length, workerLifecycle })}`);
   }
-  console.log(`Marp sample matrix: ${sampleFiles.length} files × split/print preview; initial24=${initialElapsedMs}ms; redraw p95=${p95RenderMs.toFixed(1)}ms; worker fetches=${marpWorkerRequests.length}; screenshot=${screenshotPath}; firstSlide=${slideScreenshotPath}; geometry=${JSON.stringify(printSlideGeometry)}`);
+  console.log(`Marp sample matrix: ${sampleFiles.length} files × split/print preview; initial24=${initialElapsedMs}ms; redraw p95=${p95RenderMs.toFixed(1)}ms; worker fetches=${marpWorkerRequests.length}; screenshot=${screenshotPath}; firstSlide=${slideScreenshotPath}; slideSamples=${individualSlideScreenshotPaths.join(',')}; deckViewport=${deckViewportScreenshotPath}; secondSlideViewportTop=${visibleSecondSlideTop}; visibleSlides=${JSON.stringify(visibleDeckSlides)}; geometry=${JSON.stringify(printSlideGeometry)}`);
   console.log(`Worker URL lifecycle: created=${workerInstanceCounts.created}, revoked=${workerInstanceCounts.revoked}`);
   console.log(`rendered modes=${measurements.length}; themes=${[...themeCssByName.keys()].join(', ')}`);
 } finally {
@@ -701,7 +734,7 @@ async function replaceDocument(page, markdown, previousMarkdown, previousVersion
     : undefined;
   await sendExternalChanges(page, markdown, previousMarkdown, previousVersion);
   if (expectedSlideCount) {
-    await waitForRenderCount(page, previewSelector, previousRenderCount);
+    await waitForRenderTransition(page, previewSelector, previousRenderCount);
     await waitForRenderedDeck(page, previewSelector, expectedSlideCount);
   } else {
     await page.waitForFunction(({ selector, length }) => (
@@ -811,15 +844,17 @@ async function waitForRenderedDeck(page, selector, expectedSlideCount) {
 }
 
 /**
- * Marp Workerの描画回数が指定値より増えるまで待機する。
+ * 古いMarp表示が解除されるか、新しいWorker描画が始まるまで待機する。
  * @param page - Marp検証に使用するWebviewページ。
  * @param selector - Marpプレビューのroot selector。
  * @param previousCount - 更新前の描画回数。
  */
-async function waitForRenderCount(page, selector, previousCount) {
+async function waitForRenderTransition(page, selector, previousCount) {
   await page.waitForFunction(({ rootSelector, count }) => {
     const root = document.querySelector(rootSelector);
-    return Number(root?.getAttribute('data-mve-marp-render-count')) > count;
+    return !root ||
+      root.getAttribute('data-mve-marp-status') !== 'ready' ||
+      Number(root.getAttribute('data-mve-marp-render-count')) > count;
   }, { rootSelector: selector, count: previousCount });
 }
 
@@ -919,6 +954,20 @@ async function expectBlockedRemoteImage(image, remoteOriginValue) {
 async function verifySample(page, sample, selector, themeCssByName) {
   await waitForRenderedDeck(page, selector, sample.slideCount);
   const frame = page.frameLocator(`${selector} iframe`);
+  const boundary = await frame.locator('.mve-marp-slide').first().evaluate((slide) => {
+    const style = getComputedStyle(slide);
+    const gap = Number.parseFloat(getComputedStyle(slide.parentElement).rowGap);
+    return {
+      outlineStyle: style.outlineStyle,
+      outlineWidth: Number.parseFloat(style.outlineWidth),
+      shadow: style.boxShadow,
+      gap,
+    };
+  });
+  if (boundary.outlineStyle === 'none' || boundary.outlineWidth < 1 ||
+    boundary.shadow === 'none' || boundary.gap < 24) {
+    throw new Error(`${sample.name}のスライドページ境界が視認できません: ${JSON.stringify(boundary)}`);
+  }
   const renderedSlides = await frame.locator('.mve-marp-slide').evaluateAll((slides) => slides.map((slide) => {
     const heading = slide.querySelector('h1, h2, h3, h4, h5, h6');
     const headingRect = heading?.getBoundingClientRect();
@@ -1149,10 +1198,40 @@ async function verifyPrintPreviewInteractions(page, slideCount) {
 /**
  * Marpのスライドスクロールから既存のソース表示位置同期が動くことを確認する。
  * @param page - Marp検証に使用するWebviewページ。
+ * @param sample - 描画中のMarkdownとスライド数を持つサンプル。
  */
-async function verifySplitMarpScrollSync(page) {
+async function verifySplitMarpScrollSync(page, sample) {
   const sourceScroller = page.locator('.split-source-pane:not(.pane-hidden) .cm-scroller');
   const preview = page.locator('.split-preview');
+  const initialSameSlideState = await preview.evaluate((element) => {
+    const originalScrollTo = element.scrollTo.bind(element);
+    const calls = [];
+    element.scrollTo = (...args) => {
+      calls.push(args);
+      return originalScrollTo(...args);
+    };
+    window.__mveMarpSourceSyncCalls = calls;
+    return { top: element.scrollTop };
+  });
+  const sourceTopBeforeSmallScroll = await sourceScroller.evaluate((element) => element.scrollTop);
+  await sourceScroller.hover();
+  await page.mouse.wheel(0, 24);
+  await page.waitForFunction((initial) => {
+    const element = document.querySelector('.split-source-pane:not(.pane-hidden) .cm-scroller');
+    return element && Math.abs(element.scrollTop - initial) > 1;
+  }, sourceTopBeforeSmallScroll, { timeout: 3_000 });
+  await page.waitForTimeout(220);
+  const sameSlideState = await preview.evaluate((element) => ({
+    top: element.scrollTop,
+    calls: window.__mveMarpSourceSyncCalls.length,
+  }));
+  if (sameSlideState.calls !== 0 || Math.abs(sameSlideState.top - initialSameSlideState.top) > 1) {
+    throw new Error(`同一スライド内のソーススクロールでプレビューが再移動しました: ${JSON.stringify({ initial: initialSameSlideState, actual: sameSlideState })}`);
+  }
+  await preview.evaluate((element) => {
+    delete element.scrollTo;
+    delete window.__mveMarpSourceSyncCalls;
+  });
   const initialSourceTop = await sourceScroller.evaluate((element) => element.scrollTop);
   await preview.hover();
   await page.mouse.wheel(0, 900);
@@ -1190,6 +1269,129 @@ async function verifySplitMarpScrollSync(page) {
   if (Math.abs(nextPreviewTop - initialPreviewTop) <= 5) {
     throw new Error(`ソーススクロールがMarpプレビューへ同期されません: ${initialPreviewTop} -> ${nextPreviewTop}; source=${JSON.stringify(sourceMetrics)}->${sourceTopAfterWheel}/${sourceOffsetAfterWheel}`);
   }
+  const sourceOffset = Number(sourceOffsetAfterWheel);
+  const expectedSlideIndex = await page.frameLocator('.split-preview .mve-marp-preview iframe')
+    .locator('.mve-marp-slide')
+    .evaluateAll((slides, offset) => {
+      const ranges = slides.map((slide, index) => ({
+        index,
+        start: Number(slide.getAttribute('data-source-start-offset')),
+        end: Number(slide.getAttribute('data-source-end-offset')),
+      }));
+      for (const range of ranges) {
+        if (offset < range.start || offset < range.end) return range.index;
+      }
+      return ranges.at(-1)?.index;
+    }, sourceOffset);
+  const actualSlideIndex = Number(await page.locator('.split-preview .mve-marp-preview')
+    .getAttribute('data-mve-marp-active-slide-index'));
+  if (!Number.isInteger(sourceOffset) || actualSlideIndex !== expectedSlideIndex) {
+    throw new Error(`ソース可視オフセットに対応するMarpスライドへ同期されません: sourceOffset=${sourceOffset}, expectedSlide=${expectedSlideIndex}, actualSlide=${actualSlideIndex}`);
+  }
+
+  const sourceRanges = await page.frameLocator('.split-preview .mve-marp-preview iframe')
+    .locator('.mve-marp-slide')
+    .evaluateAll((slides) => slides.map((slide, index) => ({
+      index,
+      start: Number(slide.getAttribute('data-source-start-offset')),
+      end: Number(slide.getAttribute('data-source-end-offset')),
+    })));
+  const gap = sourceRanges.slice(0, -1).map((range, index) => ({
+    previous: range,
+    next: sourceRanges[index + 1],
+  })).find(({ previous, next }) => previous.end < next.start);
+  if (!gap?.next) throw new Error('Marp複数スライド間のソース範囲ギャップがありません。');
+  const lineStarts = [0];
+  for (let index = 0; index < sample.markdown.length; index += 1) {
+    if (sample.markdown.charCodeAt(index) === 10) lineStarts.push(index + 1);
+  }
+  const targetOffset = lineStarts.find((offset) =>
+    offset >= gap.previous.end && offset < gap.next.start);
+  if (targetOffset === undefined) {
+    throw new Error(`Marpソース範囲ギャップにスクロール可能な行頭がありません: ${JSON.stringify(gap)}`);
+  }
+  const targetLine = lineStarts.indexOf(targetOffset);
+  const previousLineOffset = lineStarts.filter((offset) => offset < gap.previous.end).at(-1);
+  if (previousLineOffset === undefined) throw new Error('Marp区切り直前のソース行を特定できません。');
+  const setSourcePosition = async (offset) => {
+    const lineIndex = lineStarts.indexOf(offset);
+    if (lineIndex < 0) throw new Error(`ソース行頭でないオフセットです: ${offset}`);
+    await sourceScroller.evaluate((element) => { element.scrollTop = 0; });
+    await page.waitForTimeout(60);
+    await sourceScroller.evaluate((element, targetLineIndex) => {
+      const line = Array.from(element.querySelectorAll('.cm-line'))[targetLineIndex];
+      if (!line) throw new Error(`ソースの対象行がCodeMirror DOMにありません: ${targetLineIndex}`);
+      const delta = line.getBoundingClientRect().top - element.getBoundingClientRect().top + 1;
+      element.dispatchEvent(new WheelEvent('wheel', { bubbles: true, deltaY: 1 }));
+      element.scrollTop = Math.max(0, element.scrollTop + delta);
+    }, lineIndex);
+    await page.waitForTimeout(100);
+    return sourceScroller.evaluate((element) => ({
+      scrollTop: element.scrollTop,
+      viewportOffset: Number(element.closest('.source-editor')?.getAttribute('data-viewport-offset')),
+    }));
+  };
+  const previousScrollState = await setSourcePosition(previousLineOffset);
+  if (previousScrollState.viewportOffset >= gap.previous.end) {
+    throw new Error(`区切り直前のソース行が前スライド範囲にありません: ${JSON.stringify({ gap, previousLineOffset, previousScrollState })}`);
+  }
+  await page.waitForFunction((expectedIndex) =>
+    Number(document.querySelector('.split-preview .mve-marp-preview')
+      ?.getAttribute('data-mve-marp-active-slide-index')) === expectedIndex,
+  gap.previous.index, { timeout: 3_000 });
+  await preview.evaluate((element) => {
+    const originalScrollTo = element.scrollTo.bind(element);
+    window.__mveMarpBoundaryScrollCalls = [];
+    element.scrollTo = (...args) => {
+      window.__mveMarpBoundaryScrollCalls.push(args);
+      return originalScrollTo(...args);
+    };
+  });
+  for (let cycle = 0; cycle < 4; cycle += 1) {
+    for (const target of [
+      { offset: targetOffset, index: gap.next.index, side: '次スライド' },
+      { offset: previousLineOffset, index: gap.previous.index, side: '前スライド' },
+    ]) {
+      const callsBefore = await preview.evaluate(() => window.__mveMarpBoundaryScrollCalls.length);
+      const sourceState = await setSourcePosition(target.offset);
+      const expectedOffsetRange = target.index === gap.next.index
+        ? { start: gap.previous.end, end: gap.next.start }
+        : { start: gap.previous.start, end: gap.previous.end };
+      if (sourceState.viewportOffset < expectedOffsetRange.start ||
+        sourceState.viewportOffset >= expectedOffsetRange.end) {
+        throw new Error(`ソース可視位置が${target.side}の範囲外です: ${JSON.stringify({ target, expectedOffsetRange, sourceState })}`);
+      }
+      await page.waitForFunction(({ expectedIndex, expectedCalls }) => {
+        const root = document.querySelector('.split-preview .mve-marp-preview');
+        return Number(root?.getAttribute('data-mve-marp-active-slide-index')) === expectedIndex &&
+          window.__mveMarpBoundaryScrollCalls.length === expectedCalls;
+      }, { expectedIndex: target.index, expectedCalls: callsBefore + 1 }, { timeout: 3_000 });
+      await page.waitForTimeout(160);
+      const settledState = await preview.evaluate((element) => ({
+        top: element.scrollTop,
+        calls: window.__mveMarpBoundaryScrollCalls.length,
+        activeSlide: Number(element.querySelector('.mve-marp-preview')
+          ?.getAttribute('data-mve-marp-active-slide-index')),
+      }));
+      await page.waitForTimeout(120);
+      const stableState = await preview.evaluate((element) => ({
+        top: element.scrollTop,
+        calls: window.__mveMarpBoundaryScrollCalls.length,
+        activeSlide: Number(element.querySelector('.mve-marp-preview')
+          ?.getAttribute('data-mve-marp-active-slide-index')),
+      }));
+      if (settledState.calls !== callsBefore + 1 ||
+        stableState.calls !== settledState.calls ||
+        stableState.activeSlide !== target.index ||
+        Math.abs(stableState.top - settledState.top) > 1) {
+        throw new Error(`スライド境界の反復スクロール後にプレビュー位置が振動しました: ${JSON.stringify({ cycle, target, settledState, stableState })}`);
+      }
+    }
+  }
+  await preview.evaluate((element) => {
+    delete element.scrollTo;
+    delete window.__mveMarpBoundaryScrollCalls;
+  });
 }
 
 /**

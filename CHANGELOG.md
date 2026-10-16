@@ -59,3 +59,7 @@
 
 - Fixed the column width adjustment feature.
 - Fixed the row height adjustment feature.
+
+## 1.3.0
+
+- Added automatic Marp slide previews for Markdown files with `marp: true` in YAML front matter.

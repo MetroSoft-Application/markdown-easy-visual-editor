@@ -42,8 +42,19 @@ if (requestedSamples && selectedSamples.length !== requestedSamples.size) {
   throw new Error(`sample性能検証に存在しないパスが指定されました: ${missingSamples.join(', ')}`);
 }
 const repetitions = Math.max(1, Number.parseInt(process.env.MVE_SAMPLE_RENDER_RUNS ?? '3', 10) || 3);
+/**
+ * 再利用するHTTP/Chromiumキャッシュの条件を検証用環境変数から読み込む。
+ */
+const renderConditions = (process.env.MVE_SAMPLE_RENDER_CONDITIONS ?? 'cold')
+  .split(',')
+  .map((value) => value.trim())
+  .filter(Boolean);
+if (!renderConditions.length || renderConditions.some((condition) => !['cold', 'warm'].includes(condition))) {
+  throw new Error(`不明なsample描画条件です: ${renderConditions.join(',')}`);
+}
 
 const externalRequests = [];
+const servedResourceCounts = new Map();
 let origin;
 const server = createServer(async (request, response) => {
   const url = new URL(request.url ?? '/', origin ?? 'http://127.0.0.1');
@@ -78,9 +89,13 @@ const server = createServer(async (request, response) => {
     return;
   }
 
+  servedResourceCounts.set(url.pathname, (servedResourceCounts.get(url.pathname) ?? 0) + 1);
   try {
     const body = await readFile(filePath);
-    response.writeHead(200, { 'content-type': `${contentType(filePath)}; charset=utf-8` });
+    response.writeHead(200, {
+      'content-type': `${contentType(filePath)}; charset=utf-8`,
+      'cache-control': 'public, max-age=3600',
+    });
     response.end(body);
   } catch {
     response.writeHead(404).end('not found');
@@ -103,42 +118,69 @@ const pageErrors = [];
 const failures = [];
 
 try {
-  console.log(`sample描画性能計測: files=${selectedSamples.length}, runs=${repetitions}`);
-  for (let run = 1; run <= repetitions; run += 1) {
-    for (const sample of selectedSamples) {
-      try {
-        const measurement = await measureSample(sample);
-        measurements.push({ ...measurement, run });
-        console.log(`run ${run}/${repetitions} ${sample.relativePath}: ${measurement.firstVisibleMs} ms`);
-      } catch (error) {
-        const failure = {
-          path: sample.relativePath,
-          type: sample.isMarp ? 'Marp' : 'Markdown',
-          run,
-          error: error instanceof Error ? error.message.slice(0, 2500) : String(error).slice(0, 2500),
-        };
-        failures.push(failure);
-        console.error(`FAIL run ${run}/${repetitions} ${sample.relativePath}: ${failure.error}`);
+  console.log(`sample描画性能計測: files=${selectedSamples.length}, conditions=${renderConditions.join(',')}, runs=${repetitions}`);
+  for (const condition of renderConditions) {
+    for (let run = 1; run <= repetitions; run += 1) {
+      for (const sample of selectedSamples) {
+        try {
+          const measurement = await measureSample(sample, condition);
+          measurements.push({ ...measurement, condition, run });
+          console.log(`${condition} run ${run}/${repetitions} ${sample.relativePath}: ${measurement.firstVisibleMs} ms`);
+        } catch (error) {
+          const failure = {
+            path: sample.relativePath,
+            type: sample.isMarp ? 'Marp' : 'Markdown',
+            condition,
+            run,
+            error: error instanceof Error ? error.message.slice(0, 2500) : String(error).slice(0, 2500),
+          };
+          failures.push(failure);
+          console.error(`FAIL ${condition} run ${run}/${repetitions} ${sample.relativePath}: ${failure.error}`);
+        }
       }
     }
   }
 
-  const fileSummaries = summarizeFiles(selectedSamples, measurements).map((summary) => {
-    const failedRuns = failures.filter((failure) => failure.path === summary.path).map((failure) => failure.run);
-    return {
-      ...summary,
-      status: failedRuns.length ? 'failed' : summary.runs === repetitions ? 'passed' : 'incomplete',
-      failedRuns,
-    };
-  });
+  const fileSummaries = renderConditions.flatMap((condition) =>
+    summarizeFiles(
+      selectedSamples,
+      measurements.filter((measurement) => measurement.condition === condition),
+    ).map((summary) => {
+      const failedRuns = failures
+        .filter((failure) => failure.path === summary.path && failure.condition === condition)
+        .map((failure) => failure.run);
+      return {
+        ...summary,
+        condition,
+        status: failedRuns.length ? 'failed' : summary.runs === repetitions ? 'passed' : 'incomplete',
+        failedRuns,
+      };
+    }),
+  );
   const report = {
     generatedAt: new Date().toISOString(),
     browser: path.basename(browserPath),
+    browserVersion: browser.version(),
+    environment: {
+      os: `${os.platform()} ${os.release()}`,
+      architecture: process.arch,
+      node: process.version,
+      viewport: { width: 1440, height: 1000 },
+    },
+    conditionDefinitions: {
+      cold: '新しいBrowserContextと空のHTTPキャッシュ。ChromiumプロセスとOSのファイルキャッシュは起動済み。',
+      warm: '同一BrowserContextの同一ページで1回描画後に再読込して測定。静的資材はCache-Control max-age=3600で提供し、主要資材の2回目取得でHTTPサーバー要求が増えないことを確認。',
+    },
     sampleCount: selectedSamples.length,
     repetitions,
+    conditions: renderConditions,
     marpCount: selectedSamples.filter((sample) => sample.isMarp).length,
     ordinaryCount: selectedSamples.filter((sample) => !sample.isMarp).length,
     summary: summarizeMeasurements(measurements),
+    summaryByCondition: Object.fromEntries(renderConditions.map((condition) => [
+      condition,
+      summarizeMeasurements(measurements.filter((measurement) => measurement.condition === condition)),
+    ])),
     files: fileSummaries,
     measurements,
     failures,
@@ -149,8 +191,8 @@ try {
   const reportPath = path.join(reportDirectory, 'report.json');
   await writeFile(reportPath, `${JSON.stringify(report, null, 2)}\n`, 'utf8');
   for (const summary of fileSummaries) console.log(formatFileSummary(summary));
-  console.log(`sample描画性能: files=${selectedSamples.length}/${samples.length}, runs=${repetitions}, Markdown=${report.ordinaryCount}, Marp=${report.marpCount}`);
-  console.log(`集計: ${JSON.stringify(report.summary)}`);
+  console.log(`sample描画性能: files=${selectedSamples.length}/${samples.length}, conditions=${renderConditions.join(',')}, runs=${repetitions}, Markdown=${report.ordinaryCount}, Marp=${report.marpCount}`);
+  console.log(`集計: ${JSON.stringify(report.summaryByCondition)}`);
   console.log(`JSON: ${reportPath}`);
 
   if (externalRequests.length) {
@@ -191,7 +233,7 @@ async function listMarkdownFiles(directory) {
  * @param sample - 本文、ファイル位置、期待内容、Marp判定を含むsample。
  * @returns 表示完了時の計測値。
  */
-async function measureSample(sample) {
+async function measureSample(sample, condition) {
   const context = await browser.newContext({ viewport: { width: 1440, height: 1000 } });
   const page = await context.newPage();
   const sampleDiagnostics = [];
@@ -271,6 +313,20 @@ async function measureSample(sample) {
   try {
     const directory = path.posix.dirname(sample.relativePath);
     const pageUrl = `${origin}/?directory=${encodeURIComponent(directory === '.' ? '' : directory)}`;
+    let warmedResourceCounts;
+    if (condition === 'warm') {
+      await page.goto(pageUrl, { waitUntil: 'domcontentloaded' });
+      await page.locator('.split-editor .cm-content').waitFor();
+      await page.waitForFunction(() => window.__mveMessages.some((message) => message.type === 'ready'));
+      if (sample.isMarp) {
+        await waitForMarpContent(page, sample);
+      } else {
+        await waitForMarkdownContent(page, sample);
+      }
+      sampleRequests.length = 0;
+      sampleDiagnostics.length = 0;
+      warmedResourceCounts = new Map(servedResourceCounts);
+    }
     await page.goto(pageUrl, { waitUntil: 'domcontentloaded' });
     await page.locator('.split-editor .cm-content').waitFor();
     await page.waitForFunction(() => window.__mveMessages.some((message) => message.type === 'ready'));
@@ -360,6 +416,24 @@ async function measureSample(sample) {
         return false;
       }
     }).length;
+    if (condition === 'warm' && warmedResourceCounts) {
+      const requiredAssets = [
+        '/dist/webview.js',
+        '/dist/webview.css',
+        sample.isMarp ? '/dist/marp-worker.js' : '/dist/markdown-worker.js',
+      ];
+      if (sample.isMarp) requiredAssets.push('/dist/marp-frame.js');
+      measurement.warmCacheEvidence = requiredAssets.map((asset) => ({
+        asset,
+        afterPriming: warmedResourceCounts.get(asset) ?? 0,
+        afterMeasuredLoad: servedResourceCounts.get(asset) ?? 0,
+        reused: (warmedResourceCounts.get(asset) ?? 0) === (servedResourceCounts.get(asset) ?? 0),
+      }));
+      const cacheMisses = measurement.warmCacheEvidence.filter((asset) => !asset.reused);
+      if (cacheMisses.length) {
+        throw new Error(`温間計測の主要資材がHTTPキャッシュから再利用されませんでした: ${JSON.stringify(cacheMisses)}`);
+      }
+    }
 
     const isEmptyMarkdown = !sample.isMarp && sample.markdown.trim().length === 0;
     const hasLoadedImages = measurement.visibleImageCount > 0 &&
@@ -805,7 +879,7 @@ function percentile(sortedValues, percentileValue) {
  * @returns 主要な時間、容量、内容数を含む行。
  */
 function formatFileSummary(summary) {
-  return `${summary.type.padEnd(8)} ${summary.path} | median=${summary.medianFirstVisibleMs} ms` +
+  return `${summary.condition.padEnd(4)} ${summary.type.padEnd(8)} ${summary.path} | median=${summary.medianFirstVisibleMs} ms` +
     ` p95=${summary.p95FirstVisibleMs} ms max=${summary.maximumFirstVisibleMs} ms` +
     ` | worker median=${summary.medianWorkerMs?.toFixed(1) ?? '-'} ms` +
     ` | slides=${summary.slideCount ?? '-'} headings=${summary.headingCount}` +

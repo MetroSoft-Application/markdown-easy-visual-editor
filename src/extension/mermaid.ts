@@ -399,7 +399,7 @@ export function renderMermaidInBrowser(
 }
 
 /**
- * Mermaid描画の待機列、キャッシュ、ページ、ブラウザーコンテキストを解放する。
+ * Mermaid描画の待機処理、キャッシュ、ブラウザーコンテキストを解放する。
  */
 export async function closeMermaidRenderer(): Promise<void> {
     for (const task of inFlight.values()) cancelTask(task);

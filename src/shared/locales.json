@@ -316,6 +316,7 @@
         "title": "Marpプレビュー",
         "loading": "Marpスライドを描画しています...",
         "failed": "Marpプレビューの描画に失敗しました。Markdownソースは編集できます。",
+        "detectionFailed": "Marp形式を判定できませんでした。通常のMarkdown表示へ切り替えず、ソース編集を続けられます。",
         "slideLabel": "スライド {index}"
       },
       "status": {
@@ -864,6 +865,7 @@
         "title": "Marp preview",
         "loading": "Rendering Marp slides...",
         "failed": "Marp preview rendering failed. You can continue editing the Markdown source.",
+        "detectionFailed": "Could not identify this document as Marp. The preview remains paused without switching to regular Markdown, and source editing is available.",
         "slideLabel": "Slide {index}"
       },
       "status": {
@@ -1412,6 +1414,7 @@
         "title": "Marp 预览",
         "loading": "正在渲染 Marp 幻灯片...",
         "failed": "Marp 预览渲染失败。您仍可继续编辑 Markdown 源文档。",
+        "detectionFailed": "无法判定此文档是否为 Marp。预览不会切换为普通 Markdown，您仍可编辑源文档。",
         "slideLabel": "第 {index} 张幻灯片"
       },
       "status": {
@@ -1960,6 +1963,7 @@
         "title": "Marp 미리 보기",
         "loading": "Marp 슬라이드를 렌더링하고 있습니다...",
         "failed": "Marp 미리 보기 렌더링에 실패했습니다. Markdown 소스는 계속 편집할 수 있습니다.",
+        "detectionFailed": "이 문서를 Marp로 판정할 수 없습니다. 일반 Markdown 미리 보기로 전환하지 않으며 소스 편집은 계속할 수 있습니다.",
         "slideLabel": "슬라이드 {index}"
       },
       "status": {
@@ -2508,6 +2512,7 @@
         "title": "Aperçu Marp",
         "loading": "Rendu des diapositives Marp...",
         "failed": "Le rendu de l’aperçu Marp a échoué. Vous pouvez continuer à modifier le Markdown.",
+        "detectionFailed": "Impossible de déterminer si ce document est au format Marp. L’aperçu ne bascule pas vers Markdown standard et la source reste modifiable.",
         "slideLabel": "Diapositive {index}"
       },
       "status": {
@@ -3056,6 +3061,7 @@
         "title": "Marp-Vorschau",
         "loading": "Marp-Folien werden gerendert...",
         "failed": "Die Marp-Vorschau konnte nicht gerendert werden. Sie können den Markdown-Quelltext weiter bearbeiten.",
+        "detectionFailed": "Das Dokument konnte nicht als Marp erkannt werden. Die Vorschau wechselt nicht zu normalem Markdown; der Quelltext bleibt bearbeitbar.",
         "slideLabel": "Folie {index}"
       },
       "status": {
@@ -3604,6 +3610,7 @@
         "title": "Vista previa de Marp",
         "loading": "Renderizando diapositivas de Marp...",
         "failed": "No se pudo renderizar la vista previa de Marp. Puedes seguir editando el Markdown.",
+        "detectionFailed": "No se pudo identificar el documento como Marp. La vista previa no cambiará a Markdown normal y el código fuente seguirá disponible para editar.",
         "slideLabel": "Diapositiva {index}"
       },
       "status": {

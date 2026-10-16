@@ -466,11 +466,24 @@ try {
   () => document.querySelectorAll('.split-preview .mermaid[data-mermaid-status="ready"]').length >= 1);
   await load(6);
   await page.locator('.split-preview .mermaid').first().scrollIntoViewIfNeeded();
-  await page.waitForFunction(
-  /**
-   * ブラウザー内に「.split-preview .mermaid[data-mermaid-status=」が現れるまで待機する。
-   */
-  () => document.querySelectorAll('.split-preview .mermaid[data-mermaid-status="ready"]').length >= 1);
+  try {
+    await page.waitForFunction(
+      () => document.querySelectorAll('.split-preview .mermaid[data-mermaid-status="ready"]').length >= 1,
+    );
+  } catch (error) {
+    const state = await page.evaluate(() => ({
+      mermaid: Array.from(document.querySelectorAll('.split-preview .mermaid'), (element) => ({
+        status: element.getAttribute('data-mermaid-status'),
+        text: element.textContent?.slice(0, 250),
+        error: element.getAttribute('data-mermaid-error'),
+      })),
+      requests: window.__mveMessages.filter((message) => message.type === 'renderMermaid').map((message) => ({
+        requestId: message.requestId,
+        text: message.text?.slice(0, 120),
+      })),
+    }));
+    throw new Error(`sample/06 Mermaid render did not become ready: ${JSON.stringify(state)}; pageErrors=${pageErrors.join(' | ')}`, { cause: error });
+  }
   if (!(await page.locator('.split-preview .katex').count()) || !(await page.locator('.split-preview table').count())) throw new Error('sample/06 の数式・表を確認できません。');
   await load(7);
   await load(9);

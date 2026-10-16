@@ -15,6 +15,7 @@ import type { Messages } from "../../shared/messages";
 import type { PreviewViewportAnchor } from "../preview/scrollAnchors";
 import { ImagePreviewDialog } from "../components/RenderedMarkdown";
 import type { MarpRenderResult, MarpSlideSourceRange } from "./marpRenderer";
+import { findMarpSourceRangeAtOffset } from "./marpSourceRanges";
 import { isCurrentMarpWorkerResponse } from "./marpWorkerProtocol";
 import { getMarpWorker, retainMarpWorker, terminateMarpWorker } from "./marpWorkerPool";
 
@@ -56,7 +57,11 @@ interface FrameMessage {
  */
 export interface MarpPreviewHandle {
   /** 指定したMarkdownオフセットを含むスライドへスクロールする。 */
-  scrollToOffset(offset: number, topOffset?: number): void;
+  scrollToOffset(
+    offset: number,
+    topOffset?: number,
+    onlyIfSlideChanges?: boolean,
+  ): void;
   /** 現在のスライドとスクロール比を復元用アンカーとして返す。 */
   captureViewport(): PreviewViewportAnchor | undefined;
 }
@@ -105,6 +110,7 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
     const frameRef = useRef<HTMLIFrameElement>(null);
     const workerRef = useRef<Worker | undefined>(undefined);
     const assetDataUrlCacheRef = useRef(new Map<string, Promise<string>>());
+    const initialRenderScheduledRef = useRef(false);
     const generationRef = useRef(0);
     const requestIdRef = useRef(0);
     const pendingScrollOffsetRef = useRef<number | undefined>(undefined);
@@ -160,13 +166,22 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
     }, [messages.app.marpPreview.slideLabel]);
 
     const scrollToOffset = useCallback(
-      (offset: number, topOffset = 0) => {
+      (offset: number, topOffset = 0, onlyIfSlideChanges = false) => {
         const container = getScrollContainer();
         const frame = frameRef.current;
         if (!container || !frame || !Number.isFinite(offset)) return;
         pendingScrollOffsetRef.current = offset;
-        const range = findRangeAtOffset(rangesRef.current, offset);
+        const range = findMarpSourceRangeAtOffset(rangesRef.current, offset);
         if (!range) return;
+        const targetSlideIndex = range.index - 1;
+        if (
+          onlyIfSlideChanges &&
+          !awaitingZoomLayoutRef.current &&
+          activeSlideRef.current === targetSlideIndex
+        ) {
+          pendingScrollOffsetRef.current = undefined;
+          return;
+        }
         const metric = metricsRef.current.find((item) => item.index === range.index - 1);
         if (!metric) return;
         const frameTop = getFrameTopInContainer(frame, container);
@@ -180,6 +195,9 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
           programmaticScrollRef.current = false;
         });
         activeSlideRef.current = range.index - 1;
+        if (rootRef.current) {
+          rootRef.current.dataset.mveMarpActiveSlideIndex = String(targetSlideIndex);
+        }
         if (!awaitingZoomLayoutRef.current) pendingScrollOffsetRef.current = undefined;
       },
       [getScrollContainer, zoom],
@@ -226,13 +244,21 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
       lastViewportAnchorRef.current = undefined;
     }, [scrollToOffset, zoom]);
 
-    useEffect(() => {
+    useLayoutEffect(() => {
       const currentGeneration = ++generationRef.current;
       assetDataUrlCacheRef.current.clear();
+      latestResultRef.current = undefined;
+      metricsRef.current = [];
+      rangesRef.current = [];
+      activeSlideRef.current = -1;
       setHasRenderedSlides(false);
       setError(undefined);
       let settled = false;
       let resolvingAssets = false;
+      const renderDebounceMs = initialRenderScheduledRef.current
+        ? RENDER_DEBOUNCE_MS
+        : 0;
+      initialRenderScheduledRef.current = true;
       const debounce = window.setTimeout(() => {
         const id = ++requestIdRef.current;
         let worker = workerRef.current;
@@ -266,7 +292,7 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
           return;
         }
         attachWorker(worker, currentGeneration, id, markdown);
-      }, RENDER_DEBOUNCE_MS);
+      }, renderDebounceMs);
       setError(undefined);
       return () => {
         window.clearTimeout(debounce);
@@ -401,6 +427,15 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
           return;
         }
         const message = event.data;
+        if (
+          message.type === "render-stage" ||
+          message.type === "render-error" ||
+          message.type === "invalid" ||
+          message.type === "layout"
+        ) {
+          const currentResult = latestResultRef.current;
+          if (!currentResult || message.renderId !== currentResult.id) return;
+        }
         if (message.type === "ready") {
           frameReadyRef.current = true;
           onStartupStage?.("iframe-ready");
@@ -561,6 +596,9 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
         }
         if (!metric || metric.index === activeSlideRef.current) return;
         activeSlideRef.current = metric.index;
+        if (rootRef.current) {
+          rootRef.current.dataset.mveMarpActiveSlideIndex = String(metric.index);
+        }
         if (userInitiated && !programmaticScrollRef.current) {
           const range = rangesRef.current[metric.index];
           if (range) onActiveSlide?.(range);
@@ -618,6 +656,9 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
         }
         if (!metric || metric.index === activeSlideRef.current) return;
         activeSlideRef.current = metric.index;
+        if (rootRef.current) {
+          rootRef.current.dataset.mveMarpActiveSlideIndex = String(metric.index);
+        }
         if (userInitiated && !programmaticScrollRef.current) {
           const range = rangesRef.current[metric.index];
           if (range) onActiveSlide?.(range);
@@ -911,7 +952,7 @@ function createFrameDocument(
   const remoteImages = remoteImagesEnabled ? " https: http:" : "";
   const baseUri = escapeAttribute(document.baseURI);
   const safeFrameScript = frameScript.replace(/<\/script/gi, "<\\/script");
-  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri ${cspSource}; img-src ${cspSource} data: blob:${remoteImages}; font-src ${cspSource} data:; style-src ${cspSource} 'unsafe-inline'; script-src 'nonce-${scriptNonce}'; connect-src 'none'; form-action 'none';"><base href="${baseUri}"><style>html,body{margin:0;min-height:100%;background:transparent}body{padding:18px 0;box-sizing:border-box}#mve-marp-slides{display:flex;flex-direction:column;gap:24px;align-items:center}.mve-marp-slide{width:min(100%,1280px);display:flex;justify-content:center}.mve-marp-slide .marpit{width:100%;height:auto}.mve-marp-slide .marpit>svg{display:block;width:100%!important;height:auto!important}</style></head><body><style id="mve-marp-theme"></style><main id="mve-marp-slides"></main><script nonce="${scriptNonce}" data-mve-token="${escapeAttribute(token)}">${safeFrameScript}</script></body></html>`;
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; base-uri ${cspSource}; img-src ${cspSource} data: blob:${remoteImages}; font-src ${cspSource} data:; style-src ${cspSource} 'unsafe-inline'; script-src 'nonce-${scriptNonce}'; connect-src 'none'; form-action 'none';"><base href="${baseUri}"><style>html,body{margin:0;min-height:100%;background:#e5e8ec}body{padding:22px 0;box-sizing:border-box}#mve-marp-slides{display:flex;flex-direction:column;gap:38px;align-items:center}#mve-marp-slides>.mve-marp-slide{position:relative;width:min(100%,1280px);display:flex;justify-content:center;outline:2px solid rgba(78,88,100,.82);outline-offset:0;box-shadow:0 5px 18px rgba(0,0,0,.28)}.mve-marp-slide .marpit{width:100%;height:auto}.mve-marp-slide .marpit>svg{display:block;width:100%!important;height:auto!important}</style></head><body><style id="mve-marp-theme"></style><main id="mve-marp-slides"></main><script nonce="${scriptNonce}" data-mve-token="${escapeAttribute(token)}">${safeFrameScript}</script></body></html>`;
 }
 
 /**
@@ -944,20 +985,6 @@ function resolveImageSource(source: string): string {
   } catch {
     return source;
   }
-}
-
-/**
- * Markdown文字オフセットを含むスライド範囲を検索する。
- * @param ranges - スライドごとの本文範囲。
- * @param offset - Markdown本文内のUTF-16オフセット。
- * @returns 対応するスライド範囲。範囲外なら最初または最後のスライド。
- */
-function findRangeAtOffset(
-  ranges: MarpSlideSourceRange[],
-  offset: number,
-): MarpSlideSourceRange | undefined {
-  return ranges.find((range) => offset >= range.startOffset && offset < range.endOffset)
-    ?? (offset < (ranges[0]?.startOffset ?? 0) ? ranges[0] : ranges.at(-1));
 }
 
 /**

@@ -47,6 +47,7 @@ import {
 import { getMessages, resolveLanguage, type Messages } from '../shared/messages';
 import { isMarpMarkdown } from '../shared/marpFrontMatter';
 import type { MarpFrontMatterParser } from '../shared/marpFrontMatter';
+import { hasMermaidFence } from '../shared/markdownFence';
 import { acquirePdfBrowser, closePdfBrowser, exportPdf, renderPdf } from './pdf';
 import {
     closeMermaidRenderer,
@@ -1471,6 +1472,8 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
             const text = error instanceof Error ? error.message : String(error);
             if (message.type === 'detectMarpMarkdown') {
                 hostDebug('[MVE host] Marp detection failed', { error: text });
+                this.post(panel, { type: 'operationFailed', requestId, message: text });
+                return;
             }
             this.post(panel, { type: 'operationFailed', requestId, message: text });
             void vscode.window.showErrorMessage(`${this.getMessages().host.errorPrefix}: ${text}`);
@@ -2874,8 +2877,16 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
         const baseUri = webview.asWebviewUri(vscode.Uri.joinPath(document.uri, '..'));
         const nonce = randomUUID().replace(/-/g, '');
         const settings = this.getSettings(document);
-        const allowRemote = settings.remoteImagesEnabled ? ' https: http:' : '';
         const canonicalText = this.canonicalText(document);
+        const shouldPreloadMermaid =
+            settings.viewMode !== 'text' && hasMermaidFence(canonicalText, 96);
+        const markdownWorkerPreload = settings.viewMode !== 'text'
+            ? `<link rel="preload" href="${markdownWorkerUri}" as="fetch" crossorigin="anonymous">`
+            : '';
+        const mermaidPreloadScript = shouldPreloadMermaid
+            ? `<script nonce="${nonce}">(() => { const link = document.createElement('link'); link.rel = 'preload'; link.as = 'script'; link.setAttribute('fetchpriority', 'low'); link.href = document.body.dataset.mveMermaidUri || ''; document.head.append(link); })();</script>`
+            : '';
+        const allowRemote = settings.remoteImagesEnabled ? ' https: http:' : '';
         // 巨大文書をHTML内で複製すると逆にパース・メモリ負荷が増えるため、
         // 通常サイズだけを即時起動し、それ以上は従来のinitメッセージへ戻す。
         const bootstrap = canonicalText.length <= 2 * 1024 * 1024
@@ -2895,10 +2906,12 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
           <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} data: blob:${allowRemote}; font-src ${webview.cspSource} data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource} 'nonce-${nonce}'; worker-src blob: data:; frame-src 'self' ${webview.cspSource}; connect-src ${webview.cspSource} blob:;">
           <link rel="stylesheet" href="${styleUri}">
           <link rel="stylesheet" href="${bundledStyleUri}">
+          ${markdownWorkerPreload}
           <title>Markdown Easy Visual Editor</title>
           <script nonce="${nonce}">globalThis.__mveBootstrap=${bootstrap};</script>
         </head>
         <body data-mve-markdown-worker-uri="${markdownWorkerUri.toString()}" data-mve-markdown-rich-worker-uri="${markdownRichWorkerUri.toString()}" data-mve-markdown-fallback-uri="${markdownFallbackUri.toString()}" data-mve-marp-worker-uri="${marpWorkerUri.toString()}" data-mve-marp-frame-uri="${marpFrameUri.toString()}" data-mve-marp-katex-fonts-uri="${marpKatexFontsUri.toString()}/" data-mve-csp-source="${webview.cspSource}" data-mve-csp-nonce="${nonce}" data-mve-remote-images="${settings.remoteImagesEnabled}" data-mve-export-fonts-uri="${exportFontsUri.toString()}" data-mve-mermaid-uri="${mermaidUri.toString()}">
+          ${mermaidPreloadScript}
           <div id="root"></div>
           <script nonce="${nonce}" src="${scriptUri}"></script>
         </body>

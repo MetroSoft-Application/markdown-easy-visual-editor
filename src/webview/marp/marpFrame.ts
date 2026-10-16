@@ -96,7 +96,12 @@ function receiveRender(event: MessageEvent): void {
     message.slides.length !== message.slideLabels.length ||
     typeof message.css !== "string"
   ) {
-    parent.postMessage({ channel: "mve-marp", token, type: "invalid" }, "*");
+    parent.postMessage({
+      channel: "mve-marp",
+      token,
+      type: "invalid",
+      renderId: Number.isInteger(message.renderId) ? message.renderId : undefined,
+    }, "*");
     return;
   }
   const isInitialRender = renderId === undefined;
@@ -110,6 +115,8 @@ function receiveRender(event: MessageEvent): void {
       const slide = document.createElement("article");
       slide.className = "mve-marp-slide";
       slide.dataset.slideIndex = String(index);
+      slide.dataset.sourceStartOffset = String(message.sourceRanges[index]?.startOffset ?? 0);
+      slide.dataset.sourceEndOffset = String(message.sourceRanges[index]?.endOffset ?? 0);
       slide.setAttribute("aria-label", message.slideLabels[index] ?? "");
       const marpit = document.createElement("div");
       marpit.className = "marpit";
@@ -125,7 +132,7 @@ function receiveRender(event: MessageEvent): void {
     if (isInitialRender) postRenderStage("browser-support-applied");
     publishInitialLayout(message.renderId, isInitialRender);
   } catch (error) {
-    reportRenderError("render", error);
+    reportRenderError("render", error, message.renderId);
   }
 }
 
@@ -143,15 +150,19 @@ function publishInitialLayout(
   if (renderId !== targetRenderId) return;
   try {
     if (publishLayout()) {
-      if (reportStages) postRenderStage("layout-published");
+      if (reportStages) postRenderStage("layout-published", targetRenderId);
       return;
     }
   } catch (error) {
-    reportRenderError("layout", error);
+    reportRenderError("layout", error, targetRenderId);
     return;
   }
   if (attempt >= 40) {
-    if (reportStages) postRenderStage("layout-unavailable");
+    reportRenderError(
+      "layout-unavailable",
+      new Error("Marp slide layout could not be measured after 40 attempts."),
+      targetRenderId,
+    );
     return;
   }
   window.setTimeout(() => publishInitialLayout(targetRenderId, reportStages, attempt + 1), 50);
@@ -161,8 +172,14 @@ function publishInitialLayout(
  * 初回レイアウトの親子ハンドシェイク段階を親Webviewへ報告する。
  * @param stage - iframe内で完了した初回処理段階。
  */
-function postRenderStage(stage: string): void {
-  parent.postMessage({ channel: "mve-marp", token, type: "render-stage", stage }, "*");
+function postRenderStage(stage: string, renderIdForMessage = renderId): void {
+  parent.postMessage({
+    channel: "mve-marp",
+    token,
+    type: "render-stage",
+    renderId: renderIdForMessage,
+    stage,
+  }, "*");
 }
 
 /**
@@ -170,12 +187,17 @@ function postRenderStage(stage: string): void {
  * @param stage - 例外が発生したiframe処理段階。
  * @param error - 例外情報。
  */
-function reportRenderError(stage: string, error: unknown): void {
+function reportRenderError(
+  stage: string,
+  error: unknown,
+  renderIdForMessage = renderId,
+): void {
   const detail = error instanceof Error ? error.message : String(error);
   parent.postMessage({
     channel: "mve-marp",
     token,
     type: "render-error",
+    renderId: renderIdForMessage,
     stage,
     detail: detail.slice(0, 300),
   }, "*");

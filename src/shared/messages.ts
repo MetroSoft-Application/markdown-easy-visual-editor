@@ -1144,7 +1144,8 @@ export interface Messages {
             loading: string;
             /** Workerの起動または描画が失敗した場合に表示する文言。 */
             failed: string;
-            /** Workerの描画が時間内に完了しない場合に表示する文言。 */
+            /** Marp判定に失敗し、通常プレビューへ切り替えない場合に表示する文言。 */
+            detectionFailed: string;
             /** スライドごとのアクセシブル名。 */
             slideLabel: (index: number) => string;
         };
@@ -2269,6 +2270,7 @@ function createMessages(language: SupportedLanguage): Messages {
                 title: raw.app.marpPreview.title,
                 loading: raw.app.marpPreview.loading,
                 failed: raw.app.marpPreview.failed,
+                detectionFailed: raw.app.marpPreview.detectionFailed,
                 slideLabel: (index: number) => text('app.marpPreview.slideLabel', { index })
             },
             status: {
