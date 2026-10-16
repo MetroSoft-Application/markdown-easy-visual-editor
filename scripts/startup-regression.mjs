@@ -12,6 +12,9 @@ const limits = {
   'webview.js': 2 * 1024 * 1024,
   'webview.css': 256 * 1024,
   'markdown-worker.js': 512 * 1024,
+  'marp-worker.js': 1024 * 1024,
+  'marp-frame.js': 256 * 1024,
+  'marp-yaml.cjs': 512 * 1024,
   total: 48 * 1024 * 1024
 };
 
@@ -24,6 +27,9 @@ const requiredTopLevelFiles = [
   'markdown-fallback.js',
   'markdown-rich-worker.js',
   'markdown-worker.js',
+  'marp-frame.js',
+  'marp-worker.js',
+  'marp-yaml.cjs',
   'mermaid.min.js',
   'pdf.worker.min.mjs',
   'pdfjs.mjs',
@@ -85,39 +91,45 @@ const fontFiles = fontEntries.filter(
 
  */
 (entry) => entry.isFile());
-/** dist/fonts内のフォントファイルの合計サイズをバイト数で保持する。 */
-const fontBytes = (await Promise.all(fontFiles.map(
 /**
- * フォントファイルのサイズを取得する。
- * @param entry - サイズを測るfontsディレクトリエントリ。
- * @returns フォントファイルのサイズ（バイト）。
+ * dist内にあるすべての通常ファイルを再帰列挙する。
+ * @param directory - 読み取り対象のディレクトリ。
+ * @returns ディレクトリ内の全ファイルパス。
  */
-async (entry) =>
-  (await stat(path.join('dist', 'fonts', entry.name))).size
+async function listFiles(directory) {
+  const entries = await readdir(directory, { withFileTypes: true });
+  const files = [];
+  for (const entry of entries) {
+    const candidate = path.join(directory, entry.name);
+    if (entry.isDirectory()) files.push(...await listFiles(candidate));
+    else if (entry.isFile()) files.push(candidate);
+  }
+  return files;
+}
+const allDistFiles = await listFiles(path.resolve('dist'));
+/** dist内の全ファイルサイズを合計し、配布成果物の総サイズとする。 */
+const totalBytes = (await Promise.all(allDistFiles.map(
+/**
+ * dist内のファイルサイズを読み取る。
+ * @param file - サイズを測るファイルパス。
+ * @returns ファイルサイズ（バイト）。
+ */
+async (file) => (await stat(file)).size
 ))).reduce(
 /**
- * フォントファイルのサイズを累積する。
- * @param sum - ここまでに合計したフォントサイズ（バイト）。
- * @param size - 次に加算するフォントファイルのサイズ（バイト）。
- * @returns フォントファイルの累積サイズ（バイト）。
+ * ファイルサイズを累積する。
+ * @param sum - ここまでに合計したファイルサイズ。
+ * @param size - 次に加算するファイルサイズ。
+ * @returns 累積した合計サイズ。
  */
 (sum, size) => sum + size, 0);
-/**
- * distの対象ファイル全体の合計サイズをバイト単位で示します。
- */
-const totalBytes = Object.values(sizes).reduce(
-/**
- * 要素を順に加算して累積値を求める。
- * @param sum - 累積値へ加算する要素。
- * @param size - 累積値へ加算する要素。
- * @returns 要素を集約した累積値。
- */
-(sum, size) => sum + size, 0) + fontBytes;
 
 assertAtMost('extension.js', sizes['extension.js'], limits['extension.js']);
 assertAtMost('webview.js', sizes['webview.js'], limits['webview.js']);
 assertAtMost('webview.css', sizes['webview.css'], limits['webview.css']);
 assertAtMost('markdown-worker.js', sizes['markdown-worker.js'], limits['markdown-worker.js']);
+assertAtMost('marp-worker.js', sizes['marp-worker.js'], limits['marp-worker.js']);
+assertAtMost('marp-frame.js', sizes['marp-frame.js'], limits['marp-frame.js']);
 assertAtMost('dist 合計', totalBytes, limits.total);
 if (fontFiles.length < 10) throw new Error('KaTeX の外部フォント成果物が不足しています。');
 
@@ -138,6 +150,12 @@ if (!extension.includes('./playwright.js')) {
 if (!webview.includes('markdown-rich-worker.js') || !webview.includes('markdown-fallback.js') || !webview.includes('mermaid.min.js')) {
   throw new Error('Webview の障害時ランタイム遅延ロード参照が不足しています。');
 }
+if (!webview.includes('mveMarpWorkerUri') || !extension.includes('marp-worker.js')) {
+  throw new Error('Marp Worker の遅延ロード URI または Extension Host 資産参照がありません。');
+}
+if (!webview.includes('mveMarpFrameUri') || !extension.includes('marp-frame.js')) {
+  throw new Error('Marp iframe 補助コードの URI または Extension Host 資産参照がありません。');
+}
 if (sizes['export-fonts.css'] < 1024 * 1024 || sizes['playwright.js'] < 1024 * 1024) {
   throw new Error('遅延ロード対象の完全な成果物が生成されていません。');
 }
@@ -146,6 +164,8 @@ console.log([
   '起動回帰ガード: OK',
   `extension.js=${formatBytes(sizes['extension.js'])}`,
   `webview.js=${formatBytes(sizes['webview.js'])}`,
+  `marp-worker.js=${formatBytes(sizes['marp-worker.js'])}`,
+  `marp-frame.js=${formatBytes(sizes['marp-frame.js'])}`,
   `webview.css=${formatBytes(sizes['webview.css'])}`,
   `dist=${formatBytes(totalBytes)}`
 ].join(' / '));

@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="720" height="260" viewBox="0 0 720 260" role="img" aria-labelledby="title description">
+  <title id="title">Markdown Easy Visual Editor ローカル画像サンプル</title>
+  <desc id="description">青い背景にMarkdown Easy Visual Editorと表示された検証用画像</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#2563eb"/>
+      <stop offset="1" stop-color="#0f766e"/>
+    </linearGradient>
+  </defs>
+  <rect width="720" height="260" rx="24" fill="url(#background)"/>
+  <rect x="38" y="38" width="184" height="184" rx="18" fill="#fff" opacity=".95"/>
+  <path d="M78 92h104v20H78zm0 42h72v20H78zm0 42h92v20H78z" fill="#2563eb"/>
+  <text x="260" y="116" fill="#fff" font-family="Segoe UI, sans-serif" font-size="40" font-weight="700">Markdown Easy Visual Editor</text>
+  <text x="260" y="166" fill="#dbeafe" font-family="Yu Gothic UI, sans-serif" font-size="24">ローカル画像表示テスト</text>
+</svg>

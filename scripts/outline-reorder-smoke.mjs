@@ -4,6 +4,7 @@
 import { chromium } from 'playwright-core';
 import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
+import { startWebviewAssetServer } from './webview-test-server.mjs';
 
 /**
  * 指定した名前のファイルを検証用ディレクトリから再帰的に探す。
@@ -225,6 +226,7 @@ async function sendExternalEdit(page, nextText, changes) {
 }
 
 const browser = await chromium.launch({ executablePath, headless: true });
+const webviewServer = await startWebviewAssetServer();
 try {
   const context = await browser.newContext();
   await context.addInitScript(
@@ -332,7 +334,7 @@ try {
    * @param message - ユーザー操作またはDOMから通知されたイベント。
    */
   (message) => { if (message.type() === 'error') errors.push(message.text()); });
-  await page.goto('about:blank');
+  await page.goto(webviewServer.origin);
   await page.setContent('<!doctype html><html lang="ja"><head><meta charset="utf-8"></head><body><div id="root"></div></body></html>');
   await page.evaluate(
   /**
@@ -343,9 +345,9 @@ try {
     document.body.dataset.mveMarkdownWorkerUri = URL.createObjectURL(new Blob([workerSource], { type: 'text/javascript' }));
     document.body.dataset.mveMarkdownRichWorkerUri = URL.createObjectURL(new Blob([richWorkerSource], { type: 'text/javascript' }));
   }, { workerSource: markdownWorkerBundle, richWorkerSource: markdownRichWorkerBundle });
-  await page.addStyleTag({ path: path.resolve('dist/styles.css') });
-  await page.addStyleTag({ path: path.resolve('dist/webview.css') });
-  await page.addScriptTag({ path: path.resolve('dist/webview.js') });
+  await page.addStyleTag({ url: `${webviewServer.origin}/dist/styles.css` });
+  await page.addStyleTag({ url: `${webviewServer.origin}/dist/webview.css` });
+  await page.addScriptTag({ url: `${webviewServer.origin}/dist/webview.js` });
   await page.waitForFunction(
   /**
    * HostとWebviewのメッセージ状態が完了条件を満たすまで待機する。
@@ -1202,7 +1204,7 @@ try {
    * @returns 例外内容を記録する副作用。
    */
   (error) => freshPageErrors.push(error.message));
-  await freshPage.goto('about:blank');
+  await freshPage.goto(webviewServer.origin);
   await freshPage.setContent('<!doctype html><html lang="ja"><head><meta charset="utf-8"></head><body><div id="root"></div></body></html>');
   await freshPage.evaluate(
   /**
@@ -1214,9 +1216,9 @@ try {
     document.body.dataset.mveMarkdownWorkerUri = URL.createObjectURL(new Blob([workers.workerSource], { type: 'text/javascript' }));
     document.body.dataset.mveMarkdownRichWorkerUri = URL.createObjectURL(new Blob([workers.richWorkerSource], { type: 'text/javascript' }));
   }, { workerSource: markdownWorkerBundle, richWorkerSource: markdownRichWorkerBundle });
-  await freshPage.addStyleTag({ path: path.resolve('dist/styles.css') });
-  await freshPage.addStyleTag({ path: path.resolve('dist/webview.css') });
-  await freshPage.addScriptTag({ path: path.resolve('dist/webview.js') });
+  await freshPage.addStyleTag({ url: `${webviewServer.origin}/dist/styles.css` });
+  await freshPage.addStyleTag({ url: `${webviewServer.origin}/dist/webview.css` });
+  await freshPage.addScriptTag({ url: `${webviewServer.origin}/dist/webview.js` });
   await freshPage.waitForFunction(
   /**
    * 新しいWebviewがホストへreadyを通知するまで待機する。
@@ -1294,4 +1296,5 @@ try {
   }));
 } finally {
   await browser.close();
+  await webviewServer.close();
 }

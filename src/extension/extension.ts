@@ -2,6 +2,7 @@
  * @fileoverview Custom Editorの起動、文書保存、HostとWebviewの同期、編集コマンドを束ねる。VS Code APIが外部境界となる。
  */
 import * as vscode from 'vscode';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { randomBytes, randomUUID } from 'node:crypto';
 import {
@@ -44,6 +45,8 @@ import {
     toCanonicalText
 } from '../shared/canonicalText';
 import { getMessages, resolveLanguage, type Messages } from '../shared/messages';
+import { isMarpMarkdown } from '../shared/marpFrontMatter';
+import type { MarpFrontMatterParser } from '../shared/marpFrontMatter';
 import { acquirePdfBrowser, closePdfBrowser, exportPdf, renderPdf } from './pdf';
 import {
     closeMermaidRenderer,
@@ -388,6 +391,11 @@ interface StartupTiming {
      * 計測項目ごとのWebview起動時間や件数。
      */
     webviewMetrics?: Record<string, number>;
+
+    /**
+     * Marp初回描画のWorkerとiframeの起動段階。
+     */
+    marpStages?: Array<{ stage: string; detail?: string; elapsedMs: number }>;
 }
 
 /**
@@ -470,6 +478,11 @@ export async function deactivate(): Promise<void> {
  * 拡張機能の状態と操作をまとめるクラス。
  */
 export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditorProvider {
+
+    /**
+     * 候補Markdownの判定時にだけ読み込むYAML front matterパーサーです。
+     */
+    private marpFrontMatterParser: MarpFrontMatterParser | undefined;
 
     /**
      * 文書ごとに開いているWebviewパネルの対応表。
@@ -1002,6 +1015,22 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
         // Webviewから受け取った種別ごとの要求を文書操作やファイル操作へ振り分ける。
         try {
             switch (message.type) {
+                case 'detectMarpMarkdown': {
+                    if (
+                        typeof message.requestId !== 'string' ||
+                        message.requestId.length === 0 ||
+                        typeof message.markdown !== 'string'
+                    ) return;
+                    this.marpFrontMatterParser ??= this.loadMarpFrontMatterParser();
+                    const isMarp = isMarpMarkdown(message.markdown, this.marpFrontMatterParser);
+                    hostDebug('[MVE host] Marp detection completed', { isMarp });
+                    this.post(panel, {
+                        type: 'marpDetectionResult',
+                        requestId: message.requestId,
+                        isMarp
+                    });
+                    return;
+                }
                 case 'ready':
                     // 初期接続したWebviewへクライアントID・本文・バージョン・設定を返す。
                     this.panelClientIds.set(panel, message.clientId);
@@ -1033,6 +1062,19 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                     if (this.panelClientIds.get(panel) !== message.clientId) return;
                     this.markStartup(panel, 'firstMermaidReadyMs');
                     return;
+                case 'startupMarpStage': {
+                    if (this.panelClientIds.get(panel) !== message.clientId) return;
+                    const timing = this.panelStartupTimings.get(panel);
+                    if (!timing) return;
+                    const stages = timing.marpStages ?? (timing.marpStages = []);
+                    stages.push({
+                        stage: message.stage,
+                        detail: message.detail,
+                        elapsedMs: Date.now() - timing.resolveStartedAt
+                    });
+                    if (stages.length > 24) stages.shift();
+                    return;
+                }
                 case 'copilotSelectionContext':
                     this.activePanel = panel;
                     this.activeDocument = document;
@@ -1427,9 +1469,29 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
             }
             const requestId = 'requestId' in message ? message.requestId : undefined;
             const text = error instanceof Error ? error.message : String(error);
+            if (message.type === 'detectMarpMarkdown') {
+                hostDebug('[MVE host] Marp detection failed', { error: text });
+            }
             this.post(panel, { type: 'operationFailed', requestId, message: text });
             void vscode.window.showErrorMessage(`${this.getMessages().host.errorPrefix}: ${text}`);
         }
+    }
+
+    /**
+     * Extension Hostから遅延読込するMarp用YAMLパーサーを取得する。
+     * @returns Marp front matterを真偽値として判定する関数。
+     */
+    private loadMarpFrontMatterParser(): MarpFrontMatterParser {
+        const extensionEntry = vscode.Uri.joinPath(
+            this.context.extensionUri,
+            'dist',
+            'extension.js'
+        ).fsPath;
+        const requireFromExtension = createRequire(extensionEntry);
+        const parserModule = requireFromExtension('./marp-yaml.cjs') as {
+            parseMarpFrontMatter: MarpFrontMatterParser;
+        };
+        return parserModule.parseMarpFrontMatter;
     }
 
     /**
@@ -2801,6 +2863,9 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
         const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'webview.js'));
         const markdownWorkerUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'markdown-worker.js'));
         const markdownRichWorkerUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'markdown-rich-worker.js'));
+        const marpWorkerUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'marp-worker.js'));
+        const marpFrameUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'marp-frame.js'));
+        const marpKatexFontsUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'marp-katex-fonts'));
         const markdownFallbackUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'markdown-fallback.js'));
         const exportFontsUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'export-fonts.css'));
         const mermaidUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'mermaid.min.js'));
@@ -2827,13 +2892,13 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <base href="${baseUri.toString()}/">
-          <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} data: blob:${allowRemote}; font-src ${webview.cspSource} data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource} 'nonce-${nonce}'; worker-src blob: data:; connect-src ${webview.cspSource} blob:;">
+          <meta http-equiv="Content-Security-Policy" content="default-src 'none'; img-src ${webview.cspSource} data: blob:${allowRemote}; font-src ${webview.cspSource} data:; style-src ${webview.cspSource} 'unsafe-inline'; script-src ${webview.cspSource} 'nonce-${nonce}'; worker-src blob: data:; frame-src 'self' ${webview.cspSource}; connect-src ${webview.cspSource} blob:;">
           <link rel="stylesheet" href="${styleUri}">
           <link rel="stylesheet" href="${bundledStyleUri}">
           <title>Markdown Easy Visual Editor</title>
           <script nonce="${nonce}">globalThis.__mveBootstrap=${bootstrap};</script>
         </head>
-        <body data-mve-markdown-worker-uri="${markdownWorkerUri.toString()}" data-mve-markdown-rich-worker-uri="${markdownRichWorkerUri.toString()}" data-mve-markdown-fallback-uri="${markdownFallbackUri.toString()}" data-mve-export-fonts-uri="${exportFontsUri.toString()}" data-mve-mermaid-uri="${mermaidUri.toString()}">
+        <body data-mve-markdown-worker-uri="${markdownWorkerUri.toString()}" data-mve-markdown-rich-worker-uri="${markdownRichWorkerUri.toString()}" data-mve-markdown-fallback-uri="${markdownFallbackUri.toString()}" data-mve-marp-worker-uri="${marpWorkerUri.toString()}" data-mve-marp-frame-uri="${marpFrameUri.toString()}" data-mve-marp-katex-fonts-uri="${marpKatexFontsUri.toString()}/" data-mve-csp-source="${webview.cspSource}" data-mve-csp-nonce="${nonce}" data-mve-remote-images="${settings.remoteImagesEnabled}" data-mve-export-fonts-uri="${exportFontsUri.toString()}" data-mve-mermaid-uri="${mermaidUri.toString()}">
           <div id="root"></div>
           <script nonce="${nonce}" src="${scriptUri}"></script>
         </body>

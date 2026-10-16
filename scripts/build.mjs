@@ -2,7 +2,7 @@
  * @fileoverview esbuildでExtension Host、Webview、Markdown Workerを個別にbundleし、配布用リソースをdistへまとめる。
  */
 import * as esbuild from 'esbuild';
-import { copyFile, mkdir, rm } from 'node:fs/promises';
+import { copyFile, cp, mkdir, rm, stat } from 'node:fs/promises';
 
 
 /**
@@ -102,6 +102,66 @@ const markdownFallbackOptions = {
 
 
 /**
+ * Marp Coreを通常のWebview bundleから分離してビルドする設定。
+ */
+const marpWorkerOptions = {
+  ...markdownWorkerOptions,
+  entryPoints: ['src/webview/marp/marp.worker.ts'],
+  outfile: 'dist/marp-worker.js',
+  plugins: [{
+    name: 'marp-worker-optional-rendering-libraries',
+    setup(build) {
+      build.onResolve({ filter: /^mathjax-full\// }, (args) => ({
+        path: args.path,
+        namespace: 'marp-katex-only-mathjax-stub'
+      }));
+      build.onLoad({ filter: /.*/, namespace: 'marp-katex-only-mathjax-stub' }, () => ({
+        contents: 'export {};',
+        loader: 'js'
+      }));
+      build.onResolve({ filter: /^highlight\.js\/lib\/languages\// }, (args) => {
+        const importer = args.importer.replaceAll('\\', '/');
+        if (!importer.includes('@marp-team/marp-core/lib/marp.js')) return null;
+        return {
+          path: args.path,
+          namespace: 'marp-curated-highlight-stub'
+        };
+      });
+      build.onLoad({ filter: /.*/, namespace: 'marp-curated-highlight-stub' }, () => ({
+        contents: 'export default () => ({ contains: [] });',
+        loader: 'js'
+      }));
+    }
+  }]
+};
+
+
+/**
+ * Marpプレビュー用の隔離iframe補助コードを個別にビルドする設定。
+ */
+const marpFrameOptions = {
+  ...markdownWorkerOptions,
+  entryPoints: ['src/webview/marp/marpFrame.ts'],
+  outfile: 'dist/marp-frame.js'
+};
+
+/**
+ * YAMLパーサーをExtension Hostから候補文書の判定時にだけ読み込む資産へbundleする。
+ */
+const marpYamlOptions = {
+  entryPoints: ['src/extension/marpYamlRuntime.ts'],
+  bundle: true,
+  outfile: 'dist/marp-yaml.cjs',
+  platform: 'node',
+  format: 'cjs',
+  target: 'node20',
+  minify: !watch,
+  sourcemap: false,
+  logLevel: 'info'
+};
+
+
+/**
  * ビルドへ渡す設定または境界値。
  */
 const exportFontOptions = {
@@ -138,6 +198,7 @@ async function copyAssets() {
     copyFile('node_modules/pdfjs-dist/build/pdf.min.mjs', 'dist/pdfjs.mjs'),
     copyFile('node_modules/pdfjs-dist/build/pdf.worker.min.mjs', 'dist/pdf.worker.min.mjs'),
     copyFile('node_modules/mermaid/dist/mermaid.min.js', 'dist/mermaid.min.js'),
+    cp('node_modules/@marp-team/marp-core/node_modules/katex/dist/fonts', 'dist/marp-katex-fonts', { recursive: true }),
     copyFile('node_modules/playwright-core/browsers.json', 'browsers.json')
   ]);
 }
@@ -152,6 +213,9 @@ if (watch) {
   const markdownWorkerContext = await esbuild.context(markdownWorkerOptions);
   const markdownRichWorkerContext = await esbuild.context(markdownRichWorkerOptions);
   const markdownFallbackContext = await esbuild.context(markdownFallbackOptions);
+  const marpWorkerContext = await esbuild.context(marpWorkerOptions);
+  const marpFrameContext = await esbuild.context(marpFrameOptions);
+  const marpYamlContext = await esbuild.context(marpYamlOptions);
   const exportFontContext = await esbuild.context(exportFontOptions);
   await esbuild.build(playwrightOptions);
   await Promise.all([
@@ -160,17 +224,44 @@ if (watch) {
     markdownWorkerContext.watch(),
     markdownRichWorkerContext.watch(),
     markdownFallbackContext.watch(),
+    marpWorkerContext.watch(),
+    marpFrameContext.watch(),
+    marpYamlContext.watch(),
     exportFontContext.watch()
   ]);
   console.log('Watching extension and webview...');
 } else {
-  await Promise.all([
+  const results = await Promise.all([
     esbuild.build(extensionOptions),
-    esbuild.build(webviewOptions),
-    esbuild.build(markdownWorkerOptions),
-    esbuild.build(markdownRichWorkerOptions),
-    esbuild.build(markdownFallbackOptions),
+    esbuild.build({ ...webviewOptions, metafile: true }),
+    esbuild.build({ ...markdownWorkerOptions, metafile: true }),
+    esbuild.build({ ...markdownRichWorkerOptions, metafile: true }),
+    esbuild.build({ ...markdownFallbackOptions, metafile: true }),
+    esbuild.build({ ...marpWorkerOptions, metafile: true }),
+    esbuild.build(marpFrameOptions),
+    esbuild.build(marpYamlOptions),
     esbuild.build(exportFontOptions),
     esbuild.build(playwrightOptions)
   ]);
+  const commonBundles = [results[1], results[2], results[3], results[4]];
+  const includesMarpCore = commonBundles.some(({ metafile }) =>
+    Object.keys(metafile.inputs).some((input) => input.replaceAll('\\', '/').includes('@marp-team/marp-core/'))
+  );
+  if (includesMarpCore) {
+    throw new Error('Marp Core entered a common Webview or Markdown Worker bundle.');
+  }
+  const marpWorkerInputs = Object.keys(results[5].metafile.inputs);
+  if (!marpWorkerInputs.some((input) => input.replaceAll('\\', '/').includes('@marp-team/marp-core/lib/marp.js'))) {
+    throw new Error('Marp Core is missing from its dedicated Worker bundle.');
+  }
+  const marpWorkerOutput = Object.values(results[5].metafile.outputs).find(
+    ({ entryPoint }) => entryPoint?.replaceAll('\\', '/').endsWith('src/webview/marp/marp.worker.ts')
+  );
+  const marpFrameOutput = await stat('dist/marp-frame.js');
+  if (!marpWorkerOutput || marpWorkerOutput.bytes > 1024 * 1024) {
+    throw new Error(`Marp Worker exceeds 1 MiB or is missing: ${marpWorkerOutput?.bytes ?? 'missing'} bytes`);
+  }
+  if (marpFrameOutput.size > 256 * 1024) {
+    throw new Error(`Marp frame helper exceeds 256 KiB: ${marpFrameOutput.size} bytes`);
+  }
 }

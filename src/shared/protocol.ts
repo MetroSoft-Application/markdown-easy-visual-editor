@@ -596,6 +596,20 @@ export type HostToWebviewMessage =
          */
         settings: WebviewSettings;
     }
+    | {
+        /**
+         * Marp front matter判定結果を返すメッセージです。
+         */
+        type: 'marpDetectionResult';
+        /**
+         * 判定要求と応答を対応づけるIDです。
+         */
+        requestId: string;
+        /**
+         * Marpの有効化が確認されたかを示します。
+         */
+        isMarp: boolean;
+    }
     | { type: 'sectionLinkCopied' }
     | { type: 'workspaceSectionLinkUnavailable' }
     | {
@@ -882,6 +896,20 @@ export type WebviewToHostMessage =
     }
     | {
         /**
+         * MarkdownのYAML front matterからMarp有効化を判定する要求です。
+         */
+        type: 'detectMarpMarkdown';
+        /**
+         * 判定要求と応答を対応づけるIDです。
+         */
+        requestId: string;
+        /**
+         * front matterを含むMarkdown本文です。
+         */
+        markdown: string;
+    }
+    | {
+        /**
          * Webviewの初期化完了を通知するメッセージです。
          */
         type: 'initialized';
@@ -921,6 +949,24 @@ export type WebviewToHostMessage =
          * Webviewクライアントを識別し、編集要求と応答を対応づけるID。
          */
         clientId: string
+    }
+    | {
+        /**
+         * Marp初回プレビュー起動の診断段階を通知するメッセージです。
+         */
+        type: 'startupMarpStage';
+        /**
+         * Webviewクライアントを識別するID。
+         */
+        clientId: string;
+        /**
+         * Marp Workerとiframeの処理段階。
+         */
+        stage: string;
+        /**
+         * 起動検証で確認する短い補足情報。
+         */
+        detail?: string;
     }
     | {
         /**

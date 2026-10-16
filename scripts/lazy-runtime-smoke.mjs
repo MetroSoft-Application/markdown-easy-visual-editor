@@ -20,11 +20,15 @@ const allowedAssets = new Set([
   'markdown-fallback.js',
   'markdown-worker.js',
   'markdown-rich-worker.js',
+  'marp-frame.js',
+  'marp-worker.js',
   'mermaid.min.js',
   'styles.css',
   'webview.css',
   'webview.js'
 ]);
+let raceWorkerStarted = false;
+const stalledResourceRequests = new Set();
 /**
  * ビルド済みWebview資材の許可リストだけをlocalhostへ配信するテスト用HTTP server。
  */
@@ -37,18 +41,63 @@ const server = createServer(
 async (request, response) => {
   try {
     const url = new URL(request.url ?? '/', 'http://127.0.0.1');
+    if (url.pathname === '/race-worker-start') {
+      raceWorkerStarted = true;
+      response.writeHead(204).end();
+      return;
+    }
+    if (url.pathname === '/hang-marp-worker.js' || url.pathname === '/hang-marp-frame.js') {
+      stalledResourceRequests.add(url.pathname);
+      return;
+    }
     if (url.pathname === '/') {
       response.writeHead(200, { 'Content-Type': 'text/html; charset=utf-8' })
         .end('<!doctype html><html><head></head><body><div id="root"></div></body></html>');
       return;
     }
-    const match = /^\/dist\/([^/]+)$/.exec(url.pathname);
-    if (!match || !allowedAssets.has(match[1])) {
+    const match = /^\/dist\/(.+)$/.exec(url.pathname);
+    if (!match) {
       response.writeHead(404).end('not found');
       return;
     }
-    const fileName = match[1];
-    const body = await readFile(path.resolve('dist', fileName));
+    const fileName = decodeURIComponent(match[1]);
+    if (fileName === 'marp-worker-invalid.js') {
+      response.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8' })
+        .end('self.addEventListener("message", event => self.postMessage({ id: event.data.id, slides: "invalid", sourceRanges: [], css: "" }));');
+      return;
+    }
+    if (fileName === 'marp-frame-no-ready.js') {
+      response.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8' })
+        .end('document.documentElement.dataset.mveFrameLoaded = "true";');
+      return;
+    }
+    if (fileName === 'marp-worker-race.js') {
+      response.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8' }).end(`self.addEventListener("message", event => {
+        const markdown = event.data.markdown;
+        const heading = markdown.includes("Latest generation") ? "Latest generation" : "Stale generation";
+        const delay = heading === "Stale generation" ? 700 : 10;
+        fetch("${origin}/race-worker-start").catch(() => {});
+        setTimeout(() => self.postMessage({
+          id: event.data.id,
+          slides: ["<section><h1>" + heading + "</h1></section>"],
+          sourceRanges: [{ index: 1, startLine: 1, endLine: markdown.split("\\n").length, startOffset: 0, endOffset: markdown.length, heading }],
+          css: "",
+          renderDurationMs: delay
+        }), delay);
+      });`);
+      return;
+    }
+    if (!allowedAssets.has(fileName)) {
+      response.writeHead(404).end('not found');
+      return;
+    }
+    const assetPath = path.resolve('dist', fileName);
+    const relativeToDist = path.relative(path.resolve('dist'), assetPath);
+    if (relativeToDist.startsWith('..') || path.isAbsolute(relativeToDist)) {
+      response.writeHead(403).end('forbidden');
+      return;
+    }
+    const body = await readFile(assetPath);
     const contentType = fileName.endsWith('.css') ? 'text/css' : 'text/javascript';
     response.writeHead(200, {
       'Content-Type': `${contentType}; charset=utf-8`,
@@ -85,6 +134,12 @@ const browser = await chromium.launch({ executablePath, headless: true });
 try {
   await verifyMarkdownFallback();
   await verifyRichMarkdownFallback();
+  await verifyLazyMarpWorker();
+  await verifyMarpWorkerFailurePreservesSource();
+  await verifyMarpWorkerFetchTimeout();
+  await verifyMarpFrameInitializationTimeout();
+  await verifyMarpFrameReadyTimeout();
+  await verifyMarpWorkerDiscardsStaleResponse();
   await verifyInlineMermaidFallback();
   await verifyCompactMermaidAvoidsHostStartup();
   await verifyLargeMermaidKeepsHostIsolation();
@@ -98,6 +153,243 @@ try {
    * @param resolve - Promiseの成功を通知する関数。
    */
   (resolve) => server.close(resolve));
+}
+
+/**
+ * 通常MarkdownではMarp Workerを読み込まず、front matterを有効にした時点で初めて取得する。
+ */
+async function verifyLazyMarpWorker() {
+  const ordinaryMarkdown = '# Ordinary Markdown\n\nExisting preview path.\n';
+  const marpMarkdown = '---\nmarp: true\n---\n# Marp preview\n';
+  const page = await openEditor(ordinaryMarkdown, {
+    workerUri: `${origin}/dist/markdown-worker.js`,
+    mermaidHostRendering: false,
+    marpWorkerUri: `${origin}/dist/marp-worker.js`,
+    marpFrameUri: `${origin}/dist/marp-frame.js`,
+    marpKatexFontsUri: `${origin}/dist/marp-katex-fonts/`
+  });
+  const marpWorkerRequests = [];
+  const marpFrameRequests = [];
+  page.on('request', (request) => {
+    const pathname = new URL(request.url()).pathname;
+    if (pathname.endsWith('/marp-worker.js')) {
+      marpWorkerRequests.push(request.url());
+    }
+    if (pathname.endsWith('/marp-frame.js')) marpFrameRequests.push(request.url());
+  });
+  try {
+    await page.locator('.split-preview .rendered-markdown').waitFor();
+    await page.waitForTimeout(250);
+    if (marpWorkerRequests.length !== 0 || marpFrameRequests.length !== 0) {
+      throw new Error(`通常MarkdownでMarp専用資産を取得しました: worker=${marpWorkerRequests.length}, frame=${marpFrameRequests.length}`);
+    }
+    await page.evaluate(({ text, previousText }) => {
+      window.dispatchEvent(new MessageEvent('message', {
+        data: {
+          type: 'externalChanges',
+          baseVersion: 1,
+          version: 2,
+          changes: [{ rangeOffset: 0, rangeLength: previousText.length, text }]
+        }
+      }));
+    }, { text: marpMarkdown, previousText: ordinaryMarkdown });
+    await page.locator('.split-preview .mve-marp-preview[data-mve-marp-status="ready"]').waitFor();
+    if (marpWorkerRequests.length !== 1 || marpFrameRequests.length !== 1) {
+      throw new Error(`Marp判定後の専用資産取得回数が1ではありません: worker=${marpWorkerRequests.length}, frame=${marpFrameRequests.length}`);
+    }
+  } finally {
+    await page.close();
+  }
+}
+
+/**
+ * Marp Workerの取得失敗と不正応答を表示し、ソース編集が継続できることを確認する。
+ */
+async function verifyMarpWorkerFailurePreservesSource() {
+  const markdown = '---\nmarp: true\n---\n# Worker failure fixture\n';
+  const workerUris = [
+    `${origin}/dist/marp-worker-not-found.js`,
+    `${origin}/dist/marp-worker-invalid.js`,
+  ];
+  for (const marpWorkerUri of workerUris) {
+    const page = await openEditor(markdown, {
+      workerUri: `${origin}/dist/markdown-worker.js`,
+      mermaidHostRendering: false,
+      marpWorkerUri,
+      marpFrameUri: `${origin}/dist/marp-frame.js`,
+      marpKatexFontsUri: `${origin}/dist/marp-katex-fonts/`,
+    });
+    try {
+      const preview = page.locator('.split-preview .mve-marp-preview[data-mve-marp-status="error"]');
+      await preview.locator('[role="alert"]').waitFor();
+      if (!(await preview.locator('[role="alert"]').innerText()).includes('失敗')) {
+        throw new Error(`Marp Worker障害時のローカライズ済みエラーが表示されません: ${marpWorkerUri}`);
+      }
+      const source = page.locator('.split-editor .cm-content');
+      if (!(await source.isVisible()) || !(await source.innerText()).includes('Worker failure fixture')) {
+        throw new Error(`Marp Worker障害時にMarkdownソースを表示できません: ${marpWorkerUri}`);
+      }
+      if (await source.getAttribute('contenteditable') !== 'true') {
+        throw new Error(`Marp Worker障害時にMarkdownソースを編集できません: ${marpWorkerUri}`);
+      }
+      const pdfRequests = await page.evaluate(() => window.__mveMessages.filter(
+        (message) => message.type === 'renderPdfPreview',
+      ).length);
+      if (pdfRequests !== 0) {
+        throw new Error(`Marp Worker障害時にPDFプレビュー要求が送られました: ${pdfRequests}`);
+      }
+    } finally {
+      await page.close();
+    }
+  }
+}
+
+/**
+ * Marp Worker資産の応答が停止しても、15秒でタイムアウトを表示して停止中のfetchを中断する。
+ */
+async function verifyMarpWorkerFetchTimeout() {
+  const markdown = '---\nmarp: true\n---\n# Worker fetch timeout fixture\n';
+  const page = await openEditor(markdown, {
+    workerUri: `${origin}/dist/markdown-worker.js`,
+    mermaidHostRendering: false,
+    marpWorkerUri: `${origin}/hang-marp-worker.js`,
+    marpFrameUri: `${origin}/dist/marp-frame.js`,
+    marpKatexFontsUri: `${origin}/dist/marp-katex-fonts/`,
+  });
+  try {
+    await waitForNodeCondition(
+      () => stalledResourceRequests.has('/hang-marp-worker.js'),
+      5_000,
+      '停止したMarp Worker資産要求',
+    );
+    const alert = page.locator('.split-preview .mve-marp-preview[data-mve-marp-status="error"] [role="alert"]');
+    await alert.waitFor({ timeout: 20_000 });
+    if (!(await page.locator('.split-editor .cm-content').isVisible())) {
+      throw new Error('Marp Worker取得timeout後にソースが表示されません。');
+    }
+    const pdfRequests = await page.evaluate(() => window.__mveMessages.filter(
+      (message) => message.type === 'renderPdfPreview',
+    ).length);
+    if (pdfRequests !== 0) throw new Error(`Marp Worker取得timeout時にPDF要求が送信されました: ${pdfRequests}`);
+  } finally {
+    await page.close();
+  }
+}
+
+/**
+ * Marp iframe補助コードの取得が停止しても、15秒でタイムアウトを表示して応答を待ち続けない。
+ */
+async function verifyMarpFrameInitializationTimeout() {
+  const markdown = '---\nmarp: true\n---\n# Frame initialization timeout fixture\n';
+  const page = await openEditor(markdown, {
+    workerUri: `${origin}/dist/markdown-worker.js`,
+    mermaidHostRendering: false,
+    marpWorkerUri: `${origin}/dist/marp-worker.js`,
+    marpFrameUri: `${origin}/hang-marp-frame.js`,
+    marpKatexFontsUri: `${origin}/dist/marp-katex-fonts/`,
+  });
+  try {
+    await waitForNodeCondition(
+      () => stalledResourceRequests.has('/hang-marp-frame.js'),
+      5_000,
+      '停止したMarp iframe補助コード要求',
+    );
+    const alert = page.locator('.split-preview .mve-marp-preview[data-mve-marp-status="error"] [role="alert"]');
+    await alert.waitFor({ timeout: 20_000 });
+    if (!(await page.locator('.split-editor .cm-content').isVisible())) {
+      throw new Error('Marp iframe初期化timeout後にソースが表示されません。');
+    }
+    const pdfRequests = await page.evaluate(() => window.__mveMessages.filter(
+      (message) => message.type === 'renderPdfPreview',
+    ).length);
+    if (pdfRequests !== 0) throw new Error(`Marp iframe初期化timeout時にPDF要求が送信されました: ${pdfRequests}`);
+  } finally {
+    await page.close();
+  }
+}
+
+/**
+ * iframe補助コードが読み込まれてもready通知が届かない場合にtimeoutを表示する。
+ */
+async function verifyMarpFrameReadyTimeout() {
+  const markdown = '---\nmarp: true\n---\n# Frame ready timeout fixture\n';
+  const page = await openEditor(markdown, {
+    workerUri: `${origin}/dist/markdown-worker.js`,
+    mermaidHostRendering: false,
+    marpWorkerUri: `${origin}/dist/marp-worker.js`,
+    marpFrameUri: `${origin}/dist/marp-frame-no-ready.js`,
+    marpKatexFontsUri: `${origin}/dist/marp-katex-fonts/`,
+  });
+  try {
+    const alert = page.locator('.split-preview .mve-marp-preview[data-mve-marp-status="error"] [role="alert"]');
+    await alert.waitFor({ timeout: 20_000 });
+    if (!(await alert.innerText()).includes('15秒以内')) {
+      throw new Error(`Marp iframeのready待機timeout表示がありません: ${await alert.innerText()}`);
+    }
+    const source = page.locator('.split-editor .cm-content');
+    if (!(await source.isVisible()) || !(await source.innerText()).includes('Frame ready timeout fixture')) {
+      throw new Error('Marp iframeのready待機timeout後にMarkdownソースを表示できません。');
+    }
+    if (await source.getAttribute('contenteditable') !== 'true') {
+      throw new Error('Marp iframeのready待機timeout後にMarkdownソースを編集できません。');
+    }
+    const pdfRequests = await page.evaluate(() => window.__mveMessages.filter(
+      (message) => message.type === 'renderPdfPreview',
+    ).length);
+    if (pdfRequests !== 0) throw new Error(`Marp iframe ready timeout時にPDF要求が送信されました: ${pdfRequests}`);
+  } finally {
+    await page.close();
+  }
+}
+
+/**
+ * 遅延した旧世代Worker応答が最新のMarpスライドを上書きしないことを確認する。
+ */
+async function verifyMarpWorkerDiscardsStaleResponse() {
+  const staleMarkdown = '---\nmarp: true\n---\n# Stale generation\n';
+  const latestMarkdown = '---\nmarp: true\n---\n# Latest generation\n';
+  const page = await openEditor(staleMarkdown, {
+    workerUri: `${origin}/dist/markdown-worker.js`,
+    mermaidHostRendering: false,
+    marpWorkerUri: `${origin}/dist/marp-worker-race.js`,
+    marpFrameUri: `${origin}/dist/marp-frame.js`,
+    marpKatexFontsUri: `${origin}/dist/marp-katex-fonts/`,
+  });
+  try {
+    await waitForNodeCondition(() => raceWorkerStarted, 5_000, '旧世代Marp Workerの開始');
+    await page.evaluate(({ text, previousText }) => {
+      window.dispatchEvent(new MessageEvent('message', {
+        data: {
+          type: 'externalChanges',
+          baseVersion: 1,
+          version: 2,
+          changes: [{ rangeOffset: 0, rangeLength: previousText.length, text }],
+        },
+      }));
+    }, { text: latestMarkdown, previousText: staleMarkdown });
+    const heading = page.frameLocator('.split-preview .mve-marp-preview iframe').locator('h1');
+    await heading.waitFor();
+    await page.waitForTimeout(800);
+    if ((await heading.textContent())?.trim() !== 'Latest generation') {
+      throw new Error('旧世代Marp Workerの遅延応答が最新プレビューを上書きしました。');
+    }
+  } finally {
+    await page.close();
+  }
+}
+
+/**
+ * Node側のfixture serverから通知される条件が成立するまで待つ。
+ * @param predicate - 待機を終える条件を返す関数。
+ * @param timeoutMs - 条件が成立するまでの最大時間。
+ * @param description - timeout時に表示する状況説明。
+ */
+async function waitForNodeCondition(predicate, timeoutMs, description) {
+  const deadline = Date.now() + timeoutMs;
+  while (!predicate()) {
+    if (Date.now() >= deadline) throw new Error(`${description}が${timeoutMs}ms以内に開始しませんでした。`);
+    await new Promise((resolve) => setTimeout(resolve, 10));
+  }
 }
 
 /**
@@ -416,6 +708,9 @@ async function openEditor(markdown, options) {
     workerUri,
     richWorkerUri = `${origin}/dist/markdown-rich-worker.js`,
     mermaidHostRendering,
+    marpWorkerUri,
+    marpFrameUri,
+    marpKatexFontsUri,
   } = options;
   const page = await browser.newPage();
   const errors = [];
@@ -431,10 +726,14 @@ async function openEditor(markdown, options) {
    * HostとWebviewのメッセージ状態のメッセージ送信結果を読み取り、検証用の値へ変換する。
   * @returns ブラウザー内で読み取った値または変換結果。
    */
-  ({ markdown, mermaidHostRendering, workerUri, richWorkerUri, origin }) => {
+  ({ markdown, mermaidHostRendering, workerUri, richWorkerUri, marpWorkerUri, marpFrameUri, marpKatexFontsUri, origin }) => {
     document.body.dataset.mveMarkdownWorkerUri = workerUri;
     document.body.dataset.mveMarkdownRichWorkerUri = richWorkerUri;
     document.body.dataset.mveMarkdownFallbackUri = `${origin}/dist/markdown-fallback.js`;
+    document.body.dataset.mveMarpWorkerUri = marpWorkerUri ?? '';
+    document.body.dataset.mveMarpFrameUri = marpFrameUri ?? '';
+    document.body.dataset.mveMarpKatexFontsUri = marpKatexFontsUri ?? '';
+    document.body.dataset.mveCspSource = origin;
     document.body.dataset.mveMermaidUri = `${origin}/dist/mermaid.min.js`;
     document.body.dataset.mveExportFontsUri = `${origin}/dist/export-fonts.css`;
     window.__mveMessages = [];
@@ -450,6 +749,23 @@ async function openEditor(markdown, options) {
        */
       postMessage(message) {
         window.__mveMessages.push(message);
+        if (message.type === 'detectMarpMarkdown') {
+          const source = message.markdown.charCodeAt(0) === 0xfeff
+            ? message.markdown.slice(1)
+            : message.markdown;
+          const frontMatter = /^---[ \t]*\r?\n([\s\S]*?)^(?:---|\.\.\.)[ \t]*\r?$/m.exec(source);
+          const isMarp = Boolean(
+            frontMatter && /^marp:[ \t]*true[ \t]*(?:#.*)?$/m.test(frontMatter[1]),
+          );
+          setTimeout(() => window.dispatchEvent(new MessageEvent('message', {
+            data: {
+              type: 'marpDetectionResult',
+              requestId: message.requestId,
+              isMarp,
+            },
+          })), 0);
+          return;
+        }
         if (message.type !== 'ready') return;
         setTimeout(
         /**
@@ -488,7 +804,7 @@ async function openEditor(markdown, options) {
        * lazy・ランタイム・スモーク検証の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
        */ () => undefined
     });
-  }, { markdown, mermaidHostRendering, workerUri, richWorkerUri, origin });
+  }, { markdown, mermaidHostRendering, workerUri, richWorkerUri, marpWorkerUri, marpFrameUri, marpKatexFontsUri, origin });
   await page.addStyleTag({ url: `${origin}/dist/styles.css` });
   await page.addStyleTag({ url: `${origin}/dist/webview.css` });
   await page.addScriptTag({ url: `${origin}/dist/webview.js` });

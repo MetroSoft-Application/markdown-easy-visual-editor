@@ -266,8 +266,9 @@ try {
     });
   });
   page.setDefaultTimeout(7_000);
-  await page.route('https://mve.test/sample/assets/**
-    * ローカルSVG fixtureだけを返し、その他のsample asset要求は404にする。
+  await page.route('https://mve.test/sample/assets/**',
+  /**
+   * ローカルSVG fixtureだけを返し、その他のsample asset要求は404にする。
     * @param route - Playwrightが横取りしたsample asset要求。
    */
   async (route) => {
@@ -297,6 +298,32 @@ try {
       body: markdownRichWorkerScript
     });
   });
+  await page.route('https://mve.test/dist/webview.js', async (route) => {
+    await route.fulfill({
+      status: 200,
+      contentType: 'text/javascript',
+      body: await readFile(path.resolve('dist/webview.js'))
+    });
+  });
+  await page.route('https://mve.test/dist/chunks/**', async (route) => {
+    const requestPath = new URL(route.request().url()).pathname;
+    const relativePath = decodeURIComponent(requestPath.slice('/dist/'.length));
+    const filePath = path.resolve('dist', relativePath);
+    const relativeToDist = path.relative(path.resolve('dist'), filePath);
+    if (relativeToDist.startsWith('..') || path.isAbsolute(relativeToDist)) {
+      await route.fulfill({ status: 403, contentType: 'text/plain', body: 'forbidden' });
+      return;
+    }
+    try {
+      await route.fulfill({
+        status: 200,
+        contentType: 'text/javascript',
+        body: await readFile(filePath)
+      });
+    } catch {
+      await route.fulfill({ status: 404, contentType: 'text/plain', body: 'missing chunk' });
+    }
+  });
   await page.route('https://mve.test/sample/',
   /**
    * テスト対象のWebview shell HTMLを固定URLへ返す。
@@ -311,7 +338,7 @@ try {
   });
   await page.goto('https://mve.test/sample/');
   await page.addStyleTag({ path: path.resolve('dist/styles.css') });
-  await page.addScriptTag({ path: path.resolve('dist/webview.js') });
+  await page.addScriptTag({ url: 'https://mve.test/dist/webview.js' });
   try {
     await page.waitForFunction(
     /**
@@ -389,6 +416,14 @@ try {
       const mismatch = await page.locator('.source-editor').getAttribute('data-document-mismatch');
       throw new Error(`sample/${index} source length mismatch: expected=${value.length}, actual=${actualLength}, diff=${mismatch}`, { cause: error });
     }
+    await page.waitForFunction(
+    /**
+     * プレビューが対象Markdown全文の描画を完了するまで待機する。
+     * @param expectedLength - プレビューで期待するMarkdown本文長。
+     */
+    (expectedLength) => (
+      Number(document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-document-length')) === expectedLength
+    ), value.length);
   }
 
   await load(1);
@@ -411,7 +446,16 @@ try {
    * ブラウザーのDOM状態が完了条件を満たすまで待機する。
    */
   () => document.body.dataset.mveMarkdownWorkerStatus === 'ready');
-  if (!(await page.locator('.split-preview code .hljs-keyword, .split-preview code .hljs-built_in, .split-preview code .hljs-selector-tag').count())) {
+  await page.waitForFunction(
+    () => document.querySelector(
+      '.split-preview code .hljs-keyword, .split-preview code .hljs-built_in, .split-preview code .hljs-selector-tag',
+    ),
+    undefined,
+    { timeout: 10_000 },
+  );
+  if (!(await page.locator(
+    '.split-preview code .hljs-keyword, .split-preview code .hljs-built_in, .split-preview code .hljs-selector-tag',
+  ).count())) {
     throw new Error('sample/05 の遅延シンタックスハイライトを確認できません。');
   }
   await page.locator('.split-preview .mermaid').first().scrollIntoViewIfNeeded();
@@ -497,7 +541,19 @@ try {
      */
     (list) => {
       window.__mveLongTasks.push(...list.getEntries().map(
-      (entry) => ({ startTime: entry.startTime, duration: entry.duration })));
+      (entry) => {
+        const attributedEntry = entry;
+        return {
+          startTime: entry.startTime,
+          duration: entry.duration,
+          attribution: Array.from(attributedEntry.attribution ?? [], (item) => ({
+            containerType: item.containerType,
+            containerName: item.containerName,
+            containerSrc: item.containerSrc,
+            containerId: item.containerId,
+          })),
+        };
+      }));
     });
     window.__mveLongTaskObserver.observe({ type: 'longtask', buffered: false });
     window.__mveResponsivenessTimer = setInterval(

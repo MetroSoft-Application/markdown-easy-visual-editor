@@ -4,7 +4,7 @@
 import { defineConfig } from 'vitest/config';
 
 /**
- * Node環境でtest/**/*.test.tsを実行し、カバレッジをtextとHTMLで出力する設定。
+ * Node環境で各テストファイルを実行し、カバレッジをtextとHTMLで出力する設定。
  */
 export default defineConfig({
   test: {

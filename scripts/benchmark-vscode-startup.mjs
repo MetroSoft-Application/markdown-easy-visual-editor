@@ -24,13 +24,43 @@ const plainPath = path.join(temporaryRoot, 'plain.md');
 const mermaidPath = path.join(temporaryRoot, 'mermaid.md');
 await writeFile(plainPath, '# Plain Markdown\n\nCold startup measurement.\n', 'utf8');
 await writeFile(mermaidPath, '```mermaid\nflowchart TD\n  Start --> Ready\n```\n', 'utf8');
+const extensionDevelopmentPath = path.resolve(
+  process.env.MVE_STARTUP_EXTENSION_PATH ?? '.',
+);
+/**
+ * 性能・VS Code・起動で使用するVS Code実行ファイル。指定時はダウンロードを行わない。
+ */
+const vscodeExecutablePath = process.env.MVE_STARTUP_VSCODE_EXECUTABLE;
+/**
+ * 起動計測を実行するExtension Hostテストの場所。
+ */
+const extensionTestsPath = path.resolve(
+  process.env.MVE_STARTUP_TESTS_PATH ??
+    path.join(extensionDevelopmentPath, 'test', 'integration', 'startup.cjs'),
+);
 
 /**
  * 性能・VS Code・起動で扱う一覧または対応表。
  */
 const scenarios = [
   ['plain', plainPath, false],
-  ['representative', path.resolve('sample', '06-specification-template.md'), false],
+  [
+    'representative',
+    path.resolve(
+      process.env.MVE_STARTUP_SAMPLE_ROOT ?? 'sample',
+      '06-specification-template.md',
+    ),
+    false,
+  ],
+  [
+    'marp',
+    path.resolve(
+      process.env.MVE_STARTUP_SAMPLE_ROOT ?? 'sample',
+      'marp',
+      '02-multiple-slides.md',
+    ),
+    false,
+  ],
   ['mermaid-first', mermaidPath, true]
 ];
 /**
@@ -38,16 +68,53 @@ const scenarios = [
  */
 const repetitions = Math.max(1, Number.parseInt(process.env.MVE_STARTUP_RUNS ?? '3', 10) || 3);
 /**
+ * MVE_STARTUP_SCENARIOSが指定された場合に測定するシナリオ名の集合です。
+ */
+const selectedScenarioNames = process.env.MVE_STARTUP_SCENARIOS
+  ? new Set(process.env.MVE_STARTUP_SCENARIOS.split(',').map((name) => name.trim()).filter(Boolean))
+  : undefined;
+const selectedScenarios = selectedScenarioNames
+  ? scenarios.filter(([name]) => selectedScenarioNames.has(name))
+  : scenarios;
+if (selectedScenarioNames && selectedScenarios.length !== selectedScenarioNames.size) {
+  const unknownScenarios = [...selectedScenarioNames].filter((name) => !scenarios.some(([scenarioName]) => scenarioName === name));
+  throw new Error(`Unknown startup benchmark scenarios: ${unknownScenarios.join(', ')}`);
+}
+/**
+ * 起動測定の再確認に使う永続レポートの保存先。
+ */
+const reportPath = process.env.MVE_STARTUP_REPORT ?? path.join(
+  os.tmpdir(),
+  `mve-startup-benchmark-${new Date().toISOString().replaceAll(':', '-')}.json`,
+);
+/**
+ * 測定条件、各試行値、中央値、ゲート結果を保存する。
+ */
+const benchmarkReport = {
+  generatedAt: new Date().toISOString(),
+  platform: `${process.platform}-${process.arch}`,
+  nodeVersion: process.version,
+  vscodeExecutablePath,
+  extensionDevelopmentPath,
+  extensionTestsPath,
+  sampleRoot: path.resolve(process.env.MVE_STARTUP_SAMPLE_ROOT ?? 'sample'),
+  repetitions,
+  scenarios: [],
+  failures: [],
+};
+/**
  * 起動シナリオごとに許可する性能上限。
  */
 const regressionLimits = {
   plain: { endToEndMs: 2300, previewReadyMs: 1400 },
   representative: { endToEndMs: 2800, previewReadyMs: 1800 },
+  marp: { endToEndMs: 5000, previewReadyMs: 3000 },
   'mermaid-first': { endToEndMs: 2500, previewReadyMs: 1200, firstMermaidReadyMs: 1700 }
 };
 
 try {
-  for (const [name, filePath, waitForMermaid] of scenarios) {
+  const limitFailures = [];
+  for (const [name, filePath, waitForMermaid] of selectedScenarios) {
     const samples = [];
     for (let iteration = 1; iteration <= repetitions; iteration += 1) {
       const profileRoot = await mkdtemp(path.join(os.tmpdir(), `mve-vscode-${name}-`));
@@ -64,8 +131,9 @@ try {
         try {
           await runTests({
             version: 'stable',
-            extensionDevelopmentPath: path.resolve('.'),
-            extensionTestsPath: path.resolve('test/integration/startup.cjs'),
+            extensionDevelopmentPath,
+            extensionTestsPath,
+            vscodeExecutablePath,
             extensionTestsEnv: {
               MVE_STARTUP_BENCHMARK: '1',
               MVE_STARTUP_FILE: filePath,
@@ -96,8 +164,22 @@ try {
     }
     const median = medianTiming(samples);
     console.log(`${name} median: ${JSON.stringify(median)}`);
-    if (repetitions >= 3) assertStartupLimits(name, median, regressionLimits[name]);
+    const scenarioFailures = repetitions >= 3
+      ? findStartupLimitFailures(name, median, regressionLimits[name])
+      : [];
+    benchmarkReport.scenarios.push({
+      name,
+      runs: samples,
+      median,
+      limits: regressionLimits[name],
+      failures: scenarioFailures,
+    });
+    limitFailures.push(...scenarioFailures);
   }
+  benchmarkReport.failures = limitFailures;
+  await writeFile(reportPath, `${JSON.stringify(benchmarkReport, null, 2)}\n`, 'utf8');
+  console.log(`起動ベンチマークレポート: ${reportPath}`);
+  if (limitFailures.length) throw new Error(limitFailures.join('\n'));
 } finally {
   await rm(temporaryRoot, { recursive: true, force: true, maxRetries: 3, retryDelay: 100 });
 }
@@ -139,12 +221,26 @@ function medianTiming(samples) {
  * @returns 条件が成立したかを示す真偽値。
  */
 function assertStartupLimits(name, timing, limits) {
+  const failures = findStartupLimitFailures(name, timing, limits);
+  if (failures.length) throw new Error(failures.join('\n'));
+}
+
+/**
+ * 測定値が既存のシナリオ別上限内にあるかを検査し、超過内容を返します。
+ * @param name - 起動シナリオ名。
+ * @param timing - 1シナリオの起動測定結果。
+ * @param limits - シナリオごとの許容性能上限。
+ * @returns 上限を超えた測定値の説明。
+ */
+function findStartupLimitFailures(name, timing, limits) {
+  const failures = [];
   for (const [metric, maximum] of Object.entries(limits)) {
     const actual = timing[metric];
     if (!Number.isFinite(actual) || actual > maximum) {
-      throw new Error(`${name} の実VS Code起動性能が回帰しました: ${metric}=${actual}ms > ${maximum}ms`);
+      failures.push(`${name} の実VS Code起動性能が回帰しました: ${metric}=${actual}ms > ${maximum}ms`);
     }
   }
+  return failures;
 }
 
 /**
