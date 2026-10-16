@@ -123,6 +123,8 @@ const HOST_RENDER_TIMEOUT_MS = 35_000;
  * mermaidrendererに許可する上限値。
  */
 const COMPACT_PREVIEW_SVG_LIMIT = 80_000;
+/** Mermaidソースが長い場合は、Webview上のinline runtimeを起動せずHost描画を優先する。 */
+const INLINE_MERMAID_SOURCE_LIMIT = 2_000;
 /**
  * mermaidrendererの処理結果と失敗時情報のデータ形状。
  */
@@ -231,6 +233,18 @@ export function renderMermaidSvg(
 ): Promise<MermaidRenderResult> {
     if (useHostRenderer) {
         if (preferInlineIfCompact) {
+            if (source.length >= INLINE_MERMAID_SOURCE_LIMIT) {
+                return requestHostRender(source, theme, signal)
+                    .catch(
+                        /**
+                         * Host描画が利用できない場合だけinline描画へ切り替える。
+                         * @param error - Host描画が利用できなかった理由または例外。
+                         */
+                        (error) => {
+                            if (!(error instanceof MermaidHostRenderError) || !error.unavailable || !allowInlineFallback) throw error;
+                            return renderMermaidInline(source, theme, signal);
+                        });
+            }
             return renderMermaidInline(source, theme, signal)
                 .then(
                     /**

@@ -4,6 +4,7 @@
 import { chromium } from 'playwright-core';
 import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
+import { startWebviewAssetServer } from './webview-test-server.mjs';
 
 /**
  * 指定した名前のファイルを検証用ディレクトリから再帰的に探す。
@@ -46,6 +47,7 @@ if (/react\.development\.js|@milkdown|MILKDOWN_LISTENER/.test(webviewBundle)) {
  * 高速スモーク確認を実行するChromiumインスタンスです。
  */
 const browser = await chromium.launch({ executablePath, headless: true });
+const webviewServer = await startWebviewAssetServer();
 /**
  * スモーク検証・高速で扱う一覧または対応表。
  */
@@ -242,16 +244,16 @@ try {
    * @param message - ユーザー操作またはDOMから通知されたイベント。
    */
   (message) => { if (message.type() === 'error') errors.push(message.text()); });
-  await page.goto('about:blank');
+  await page.goto(webviewServer.origin);
   await page.setContent('<!doctype html><html lang="ja"><head><meta charset="utf-8"></head><body><div id="root"></div></body></html>');
   await page.evaluate(
   ({ workerSource, richWorkerSource }) => {
     document.body.dataset.mveMarkdownWorkerUri = URL.createObjectURL(new Blob([workerSource], { type: 'text/javascript' }));
     document.body.dataset.mveMarkdownRichWorkerUri = URL.createObjectURL(new Blob([richWorkerSource], { type: 'text/javascript' }));
   }, { workerSource: markdownWorkerBundle, richWorkerSource: markdownRichWorkerBundle });
-  await page.addStyleTag({ path: path.resolve('dist/styles.css') });
-  await page.addStyleTag({ path: path.resolve('dist/webview.css') });
-  await page.addScriptTag({ path: path.resolve('dist/webview.js') });
+  await page.addStyleTag({ url: `${webviewServer.origin}/dist/styles.css` });
+  await page.addStyleTag({ url: `${webviewServer.origin}/dist/webview.css` });
+  await page.addScriptTag({ url: `${webviewServer.origin}/dist/webview.js` });
   await page.waitForFunction(
   /**
    * HostとWebviewのメッセージ状態が完了条件を満たすまで待機する。
@@ -3255,4 +3257,5 @@ try {
   console.log('高速スモーク: 空CRLF文書の単一改行同期、LFプロトコル、画像保存先設定、表編集、フォーカス非介入、スクロール同期設定、スクロール保持、分割表示、ズーム、空白可視化、ハイライトを確認しました。');
 } finally {
   await browser.close();
+  await webviewServer.close();
 }

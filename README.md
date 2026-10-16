@@ -176,6 +176,22 @@ flowchart TD
   A[Start] --> B[Done]
 ```
 
+### Marp slide previews
+
+Add `marp: true` to the YAML front matter at the start of a Markdown file to render it as a Marp slide deck automatically:
+
+```yaml
+---
+marp: true
+---
+```
+
+![画像](resources/README/pasted-20261017-001943-0d3cb5.png)
+
+- Marp slides appear in split view, preview-only view, and print preview.
+- The preview returns to the regular Markdown or PDF path when the marker is removed or set to `false`.
+- The built-in `default`, `gaia`, and `uncover` themes are available. PDF and HTML exports continue to use their existing output flow.
+
 ## Preview and export to PDF
 
 ![demo3](./resources/demo3.gif)

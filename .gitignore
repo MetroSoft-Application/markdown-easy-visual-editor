@@ -14,3 +14,13 @@ docs/
 plans
 sample/
 artifacts/
+
+# Marp preview verification fixtures
+!sample/
+sample/*
+!sample/assets/
+sample/assets/*
+!sample/assets/local-sample.svg
+!sample/marp/
+sample/marp/*
+!sample/marp/*.md

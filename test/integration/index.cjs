@@ -288,6 +288,92 @@ async function run() {
     await waitFor(
 
     () => document.getText().includes('保存確認'), 'Redoが文書へ反映されませんでした。');
+
+    const marpExportPath = path.join(temporaryDirectory, 'marp-export.md');
+    const marpExportMarkdown = [
+      '---',
+      'marp: true',
+      '---',
+      '',
+      '# Marp export regression',
+      '',
+      'This content must keep the existing Markdown export path.',
+      '',
+    ].join('\n');
+    await fs.writeFile(marpExportPath, marpExportMarkdown, 'utf8');
+    const marpExportUri = vscode.Uri.file(marpExportPath);
+    await vscode.commands.executeCommand(
+      'vscode.openWith',
+      marpExportUri,
+      'markdownEasyVisualEditor.editor',
+    );
+    await waitFor(
+      () => {
+        const input = vscode.window.tabGroups.activeTabGroup.activeTab?.input;
+        return input && 'viewType' in input &&
+          input.viewType === 'markdownEasyVisualEditor.editor' &&
+          input.uri?.toString() === marpExportUri.toString();
+      },
+      'MarpのPDF／HTML出力検査用文書をCustom Editorで開けませんでした。',
+    );
+
+    const marpHtmlPath = marpExportPath.replace(/\.md$/i, '.html');
+    await vscode.commands.executeCommand('markdownEasyVisualEditor.exportHtml', marpExportUri);
+    await waitFor(
+      async () => fileHasBytes(marpHtmlPath),
+      'Marpマーカー付きMarkdownの既存HTML出力が完了しませんでした。',
+      30_000,
+    );
+    const marpHtml = await fs.readFile(marpHtmlPath, 'utf8');
+    assert.match(marpHtml, /Marp export regression/, 'Marp文書のHTML出力から見出しが欠落しました。');
+    assert.match(marpHtml, /existing Markdown export path/, 'Marp文書のHTML出力から本文が欠落しました。');
+    assert.doesNotMatch(marpHtml, /class=["']marpit(?:\s|["'])/i, 'HTML出力がMarpスライド形式へ変わりました。');
+
+    const marpPdfPath = marpExportPath.replace(/\.md$/i, '.pdf');
+    await vscode.commands.executeCommand('markdownEasyVisualEditor.exportPdf', marpExportUri);
+    await waitFor(
+      async () => fileHasBytes(marpPdfPath),
+      'Marpマーカー付きMarkdownの既存PDF出力が完了しませんでした。',
+      60_000,
+    );
+    const marpPdf = await fs.readFile(marpPdfPath);
+    assert.equal(marpPdf.subarray(0, 5).toString('ascii'), '%PDF-', 'Marp文書のPDF出力形式が変わりました。');
+    const marpPdfStructure = marpPdf.toString('latin1');
+    assert.equal(
+      (marpPdfStructure.match(/\/Type\s*\/Page\b/g) ?? []).length,
+      1,
+      'Marp文書の既存PDF出力ページ数が変わりました。',
+    );
+    assert.match(
+      marpPdfStructure,
+      /\/MediaBox\s*\[\s*0\s+0\s+\d+(?:\.\d+)?\s+\d+(?:\.\d+)?\s*\]/,
+      'Marp文書の既存PDF出力からページ寸法が欠落しました。',
+    );
+    const canvas = require('@napi-rs/canvas');
+    globalThis.DOMMatrix ??= canvas.DOMMatrix;
+    globalThis.Path2D ??= canvas.Path2D;
+    globalThis.ImageData ??= canvas.ImageData;
+    const pdfjs = await import('pdfjs-dist/legacy/build/pdf.mjs');
+    pdfjs.GlobalWorkerOptions.workerSrc = require('node:url').pathToFileURL(
+      require.resolve('pdfjs-dist/legacy/build/pdf.worker.mjs'),
+    ).href;
+    const pdfLoadingTask = pdfjs.getDocument({
+      data: new Uint8Array(marpPdf),
+      disableAutoFetch: true,
+      useWorkerFetch: false,
+      isEvalSupported: false,
+    });
+    const parsedMarpPdf = await pdfLoadingTask.promise;
+    try {
+      const pdfPage = await parsedMarpPdf.getPage(1);
+      const pdfText = (await pdfPage.getTextContent()).items
+        .map((item) => 'str' in item ? item.str : '')
+        .join(' ');
+      assert.match(pdfText, /Marp export regression/, 'Marp文書の既存PDF出力から見出しが欠落しました。');
+      assert.match(pdfText, /existing Markdown export path/, 'Marp文書の既存PDF出力から本文が欠落しました。');
+    } finally {
+      await pdfLoadingTask.destroy();
+    }
   } finally {
     await vscode.commands.executeCommand('workbench.action.closeAllEditors');
     await fs.rm(temporaryDirectory, { recursive: true, force: true });

@@ -1021,8 +1021,9 @@ function RenderedMarkdownView({
  * @param alt - 画像の代替テキスト。
  * @param language - 操作ラベルに使う表示言語。
  * @param onClose - モーダルを閉じる処理。
+ * @returns 画像、拡大縮小操作、寸法を表示するモーダルダイアログ。
  */
-function ImagePreviewDialog({
+export function ImagePreviewDialog({
   source,
   alt,
   language,
@@ -1041,7 +1042,7 @@ function ImagePreviewDialog({
     startY: number;
     scrollLeft: number;
     scrollTop: number;
-  }>();
+  } | undefined>(undefined);
   const [zoom, setZoom] = useState(1);
   const [isPanning, setIsPanning] = useState(false);
   const [stageSize, setStageSize] = useState({ width: 0, height: 0 });

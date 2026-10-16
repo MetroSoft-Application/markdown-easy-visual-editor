@@ -4,6 +4,7 @@
 import { chromium } from 'playwright-core';
 import { readFile, readdir } from 'node:fs/promises';
 import path from 'node:path';
+import { startWebviewAssetServer } from './webview-test-server.mjs';
 
 /**
  * 指定した名前のファイルを検証用ディレクトリから再帰的に探す。
@@ -43,6 +44,7 @@ const markdownRichWorkerBundle = await readFile(path.resolve('dist/markdown-rich
  * IME入力とキャレット位置を確認するChromiumインスタンスです。
  */
 const browser = await chromium.launch({ executablePath, headless: true });
+const webviewServer = await startWebviewAssetServer();
 
 try {
   const context = await browser.newContext();
@@ -135,7 +137,7 @@ try {
   const page = await context.newPage();
   const cdp = await context.newCDPSession(page);
   page.setDefaultTimeout(5_000);
-  await page.goto('about:blank');
+  await page.goto(webviewServer.origin);
   await page.setContent('<!doctype html><html lang="ja"><head><meta charset="utf-8"></head><body><div id="root"></div></body></html>');
   await page.evaluate(
    /** ブラウザーでワーカーbundleを読み込めるBlob URLとして登録する。 */
@@ -143,9 +145,9 @@ try {
     document.body.dataset.mveMarkdownWorkerUri = URL.createObjectURL(new Blob([workerSource], { type: 'text/javascript' }));
     document.body.dataset.mveMarkdownRichWorkerUri = URL.createObjectURL(new Blob([richWorkerSource], { type: 'text/javascript' }));
   }, { workerSource: markdownWorkerBundle, richWorkerSource: markdownRichWorkerBundle });
-  await page.addStyleTag({ path: path.resolve('dist/styles.css') });
-  await page.addStyleTag({ path: path.resolve('dist/webview.css') });
-  await page.addScriptTag({ content: webviewBundle });
+  await page.addStyleTag({ url: `${webviewServer.origin}/dist/styles.css` });
+  await page.addStyleTag({ url: `${webviewServer.origin}/dist/webview.css` });
+  await page.addScriptTag({ url: `${webviewServer.origin}/dist/webview.js` });
   await page.waitForFunction(
   /**
    * HostとWebviewのメッセージ状態が完了条件を満たすまで待機する。
@@ -377,4 +379,5 @@ try {
   console.log('IME caret smoke test passed.');
 } finally {
   await browser.close();
+  await webviewServer.close();
 }

@@ -1,6 +1,7 @@
 /**
  * @fileoverview Markdown本文内HTMLのURL属性ハイライトについて構文認識と走査範囲を回帰検証する。
  */
+import { ensureSyntaxTree } from '@codemirror/language';
 import { markdown } from '@codemirror/lang-markdown';
 import { EditorState } from '@codemirror/state';
 import { describe, expect, it } from 'vitest';
@@ -15,10 +16,14 @@ import {
  * @returns 構文木を保持するCodeMirror状態。
  */
 function createState(doc: string): EditorState {
-    return EditorState.create({
+    const state = EditorState.create({
         doc,
         extensions: [markdown()]
     });
+    if (!ensureSyntaxTree(state, state.doc.length, 1_000)) {
+        throw new Error('The CodeMirror Markdown syntax tree did not finish parsing.');
+    }
+    return state;
 }
 
 /**

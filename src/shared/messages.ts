@@ -1136,6 +1136,20 @@ export interface Messages {
         /** 出力時の置換処理が失敗した場合に表示する文言。 */
         outputReplacementFailed: string;
 
+        /** Marpプレビューの表示、読み込み、失敗を伝える文言。 */
+        marpPreview: {
+            /** Marpプレビューiframeのアクセシブル名。 */
+            title: string;
+            /** Marp Workerの描画中に表示する状態。 */
+            loading: string;
+            /** Workerの起動または描画が失敗した場合に表示する文言。 */
+            failed: string;
+            /** Marp判定に失敗し、通常プレビューへ切り替えない場合に表示する文言。 */
+            detectionFailed: string;
+            /** スライドごとのアクセシブル名。 */
+            slideLabel: (index: number) => string;
+        };
+
         /** 文書処理や保存の進行状態を伝える文言をまとめる。 */
         status: {
 
@@ -2252,6 +2266,13 @@ function createMessages(language: SupportedLanguage): Messages {
             invalidOutputReplacementPattern: raw.app.invalidOutputReplacementPattern,
             outputReplacementTimeout: raw.app.outputReplacementTimeout,
             outputReplacementFailed: raw.app.outputReplacementFailed,
+            marpPreview: {
+                title: raw.app.marpPreview.title,
+                loading: raw.app.marpPreview.loading,
+                failed: raw.app.marpPreview.failed,
+                detectionFailed: raw.app.marpPreview.detectionFailed,
+                slideLabel: (index: number) => text('app.marpPreview.slideLabel', { index })
+            },
             status: {
                 modeSplit: raw.app.status.modeSplit,
                 modePreview: raw.app.status.modePreview,

@@ -4,12 +4,13 @@
 import { defineConfig } from 'vitest/config';
 
 /**
- * Node環境でtest/**/*.test.tsを実行し、カバレッジをtextとHTMLで出力する設定。
+ * Node環境で各テストファイルを実行し、カバレッジをtextとHTMLで出力する設定。
  */
 export default defineConfig({
   test: {
     environment: 'node',
     include: ['test/**/*.test.ts'],
+    maxWorkers: 4,
     coverage: {
       reporter: ['text', 'html']
     }

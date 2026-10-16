@@ -46,6 +46,7 @@ async function run() {
   assert.ok(resultPath, 'MVE_STARTUP_RESULT is required.');
   await persist(resultPath, result);
   await vscode.commands.executeCommand('workbench.action.closeAllEditors');
+  await vscode.commands.executeCommand('workbench.action.quit');
 }
 
 /**
@@ -68,6 +69,11 @@ async function waitForTiming(uri, resultPath, filePath, editorOpenedMs, expectsM
         'markdownEasyVisualEditor._getStartupTiming',
         uri.toString()
       );
+      const marpFailure = timing?.marpStages?.slice().reverse().find((stage) =>
+        stage.stage.includes('error'));
+      if (marpFailure) {
+        throw new Error(`Marp preview failed before startup readiness: ${JSON.stringify({ marpFailure, marpStages: timing.marpStages })}`);
+      }
       if (
         timing?.initializedMs !== undefined &&
         (!expectsPreview || timing.previewReadyMs !== undefined) &&
@@ -89,7 +95,7 @@ async function waitForTiming(uri, resultPath, filePath, editorOpenedMs, expectsM
      */
     (resolve) => setTimeout(resolve, 50));
   }
-  throw new Error('The real VS Code Webview did not finish its first preview within 30 seconds.');
+  throw new Error(`The real VS Code Webview did not finish its first preview within 30 seconds: ${lastError ?? 'no startup timing was returned'}`);
 }
 
 /**
