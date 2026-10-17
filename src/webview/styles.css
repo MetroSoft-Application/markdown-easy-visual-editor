@@ -1050,7 +1050,8 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
 }
 
 .rendered-markdown[data-mve-image-zoom] .mve-image-frame,
-.rendered-markdown[data-mve-image-zoom] img:not([data-mve-enhanced="true"]) {
+.rendered-markdown[data-mve-image-zoom] .mermaid,
+.rendered-markdown[data-mve-image-zoom] img:not([data-mve-enhanced="true"]):not(.mermaid-svg-image) {
     zoom: var(--mve-preview-image-zoom, 1);
 }
 
