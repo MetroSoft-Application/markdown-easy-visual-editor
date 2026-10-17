@@ -23,4 +23,5 @@ node_modules/**
 *.vsix
 dist/*.log
 dist/*.png
+/dist/mermaid.min.js
 .chromium/**

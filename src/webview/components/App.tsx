@@ -5186,8 +5186,8 @@ export function App(): React.JSX.Element {
     /**
      * @param href - プレビュー内で開くMarkdownリンクのhref文字列。
      */
-    (href: string, workspaceRooted = false) =>
-      vscode.postMessage({ type: "openResource", href, workspaceRooted }),
+    (href: string, workspaceRooted = false, internal = false) =>
+      vscode.postMessage({ type: "openResource", href, workspaceRooted, internal }),
     [],
   );
   const splitMarpActiveSlide = useCallback(
@@ -5776,8 +5776,8 @@ export function App(): React.JSX.Element {
               scrollContainerRef={editorAreaRef}
               showZoomControls
               onZoom={adjustZoom}
-              onNavigate={(href, workspaceRooted = false) =>
-                vscode.postMessage({ type: "openResource", href, workspaceRooted })
+              onNavigate={(href, workspaceRooted = false, internal = false) =>
+                vscode.postMessage({ type: "openResource", href, workspaceRooted, internal })
               }
               onRendered={() => handlePreviewRendered("previewOnly")}
               onActiveSlide={previewOnlyMarpActiveSlide}
@@ -7230,11 +7230,6 @@ function collectStartupMetrics(
     } else if (entry.name.includes("webview.js")) {
       metrics.webviewFetchStartedAt = entry.startTime;
       metrics.webviewFetchDuration = entry.duration;
-    } else if (entry.name.includes("mermaid.min.js")) {
-      metrics.mermaidRuntimeFetchStartedAt = entry.startTime;
-      metrics.mermaidRuntimeFetchDuration = entry.duration;
-      metrics.mermaidRuntimeResourceCount =
-        (metrics.mermaidRuntimeResourceCount ?? 0) + 1;
     }
   }
   return metrics;

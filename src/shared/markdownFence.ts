@@ -6,6 +6,7 @@
  * MarkdownのコードフェンスにMermaid図が含まれるかを調べる。
  *
  * @param markdown - Mermaidコードフェンスの有無を調べるMarkdown本文。
+ * @param maxBodyLength - Mermaidフェンス本文へ許可する最大文字数。
  * @returns Mermaid図のフェンスがある場合はtrue。
  */
 export function hasMermaidFence(

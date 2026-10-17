@@ -2,6 +2,7 @@
  * @fileoverview Custom Editorの起動、文書保存、HostとWebviewの同期、編集コマンドを束ねる。VS Code APIが外部境界となる。
  */
 import * as vscode from 'vscode';
+import { open, realpath, stat } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { randomBytes, randomUUID } from 'node:crypto';
@@ -47,13 +48,9 @@ import {
 import { getMessages, resolveLanguage, type Messages } from '../shared/messages';
 import { isMarpMarkdown } from '../shared/marpFrontMatter';
 import type { MarpFrontMatterParser } from '../shared/marpFrontMatter';
-import { hasMermaidFence } from '../shared/markdownFence';
 import { acquirePdfBrowser, closePdfBrowser, exportPdf, renderPdf } from './pdf';
-import {
-    closeMermaidRenderer,
-    MermaidRendererUnavailableError,
-    renderMermaidInBrowser
-} from './mermaid';
+import { closePeleRenderer, PeleRendererUnavailableError, renderPeleMermaid } from './peleMermaid';
+import { MAX_MERMAID_IMAGE_BYTES, resolveMermaidImageSources } from './mermaidImages';
 import { namespaceMermaidSvg } from '../shared/mermaidSvg';
 import {
     prepareHtmlExport,
@@ -471,7 +468,7 @@ export function activate(context: vscode.ExtensionContext): void {
  * 拡張機能終了時にMermaid/PDFブラウザー資源を解放する。
  */
 export async function deactivate(): Promise<void> {
-    await closeMermaidRenderer();
+    await closePeleRenderer();
     await closePdfBrowser();
 }
 
@@ -1127,14 +1124,20 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                     const controller = new AbortController();
                     this.mermaidRenderControllers.set(message.requestId, { panel, controller });
                     try {
-                        const rendered = await renderMermaidInBrowser(
+                        const settings = this.getSettings(document);
+                        const rendered = await renderPeleMermaid(
                             message.source,
                             message.theme,
-                            vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'mermaid.min.js').fsPath,
-
-
+                            vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'pele-render-worker.js').fsPath,
                             () => acquirePdfBrowser(this.getLanguage()),
-                            controller.signal
+                            controller.signal,
+                            {
+                                fontFamily: settings.previewFontFamily,
+                                resolveImages: (sources) => resolveMermaidImageSources(
+                                    sources,
+                                    (source) => this.readMermaidLocalImage(document, source)
+                                )
+                            }
                         );
                         if (controller.signal.aborted) return;
                         this.post(panel, {
@@ -1151,7 +1154,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                             type: 'mermaidRendered',
                             requestId: message.requestId,
                             error: error instanceof Error ? error.message : String(error),
-                            rendererUnavailable: error instanceof MermaidRendererUnavailableError
+                            rendererUnavailable: error instanceof PeleRendererUnavailableError
                         });
                     } finally {
                         if (this.mermaidRenderControllers.get(message.requestId)?.controller === controller) {
@@ -1244,7 +1247,12 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                     await this.openSource();
                     return;
                 case 'openResource':
-                    await this.openResource(document, message.href, message.workspaceRooted === true);
+                    await this.openResource(
+                        document,
+                        message.href,
+                        message.workspaceRooted === true,
+                        message.internal === true
+                    );
                     return;
                 case 'copySectionLink': {
                     let copiedLink: string;
@@ -2279,11 +2287,71 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
     }
 
     /**
+     * Mermaid内の相対・file URI画像をワークスペースルート内で読み込む。
+     * @param document - 相対画像の基準Markdown文書。
+     * @param source - Mermaid図が参照するローカル画像URIまたはパス。
+     * @returns 許可範囲内で読み込めた画像bytes。範囲外または未対応URIはundefined。
+     */
+    private async readMermaidLocalImage(document: vscode.TextDocument, source: string): Promise<Uint8Array | undefined> {
+        if (document.uri.scheme !== 'file') return undefined;
+        const clean = decodeLocalResourceSource(source);
+        if (!clean || /^(?:[a-z][a-z0-9+.-]*:|[\\/])/i.test(clean) && !/^file:/i.test(clean)) return undefined;
+        let uri: vscode.Uri | undefined;
+        if (/^file:/i.test(clean)) {
+            try {
+                uri = vscode.Uri.parse(clean);
+                if (uri.authority && uri.authority.toLowerCase() !== 'localhost') return undefined;
+            } catch {
+                return undefined;
+            }
+        } else {
+            uri = resolveLocalResourceUri(document.uri, clean);
+        }
+        if (!uri || uri.scheme !== 'file') return undefined;
+
+        const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
+        const rootPath = workspaceFolder?.uri.scheme === 'file'
+            ? workspaceFolder.uri.fsPath
+            : path.dirname(document.uri.fsPath);
+        try {
+            const [rootRealPath, imageRealPath] = await Promise.all([
+                realpath(rootPath),
+                realpath(uri.fsPath)
+            ]);
+            const relative = path.relative(rootRealPath, imageRealPath);
+            if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) return undefined;
+            const fileInfo = await stat(imageRealPath);
+            if (!fileInfo.isFile() || fileInfo.size > MAX_MERMAID_IMAGE_BYTES) return undefined;
+            const file = await open(imageRealPath, 'r');
+            try {
+                const buffer = Buffer.alloc(MAX_MERMAID_IMAGE_BYTES + 1);
+                const { bytesRead } = await file.read(buffer, 0, buffer.byteLength, 0);
+                return bytesRead <= MAX_MERMAID_IMAGE_BYTES ? buffer.subarray(0, bytesRead) : undefined;
+            } finally {
+                await file.close();
+            }
+        } catch {
+            return undefined;
+        }
+    }
+
+    /**
      * 拡張機能の表示または操作を開始する。
      * @param document - リンク参照を解決して開く基準Markdown文書。
      * @param href - Markdown内のリンク先文字列。相対参照、ファイルパス、file URI、Webview URL、外部URLを受け取る。
      */
-    private async openResource(document: vscode.TextDocument, href: string, workspaceRooted = false): Promise<void> {
+    private async openResource(
+        document: vscode.TextDocument,
+        href: string,
+        workspaceRooted = false,
+        internal = false
+    ): Promise<void> {
+        if (internal) {
+            if (!isDocumentRelativeResourcePath(href)) return;
+            const uri = resolveLocalResourceUri(document.uri, href);
+            if (uri) await this.openLocalResource(uri, href);
+            return;
+        }
         const target = classifyResourceLink(href);
         if (target.kind === 'invalidLocalWebview') return;
         if (target.kind === 'localWebview') {
@@ -2871,20 +2939,14 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
         const marpKatexFontsUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'marp-katex-fonts'));
         const markdownFallbackUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'markdown-fallback.js'));
         const exportFontsUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'export-fonts.css'));
-        const mermaidUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'mermaid.min.js'));
         const styleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'styles.css'));
         const bundledStyleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'webview.css'));
         const baseUri = webview.asWebviewUri(vscode.Uri.joinPath(document.uri, '..'));
         const nonce = randomUUID().replace(/-/g, '');
         const settings = this.getSettings(document);
         const canonicalText = this.canonicalText(document);
-        const shouldPreloadMermaid =
-            settings.viewMode !== 'text' && hasMermaidFence(canonicalText, 96);
         const markdownWorkerPreload = settings.viewMode !== 'text'
             ? `<link rel="preload" href="${markdownWorkerUri}" as="fetch" crossorigin="anonymous">`
-            : '';
-        const mermaidPreloadScript = shouldPreloadMermaid
-            ? `<script nonce="${nonce}">(() => { const link = document.createElement('link'); link.rel = 'preload'; link.as = 'script'; link.setAttribute('fetchpriority', 'low'); link.href = document.body.dataset.mveMermaidUri || ''; document.head.append(link); })();</script>`
             : '';
         const allowRemote = settings.remoteImagesEnabled ? ' https: http:' : '';
         // 巨大文書をHTML内で複製すると逆にパース・メモリ負荷が増えるため、
@@ -2910,8 +2972,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
           <title>Markdown Easy Visual Editor</title>
           <script nonce="${nonce}">globalThis.__mveBootstrap=${bootstrap};</script>
         </head>
-        <body data-mve-markdown-worker-uri="${markdownWorkerUri.toString()}" data-mve-markdown-rich-worker-uri="${markdownRichWorkerUri.toString()}" data-mve-markdown-fallback-uri="${markdownFallbackUri.toString()}" data-mve-marp-worker-uri="${marpWorkerUri.toString()}" data-mve-marp-frame-uri="${marpFrameUri.toString()}" data-mve-marp-katex-fonts-uri="${marpKatexFontsUri.toString()}/" data-mve-csp-source="${webview.cspSource}" data-mve-csp-nonce="${nonce}" data-mve-remote-images="${settings.remoteImagesEnabled}" data-mve-export-fonts-uri="${exportFontsUri.toString()}" data-mve-mermaid-uri="${mermaidUri.toString()}">
-          ${mermaidPreloadScript}
+        <body data-mve-markdown-worker-uri="${markdownWorkerUri.toString()}" data-mve-markdown-rich-worker-uri="${markdownRichWorkerUri.toString()}" data-mve-markdown-fallback-uri="${markdownFallbackUri.toString()}" data-mve-marp-worker-uri="${marpWorkerUri.toString()}" data-mve-marp-frame-uri="${marpFrameUri.toString()}" data-mve-marp-katex-fonts-uri="${marpKatexFontsUri.toString()}/" data-mve-csp-source="${webview.cspSource}" data-mve-csp-nonce="${nonce}" data-mve-remote-images="${settings.remoteImagesEnabled}" data-mve-export-fonts-uri="${exportFontsUri.toString()}">
           <div id="root"></div>
           <script nonce="${nonce}" src="${scriptUri}"></script>
         </body>

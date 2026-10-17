@@ -15,6 +15,7 @@ const limits = {
   'marp-worker.js': 1024 * 1024,
   'marp-frame.js': 256 * 1024,
   'marp-yaml.cjs': 512 * 1024,
+  'pele-render-worker.js': 2 * 1024 * 1024,
   total: 48 * 1024 * 1024
 };
 
@@ -31,6 +32,7 @@ const requiredTopLevelFiles = [
   'marp-worker.js',
   'marp-yaml.cjs',
   'mermaid.min.js',
+  'pele-render-worker.js',
   'pdf.worker.min.mjs',
   'pdfjs.mjs',
   'playwright.js',
@@ -147,8 +149,11 @@ if (/playwright-core[\\/]lib[\\/](?:coreBundle|utilsBundle)/.test(extension)) {
 if (!extension.includes('./playwright.js')) {
   throw new Error('Playwright の遅延ロード参照が Extension Host バンドルにありません。');
 }
-if (!webview.includes('markdown-rich-worker.js') || !webview.includes('markdown-fallback.js') || !webview.includes('mermaid.min.js')) {
+if (!webview.includes('markdown-rich-worker.js') || !webview.includes('markdown-fallback.js')) {
   throw new Error('Webview の障害時ランタイム遅延ロード参照が不足しています。');
+}
+if (!extension.includes('pele-render-worker.js') || !topLevelFiles.includes('pele-render-worker.js')) {
+  throw new Error('Pele Worker の遅延参照または成果物がありません。');
 }
 if (!webview.includes('mveMarpWorkerUri') || !extension.includes('marp-worker.js')) {
   throw new Error('Marp Worker の遅延ロード URI または Extension Host 資産参照がありません。');

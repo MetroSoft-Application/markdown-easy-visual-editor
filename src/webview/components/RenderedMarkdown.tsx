@@ -116,7 +116,7 @@ interface Props {
     * Markdownリンクの遷移先とワークスペース基準リンクかどうかを親へ渡す。
    * @param href - リンク操作領域の遷移先URI。
    */
-  onNavigate?: (href: string, workspaceRooted?: boolean) => void;
+  onNavigate?: (href: string, workspaceRooted?: boolean, internal?: boolean) => void;
   /**
     * 対象DOM要素のMarkdown描画完了を親へ通知する。
    * @param element - 寸法または属性を読み取るDOM要素。
@@ -540,9 +540,6 @@ function RenderedMarkdownView({
                   source,
                   theme,
                   controller.signal,
-                  settings.mermaidHostRendering === true,
-                  !deferMermaid,
-                  deferMermaid,
                 );
                 if (
                   !node.isConnected ||
@@ -981,7 +978,11 @@ function RenderedMarkdownView({
         // Webviewのネイティブ遷移を許すと、ローカルMarkdownがブラウザへ渡るため、
         // 外部URLを含めてホスト側のリンク処理へ必ず委譲する。
         event.preventDefault();
-        onNavigate?.(href, anchor.dataset.mveWorkspaceRooted === "true");
+        onNavigate?.(
+          href,
+          anchor.dataset.mveWorkspaceRooted === "true",
+          anchor.dataset.mveInternalLink === "true",
+        );
       }
     }
   }
@@ -2083,6 +2084,7 @@ function attachVirtualMermaidInteractions(
     element.style.height = `${interaction.height * 100}%`;
     if (element instanceof HTMLAnchorElement && interaction.href) {
       element.href = interaction.href;
+      if (interaction.internal) element.dataset.mveInternalLink = "true";
       element.setAttribute("aria-label", interaction.text);
     } else {
       element.setAttribute("aria-hidden", "true");

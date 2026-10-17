@@ -545,6 +545,9 @@ export interface MermaidInteraction {
      */
     href?: string;
 
+    /** Peleがノート名リンクとして分類したリンクであることを示す。 */
+    internal?: boolean;
+
     /**
      * 親領域の左端を基準にした相対位置または比較値。
      */
@@ -1327,7 +1330,9 @@ export type WebviewToHostMessage =
          */
         href: string;
         /** 専用title印を持つワークスペース基準リンクかを示す。 */
-        workspaceRooted?: boolean
+        workspaceRooted?: boolean;
+        /** Mermaidのノート名リンクを文書相対パスとして処理する場合に指定する。 */
+        internal?: boolean
     }
     | {
         /**

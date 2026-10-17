@@ -1,0 +1,465 @@
+/**
+ * @fileoverview PeleをWorker内で実行し、SVG・画像・リンク領域をプレビュー用に整える。
+ */
+import { readFile } from 'node:fs/promises';
+import path from 'node:path';
+import type { Browser, BrowserContext, Page } from 'playwright-core';
+import type { MermaidInteraction } from '../shared/protocol';
+
+/** Pele描画結果としてWebviewへ渡すSVGまたはPNGと操作領域。 */
+export interface PeleMermaidResult {
+    svg: string;
+    pngBase64?: string;
+    interactions: MermaidInteraction[];
+    ariaLabel: string;
+    hasImages?: boolean;
+}
+
+/** Pele描画時に適用するフォントと画像解決処理。 */
+export interface PeleRenderOptions {
+    fontFamily: string;
+    resolveImages?: (sources: string[]) => Promise<Record<string, string>>;
+}
+
+/** Pele Workerの初期化に失敗したことを表すエラー。 */
+export class PeleRendererUnavailableError extends Error {
+    /**
+     * @param message - 初期化に失敗した理由。
+     * @param options - 元の例外などの追加情報。
+     */
+    constructor(message: string, options?: ErrorOptions) {
+        super(message, options);
+        this.name = 'PeleRendererUnavailableError';
+    }
+}
+
+const CACHE_LIMIT = 12;
+const CACHE_BYTE_LIMIT = 24 * 1024 * 1024;
+const RENDER_TIMEOUT_MS = 30_000;
+const LARGE_SVG_LIMIT = 80_000;
+const MAX_FINAL_SVG_CHARS = 12_000_000;
+const cache = new Map<string, PeleMermaidResult>();
+const inFlight = new Map<string, RenderTask>();
+let cacheBytes = 0;
+let queueTail: Promise<void> = Promise.resolve();
+let browserContext: BrowserContext | undefined;
+let rendererPage: Page | undefined;
+let pagePromise: Promise<Page> | undefined;
+let workerScriptCache = new Map<string, Promise<string>>();
+let sequence = 0;
+
+interface RenderTask {
+    key: string;
+    promise: Promise<PeleMermaidResult>;
+    controller: AbortController;
+    consumers: number;
+    started: boolean;
+    settled: boolean;
+    cancelled: boolean;
+}
+
+/**
+ * PeleでMermaidソースを描画し、必要な場合は画像をインライン化して操作領域を計測する。
+ * @param source - Mermaid図のソース。
+ * @param theme - 適用するPele配色。
+ * @param workerPath - Pele Worker bundleのファイルパス。
+ * @param acquireBrowser - 描画に使うPlaywrightブラウザーを取得する処理。
+ * @param signal - 呼び出し元からのキャンセル通知。
+ * @param options - 表示フォントと画像解決処理。
+ * @returns SVG、必要時のPNG、操作領域、アクセシブル名。
+ */
+export function renderPeleMermaid(
+    source: string,
+    theme: 'default' | 'dark' | 'neutral',
+    workerPath: string,
+    acquireBrowser: () => Promise<Browser>,
+    signal: AbortSignal | undefined,
+    options: PeleRenderOptions
+): Promise<PeleMermaidResult> {
+    if (signal?.aborted) return Promise.reject(new Error('Mermaid rendering was cancelled.'));
+    const dayKey = Math.floor(Date.now() / 86_400_000);
+    const key = `${theme}\0${options.fontFamily}\0${dayKey}\0${source}`;
+    const cached = readCache(key);
+    if (cached) return Promise.resolve(cached);
+
+    let task = inFlight.get(key);
+    if (task?.cancelled || task?.settled) task = undefined;
+    if (!task) {
+        const created: RenderTask = {
+            key,
+            promise: Promise.resolve(undefined as unknown as PeleMermaidResult),
+            controller: new AbortController(),
+            consumers: 0,
+            started: false,
+            settled: false,
+            cancelled: false
+        };
+        created.promise = enqueue(async () => {
+            if (created.cancelled || created.controller.signal.aborted) throw new Error('Mermaid rendering was cancelled.');
+            created.started = true;
+            const result = await withTimeout(
+                renderQueued(
+                    source,
+                    theme,
+                    workerPath,
+                    acquireBrowser,
+                    created.controller.signal,
+                    options
+                ),
+                RENDER_TIMEOUT_MS,
+                resetRendererPage
+            );
+            if (!result.hasImages) writeCache(key, result);
+            return result;
+        });
+        task = created;
+        inFlight.set(key, created);
+        void created.promise.finally(() => {
+            created.settled = true;
+            if (inFlight.get(key) === created) inFlight.delete(key);
+        }).catch(() => undefined);
+    }
+    return consumeTask(task, signal);
+}
+
+/**
+ * Mermaid Workerの待機列を直列で処理する。
+ * @param operation - 実行する描画処理。
+ * @returns 描画処理の結果。
+ */
+function enqueue(operation: () => Promise<PeleMermaidResult>): Promise<PeleMermaidResult> {
+    const result = queueTail.then(operation);
+    queueTail = result.then(() => undefined, () => undefined);
+    return result;
+}
+
+/**
+ * キュー上でWorker描画、画像解決、DOM計測、必要時のPNG化を行う。
+ * @param source - Mermaid図のソース。
+ * @param theme - 適用するPele配色。
+ * @param workerPath - Pele Worker bundleのファイルパス。
+ * @param acquireBrowser - 描画に使うPlaywrightブラウザーを取得する処理。
+ * @param signal - 呼び出し元からのキャンセル通知。
+ * @param options - 表示フォントと画像解決処理。
+ * @returns 描画済みの図。
+ */
+async function renderQueued(
+    source: string,
+    theme: 'default' | 'dark' | 'neutral',
+    workerPath: string,
+    acquireBrowser: () => Promise<Browser>,
+    signal: AbortSignal | undefined,
+    options: PeleRenderOptions
+): Promise<PeleMermaidResult> {
+    if (signal?.aborted) throw new Error('Mermaid rendering was cancelled.');
+    if (source.length > 50_000) throw new Error('Mermaid source exceeds the 50000 character limit.');
+    const page = await acquireRendererPage(workerPath, acquireBrowser);
+    const requestId = `mve-pele-${++sequence}`;
+    const workerSource = await readWorkerSource(workerPath);
+    const workerOperation = page.evaluate(async (payload) => {
+        const blobUrl = URL.createObjectURL(new Blob([payload.workerSource], { type: 'text/javascript' }));
+        const worker = new Worker(blobUrl);
+        try {
+            const rendered = await new Promise<{ svg: string; links: Array<{ id: string; href: string; internal: boolean }> }>((resolve, reject) => {
+                worker.addEventListener('message', (event: MessageEvent) => {
+                    if (event.data?.id !== payload.requestId) return;
+                    if (event.data.error) reject(new Error(event.data.error));
+                    else resolve({ svg: event.data.svg, links: event.data.links ?? [] });
+                });
+                worker.addEventListener('error', (event) => reject(new Error(event.message || 'Pele Worker failed.')));
+                worker.postMessage({
+                    id: payload.requestId,
+                    source: payload.source,
+                    theme: payload.theme,
+                    fontFamily: payload.fontFamily,
+                    now: Date.now()
+                });
+            });
+            const document = new DOMParser().parseFromString(rendered.svg, 'image/svg+xml');
+            if (document.querySelector('parsererror')) throw new Error('Pele returned invalid SVG.');
+            const images = Array.from(document.querySelectorAll('image')).map((image) =>
+                image.getAttribute('href')
+                ?? image.getAttributeNS('http://www.w3.org/1999/xlink', 'href')
+                ?? ''
+            ).filter(Boolean);
+            return { ...rendered, images };
+        } finally {
+            worker.terminate();
+            URL.revokeObjectURL(blobUrl);
+        }
+    }, { workerSource, requestId, source, theme, fontFamily: options.fontFamily });
+
+    const rendered = await workerOperation;
+    if (signal?.aborted) throw new Error('Mermaid rendering was cancelled.');
+    const imageData = rendered.images.length && options.resolveImages
+        ? await options.resolveImages(rendered.images)
+        : {};
+    const result = await page.evaluate((payload) => {
+        const svgDocument = new DOMParser().parseFromString(payload.svg, 'image/svg+xml');
+        const imageElements = Array.from(svgDocument.querySelectorAll('image'));
+        for (const image of imageElements) {
+            const source = image.getAttribute('href')
+                ?? image.getAttributeNS('http://www.w3.org/1999/xlink', 'href')
+                ?? '';
+            const dataUri = payload.imageData[source];
+            if (!dataUri || !dataUri.startsWith('data:image/')) {
+                image.remove();
+                continue;
+            }
+            image.removeAttributeNS('http://www.w3.org/1999/xlink', 'href');
+            image.setAttribute('href', dataUri);
+        }
+        const svg = new XMLSerializer().serializeToString(svgDocument.documentElement);
+        if (svg.length > payload.maxSvgChars) throw new Error('Pele SVG with images exceeds the 12000000 character limit.');
+        const container = document.createElement('div');
+        container.id = payload.containerId;
+        container.style.cssText = 'width:1200px;background:transparent';
+        container.innerHTML = svg;
+        document.body.append(container);
+        const svgNode = container.querySelector('svg');
+        if (!svgNode) throw new Error('Pele did not return an SVG element.');
+        const rootRect = svgNode.getBoundingClientRect();
+        const linksById = new Map(payload.links.map((link) => [link.id, link]));
+        for (const anchor of Array.from(svgNode.querySelectorAll('a'))) {
+            if (linksById.get(anchor.id)?.internal) anchor.setAttribute('data-mve-internal-link', 'true');
+        }
+        const toInteraction = (element: Element, type: 'text' | 'link', href?: string, internal = false) => {
+            const text = element.textContent?.trim() ?? '';
+            const rect = element.getBoundingClientRect();
+            if (!text || rootRect.width <= 0 || rootRect.height <= 0 || rect.width <= 0 || rect.height <= 0) return undefined;
+            return {
+                type,
+                text,
+                href,
+                internal: type === 'link' ? internal : undefined,
+                left: (rect.left - rootRect.left) / rootRect.width,
+                top: (rect.top - rootRect.top) / rootRect.height,
+                width: rect.width / rootRect.width,
+                height: rect.height / rootRect.height
+            };
+        };
+        const textInteractions = Array.from(svgNode.querySelectorAll('text, foreignObject'))
+            .filter((element) => element.tagName.toLowerCase() !== 'text' || !element.closest('foreignObject'))
+            .map((element) => toInteraction(element, 'text'))
+            .filter((item): item is NonNullable<typeof item> => item !== undefined);
+        const linkInteractions = Array.from(svgNode.querySelectorAll('a'))
+            .map((element) => {
+                const link = linksById.get(element.id);
+                const href = link?.href
+                    ?? element.getAttribute('href')
+                    ?? element.getAttribute('xlink:href')
+                    ?? undefined;
+                return toInteraction(element, 'link', href, link?.internal ?? false);
+            })
+            .filter((item): item is NonNullable<typeof item> => item !== undefined && Boolean(item.href));
+        const ariaLabel = svgNode.querySelector('title')?.textContent?.trim()
+            ?? svgNode.getAttribute('aria-label')
+            ?? textInteractions.slice(0, 20).map((item) => item.text).join(', ');
+        return { svg, interactions: [...textInteractions, ...linkInteractions], ariaLabel };
+    }, {
+        svg: rendered.svg,
+        imageData,
+        links: rendered.links,
+        containerId: `${requestId}-container`,
+        maxSvgChars: MAX_FINAL_SVG_CHARS
+    });
+
+    try {
+        const finalResult: PeleMermaidResult = {
+            ...(result.svg.length < LARGE_SVG_LIMIT
+            ? result
+            : {
+                ...result,
+                pngBase64: (await page.locator(`#${requestId}-container svg`).screenshot({
+                    type: 'png',
+                    animations: 'disabled'
+                })).toString('base64')
+            }),
+            hasImages: rendered.images.length > 0
+        };
+        return finalResult;
+    } finally {
+        await page.evaluate((id) => document.getElementById(id)?.remove(), `${requestId}-container`).catch(() => undefined);
+    }
+}
+
+/**
+ * Workerを許可する隔離ページを再利用して取得する。
+ * @param workerPath - Worker bundleのファイルパス。
+ * @param acquireBrowser - 描画ブラウザーの取得処理。
+ * @returns Worker実行用のページ。
+ */
+async function acquireRendererPage(workerPath: string, acquireBrowser: () => Promise<Browser>): Promise<Page> {
+    if (rendererPage && !rendererPage.isClosed()) return rendererPage;
+    if (pagePromise) return pagePromise;
+    pagePromise = (async () => {
+        try {
+            const browser = await acquireBrowser();
+            const context = await browser.newContext({ javaScriptEnabled: true });
+            browserContext = context;
+            await context.route('**/*', (route) => route.abort('blockedbyclient'));
+            const page = await context.newPage();
+            await page.setContent('<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\' blob:; worker-src blob:; img-src data: blob:; style-src \'unsafe-inline\'; font-src data:"></head><body></body></html>');
+            await readWorkerSource(workerPath);
+            rendererPage = page;
+            return page;
+        } catch (error) {
+            await resetRendererPage();
+            throw new PeleRendererUnavailableError('Pele renderer could not be initialized.', { cause: error });
+        }
+    })().finally(() => { pagePromise = undefined; });
+    return pagePromise;
+}
+
+/**
+ * Worker bundleの本文をパスごとに遅延読込して共有する。
+ * @param workerPath - Worker bundleのファイルパス。
+ * @returns Workerへ渡すJavaScript本文。
+ */
+function readWorkerSource(workerPath: string): Promise<string> {
+    let source = workerScriptCache.get(workerPath);
+    if (!source) {
+        source = readFile(path.resolve(workerPath), 'utf8');
+        workerScriptCache.set(workerPath, source);
+    }
+    return source;
+}
+
+/**
+ * キャンセル時に共有描画Pageを破棄し、次回要求で再生成できる状態へ戻す。
+ */
+async function resetRendererPage(): Promise<void> {
+    rendererPage = undefined;
+    const context = browserContext;
+    browserContext = undefined;
+    if (context) await context.close().catch(() => undefined);
+}
+
+/**
+ * Mermaid Worker、Page、SVGキャッシュを解放する。
+ */
+export async function closePeleRenderer(): Promise<void> {
+    for (const task of inFlight.values()) {
+        task.cancelled = true;
+        task.controller.abort();
+    }
+    await resetRendererPage();
+    cache.clear();
+    cacheBytes = 0;
+    inFlight.clear();
+    workerScriptCache = new Map();
+    queueTail = Promise.resolve();
+}
+
+/**
+ * 描画PromiseをAbortSignalと時間制限で待つ。
+ * @param operation - 実行中の処理。
+ * @param timeoutMs - 時間制限。
+ * @param onTimeout - タイムアウト時の終了処理。
+ * @returns 描画結果。
+ */
+async function withTimeout<T>(operation: Promise<T>, timeoutMs: number, onTimeout: () => Promise<void>): Promise<T> {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+            void onTimeout();
+            reject(new Error(`Pele rendering timed out after ${timeoutMs}ms.`));
+        }, timeoutMs);
+    });
+    try {
+        return await Promise.race([operation, timeout]);
+    } finally {
+        if (timer) clearTimeout(timer);
+        void operation.catch(() => undefined);
+    }
+}
+
+/**
+ * 共通描画を購読し、最後の呼び出し元がキャンセルした場合にWorkerを停止する。
+ * @param operation - 共有描画処理。
+ * @param signal - 呼び出し元からのキャンセル通知。
+ * @returns 呼び出し元に返す描画結果。
+ */
+function consumeTask(task: RenderTask, signal?: AbortSignal): Promise<PeleMermaidResult> {
+    task.consumers += 1;
+    let settled = false;
+    const release = () => {
+        if (settled) return;
+        settled = true;
+        task.consumers = Math.max(0, task.consumers - 1);
+        if (task.consumers === 0 && !task.settled) {
+            task.cancelled = true;
+            task.controller.abort();
+            if (task.started) void resetRendererPage();
+        }
+    };
+    return new Promise<PeleMermaidResult>((resolve, reject) => {
+        const abort = () => {
+            release();
+            reject(new Error('Mermaid rendering was cancelled.'));
+        };
+        if (signal?.aborted) {
+            abort();
+            return;
+        }
+        signal?.addEventListener('abort', abort, { once: true });
+        task.promise.then(
+            (result) => {
+                if (settled) return;
+                signal?.removeEventListener('abort', abort);
+                release();
+                resolve(result);
+            },
+            (error) => {
+                if (settled) return;
+                signal?.removeEventListener('abort', abort);
+                release();
+                reject(error);
+            }
+        );
+    });
+}
+
+/**
+ * 成功結果のLRUキャッシュを読み、最近使用した項目を末尾へ移す。
+ * @param key - ソース・テーマ・フォントを含むキャッシュキー。
+ * @returns キャッシュ済み結果。
+ */
+function readCache(key: string): PeleMermaidResult | undefined {
+    const result = cache.get(key);
+    if (!result) return undefined;
+    cache.delete(key);
+    cache.set(key, result);
+    return result;
+}
+
+/**
+ * 画像を含まない描画結果を件数・容量制限付きで保存する。
+ * @param key - キャッシュキー。
+ * @param result - 保存する描画結果。
+ */
+function writeCache(key: string, result: PeleMermaidResult): void {
+    const bytes = (result.svg.length + result.ariaLabel.length + (result.pngBase64?.length ?? 0)) * 2
+        + result.interactions.reduce((sum, item) => sum + (item.text.length + (item.href?.length ?? 0)) * 2 + 64, 0);
+    const previous = cache.get(key);
+    if (previous) cacheBytes -= resultBytes(previous);
+    cache.set(key, result);
+    cacheBytes += bytes;
+    while (cache.size > CACHE_LIMIT || cacheBytes > CACHE_BYTE_LIMIT) {
+        const oldest = cache.keys().next().value as string | undefined;
+        if (!oldest) break;
+        const removed = cache.get(oldest);
+        cache.delete(oldest);
+        if (removed) cacheBytes -= resultBytes(removed);
+    }
+}
+
+/**
+ * キャッシュ項目の概算メモリー量を返す。
+ * @param result - 計算対象。
+ * @returns UTF-16文字列領域を基準とするバイト数。
+ */
+function resultBytes(result: PeleMermaidResult): number {
+    return (result.svg.length + result.ariaLabel.length + (result.pngBase64?.length ?? 0)) * 2
+        + result.interactions.reduce((sum, item) => sum + (item.text.length + (item.href?.length ?? 0)) * 2 + 64, 0);
+}

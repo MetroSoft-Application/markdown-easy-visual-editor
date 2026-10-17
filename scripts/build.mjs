@@ -160,6 +160,19 @@ const marpYamlOptions = {
   logLevel: 'info'
 };
 
+/** Mermaid描画をUIスレッドから分離するPele Worker bundle。 */
+const peleWorkerOptions = {
+  entryPoints: ['src/extension/peleWorker.ts'],
+  bundle: true,
+  outfile: 'dist/pele-render-worker.js',
+  platform: 'browser',
+  format: 'iife',
+  target: ['chrome120'],
+  minify: !watch,
+  sourcemap: false,
+  logLevel: 'info'
+};
+
 
 /**
  * ビルドへ渡す設定または境界値。
@@ -216,6 +229,7 @@ if (watch) {
   const marpWorkerContext = await esbuild.context(marpWorkerOptions);
   const marpFrameContext = await esbuild.context(marpFrameOptions);
   const marpYamlContext = await esbuild.context(marpYamlOptions);
+  const peleWorkerContext = await esbuild.context(peleWorkerOptions);
   const exportFontContext = await esbuild.context(exportFontOptions);
   await esbuild.build(playwrightOptions);
   await Promise.all([
@@ -227,6 +241,7 @@ if (watch) {
     marpWorkerContext.watch(),
     marpFrameContext.watch(),
     marpYamlContext.watch(),
+    peleWorkerContext.watch(),
     exportFontContext.watch()
   ]);
   console.log('Watching extension and webview...');
@@ -240,6 +255,7 @@ if (watch) {
     esbuild.build({ ...marpWorkerOptions, metafile: true }),
     esbuild.build(marpFrameOptions),
     esbuild.build(marpYamlOptions),
+    esbuild.build(peleWorkerOptions),
     esbuild.build(exportFontOptions),
     esbuild.build(playwrightOptions)
   ]);
