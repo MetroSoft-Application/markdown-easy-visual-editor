@@ -63,3 +63,8 @@
 ## 1.3.0
 
 - Added automatic Marp slide previews for Markdown files with `marp: true` in YAML front matter.
+
+## 1.3.1
+
+- Added links from headings to their sections in exported HTML.
+- Added immediate notifications when PDF or HTML export starts.

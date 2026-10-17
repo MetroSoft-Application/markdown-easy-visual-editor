@@ -884,6 +884,9 @@ export interface Messages {
         /** セクションへのリンクをコピーするメニュー項目。 */
         copySectionLink: string;
 
+        /** HTML出力の見出しに表示するセクションリンク。 */
+        sectionAnchorLink: string;
+
         /** セクションリンクのコンテキストメニュー名。 */
         sectionLinkMenu: string;
 
@@ -2209,6 +2212,7 @@ function createMessages(language: SupportedLanguage): Messages {
             showOutline: raw.app.showOutline,
             outlineWidth: raw.app.outlineWidth,
             copySectionLink: raw.app.copySectionLink,
+            sectionAnchorLink: raw.app.sectionAnchorLink,
             sectionLinkMenu: raw.app.sectionLinkMenu,
             copyWorkspaceSectionLink: raw.app.copyWorkspaceSectionLink,
             workspaceSectionLinkUnavailable: raw.app.workspaceSectionLinkUnavailable,

@@ -5,7 +5,9 @@ import { promises as fs } from 'node:fs';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
 import * as vscode from 'vscode';
+import { decodeHTMLAttribute } from 'entities';
 import { Marked, Renderer } from 'marked';
+import { getMessages } from '../shared/messages';
 import { DEFAULT_PDF_OPTIONS, type HtmlExportOptions } from '../shared/protocol';
 import { fontFamilyForCss } from '../shared/fontFamily';
 import { footnoteDefinitionSyntax, mathBlockSyntax, tableOfContentsSyntax } from '../shared/markdownBlockSyntax';
@@ -212,7 +214,8 @@ export async function writePreparedHtml(
                 document.sourcePath,
                 document.outputPath,
                 documents,
-                request.options
+                request.options,
+                request.language
             );
             const standalone = buildStandaloneHtml(body, request.css, request.language, request.fontFamily);
             await fs.mkdir(path.dirname(document.outputPath), { recursive: true });
@@ -395,7 +398,8 @@ async function rewriteBody(
     sourcePath: string,
     outputPath: string,
     documents: HtmlDocument[],
-    options: HtmlExportOptions
+    options: HtmlExportOptions,
+    language: string
 ): Promise<string> {
     let result = stripUnsafeMarkup(html);
     const imageTags = [...result.matchAll(/<img\b[^>]*>/gi)].map(
@@ -415,7 +419,291 @@ async function rewriteBody(
 
          */
         (tag) => rewriteLinkTag(tag, sourcePath, outputPath, documents, options));
-    return result.replace(/\sdata-(?:original-src|mve-[\w-]+)(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?/gi, '');
+    result = result.replace(/\sdata-(?:original-src|mve-[\w-]+)(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?/gi, '');
+    return addSectionLinks(result, language);
+}
+
+/**
+ * 出力HTMLの各見出しに一意なIDと、見出しへ移動するリンクを追加する。
+ * @param html - 画像・文書リンクを書き換えた本文HTML。
+ * @param language - HTML文書に設定する言語コード。
+ * @returns セクションリンクを追加した本文HTML。
+ */
+function addSectionLinks(html: string, language: string): string {
+    const label = getMessages(language).app.sectionAnchorLink;
+    const usedIds = new Set<string>();
+    const firstIdOffsets = new Map<string, number>();
+    const htmlForStructureScan = maskMarkupInsideAttributes(maskNonElementHtml(html));
+    for (const match of htmlForStructureScan.matchAll(/<[a-z][\w:-]*\b((?:"[^"]*"|'[^']*'|[^'">])*)>/gi)) {
+        const id = decodeHtmlEntities(readExactAttribute(match[1], 'id'));
+        if (id) {
+            usedIds.add(id);
+            if (!firstIdOffsets.has(id)) firstIdOffsets.set(id, match.index ?? 0);
+        }
+    }
+    const headingIdCounts = new Map<string, number>();
+    const output: string[] = [];
+    const headingPattern = /<h([1-6])\b((?:"[^"]*"|'[^']*'|[^'">])*)>([\s\S]*?)<\/h\1\s*>/gi;
+    let cursor = 0;
+    for (const match of htmlForStructureScan.matchAll(headingPattern)) {
+        const offset = match.index ?? cursor;
+        const headingEnd = offset + match[0].length;
+        const originalHeading = html.slice(offset, headingEnd);
+        const originalMatch = /^<h([1-6])\b((?:"[^"]*"|'[^']*'|[^'">])*)>([\s\S]*)<\/h\1\s*>$/i.exec(originalHeading);
+        output.push(html.slice(cursor, offset));
+        if (!originalMatch) {
+            output.push(originalHeading);
+            cursor = headingEnd;
+            continue;
+        }
+        const level = originalMatch[1];
+        const attributes = originalMatch[2];
+        const content = originalMatch[3];
+        let headingAttributes = attributes;
+        let id = decodeHtmlEntities(readExactAttribute(headingAttributes, 'id'));
+        if (!id || (firstIdOffsets.get(id) ?? offset) < offset) {
+            id = nextHeadingAnchorId(headingTextFromHtml(content), headingIdCounts, usedIds);
+            headingAttributes = setExactAttribute(headingAttributes, 'id', id);
+        }
+        const href = `#${encodeURIComponent(id)}`;
+        const headingContent = removeLegacySectionMarker(content, href);
+        const linkedContent = linkHeadingContent(headingContent, href, label);
+        output.push(`<h${level}${headingAttributes}>${linkedContent}</h${level}>`);
+        cursor = headingEnd;
+    }
+    output.push(html.slice(cursor));
+    return output.join('');
+}
+
+/**
+ * コメントとraw-text要素の中身を、元の文字位置を保ったまま空白に置き換える。
+ * @param html - IDを収集するHTML断片。
+ * @returns 実際の開始タグだけを残したHTML断片。
+ */
+function maskNonElementHtml(html: string): string {
+    let masked = html.replace(
+        /<!--[\s\S]*?-->|<(script|style|textarea|title|xmp|iframe|noembed|noframes|noscript|template)\b(?:"[^"]*"|'[^']*'|[^'">])*>[\s\S]*?<\/\1\s*>/gi,
+        (content) => {
+            if (content.startsWith('<!--')) return content.replace(/[^\r\n]/g, ' ');
+            const openingEnd = findHtmlTagEnd(content, 0);
+            if (openingEnd < 0) return content;
+            return `${content.slice(0, openingEnd)}${content.slice(openingEnd).replace(/[^\r\n]/g, ' ')}`;
+        }
+    );
+    const plaintextStart = /<plaintext\b(?:"[^"]*"|'[^']*'|[^'">])*>/i.exec(masked);
+    if (plaintextStart) {
+        const offset = plaintextStart.index + plaintextStart[0].length;
+        masked = `${masked.slice(0, offset)}${masked.slice(offset).replace(/[^\r\n]/g, ' ')}`;
+    }
+    return masked;
+}
+
+/**
+ * タグ属性値の中にあるタグ風文字列を、元の文字位置を保ったまま無効化する。
+ * @param html - コメントとraw-text要素を除外したHTML断片。
+ * @returns 属性値中の不等号を空白に置き換えたHTML断片。
+ */
+function maskMarkupInsideAttributes(html: string): string {
+    const characters = html.split('');
+    let cursor = 0;
+    while (cursor < html.length) {
+        const start = html.indexOf('<', cursor);
+        if (start < 0) break;
+        const end = findHtmlTagEnd(html, start);
+        if (end < 0) {
+            cursor = start + 1;
+            continue;
+        }
+        let quote: string | undefined;
+        for (let index = start + 1; index < end - 1; index += 1) {
+            const character = html[index];
+            if (quote) {
+                if (character === quote) quote = undefined;
+                else if (character === '<' || character === '>') characters[index] = ' ';
+            } else if (character === '"' || character === "'") {
+                quote = character;
+            }
+        }
+        cursor = end;
+    }
+    return characters.join('');
+}
+
+/**
+ * 以前の出力形式で追加した「#」だけのセクションリンクを取り除く。
+ * @param content - 見出し内のHTML。
+ * @param href - 見出し自身を指すフラグメント。
+ * @returns 旧形式のマーカーを除いた見出し本文。
+ */
+function removeLegacySectionMarker(content: string, href: string): string {
+    return content.replace(/<a\b([^>]*)>([\s\S]*?)<\/a\s*>/gi, (anchor, attributes: string, inner: string) => {
+        const classes = decodeHtmlEntities(readExactAttribute(attributes, 'class')) ?? '';
+        const linkHref = decodeHtmlEntities(readExactAttribute(attributes, 'href'));
+        if (
+            classes.split(/\s+/).includes('mve-heading-anchor') &&
+            linkHref === href &&
+            headingTextFromHtml(inner).trim() === '#'
+        ) {
+            return inner;
+        }
+        return anchor;
+    });
+}
+
+/**
+ * 見出し本文をセクションリンクにし、本文内にある別リンクの遷移先を保つ。
+ * @param content - 見出し内のHTML。
+ * @param href - 見出し自身を指すフラグメント。
+ * @param title - リンクの説明として使うローカライズ済み文言。
+ * @returns セクションリンクを設定した見出し本文。
+ */
+function linkHeadingContent(content: string, href: string, title: string): string {
+    const linkText = (text: string) => text.trim()
+        ? `<a class="mve-heading-anchor" href="${escapeAttribute(href)}" title="${escapeAttribute(title)}">${text}</a>`
+        : text;
+    let result = '';
+    let cursor = 0;
+    let insideLink = false;
+    while (cursor < content.length) {
+        if (content.startsWith('<!--', cursor)) {
+            const commentEnd = content.indexOf('-->', cursor + 4);
+            const end = commentEnd < 0 ? content.length : commentEnd + 3;
+            result += content.slice(cursor, end);
+            cursor = end;
+            continue;
+        }
+
+        if (content[cursor] === '<') {
+            const end = findHtmlTagEnd(content, cursor);
+            if (end > cursor) {
+                const tag = content.slice(cursor, end);
+                if (/^<a(?:\s|>)/i.test(tag)) insideLink = true;
+                else if (/^<\/a\s*>$/i.test(tag)) insideLink = false;
+                result += tag;
+                cursor = end;
+                continue;
+            }
+        }
+
+        let end = content.indexOf('<', cursor);
+        if (end < 0) end = content.length;
+        if (end === cursor) end += 1;
+        const text = content.slice(cursor, end);
+        result += insideLink ? text : linkText(text);
+        cursor = end;
+    }
+    return result;
+}
+
+/**
+ * 引用符内の不等号を無視して、HTMLタグの終端位置を取得する。
+ * @param html - HTML断片。
+ * @param start - タグの開始位置。
+ * @returns タグ終端の次の位置。タグとして閉じていない場合は-1。
+ */
+function findHtmlTagEnd(html: string, start: number): number {
+    let quote: string | undefined;
+    for (let index = start + 1; index < html.length; index += 1) {
+        const character = html[index];
+        if (quote) {
+            if (character === quote) quote = undefined;
+            continue;
+        }
+        if (character === '"' || character === "'") {
+            quote = character;
+        } else if (character === '>') {
+            return index + 1;
+        }
+    }
+    return -1;
+}
+
+/**
+ * HTML開始タグの属性から、指定した属性名に完全一致する値を取得する。
+ * @param attributes - 開始タグの属性部分。
+ * @param name - 取得する属性名。
+ * @returns 属性値。見つからない場合はundefined。
+ */
+function readExactAttribute(attributes: string, name: string): string | undefined {
+    return findExactAttribute(attributes, name)?.value;
+}
+
+/**
+ * 属性を保持したまま、指定した属性を新しい値で設定する。
+ * @param attributes - 見出し開始タグの属性部分。
+ * @param name - 設定する属性名。
+ * @param value - 属性に設定する値。
+ * @returns 更新した属性部分。
+ */
+function setExactAttribute(attributes: string, name: string, value: string): string {
+    const serialized = `${name}="${escapeAttribute(value)}"`;
+    const existing = findExactAttribute(attributes, name);
+    if (existing) {
+        return `${attributes.slice(0, existing.start)}${serialized}${attributes.slice(existing.end)}`;
+    }
+    const slash = /\/\s*$/.exec(attributes);
+    if (slash) return `${attributes.slice(0, slash.index)} ${serialized}${attributes.slice(slash.index)}`;
+    return `${attributes} ${serialized}`;
+}
+
+/**
+ * 引用符内の文字列を属性名として誤認せず、属性を順に走査する。
+ * @param attributes - HTML開始タグの属性部分。
+ * @param name - 検索する属性名。
+ * @returns 属性の位置と生の値。属性がない場合はundefined。
+ */
+function findExactAttribute(
+    attributes: string,
+    name: string
+): { start: number; end: number; value: string } | undefined {
+    const expectedName = name.toLowerCase();
+    let cursor = 0;
+    while (cursor < attributes.length) {
+        while (cursor < attributes.length && /\s/.test(attributes[cursor])) cursor += 1;
+        if (cursor >= attributes.length || attributes[cursor] === '/') {
+            cursor += 1;
+            continue;
+        }
+        const start = cursor;
+        while (cursor < attributes.length && !/[\s=/>]/.test(attributes[cursor])) cursor += 1;
+        if (cursor === start) {
+            cursor += 1;
+            continue;
+        }
+        const attributeName = attributes.slice(start, cursor).toLowerCase();
+        const nameEnd = cursor;
+        while (cursor < attributes.length && /\s/.test(attributes[cursor])) cursor += 1;
+        if (attributes[cursor] !== '=') {
+            if (attributeName === expectedName) return { start, end: nameEnd, value: '' };
+            cursor = nameEnd;
+            continue;
+        }
+        cursor += 1;
+        while (cursor < attributes.length && /\s/.test(attributes[cursor])) cursor += 1;
+        const quote = attributes[cursor] === '"' || attributes[cursor] === "'" ? attributes[cursor] : undefined;
+        if (quote) cursor += 1;
+        const valueStart = cursor;
+        if (quote) {
+            while (cursor < attributes.length && attributes[cursor] !== quote) cursor += 1;
+        } else {
+            while (cursor < attributes.length && !/[\s>]/.test(attributes[cursor])) cursor += 1;
+        }
+        const valueEnd = cursor;
+        if (quote && cursor < attributes.length) cursor += 1;
+        if (attributeName === expectedName) {
+            return { start, end: cursor, value: attributes.slice(valueStart, valueEnd) };
+        }
+    }
+    return undefined;
+}
+
+/**
+ * 見出しHTMLからタグを取り除き、アンカーID生成用の本文を取得する。
+ * @param html - 見出し内のHTML。
+ * @returns タグを除いた見出し本文。
+ */
+function headingTextFromHtml(html: string): string {
+    return decodeHtmlEntities(html.replace(/<!--([\s\S]*?)-->/g, '').replace(/<[^>]*>/g, ' ')) ?? '';
 }
 
 /**
@@ -611,7 +899,7 @@ function cleanDataAttributes(tag: string): string {
  */
 function decodeHtmlEntities(value: string | undefined): string | undefined {
     if (!value) return undefined;
-    return value.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&amp;/g, '&');
+    return decodeHTMLAttribute(value);
 }
 
 /**
@@ -736,4 +1024,6 @@ const HTML_CSS = /**
   table th, table td { word-break: normal; overflow-wrap: anywhere; }
   pre { overflow-x: auto; }
   a { color: inherit; text-decoration: underline; }
+  .mve-html .mve-heading-anchor { color: inherit; }
+  .mve-html .mve-heading-anchor:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
 `;

@@ -3520,6 +3520,7 @@ export function App(): React.JSX.Element {
       setToast(messages.app.invalidOutputReplacementPattern);
       return;
     }
+    setToast(messages.host.pdfProgress);
     flushPdfOptionsPersistence();
     await withExportStage(async () => {
     if (!(await waitForCurrentPreviewSnapshot())) {
@@ -3613,6 +3614,7 @@ export function App(): React.JSX.Element {
       setToast(messages.app.invalidOutputReplacementPattern);
       return;
     }
+    setToast(messages.host.htmlProgress);
     await withExportStage(async () => {
     if (!(await waitForCurrentPreviewSnapshot())) {
       setToast(
