@@ -487,6 +487,7 @@
       "backToText": "本文へ戻る",
       "mathError": "数式の描画に失敗しました",
       "mermaidError": "Mermaid構文エラー",
+      "mermaidRendering": "Mermaidを描画しています",
       "mermaidDiagramLabel": "Mermaid図: {description}",
       "alerts": {
         "note": "注記",
@@ -1036,6 +1037,7 @@
       "backToText": "Back to text",
       "mathError": "Could not render the formula",
       "mermaidError": "Mermaid syntax error",
+      "mermaidRendering": "Rendering Mermaid diagram",
       "mermaidDiagramLabel": "Mermaid diagram: {description}",
       "alerts": {
         "note": "Note",
@@ -1585,6 +1587,7 @@
       "backToText": "返回正文",
       "mathError": "公式渲染失败",
       "mermaidError": "Mermaid语法错误",
+      "mermaidRendering": "正在渲染Mermaid图表",
       "mermaidDiagramLabel": "Mermaid 图表：{description}",
       "alerts": {
         "note": "注记",
@@ -2134,6 +2137,7 @@
       "backToText": "본문으로 돌아가기",
       "mathError": "수식을 렌더링할 수 없습니다",
       "mermaidError": "Mermaid 구문 오류",
+      "mermaidRendering": "Mermaid 다이어그램을 렌더링하는 중",
       "mermaidDiagramLabel": "Mermaid 다이어그램: {description}",
       "alerts": {
         "note": "참고",
@@ -2683,6 +2687,7 @@
       "backToText": "Retour au texte",
       "mathError": "Échec du rendu de la formule.",
       "mermaidError": "Échec du rendu Mermaid.",
+      "mermaidRendering": "Rendu du diagramme Mermaid en cours",
       "mermaidDiagramLabel": "Diagramme Mermaid : {description}",
       "alerts": {
         "note": "Note",
@@ -3232,6 +3237,7 @@
       "backToText": "Zurück zum Text",
       "mathError": "Formel konnte nicht dargestellt werden.",
       "mermaidError": "Mermaid konnte nicht dargestellt werden.",
+      "mermaidRendering": "Mermaid-Diagramm wird gerendert",
       "mermaidDiagramLabel": "Mermaid-Diagramm: {description}",
       "alerts": {
         "note": "Hinweis",
@@ -3781,6 +3787,7 @@
       "backToText": "Volver al texto",
       "mathError": "No se pudo representar la fórmula.",
       "mermaidError": "No se pudo representar Mermaid.",
+      "mermaidRendering": "Representando diagrama Mermaid",
       "mermaidDiagramLabel": "Diagrama Mermaid: {description}",
       "alerts": {
         "note": "Nota",

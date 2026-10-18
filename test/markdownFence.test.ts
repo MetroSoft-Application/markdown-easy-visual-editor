@@ -7,6 +7,7 @@ import { hasMermaidFence } from "../src/shared/markdownFence";
 describe("Mermaid code fence detection", () => {
   it.each([
     ["backtick fence", "```mermaid\ngraph LR\n  A --> B\n```"],
+    ["uppercase language label", "```Mermaid\nflowchart TD\n  A --> B\n```"],
     ["tilde fence with options", "~~~mermaid\nflowchart LR\n~~~"],
     ["indented fence", "   ```mermaid\ngraph TD\n   ```"],
     ["long fence with CRLF", "````mermaid title\r\ngraph LR\r\n````\r\n"],

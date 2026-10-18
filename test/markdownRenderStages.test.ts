@@ -197,6 +197,19 @@ describe('staged Markdown rendering',
                 expect(richHtml).toContain('class="diagram-block mermaid"');
             });
 
+        it('keeps pending Mermaid source hidden without marking deferred diagrams as rendering', () => {
+            const markdown = '```mermaid\nflowchart TD\nA --> B\n```';
+            const html = renderMarkdownUnsafeBlocks(markdown, options)
+                .map((block) => block.html)
+                .join('');
+
+            expect(html).not.toContain('role="status"');
+            expect(html).not.toContain('aria-busy="true"');
+            expect(html).not.toContain('aria-label="Mermaidを描画しています"');
+            expect(html).not.toContain('flowchart TD');
+            expect(html).not.toContain('A --&gt; B');
+        });
+
         it('falls back to escaped plain code for unsupported explicit languages',
             () => {
                 const markdown = '```not-a-real-language\n<script>& value\n```';

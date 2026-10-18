@@ -300,6 +300,27 @@ function RenderedMarkdownView({
             ? "dark"
             : "default"
           : settings.mermaidTheme;
+      const mermaidRenderingLabel =
+        getMessages(settings.language).renderer.mermaidRendering;
+      const setLoadingAccessibility = (node: HTMLElement) => {
+        node.setAttribute("role", "status");
+        node.setAttribute("aria-live", "polite");
+        node.setAttribute("aria-busy", "true");
+        node.setAttribute("aria-label", mermaidRenderingLabel);
+      };
+      const clearLoadingAccessibility = (node: HTMLElement) => {
+        node.removeAttribute("role");
+        node.removeAttribute("aria-live");
+        node.removeAttribute("aria-busy");
+        node.removeAttribute("aria-label");
+      };
+      const applyInlineSvgAccessibleName = (
+        node: HTMLElement,
+        ariaLabel: string,
+      ) => {
+        const svg = node.querySelector<SVGElement>("svg");
+        if (svg && ariaLabel) svg.setAttribute("aria-label", ariaLabel);
+      };
       let cancelled = false;
       let renderTimer: number | undefined;
       const interactionManagers = mermaidInteractionManagersRef.current;
@@ -319,6 +340,7 @@ function RenderedMarkdownView({
           entry.controller.abort();
           renderControllers.delete(node);
           delete node.dataset.mermaidStatus;
+          clearLoadingAccessibility(node);
       });
 
       const notifyRendered =  () => {
@@ -369,12 +391,16 @@ function RenderedMarkdownView({
           } else {
             // ホスト側で既にID名前空間化済み。ここで再走査するとID数×SVG長の二次処理になる。
             node.innerHTML = rendered.svg;
+            applyInlineSvgAccessibleName(node, rendered.ariaLabel);
           }
+          clearLoadingAccessibility(node);
           recordApplyDuration();
           return;
         }
         if (!rendered.external || rendered.svg.length < 80_000) {
           node.innerHTML = rendered.svg;
+          applyInlineSvgAccessibleName(node, rendered.ariaLabel);
+          clearLoadingAccessibility(node);
           recordApplyDuration();
           return;
         }
@@ -445,6 +471,7 @@ function RenderedMarkdownView({
             ),
           );
         }
+        clearLoadingAccessibility(node);
         recordApplyDuration(domApplyStartedAt);
       };
 
@@ -488,7 +515,7 @@ function RenderedMarkdownView({
           );
         }
         // ホスト側は直列描画なので、可視・画面外・出力のいずれも要求を先行投入しない。
-        // 世代ごとに1件だけ開始すれば、更新時の取消対象と35秒タイマーも常に1件に収まる。
+        // 世代ごとに1件だけ開始し、更新時の取消対象と180秒監視を1件に保つ。
         const batch = pending.slice(0, 1);
         await Promise.all(
           batch.map(
@@ -507,6 +534,7 @@ function RenderedMarkdownView({
               const sourceCacheKey = `source:${theme}\0${source}`;
               const renderKey = `${theme}\0${source}`;
               node.dataset.mermaidStatus = "rendering";
+              setLoadingAccessibility(node);
               const controller = new AbortController();
               renderControllers.set(node, { key: renderKey, controller });
 
@@ -580,11 +608,13 @@ function RenderedMarkdownView({
                 onMermaidRenderedRef.current?.();
                 const message = document.createElement("pre");
                 message.className = "mermaid-error-message";
+                message.setAttribute("role", "alert");
                 message.textContent = mermaidErrorMessage(
                   error,
                   settings.language,
                 );
                 node.append(message);
+                clearLoadingAccessibility(node);
               } finally {
                 if (renderControllers.get(node)?.controller === controller)
                   renderControllers.delete(node);

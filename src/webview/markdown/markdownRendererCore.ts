@@ -225,7 +225,7 @@ export function renderMarkdownUnsafeBlocks(
         ({ text, lang }) => {
             const language = (lang || '').trim().split(/\s+/)[0].toLowerCase();
             if (language === 'mermaid') {
-                return `<div class="diagram-block mermaid" data-mermaid-source="${escapeAttribute(encodeURIComponent(text))}">${escapeHtml(text)}</div>`;
+                return `<div class="diagram-block mermaid" data-mermaid-source="${escapeAttribute(encodeURIComponent(text))}"></div>`;
             }
             const highlighted = highlightCode?.(text, language) ?? escapeHtml(text);
             return `<figure class="code-figure" data-language="${escapeAttribute(language)}"><figcaption><span>${escapeHtml(language || messages.editor.plainText)}</span><button type="button" data-copy-code="true">${messages.renderer.copy}</button></figcaption><pre><code class="hljs language-${escapeAttribute(language)}">${highlighted}</code></pre></figure>`;

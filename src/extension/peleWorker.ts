@@ -14,6 +14,7 @@ interface PeleRenderRequest {
 }
 
 interface PeleRenderResponse {
+    ready?: true;
     id: string;
     svg?: string;
     links?: LinkInfo[];
@@ -78,3 +79,5 @@ workerScope.onmessage = (event) => {
         workerScope.postMessage({ id: request.id, error: sanitizePeleRenderError(error) });
     }
 };
+
+workerScope.postMessage({ ready: true, id: '' });

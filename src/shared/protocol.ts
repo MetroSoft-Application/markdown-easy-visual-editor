@@ -826,6 +826,16 @@ export type HostToWebviewMessage =
         pdfBase64: string
     }
     | {
+        /**
+         * Mermaid描画要求がHostで処理中であることを通知します。
+         */
+        type: 'mermaidRenderProgress';
+        /**
+         * 非同期要求と対応する応答を照合するID。
+         */
+        requestId: string;
+    }
+    | {
 
         /**
          * Mermaid図の描画結果を返すメッセージです。

@@ -1179,6 +1179,38 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     text-align: center;
 }
 
+.diagram-block.mermaid {
+    min-height: 48px;
+}
+
+.diagram-block.mermaid[data-mermaid-status="rendering"] {
+    display: grid;
+    place-items: center;
+}
+
+.diagram-block.mermaid[data-mermaid-status="rendering"]::before {
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--vscode-progressBar-background);
+    border-inline-end-color: transparent;
+    border-radius: 50%;
+    animation: mve-mermaid-rendering-spin 800ms linear infinite;
+    content: "";
+}
+
+@keyframes mve-mermaid-rendering-spin {
+    to {
+        transform: rotate(1turn);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .diagram-block.mermaid[data-mermaid-status="rendering"]::before {
+        animation: none;
+        border-inline-end-color: var(--vscode-progressBar-background);
+    }
+}
+
 .diagram-block > svg {
     display: block;
     max-width: 100%;

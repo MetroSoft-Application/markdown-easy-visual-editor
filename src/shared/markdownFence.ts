@@ -13,7 +13,7 @@ export function hasMermaidFence(
   markdown: string,
   maxBodyLength = Number.POSITIVE_INFINITY,
 ): boolean {
-  if (!markdown.includes("mermaid")) return false;
+  if (!/mermaid/i.test(markdown)) return false;
 
   let fenceCharacter: "`" | "~" | undefined;
   let fenceLength = 0;
@@ -49,7 +49,7 @@ export function hasMermaidFence(
           lineStart = lineFeed < 0 ? markdown.length + 1 : lineFeed + 1;
           continue;
         }
-        if (info.trimStart().split(/[ \t]/, 1)[0] === "mermaid") {
+        if (info.trimStart().split(/[ \t]/, 1)[0].toLowerCase() === "mermaid") {
           mermaidBodyStart = lineFeed < 0 ? markdown.length : lineFeed + 1;
         }
         fenceCharacter = marker[0] as "`" | "~";

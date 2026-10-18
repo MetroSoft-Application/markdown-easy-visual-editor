@@ -19,6 +19,7 @@ export interface PeleMermaidResult {
 export interface PeleRenderOptions {
     fontFamily: string;
     resourceScope?: string;
+    renderTimeoutMs?: number;
     resolveImages?: (sources: string[], signal?: AbortSignal) => Promise<Record<string, string>>;
 }
 
@@ -36,7 +37,7 @@ export class PeleRendererUnavailableError extends Error {
 
 const CACHE_LIMIT = 12;
 const CACHE_BYTE_LIMIT = 24 * 1024 * 1024;
-const RENDER_TIMEOUT_MS = 30_000;
+const RENDER_TIMEOUT_MS = 180_000;
 const LARGE_SVG_LIMIT = 80_000;
 const MAX_FINAL_SVG_CHARS = 12_000_000;
 const cache = new Map<string, PeleMermaidResult>();
@@ -108,8 +109,12 @@ export function renderPeleMermaid(
                     options,
                     renderingNow
                 ),
-                RENDER_TIMEOUT_MS,
-                resetRendererPage
+                options.renderTimeoutMs ?? RENDER_TIMEOUT_MS,
+                () => {
+                    created.cancelled = true;
+                    created.controller.abort();
+                    return resetRendererPage();
+                }
             );
             if (!result.hasImages) writeCache(key, result);
             return result;
@@ -122,6 +127,18 @@ export function renderPeleMermaid(
         }).catch(() => undefined);
     }
     return consumeTask(task, signal);
+}
+
+/**
+ * Mermaidを含む文書の初回描画前に共有ブラウザーと空の描画ページを準備する。
+ * @param workerPath - Pele Worker bundleのファイルパス。
+ * @param acquireBrowser - 描画ブラウザーを取得する処理。
+ */
+export async function preparePeleRenderer(
+    workerPath: string,
+    acquireBrowser: () => Promise<Browser>
+): Promise<void> {
+    await acquireRendererPage(workerPath, acquireBrowser);
 }
 
 /**
@@ -156,20 +173,35 @@ async function renderQueued(
 ): Promise<PeleMermaidResult> {
     if (signal?.aborted) throw new Error('Mermaid rendering was cancelled.');
     if (source.length > 50_000) throw new Error('Mermaid source exceeds the 50000 character limit.');
-    const page = await acquireRendererPage(workerPath, acquireBrowser);
+    let page = await acquireRendererPage(workerPath, acquireBrowser);
+    if (signal?.aborted) {
+        await resetRendererPage();
+        throw new Error('Mermaid rendering was cancelled.');
+    }
     const requestId = `mve-pele-${++sequence}`;
-    const workerSource = await readWorkerSource(workerPath);
-    const workerOperation = page.evaluate(async (payload) => {
-        const blobUrl = URL.createObjectURL(new Blob([payload.workerSource], { type: 'text/javascript' }));
-        const worker = new Worker(blobUrl);
-        try {
-            const rendered = await new Promise<{ svg: string; links: Array<{ id: string; href: string; internal: boolean }> }>((resolve, reject) => {
-                worker.addEventListener('message', (event: MessageEvent) => {
-                    if (event.data?.id !== payload.requestId) return;
-                    if (event.data.error) reject(new Error(event.data.error));
-                    else resolve({ svg: event.data.svg, links: event.data.links ?? [] });
-                });
-                worker.addEventListener('error', (event) => reject(new Error(event.message || 'Pele Worker failed.')));
+    const renderWithWorker = (targetPage: Page) => targetPage.evaluate(async (payload) => {
+        const workerState = window as typeof window & { __mvePeleWorker?: Worker; __mvePeleWorkerError?: string };
+        if (workerState.__mvePeleWorkerError) throw new Error(workerState.__mvePeleWorkerError);
+        const worker = workerState.__mvePeleWorker;
+        if (!worker) throw new Error('Pele Worker is not initialized.');
+        const rendered = await new Promise<{ svg: string; links: Array<{ id: string; href: string; internal: boolean }>; error?: string }>((resolve, reject) => {
+            const cleanup = () => {
+                worker.removeEventListener('message', onMessage);
+                worker.removeEventListener('error', onError);
+            };
+            const onMessage = (event: MessageEvent) => {
+                if (event.data?.id !== payload.requestId) return;
+                cleanup();
+                if (event.data.error) resolve({ svg: '', links: [], error: event.data.error });
+                else resolve({ svg: event.data.svg, links: event.data.links ?? [] });
+            };
+            const onError = (event: ErrorEvent) => {
+                cleanup();
+                reject(new Error(event.message || 'Pele Worker failed.'));
+            };
+            worker.addEventListener('message', onMessage);
+            worker.addEventListener('error', onError);
+            try {
                 worker.postMessage({
                     id: payload.requestId,
                     source: payload.source,
@@ -177,22 +209,40 @@ async function renderQueued(
                     fontFamily: payload.fontFamily,
                     now: payload.renderingNow
                 });
-            });
-            const document = new DOMParser().parseFromString(rendered.svg, 'image/svg+xml');
-            if (document.querySelector('parsererror')) throw new Error('Pele returned invalid SVG.');
-            const images = Array.from(document.querySelectorAll('image')).map((image) =>
-                image.getAttribute('href')
-                ?? image.getAttributeNS('http://www.w3.org/1999/xlink', 'href')
-                ?? ''
-            ).filter(Boolean);
-            return { ...rendered, images };
-        } finally {
-            worker.terminate();
-            URL.revokeObjectURL(blobUrl);
-        }
-    }, { workerSource, requestId, source, theme, fontFamily: options.fontFamily, renderingNow });
+            } catch (error) {
+                cleanup();
+                reject(error);
+            }
+        });
+        if (rendered.error) return { ...rendered, images: [] };
+        const document = new DOMParser().parseFromString(rendered.svg, 'image/svg+xml');
+        if (document.querySelector('parsererror')) throw new Error('Pele returned invalid SVG.');
+        const images = Array.from(document.querySelectorAll('image')).map((image) =>
+            image.getAttribute('href')
+            ?? image.getAttributeNS('http://www.w3.org/1999/xlink', 'href')
+            ?? ''
+        ).filter(Boolean);
+        return { ...rendered, images };
+    }, { requestId, source, theme, fontFamily: options.fontFamily, renderingNow });
 
-    const rendered = await workerOperation;
+    let rendered: Awaited<ReturnType<typeof renderWithWorker>> | undefined;
+    for (let attempt = 0; attempt < 2 && !rendered; attempt++) {
+        if (signal?.aborted) throw new Error('Mermaid rendering was cancelled.');
+        try {
+            rendered = await renderWithWorker(page);
+        } catch (error) {
+            await resetRendererPage();
+            if (signal?.aborted) throw new Error('Mermaid rendering was cancelled.');
+            if (attempt === 1) throw error;
+            page = await acquireRendererPage(workerPath, acquireBrowser);
+            if (signal?.aborted) {
+                await resetRendererPage();
+                throw new Error('Mermaid rendering was cancelled.');
+            }
+        }
+    }
+    if (!rendered) throw new Error('Pele Worker did not return a rendering result.');
+    if (rendered.error) throw new Error(rendered.error);
     if (signal?.aborted) throw new Error('Mermaid rendering was cancelled.');
     const imageData = rendered.images.length && options.resolveImages
         ? await options.resolveImages(rendered.images, signal)
@@ -314,7 +364,47 @@ async function acquireRendererPage(workerPath: string, acquireBrowser: () => Pro
             await context.route('**/*', (route) => route.abort('blockedbyclient'));
             const page = await context.newPage();
             await page.setContent('<!doctype html><html><head><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src \'none\'; script-src \'unsafe-inline\' blob:; worker-src blob:; img-src data: blob:; style-src \'unsafe-inline\'; font-src data:"></head><body></body></html>');
-            await readWorkerSource(workerPath);
+            const workerSource = await readWorkerSource(workerPath);
+            await page.evaluate(async (source) => {
+                const workerState = window as typeof window & { __mvePeleWorker?: Worker; __mvePeleWorkerError?: string };
+                const blobUrl = URL.createObjectURL(new Blob([source], { type: 'text/javascript' }));
+                const persistentWorker = new Worker(blobUrl);
+                workerState.__mvePeleWorker = persistentWorker;
+                workerState.__mvePeleWorkerError = undefined;
+                persistentWorker.addEventListener('error', (event) => {
+                    workerState.__mvePeleWorkerError = event.message || 'Pele Worker failed.';
+                });
+                try {
+                    await new Promise<void>((resolve, reject) => {
+                        const timeout = window.setTimeout(() => {
+                            cleanup();
+                            reject(new Error('Pele Worker initialization timed out.'));
+                        }, 15_000);
+                        const cleanup = () => {
+                            window.clearTimeout(timeout);
+                            persistentWorker.removeEventListener('message', onMessage);
+                            persistentWorker.removeEventListener('error', onError);
+                        };
+                        const onMessage = (event: MessageEvent) => {
+                            if (event.data?.ready !== true) return;
+                            cleanup();
+                            resolve();
+                        };
+                        const onError = (event: ErrorEvent) => {
+                            cleanup();
+                            reject(new Error(event.message || 'Pele Worker failed to initialize.'));
+                        };
+                        persistentWorker.addEventListener('message', onMessage);
+                        persistentWorker.addEventListener('error', onError);
+                    });
+                } catch (error) {
+                    persistentWorker.terminate();
+                    URL.revokeObjectURL(blobUrl);
+                    delete workerState.__mvePeleWorker;
+                    delete workerState.__mvePeleWorkerError;
+                    throw error;
+                }
+            }, workerSource);
             rendererPage = page;
             return page;
         } catch (error) {
@@ -374,17 +464,37 @@ export async function closePeleRenderer(): Promise<void> {
  */
 async function withTimeout<T>(operation: Promise<T>, timeoutMs: number, onTimeout: () => Promise<void>): Promise<T> {
     let timer: ReturnType<typeof setTimeout> | undefined;
+    let timeoutTriggered = false;
+    const timeoutError = new Error(`Pele rendering timed out after ${timeoutMs}ms.`);
     const timeout = new Promise<never>((_, reject) => {
         timer = setTimeout(() => {
-            void onTimeout();
-            reject(new Error(`Pele rendering timed out after ${timeoutMs}ms.`));
+            timeoutTriggered = true;
+            void (async () => {
+                try {
+                    await onTimeout();
+                } catch {
+                    // The operation still must settle before the render queue can advance.
+                }
+                await operation.catch(() => undefined);
+                reject(timeoutError);
+            })();
         }, timeoutMs);
     });
     try {
-        return await Promise.race([operation, timeout]);
+        const result = await Promise.race([operation, timeout]);
+        if (timeoutTriggered) {
+            await timeout.catch(() => undefined);
+            throw timeoutError;
+        }
+        return result;
+    } catch (error) {
+        if (timeoutTriggered) {
+            await timeout.catch(() => undefined);
+            throw timeoutError;
+        }
+        throw error;
     } finally {
         if (timer) clearTimeout(timer);
-        void operation.catch(() => undefined);
     }
 }
 

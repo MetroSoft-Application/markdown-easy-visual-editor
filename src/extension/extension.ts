@@ -48,8 +48,9 @@ import {
 import { getMessages, resolveLanguage, type Messages } from '../shared/messages';
 import { isMarpMarkdown } from '../shared/marpFrontMatter';
 import type { MarpFrontMatterParser } from '../shared/marpFrontMatter';
+import { hasMermaidFence } from '../shared/markdownFence';
 import { acquirePdfBrowser, closePdfBrowser, exportPdf, renderPdf } from './pdf';
-import { closePeleRenderer, PeleRendererUnavailableError, renderPeleMermaid } from './peleMermaid';
+import { closePeleRenderer, PeleRendererUnavailableError, preparePeleRenderer, renderPeleMermaid } from './peleMermaid';
 import { MAX_MERMAID_IMAGE_BYTES, resolveMermaidImageSources } from './mermaidImages';
 import { namespaceMermaidSvg } from '../shared/mermaidSvg';
 import {
@@ -60,6 +61,8 @@ import {
 import { decodeLocalResourceSource, isMissingResourceError } from './resourceCheck';
 import { classifyResourceLink, isDocumentRelativeResourcePath, workspaceRootPathSegments } from './resourceLink';
 import { openHtmlPreview } from './htmlPreview';
+
+const MERMAID_RENDER_PROGRESS_INTERVAL_MS = 10_000;
 
 
 /**
@@ -545,6 +548,11 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
          * この描画要求を中断するAbortController。
          */
         controller: AbortController;
+
+        /**
+         * Webview要求の応答待ちを維持する進捗通知タイマー。
+         */
+        progressTimer: ReturnType<typeof setInterval>;
     }>();
 
     /**
@@ -690,12 +698,13 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
     ): Promise<void> {
         // 旧globalState設定の移行完了後に初期設定を送信し、新設定との競合を防ぐ。
         await this.globalSettingsMigration;
+        const documentText = document.getText();
         // 文書とWebviewパネルを登録し、HTML・メッセージ受信・破棄時の後処理を設定する。
         const key = document.uri.toString();
         if (this.startupBenchmarkEnabled) {
             const timing: StartupTiming = {
                 uri: key,
-                documentLength: document.getText().length,
+                documentLength: documentText.length,
                 resolveStartedAt: Date.now()
             };
             this.panelStartupTimings.set(webviewPanel, timing);
@@ -704,13 +713,20 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
         this.documents.set(key, document);
         // 空文書でもTextDocument.eolとは無関係に、同期本文の座標系をLFへ固定する。
         if (!this.canonicalDocumentTexts.has(key)) {
-            this.canonicalDocumentTexts.set(key, toCanonicalText(document.getText()));
+            this.canonicalDocumentTexts.set(key, toCanonicalText(documentText));
         }
         const group = this.panels.get(key) ?? new Set<vscode.WebviewPanel>();
         group.add(webviewPanel);
         this.panels.set(key, group);
         this.activePanel = webviewPanel;
         this.activeDocument = document;
+
+        // Mermaidが含まれる表示文書では、初回描画要求より先にブラウザーと描画ページを準備する。
+        const settings = this.getSettings(document);
+        if (settings.viewMode !== 'text' && hasMermaidFence(documentText)) {
+            const workerPath = vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'pele-render-worker.js').fsPath;
+            void preparePeleRenderer(workerPath, () => acquirePdfBrowser(this.getLanguage())).catch(() => undefined);
+        }
 
         const workspaceRoots = (vscode.workspace.workspaceFolders ?? []).map(
             /**
@@ -753,6 +769,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                 for (const [requestId, pending] of this.mermaidRenderControllers) {
                     if (pending.panel !== webviewPanel) continue;
                     pending.controller.abort();
+                    clearInterval(pending.progressTimer);
                     this.mermaidRenderControllers.delete(requestId);
                 }
                 messageDisposable.dispose();
@@ -1120,9 +1137,17 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                 case 'renderMermaid': {
                     this.markStartup(panel, 'firstMermaidRequestedMs');
                     const previous = this.mermaidRenderControllers.get(message.requestId);
-                    previous?.controller.abort();
+                    if (previous) {
+                        previous.controller.abort();
+                        clearInterval(previous.progressTimer);
+                    }
                     const controller = new AbortController();
-                    this.mermaidRenderControllers.set(message.requestId, { panel, controller });
+                    const progressTimer = setInterval(
+                        () => this.post(panel, { type: 'mermaidRenderProgress', requestId: message.requestId }),
+                        MERMAID_RENDER_PROGRESS_INTERVAL_MS
+                    );
+                    this.mermaidRenderControllers.set(message.requestId, { panel, controller, progressTimer });
+                    this.post(panel, { type: 'mermaidRenderProgress', requestId: message.requestId });
                     try {
                         const settings = this.getSettings(document);
                         const rendered = await renderPeleMermaid(
@@ -1160,6 +1185,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                         });
                     } finally {
                         if (this.mermaidRenderControllers.get(message.requestId)?.controller === controller) {
+                            clearInterval(progressTimer);
                             this.mermaidRenderControllers.delete(message.requestId);
                         }
                     }
@@ -1169,6 +1195,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                     const pending = this.mermaidRenderControllers.get(message.requestId);
                     if (pending?.panel === panel) {
                         pending.controller.abort();
+                        clearInterval(pending.progressTimer);
                         this.mermaidRenderControllers.delete(message.requestId);
                     }
                     return;

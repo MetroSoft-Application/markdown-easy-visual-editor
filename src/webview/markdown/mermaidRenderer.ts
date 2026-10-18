@@ -26,12 +26,14 @@ export class MermaidHostRenderError extends Error {
     }
 }
 
-const HOST_RENDER_TIMEOUT_MS = 35_000;
+const HOST_RENDER_IDLE_TIMEOUT_MS = 180_000;
 type MermaidRenderedMessage = Extract<HostToWebviewMessage, { type: 'mermaidRendered' }>;
+type MermaidRenderProgressMessage = Extract<HostToWebviewMessage, { type: 'mermaidRenderProgress' }>;
 const hostRequests = new Map<string, {
     resolve: (result: MermaidRenderResult) => void;
     reject: (error: Error) => void;
     timer: number;
+    onTimeout: () => void;
     removeAbortListener: () => void;
 }>();
 
@@ -79,6 +81,19 @@ export function acceptMermaidRenderResult(
 }
 
 /**
+ * Hostの進捗通知で、描画要求の無応答監視を更新する。
+ * @param message - Hostが処理を継続中であることを示す通知。
+ */
+export function acceptMermaidRenderProgress(
+    message: MermaidRenderProgressMessage
+): void {
+    const pending = hostRequests.get(message.requestId);
+    if (!pending) return;
+    window.clearTimeout(pending.timer);
+    pending.timer = window.setTimeout(pending.onTimeout, HOST_RENDER_IDLE_TIMEOUT_MS);
+}
+
+/**
  * HostへPele描画要求を送り、SVGまたはPNGを受け取る。
  * @param source - Mermaid図ソース。
  * @param theme - 描画配色。
@@ -105,14 +120,17 @@ function requestHostRender(
             sharedVsCodeApi.postMessage({ type: 'cancelMermaidRender', requestId });
             reject(new Error('Mermaid rendering was cancelled.'));
         };
-        const timer = window.setTimeout(() => {
+        const onTimeout = () => {
+            const pending = hostRequests.get(requestId);
+            if (!pending) return;
             hostRequests.delete(requestId);
-            signal?.removeEventListener('abort', onAbort);
+            pending.removeAbortListener();
             sharedVsCodeApi.postMessage({ type: 'cancelMermaidRender', requestId });
             reject(new MermaidHostRenderError('Pele rendering timed out.', true));
-        }, HOST_RENDER_TIMEOUT_MS);
+        };
         hostRequests.set(requestId, {
-            timer,
+            timer: window.setTimeout(onTimeout, HOST_RENDER_IDLE_TIMEOUT_MS),
+            onTimeout,
             resolve: (result) => signal?.aborted
                 ? reject(new Error('Mermaid rendering was cancelled.'))
                 : resolve(result),

@@ -85,7 +85,10 @@ import { escapeHtml } from "../../shared/escapeHtml";
 import { sanitizeRenderedMarkdown } from "../markdown/markdownSanitizer";
 import { renderMarkdownFallback } from "../markdown/markdownFallback";
 import type { UnsafeMarkdownBlock } from "../markdown/markdownRendererCore";
-import { acceptMermaidRenderResult } from "../markdown/mermaidRenderer";
+import {
+  acceptMermaidRenderProgress,
+  acceptMermaidRenderResult,
+} from "../markdown/mermaidRenderer";
 import { RenderedMarkdown, type InspectorTarget } from "./RenderedMarkdown";
 import { PdfDocumentPreview } from "./PdfDocumentPreview";
 import { MarpPreview } from "../marp/MarpPreview";
@@ -625,15 +628,13 @@ export function App(): React.JSX.Element {
   const [outlineVisible, setOutlineVisible] = useState(
     bootstrap?.settings.outlineVisible ?? true,
   );
-  const [outlineWidth, setOutlineWidth] = useState(
-    () => clampOutlineWidth(restored?.outlineWidth ?? 220),
+  const [outlineWidth, setOutlineWidth] = useState(() =>
+    clampOutlineWidth(restored?.outlineWidth ?? 220),
   );
-  const [splitRatio, setSplitRatio] = useState(
-    () => clampSplitRatio(restored?.splitRatio ?? 0.5),
+  const [splitRatio, setSplitRatio] = useState(() =>
+    clampSplitRatio(restored?.splitRatio ?? 0.5),
   );
-  const [zoom, setZoom] = useState(
-    () => clampZoom(restored?.zoom ?? 1),
-  );
+  const [zoom, setZoom] = useState(() => clampZoom(restored?.zoom ?? 1));
   const zoomRef = useRef(zoom);
   zoomRef.current = zoom;
   const [splitView, setSplitView] = useState<ViewMode>(
@@ -674,8 +675,7 @@ export function App(): React.JSX.Element {
   const marpDetectionUnresolved =
     hasMarpFrontMatterCandidateValue &&
     (!marpDetectionResolvedForCurrentMarkdown || marpDetectionPending);
-  const marpDetectionLoading =
-    marpDetectionUnresolved;
+  const marpDetectionLoading = marpDetectionUnresolved;
   const isMarpDocument =
     hasMarpFrontMatterCandidateValue &&
     marpDetectionResolvedForCurrentMarkdown &&
@@ -684,7 +684,8 @@ export function App(): React.JSX.Element {
   const markdownSnapshotEnabled =
     initialized &&
     (!previewVisible || previewMarkdown === markdown || exportStageRequested) &&
-    (exportStageRequested || !previewVisible ||
+    (exportStageRequested ||
+      !previewVisible ||
       !hasMarpFrontMatterCandidateValue ||
       (marpDetectionResolvedForCurrentMarkdown && !isMarpDetected)) &&
     !marpDetectionFailed;
@@ -696,17 +697,14 @@ export function App(): React.JSX.Element {
       markdownSnapshotEnabled,
       stagePreviewRefinementViewportRestore,
     );
-  const cancelPreviewWork = useCallback(
-    () => {
-      if (document.body.dataset.mveInputActive !== "true") {
-        document.body.dataset.mveInputActive = "true";
-        window.dispatchEvent(new Event("mve-preview-input-active"));
-      }
-      cancelPendingPreviewUpdate();
-      cancelActivePreviewRender();
-    },
-    [cancelPendingPreviewUpdate, cancelActivePreviewRender],
-  );
+  const cancelPreviewWork = useCallback(() => {
+    if (document.body.dataset.mveInputActive !== "true") {
+      document.body.dataset.mveInputActive = "true";
+      window.dispatchEvent(new Event("mve-preview-input-active"));
+    }
+    cancelPendingPreviewUpdate();
+    cancelActivePreviewRender();
+  }, [cancelPendingPreviewUpdate, cancelActivePreviewRender]);
   const renderedPreviewMarkdown = previewSnapshot.markdown;
   const marpDetectionRequestRef = useRef<
     { requestId: string; markdown: string } | undefined
@@ -722,7 +720,11 @@ export function App(): React.JSX.Element {
      * front matter候補だけをHostで解析し、プレビュー用途がない間は判定要求を送らない。
      */
     () => {
-      if (!initialized || !previewVisible || !hasMarpFrontMatterCandidateValue) {
+      if (
+        !initialized ||
+        !previewVisible ||
+        !hasMarpFrontMatterCandidateValue
+      ) {
         marpDetectionRequestRef.current = undefined;
         setMarpDetectionPending(false);
         setIsMarpDetected(false);
@@ -838,11 +840,8 @@ export function App(): React.JSX.Element {
   const [linkDialogVisible, setLinkDialogVisible] = useState(false);
   const [linkHref, setLinkHref] = useState("https://example.com");
   const [linkLabel, setLinkLabel] = useState("");
-  const [pdfOptions, setPdfOptions] = useState<NormalizedPdfOptions>(
-    () =>
-      normalizePdfOptions(
-        bootstrap?.settings.pdfOptions ?? DEFAULT_PDF_OPTIONS,
-      ),
+  const [pdfOptions, setPdfOptions] = useState<NormalizedPdfOptions>(() =>
+    normalizePdfOptions(bootstrap?.settings.pdfOptions ?? DEFAULT_PDF_OPTIONS),
   );
   /**
    * PDFの描画・保存処理が参照する最新の正規化済み出力設定。
@@ -852,14 +851,12 @@ export function App(): React.JSX.Element {
    * 変更したPDF設定をHostへまとめて送信するための遅延保存タイマーID。
    */
   const pdfOptionsPersistTimerRef = useRef<number | undefined>(undefined);
-  const [htmlOptions, setHtmlOptions] = useState<HtmlExportOptions>(
-    () => ({
-      ...mergeHtmlExportOptions(
-        DEFAULT_HTML_EXPORT_OPTIONS,
-        bootstrap?.settings.htmlOptions ?? DEFAULT_HTML_EXPORT_SETTINGS,
-      ),
-    }),
-  );
+  const [htmlOptions, setHtmlOptions] = useState<HtmlExportOptions>(() => ({
+    ...mergeHtmlExportOptions(
+      DEFAULT_HTML_EXPORT_OPTIONS,
+      bootstrap?.settings.htmlOptions ?? DEFAULT_HTML_EXPORT_SETTINGS,
+    ),
+  }));
   /**
    * HTML出力処理が参照する最新のHTML出力設定。
    */
@@ -918,9 +915,7 @@ export function App(): React.JSX.Element {
       updateRenderedState?: boolean,
       trustedEditorChanges?: boolean,
     ) => void
-  >(
-    () => undefined,
-  );
+  >(() => undefined);
   const versionRef = useRef(bootstrap?.version ?? 0);
   const initializedRef = useRef(Boolean(bootstrap));
   const startupReportedRef = useRef(false);
@@ -1067,7 +1062,8 @@ export function App(): React.JSX.Element {
   }
 
   const outline = useMemo(
-    () => isMarpDocument ? getOutline(previewMarkdown) : previewSnapshot.outline,
+    () =>
+      isMarpDocument ? getOutline(previewMarkdown) : previewSnapshot.outline,
     [isMarpDocument, previewMarkdown, previewSnapshot.outline],
   );
   const outlineStructureSignature = useMemo(
@@ -1202,7 +1198,7 @@ export function App(): React.JSX.Element {
                     /**
                      * 開閉三角形の操作を処理し、見出し移動を起動しない。
                      * @param event 開閉三角形のクリックイベント。
-                    */
+                     */
                     (event) => {
                       event.stopPropagation();
                       if (event.button !== 0) return;
@@ -1214,7 +1210,7 @@ export function App(): React.JSX.Element {
                      * 開閉三角形上の右クリックを既定処理と親のメニュー処理へ伝えない。
                      * @param event 開閉三角形のコンテキストメニューイベント。
                      * @returns 既定メニューと親への伝播を抑止する副作用。
-                    */
+                     */
                     (event) => {
                       outlineDisclosureRightPointerRef.current = false;
                       event.preventDefault();
@@ -1282,7 +1278,6 @@ export function App(): React.JSX.Element {
   }
 
   const diagnostics = useMemo(
-
     () =>
       mergeCollectedDiagnostics(
         previewSnapshot.diagnostics,
@@ -1291,13 +1286,11 @@ export function App(): React.JSX.Element {
     [previewSnapshot.diagnostics, localResourceDiagnostics],
   );
   const diagnosticSummary = useMemo(
-
     () => summarizeDiagnostics(diagnostics),
     [diagnostics],
   );
   const stats = previewSnapshot.stats;
   const searchHits = useMemo(
-
     () => findSearchHits(renderedPreviewMarkdown, searchQuery),
     [renderedPreviewMarkdown, searchQuery],
   );
@@ -1441,7 +1434,12 @@ export function App(): React.JSX.Element {
         }
       }
     },
-    [isMarpDocument, marpDetectionFailed, marpDetectionUnresolved, printPreview],
+    [
+      isMarpDocument,
+      marpDetectionFailed,
+      marpDetectionUnresolved,
+      printPreview,
+    ],
   );
 
   useEffect(
@@ -1456,7 +1454,8 @@ export function App(): React.JSX.Element {
         marpDetectionFailed ||
         !initialized ||
         !settings.workspaceTrusted
-      ) return;
+      )
+        return;
       if (pdfPreviewTimerRef.current !== undefined)
         window.clearTimeout(pdfPreviewTimerRef.current);
       pdfPreviewTimerRef.current = window.setTimeout(
@@ -1602,117 +1601,107 @@ export function App(): React.JSX.Element {
     setZoom(next);
   }
 
-  useLayoutEffect(
-
-    () => {
-      // 保留した選択移動または表示位置復元をレイアウト確定後に実行する。
-      const navigation = pendingNavigationRef.current;
-      if (
-        navigation &&
-        mode === "split" &&
-        splitView !== "preview" &&
-        sourceRef.current
-      ) {
-        sourceRef.current.setSelection(navigation);
-        sourceRef.current.revealRange(navigation);
-        const preview = splitPreviewRef.current;
-        if (preview) {
-          const previewAnchor: PreviewViewportAnchor = {
-            offset: navigation.from,
-            topOffset: 18,
-          };
-          viewportStateRef.current.splitPreview = previewAnchor;
-          // CodeMirrorのrevealRangeと同じ描画世代で、プレビューも選択位置へ揃える。
-          requestAnimationFrame(
-            /**
-             * 次の描画フレームで表示更新を実行する。
-             */
-            () => {
-              if (splitPreviewRef.current === preview)
-                restorePreview(preview, previewAnchor);
-            },
-          );
-        }
-        pendingNavigationRef.current = undefined;
-        pendingViewportRestoreRef.current = false;
-        return;
-      }
-      if (!pendingViewportRestoreRef.current) return;
-      // Markdown Workerが旧プレビューを表示している間は復元を消化しない。
-      // 最新世代のDOMが確定したレイアウトで一度だけ復元する。
-      if (renderedPreviewMarkdown !== markdown) return;
-      const frame = requestAnimationFrame(
-        /**
-         * 次の描画フレームで表示更新を実行する。
-         */
-        () => {
-          restoreVisibleViewports();
-          pendingViewportRestoreRef.current = false;
-        },
-      );
-      /**
-       * effectの再実行前に要求した描画フレームを取り消す。
-       */
-      return () => cancelAnimationFrame(frame);
-    },
-    [
-      mode,
-      splitView,
-      zoom,
-      splitRatio,
-      outlineVisible,
-      diagnosticsVisible,
-      Boolean(inspector),
-      markdown,
-      renderedPreviewMarkdown,
-    ],
-  );
-
-  useLayoutEffect(
-
-    () => {
-      const area = editorAreaRef.current;
-      const split = area?.querySelector<HTMLElement>(".split-editor");
-      const source = area?.querySelector<HTMLElement>(".split-source-pane");
-      const preview = area?.querySelector<HTMLElement>(".split-preview-pane");
-      if (!area) return;
-
-      const size = /**
-       * @param element - 表示寸法とCSSのdisplay値を測定する領域。未描画ならnull。
-       * @returns Webviewルートのsizeが生成する結果。
-       */ (element: HTMLElement | null) => {
-        if (!element) return undefined;
-        const rect = element.getBoundingClientRect();
-        const style = getComputedStyle(element);
-        return {
-          width: Math.round(rect.width * 100) / 100,
-          height: Math.round(rect.height * 100) / 100,
-          display: style.display,
+  useLayoutEffect(() => {
+    // 保留した選択移動または表示位置復元をレイアウト確定後に実行する。
+    const navigation = pendingNavigationRef.current;
+    if (
+      navigation &&
+      mode === "split" &&
+      splitView !== "preview" &&
+      sourceRef.current
+    ) {
+      sourceRef.current.setSelection(navigation);
+      sourceRef.current.revealRange(navigation);
+      const preview = splitPreviewRef.current;
+      if (preview) {
+        const previewAnchor: PreviewViewportAnchor = {
+          offset: navigation.from,
+          topOffset: 18,
         };
+        viewportStateRef.current.splitPreview = previewAnchor;
+        // CodeMirrorのrevealRangeと同じ描画世代で、プレビューも選択位置へ揃える。
+        requestAnimationFrame(
+          /**
+           * 次の描画フレームで表示更新を実行する。
+           */
+          () => {
+            if (splitPreviewRef.current === preview)
+              restorePreview(preview, previewAnchor);
+          },
+        );
+      }
+      pendingNavigationRef.current = undefined;
+      pendingViewportRestoreRef.current = false;
+      return;
+    }
+    if (!pendingViewportRestoreRef.current) return;
+    // Markdown Workerが旧プレビューを表示している間は復元を消化しない。
+    // 最新世代のDOMが確定したレイアウトで一度だけ復元する。
+    if (renderedPreviewMarkdown !== markdown) return;
+    const frame = requestAnimationFrame(
+      /**
+       * 次の描画フレームで表示更新を実行する。
+       */
+      () => {
+        restoreVisibleViewports();
+        pendingViewportRestoreRef.current = false;
+      },
+    );
+    /**
+     * effectの再実行前に要求した描画フレームを取り消す。
+     */
+    return () => cancelAnimationFrame(frame);
+  }, [
+    mode,
+    splitView,
+    zoom,
+    splitRatio,
+    outlineVisible,
+    diagnosticsVisible,
+    Boolean(inspector),
+    markdown,
+    renderedPreviewMarkdown,
+  ]);
+
+  useLayoutEffect(() => {
+    const area = editorAreaRef.current;
+    const split = area?.querySelector<HTMLElement>(".split-editor");
+    const source = area?.querySelector<HTMLElement>(".split-source-pane");
+    const preview = area?.querySelector<HTMLElement>(".split-preview-pane");
+    if (!area) return;
+
+    const size = /**
+     * @param element - 表示寸法とCSSのdisplay値を測定する領域。未描画ならnull。
+     * @returns Webviewルートのsizeが生成する結果。
+     */ (element: HTMLElement | null) => {
+      if (!element) return undefined;
+      const rect = element.getBoundingClientRect();
+      const style = getComputedStyle(element);
+      return {
+        width: Math.round(rect.width * 100) / 100,
+        height: Math.round(rect.height * 100) / 100,
+        display: style.display,
       };
-      mveDebug("view.layout", {
-        mode,
-        splitView,
-        editorArea: size(area),
-        split: size(split ?? null),
-        source: size(source ?? null),
-        preview: size(preview ?? null),
-        columns: split
-          ? getComputedStyle(split).gridTemplateColumns
-          : undefined,
-      });
-    },
-    [
-      initialized,
+    };
+    mveDebug("view.layout", {
       mode,
       splitView,
-      outlineVisible,
-      splitRatio,
-      zoom,
-      diagnosticsVisible,
-      Boolean(inspector),
-    ],
-  );
+      editorArea: size(area),
+      split: size(split ?? null),
+      source: size(source ?? null),
+      preview: size(preview ?? null),
+      columns: split ? getComputedStyle(split).gridTemplateColumns : undefined,
+    });
+  }, [
+    initialized,
+    mode,
+    splitView,
+    outlineVisible,
+    splitRatio,
+    zoom,
+    diagnosticsVisible,
+    Boolean(inspector),
+  ]);
 
   useEffect(
     /**
@@ -1816,7 +1805,7 @@ export function App(): React.JSX.Element {
         );
       };
 
-      const endPreviewPointerScroll =  () => {
+      const endPreviewPointerScroll = () => {
         const splitPreview = splitPreviewRef.current;
         const editorArea = editorAreaRef.current;
         if (splitPreview)
@@ -1825,7 +1814,7 @@ export function App(): React.JSX.Element {
           previewPointerScrollActiveRef.current.delete(editorArea);
       };
 
-      const endPreviewTouchScroll =  () => {
+      const endPreviewTouchScroll = () => {
         const splitPreview = splitPreviewRef.current;
         const editorArea = editorAreaRef.current;
         if (splitPreview)
@@ -1857,12 +1846,10 @@ export function App(): React.JSX.Element {
     /**
      * 依存状態の変化に応じて表示または購読を更新する。
      */
-    () =>
-
-      () => {
-        outlineDragRef.current = undefined;
-        document.body.classList.remove("mve-dragging-outline");
-      },
+    () => () => {
+      outlineDragRef.current = undefined;
+      document.body.classList.remove("mve-dragging-outline");
+    },
     [],
   );
 
@@ -2128,7 +2115,8 @@ export function App(): React.JSX.Element {
           !request ||
           request.requestId !== message.requestId ||
           request.markdown !== previewMarkdownForMarpRef.current
-        ) return;
+        )
+          return;
         marpDetectionRequestRef.current = undefined;
         setMarpDetectionPending(false);
         setIsMarpDetected(message.isMarp);
@@ -2237,6 +2225,9 @@ export function App(): React.JSX.Element {
         return;
       case "mermaidRendered":
         acceptMermaidRenderResult(message);
+        return;
+      case "mermaidRenderProgress":
+        acceptMermaidRenderProgress(message);
         return;
       case "imagesSaved":
         imageRequestsRef.current.delete(message.requestId);
@@ -3489,7 +3480,11 @@ export function App(): React.JSX.Element {
        */
       (current) => {
         const textReplacements: TextReplacementRule[] = [];
-        for (let currentIndex = 0; currentIndex < current.textReplacements.length; currentIndex++) {
+        for (
+          let currentIndex = 0;
+          currentIndex < current.textReplacements.length;
+          currentIndex++
+        ) {
           if (currentIndex !== index) {
             textReplacements.push(current.textReplacements[currentIndex]);
           }
@@ -3522,73 +3517,73 @@ export function App(): React.JSX.Element {
     }
     flushPdfOptionsPersistence();
     await withExportStage(async () => {
-    if (!(await waitForCurrentPreviewSnapshot())) {
-      setToast(
-        messages.app.toast.operationFailed(
-          `${messages.renderer.mermaidError}: timeout`,
+      if (!(await waitForCurrentPreviewSnapshot())) {
+        setToast(
+          messages.app.toast.operationFailed(
+            `${messages.renderer.mermaidError}: timeout`,
+          ),
+        );
+        return;
+      }
+      requestLocalResourceCheck("pdf");
+      const currentMarkdown = localTextRef.current;
+      const currentSummary = summarizeDiagnostics(
+        mergeDiagnostics(
+          currentMarkdown,
+          localResourceDiagnostics,
+          settings.language,
         ),
       );
-      return;
-    }
-    requestLocalResourceCheck("pdf");
-    const currentMarkdown = localTextRef.current;
-    const currentSummary = summarizeDiagnostics(
-      mergeDiagnostics(
-        currentMarkdown,
-        localResourceDiagnostics,
-        settings.language,
-      ),
-    );
-    const diagnosticNotice = currentSummary.errors.length
-      ? currentSummary.errors
-          .map(
-            /**
-             * 行番号があれば診断文の先頭へ付ける。
-             * @param item - PDF書き出し前に表示するエラー診断。
-             * @returns 行番号付きの診断文。行番号がなければ元のメッセージ。
-             */
-            (item) => `${item.line ? `行${item.line}: ` : ""}${item.message}`,
-          )
-          .join(" / ")
-      : "";
-    if (diagnosticNotice)
-      setToast(
-        messages.app.toast.pdfStartedWithDiagnostics(
-          currentSummary.errors.length,
-          diagnosticNotice,
-        ),
-      );
-    const root = await ensureExportRoot();
-    if (!(await waitForHtmlMermaidRendering(root))) {
-      setToast(`${messages.renderer.mermaidError}: timeout`);
-      return;
-    }
-    const sourceOptions = pdfOptionsRef.current;
-    let pdfOutput: { html: string; options: PdfOptions };
-    try {
-      pdfOutput = root
-        ? await serializePdfExport(root, sourceOptions)
-        : await serializePdfFallbackHtml(currentMarkdown, sourceOptions);
-    } catch (error) {
-      setToast(
-        error instanceof TextReplacementTimeoutError
-          ? messages.app.outputReplacementTimeout
-          : messages.app.outputReplacementFailed,
-      );
-      return;
-    }
-    if (!root)
-      setToast(messages.app.toast.pdfFallbackToMarkdown(diagnosticNotice));
-    const requestId = createClientId();
-    const message: WebviewToHostMessage = {
-      type: "exportPdf",
-      requestId,
-      html: pdfOutput.html,
-      css: await collectEmbeddedPrintableCss(settings.previewFontFamily),
-      options: pdfOutput.options,
-    };
-    pdfRequestsRef.current.add(requestId);
-    vscode.postMessage(message);
+      const diagnosticNotice = currentSummary.errors.length
+        ? currentSummary.errors
+            .map(
+              /**
+               * 行番号があれば診断文の先頭へ付ける。
+               * @param item - PDF書き出し前に表示するエラー診断。
+               * @returns 行番号付きの診断文。行番号がなければ元のメッセージ。
+               */
+              (item) => `${item.line ? `行${item.line}: ` : ""}${item.message}`,
+            )
+            .join(" / ")
+        : "";
+      if (diagnosticNotice)
+        setToast(
+          messages.app.toast.pdfStartedWithDiagnostics(
+            currentSummary.errors.length,
+            diagnosticNotice,
+          ),
+        );
+      const root = await ensureExportRoot();
+      if (!(await waitForHtmlMermaidRendering(root))) {
+        setToast(`${messages.renderer.mermaidError}: timeout`);
+        return;
+      }
+      const sourceOptions = pdfOptionsRef.current;
+      let pdfOutput: { html: string; options: PdfOptions };
+      try {
+        pdfOutput = root
+          ? await serializePdfExport(root, sourceOptions)
+          : await serializePdfFallbackHtml(currentMarkdown, sourceOptions);
+      } catch (error) {
+        setToast(
+          error instanceof TextReplacementTimeoutError
+            ? messages.app.outputReplacementTimeout
+            : messages.app.outputReplacementFailed,
+        );
+        return;
+      }
+      if (!root)
+        setToast(messages.app.toast.pdfFallbackToMarkdown(diagnosticNotice));
+      const requestId = createClientId();
+      const message: WebviewToHostMessage = {
+        type: "exportPdf",
+        requestId,
+        html: pdfOutput.html,
+        css: await collectEmbeddedPrintableCss(settings.previewFontFamily),
+        options: pdfOutput.options,
+      };
+      pdfRequestsRef.current.add(requestId);
+      vscode.postMessage(message);
     });
   }
 
@@ -3614,48 +3609,48 @@ export function App(): React.JSX.Element {
       return;
     }
     await withExportStage(async () => {
-    if (!(await waitForCurrentPreviewSnapshot())) {
-      setToast(
-        messages.app.toast.operationFailed(
-          `${messages.renderer.mermaidError}: timeout`,
-        ),
-      );
-      return;
-    }
-    const root = await ensureExportRoot();
-    if (!(await waitForHtmlMermaidRendering(root))) {
-      setToast(`${messages.renderer.mermaidError}: timeout`);
-      return;
-    }
-    const requestId = createClientId();
-    const currentMarkdown = localTextRef.current;
-    const htmlRoot = root ?? document.createElement("div");
-    if (!root) {
-      const fallback = document.createElement("pre");
-      fallback.textContent = currentMarkdown;
-      htmlRoot.append(fallback);
-    }
-    let html: string;
-    try {
-      html = await serializeOutputHtml(htmlRoot, textReplacements);
-    } catch (error) {
-      setToast(
-        error instanceof TextReplacementTimeoutError
-          ? messages.app.outputReplacementTimeout
-          : messages.app.outputReplacementFailed,
-      );
-      return;
-    }
-    htmlRequestsRef.current.add(requestId);
-    vscode.postMessage({
-      type: "exportHtml",
-      requestId,
-      markdown: currentMarkdown,
-      html,
-      css: await collectEmbeddedPrintableCss(settings.previewFontFamily),
-      options,
-      textReplacements,
-    });
+      if (!(await waitForCurrentPreviewSnapshot())) {
+        setToast(
+          messages.app.toast.operationFailed(
+            `${messages.renderer.mermaidError}: timeout`,
+          ),
+        );
+        return;
+      }
+      const root = await ensureExportRoot();
+      if (!(await waitForHtmlMermaidRendering(root))) {
+        setToast(`${messages.renderer.mermaidError}: timeout`);
+        return;
+      }
+      const requestId = createClientId();
+      const currentMarkdown = localTextRef.current;
+      const htmlRoot = root ?? document.createElement("div");
+      if (!root) {
+        const fallback = document.createElement("pre");
+        fallback.textContent = currentMarkdown;
+        htmlRoot.append(fallback);
+      }
+      let html: string;
+      try {
+        html = await serializeOutputHtml(htmlRoot, textReplacements);
+      } catch (error) {
+        setToast(
+          error instanceof TextReplacementTimeoutError
+            ? messages.app.outputReplacementTimeout
+            : messages.app.outputReplacementFailed,
+        );
+        return;
+      }
+      htmlRequestsRef.current.add(requestId);
+      vscode.postMessage({
+        type: "exportHtml",
+        requestId,
+        markdown: currentMarkdown,
+        html,
+        css: await collectEmbeddedPrintableCss(settings.previewFontFamily),
+        options,
+        textReplacements,
+      });
     });
   }
 
@@ -3696,7 +3691,8 @@ export function App(): React.JSX.Element {
       marpDetectionUnresolved ||
       marpDetectionFailed ||
       !settings.workspaceTrusted
-    ) return;
+    )
+      return;
     if (
       pdfOptions.textReplacements.some(
         /**
@@ -4118,20 +4114,17 @@ export function App(): React.JSX.Element {
   /**
    * ローカル本文の変更を差分操作にしてHostへ送信する。
    */
-  function sendNextLocalOperation(
-    changeHint?: {
-      baseText: string;
-      resultText: string;
-      changes: TextChange[];
-    },
-  ): void {
+  function sendNextLocalOperation(changeHint?: {
+    baseText: string;
+    resultText: string;
+    changes: TextChange[];
+  }): void {
     if (resyncInFlightRef.current || inFlightOperationRef.current) return;
     const baseText = hostTextRef.current;
     const resultText = localTextRef.current;
     if (baseText === resultText) return;
     const changes =
-      changeHint?.baseText === baseText &&
-      changeHint.resultText === resultText
+      changeHint?.baseText === baseText && changeHint.resultText === resultText
         ? changeHint.changes
         : computeTextChanges(baseText, resultText);
     const current: PendingLocalOperation = {
@@ -4883,7 +4876,7 @@ export function App(): React.JSX.Element {
       }
     };
 
-    const end =  () => {
+    const end = () => {
       window.removeEventListener("pointermove", move);
       document.body.classList.remove("mve-resizing-split");
       restoreVisibleViewports();
@@ -5058,7 +5051,10 @@ export function App(): React.JSX.Element {
     event: React.MouseEvent<HTMLDivElement>,
   ): void {
     if (!(event.target instanceof Element)) return;
-    if (event.nativeEvent.button === 2 && outlineDisclosureRightPointerRef.current) {
+    if (
+      event.nativeEvent.button === 2 &&
+      outlineDisclosureRightPointerRef.current
+    ) {
       outlineDisclosureRightPointerRef.current = false;
       event.preventDefault();
       event.stopPropagation();
@@ -5187,7 +5183,12 @@ export function App(): React.JSX.Element {
      * @param href - プレビュー内で開くMarkdownリンクのhref文字列。
      */
     (href: string, workspaceRooted = false, internal = false) =>
-      vscode.postMessage({ type: "openResource", href, workspaceRooted, internal }),
+      vscode.postMessage({
+        type: "openResource",
+        href,
+        workspaceRooted,
+        internal,
+      }),
     [],
   );
   const splitMarpActiveSlide = useCallback(
@@ -5213,7 +5214,6 @@ export function App(): React.JSX.Element {
     [mode],
   );
   const splitPreviewRendered = useCallback(
-
     () => handlePreviewRendered("splitPreview"),
     [
       initialized,
@@ -5295,16 +5295,12 @@ export function App(): React.JSX.Element {
     },
     [],
   );
-  const sourceEditorSettled = useCallback(
-
-    () => {
-      stagePreviewViewportRestore();
-      setMarkdown(localTextRef.current);
-      delete document.body.dataset.mveInputActive;
-      window.dispatchEvent(new Event("mve-preview-input-settled"));
-    },
-    [],
-  );
+  const sourceEditorSettled = useCallback(() => {
+    stagePreviewViewportRestore();
+    setMarkdown(localTextRef.current);
+    delete document.body.dataset.mveInputActive;
+    window.dispatchEvent(new Event("mve-preview-input-settled"));
+  }, []);
 
   const sourceEditorSelectionChange = useCallback(
     /**
@@ -5346,21 +5342,17 @@ export function App(): React.JSX.Element {
       handleSourceViewport(anchor, userInitiated),
     [isMarpDocument, mode, splitView],
   );
-  const sourceEditorUserScrollIntent = useCallback(
-
-    () => {
-      cancelPendingCrossPaneScrollSync();
-      cancelPendingRenderedPreviewRestore();
-      viewportUserIntentGenerationRef.current += 1;
-      sourceViewportIntentGenerationRef.current =
-        viewportUserIntentGenerationRef.current;
-      pendingSourceViewportRestoreRef.current = undefined;
-      skipNextSourceViewportRestoreRef.current = false;
-      pendingPreviewViewportRestoreRef.current = {};
-      pendingViewportRestoreRef.current = false;
-    },
-    [],
-  );
+  const sourceEditorUserScrollIntent = useCallback(() => {
+    cancelPendingCrossPaneScrollSync();
+    cancelPendingRenderedPreviewRestore();
+    viewportUserIntentGenerationRef.current += 1;
+    sourceViewportIntentGenerationRef.current =
+      viewportUserIntentGenerationRef.current;
+    pendingSourceViewportRestoreRef.current = undefined;
+    skipNextSourceViewportRestoreRef.current = false;
+    pendingPreviewViewportRestoreRef.current = {};
+    pendingViewportRestoreRef.current = false;
+  }, []);
 
   if (!initialized)
     return <div className="startup">{messages.app.startup}</div>;
@@ -5495,13 +5487,10 @@ export function App(): React.JSX.Element {
         <main
           ref={editorAreaRef}
           className="editor-area"
-          onMouseUp={
-
-            () => {
-              selectionStateRef.current =
-                getActiveEditor()?.getSelection() ?? selectionStateRef.current;
-            }
-          }
+          onMouseUp={() => {
+            selectionStateRef.current =
+              getActiveEditor()?.getSelection() ?? selectionStateRef.current;
+          }}
           tabIndex={mode === "preview" ? 0 : undefined}
           onWheelCapture={
             mode === "preview" ? markPreviewScrollIntent : undefined
@@ -5729,106 +5718,107 @@ export function App(): React.JSX.Element {
                   <p className="mve-marp-preview-error" role="alert">
                     {messages.app.marpPreview.detectionFailed}
                   </p>
+                ) : marpDetectionLoading ? (
+                  <p
+                    className="mve-marp-preview-loading mve-marp-detection-loading"
+                    role="status"
+                    aria-live="polite"
+                  >
+                    {messages.app.marpPreview.loading}
+                  </p>
                 ) : (
-                  marpDetectionLoading ? (
-                    <p
-                      className="mve-marp-preview-loading mve-marp-detection-loading"
-                      role="status"
-                      aria-live="polite"
-                    >
-                      {messages.app.marpPreview.loading}
-                    </p>
-                  ) : (
-                    <RenderedMarkdown
-                      markdown={renderedPreviewMarkdown}
-                      html={previewHtml}
-                      settings={settings}
-                      imageZoom={zoom}
-                      onImageResize={
-                        imageResizeEnabled ? splitPreviewImageResize : undefined
-                      }
-                      onImageReset={
-                        imageResizeEnabled ? splitPreviewImageReset : undefined
-                      }
-                      onImageAlign={
-                        imageResizeEnabled ? splitPreviewImageAlign : undefined
-                      }
-                      onInspect={splitPreviewInspect}
-                      onNavigate={splitPreviewNavigate}
-                      onRendered={splitPreviewRendered}
-                      onMermaidRendered={handleStartupMermaidRendered}
-                      deferMermaid
-                    />
-                  )
+                  <RenderedMarkdown
+                    markdown={renderedPreviewMarkdown}
+                    html={previewHtml}
+                    settings={settings}
+                    imageZoom={zoom}
+                    onImageResize={
+                      imageResizeEnabled ? splitPreviewImageResize : undefined
+                    }
+                    onImageReset={
+                      imageResizeEnabled ? splitPreviewImageReset : undefined
+                    }
+                    onImageAlign={
+                      imageResizeEnabled ? splitPreviewImageAlign : undefined
+                    }
+                    onInspect={splitPreviewInspect}
+                    onNavigate={splitPreviewNavigate}
+                    onRendered={splitPreviewRendered}
+                    onMermaidRendered={handleStartupMermaidRendered}
+                    deferMermaid
+                  />
                 )}
               </div>
             </div>
           )}
-          {mode === "preview" && (isMarpDocument ? (
-            <MarpPreview
-              ref={marpPreviewRef}
-              className="mve-marp-preview-print"
-              markdown={previewMarkdown}
-              settings={settings}
-              messages={messages}
-              zoom={zoom}
-              onStartupStage={reportMarpStartupStage}
-              scrollContainerRef={editorAreaRef}
-              showZoomControls
-              onZoom={adjustZoom}
-              onNavigate={(href, workspaceRooted = false, internal = false) =>
-                vscode.postMessage({ type: "openResource", href, workspaceRooted, internal })
-              }
-              onRendered={() => handlePreviewRendered("previewOnly")}
-              onActiveSlide={previewOnlyMarpActiveSlide}
-            />
-          ) : marpDetectionFailed ? (
-            <p className="mve-marp-preview-error" role="alert">
-              {messages.app.marpPreview.detectionFailed}
-            </p>
-          ) : marpDetectionLoading ? (
-            <p
-              className="mve-marp-preview-loading mve-marp-detection-loading"
-              role="status"
-              aria-live="polite"
-            >
-              {messages.app.marpPreview.loading}
-            </p>
-          ) : (
-            <PdfPreview
-              markdown={renderedPreviewMarkdown}
-              html={previewHtml}
-              settings={settings}
-              options={pdfOptions}
-              zoom={zoom}
-              messages={messages}
-              pdfBase64={pdfPreview.pdfBase64}
-              pdfLoading={pdfPreview.loading}
-              pdfError={pdfPreview.error}
-              onInspect={
-                /**
-                 * @param target - プレビューで選択されたMermaid図、数式、画像のInspector対象。
-                 */
-                (target) => changeInspector(target)
-              }
-              onNavigate={
-                /**
-                 * @param href - PDFプレビュー内で開くMarkdownリンクのhref文字列。
-                 */
-                (href, workspaceRooted = false) =>
+          {mode === "preview" &&
+            (isMarpDocument ? (
+              <MarpPreview
+                ref={marpPreviewRef}
+                className="mve-marp-preview-print"
+                markdown={previewMarkdown}
+                settings={settings}
+                messages={messages}
+                zoom={zoom}
+                onStartupStage={reportMarpStartupStage}
+                scrollContainerRef={editorAreaRef}
+                showZoomControls
+                onZoom={adjustZoom}
+                onNavigate={(href, workspaceRooted = false, internal = false) =>
                   vscode.postMessage({
                     type: "openResource",
                     href,
                     workspaceRooted,
+                    internal,
                   })
-              }
-              onZoom={adjustZoom}
-              onRendered={
-
-                () => handlePreviewRendered("previewOnly")
-              }
-            />
-          ))}
+                }
+                onRendered={() => handlePreviewRendered("previewOnly")}
+                onActiveSlide={previewOnlyMarpActiveSlide}
+              />
+            ) : marpDetectionFailed ? (
+              <p className="mve-marp-preview-error" role="alert">
+                {messages.app.marpPreview.detectionFailed}
+              </p>
+            ) : marpDetectionLoading ? (
+              <p
+                className="mve-marp-preview-loading mve-marp-detection-loading"
+                role="status"
+                aria-live="polite"
+              >
+                {messages.app.marpPreview.loading}
+              </p>
+            ) : (
+              <PdfPreview
+                markdown={renderedPreviewMarkdown}
+                html={previewHtml}
+                settings={settings}
+                options={pdfOptions}
+                zoom={zoom}
+                messages={messages}
+                pdfBase64={pdfPreview.pdfBase64}
+                pdfLoading={pdfPreview.loading}
+                pdfError={pdfPreview.error}
+                onInspect={
+                  /**
+                   * @param target - プレビューで選択されたMermaid図、数式、画像のInspector対象。
+                   */
+                  (target) => changeInspector(target)
+                }
+                onNavigate={
+                  /**
+                   * @param href - PDFプレビュー内で開くMarkdownリンクのhref文字列。
+                   */
+                  (href, workspaceRooted = false) =>
+                    vscode.postMessage({
+                      type: "openResource",
+                      href,
+                      workspaceRooted,
+                    })
+                }
+                onZoom={adjustZoom}
+                onRendered={() => handlePreviewRendered("previewOnly")}
+              />
+            ))}
         </main>
         {inspector && (
           <Inspector
@@ -5859,13 +5849,10 @@ export function App(): React.JSX.Element {
                 className="panel-close-button"
                 title={messages.app.close}
                 aria-label={messages.app.close}
-                onClick={
-
-                  () => {
-                    prepareLayoutRestore();
-                    setDiagnosticsVisible(false);
-                  }
-                }
+                onClick={() => {
+                  prepareLayoutRestore();
+                  setDiagnosticsVisible(false);
+                }}
               >
                 ×
               </button>
@@ -6003,7 +5990,7 @@ export function App(): React.JSX.Element {
                 value={pdfOptions.header}
                 onChange={
                   /**
-                    * PDFヘッダー出力の有効状態を更新する。
+                   * PDFヘッダー出力の有効状態を更新する。
                    * @param event - PDFヘッダー出力設定の変更を処理するchange event。
                    */
                   (event) =>
@@ -6026,7 +6013,7 @@ export function App(): React.JSX.Element {
                 value={pdfOptions.footer}
                 onChange={
                   /**
-                    * PDFフッター出力の有効状態を更新する。
+                   * PDFフッター出力の有効状態を更新する。
                    * @param event - PDFフッター出力設定の変更を処理するchange event。
                    */
                   (event) =>
@@ -6045,7 +6032,10 @@ export function App(): React.JSX.Element {
             </label>
             <fieldset className="output-text-replacement-fields">
               <legend>{messages.app.outputReplacementRules}</legend>
-              <p className="output-replacement-help" id="output-replacement-help">
+              <p
+                className="output-replacement-help"
+                id="output-replacement-help"
+              >
                 {messages.app.outputReplacementHelp}
               </p>
               {pdfOptions.textReplacements.map(
@@ -6428,7 +6418,8 @@ export function App(): React.JSX.Element {
               if (error) setToast(error);
               setHtmlRenderRequests((requests) =>
                 requests.filter(
-                  (request) => request.requestId !== htmlRenderRequest.requestId,
+                  (request) =>
+                    request.requestId !== htmlRenderRequest.requestId,
                 ),
               );
             }
@@ -6439,10 +6430,7 @@ export function App(): React.JSX.Element {
         <HelpDialog
           topic={helpTopic}
           messages={messages}
-          onClose={
-
-            () => setHelpTopic(undefined)
-          }
+          onClose={() => setHelpTopic(undefined)}
         />
       )}
       {linkDialogVisible && (
@@ -6453,10 +6441,7 @@ export function App(): React.JSX.Element {
           onHrefChange={setLinkHref}
           onLabelChange={setLinkLabel}
           onApply={applyLinkDialog}
-          onClose={
-
-            () => setLinkDialogVisible(false)
-          }
+          onClose={() => setLinkDialogVisible(false)}
         />
       )}
       {toast && (
@@ -6690,29 +6675,21 @@ function useMarkdownPreviewSnapshot(
   });
   const workerRef = useRef<Worker | undefined>(undefined);
   const workerBusyRef = useRef(false);
-  const cancelSanitizationRef = useRef<() => void>(
-    () => undefined,
-  );
+  const cancelSanitizationRef = useRef<() => void>(() => undefined);
   const generationRef = useRef(0);
   const onBeforeRefinementRef = useRef(onBeforeRefinement);
   onBeforeRefinementRef.current = onBeforeRefinement;
 
-  const cancelActiveRender = useCallback(
-
-    () => {
-      generationRef.current += 1;
-      if (workerBusyRef.current) {
-        workerRef.current?.terminate();
-        workerRef.current = undefined;
-        workerBusyRef.current = false;
-      }
-      cancelSanitizationRef.current();
-      cancelSanitizationRef.current =
-
-        () => undefined;
-    },
-    [],
-  );
+  const cancelActiveRender = useCallback(() => {
+    generationRef.current += 1;
+    if (workerBusyRef.current) {
+      workerRef.current?.terminate();
+      workerRef.current = undefined;
+      workerBusyRef.current = false;
+    }
+    cancelSanitizationRef.current();
+    cancelSanitizationRef.current = () => undefined;
+  }, []);
 
   useEffect(
     /**
@@ -6779,7 +6756,7 @@ function useMarkdownPreviewSnapshot(
        * Webviewルートの表示または操作を開始する。
        * @param rich - リッチMarkdown用Workerを選ぶ場合はtrue。
        * @param refinement - 完成HTMLの反映として描画する場合はtrue。初回の簡易描画はfalse。
- * @returns 戻り値はなく、Workerの生成または再利用を開始する。
+       * @returns 戻り値はなく、Workerの生成または再利用を開始する。
        */ async (rich = false, refinement = false) => {
         try {
           let worker = workerRef.current;
@@ -6847,9 +6824,7 @@ function useMarkdownPreviewSnapshot(
                  */
                 (html, maximumChunkDuration) => {
                   recordLatestPerformanceMark("mve-preview-sanitize-complete");
-                  cancelSanitizationRef.current =
-
-                    () => undefined;
+                  cancelSanitizationRef.current = () => undefined;
                   recordPerformanceDuration(
                     "mve-preview-markdown",
                     maximumChunkDuration,
@@ -7111,49 +7086,55 @@ function sanitizeMarkdownBlocks(
     timer = undefined;
   };
 
-  const runChunk = /** 一度に最大4msだけ処理し、残りは次のタイマーへ分割する。 */ () => {
-    timer = undefined;
-    if (cancelled || !shouldContinue()) {
-      close();
-      return;
-    }
-    const startedAt = performance.now();
-    do {
-      const block = unsafeBlocks[index++];
-      const blockStartedAt = performance.now();
-      sanitized.push(
-        block.requiresSanitization
-          ? sanitizeRenderedMarkdown(block.html)
-          : block.html,
+  const runChunk =
+    /** 一度に最大4msだけ処理し、残りは次のタイマーへ分割する。 */ () => {
+      timer = undefined;
+      if (cancelled || !shouldContinue()) {
+        close();
+        return;
+      }
+      const startedAt = performance.now();
+      do {
+        const block = unsafeBlocks[index++];
+        const blockStartedAt = performance.now();
+        sanitized.push(
+          block.requiresSanitization
+            ? sanitizeRenderedMarkdown(block.html)
+            : block.html,
+        );
+        const blockDuration = performance.now() - blockStartedAt;
+        if (blockDuration > slowestBlock.duration) {
+          slowestBlock = {
+            duration: blockDuration,
+            length: block.html.length,
+            prefix: block.html.slice(0, 100),
+          };
+        }
+      } while (
+        index < unsafeBlocks.length &&
+        performance.now() - startedAt < 4
       );
-      const blockDuration = performance.now() - blockStartedAt;
-      if (blockDuration > slowestBlock.duration) {
-        slowestBlock = {
-          duration: blockDuration,
-          length: block.html.length,
-          prefix: block.html.slice(0, 100),
-        };
+      maximumChunkDuration = Math.max(
+        maximumChunkDuration,
+        performance.now() - startedAt,
+      );
+      if (index < unsafeBlocks.length) {
+        timer = window.setTimeout(runChunk, 0);
+        return;
       }
-    } while (index < unsafeBlocks.length && performance.now() - startedAt < 4);
-    maximumChunkDuration = Math.max(
-      maximumChunkDuration,
-      performance.now() - startedAt,
-    );
-    if (index < unsafeBlocks.length) {
-      timer = window.setTimeout(runChunk, 0);
-      return;
-    }
-    close();
-    performance.clearMarks("mve-preview-sanitize-slowest");
-    performance.mark("mve-preview-sanitize-slowest", { detail: slowestBlock });
-    (
-      globalThis as typeof globalThis & {
-        /** 最も時間のかかったサニタイズ対象ブロックの計測結果。 */
-        __mveSlowestSanitizeBlock?: typeof slowestBlock;
-      }
-    ).__mveSlowestSanitizeBlock = slowestBlock;
-    onComplete(sanitized.join(""), maximumChunkDuration);
-  };
+      close();
+      performance.clearMarks("mve-preview-sanitize-slowest");
+      performance.mark("mve-preview-sanitize-slowest", {
+        detail: slowestBlock,
+      });
+      (
+        globalThis as typeof globalThis & {
+          /** 最も時間のかかったサニタイズ対象ブロックの計測結果。 */
+          __mveSlowestSanitizeBlock?: typeof slowestBlock;
+        }
+      ).__mveSlowestSanitizeBlock = slowestBlock;
+      onComplete(sanitized.join(""), maximumChunkDuration);
+    };
   timer = window.setTimeout(runChunk, 0);
   return close;
 }
@@ -7253,33 +7234,29 @@ function useInterruptibleDebouncedValue<T>(
   const idleUsesTimeoutRef = useRef(false);
   const generationRef = useRef(0);
 
-  const cancelPending = useCallback(
-
-    () => {
-      generationRef.current += 1;
-      if (timerRef.current !== undefined) {
-        window.clearTimeout(timerRef.current);
-        timerRef.current = undefined;
+  const cancelPending = useCallback(() => {
+    generationRef.current += 1;
+    if (timerRef.current !== undefined) {
+      window.clearTimeout(timerRef.current);
+      timerRef.current = undefined;
+    }
+    if (idleHandleRef.current !== undefined) {
+      const idleWindow = window as Window & {
+        /**
+         * Webviewルートの条件を判定する。
+         * @param handle - requestIdleCallbackが返した、取り消すアイドルコールバックID。
+         * @returns 戻り値はなく、指定したidle callbackを取り消す。
+         */
+        cancelIdleCallback?: (handle: number) => void;
+      };
+      if (idleUsesTimeoutRef.current || !idleWindow.cancelIdleCallback) {
+        window.clearTimeout(idleHandleRef.current);
+      } else {
+        idleWindow.cancelIdleCallback(idleHandleRef.current);
       }
-      if (idleHandleRef.current !== undefined) {
-        const idleWindow = window as Window & {
-          /**
-           * Webviewルートの条件を判定する。
-           * @param handle - requestIdleCallbackが返した、取り消すアイドルコールバックID。
-           * @returns 戻り値はなく、指定したidle callbackを取り消す。
-           */
-          cancelIdleCallback?: (handle: number) => void;
-        };
-        if (idleUsesTimeoutRef.current || !idleWindow.cancelIdleCallback) {
-          window.clearTimeout(idleHandleRef.current);
-        } else {
-          idleWindow.cancelIdleCallback(idleHandleRef.current);
-        }
-        idleHandleRef.current = undefined;
-      }
-    },
-    [],
-  );
+      idleHandleRef.current = undefined;
+    }
+  }, []);
 
   useEffect(
     /**
@@ -7366,7 +7343,7 @@ function renderTextWithVisibleSpaces(value: string): React.ReactNode[] {
     <React.Fragment key={index}>
       {segment}
       {index < segments.length - 1 && (
-        <span className="cm-visible-space">{" "}</span>
+        <span className="cm-visible-space"> </span>
       )}
     </React.Fragment>
   ));
@@ -7405,7 +7382,8 @@ async function serializeOutputHtml(
   isCurrent: () => boolean = () => true,
 ): Promise<string> {
   if (!isCurrent()) throw new TextReplacementCancelledError();
-  if (!hasActiveTextReplacementRules(rules)) return serializeExportHtml(element);
+  if (!hasActiveTextReplacementRules(rules))
+    return serializeExportHtml(element);
   const exportCopy = element.cloneNode(true) as HTMLElement;
   exportCopy.innerHTML = prepareExportHtml(exportCopy.innerHTML);
   await applyTextReplacements(exportCopy, rules, [], isCurrent);
@@ -7578,7 +7556,7 @@ function replaceStringsWithWorker(
   preservePageTokensFromIndex: number,
   isCurrent: () => boolean,
 ): Promise<TextReplacementResult[]> {
-  return new Promise( (resolve, reject) => {
+  return new Promise((resolve, reject) => {
     let worker: Worker | undefined;
     let workerUrl: string | undefined;
     let timeoutHandle: number | undefined;
@@ -7589,10 +7567,7 @@ function replaceStringsWithWorker(
      * @param error 省略時はPromiseを解決し、指定時はその理由で拒否する。
      * @param results Workerが返した置換結果。
      */
-    const finish = (
-      error?: Error,
-      results?: TextReplacementResult[],
-    ): void => {
+    const finish = (error?: Error, results?: TextReplacementResult[]): void => {
       if (settled) return;
       settled = true;
       if (timeoutHandle !== undefined) window.clearTimeout(timeoutHandle);
@@ -7612,19 +7587,14 @@ function replaceStringsWithWorker(
         }),
       );
       worker = new Worker(workerUrl);
-      cancellationCheckHandle = window.setInterval(
-
-        () => {
-          if (!isCurrent()) finish(new TextReplacementCancelledError());
-        },
-        50,
-      );
+      cancellationCheckHandle = window.setInterval(() => {
+        if (!isCurrent()) finish(new TextReplacementCancelledError());
+      }, 50);
       if (!isCurrent()) {
         finish(new TextReplacementCancelledError());
         return;
       }
       timeoutHandle = window.setTimeout(
-
         () => finish(new TextReplacementTimeoutError()),
         TEXT_REPLACEMENT_TIMEOUT_MS,
       );
@@ -7774,7 +7744,8 @@ async function applyTextReplacements(
         "placeholder",
       ] as const) {
         const value = element.getAttribute(attribute);
-        if (value !== null) attributes.push({ element, name: attribute, value });
+        if (value !== null)
+          attributes.push({ element, name: attribute, value });
       }
     }
     const values = [
@@ -8036,23 +8007,22 @@ function HtmlDocumentRenderStage({
   const completedRef = useRef(false);
   const onRenderedRef = useRef(onRendered);
   onRenderedRef.current = onRendered;
-  useEffect(
-
-    () => {
-      completedRef.current = false;
-      return () => {
-        completedRef.current = true;
-      };
-    },
-    [],
-  );
+  useEffect(() => {
+    completedRef.current = false;
+    return () => {
+      completedRef.current = true;
+    };
+  }, []);
 
   /**
    * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
    * @param id - 描画完了を対応付けるMarkdown文書ID。
    * @param element - 出力用HTMLをシリアライズする、描画済み文書のDOM要素。
    */
-  async function handleRendered(id: string, element: HTMLElement): Promise<void> {
+  async function handleRendered(
+    id: string,
+    element: HTMLElement,
+  ): Promise<void> {
     if (completedRef.current) return;
     try {
       const html = await serializeOutputHtml(
@@ -8307,10 +8277,7 @@ function PdfPreview({
               className="pdf-preview-content"
               onInspect={onInspect}
               onNavigate={onNavigate}
-              onRendered={
-
-                () => onRendered()
-              }
+              onRendered={() => onRendered()}
               deferMermaid
             />
             {options.footer && (
@@ -8330,18 +8297,15 @@ function PdfPreview({
             messages={messages.app.pdfPreview}
             pageRatio={dimensions.width / dimensions.height}
             zoom={zoom}
-            onRendered={
-
-              () => {
-                mveDebug("pdf.preview-layer-ready", {
-                  zoom,
-                  format: options.format,
-                  orientation: options.orientation,
-                });
-                setPdfCanvasReady(true);
-                onRendered();
-              }
-            }
+            onRendered={() => {
+              mveDebug("pdf.preview-layer-ready", {
+                zoom,
+                format: options.format,
+                orientation: options.orientation,
+              });
+              setPdfCanvasReady(true);
+              onRendered();
+            }}
           />
         </div>
       )}
@@ -8408,11 +8372,11 @@ function LinkDialog({
    */
   onLabelChange: (value: string) => void;
   /**
-    * 適用操作後に設定ダイアログを閉じるコールバック。
+   * 適用操作後に設定ダイアログを閉じるコールバック。
    */
   onApply: () => void;
   /**
-    * 閉じる操作を処理するコールバック。
+   * 閉じる操作を処理するコールバック。
    */
   onClose: () => void;
 }): React.JSX.Element {
