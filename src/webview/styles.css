@@ -1050,7 +1050,7 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
 }
 
 .rendered-markdown[data-mve-image-zoom] .mve-image-frame,
-.rendered-markdown[data-mve-image-zoom] img:not([data-mve-enhanced="true"]) {
+.rendered-markdown[data-mve-image-zoom] img:not([data-mve-enhanced="true"]):not(.mermaid-svg-image) {
     zoom: var(--mve-preview-image-zoom, 1);
 }
 
@@ -1216,6 +1216,20 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     max-width: 100%;
     height: auto;
     margin: 0 auto;
+}
+
+.rendered-markdown[data-mve-image-zoom] .diagram-block.mermaid {
+    container-type: inline-size;
+}
+
+/* 拡大前の幅でフィットさせた後、表示幅へ倍率を反映して操作領域と実寸を一致させる。 */
+.rendered-markdown[data-mve-image-zoom] .diagram-block.mermaid > svg {
+    width: calc(min(var(--mve-mermaid-width, 100cqw), 100cqw) * var(--mve-preview-image-zoom, 1));
+    max-width: none;
+}
+
+.rendered-markdown[data-mve-image-zoom] .diagram-block.mermaid > .mermaid-svg-frame {
+    width: calc(100cqw * var(--mve-preview-image-zoom, 1));
 }
 
 .mermaid-svg-frame {

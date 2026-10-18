@@ -292,6 +292,100 @@ describeWithBrowser('Pele Mermaid描画', () => {
         expect(following.ariaLabel).toContain('After timeout');
         expect(browserAcquisitions).toBe(acquisitionsBeforeTimeout + 1);
     }, 30_000);
+    it('プレビュー倍率でSVGと画像化したMermaidの操作領域を一度だけ拡大する', async () => {
+        const preview = await browser.newPage({ viewport: { width: 1000, height: 800 } });
+        const styles = readFileSync(path.resolve('src/webview/styles.css'), 'utf8');
+        const sourceFrom = (file: string) => /```mermaid\s*\r?\n([\s\S]*?)\r?\n```/.exec(readFileSync(path.resolve(file), 'utf8'))![1];
+        const small = await renderPeleMermaid(sourceFrom('sample/mermaid/01-flowchart-basic.md'), 'default', path.resolve('dist/pele-render-worker.js'), () => Promise.resolve(browser), undefined, { fontFamily: 'Arial', resourceScope: 'zoom-layout-test' });
+        const wide = await renderPeleMermaid(sourceFrom('sample/11-performance-stress.md'), 'default', path.resolve('dist/pele-render-worker.js'), () => Promise.resolve(browser), undefined, { fontFamily: 'Arial', resourceScope: 'zoom-layout-test' });
+        const imageSource = 'data:image/svg+xml,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="160" height="80"><rect width="160" height="80" fill="blue"/></svg>');
+        try {
+            await preview.setContent(`<!doctype html><html><body>
+                <main id="preview" class="rendered-markdown" data-mve-image-zoom="1" style="width:800px;--mve-preview-image-zoom:1">
+                    <div id="small" class="diagram-block mermaid">${small.svg}</div>
+                    <div id="wide" class="diagram-block mermaid">${wide.svg}</div>
+                    <div id="raster" class="diagram-block mermaid"><div class="mermaid-svg-frame" style="aspect-ratio:2"><img class="mermaid-svg-image" src="${imageSource}" alt=""><div class="mermaid-interaction-layer"><a class="mermaid-interaction" href="#target" style="left:25%;top:25%;width:20%;height:10%">Link</a></div></div></div>
+                    <img id="ordinary-image" src="${imageSource}" width="160" height="80" alt="">
+                </main>
+                <main id="export" class="rendered-markdown" style="width:800px"><div class="diagram-block mermaid">${wide.svg}</div></main>
+            </body></html>`);
+            await preview.addStyleTag({ content: styles });
+            await preview.locator('#preview .mermaid > svg').evaluateAll((nodes) => {
+                for (const node of nodes) {
+                    const svg = node as SVGSVGElement;
+                    svg.style.setProperty('--mve-mermaid-width', `${svg.viewBox.baseVal.width}px`);
+                }
+            });
+            const measure = () => preview.evaluate(() => {
+                const size = (selector: string) => {
+                    const node = document.querySelector(selector)!;
+                    if (node instanceof SVGSVGElement) {
+                        const matrix = node.getScreenCTM()!;
+                        return { width: node.viewBox.baseVal.width * matrix.a, height: node.viewBox.baseVal.height * matrix.d };
+                    }
+                    const bounds = node.getBoundingClientRect();
+                    return { width: bounds.width, height: bounds.height };
+                };
+                const frame = document.querySelector('#raster .mermaid-svg-frame')!.getBoundingClientRect();
+                const link = document.querySelector('#raster .mermaid-interaction')!.getBoundingClientRect();
+                const label = document.querySelector<SVGGraphicsElement>('#small svg text')!;
+                const labelMatrix = label.getScreenCTM()!;
+                return {
+                    small: size('#small > svg'),
+                    wide: size('#wide > svg'),
+                    frame: size('#raster .mermaid-svg-frame'),
+                    image: size('#raster img'),
+                    ordinaryImage: size('#ordinary-image'),
+                    labelScale: { width: labelMatrix.a, height: labelMatrix.d },
+                    exported: size('#export svg'),
+                    linkLeft: (link.left - frame.left) / frame.width,
+                    linkTop: (link.top - frame.top) / frame.height,
+                    linkWidth: link.width / frame.width,
+                };
+            });
+            const baseline = await measure();
+            for (const key of ['small', 'wide', 'frame'] as const) {
+                expect(baseline[key].width).toBeGreaterThan(0);
+                expect(baseline[key].width).toBeLessThanOrEqual(800 - 24 + 0.1);
+            }
+            for (const zoom of [0.5, 1.5, 2, 1]) {
+                await preview.locator('#preview').evaluate((node, value) => {
+                    (node as HTMLElement).style.setProperty('--mve-preview-image-zoom', String(value));
+                    (node as HTMLElement).dataset.mveImageZoom = String(value);
+                }, zoom);
+                const actual = await measure();
+                for (const key of ['small', 'wide', 'frame', 'image', 'ordinaryImage', 'labelScale'] as const) {
+                    expect(actual[key].width / baseline[key].width).toBeCloseTo(zoom, 2);
+                    expect(actual[key].height / baseline[key].height).toBeCloseTo(zoom, 2);
+                }
+                expect(actual.linkLeft).toBeCloseTo(0.25, 2);
+                expect(actual.linkTop).toBeCloseTo(0.25, 2);
+                expect(actual.linkWidth).toBeCloseTo(0.2, 2);
+                expect(actual.exported).toEqual(baseline.exported);
+                if (zoom > 1) {
+                    const edge = await preview.locator('#wide').evaluate((node) => {
+                        node.scrollLeft = 0;
+                        const svg = node.querySelector('svg')!;
+                        const diagramLeft = svg.getScreenCTM()!.e;
+                        node.scrollLeft = node.scrollWidth;
+                        const matrix = svg.getScreenCTM()!;
+                        return {
+                            scrollLeft: node.scrollLeft,
+                            diagramLeft,
+                            containerLeft: node.getBoundingClientRect().left,
+                            diagramRight: matrix.e + svg.viewBox.baseVal.width * matrix.a,
+                            containerRight: node.getBoundingClientRect().right,
+                        };
+                    });
+                    expect(edge.scrollLeft).toBeGreaterThan(0);
+                    expect(edge.diagramLeft).toBeGreaterThanOrEqual(edge.containerLeft);
+                    expect(edge.diagramRight).toBeLessThanOrEqual(edge.containerRight + 1);
+                }
+            }
+        } finally {
+            await preview.close();
+        }
+    }, 30_000);
 });
 
 function findFile(root: string, name: string): string | undefined {

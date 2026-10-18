@@ -314,12 +314,20 @@ function RenderedMarkdownView({
         node.removeAttribute("aria-busy");
         node.removeAttribute("aria-label");
       };
-      const applyInlineSvgAccessibleName = (
+      const prepareInlineSvg = (
         node: HTMLElement,
         ariaLabel: string,
       ) => {
-        const svg = node.querySelector<SVGElement>("svg");
-        if (svg && ariaLabel) svg.setAttribute("aria-label", ariaLabel);
+        const svg = node.querySelector<SVGSVGElement>("svg");
+        if (!svg) return;
+        if (ariaLabel) svg.setAttribute("aria-label", ariaLabel);
+        if (deferMermaid) {
+          // SVG固有の幅を基準にする。表示倍率はCSSの幅へ反映し、出力用SVGは変更しない。
+          const width = svg.viewBox.baseVal.width || svg.width.baseVal.value;
+          if (Number.isFinite(width) && width > 0) {
+            svg.style.setProperty("--mve-mermaid-width", `${width}px`);
+          }
+        }
       };
       let cancelled = false;
       let renderTimer: number | undefined;
@@ -391,7 +399,7 @@ function RenderedMarkdownView({
           } else {
             // ホスト側で既にID名前空間化済み。ここで再走査するとID数×SVG長の二次処理になる。
             node.innerHTML = rendered.svg;
-            applyInlineSvgAccessibleName(node, rendered.ariaLabel);
+            prepareInlineSvg(node, rendered.ariaLabel);
           }
           clearLoadingAccessibility(node);
           recordApplyDuration();
@@ -399,7 +407,7 @@ function RenderedMarkdownView({
         }
         if (!rendered.external || rendered.svg.length < 80_000) {
           node.innerHTML = rendered.svg;
-          applyInlineSvgAccessibleName(node, rendered.ariaLabel);
+          prepareInlineSvg(node, rendered.ariaLabel);
           clearLoadingAccessibility(node);
           recordApplyDuration();
           return;
