@@ -18,7 +18,8 @@ export interface PeleMermaidResult {
 /** Pele描画時に適用するフォントと画像解決処理。 */
 export interface PeleRenderOptions {
     fontFamily: string;
-    resolveImages?: (sources: string[]) => Promise<Record<string, string>>;
+    resourceScope?: string;
+    resolveImages?: (sources: string[], signal?: AbortSignal) => Promise<Record<string, string>>;
 }
 
 /** Pele Workerの初期化に失敗したことを表すエラー。 */
@@ -77,8 +78,8 @@ export function renderPeleMermaid(
     options: PeleRenderOptions
 ): Promise<PeleMermaidResult> {
     if (signal?.aborted) return Promise.reject(new Error('Mermaid rendering was cancelled.'));
-    const dayKey = Math.floor(Date.now() / 86_400_000);
-    const key = `${theme}\0${options.fontFamily}\0${dayKey}\0${source}`;
+    const renderingNow = localDayStart(Date.now());
+    const key = `${theme}\0${options.fontFamily}\0${options.resourceScope ?? ''}\0${renderingNow}\0${source}`;
     const cached = readCache(key);
     if (cached) return Promise.resolve(cached);
 
@@ -104,7 +105,8 @@ export function renderPeleMermaid(
                     workerPath,
                     acquireBrowser,
                     created.controller.signal,
-                    options
+                    options,
+                    renderingNow
                 ),
                 RENDER_TIMEOUT_MS,
                 resetRendererPage
@@ -149,7 +151,8 @@ async function renderQueued(
     workerPath: string,
     acquireBrowser: () => Promise<Browser>,
     signal: AbortSignal | undefined,
-    options: PeleRenderOptions
+    options: PeleRenderOptions,
+    renderingNow: number
 ): Promise<PeleMermaidResult> {
     if (signal?.aborted) throw new Error('Mermaid rendering was cancelled.');
     if (source.length > 50_000) throw new Error('Mermaid source exceeds the 50000 character limit.');
@@ -172,7 +175,7 @@ async function renderQueued(
                     source: payload.source,
                     theme: payload.theme,
                     fontFamily: payload.fontFamily,
-                    now: Date.now()
+                    now: payload.renderingNow
                 });
             });
             const document = new DOMParser().parseFromString(rendered.svg, 'image/svg+xml');
@@ -187,13 +190,14 @@ async function renderQueued(
             worker.terminate();
             URL.revokeObjectURL(blobUrl);
         }
-    }, { workerSource, requestId, source, theme, fontFamily: options.fontFamily });
+    }, { workerSource, requestId, source, theme, fontFamily: options.fontFamily, renderingNow });
 
     const rendered = await workerOperation;
     if (signal?.aborted) throw new Error('Mermaid rendering was cancelled.');
     const imageData = rendered.images.length && options.resolveImages
-        ? await options.resolveImages(rendered.images)
+        ? await options.resolveImages(rendered.images, signal)
         : {};
+    if (signal?.aborted) throw new Error('Mermaid rendering was cancelled.');
     const result = await page.evaluate((payload) => {
         const svgDocument = new DOMParser().parseFromString(payload.svg, 'image/svg+xml');
         const imageElements = Array.from(svgDocument.querySelectorAll('image'));
@@ -281,6 +285,16 @@ async function renderQueued(
     } finally {
         await page.evaluate((id) => document.getElementById(id)?.remove(), `${requestId}-container`).catch(() => undefined);
     }
+}
+
+/**
+ * 現地日付の午前0時をPeleの相対日付解決に使う。
+ * @param timestamp - 現在時刻。
+ * @returns 同じ現地日の開始時刻。
+ */
+function localDayStart(timestamp: number): number {
+    const date = new Date(timestamp);
+    return new Date(date.getFullYear(), date.getMonth(), date.getDate()).getTime();
 }
 
 /**

@@ -1179,6 +1179,13 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     text-align: center;
 }
 
+.diagram-block > svg {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 0 auto;
+}
+
 .mermaid-svg-frame {
     position: relative;
     width: 100%;

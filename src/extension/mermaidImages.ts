@@ -41,29 +41,36 @@ let remoteImageCacheBytes = 0;
  * Mermaidから参照されたローカル画像と外部画像を検証し、元のURLごとのdata URIを返す。
  * @param sources - PeleがSVGへ出力した画像参照。
  * @param readLocal - 許可範囲内のローカル画像を読む処理。
+ * @param signal - 呼び出し元からのキャンセル通知。
  * @returns 検証できた画像参照とdata URIの対応表。
  */
 export async function resolveMermaidImageSources(
     sources: string[],
-    readLocal: (source: string) => Promise<Uint8Array | undefined>
+    readLocal: (source: string) => Promise<Uint8Array | undefined>,
+    signal?: AbortSignal
 ): Promise<Record<string, string>> {
+    throwIfAborted(signal);
     const result: Record<string, string> = {};
     const uniqueSources = [...new Set(sources)].slice(0, MAX_IMAGE_COUNT);
     let totalBytes = 0;
     let totalPixels = 0;
 
     for (let offset = 0; offset < uniqueSources.length; offset += 4) {
+        throwIfAborted(signal);
         const batch = await Promise.all(uniqueSources.slice(offset, offset + 4).map(async (source) => {
             try {
                 const image = /^https?:/i.test(source)
-                    ? await getRemoteImage(source)
+                    ? await getRemoteImage(source, signal)
                     : await readLocal(source).then((bytes) => bytes ? validateImage(Buffer.from(bytes)) : undefined);
+                throwIfAborted(signal);
                 return image ? { source, image } : undefined;
             } catch {
+                throwIfAborted(signal);
                 // 読み込めない画像は空の表示領域にし、図全体の描画は継続する。
                 return undefined;
             }
         }));
+        throwIfAborted(signal);
         for (const item of batch) {
             if (!item
                 || totalBytes + item.image.bytes.byteLength > MAX_TOTAL_IMAGE_BYTES
@@ -82,7 +89,8 @@ export async function resolveMermaidImageSources(
  * @param source - HTTPまたはHTTPSの画像URL。
  * @returns 画像本体と検証済みMIME。条件に合わない参照はundefined。
  */
-async function getRemoteImage(source: string): Promise<ValidatedImage | undefined> {
+async function getRemoteImage(source: string, signal?: AbortSignal): Promise<ValidatedImage | undefined> {
+    throwIfAborted(signal);
     const url = new URL(source);
     if ((url.protocol !== 'http:' && url.protocol !== 'https:') || url.username || url.password) return undefined;
     url.hash = '';
@@ -104,8 +112,10 @@ async function getRemoteImage(source: string): Promise<ValidatedImage | undefine
                     else resolve(values);
                 });
             }),
-            DNS_TIMEOUT_MS
+            DNS_TIMEOUT_MS,
+            signal
         );
+    throwIfAborted(signal);
     if (!addresses.length || addresses.some(({ address }) => !isPublicAddress(address))) return undefined;
 
     const selected = addresses[0];
@@ -127,8 +137,10 @@ async function getRemoteImage(source: string): Promise<ValidatedImage | undefine
         port: url.port || undefined,
         path: `${url.pathname}${url.search}`,
         servername: url.protocol === 'https:' && !isIP(hostname) ? hostname : undefined,
-        lookup: pinnedLookup
+        lookup: pinnedLookup,
+        signal
     });
+    throwIfAborted(signal);
     cacheRemoteImage(url.toString(), image);
     return image;
 }
@@ -140,6 +152,7 @@ interface ImageRequestOptions {
     path: string;
     servername?: string;
     lookup: LookupFunction;
+    signal?: AbortSignal;
 }
 
 /**
@@ -153,7 +166,30 @@ function requestImage(
     options: ImageRequestOptions
 ): Promise<ValidatedImage> {
     return new Promise<ValidatedImage>((resolve, reject) => {
-        const request = transport({
+        if (options.signal?.aborted) {
+            reject(new Error('Mermaid image resolution was cancelled.'));
+            return;
+        }
+        let settled = false;
+        let deadline: ReturnType<typeof setTimeout> | undefined;
+        let request!: ReturnType<typeof httpRequest>;
+        const cleanup = () => {
+            if (deadline) clearTimeout(deadline);
+            options.signal?.removeEventListener('abort', onAbort);
+        };
+        const settle = (action: () => void) => {
+            if (settled) return;
+            settled = true;
+            cleanup();
+            action();
+        };
+        const settleReject = (error: unknown) => settle(() => reject(error));
+        const settleResolve = (image: ValidatedImage) => settle(() => resolve(image));
+        const onAbort = () => {
+            request.destroy();
+            settleReject(new Error('Mermaid image resolution was cancelled.'));
+        };
+        request = transport({
             protocol: options.protocol,
             hostname: options.hostname,
             port: options.port,
@@ -169,12 +205,12 @@ function requestImage(
             const contentType = response.headers['content-type']?.split(';', 1)[0]?.trim().toLowerCase();
             if (status !== 200 || (Number.isFinite(contentLength) && contentLength > MAX_IMAGE_BYTES)) {
                 response.destroy();
-                reject(new Error('Remote image response was rejected.'));
+                settleReject(new Error('Remote image response was rejected.'));
                 return;
             }
             if (!contentType || !isImageMime(contentType)) {
                 response.destroy();
-                reject(new Error('Remote image content type was rejected.'));
+                settleReject(new Error('Remote image content type was rejected.'));
                 return;
             }
             const chunks: Buffer[] = [];
@@ -183,26 +219,36 @@ function requestImage(
                 const buffer = Buffer.from(chunk);
                 byteLength += buffer.byteLength;
                 if (byteLength > MAX_IMAGE_BYTES) {
-                    response.destroy(new Error('Remote image exceeded the size limit.'));
+                    const error = new Error('Remote image exceeded the size limit.');
+                    response.destroy(error);
+                    settleReject(error);
                     return;
                 }
                 chunks.push(buffer);
             });
-            response.on('error', reject);
+            response.on('error', settleReject);
             response.on('end', () => {
                 try {
                     const image = validateImage(Buffer.concat(chunks));
                     if (!image || image.mime !== contentType) throw new Error('Remote image data was rejected.');
-                    resolve(image);
+                    settleResolve(image);
                 } catch (error) {
-                    reject(error);
+                    settleReject(error);
                 }
             });
         });
-        const deadline = setTimeout(() => request.destroy(new Error('Remote image request timed out.')), NETWORK_TIMEOUT_MS);
-        request.setTimeout(NETWORK_TIMEOUT_MS, () => request.destroy(new Error('Remote image request timed out.')));
-        request.on('close', () => clearTimeout(deadline));
-        request.on('error', reject);
+        request.on('error', settleReject);
+        options.signal?.addEventListener('abort', onAbort, { once: true });
+        deadline = setTimeout(() => {
+            const error = new Error('Remote image request timed out.');
+            request.destroy(error);
+            settleReject(error);
+        }, NETWORK_TIMEOUT_MS);
+        request.setTimeout(NETWORK_TIMEOUT_MS, () => {
+            const error = new Error('Remote image request timed out.');
+            request.destroy(error);
+            settleReject(error);
+        });
         request.end();
     });
 }
@@ -399,11 +445,39 @@ function cacheRemoteImage(key: string, image: ValidatedImage): void {
  * DNSなど停止できないPromiseを時間制限付きで待つ。
  * @param promise - 完了を待つ処理。
  * @param timeoutMs - 待ち時間の上限。
+ * @param signal - 呼び出し元からのキャンセル通知。
  * @returns 完了値。
  */
-function withTimeout<T>(promise: Promise<T>, timeoutMs: number): Promise<T> {
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, signal?: AbortSignal): Promise<T> {
     return new Promise<T>((resolve, reject) => {
-        const timer = setTimeout(() => reject(new Error('Mermaid image DNS lookup timed out.')), timeoutMs);
-        promise.then(resolve, reject).finally(() => clearTimeout(timer));
+        if (signal?.aborted) {
+            reject(new Error('Mermaid image resolution was cancelled.'));
+            return;
+        }
+        const cleanup = () => {
+            clearTimeout(timer);
+            signal?.removeEventListener('abort', onAbort);
+        };
+        const timer = setTimeout(() => {
+            cleanup();
+            reject(new Error('Mermaid image DNS lookup timed out.'));
+        }, timeoutMs);
+        const onAbort = () => {
+            cleanup();
+            reject(new Error('Mermaid image resolution was cancelled.'));
+        };
+        signal?.addEventListener('abort', onAbort, { once: true });
+        promise.then(
+            (value) => { cleanup(); resolve(value); },
+            (error) => { cleanup(); reject(error); }
+        );
     });
+}
+
+/**
+ * キャンセル済みの画像処理を中断する。
+ * @param signal - 呼び出し元からのキャンセル通知。
+ */
+function throwIfAborted(signal?: AbortSignal): void {
+    if (signal?.aborted) throw new Error('Mermaid image resolution was cancelled.');
 }

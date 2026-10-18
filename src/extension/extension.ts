@@ -1133,9 +1133,11 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                             controller.signal,
                             {
                                 fontFamily: settings.previewFontFamily,
-                                resolveImages: (sources) => resolveMermaidImageSources(
+                                resourceScope: document.uri.toString(),
+                                resolveImages: (sources, signal) => resolveMermaidImageSources(
                                     sources,
-                                    (source) => this.readMermaidLocalImage(document, source)
+                                    (source) => this.readMermaidLocalImage(document, source),
+                                    signal
                                 )
                             }
                         );

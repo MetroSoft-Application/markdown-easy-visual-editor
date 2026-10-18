@@ -22,7 +22,6 @@ const allowedAssets = new Set([
   'markdown-rich-worker.js',
   'marp-frame.js',
   'marp-worker.js',
-  'mermaid.min.js',
   'styles.css',
   'webview.css',
   'webview.js'
@@ -168,8 +167,8 @@ try {
   await verifyMarpFrameInitializationWaitsWithoutFailure();
   await verifyMarpFrameReadyWaitsWithoutFailure();
   await verifyMarpWorkerDiscardsStaleResponse();
-  await verifyInlineMermaidFallback();
-  await verifyCompactMermaidAvoidsHostStartup();
+  await verifyPeleMermaidUsesHost();
+  await verifyCompactMermaidUsesHost();
   await verifyLargeMermaidKeepsHostIsolation();
   await verifyLazyExportFonts();
   console.log('遅延ランタイム: Markdown Worker 障害時フォールバック、Mermaid Host 障害時フォールバック、出力フォントを確認しました。');
@@ -784,9 +783,9 @@ async function waitForNodeCondition(predicate, timeoutMs, description) {
 }
 
 /**
- * 2つの小型図がWebview内で描画され、Host描画要求が発生せずSVG IDも衝突しないことを確認する。
+ * 2つの小型図がHostへ描画を依頼し、Pele結果を受け取り、SVG IDも衝突しないことを確認する。
  */
-async function verifyCompactMermaidAvoidsHostStartup() {
+async function verifyCompactMermaidUsesHost() {
   const markdown = [
     '```mermaid',
     'flowchart TD',
@@ -801,12 +800,13 @@ async function verifyCompactMermaidAvoidsHostStartup() {
   ].join('\n');
   const page = await openEditor(markdown, {
     workerUri: `${origin}/dist/markdown-worker.js`,
-    mermaidHostRendering: true
+    mermaidHostRendering: true,
+    respondToMermaid: true
   });
   try {
     await page.waitForFunction(
     /**
-     * ブラウザー内に「.split-preview .mermaid[data-mermaid-status=」が現れるまで待機する。
+     * 2つの図がHost描画結果を受け取り、SVGを表示するまで待機する。
      */
     () => (
       document.querySelectorAll('.split-preview .mermaid[data-mermaid-status="ready"] svg').length === 2
@@ -822,13 +822,16 @@ async function verifyCompactMermaidAvoidsHostStartup() {
       /**
        * @param svg - Mermaidが生成したSVG本文。
        */
-      (svg) => [...svg.querySelectorAll('[id]')].map(
+      (svg) => [
+        ...(svg.id ? [svg.id] : []),
+        ...[...svg.querySelectorAll('[id]')].map(
       /**
        * 各要素から識別子を取り出して一覧化する。
        * @param element - 要素の識別子を参照する走査対象。
        * @returns 識別子を取り出した変換結果の一覧。
        */
-      (element) => element.id));
+        (element) => element.id)
+      ]);
       return {
         hostRequests: window.__mveMessages.filter(
         /**
@@ -846,11 +849,14 @@ async function verifyCompactMermaidAvoidsHostStartup() {
          */
         (id, index) => ids.indexOf(id) !== index),
         text: diagrams.map(
-        (svg) => svg.textContent ?? '')
+        (svg) => svg.textContent ?? ''),
+        mermaidRuntimeRequests: performance.getEntriesByType('resource')
+          .filter((entry) => entry.name.endsWith('/mermaid.min.js')).map((entry) => entry.name),
+        mermaidRuntimeScripts: document.querySelectorAll('script[src$="/mermaid.min.js"]').length
       };
     });
-    if (state.hostRequests !== 0) {
-      throw new Error(`小型 Mermaid が Host Chromium を起動しました: ${state.hostRequests} requests`);
+    if (state.hostRequests !== 2) {
+      throw new Error(`小型MermaidのPele Host描画要求数が不正です: ${state.hostRequests}`);
     }
     if (state.duplicateIds.length) {
       throw new Error(`小型 Mermaid 間で SVG ID が衝突しました: ${JSON.stringify(state.duplicateIds)}`);
@@ -860,8 +866,11 @@ async function verifyCompactMermaidAvoidsHostStartup() {
      * @param text - 表示・解析・変換の対象となる本文。
      * @returns 条件が成立したかを示す真偽値。
      */
-    (text) => !text.includes('Start') || !text.includes('Ready'))) {
-      throw new Error(`小型 Mermaid のラベルが欠落しました: ${JSON.stringify(state.text)}`);
+    (text) => text !== 'Pele host result')) {
+      throw new Error(`小型 Mermaid のPele描画結果が不正です: ${JSON.stringify(state.text)}`);
+    }
+    if (state.mermaidRuntimeRequests.length || state.mermaidRuntimeScripts) {
+      throw new Error(`Webviewがmermaid.min.jsを読み込みました: ${JSON.stringify(state)}`);
     }
   } finally {
     await page.close();
@@ -987,44 +996,31 @@ async function verifyRichMarkdownFallback() {
 }
 
 /**
- * lazy・ランタイム・スモーク検証の入力と不変条件を検証し、違反時に失敗を通知する。
+ * Mermaid図がPele Hostから描画結果を受け取り、WebviewでMermaid runtimeを読み込まないことを確認する。
  */
-async function verifyInlineMermaidFallback() {
+async function verifyPeleMermaidUsesHost() {
   const markdown = '# Mermaid\n\n```mermaid\ngraph TD\n  A --> B\n```\n';
   const page = await openEditor(markdown, {
     workerUri: `${origin}/dist/markdown-worker.js`,
-    mermaidHostRendering: false
+    mermaidHostRendering: true,
+    respondToMermaid: true
   });
   try {
-    try {
-      await page.waitForFunction(
-      /**
-       * ブラウザー内に「.split-preview .mermaid[data-mermaid-status=」が現れるまで待機する。
-       * @returns Mermaid SVGがプレビューへ表示された場合はtrue。
-       */
-      () => (
-        document.querySelector('.split-preview .mermaid[data-mermaid-status="ready"] svg') !== null
-      ), undefined, { timeout: 20_000 });
-    } catch (error) {
-      const state = await page.evaluate(
-      /**
-       * ブラウザー内の「.mermaid」を読み取り、検証用の値へ変換する。
-       * @returns Worker状態、Mermaid runtimeの有無・型、constructor名を含む診断情報。
-       */
-      () => ({
-        workerStatus: document.body.dataset.mveMarkdownWorkerStatus,
-        mermaidLoaded: Boolean(window.mermaid),
-        mermaidType: typeof window.mermaid,
-        mermaidConstructor: window.mermaid?.constructor?.name,
-        mermaidValue: String(window.mermaid).slice(0, 200),
-        mermaidKeys: window.mermaid ? Object.keys(window.mermaid).slice(0, 20) : [],
-        diagrams: [...document.querySelectorAll('.mermaid')].map(
-         (node) => ({
-          status: node.getAttribute('data-mermaid-status'),
-          text: node.textContent
-        }))
-      }));
-      throw new Error(`${error instanceof Error ? error.message : String(error)}\n${JSON.stringify(state)}`);
+    await page.waitForFunction(
+    /**
+     * Mermaid図がPele HostからSVGを受け取り、描画完了になるまで待機する。
+     */
+    () => document.querySelector('.split-preview .mermaid[data-mermaid-status="ready"] svg') !== null,
+    undefined,
+    { timeout: 20_000 });
+    const state = await page.evaluate(() => ({
+      hostRequests: window.__mveMessages.filter((message) => message.type === 'renderMermaid').length,
+      runtimeRequests: performance.getEntriesByType('resource').filter((entry) => entry.name.endsWith('/mermaid.min.js')),
+      runtimeScripts: document.querySelectorAll('script[src$="/mermaid.min.js"]').length,
+      svgText: document.querySelector('.split-preview .mermaid svg')?.textContent
+    }));
+    if (state.hostRequests !== 1 || state.runtimeRequests.length || state.runtimeScripts || state.svgText !== 'Pele host result') {
+      throw new Error(`Pele Host描画またはWebview Mermaid runtimeの分離に失敗しました: ${JSON.stringify(state)}`);
     }
   } finally {
     await page.close();
@@ -1092,6 +1088,7 @@ async function verifyLazyExportFonts() {
  * @param options.workerUri - Markdown workerの読み込み先URI。
  * @param options.richWorkerUri - リッチMarkdown workerの読み込み先URI。省略時は配布先の既定URIを使う。
  * @param options.mermaidHostRendering - Mermaid図をHost側で描画するかを示す設定。
+ * @param options.respondToMermaid - 検証用Pele描画結果をHost shimから返すかを示す設定。
  * @param options.marpDetectionDelayMs - Marp判定結果を返すまでの検証用遅延時間。
  * @returns 設定済みWebviewを読み込んだPlaywright Page。
  */
@@ -1100,6 +1097,7 @@ async function openEditor(markdown, options) {
     workerUri,
     richWorkerUri = `${origin}/dist/markdown-rich-worker.js`,
     mermaidHostRendering,
+    respondToMermaid = false,
     marpWorkerUri,
     marpFrameUri,
     marpKatexFontsUri,
@@ -1120,7 +1118,7 @@ async function openEditor(markdown, options) {
    * HostとWebviewのメッセージ状態のメッセージ送信結果を読み取り、検証用の値へ変換する。
   * @returns ブラウザー内で読み取った値または変換結果。
    */
-  ({ markdown, mermaidHostRendering, workerUri, richWorkerUri, marpWorkerUri, marpFrameUri, marpKatexFontsUri, marpDetectionDelayMs, marpDetectionFailure, origin }) => {
+  ({ markdown, mermaidHostRendering, respondToMermaid, workerUri, richWorkerUri, marpWorkerUri, marpFrameUri, marpKatexFontsUri, marpDetectionDelayMs, marpDetectionFailure, origin }) => {
     document.body.dataset.mveMarkdownWorkerUri = workerUri;
     document.body.dataset.mveMarkdownRichWorkerUri = richWorkerUri;
     document.body.dataset.mveMarkdownFallbackUri = `${origin}/dist/markdown-fallback.js`;
@@ -1128,7 +1126,6 @@ async function openEditor(markdown, options) {
     document.body.dataset.mveMarpFrameUri = marpFrameUri ?? '';
     document.body.dataset.mveMarpKatexFontsUri = marpKatexFontsUri ?? '';
     document.body.dataset.mveCspSource = origin;
-    document.body.dataset.mveMermaidUri = `${origin}/dist/mermaid.min.js`;
     document.body.dataset.mveExportFontsUri = `${origin}/dist/export-fonts.css`;
     window.__mveMessages = [];
     window.__mveFrameMessages = [];
@@ -1147,6 +1144,19 @@ async function openEditor(markdown, options) {
        */
       postMessage(message) {
         window.__mveMessages.push(message);
+        if (message.type === 'renderMermaid' && respondToMermaid) {
+          const id = `mve-${message.requestId}`;
+          setTimeout(() => window.dispatchEvent(new MessageEvent('message', {
+            data: {
+              type: 'mermaidRendered',
+              requestId: message.requestId,
+              svg: `<svg xmlns="http://www.w3.org/2000/svg" id="${id}" viewBox="0 0 160 40"><text x="4" y="28">Pele host result</text></svg>`,
+              interactions: [],
+              ariaLabel: 'Pele host result'
+            }
+          })), 0);
+          return;
+        }
         if (message.type === 'detectMarpMarkdown') {
           if (marpDetectionFailure) {
             setTimeout(() => window.dispatchEvent(new MessageEvent('message', {
@@ -1212,7 +1222,7 @@ async function openEditor(markdown, options) {
        * lazy・ランタイム・スモーク検証の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
        */ () => undefined
     });
-  }, { markdown, mermaidHostRendering, workerUri, richWorkerUri, marpWorkerUri, marpFrameUri, marpKatexFontsUri, marpDetectionDelayMs, marpDetectionFailure, origin });
+  }, { markdown, mermaidHostRendering, respondToMermaid, workerUri, richWorkerUri, marpWorkerUri, marpFrameUri, marpKatexFontsUri, marpDetectionDelayMs, marpDetectionFailure, origin });
   await page.addStyleTag({ url: `${origin}/dist/styles.css` });
   await page.addStyleTag({ url: `${origin}/dist/webview.css` });
   await page.addScriptTag({ url: `${origin}/dist/webview.js` });

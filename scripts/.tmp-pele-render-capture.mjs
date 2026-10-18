@@ -1,4 +1,7 @@
-﻿import { chromium } from 'playwright-core';
+/**
+ * @fileoverview Peleのプレビュー描画をChromiumで実行し、確認用スクリーンショットを保存する。
+ */
+import { chromium } from 'playwright-core';
 import { readFile, mkdir, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 import { renderPeleMermaid } from '../src/extension/peleMermaid.ts';

@@ -3,6 +3,7 @@
  */
 import { render } from 'pele';
 import type { LinkInfo, RenderOptions } from 'pele';
+import { sanitizePeleRenderError } from '../shared/peleError';
 
 interface PeleRenderRequest {
     id: string;
@@ -52,7 +53,7 @@ workerScope.onmessage = (event) => {
             limit: 50_000,
             outputLimit: 4_000_000,
             maxEdges: 5_000,
-            linkSchemes: ['http', 'https', 'file', 'mailto', 'tel'],
+            linkSchemes: ['http', 'https', 'file'],
             imageSchemes: ['http', 'https', 'file'],
             links: true,
             images: true,
@@ -74,7 +75,6 @@ workerScope.onmessage = (event) => {
         });
         workerScope.postMessage({ id: request.id, svg, links: result.links });
     } catch (error) {
-        const message = error instanceof Error ? error.message : String(error);
-        workerScope.postMessage({ id: request.id, error: message });
+        workerScope.postMessage({ id: request.id, error: sanitizePeleRenderError(error) });
     }
 };
