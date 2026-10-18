@@ -68,3 +68,7 @@
 
 - Added links from headings to their sections in exported HTML.
 - Added immediate notifications when PDF or HTML export starts.
+
+## 1.4.0
+
+- Changed the mermaid rendering engine to Pele.

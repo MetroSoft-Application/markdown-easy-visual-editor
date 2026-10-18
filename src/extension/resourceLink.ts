@@ -66,7 +66,7 @@ export function classifyResourceLink(href: string): ResourceLinkTarget {
     const localWebviewPath = resolveWebviewResourcePath(href);
     if (localWebviewPath) return { kind: 'localWebview', path: localWebviewPath };
     if (isWebviewResourceUrl(href)) return { kind: 'invalidLocalWebview' };
-    if (/^https?:/i.test(href)) return { kind: 'external', href };
+    if (/^(?:https?|mailto|tel):/i.test(href)) return { kind: 'external', href };
     if (/^file:/i.test(href) || /^[A-Za-z]:[\\/]/.test(href) || /^\\\\/.test(href)) {
         return { kind: 'absoluteFile', href };
     }

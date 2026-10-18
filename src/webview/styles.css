@@ -1050,7 +1050,6 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
 }
 
 .rendered-markdown[data-mve-image-zoom] .mve-image-frame,
-.rendered-markdown[data-mve-image-zoom] .mermaid,
 .rendered-markdown[data-mve-image-zoom] img:not([data-mve-enhanced="true"]):not(.mermaid-svg-image) {
     zoom: var(--mve-preview-image-zoom, 1);
 }
@@ -1178,6 +1177,59 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     overflow: auto;
     padding: 12px;
     text-align: center;
+}
+
+.diagram-block.mermaid {
+    min-height: 48px;
+}
+
+.diagram-block.mermaid[data-mermaid-status="rendering"] {
+    display: grid;
+    place-items: center;
+}
+
+.diagram-block.mermaid[data-mermaid-status="rendering"]::before {
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--vscode-progressBar-background);
+    border-inline-end-color: transparent;
+    border-radius: 50%;
+    animation: mve-mermaid-rendering-spin 800ms linear infinite;
+    content: "";
+}
+
+@keyframes mve-mermaid-rendering-spin {
+    to {
+        transform: rotate(1turn);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .diagram-block.mermaid[data-mermaid-status="rendering"]::before {
+        animation: none;
+        border-inline-end-color: var(--vscode-progressBar-background);
+    }
+}
+
+.diagram-block > svg {
+    display: block;
+    max-width: 100%;
+    height: auto;
+    margin: 0 auto;
+}
+
+.rendered-markdown[data-mve-image-zoom] .diagram-block.mermaid {
+    container-type: inline-size;
+}
+
+/* 拡大前の幅でフィットさせた後、表示幅へ倍率を反映して操作領域と実寸を一致させる。 */
+.rendered-markdown[data-mve-image-zoom] .diagram-block.mermaid > svg {
+    width: calc(min(var(--mve-mermaid-width, 100cqw), 100cqw) * var(--mve-preview-image-zoom, 1));
+    max-width: none;
+}
+
+.rendered-markdown[data-mve-image-zoom] .diagram-block.mermaid > .mermaid-svg-frame {
+    width: calc(100cqw * var(--mve-preview-image-zoom, 1));
 }
 
 .mermaid-svg-frame {

@@ -32,6 +32,18 @@ describe('Webview resource links',
                 });
             });
 
+        it('routes mail and telephone links as external links',
+            () => {
+                expect(classifyResourceLink('mailto:author@example.com')).toEqual({
+                    kind: 'external',
+                    href: 'mailto:author@example.com'
+                });
+                expect(classifyResourceLink('tel:+810000000000')).toEqual({
+                    kind: 'external',
+                    href: 'tel:+810000000000'
+                });
+            });
+
         it('routes a relative local link to VS Code',
             () => {
                 expect(classifyResourceLink('guide.md#section')).toEqual({

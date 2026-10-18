@@ -1835,6 +1835,9 @@ export interface Messages {
          */
         mermaidError: string;
 
+        /** 描画中のMermaid図に付けるアクセシブルな状態文言。 */
+        mermaidRendering: string;
+
         /**
          * Mermaid図のアクセシブル名。
          * @param description - Mermaid図を説明するアクセシブル名の補足。
@@ -2503,6 +2506,7 @@ function createMessages(language: SupportedLanguage): Messages {
         },
         renderer: {
             ...raw.renderer,
+            mermaidRendering: text('renderer.mermaidRendering'),
             mermaidDiagramLabel: (description: string) => text('renderer.mermaidDiagramLabel', { description })
         },
         diagnostics: {

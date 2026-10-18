@@ -545,6 +545,9 @@ export interface MermaidInteraction {
      */
     href?: string;
 
+    /** Peleがノート名リンクとして分類したリンクであることを示す。 */
+    internal?: boolean;
+
     /**
      * 親領域の左端を基準にした相対位置または比較値。
      */
@@ -821,6 +824,16 @@ export type HostToWebviewMessage =
  * PDFファイル全体をBase64で符号化したデータ。
          */
         pdfBase64: string
+    }
+    | {
+        /**
+         * Mermaid描画要求がHostで処理中であることを通知します。
+         */
+        type: 'mermaidRenderProgress';
+        /**
+         * 非同期要求と対応する応答を照合するID。
+         */
+        requestId: string;
     }
     | {
 
@@ -1327,7 +1340,9 @@ export type WebviewToHostMessage =
          */
         href: string;
         /** 専用title印を持つワークスペース基準リンクかを示す。 */
-        workspaceRooted?: boolean
+        workspaceRooted?: boolean;
+        /** Mermaidのノート名リンクを文書相対パスとして処理する場合に指定する。 */
+        internal?: boolean
     }
     | {
         /**
