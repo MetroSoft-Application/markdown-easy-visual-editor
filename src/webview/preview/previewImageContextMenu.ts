@@ -2,6 +2,7 @@
  * @fileoverview プレビュー画像のコンテキストメニューを生成し、コピー、リソースを開く、サイズ初期化の操作を仲介する。
  */
 import { getMessages } from "../../shared/messages";
+import { prepareMermaidClipboardPng } from "./previewMermaidClipboard";
 /**
  * 画像右クリックで開くコンテキストメニューに付ける識別クラス。
  */
@@ -62,6 +63,7 @@ export function installPreviewImageContextMenu(): () => void {
     let menu: HTMLDivElement | undefined;
     let toastTimer: number | undefined;
     let generation = 0;
+    let preparationController: AbortController | undefined;
 
 
 
@@ -69,6 +71,8 @@ export function installPreviewImageContextMenu(): () => void {
    * プレビュー画像メニューの処理またはリソースを終了し、後続利用可能な状態へ戻す。
    */ () => {
             generation += 1;
+            preparationController?.abort();
+            preparationController = undefined;
             menu?.remove();
             menu = undefined;
         };
@@ -80,6 +84,15 @@ export function installPreviewImageContextMenu(): () => void {
     * @param event - 描画画像のcontext menuを開くmouse event。
    */ (event: MouseEvent) => {
             if (!(event.target instanceof Element)) return;
+            const diagram = event.target.closest<HTMLElement>(
+                '.rendered-markdown[data-mve-image-zoom] .diagram-block.mermaid[data-mermaid-status="ready"]',
+            );
+            if (diagram) {
+                event.preventDefault();
+                event.stopPropagation();
+                openMenu(diagram, event.clientX, event.clientY, true);
+                return;
+            }
             const image = event.target.closest<HTMLImageElement>(
                 '.rendered-markdown img[data-original-src][data-mve-image-kind]',
             );
@@ -152,22 +165,25 @@ export function installPreviewImageContextMenu(): () => void {
 
     /**
      * プレビュー画像メニューの表示または操作を開始する。
-     * @param image - コンテキストメニューの対象となるプレビュー画像。
+     * @param image - コンテキストメニューの対象となる画像またはMermaidブロック。
      * @param clientX - クリック位置のviewport相対X座標（CSS px）。
      * @param clientY - クリック位置のviewport相対Y座標（CSS px）。
+     * @param mermaid - MermaidをPNGとしてコピーする場合はtrue。
      */
     function openMenu(
-        image: HTMLImageElement,
+        image: HTMLElement,
         clientX: number,
         clientY: number,
+        mermaid = false,
     ): void {
         closeMenu();
         const currentGeneration = generation;
         const text = getMessages(document.documentElement.lang).app.previewImageContextMenu;
+        const copyLabel = mermaid ? text.copyPng : text.copy;
         const nextMenu = document.createElement("div");
         nextMenu.className = MENU_CLASS;
         nextMenu.setAttribute("role", "menu");
-        nextMenu.setAttribute("aria-label", text.copy);
+        nextMenu.setAttribute("aria-label", copyLabel);
 
         const button = document.createElement("button");
         button.type = "button";
@@ -179,18 +195,24 @@ export function installPreviewImageContextMenu(): () => void {
         menu = nextMenu;
         positionMenu(nextMenu, image, clientX, clientY);
 
-        let prepared: PreparedClipboardImage | undefined;
-        void prepareClipboardImage(image)
+        let copy: (() => Promise<boolean>) | undefined;
+        preparationController = mermaid ? new AbortController() : undefined;
+        const preparation = mermaid
+            ? (navigator.clipboard && typeof navigator.clipboard.write === 'function' && clipboardSupportsType('image/png')
+                ? prepareMermaidClipboardPng(image, preparationController?.signal)
+                : Promise.reject(new Error('PNG clipboard is unavailable.'))).then(blob => () => copyPngToClipboard(blob))
+            : prepareClipboardImage(image as HTMLImageElement).then(value => () => copyPreparedImage(value));
+        void preparation
             .then(
                 /**
                  * 画像変換の非同期完了が古いメニューに属する場合は、後続UIを更新しない。
-                 * @param value - クリップボード書き込み用に準備した画像データ一式。
+                 * @param value - 準備済み画像をクリップボードへコピーする処理。
                  */
                 (value) => {
                     if (generation !== currentGeneration || menu !== nextMenu) return;
-                    prepared = value;
+                    copy = value;
                     button.disabled = false;
-                    button.textContent = text.copy;
+                    button.textContent = copyLabel;
                     button.focus({ preventScroll: true });
                 })
             .catch(
@@ -198,11 +220,11 @@ export function installPreviewImageContextMenu(): () => void {
                  * @param error - 処理に失敗した理由または例外。
                  */
                 (error: unknown) => {
+                    if (generation !== currentGeneration || menu !== nextMenu) return;
                     console.warn(
                         "[Markdown Easy Visual Editor] Preview image copy preparation failed.",
                         error,
                     );
-                    if (generation !== currentGeneration || menu !== nextMenu) return;
                     button.disabled = true;
                     button.textContent = text.unavailable;
                     nextMenu.dataset.state = "error";
@@ -213,10 +235,10 @@ export function installPreviewImageContextMenu(): () => void {
              * イベントでifを実行する。
              */
             () => {
-                if (!prepared) return;
-                const target = prepared;
+                if (!copy) return;
+                const copyTarget = copy;
                 closeMenu();
-                void copyPreparedImage(target)
+                void copyTarget()
                     .then(
                         /** clipboard書き込み結果に応じた通知を表示する。
                          * @param copied - 画像をクリップボードへ書き込めた場合true。
@@ -279,7 +301,7 @@ export function installPreviewImageContextMenu(): () => void {
  */
 function positionMenu(
     menu: HTMLElement,
-    image: HTMLImageElement,
+    image: HTMLElement,
     clientX: number,
     clientY: number,
 ): void {
@@ -298,6 +320,18 @@ function positionMenu(
     );
     menu.style.left = `${Math.round(left)}px`;
     menu.style.top = `${Math.round(top)}px`;
+}
+
+/**
+ * PNGだけをクリップボードへ書き込み、画像以外の形式へ置き換えずに成否を返す。
+ * @param blob - 変換済みのPNG画像。
+ * @returns PNG形式で書き込めた場合はtrue。
+ */
+async function copyPngToClipboard(blob: Blob): Promise<boolean> {
+    const clipboard = navigator.clipboard;
+    if (!clipboard || typeof clipboard.write !== 'function' || !clipboardSupportsType('image/png')) return false;
+    await writeClipboardWithFocusRetry(clipboard, new ClipboardItem({ 'image/png': blob }));
+    return true;
 }
 
 /**

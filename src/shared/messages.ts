@@ -1285,6 +1285,8 @@ export interface Messages {
          * プレビュー画像のコピー操作に使う文言。
          */
         previewImageContextMenu: {
+            /** Mermaid全体をPNGとしてコピーする操作のラベル。 */
+            copyPng: string;
             /**
              * 画像コピー操作のラベル。
              */

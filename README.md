@@ -176,6 +176,8 @@ flowchart TD
   A[Start] --> B[Done]
 ```
 
+In the Markdown preview, right-click a rendered Mermaid diagram and choose **Copy as PNG** to copy the whole diagram as an image. This also works for diagrams displayed as raster images. Preview zoom does not change the copied image size; very large diagrams are scaled down to fit the PNG size limit.
+
 ### Marp slide previews
 
 Add `marp: true` to the YAML front matter at the start of a Markdown file to render it as a Marp slide deck automatically:

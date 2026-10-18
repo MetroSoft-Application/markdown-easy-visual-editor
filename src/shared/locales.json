@@ -398,6 +398,7 @@
       },
       "previewImageContextMenu": {
         "copy": "画像をコピー",
+        "copyPng": "画像としてコピー",
         "preparing": "画像を準備中…",
         "copied": "画像をクリップボードにコピーしました",
         "unavailable": "この画像はコピーできません",
@@ -949,6 +950,7 @@
       },
       "previewImageContextMenu": {
         "copy": "Copy image",
+        "copyPng": "Copy as image",
         "preparing": "Preparing image…",
         "copied": "Image copied to clipboard",
         "unavailable": "This image cannot be copied",
@@ -1500,6 +1502,7 @@
       },
       "previewImageContextMenu": {
         "copy": "复制图像",
+        "copyPng": "复制为图像",
         "preparing": "正在准备图像…",
         "copied": "图像已复制到剪贴板",
         "unavailable": "无法复制此图像",
@@ -2051,6 +2054,7 @@
       },
       "previewImageContextMenu": {
         "copy": "이미지 복사",
+        "copyPng": "이미지로 복사",
         "preparing": "이미지 준비 중…",
         "copied": "이미지를 클립보드에 복사했습니다",
         "unavailable": "이 이미지는 복사할 수 없습니다",
@@ -2602,6 +2606,7 @@
       },
       "previewImageContextMenu": {
         "copy": "Copier l’image",
+        "copyPng": "Copier au l’image",
         "preparing": "Préparation de l’image…",
         "copied": "Image copiée dans le presse-papiers",
         "unavailable": "Cette image ne peut pas être copiée",
@@ -3153,6 +3158,7 @@
       },
       "previewImageContextMenu": {
         "copy": "Bild kopieren",
+        "copyPng": "Als Bild kopieren",
         "preparing": "Bild wird vorbereitet…",
         "copied": "Bild in die Zwischenablage kopiert",
         "unavailable": "Dieses Bild kann nicht kopiert werden",
@@ -3704,6 +3710,7 @@
       },
       "previewImageContextMenu": {
         "copy": "Copiar imagen",
+        "copyPng": "Copiar como imagen",
         "preparing": "Preparando imagen…",
         "copied": "Imagen copiada al portapapeles",
         "unavailable": "No se puede copiar esta imagen",
