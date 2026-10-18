@@ -63,3 +63,7 @@
 ## 1.3.0
 
 - Added automatic Marp slide previews for Markdown files with `marp: true` in YAML front matter.
+
+## 1.4.0
+
+- Changed the mermaid rendering engine to Pele.
