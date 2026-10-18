@@ -24,3 +24,4 @@ sample/assets/*
 !sample/marp/
 sample/marp/*
 !sample/marp/*.md
+!sample/mermaid
