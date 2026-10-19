@@ -783,7 +783,7 @@ describe('HTML export global settings in the extension host',
                         embedImages: false,
                         convertLinkedMarkdown: true,
                         showOutlineSidebar: true,
-                    saveWithoutDialog: false,
+                        saveWithoutDialog: false,
                     });
                 }
             });
