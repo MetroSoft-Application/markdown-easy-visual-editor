@@ -163,11 +163,6 @@ export interface PdfOptions {
     paragraphSpacing?: number;
 
     /**
-     * HTML出力へMarkdown見出しのアウトラインサイドバーを含める設定。
-     */
-    showOutlineSidebar?: boolean;
-
-    /**
      * 出力を保存ダイアログなしで確定する設定。
      */
     saveWithoutDialog: boolean;
@@ -248,6 +243,11 @@ export interface HtmlExportOptions {
      * PDF見出しconvertLinkedMarkdownの文字サイズ。
      */
     convertLinkedMarkdown: boolean;
+
+    /**
+     * HTML出力へMarkdown見出しのアウトラインサイドバーを含める設定。
+     */
+    showOutlineSidebar?: boolean;
 
     /**
      * 出力を保存ダイアログなしで確定する設定。
