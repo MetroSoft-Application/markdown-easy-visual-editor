@@ -464,6 +464,61 @@ describe('HTML export',
             expect(decodeURIComponent(exportedFragment ?? '')).toBe(exportedHeadingId);
         });
 
+        it('adds the Markdown outline sidebar only when the HTML option is enabled',
+            async () => {
+                const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markdown-easy-visual-editor-html-'));
+                temporaryDirectories.push(directory);
+                const markdown = '# Parent\n\n## Child\n\n### Grandchild\n\n## Sibling\n';
+                const sourcePath = path.join(directory, 'outline.md');
+
+                const withOutlineTarget = path.join(directory, 'with-outline.html');
+                vscodeMock.showSaveDialog.mockResolvedValueOnce(new TestUri(withOutlineTarget));
+                await exportHtml({
+                    markdown,
+                    html: renderMarkdownUnsafe(markdown, { remoteImagesEnabled: true, language: 'en' }),
+                    css: '',
+                    options: {
+                        embedImages: false,
+                        convertLinkedMarkdown: false,
+                        showOutlineSidebar: true,
+                        saveWithoutDialog: false,
+                    },
+                    documentUri: new TestUri(sourcePath) as any,
+                    language: 'en'
+                });
+
+                const withOutline = await fs.readFile(withOutlineTarget, 'utf8');
+                expect(withOutline).toContain('class="mve-html-layout mve-html-layout-with-outline"');
+                expect(withOutline).toContain('<aside class="mve-html-outline" aria-label="Outline">');
+                expect(withOutline).toContain('<a href="#parent">Parent</a>');
+                expect(withOutline).toContain('<a href="#child">Child</a>');
+                expect(withOutline).toContain('<a href="#grandchild">Grandchild</a>');
+                expect(withOutline).toContain('<a href="#sibling">Sibling</a>');
+                expect(withOutline).toContain('class="mve-html-outline-children"');
+                expect(withOutline).toContain('<main class="mve-html">');
+
+                const withoutOutlineTarget = path.join(directory, 'without-outline.html');
+                vscodeMock.showSaveDialog.mockResolvedValueOnce(new TestUri(withoutOutlineTarget));
+                await exportHtml({
+                    markdown,
+                    html: renderMarkdownUnsafe(markdown, { remoteImagesEnabled: true, language: 'en' }),
+                    css: '',
+                    options: {
+                        embedImages: false,
+                        convertLinkedMarkdown: false,
+                        showOutlineSidebar: false,
+                        saveWithoutDialog: false,
+                    },
+                    documentUri: new TestUri(sourcePath) as any,
+                    language: 'en'
+                });
+
+                const withoutOutline = await fs.readFile(withoutOutlineTarget, 'utf8');
+                expect(withoutOutline).not.toContain('mve-html-outline');
+                expect(withoutOutline).not.toContain('mve-html-layout-with-outline');
+                expect(withoutOutline).toContain('<main class="mve-html">');
+            });
+
         it('exports beside the Markdown file without opening a save dialog by default',
             async () => {
                 const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markdown-easy-visual-editor-html-'));
