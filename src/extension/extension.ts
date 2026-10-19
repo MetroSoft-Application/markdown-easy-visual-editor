@@ -232,6 +232,7 @@ const GLOBAL_CONFIGURATION_KEYS = {
     html: {
         embedImages: 'html.embedImages',
         convertLinkedMarkdown: 'html.convertLinkedMarkdown',
+        showOutlineSidebar: 'html.showOutlineSidebar',
         saveWithoutDialog: 'html.saveWithoutDialog'
     }
 } as const;
@@ -1266,6 +1267,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                         await this.updateGlobalConfiguration([
                             [GLOBAL_CONFIGURATION_KEYS.html.embedImages, options.embedImages],
                             [GLOBAL_CONFIGURATION_KEYS.html.convertLinkedMarkdown, options.convertLinkedMarkdown],
+                            [GLOBAL_CONFIGURATION_KEYS.html.showOutlineSidebar, options.showOutlineSidebar],
                             [GLOBAL_CONFIGURATION_KEYS.html.saveWithoutDialog, options.saveWithoutDialog]
                         ]);
                         this.broadcastSettings();
@@ -2635,6 +2637,12 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                 legacy?.convertLinkedMarkdown,
                 DEFAULT_HTML_EXPORT_SETTINGS.convertLinkedMarkdown
             ),
+            showOutlineSidebar: this.getGlobalSetting(
+                config,
+                GLOBAL_CONFIGURATION_KEYS.html.showOutlineSidebar,
+                legacy?.showOutlineSidebar,
+                DEFAULT_HTML_EXPORT_SETTINGS.showOutlineSidebar
+            ),
             saveWithoutDialog: this.getGlobalSetting(
                 config,
                 GLOBAL_CONFIGURATION_KEYS.html.saveWithoutDialog,
@@ -2732,6 +2740,9 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
             if ('embedImages' in legacyHtmlRecord) add(GLOBAL_CONFIGURATION_KEYS.html.embedImages, legacyHtml.embedImages);
             if ('convertLinkedMarkdown' in legacyHtmlRecord) {
                 add(GLOBAL_CONFIGURATION_KEYS.html.convertLinkedMarkdown, legacyHtml.convertLinkedMarkdown);
+            }
+            if ('showOutlineSidebar' in legacyHtmlRecord) {
+                add(GLOBAL_CONFIGURATION_KEYS.html.showOutlineSidebar, legacyHtml.showOutlineSidebar);
             }
             if ('saveWithoutDialog' in legacyHtmlRecord) {
                 add(GLOBAL_CONFIGURATION_KEYS.html.saveWithoutDialog, legacyHtml.saveWithoutDialog);
