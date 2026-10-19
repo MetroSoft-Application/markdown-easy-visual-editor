@@ -94,6 +94,10 @@
       {
         "command": "markdownEasyVisualEditor.attachSelectionToCopilotChat",
         "title": "Attach Selection to GitHub Copilot Chat"
+      },
+      {
+        "command": "markdownEasyVisualEditor.pasteSvgFromClipboard",
+        "title": "SVGとして貼り付け"
       }
     ],
     "menus": {
@@ -147,6 +151,11 @@
       ],
       "webview/context": [
         {
+          "command": "markdownEasyVisualEditor.pasteSvgFromClipboard",
+          "when": "webviewId == 'markdownEasyVisualEditor.editor' && webviewSection == 'sourceEditor'",
+          "group": "2_edit"
+        },
+        {
           "command": "markdownEasyVisualEditor.attachSelectionToCopilotChat",
           "when": "webviewId == 'markdownEasyVisualEditor.editor' && webviewSection == 'sourceEditor' && mveHasSelection",
           "group": "3_chat"
@@ -163,6 +172,10 @@
         },
         {
           "command": "markdownEasyVisualEditor.attachSelectionToCopilotChat",
+          "when": "false"
+        },
+        {
+          "command": "markdownEasyVisualEditor.pasteSvgFromClipboard",
           "when": "false"
         }
       ]
