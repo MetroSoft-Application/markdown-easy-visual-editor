@@ -2018,6 +2018,9 @@ export interface Messages {
         /** 文書変更後に選択本文が一致しない場合の案内。 */
         copilotSelectionChanged: string;
 
+        /** クリップボードに有効なSVG文字列がない場合の案内。 */
+        clipboardSvgInvalid: string;
+
         /** 既存タブを再利用せず添付用エディターを開けない場合の案内。 */
         copilotChatEditorUnavailable: string;
     };
@@ -2602,6 +2605,7 @@ function createMessages(language: SupportedLanguage): Messages {
             clientIdMismatch: raw.host.clientIdMismatch,
             copilotChatUnavailable: raw.host.copilotChatUnavailable,
             copilotSelectionChanged: raw.host.copilotSelectionChanged,
+            clipboardSvgInvalid: raw.host.clipboardSvgInvalid,
             copilotChatEditorUnavailable: raw.host.copilotChatEditorUnavailable
         },
         editor: raw.editor,
