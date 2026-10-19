@@ -2,6 +2,7 @@
 .github/**
 .gitignore
 .codex/**
+artifacts/**
 .understand-anything/**
 **/AGENTS.md
 .vscode/**
