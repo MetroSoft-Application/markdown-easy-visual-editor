@@ -6,6 +6,7 @@
 import path from 'node:path';
 import { randomBytes } from 'node:crypto';
 import * as vscode from 'vscode';
+import { HTML_OUTLINE_RESIZER_SCRIPT } from './html';
 
 /** プレビュー内リンクからExtension Hostへ通知する遷移種別とhref。 */
 type PreviewMessage = { type: 'navigate' | 'external'; href: string };
@@ -93,7 +94,10 @@ export function preparePreviewHtml(html: string, webview: vscode.Webview, uri: v
         + `script-src 'nonce-${nonce}'`;
     const head = `<base href="${escapeAttribute(baseUri)}"><meta http-equiv="Content-Security-Policy" content="${escapeAttribute(csp)}">`;
     const safeFragment = JSON.stringify(fragment).replace(/</gu, '\\u003c');
-    const script = `<script nonce="${nonce}">(() => {
+    const outlineResizeScript = html.includes('class="mve-html-outline-resizer"')
+        ? `${HTML_OUTLINE_RESIZER_SCRIPT}\n`
+        : '';
+    const script = `<script nonce="${nonce}">${outlineResizeScript}(() => {
         const vscode = acquireVsCodeApi();
         const reveal = (hash) => {
             try { document.getElementById(decodeURIComponent(hash))?.scrollIntoView(); } catch { /* Ignore invalid fragments. */ }

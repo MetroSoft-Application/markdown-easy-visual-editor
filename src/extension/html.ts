@@ -402,9 +402,10 @@ function buildStandaloneHtml(
     const safeFontFamily = fontFamilyForCss(fontFamily, DEFAULT_PDF_OPTIONS.fontFamily);
     const main = `<main class="mve-html">${body}</main>`;
     const content = options.showOutlineSidebar
-        ? `<div class="mve-html-layout mve-html-layout-with-outline">${buildHtmlOutlineSidebar(markdown, language)}${main}</div>`
+        ? `<div class="mve-html-layout mve-html-layout-with-outline">${buildHtmlOutlineSidebar(markdown, language)}${buildHtmlOutlineResizer(language)}${buildHtmlOutlineShowButton(language)}${main}</div>`
         : main;
-    return `<!doctype html><html lang="${escapeAttribute(language)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${safeCss}\n${HTML_CSS(safeFontFamily)}</style></head><body>${content}</body></html>`;
+    const outlineResizeScript = options.showOutlineSidebar ? `<script>${HTML_OUTLINE_RESIZER_SCRIPT}</script>` : '';
+    return `<!doctype html><html lang="${escapeAttribute(language)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${safeCss}\n${HTML_CSS(safeFontFamily)}</style></head><body>${content}${outlineResizeScript}</body></html>`;
 }
 
 /** HTML出力用アウトラインの階層を保持する。 */
@@ -463,7 +464,21 @@ function buildHtmlOutlineSidebar(markdown: string, language: string): string {
     const content = outline.length
         ? `<nav aria-label="${escapeAttribute(messages.outline)}">${renderHtmlOutlineNodes(buildHtmlOutlineTree(outline))}</nav>`
         : `<p class="mve-html-outline-empty">${escapeHtml(messages.noHeadings)}</p>`;
-    return `<aside class="mve-html-outline" aria-label="${escapeAttribute(messages.outline)}"><div class="mve-html-outline-header">${escapeHtml(messages.outline)}</div>${content}</aside>`;
+    const hideLabel = escapeAttribute(messages.hideOutline);
+    return `<aside class="mve-html-outline" aria-label="${escapeAttribute(messages.outline)}"><div class="mve-html-outline-header"><span>${escapeHtml(messages.outline)}</span><button class="mve-html-outline-toggle mve-html-outline-hide" type="button" aria-label="${hideLabel}" title="${hideLabel}" aria-expanded="true">×</button></div>${content}</aside>`;
+}
+
+/** HTMLアウトラインのサイズを操作するセパレーターを作る。 */
+function buildHtmlOutlineResizer(language: string): string {
+    const label = escapeAttribute(getMessages(language).app.outlineWidth);
+    return `<div class="mve-html-outline-resizer" role="separator" aria-label="${label}" aria-orientation="vertical" aria-valuemin="160" aria-valuemax="480" aria-valuenow="240" tabindex="0"></div>`;
+}
+
+/** アウトライン非表示中に、再表示できる操作ボタンを作る。 */
+function buildHtmlOutlineShowButton(language: string): string {
+    const label = getMessages(language).app.showOutline;
+    const safeLabel = escapeAttribute(label);
+    return `<button class="mve-html-outline-toggle mve-html-outline-show" type="button" aria-label="${safeLabel}" title="${safeLabel}" aria-expanded="true" hidden><span class="mve-html-outline-show-icon" aria-hidden="true"></span></button>`;
 }
 
 /**
@@ -1093,6 +1108,84 @@ function mimeFromPath(filePath: string): string {
 }
 
 
+/** HTMLアウトラインの幅をポインターまたはキーボードで変更するスクリプト本文。 */
+export const HTML_OUTLINE_RESIZER_SCRIPT = `
+(() => {
+  const layout = document.querySelector('.mve-html-layout-with-outline');
+  const separator = layout?.querySelector('.mve-html-outline-resizer');
+  const hideButton = layout?.querySelector('.mve-html-outline-hide');
+  const showButton = layout?.querySelector('.mve-html-outline-show');
+  if (!(layout instanceof HTMLElement) || !(separator instanceof HTMLElement)) return;
+  const canToggleOutline = hideButton instanceof HTMLButtonElement && showButton instanceof HTMLButtonElement;
+
+  const minimumWidth = 160;
+  const maximumWidth = 800;
+  const separatorWidth = 8;
+  const mainMinimumWidth = 240;
+  let width = Number(separator.getAttribute('aria-valuenow')) || 240;
+  let dragOffset = 0;
+
+  const getMaximumWidth = () => {
+    if (window.matchMedia('(max-width: 720px)').matches) return maximumWidth;
+    return Math.max(minimumWidth, Math.min(maximumWidth, layout.clientWidth - separatorWidth - mainMinimumWidth));
+  };
+
+  const updateWidth = (nextWidth) => {
+    const maxWidth = getMaximumWidth();
+    width = Math.min(maxWidth, Math.max(minimumWidth, Math.round(nextWidth)));
+    layout.style.setProperty('--mve-html-outline-width', width + 'px');
+    separator.setAttribute('aria-valuemax', String(maxWidth));
+    separator.setAttribute('aria-valuenow', String(width));
+    separator.setAttribute('aria-valuetext', width + 'px');
+  };
+
+  if (canToggleOutline) {
+    const setOutlineVisible = (visible) => {
+      layout.classList.toggle('mve-html-outline-hidden', !visible);
+      hideButton.setAttribute('aria-expanded', String(visible));
+      showButton.setAttribute('aria-expanded', String(visible));
+      showButton.hidden = visible;
+      updateWidth(width);
+      (visible ? hideButton : showButton).focus();
+    };
+
+    hideButton.addEventListener('click', () => setOutlineVisible(false));
+    showButton.addEventListener('click', () => setOutlineVisible(true));
+  }
+
+  separator.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) return;
+    dragOffset = event.clientX - layout.getBoundingClientRect().left - width;
+    separator.setPointerCapture(event.pointerId);
+    document.body.classList.add('mve-html-is-resizing');
+    event.preventDefault();
+  });
+
+  separator.addEventListener('pointermove', (event) => {
+    if (!separator.hasPointerCapture(event.pointerId)) return;
+    updateWidth(event.clientX - layout.getBoundingClientRect().left - dragOffset);
+  });
+
+  const stopResizing = () => document.body.classList.remove('mve-html-is-resizing');
+  separator.addEventListener('pointerup', stopResizing);
+  separator.addEventListener('pointercancel', stopResizing);
+  separator.addEventListener('lostpointercapture', stopResizing);
+
+  separator.addEventListener('keydown', (event) => {
+    const step = event.shiftKey ? 48 : 16;
+    if (event.key === 'ArrowLeft') updateWidth(width - step);
+    else if (event.key === 'ArrowRight') updateWidth(width + step);
+    else if (event.key === 'Home') updateWidth(minimumWidth);
+    else if (event.key === 'End') updateWidth(getMaximumWidth());
+    else return;
+    event.preventDefault();
+  });
+
+  window.addEventListener('resize', () => updateWidth(width));
+  updateWidth(width);
+})();
+`;
+
 const HTML_CSS = /**
  * HTML出力用の印刷・レイアウト規則を指定フォントで生成する。
  * @param fontFamily - body要素へ適用するCSSフォント指定。
@@ -1101,10 +1194,28 @@ const HTML_CSS = /**
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body { margin: 0; font-family: ${fontFamily}; color: #202124; background: #fff; }
   .mve-html-layout { min-height: 100vh; }
-  .mve-html-layout-with-outline { display: grid; grid-template-columns: 240px minmax(0, 1fr); }
-  .mve-html { min-width: 0; max-width: 100%; margin: 0 auto; padding: 24px; box-sizing: border-box; }
-  .mve-html-outline { position: sticky; top: 0; box-sizing: border-box; height: 100vh; overflow: auto; border-right: 1px solid #dadce0; background: #f8f9fa; }
-  .mve-html-outline-header { padding: 10px 12px; border-bottom: 1px solid #dadce0; color: #5f6368; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+  .mve-html-layout-with-outline { display: grid; grid-template-columns: minmax(160px, var(--mve-html-outline-width, 240px)) 8px minmax(0, 1fr); grid-template-areas: "sidebar divider content"; }
+  .mve-html { grid-area: content; min-width: 0; max-width: 100%; margin: 0 auto; padding: 24px; box-sizing: border-box; }
+  .mve-html-outline { grid-area: sidebar; position: sticky; top: 0; box-sizing: border-box; height: 100vh; overflow: auto; border-right: 1px solid #dadce0; background: #f8f9fa; }
+  .mve-html-layout-with-outline.mve-html-outline-hidden { grid-template-columns: minmax(0, 1fr); grid-template-areas: "toolbar" "content"; }
+  .mve-html-outline-hidden .mve-html-outline, .mve-html-outline-hidden .mve-html-outline-resizer { display: none; }
+  .mve-html-outline-hidden .mve-html-outline-show:not([hidden]) { display: inline-flex; grid-area: toolbar; justify-self: start; margin: 12px 24px 0; }
+  .mve-html-outline-show[hidden] { display: none; }
+  .mve-html-outline-resizer { position: relative; cursor: col-resize; touch-action: none; user-select: none; }
+  .mve-html-outline-resizer { grid-area: divider; }
+  .mve-html-outline-resizer::after { position: absolute; top: 0; bottom: 0; left: 3px; width: 2px; background: transparent; content: ''; }
+  .mve-html-outline-resizer:hover::after, .mve-html-outline-resizer:focus-visible::after { background: #9aa0a6; }
+  .mve-html-outline-resizer:focus-visible { outline: 2px solid #1a73e8; outline-offset: -2px; }
+  body.mve-html-is-resizing, body.mve-html-is-resizing * { cursor: col-resize !important; user-select: none !important; }
+  .mve-html-outline-toggle { align-items: center; justify-content: center; border: 1px solid #dadce0; border-radius: 4px; background: #fff; color: #202124; cursor: pointer; font: inherit; }
+  .mve-html-outline-toggle:hover { background: #e8eaed; }
+  .mve-html-outline-toggle:focus-visible { outline: 2px solid #1a73e8; outline-offset: 2px; }
+  .mve-html-outline-hide { display: inline-flex; width: 28px; height: 28px; padding: 0; font-size: 18px; line-height: 1; }
+  .mve-html-outline-header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; border-bottom: 1px solid #dadce0; color: #5f6368; font-size: 12px; font-weight: 600; letter-spacing: .04em; text-transform: uppercase; }
+  .mve-html-outline-show { width: 36px; height: 36px; padding: 0; }
+  .mve-html-outline-show-icon { position: relative; display: block; width: 18px; height: 16px; box-sizing: border-box; border: 1px solid currentColor; border-radius: 2px; }
+  .mve-html-outline-show-icon::before { position: absolute; top: 0; bottom: 0; left: 5px; border-left: 1px solid currentColor; content: ''; }
+  .mve-html-outline-show-icon::after { position: absolute; top: 3px; left: 9px; width: 5px; height: 1px; background: currentColor; box-shadow: 0 4px 0 currentColor, 0 8px 0 currentColor; content: ''; }
   .mve-html-outline nav { padding: 8px 8px 12px; }
   .mve-html-outline-tree, .mve-html-outline-children { margin: 0; padding: 0; list-style: none; }
   .mve-html-outline-children { margin-left: 18px; }
@@ -1122,5 +1233,7 @@ const HTML_CSS = /**
   @media (max-width: 720px) {
     .mve-html-layout-with-outline { display: block; }
     .mve-html-outline { position: relative; height: auto; max-height: 40vh; border-right: 0; border-bottom: 1px solid #dadce0; }
+    .mve-html-outline-resizer { display: none; }
+    .mve-html-outline-hidden .mve-html-outline-show:not([hidden]) { display: inline-flex; margin: 12px 24px 0; }
   }
 `;
