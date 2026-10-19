@@ -22,10 +22,12 @@ describe('HTML export settings',
                 expect(normalizeHtmlExportSettings({
                     embedImages: true,
                     convertLinkedMarkdown: true,
+                    showOutlineSidebar: true,
                     saveWithoutDialog: false,
                 })).toEqual({
                     embedImages: true,
                     convertLinkedMarkdown: true,
+                    showOutlineSidebar: true,
                     saveWithoutDialog: false,
                 });
             });
@@ -34,15 +36,16 @@ describe('HTML export settings',
             () => {
                 expect(mergeHtmlExportOptions(
                     { ...DEFAULT_HTML_EXPORT_OPTIONS, saveWithoutDialog: false },
-                    { embedImages: true, convertLinkedMarkdown: true, saveWithoutDialog: true },
+                    { embedImages: true, convertLinkedMarkdown: true, showOutlineSidebar: true, saveWithoutDialog: true },
                 )).toEqual({
                     embedImages: true,
                     convertLinkedMarkdown: true,
+                    showOutlineSidebar: true,
                     saveWithoutDialog: true,
                 });
                 expect(mergeHtmlExportOptions(
                     { ...DEFAULT_HTML_EXPORT_OPTIONS, saveWithoutDialog: true },
-                    { embedImages: true, convertLinkedMarkdown: false, saveWithoutDialog: false },
+                    { embedImages: true, convertLinkedMarkdown: false, showOutlineSidebar: false, saveWithoutDialog: false },
                 ).saveWithoutDialog).toBe(false);
             });
     });
