@@ -634,7 +634,7 @@ describe('section link clipboard in the extension host', () => {
 
 describe('HTML export global settings in the extension host',
     () => {
-        it('persists, broadcasts, and reloads all three global choices',
+        it('persists, broadcasts, and reloads all four global choices',
             async () => {
                 const provider = new MarkdownEasyVisualEditorProvider(createContext());
                 await (provider as any).globalSettingsMigration;
@@ -644,16 +644,19 @@ describe('HTML export global settings in the extension host',
                 await setHtmlOptions(provider, document, panel, {
                     embedImages: true,
                     convertLinkedMarkdown: true,
+                    showOutlineSidebar: true,
                     saveWithoutDialog: false,
                 });
 
                 expect(vscodeMock.configurationValues.get('html.embedImages')).toBe(true);
                 expect(vscodeMock.configurationValues.get('html.convertLinkedMarkdown')).toBe(true);
+                expect(vscodeMock.configurationValues.get('html.showOutlineSidebar')).toBe(true);
                 expect(vscodeMock.configurationValues.get('html.saveWithoutDialog')).toBe(false);
                 const notification = panel.webview.postMessage.mock.calls.at(-1)?.[0];
                 expect(notification.settings.htmlOptions).toEqual({
                     embedImages: true,
                     convertLinkedMarkdown: true,
+                    showOutlineSidebar: true,
                     saveWithoutDialog: false,
                 });
 
@@ -662,6 +665,7 @@ describe('HTML export global settings in the extension host',
                 expect(nextSettings.htmlOptions).toEqual({
                     embedImages: true,
                     convertLinkedMarkdown: true,
+                    showOutlineSidebar: true,
                     saveWithoutDialog: false,
                 });
             });
@@ -672,6 +676,7 @@ describe('HTML export global settings in the extension host',
                 vscodeMock.state.set(HTML_OPTIONS_STATE_KEY, {
                     embedImages: true,
                     convertLinkedMarkdown: true,
+                    showOutlineSidebar: true,
                     saveWithoutDialog: false,
                 });
                 vscodeMock.configurationValues.set('html.embedImages', false);
@@ -681,6 +686,7 @@ describe('HTML export global settings in the extension host',
 
                 expect(vscodeMock.configurationValues.get('html.embedImages')).toBe(false);
                 expect(vscodeMock.configurationValues.get('html.convertLinkedMarkdown')).toBe(true);
+                expect(vscodeMock.configurationValues.get('html.showOutlineSidebar')).toBe(true);
                 expect(vscodeMock.configurationValues.get('html.saveWithoutDialog')).toBe(false);
                 expect(vscodeMock.state.get('markdownEasyVisualEditor.globalSettingsMigrated')).toBe(true);
             });
@@ -718,12 +724,14 @@ describe('HTML export global settings in the extension host',
                 const first = setHtmlOptions(provider, document, panel, {
                     embedImages: true,
                     convertLinkedMarkdown: false,
+                    showOutlineSidebar: false,
                     saveWithoutDialog: true,
                 });
                 await waitForStartedUpdates(1);
                 const second = setHtmlOptions(provider, document, panel, {
                     embedImages: false,
                     convertLinkedMarkdown: true,
+                    showOutlineSidebar: true,
                     saveWithoutDialog: false,
                 });
                 expect(started).toEqual([['html.embedImages', true]]);
@@ -732,21 +740,28 @@ describe('HTML export global settings in the extension host',
                 expect(started[1]).toEqual(['html.convertLinkedMarkdown', false]);
                 releases.shift()?.();
                 await waitForStartedUpdates(3);
-                expect(started[2]).toEqual(['html.saveWithoutDialog', true]);
+                expect(started[2]).toEqual(['html.showOutlineSidebar', false]);
                 releases.shift()?.();
                 await waitForStartedUpdates(4);
-                expect(started[3]).toEqual(['html.embedImages', false]);
+                expect(started[3]).toEqual(['html.saveWithoutDialog', true]);
                 releases.shift()?.();
                 await waitForStartedUpdates(5);
-                expect(started[4]).toEqual(['html.convertLinkedMarkdown', true]);
+                expect(started[4]).toEqual(['html.embedImages', false]);
                 releases.shift()?.();
                 await waitForStartedUpdates(6);
-                expect(started[5]).toEqual(['html.saveWithoutDialog', false]);
+                expect(started[5]).toEqual(['html.convertLinkedMarkdown', true]);
+                releases.shift()?.();
+                await waitForStartedUpdates(7);
+                expect(started[6]).toEqual(['html.showOutlineSidebar', true]);
+                releases.shift()?.();
+                await waitForStartedUpdates(8);
+                expect(started[7]).toEqual(['html.saveWithoutDialog', false]);
                 releases.shift()?.();
                 await Promise.all([first, second]);
 
                 expect(vscodeMock.configurationValues.get('html.embedImages')).toBe(false);
                 expect(vscodeMock.configurationValues.get('html.convertLinkedMarkdown')).toBe(true);
+                expect(vscodeMock.configurationValues.get('html.showOutlineSidebar')).toBe(true);
                 expect(vscodeMock.configurationValues.get('html.saveWithoutDialog')).toBe(false);
                 const notifications = panel.webview.postMessage.mock.calls.map(
                     /**
@@ -758,6 +773,7 @@ describe('HTML export global settings in the extension host',
                 expect(notifications.at(-1).settings.htmlOptions).toEqual({
                     embedImages: false,
                     convertLinkedMarkdown: true,
+                    showOutlineSidebar: true,
                     saveWithoutDialog: false,
                 });
                 for (const currentPanel of panels) {
@@ -766,6 +782,7 @@ describe('HTML export global settings in the extension host',
                     expect(lastNotification.settings.htmlOptions).toEqual({
                         embedImages: false,
                         convertLinkedMarkdown: true,
+                        showOutlineSidebar: true,
                         saveWithoutDialog: false,
                     });
                 }
@@ -792,6 +809,7 @@ describe('HTML export global settings in the extension host',
                 await setHtmlOptions(provider, document, panels[0], {
                     embedImages: true,
                     convertLinkedMarkdown: true,
+                    showOutlineSidebar: true,
                     saveWithoutDialog: false,
                 });
 
@@ -815,11 +833,13 @@ describe('HTML export global settings in the extension host',
                 await setHtmlOptions(provider, document, panels[0], {
                     embedImages: false,
                     convertLinkedMarkdown: true,
+                    showOutlineSidebar: true,
                     saveWithoutDialog: true,
                 });
 
                 expect(vscodeMock.configurationValues.get('html.embedImages')).toBe(false);
                 expect(vscodeMock.configurationValues.get('html.convertLinkedMarkdown')).toBe(true);
+                expect(vscodeMock.configurationValues.get('html.showOutlineSidebar')).toBe(true);
                 expect(vscodeMock.configurationValues.get('html.saveWithoutDialog')).toBe(true);
                 const finalSettings = (provider as any).getSettings(document).htmlOptions;
                 for (const panel of panels) {

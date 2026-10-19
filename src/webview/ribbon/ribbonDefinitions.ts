@@ -401,6 +401,12 @@ export const RIBBON_DEFINITIONS: RibbonDefinitions = {
                 path: "ribbon.labels.convertLinkedMarkdown",
             },
         },
+        showOutlineSidebar: {
+            label: {
+                kind: "message",
+                path: "ribbon.labels.showOutlineSidebar",
+            },
+        },
         saveWithoutDialog: {
             label: { kind: "message", path: "ribbon.labels.saveWithoutDialog" },
         },

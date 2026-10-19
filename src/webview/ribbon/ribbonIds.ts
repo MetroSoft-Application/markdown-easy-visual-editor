@@ -103,6 +103,7 @@ export type RibbonItemId =
     | "exportPdf"
     | "embedImages"
     | "convertLinkedMarkdown"
+    | "showOutlineSidebar"
     | "saveWithoutDialog"
     | "exportHtml"
     | "preflight"

@@ -245,6 +245,11 @@ export interface HtmlExportOptions {
     convertLinkedMarkdown: boolean;
 
     /**
+     * HTML出力へMarkdown見出しのアウトラインサイドバーを含める設定。
+     */
+    showOutlineSidebar?: boolean;
+
+    /**
      * 出力を保存ダイアログなしで確定する設定。
      */
     saveWithoutDialog: boolean;
@@ -253,7 +258,10 @@ export interface HtmlExportOptions {
 /**
  * 共有プロトコルへ渡す設定項目と既定値のデータ形状。
  */
-export type HtmlExportSettings = Pick<HtmlExportOptions, 'embedImages' | 'convertLinkedMarkdown' | 'saveWithoutDialog'>;
+export type HtmlExportSettings = Pick<
+    HtmlExportOptions,
+    'embedImages' | 'convertLinkedMarkdown' | 'showOutlineSidebar' | 'saveWithoutDialog'
+>;
 
 /**
  * PDF設定が未指定のときに使う用紙、余白、文字組みの既定値。
@@ -382,6 +390,7 @@ export function isTextReplacementPatternValid(pattern: string): boolean {
 export const DEFAULT_HTML_EXPORT_SETTINGS: HtmlExportSettings = {
     embedImages: false,
     convertLinkedMarkdown: false,
+    showOutlineSidebar: false,
     saveWithoutDialog: true
 };
 
@@ -408,6 +417,9 @@ export function normalizeHtmlExportSettings(value: unknown): HtmlExportSettings 
         convertLinkedMarkdown: typeof candidate.convertLinkedMarkdown === 'boolean'
             ? candidate.convertLinkedMarkdown
             : DEFAULT_HTML_EXPORT_SETTINGS.convertLinkedMarkdown,
+        showOutlineSidebar: typeof candidate.showOutlineSidebar === 'boolean'
+            ? candidate.showOutlineSidebar
+            : DEFAULT_HTML_EXPORT_SETTINGS.showOutlineSidebar,
         saveWithoutDialog: typeof candidate.saveWithoutDialog === 'boolean'
             ? candidate.saveWithoutDialog
             : DEFAULT_HTML_EXPORT_SETTINGS.saveWithoutDialog

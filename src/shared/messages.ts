@@ -555,6 +555,11 @@ export interface Messages {
             convertLinkedMarkdown: string;
 
             /**
+             * HTML出力へMarkdownアウトラインを表示する設定のラベル。
+             */
+            showOutlineSidebar: string;
+
+            /**
              * ダイアログなしで保存・dialog操作のラベルとして表示するローカライズ済み文言。
              */
             saveWithoutDialog: string;
@@ -2201,6 +2206,7 @@ function createMessages(language: SupportedLanguage): Messages {
                 exportHtml: raw.ribbon.labels.exportHtml,
                 embedImages: raw.ribbon.labels.embedImages,
                 convertLinkedMarkdown: raw.ribbon.labels.convertLinkedMarkdown,
+                showOutlineSidebar: raw.ribbon.labels.showOutlineSidebar,
                 saveWithoutDialog: raw.ribbon.labels.saveWithoutDialog
             },
             featureDescriptions: raw.ribbon.labels.featureDescriptions,

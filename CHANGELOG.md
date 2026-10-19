@@ -72,3 +72,7 @@
 ## 1.4.0
 
 - Changed the mermaid rendering engine to Pele.
+
+## 1.4.1
+
+- Added resizing and a hide button to the HTML outline option.
