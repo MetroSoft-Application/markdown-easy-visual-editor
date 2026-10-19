@@ -258,10 +258,10 @@ export interface HtmlExportOptions {
 /**
  * 共有プロトコルへ渡す設定項目と既定値のデータ形状。
  */
-export type HtmlExportSettings = Required<Pick<
+export type HtmlExportSettings = Pick<
     HtmlExportOptions,
     'embedImages' | 'convertLinkedMarkdown' | 'showOutlineSidebar' | 'saveWithoutDialog'
->>;
+>;
 
 /**
  * PDF設定が未指定のときに使う用紙、余白、文字組みの既定値。
