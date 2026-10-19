@@ -489,6 +489,12 @@
           "scope": "application",
           "description": "Convert linked Markdown files to HTML during export."
         },
+        "markdownEasyVisualEditor.html.showOutlineSidebar": {
+          "type": "boolean",
+          "default": false,
+          "scope": "application",
+          "description": "Show a Markdown outline sidebar in exported HTML."
+        },
         "markdownEasyVisualEditor.html.saveWithoutDialog": {
           "type": "boolean",
           "default": true,
