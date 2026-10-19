@@ -747,6 +747,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   savePdfWithoutDialog: pdfOption(),
   embedImages: htmlOption("embedImages"),
   convertLinkedMarkdown: htmlOption("convertLinkedMarkdown"),
+  showOutlineSidebar: htmlOption("showOutlineSidebar"),
   saveWithoutDialog: htmlOption("saveWithoutDialog"),
   exportHtml: button(
     /**
@@ -1109,7 +1110,11 @@ function tableButton(
  * @returns 現在の設定値をチェックボックスへ結び付ける実装。
  */
 function htmlOption(
-  option: "embedImages" | "convertLinkedMarkdown" | "saveWithoutDialog",
+  option:
+    | "embedImages"
+    | "convertLinkedMarkdown"
+    | "showOutlineSidebar"
+    | "saveWithoutDialog",
 ): RibbonControlImplementation {
   return control(
     /**
@@ -1124,7 +1129,7 @@ function htmlOption(
         <label className="ribbon-checkbox">
           <input
             type="checkbox"
-            checked={context.htmlOptions[option]}
+            checked={context.htmlOptions[option] === true}
             onChange={
               /**
                * change操作を表示または編集状態へ反映する。
