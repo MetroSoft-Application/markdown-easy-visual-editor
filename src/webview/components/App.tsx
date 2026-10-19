@@ -4614,6 +4614,8 @@ export function App(): React.JSX.Element {
       pendingHtmlSettings.embedImages === nextHtmlSettings.embedImages &&
       pendingHtmlSettings.convertLinkedMarkdown ===
         nextHtmlSettings.convertLinkedMarkdown &&
+      pendingHtmlSettings.showOutlineSidebar ===
+        nextHtmlSettings.showOutlineSidebar &&
       pendingHtmlSettings.saveWithoutDialog ===
         nextHtmlSettings.saveWithoutDialog
     ) {
@@ -4659,6 +4661,7 @@ export function App(): React.JSX.Element {
       currentSettings.embedImages !== nextSettings.embedImages ||
       currentSettings.convertLinkedMarkdown !==
         nextSettings.convertLinkedMarkdown ||
+      currentSettings.showOutlineSidebar !== nextSettings.showOutlineSidebar ||
       currentSettings.saveWithoutDialog !== nextSettings.saveWithoutDialog
     ) {
       pendingHtmlOptionsRef.current = nextSettings;
