@@ -146,6 +146,7 @@ export const RIBBON_LAYOUT: RibbonLayoutDefinition = {
                     itemIds: [
                         "embedImages",
                         "convertLinkedMarkdown",
+                        "showOutlineSidebar",
                         "saveWithoutDialog",
                         "exportHtml",
                     ],
