@@ -103,7 +103,7 @@
         "exportHtml": "HTML出力",
         "embedImages": "画像をHTMLに埋め込む",
         "convertLinkedMarkdown": "リンク先Markdownも変換",
-        "showOutlineSidebar": "アウトラインを表示",
+        "showOutlineSidebar": "アウトラインサイドバーを表示",
         "saveWithoutDialog": "同じフォルダへ直接出力",
         "preflight": "出力前チェック",
         "shortcuts": "ショートカット",
