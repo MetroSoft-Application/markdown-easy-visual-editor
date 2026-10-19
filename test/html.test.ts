@@ -519,6 +519,36 @@ describe('HTML export',
                 expect(withoutOutline).toContain('<main class="mve-html">');
             });
 
+        it('adds the outline sidebar to linked Markdown HTML when conversion is enabled',
+            async () => {
+                const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markdown-easy-visual-editor-html-'));
+                temporaryDirectories.push(directory);
+                await fs.writeFile(path.join(directory, 'child.md'), '# Child\n\n## Details\n', 'utf8');
+                const target = path.join(directory, 'index.html');
+                const markdown = '[Child](child.md)';
+                vscodeMock.showSaveDialog.mockResolvedValue(new TestUri(target));
+
+                const result = await exportHtml({
+                    markdown,
+                    html: renderMarkdownUnsafe(markdown, { remoteImagesEnabled: true, language: 'en' }),
+                    css: '',
+                    options: {
+                        embedImages: false,
+                        convertLinkedMarkdown: true,
+                        showOutlineSidebar: true,
+                        saveWithoutDialog: false,
+                    },
+                    documentUri: new TestUri(path.join(directory, 'main.md')) as any,
+                    language: 'en'
+                });
+
+                expect(result?.paths).toHaveLength(2);
+                const child = await fs.readFile(path.join(directory, 'child.html'), 'utf8');
+                expect(child).toContain('<aside class="mve-html-outline" aria-label="Outline">');
+                expect(child).toContain('<a href="#child">Child</a>');
+                expect(child).toContain('<a href="#details">Details</a>');
+            });
+
         it('exports beside the Markdown file without opening a save dialog by default',
             async () => {
                 const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markdown-easy-visual-editor-html-'));
