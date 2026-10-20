@@ -76,3 +76,7 @@
 ## 1.4.1
 
 - Added resizing and a hide button to the HTML outline option.
+
+## 1.4.2
+
+- Added the ability to paste SVG images from the clipboard in the source editor.
