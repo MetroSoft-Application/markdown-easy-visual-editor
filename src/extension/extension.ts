@@ -27,6 +27,7 @@ import {
     type FontFamilySettings
 } from '../shared/fontFamily';
 import { resolveImageDirectoryRule } from '../shared/imageDirectory';
+import { normalizeSvgClipboardText } from '../shared/svgClipboard';
 import {
     collectLocalResourceReferences,
     headingLineForAnchor,
@@ -431,6 +432,12 @@ export function activate(context: vscode.ExtensionContext): void {
              * @returns 添付処理が生成する結果。
              */
             () => provider.attachSelectionToCopilotChat()),
+        vscode.commands.registerCommand('markdownEasyVisualEditor.pasteSvgFromClipboard',
+            /**
+             * Webviewのソースエディターで開いたコンテキストメニューからSVG文字列を画像として貼り付ける。
+             * @returns SVGの保存と画像リンク挿入要求が完了したときに解決する。
+             */
+            () => provider.pasteSvgFromClipboard()),
         vscode.commands.registerCommand('markdownEasyVisualEditor.insertImage',
 
             () => provider.sendCommand('insertImage')),
@@ -818,6 +825,48 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
             'default',
             vscode.ViewColumn.Beside
         );
+    }
+
+    /**
+     * OSクリップボードのSVG文字列を既存の画像保存経路で.svgへ保存し、
+     * WebviewへMarkdown画像リンクの挿入を要求する。
+     * @returns 保存と挿入要求が完了したときに解決する。
+     */
+    async pasteSvgFromClipboard(): Promise<void> {
+        const panel = this.activePanel;
+        const document = this.activeDocument;
+        if (!panel || !document) return;
+
+        const messages = this.getMessages();
+        try {
+            const clipboardText = await vscode.env.clipboard.readText();
+            const svg = normalizeSvgClipboardText(clipboardText);
+            if (!svg) {
+                void vscode.window.showWarningMessage(messages.host.clipboardSvgInvalid);
+                return;
+            }
+
+            // 右クリック前までのWebview編集をHostへ反映してから、同じ画像保存先規則を使う。
+            await this.waitForWebviewEdits(document);
+            const paths = await this.saveImages(document, [
+                {
+                    name: 'clipboard.svg',
+                    mime: 'image/svg+xml',
+                    base64: Buffer.from(svg, 'utf8').toString('base64')
+                }
+            ]);
+            if (!paths.length) return;
+
+            // 既存の画像保存応答を再利用し、現在のCodeMirror選択位置へMarkdown画像リンクを挿入する。
+            this.post(panel, {
+                type: 'imagesSaved',
+                requestId: `clipboard-svg-${randomUUID()}`,
+                paths
+            });
+        } catch (error) {
+            const detail = error instanceof Error ? error.message : String(error);
+            void vscode.window.showErrorMessage(`${messages.host.errorPrefix}: ${detail}`);
+        }
     }
 
     /**
