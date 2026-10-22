@@ -80,3 +80,8 @@
 ## 1.4.2
 
 - Added the ability to paste SVG images from the clipboard in the source editor.
+
+## 1.4.3
+
+- Added image resizing to Marp slide previews.
+- Fixed Marp previews returning to the first slide while the Markdown is being updated.
