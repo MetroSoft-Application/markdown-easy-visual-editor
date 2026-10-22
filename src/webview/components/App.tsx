@@ -67,7 +67,9 @@ import {
   alignImageInMarkdown,
   resetImageSizeInMarkdown,
   resizeImageInMarkdown,
+  resizeMarpImageInMarkdown,
   type ImageAlignment,
+  type MarpImageResizeTarget,
 } from "../../shared/imageResize";
 import { getMessages, type Messages } from "../../shared/messages";
 import { hasMarpFrontMatterCandidate } from "../../shared/marpFrontMatter";
@@ -678,9 +680,10 @@ export function App(): React.JSX.Element {
   const marpDetectionLoading = marpDetectionUnresolved;
   const isMarpDocument =
     hasMarpFrontMatterCandidateValue &&
-    marpDetectionResolvedForCurrentMarkdown &&
-    !marpDetectionPending &&
+    !marpDetectionFailed &&
     isMarpDetected;
+  // 再判定中も確定済みのスライドを保持し、表示の取り外しによるスクロール位置の縮退を防ぐ。
+  const marpPreviewMarkdown = marpDetectionMarkdown ?? previewMarkdown;
   const markdownSnapshotEnabled =
     initialized &&
     (!previewVisible || previewMarkdown === markdown || exportStageRequested) &&
@@ -777,12 +780,12 @@ export function App(): React.JSX.Element {
         vscode.postMessage({
           type: "startupReady",
           clientId: clientIdRef.current,
-          markdownLength: previewMarkdown.length,
+          markdownLength: previewMarkdownForMarpRef.current.length,
           metrics: collectStartupMetrics(startupInitReceivedAtRef.current),
         });
       }
     },
-    [initialized, previewMarkdown, settings.startupProbe],
+    [initialized, settings.startupProbe],
   );
 
   useEffect(
@@ -1063,8 +1066,8 @@ export function App(): React.JSX.Element {
 
   const outline = useMemo(
     () =>
-      isMarpDocument ? getOutline(previewMarkdown) : previewSnapshot.outline,
-    [isMarpDocument, previewMarkdown, previewSnapshot.outline],
+      isMarpDocument ? getOutline(marpPreviewMarkdown) : previewSnapshot.outline,
+    [isMarpDocument, marpPreviewMarkdown, previewSnapshot.outline],
   );
   const outlineStructureSignature = useMemo(
     /**
@@ -4192,6 +4195,9 @@ export function App(): React.JSX.Element {
   /** 現在のレイアウトに表示中の本文・プレビュー位置を保存する。
    */
   function captureVisibleViewports(): void {
+    const currentMarpViewport = marpPreviewRef.current?.isMarkdownRendered(localTextRef.current)
+      ? marpPreviewRef.current.captureViewport()
+      : undefined;
     if (mode === "split" && splitView !== "preview") {
       viewportStateRef.current.source =
         sourceRef.current?.getViewport() ?? viewportStateRef.current.source;
@@ -4199,14 +4205,14 @@ export function App(): React.JSX.Element {
     if (mode === "split" && splitView !== "text" && splitPreviewRef.current) {
       viewportStateRef.current.splitPreview =
         (isMarpDocument
-          ? marpPreviewRef.current?.captureViewport()
+          ? currentMarpViewport
           : capturePreviewViewport(splitPreviewRef.current)) ??
         viewportStateRef.current.splitPreview;
     }
     if (mode === "preview" && editorAreaRef.current) {
       viewportStateRef.current.previewOnly =
         (isMarpDocument
-          ? marpPreviewRef.current?.captureViewport()
+          ? currentMarpViewport
           : capturePreviewViewport(editorAreaRef.current)) ??
         viewportStateRef.current.previewOnly;
     }
@@ -4299,7 +4305,9 @@ export function App(): React.JSX.Element {
       return;
     const preview = splitPreviewRef.current;
     if (!preview) return;
-    const previewAnchor = isMarpDocument
+    const marpPreview = marpPreviewRef.current;
+    if (marpPreview && !marpPreview.isMarkdownRendered(localTextRef.current)) return;
+    const previewAnchor = marpPreview
       ? { offset: anchor.offset, topOffset: 0 }
       : {
           offset: anchor.offset,
@@ -4360,7 +4368,9 @@ export function App(): React.JSX.Element {
         lastPreviewUserScrollAtRef.current = performance.now();
       }
       if (programmatic) programmaticPreviewScrollsRef.current.delete(container);
-      const anchor = marpPreviewRef.current?.captureViewport();
+      const anchor = marpPreviewRef.current?.isMarkdownRendered(localTextRef.current)
+        ? marpPreviewRef.current.captureViewport()
+        : undefined;
       if (anchor) viewportStateRef.current[kind] = anchor;
       if (!programmatic) {
         previewUserScrollPendingRef.current.delete(container);
@@ -4510,6 +4520,9 @@ export function App(): React.JSX.Element {
    */
   function schedulePreviewToSourceSync(anchor: PreviewViewportAnchor): void {
     if (!scrollSyncEnabledRef.current) return;
+    const marpSync = Boolean(marpPreviewRef.current);
+    const sourceMarkdown = localTextRef.current;
+    if (marpSync && !marpPreviewRef.current?.isMarkdownRendered(sourceMarkdown)) return;
     pendingPreviewToSourceAnchorRef.current = anchor;
     if (previewToSourceSyncTimerRef.current !== undefined) return;
     const delay = Math.max(
@@ -4527,6 +4540,10 @@ export function App(): React.JSX.Element {
         const pending = pendingPreviewToSourceAnchorRef.current;
         pendingPreviewToSourceAnchorRef.current = undefined;
         if (!scrollSyncEnabledRef.current || !pending) return;
+        if (marpSync && (
+          sourceMarkdown !== localTextRef.current ||
+          !marpPreviewRef.current?.isMarkdownRendered(sourceMarkdown)
+        )) return;
         mveDebug("preview.scroll.sync-source", { pending });
         restoreSource(pending);
       },
@@ -4540,6 +4557,9 @@ export function App(): React.JSX.Element {
    */
   function scheduleSourceToPreviewSync(anchor: EditorViewportAnchor): void {
     if (!scrollSyncEnabledRef.current) return;
+    const marpSync = Boolean(marpPreviewRef.current);
+    const sourceMarkdown = localTextRef.current;
+    if (marpSync && !marpPreviewRef.current?.isMarkdownRendered(sourceMarkdown)) return;
     pendingSourceToPreviewAnchorRef.current = anchor;
     if (sourceToPreviewSyncTimerRef.current !== undefined) return;
     const delay = Math.max(
@@ -4558,10 +4578,14 @@ export function App(): React.JSX.Element {
         pendingSourceToPreviewAnchorRef.current = undefined;
         const preview = splitPreviewRef.current;
         if (!scrollSyncEnabledRef.current || !pending || !preview) return;
-        if (isMarpDocument) {
-          marpPreviewRef.current?.scrollToOffset(pending.offset, 0, true);
+        if (marpSync && sourceMarkdown !== localTextRef.current) return;
+        const marpPreview = marpPreviewRef.current;
+        if (marpPreview) {
+          if (!marpPreview.isMarkdownRendered(localTextRef.current)) return;
+          marpPreview.scrollToOffset(pending.offset, 0, true);
           return;
         }
+        if (marpSync) return;
         programmaticPreviewScrollsRef.current.add(preview);
         if (pending.scrollRatio !== undefined) {
           restorePreviewScrollRatio(preview, pending.scrollRatio);
@@ -4731,7 +4755,7 @@ export function App(): React.JSX.Element {
    */
   function handlePreviewRendered(kind: "splitPreview" | "previewOnly"): void {
     const currentRenderedMarkdown = isMarpDocument
-      ? previewMarkdown
+      ? marpPreviewMarkdown
       : renderedPreviewMarkdown;
     if (
       settings.startupProbe &&
@@ -4843,6 +4867,7 @@ export function App(): React.JSX.Element {
     kind: "splitPreview" | "previewOnly",
     container: HTMLElement,
   ): void {
+    if (marpPreviewRef.current && !marpPreviewRef.current.isMarkdownRendered(localTextRef.current)) return;
     const staged = pendingPreviewViewportRestoreRef.current[kind];
     const anchor = staged ?? viewportStateRef.current[kind];
     if (!anchor) return;
@@ -5147,6 +5172,8 @@ export function App(): React.JSX.Element {
   }
 
   const imageResizeEnabled = mode === "split" && splitView !== "text";
+  const marpImageResizeEnabled =
+    (imageResizeEnabled || mode === "preview") && marpPreviewMarkdown === markdown;
   const splitPreviewImageResize = useCallback(
     /**
      * @param imageIndex - Markdown本文内でサイズを変更するプレビュー画像の0始まりインデックス。
@@ -5156,6 +5183,51 @@ export function App(): React.JSX.Element {
       if (imageResizeEnabled) resizePreviewImage(imageIndex, width);
     },
     [imageResizeEnabled, mode, splitView],
+  );
+  const splitMarpPreviewImageResize = useCallback(
+    (
+      imageIndex: number,
+      width: number,
+      sourceMarkdown: string,
+      target: MarpImageResizeTarget,
+    ) => {
+      if (
+        imageResizeEnabled &&
+        sourceMarkdown === localTextRef.current
+      ) {
+        const viewportAnchor = marpPreviewRef.current?.captureViewport();
+        if (viewportAnchor) {
+          viewportStateRef.current.splitPreview = viewportAnchor;
+        }
+        updateMarkdownRef.current(
+          resizeMarpImageInMarkdown(localTextRef.current, imageIndex, width, target),
+        );
+      }
+    },
+    [imageResizeEnabled, mode, splitView],
+  );
+  const previewMarpPreviewImageResize = useCallback(
+    (
+      imageIndex: number,
+      width: number,
+      sourceMarkdown: string,
+      target: MarpImageResizeTarget,
+    ) => {
+      if (
+        marpImageResizeEnabled &&
+        mode === "preview" &&
+        sourceMarkdown === localTextRef.current
+      ) {
+        const viewportAnchor = marpPreviewRef.current?.captureViewport();
+        if (viewportAnchor) {
+          viewportStateRef.current.previewOnly = viewportAnchor;
+        }
+        updateMarkdownRef.current(
+          resizeMarpImageInMarkdown(localTextRef.current, imageIndex, width, target),
+        );
+      }
+    },
+    [marpImageResizeEnabled, mode],
   );
   const splitPreviewImageReset = useCallback(
     /**
@@ -5200,9 +5272,14 @@ export function App(): React.JSX.Element {
     /**
      * Marpで現在表示中のスライド範囲を既存の本文スクロール同期へ渡す。
      * @param range - 表示中のスライドとMarkdown本文の対応範囲。
+     * @param sourceMarkdown - スライド位置の生成元。現在本文と異なる間は同期を保留する。
      */
-    (range: MarpSlideSourceRange) => {
-      if (mode !== "split" || splitView !== "both") return;
+    (range: MarpSlideSourceRange, sourceMarkdown: string) => {
+      if (
+        mode !== "split" ||
+        splitView !== "both" ||
+        sourceMarkdown !== localTextRef.current
+      ) return;
       schedulePreviewToSourceSync({ offset: range.startOffset, topOffset: 0 });
     },
     [mode, splitView],
@@ -5211,9 +5288,10 @@ export function App(): React.JSX.Element {
     /**
      * Marpのプレビュー専用表示で現在のスライド位置を既存の同期経路へ渡す。
      * @param range - 表示中のスライドとMarkdown本文の対応範囲。
+     * @param sourceMarkdown - スライド位置の生成元。現在本文と異なる間は同期を保留する。
      */
-    (range: MarpSlideSourceRange) => {
-      if (mode !== "preview") return;
+    (range: MarpSlideSourceRange, sourceMarkdown: string) => {
+      if (mode !== "preview" || sourceMarkdown !== localTextRef.current) return;
       schedulePreviewToSourceSync({ offset: range.startOffset, topOffset: 0 });
     },
     [mode],
@@ -5222,7 +5300,10 @@ export function App(): React.JSX.Element {
     () => handlePreviewRendered("splitPreview"),
     [
       initialized,
+      isMarpDocument,
+      marpPreviewMarkdown,
       mode,
+      previewMarkdown,
       renderedPreviewMarkdown,
       settings.startupProbe,
       splitView,
@@ -5709,12 +5790,15 @@ export function App(): React.JSX.Element {
                 {isMarpDocument ? (
                   <MarpPreview
                     ref={marpPreviewRef}
-                    markdown={previewMarkdown}
+                    markdown={marpPreviewMarkdown}
                     settings={settings}
                     messages={messages}
                     zoom={zoom}
                     onStartupStage={reportMarpStartupStage}
                     scrollContainerRef={splitPreviewRef}
+                    onImageResize={
+                      marpImageResizeEnabled ? splitMarpPreviewImageResize : undefined
+                    }
                     onNavigate={splitPreviewNavigate}
                     onRendered={splitPreviewRendered}
                     onActiveSlide={splitMarpActiveSlide}
@@ -5761,12 +5845,15 @@ export function App(): React.JSX.Element {
               <MarpPreview
                 ref={marpPreviewRef}
                 className="mve-marp-preview-print"
-                markdown={previewMarkdown}
+                markdown={marpPreviewMarkdown}
                 settings={settings}
                 messages={messages}
                 zoom={zoom}
                 onStartupStage={reportMarpStartupStage}
                 scrollContainerRef={editorAreaRef}
+                onImageResize={
+                  marpImageResizeEnabled ? previewMarpPreviewImageResize : undefined
+                }
                 showZoomControls
                 onZoom={adjustZoom}
                 onNavigate={(href, workspaceRooted = false, internal = false) =>

@@ -12,6 +12,7 @@ import React, {
 } from "react";
 import type { WebviewSettings } from "../../shared/protocol";
 import type { Messages } from "../../shared/messages";
+import type { MarpImageResizeTarget } from "../../shared/imageResize";
 import type { PreviewViewportAnchor } from "../preview/scrollAnchors";
 import { ImagePreviewDialog } from "../components/RenderedMarkdown";
 import type { MarpRenderResult, MarpSlideSourceRange } from "./marpRenderer";
@@ -21,6 +22,32 @@ import { getMarpWorker, retainMarpWorker, terminateMarpWorker } from "./marpWork
 
 const RENDER_DEBOUNCE_MS = 100;
 let frameScriptValue: string | undefined;
+
+function isValidMarpImageResizeTarget(
+  sourceMarkdown: string,
+  target: MarpImageResizeTarget | undefined,
+): target is MarpImageResizeTarget {
+  if (
+    !target ||
+    !Number.isSafeInteger(target.start) ||
+    !Number.isSafeInteger(target.end) ||
+    target.start < 0 ||
+    target.end <= target.start ||
+    target.end > sourceMarkdown.length
+  ) {
+    return false;
+  }
+  const sourceText = sourceMarkdown.slice(target.start, target.end);
+  if (target.kind === "html") return /^<img\b/i.test(sourceText);
+  return target.kind === "markdown" &&
+    sourceText.startsWith("![") &&
+    Number.isSafeInteger(target.altStart) &&
+    Number.isSafeInteger(target.altEnd) &&
+    (target.altStart ?? -1) >= target.start + 2 &&
+    (target.altEnd ?? Number.POSITIVE_INFINITY) >= (target.altStart ?? 0) &&
+    (target.altEnd ?? Number.POSITIVE_INFINITY) <= target.end &&
+    sourceMarkdown[target.altEnd ?? -1] === "]";
+}
 
 interface MarpWorkerResponse extends MarpRenderResult {
   id: number;
@@ -38,6 +65,12 @@ interface FrameMessage {
   token?: string;
   type?: string;
   renderId?: number;
+  imageIndex?: number;
+  imageReference?: MarpImageResizeTarget;
+  width?: number;
+  enabled?: boolean;
+  visible?: boolean;
+  resizeLabel?: string;
   height?: number;
   slides?: FrameSlideMetric[];
   sourceRanges?: MarpSlideSourceRange[];
@@ -64,6 +97,8 @@ export interface MarpPreviewHandle {
   ): void;
   /** 現在のスライドとスクロール比を復元用アンカーとして返す。 */
   captureViewport(): PreviewViewportAnchor | undefined;
+  /** 指定本文と、iframeへ反映済みのスライド位置情報の生成元が一致するかを返す。 */
+  isMarkdownRendered(sourceMarkdown: string): boolean;
 }
 
 /**
@@ -80,8 +115,15 @@ export interface MarpPreviewProps {
   onZoom?: (delta: number) => void;
   onStartupStage?: (stage: string, detail?: string) => void;
   onNavigate: (href: string, workspaceRooted?: boolean) => void;
+  onImageResize?: (
+    imageIndex: number,
+    width: number,
+    sourceMarkdown: string,
+    target: MarpImageResizeTarget,
+  ) => void;
   onRendered?: () => void;
-  onActiveSlide?: (range: MarpSlideSourceRange) => void;
+  /** 表示済みスライドの範囲と、その位置情報を生成した本文を通知する。 */
+  onActiveSlide?: (range: MarpSlideSourceRange, sourceMarkdown: string) => void;
 }
 
 /**
@@ -101,6 +143,7 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
       onZoom,
       onStartupStage,
       onNavigate,
+      onImageResize,
       onRendered,
       onActiveSlide,
     },
@@ -116,12 +159,26 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
     const pendingScrollOffsetRef = useRef<number | undefined>(undefined);
     const awaitingZoomLayoutRef = useRef(false);
     const tokenRef = useRef(createFrameToken());
+    const imageResizeEnabledRef = useRef(Boolean(onImageResize));
+    imageResizeEnabledRef.current = Boolean(onImageResize);
+    const imageResizeControlsVisibleRef = useRef(
+      settings.previewImageResizeControlsVisible !== false,
+    );
+    imageResizeControlsVisibleRef.current =
+      settings.previewImageResizeControlsVisible !== false;
+    const imageResizeLabelRef = useRef(messages.app.imageControls.resize);
+    imageResizeLabelRef.current = messages.app.imageControls.resize;
     const latestResultRef = useRef<MarpWorkerResponse | undefined>(undefined);
     const lastViewportAnchorRef = useRef<PreviewViewportAnchor | undefined>(undefined);
     const pendingScrollTopOffsetRef = useRef(0);
     const frameReadyRef = useRef(false);
     const metricsRef = useRef<FrameSlideMetric[]>([]);
     const rangesRef = useRef<MarpSlideSourceRange[]>([]);
+    const currentMarkdownRef = useRef(markdown);
+    currentMarkdownRef.current = markdown;
+    const renderedMarkdownRef = useRef<string | undefined>(undefined);
+    // ranges/metricsと同じ世代の本文を、iframeのlayout受理時だけ更新する。
+    const layoutMarkdownRef = useRef<string | undefined>(undefined);
     const activeSlideRef = useRef(-1);
     const userScrollPendingRef = useRef(false);
     const programmaticScrollRef = useRef(false);
@@ -146,6 +203,23 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
       workerRef.current = undefined;
     }, []);
 
+    const postImageResizeConfiguration = useCallback(() => {
+      const frame = frameRef.current?.contentWindow;
+      if (!frameReadyRef.current || !frame) return;
+      frame.postMessage(
+        {
+          channel: "mve-marp",
+          token: tokenRef.current,
+          type: "image-resize-configuration",
+          enabled: imageResizeEnabledRef.current &&
+            renderedMarkdownRef.current === currentMarkdownRef.current,
+          visible: imageResizeControlsVisibleRef.current,
+          resizeLabel: imageResizeLabelRef.current,
+        },
+        "*",
+      );
+    }, []);
+
     const postRenderToFrame = useCallback(() => {
       const result = latestResultRef.current;
       const frame = frameRef.current?.contentWindow;
@@ -160,10 +234,23 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
           css: result.css,
           sourceRanges: result.sourceRanges,
           slideLabels: result.slides.map((_, index) => messages.app.marpPreview.slideLabel(index + 1)),
+          imageResizeEnabled: imageResizeEnabledRef.current,
+          imageResizeControlsVisible: imageResizeControlsVisibleRef.current,
+          resizeLabel: imageResizeLabelRef.current,
         },
         "*",
       );
     }, [messages.app.marpPreview.slideLabel]);
+
+    useEffect(() => {
+      postImageResizeConfiguration();
+    }, [
+      markdown,
+      onImageResize,
+      postImageResizeConfiguration,
+      settings.previewImageResizeControlsVisible,
+      messages.app.imageControls.resize,
+    ]);
 
     const scrollToOffset = useCallback(
       (offset: number, topOffset = 0, onlyIfSlideChanges = false) => {
@@ -217,7 +304,11 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
       return anchor;
     }, [getScrollContainer, zoom]);
 
-    useImperativeHandle(ref, () => ({ scrollToOffset, captureViewport }), [scrollToOffset, captureViewport]);
+    useImperativeHandle(ref, () => ({
+      scrollToOffset,
+      captureViewport,
+      isMarkdownRendered: (sourceMarkdown: string) => layoutMarkdownRef.current === sourceMarkdown,
+    }), [scrollToOffset, captureViewport]);
 
     useEffect(() => {
       onStartupStage?.("preview-mounted");
@@ -247,11 +338,8 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
     useLayoutEffect(() => {
       const currentGeneration = ++generationRef.current;
       assetDataUrlCacheRef.current.clear();
-      latestResultRef.current = undefined;
-      metricsRef.current = [];
-      rangesRef.current = [];
-      activeSlideRef.current = -1;
-      setHasRenderedSlides(false);
+      // 次の描画が完了するまで現在のスライドと位置情報を保持する。
+      // ローディング要素の挿入と表示高さの消失によるスクロールの跳躍を防ぐ。
       setError(undefined);
       let settled = false;
       let resolvingAssets = false;
@@ -339,7 +427,7 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
               if (settled || generationRef.current !== generation) return;
               settled = true;
               latestResultRef.current = resolvedResponse;
-              rangesRef.current = resolvedResponse.sourceRanges;
+              renderedMarkdownRef.current = source;
               setRenderDurationMs(resolvedResponse.renderDurationMs);
               setRenderCount((count) => count + 1);
               onStartupStage?.("asset-resolution-complete");
@@ -439,7 +527,34 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
         if (message.type === "ready") {
           frameReadyRef.current = true;
           onStartupStage?.("iframe-ready");
+          postImageResizeConfiguration();
           postRenderToFrame();
+          return;
+        }
+        if (message.type === "resize-image") {
+          const result = latestResultRef.current;
+          const sourceMarkdown = renderedMarkdownRef.current;
+          if (
+            !onImageResize ||
+            !result ||
+            sourceMarkdown === undefined ||
+            sourceMarkdown !== currentMarkdownRef.current ||
+            message.renderId !== result.id ||
+            !Number.isInteger(message.imageIndex) ||
+            (message.imageIndex ?? -1) < 0 ||
+            !isValidMarpImageResizeTarget(sourceMarkdown, message.imageReference) ||
+            !Number.isInteger(message.width) ||
+            (message.width ?? 0) < 48 ||
+            (message.width ?? 0) > 10000
+          ) {
+            return;
+          }
+          onImageResize(
+            message.imageIndex as number,
+            message.width as number,
+            sourceMarkdown,
+            message.imageReference,
+          );
           return;
         }
         if (message.type === "render-stage" && typeof message.stage === "string") {
@@ -545,10 +660,17 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
           setFrameHeight(Math.max(320, Math.ceil(message.height ?? 0)));
           metricsRef.current = message.slides;
           rangesRef.current = message.sourceRanges;
+          layoutMarkdownRef.current = renderedMarkdownRef.current;
           onStartupStage?.("iframe-layout-received", `slides=${message.slides.length}`);
           setHasRenderedSlides(true);
-          setError(undefined);
-          onRendered?.();
+          // 旧スライドの再計測では、最新の描画失敗や復元待ちを完了扱いにしない。
+          if (
+            result.id === requestIdRef.current &&
+            renderedMarkdownRef.current === currentMarkdownRef.current
+          ) {
+            setError(undefined);
+            onRendered?.();
+          }
           if (pendingScrollOffsetRef.current !== undefined) {
             const pendingOffset = pendingScrollOffsetRef.current;
             const pendingTopOffset = pendingScrollTopOffsetRef.current;
@@ -601,7 +723,9 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
         }
         if (userInitiated && !programmaticScrollRef.current) {
           const range = rangesRef.current[metric.index];
-          if (range) onActiveSlide?.(range);
+          if (range && layoutMarkdownRef.current !== undefined) {
+            onActiveSlide?.(range, layoutMarkdownRef.current);
+          }
         }
       }
     }, [getScrollContainer, messages.app.marpPreview.failed, onActiveSlide, onNavigate, onRendered, onStartupStage, postRenderToFrame, scrollToOffset, zoom]);
@@ -661,10 +785,12 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
         }
         if (userInitiated && !programmaticScrollRef.current) {
           const range = rangesRef.current[metric.index];
-          if (range) onActiveSlide?.(range);
+          if (range && layoutMarkdownRef.current !== undefined) {
+            onActiveSlide?.(range, layoutMarkdownRef.current);
+          }
         }
       }
-    }, [getScrollContainer, onActiveSlide, zoom]);
+    }, [getScrollContainer, onActiveSlide, onImageResize, postImageResizeConfiguration, zoom]);
 
     return (
       <div

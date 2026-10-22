@@ -96,6 +96,10 @@ async (request, response) => {
     if (fileName === 'marp-worker-race.js') {
       response.writeHead(200, { 'Content-Type': 'text/javascript; charset=utf-8' }).end(`self.addEventListener("message", event => {
         const markdown = event.data.markdown;
+        if (markdown.includes("Failed generation")) {
+          self.postMessage({ id: event.data.id, error: "Simulated update failure" });
+          return;
+        }
         const heading = markdown.includes("Latest generation") ? "Latest generation" : "Stale generation";
         const delay = heading === "Stale generation" ? 700 : 10;
         fetch("${origin}/race-worker-start").catch(() => {});
@@ -157,6 +161,7 @@ try {
   await verifyMarkdownFallback();
   await verifyRichMarkdownFallback();
   await verifyLazyMarpWorker();
+  await verifyMarpViewportRetainedDuringUpdate();
   await verifyMarpDetectionFailurePreservesSource();
   await verifyMarpWorkerFailurePreservesSource();
   await verifyMarpFrameFetchFailurePreservesSource();
@@ -270,6 +275,7 @@ async function verifyLazyMarpWorker() {
       throw new Error(`Marp判定後の専用資産取得回数が1ではありません: worker=${marpWorkerRequests.length}, frame=${marpFrameRequests.length}`);
     }
 
+    const confirmedFrame = await page.locator('.mve-marp-preview iframe').elementHandle();
     const disabledMarpMarkdown = marpMarkdown.replace('marp: true', 'marp: false');
     await page.evaluate(({ text, previousText }) => {
       window.dispatchEvent(new MessageEvent('message', {
@@ -281,9 +287,11 @@ async function verifyLazyMarpWorker() {
         }
       }));
     }, { text: disabledMarpMarkdown, previousText: marpMarkdown });
-    await page.locator('.editor-area .mve-marp-detection-loading').waitFor({ state: 'visible' });
-    if (await page.locator('.mve-marp-preview').count() !== 0) {
-      throw new Error('marp:trueからfalseへの判定中に前のMarpスライドを表示しました。');
+    await page.waitForFunction((text) => window.__mveMessages.some(
+      (message) => message.type === 'detectMarpMarkdown' && message.markdown === text,
+    ), disabledMarpMarkdown);
+    if (!await page.evaluate((frame) => frame === document.querySelector('.mve-marp-preview iframe'), confirmedFrame)) {
+      throw new Error('Marp再判定中に確定済みスライドのiframeを取り外しました。');
     }
     if (await page.locator('.rendered-markdown').count() !== 0) {
       throw new Error('marp:trueからfalseへの判定中に通常Markdownを先行表示しました。');
@@ -327,6 +335,100 @@ async function verifyLazyMarpWorker() {
     }
   } finally {
     await page.close();
+  }
+}
+
+/**
+ * 本文更新の再判定・再描画中もスライドとiframeを保持し、先頭へ戻らないことを確認する。
+ * 分割表示と印刷プレビューで、複数スライドの途中を表示したまま外部本文更新を適用する。
+ */
+async function verifyMarpViewportRetainedDuringUpdate() {
+  const markdown = '---\nmarp: true\n---\n' + Array.from(
+    { length: 5 }, (_, index) => `# Viewport slide ${index + 1}\n\nSlide body ${index + 1}.\n`,
+  ).join('\n---\n');
+  for (const mode of ['split', 'print']) {
+    const page = await openEditor(markdown, {
+      workerUri: `${origin}/dist/markdown-worker.js`,
+      mermaidHostRendering: false,
+      marpWorkerUri: `${origin}/dist/marp-worker.js`,
+      marpFrameUri: `${origin}/dist/marp-frame.js`,
+      marpKatexFontsUri: `${origin}/dist/marp-katex-fonts/`,
+      marpDetectionDelayMs: 500,
+    });
+    try {
+      await page.locator('.mve-marp-preview[data-mve-marp-status="ready"]').waitFor();
+      if (mode === 'print') {
+        await page.getByRole('tab', { name: '出力', exact: true }).click();
+        await page.getByRole('button', { name: '印刷プレビュー', exact: true }).click();
+        await page.locator('.mve-marp-preview-print[data-mve-marp-status="ready"]').waitFor();
+      }
+      const selector = mode === 'split' ? '.split-preview' : '.editor-area';
+      await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+      await page.evaluate((selector) => {
+        const container = document.querySelector(selector);
+        container.scrollTop = (container.scrollHeight - container.clientHeight) * 0.55;
+      }, selector);
+      try {
+        await page.waitForFunction((selector) => {
+          const container = document.querySelector(selector);
+          return container.scrollTop > 100;
+        }, selector);
+      } catch (error) {
+        const diagnostic = await page.evaluate((selector) => {
+          const container = document.querySelector(selector);
+          const root = container?.querySelector('.mve-marp-preview');
+          return {
+            selector,
+            container: container && { scrollTop: container.scrollTop, scrollHeight: container.scrollHeight, clientHeight: container.clientHeight, overflowY: getComputedStyle(container).overflowY },
+            root: root && { status: root.dataset.mveMarpStatus, activeSlide: root.dataset.mveMarpActiveSlideIndex, rect: root.getBoundingClientRect().toJSON() },
+          };
+        }, selector);
+        throw new Error(`Marp表示位置の初期設定に失敗しました (${mode}): ${JSON.stringify(diagnostic)}`, { cause: error });
+      }
+      const before = await page.evaluate((selector) => {
+        const container = document.querySelector(selector);
+        const root = container.querySelector('.mve-marp-preview');
+        const frame = root.querySelector('iframe');
+        const state = { scrollTop: container.scrollTop, activeSlide: root.dataset.mveMarpActiveSlideIndex, renderCount: Number(root.dataset.mveMarpRenderCount) };
+        const probe = { stopped: false, samples: 0, minimum: state.scrollTop, maximum: state.scrollTop, sameRoot: true, sameFrame: true };
+        window.__mveMarpViewportProbe = probe;
+        /** 描画フレームごとに表示位置と元のiframeの接続を観測し、一時的な先頭移動も検出する。 */
+        function sample() {
+          probe.samples += 1;
+          probe.minimum = Math.min(probe.minimum, container.scrollTop);
+          probe.maximum = Math.max(probe.maximum, container.scrollTop);
+          probe.sameRoot &&= root === container.querySelector('.mve-marp-preview');
+          probe.sameFrame &&= frame === container.querySelector('.mve-marp-preview iframe');
+          if (!probe.stopped) requestAnimationFrame(sample);
+        }
+        sample();
+        return state;
+      }, selector);
+      const text = `${markdown}\nUpdated last slide.\n`;
+      await page.evaluate(({ text, previousLength }) => {
+        window.dispatchEvent(new MessageEvent('message', {
+          data: { type: 'externalChanges', baseVersion: 1, version: 2, changes: [{ rangeOffset: previousLength, rangeLength: 0, text }] },
+        }));
+      }, { text: text.slice(markdown.length), previousLength: markdown.length });
+      await page.frameLocator(`${selector} .mve-marp-preview iframe`).getByText('Updated last slide.', { exact: true }).waitFor();
+      await page.waitForFunction(({ selector, renderCount }) => {
+        const root = document.querySelector(`${selector} .mve-marp-preview`);
+        return root?.dataset.mveMarpStatus === 'ready' && Number(root.dataset.mveMarpRenderCount) > renderCount;
+      }, { selector, renderCount: before.renderCount });
+      const after = await page.evaluate(async (selector) => {
+        await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        const probe = window.__mveMarpViewportProbe;
+        probe.stopped = true;
+        const container = document.querySelector(selector);
+        return { ...probe, scrollTop: container.scrollTop, activeSlide: container.querySelector('.mve-marp-preview')?.dataset.mveMarpActiveSlideIndex };
+      }, selector);
+      if (!after.sameRoot || !after.sameFrame || after.samples < 2 || after.minimum < before.scrollTop - 2 || after.maximum > before.scrollTop + 2 || after.activeSlide !== before.activeSlide) {
+        throw new Error(`Marp本文更新中に表示位置が変化しました: ${JSON.stringify({ mode, before, after })}`);
+      }
+      console.log(`Marpスクロール保持: ${JSON.stringify({ mode, before, after })}`);
+    } finally {
+      await page.close();
+    }
   }
 }
 
@@ -693,7 +795,7 @@ async function assertMarpRemainsLoadingAfterDelay(page, stage) {
 }
 
 /**
- * 遅延した旧世代Worker応答が最新のMarpスライドを上書きしないことを確認する。
+ * 遅延した旧世代Worker応答が最新表示を上書きせず、旧layoutが更新失敗を消さないことを確認する。
  */
 async function verifyMarpWorkerDiscardsStaleResponse() {
   const staleMarkdown = '---\nmarp: true\n---\n# Stale generation\n';
@@ -762,6 +864,21 @@ async function verifyMarpWorkerDiscardsStaleResponse() {
     }
     if (frameHeightAfter !== currentFrameHeight) {
       throw new Error(`旧世代Marp iframeのlayout応答が高さを変更しました: ${currentFrameHeight} -> ${frameHeightAfter}`);
+    }
+    await page.evaluate(({ previousText, text }) => {
+      window.dispatchEvent(new MessageEvent('message', {
+        data: { type: 'externalChanges', baseVersion: 2, version: 3, changes: [{ rangeOffset: 0, rangeLength: previousText.length, text }] },
+      }));
+    }, { previousText: latestMarkdown, text: latestMarkdown.replace('Latest generation', 'Failed generation') });
+    await page.locator('.mve-marp-preview[data-mve-marp-status="error"]').waitFor();
+    await page.evaluate((layout) => {
+      const frame = document.querySelector('.mve-marp-preview iframe');
+      window.dispatchEvent(new MessageEvent('message', {
+        data: { ...layout, channel: 'mve-marp' }, origin: 'null', source: frame.contentWindow,
+      }));
+    }, latestLayout);
+    if (await preview.getAttribute('data-mve-marp-status') !== 'error' || await preview.locator('[role="alert"]').count() !== 1) {
+      throw new Error('旧スライドの再計測によって最新の描画失敗が消去されました。');
     }
   } finally {
     await page.close();

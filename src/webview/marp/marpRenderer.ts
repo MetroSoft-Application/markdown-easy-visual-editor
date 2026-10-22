@@ -16,6 +16,17 @@ import sql from "highlight.js/lib/languages/sql";
 import typescript from "highlight.js/lib/languages/typescript";
 import xml from "highlight.js/lib/languages/xml";
 import yaml from "highlight.js/lib/languages/yaml";
+import {
+  findHtmlTagRanges,
+  getMarkdownImageReferences,
+  removeHtmlAttribute,
+  readHtmlAttribute,
+  upsertHtmlAttribute,
+} from "../../shared/imageResize";
+import type {
+  MarkdownImageReference,
+  MarkdownInlineBlockRange,
+} from "../../shared/imageResize";
 
 const marpHighlightLanguages = {
   bash,
@@ -114,16 +125,206 @@ export function renderMarpMarkdown(
     },
   });
   const rendered = marp.render(markdown, { htmlAsArray: true });
+  const normalizeMarkdownImageReference = (source: string) =>
+    normalizeMarpImageReference(
+      marp.markdown.normalizeLink(marp.markdown.utils.unescapeAll(source)),
+    );
   const sourceRanges = mapSlideRanges(
     markdown,
     marp.getMappedSlideTokens(),
   );
+  const inlineBlockRanges: MarkdownInlineBlockRange[] = marp.markdown
+    .parse(markdown, {})
+    .flatMap((token: MappedToken) => token.type === "inline" && token.map
+      ? [{ startLine: token.map[0], endLine: token.map[1] }]
+      : []);
+  const imageReferences = getMarkdownImageReferences(markdown, inlineBlockRanges);
   return {
-    slides: rendered.html,
+    slides: rendered.html.map((html, index) =>
+      decorateMarpSlideImages(
+        html,
+        sourceRanges[index],
+        imageReferences,
+        normalizeMarkdownImageReference,
+      ),
+    ),
     css: removeExternalCssImports(rendered.css),
     sourceRanges,
     renderDurationMs: performance.now() - startedAt,
   };
+}
+
+/**
+ * Marpが生成した各スライド画像へ、元Markdownの画像インデックスを設定する。
+ * @param html - Marp Coreが描画した1枚分のHTML。
+ * @param range - 対象スライドに対応するMarkdown範囲。
+ * @param imageReferences - Markdown本文内の画像参照一覧。
+ * @returns ソース上の画像参照と一致したimg要素へインデックスを設定したHTML。
+ */
+function decorateMarpSlideImages(
+  html: string,
+  range: MarpSlideSourceRange | undefined,
+  imageReferences: MarkdownImageReference[],
+  normalizeMarkdownImageReference: (source: string) => string,
+): string {
+  if (!range) return html;
+  const candidates = imageReferences.filter(
+    (reference) =>
+      reference.start >= range.startOffset &&
+      reference.start < range.endOffset &&
+      !reference.insideNonRenderedMarkup &&
+      !(reference.kind === "markdown" && reference.alt.split(/\s+/).includes("bg")),
+  );
+  const renderedImageTagStarts = new Set(
+    findHtmlTagRanges(maskNonRenderedMarpMarkup(html))
+      .filter((tagRange) => /^<img\b/i.test(html.slice(tagRange.start, tagRange.end)))
+      .map((tagRange) => tagRange.start),
+  );
+  const replacements = findHtmlTagRanges(html)
+    .filter((tagRange) => /^<img\b/i.test(html.slice(tagRange.start, tagRange.end)))
+    .map((tagRange) => {
+      const tag = html.slice(tagRange.start, tagRange.end);
+      if (!renderedImageTagStarts.has(tagRange.start)) {
+        return { ...tagRange, replacement: tag };
+      }
+      const sourceMetadataAttributes = [
+        "data-mve-image-index",
+        "data-mve-image-start",
+        "data-mve-image-end",
+        "data-mve-image-kind",
+        "data-mve-image-alt-start",
+        "data-mve-image-alt-end",
+        "data-mve-image-shortcut-reference",
+      ];
+      const withoutMetadata = sourceMetadataAttributes.reduce(
+        (currentTag, attribute) => removeHtmlAttribute(currentTag, attribute),
+        tag,
+      );
+      const source = readHtmlAttribute(tag, "src");
+      const normalizedSource = source === undefined
+        ? undefined
+        : normalizeMarpImageReference(source);
+      const candidateIndex = normalizedSource === undefined
+        ? -1
+        : candidates.findIndex(
+          (candidate) => {
+            const candidateSource = candidate.kind === "markdown"
+              ? normalizeMarkdownImageReference(candidate.source)
+              : normalizeMarpImageReference(candidate.source);
+            return candidateSource === normalizedSource;
+          },
+        );
+      if (candidateIndex < 0) return { ...tagRange, replacement: withoutMetadata };
+      const [reference] = candidates.splice(candidateIndex, 1);
+      if (!reference) return { ...tagRange, replacement: withoutMetadata };
+      let replacement = upsertHtmlAttribute(
+        withoutMetadata,
+        "data-mve-image-index",
+        String(reference.index),
+      );
+      replacement = upsertHtmlAttribute(replacement, "data-mve-image-start", String(reference.start));
+      replacement = upsertHtmlAttribute(replacement, "data-mve-image-end", String(reference.end));
+      replacement = upsertHtmlAttribute(replacement, "data-mve-image-kind", reference.kind);
+      if (reference.altStart !== undefined && reference.altEnd !== undefined) {
+        replacement = upsertHtmlAttribute(replacement, "data-mve-image-alt-start", String(reference.altStart));
+        replacement = upsertHtmlAttribute(replacement, "data-mve-image-alt-end", String(reference.altEnd));
+      }
+      if (reference.shortcutReference) {
+        replacement = upsertHtmlAttribute(replacement, "data-mve-image-shortcut-reference", "true");
+      }
+      return {
+        ...tagRange,
+        replacement,
+      };
+    });
+  let updatedHtml = html;
+  for (const replacement of replacements.reverse()) {
+    updatedHtml = updatedHtml.slice(0, replacement.start) +
+      replacement.replacement + updatedHtml.slice(replacement.end);
+  }
+  return updatedHtml;
+}
+
+/**
+ * コメントや実行・非表示用HTML要素の中にあるimg文字列を照合対象から除外する。
+ * @param html - Marp Coreが生成したHTML。
+ * @returns 非描画領域を空白へ置き換え、元HTMLと同じ文字位置を保った文字列。
+ */
+function maskNonRenderedMarpMarkup(html: string): string {
+  const characters = html.split("");
+  const htmlTagRanges = findHtmlTagRanges(html);
+  const nonRenderedRanges: Array<{ start: number; end: number }> = [];
+  const nonRenderedPattern = /<(script|style|textarea|title|iframe|object|form|template|noscript)\b[^>]*>(?:[\s\S]*?<\/\1\s*>|[\s\S]*$)/gi;
+  for (const match of html.matchAll(nonRenderedPattern)) {
+    const start = match.index ?? 0;
+    nonRenderedRanges.push({ start, end: start + match[0].length });
+  }
+  for (const range of nonRenderedRanges) {
+    for (let index = range.start; index < range.end; index += 1) {
+      characters[index] = " ";
+    }
+  }
+
+  let commentStart = html.indexOf("<!--");
+  while (commentStart >= 0) {
+    const insideTag = htmlTagRanges.some(
+      (range) => commentStart >= range.start && commentStart < range.end,
+    );
+    const insideNonRenderedElement = nonRenderedRanges.some(
+      (range) => commentStart >= range.start && commentStart < range.end,
+    );
+    if (insideTag || insideNonRenderedElement) {
+      commentStart = html.indexOf("<!--", commentStart + 4);
+      continue;
+    }
+    const closingComment = html.indexOf("-->", commentStart + 4);
+    const end = closingComment < 0 ? html.length : closingComment + 3;
+    for (let index = commentStart; index < end; index += 1) {
+      characters[index] = " ";
+    }
+    if (closingComment < 0) break;
+    commentStart = html.indexOf("<!--", end);
+  }
+  return characters.join("");
+}
+
+/**
+ * HTML属性に含まれる一般的な文字参照を復元する。
+ * @param value - HTML属性値。
+ * @returns 文字参照を復元した属性値。
+ */
+function decodeMarpHtmlEntities(value: string): string {
+  return value.replace(
+    /&(?:amp|quot|apos|lt|gt|#39|#\d+|#x[0-9a-f]+);/gi,
+    (entity) => {
+      const name = entity.toLowerCase();
+      const namedEntities: Record<string, string> = {
+        "&amp;": "&",
+        "&quot;": "\"",
+        "&apos;": "'",
+        "&lt;": "<",
+        "&gt;": ">",
+        "&#39;": "'",
+      };
+      const namedValue = namedEntities[name];
+      if (namedValue !== undefined) return namedValue;
+      const numeric = name.startsWith("&#x")
+        ? Number.parseInt(name.slice(3, -1), 16)
+        : Number.parseInt(name.slice(2, -1), 10);
+      return Number.isInteger(numeric) && numeric > 0 && numeric <= 0x10ffff
+        ? String.fromCodePoint(numeric)
+        : entity;
+    },
+  );
+}
+
+/**
+ * Markdown側とHTML側の画像参照値を照合できる形へ正規化する。
+ * @param value - HTMLまたはMarkdownから取得した画像参照値。
+ * @returns HTML文字参照を復元した画像参照値。
+ */
+function normalizeMarpImageReference(value: string): string {
+  return decodeMarpHtmlEntities(value);
 }
 
 /**
@@ -150,7 +351,13 @@ function mapSlideRanges(
 ): MarpSlideSourceRange[] {
   const lineOffsets = [0];
   for (let index = 0; index < markdown.length; index += 1) {
-    if (markdown.charCodeAt(index) === 10) lineOffsets.push(index + 1);
+    const code = markdown.charCodeAt(index);
+    if (code === 13) {
+      if (markdown.charCodeAt(index + 1) === 10) index += 1;
+      lineOffsets.push(index + 1);
+    } else if (code === 10) {
+      lineOffsets.push(index + 1);
+    }
   }
   return slideTokens.map((tokens, index) => {
     const maps = tokens
@@ -188,7 +395,7 @@ function findSlideHeading(
   startLine: number,
   endLine: number,
 ): string | undefined {
-  const lines = markdown.split(/\r?\n/);
+  const lines = markdown.split(/\r\n|\r|\n/);
   for (let index = startLine; index < Math.min(endLine, lines.length); index += 1) {
     const match = /^\s{0,3}#{1,6}\s+(.+?)\s*#*\s*$/.exec(lines[index] ?? "");
     if (match) return match[1];
