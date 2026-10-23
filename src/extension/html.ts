@@ -14,11 +14,12 @@ import { escapeHtml } from '../shared/escapeHtml';
 import { footnoteDefinitionSyntax, mathBlockSyntax, tableOfContentsSyntax } from '../shared/markdownBlockSyntax';
 import {
     collectLocalResourceReferences,
-    getOutline,
+    getOutlineForFormatSource,
     nextHeadingAnchorId,
     WORKSPACE_SECTION_LINK_TITLE,
     type OutlineItem
 } from '../shared/markdown';
+import { renderTextile } from '../shared/textileAdapter';
 import { isDocumentRelativeResourcePath, workspaceRootPathSegments } from './resourceLink';
 import { decodeLocalResourceSource } from './resourceCheck';
 
@@ -226,7 +227,8 @@ export async function writePreparedHtml(
                 request.language,
                 document.markdown,
                 request.options,
-                request.fontFamily
+                request.fontFamily,
+                getHtmlRenderFormat(document.sourcePath)
             );
             await fs.mkdir(path.dirname(document.outputPath), { recursive: true });
             await fs.writeFile(document.outputPath, standalone, 'utf8');
@@ -292,7 +294,7 @@ async function collectDocuments(request: HtmlExportRequest, targetPath: string):
                 uri: linkedUri,
                 sourcePath: linkedUri.fsPath,
                 markdown,
-                html: renderLinkedMarkdown(markdown),
+                html: renderLinkedMarkdown(markdown, getHtmlRenderFormat(linkedUri.fsPath)),
                 outputPath: outputPathFor(linkedUri.fsPath, rootPath, targetPath)
             };
             byPath.set(linkedPath, linkedDocument);
@@ -305,9 +307,11 @@ async function collectDocuments(request: HtmlExportRequest, targetPath: string):
 /**
  * Markdownを見出しアンカーとローカル参照情報を含むHTMLへ描画する。
  * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
-
+ * @param format - MarkdownまたはTextile文書の描画形式。
+ * @returns HTML出力の初期変換本文。最終出力時にはWebview描画結果で置換されます。
  */
-function renderLinkedMarkdown(markdown: string): string {
+function renderLinkedMarkdown(markdown: string, format: 'markdown' | 'mixed' | 'textile'): string {
+    if (format === 'textile') return renderTextile(markdown);
     const parser = new Marked({ gfm: true });
     const renderer = new Renderer();
     const headingIds = new Map<string, number>();
@@ -388,7 +392,8 @@ function renderLinkedMarkdown(markdown: string): string {
  * @param markdown - HTML本文の元になったMarkdown。アウトライン生成に使う。
  * @param options - HTML出力時の画像・リンク・アウトライン表示設定。
  * @param fontFamily - 生成HTMLの本文へ適用するフォントファミリー。
-
+ * @param renderFormat - アウトラインを作るMarkdownまたはTextileの描画形式。
+ * @returns 単体で表示・保存できるHTML文書。
  */
 function buildStandaloneHtml(
     body: string,
@@ -396,13 +401,14 @@ function buildStandaloneHtml(
     language: string,
     markdown: string,
     options: HtmlExportOptions,
-    fontFamily?: string
+    fontFamily?: string,
+    renderFormat: 'markdown' | 'mixed' | 'textile' = 'markdown'
 ): string {
     const safeCss = css.replace(/<\/style/gi, '<\\/style');
     const safeFontFamily = fontFamilyForCss(fontFamily, DEFAULT_PDF_OPTIONS.fontFamily);
     const main = `<main class="mve-html">${body}</main>`;
     const content = options.showOutlineSidebar
-        ? `<div class="mve-html-layout mve-html-layout-with-outline">${buildHtmlOutlineSidebar(markdown, language)}${buildHtmlOutlineResizer(language)}${buildHtmlOutlineShowButton(language)}${main}</div>`
+        ? `<div class="mve-html-layout mve-html-layout-with-outline">${buildHtmlOutlineSidebar(markdown, language, renderFormat)}${buildHtmlOutlineResizer(language)}${buildHtmlOutlineShowButton(language)}${main}</div>`
         : main;
     const outlineResizeScript = options.showOutlineSidebar ? `<script>${HTML_OUTLINE_RESIZER_SCRIPT}</script>` : '';
     return `<!doctype html><html lang="${escapeAttribute(language)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${safeCss}\n${HTML_CSS(safeFontFamily)}</style></head><body>${content}${outlineResizeScript}</body></html>`;
@@ -456,11 +462,12 @@ function renderHtmlOutlineNodes(nodes: readonly HtmlOutlineNode[], root = true):
  * Markdownエディターと同じgetOutline結果からHTML出力用サイドバーを作る。
  * @param markdown 出力文書の元Markdown。
  * @param language アウトライン見出し文言に使う表示言語。
+ * @param renderFormat MarkdownまたはTextileの見出し認識形式。
  * @returns HTML本文の左側へ配置するアウトラインaside。
  */
-function buildHtmlOutlineSidebar(markdown: string, language: string): string {
+function buildHtmlOutlineSidebar(markdown: string, language: string, renderFormat: 'markdown' | 'mixed' | 'textile'): string {
     const messages = getMessages(language).app;
-    const outline = getOutline(markdown);
+    const outline = getOutlineForFormatSource(markdown, renderFormat);
     const content = outline.length
         ? `<nav aria-label="${escapeAttribute(messages.outline)}">${renderHtmlOutlineNodes(buildHtmlOutlineTree(outline))}</nav>`
         : `<p class="mve-html-outline-empty">${escapeHtml(messages.noHeadings)}</p>`;
@@ -1027,12 +1034,21 @@ function isRemoteResource(value: string): boolean {
 }
 
 /**
- * ファイルパスがMarkdown拡張子かを判定する。
- * @param value - Markdown拡張子かを判定するファイルパス。
+ * ファイルパスが出力変換するMarkdown系文書かを判定する。
+ * @param value - MarkdownまたはTextile拡張子かを判定するファイルパス。
  * @returns 条件が成立したかを示す真偽値。
  */
 function isMarkdownPath(value: string): boolean {
-    return /\.(?:md|markdown)$/i.test(value);
+    return /\.(?:md|markdown|textile)$/i.test(value);
+}
+
+/**
+ * HTML出力文書の拡張子に合う専用描画形式を選ぶ。
+ * @param value - MarkdownまたはTextile文書のファイルパス。
+ * @returns Textile専用拡張子ではTextile形式、それ以外ではMarkdown形式。
+ */
+function getHtmlRenderFormat(value: string): 'mixed' | 'textile' {
+    return /\.textile$/i.test(value) ? 'textile' : 'mixed';
 }
 
 /**

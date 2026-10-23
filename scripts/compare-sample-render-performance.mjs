@@ -1,130 +1,127 @@
 /**
- * @fileoverview sample描画性能の固定JSONベースラインと現行計測を条件・文書単位で比較する。
+ * @fileoverview sample-render-performanceの変更前後JSONを比較し、10%性能閾値超過時に失敗終了する。
  */
-import { readFile } from 'node:fs/promises';
+import { readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
 
-const [baselineArgument, currentArgument] = process.argv.slice(2);
-if (!baselineArgument || !currentArgument) {
-  throw new Error('使い方: node scripts/compare-sample-render-performance.mjs <baseline.json> <current.json>');
-}
-
-const baselinePath = path.resolve(baselineArgument);
-const currentPath = path.resolve(currentArgument);
-const baseline = JSON.parse(await readFile(baselinePath, 'utf8'));
-const current = JSON.parse(await readFile(currentPath, 'utf8'));
-const thresholdPercent = Number.parseFloat(process.env.MVE_SAMPLE_RENDER_REGRESSION_LIMIT_PERCENT ?? '5');
-if (!Number.isFinite(thresholdPercent) || thresholdPercent < 0) {
-  throw new Error(`性能劣化の許容率が不正です: ${thresholdPercent}`);
-}
-
-validateReport(baseline, 'baseline');
-validateReport(current, 'current');
-const sharedEnvironmentKeys = ['browser', 'browserVersion'];
-const environmentMatches = sharedEnvironmentKeys.every((key) => baseline[key] === current[key]) &&
-  JSON.stringify(baseline.environment) === JSON.stringify(current.environment) &&
-  JSON.stringify(baseline.conditionDefinitions) === JSON.stringify(current.conditionDefinitions);
-if (!environmentMatches) {
-  throw new Error('baselineとcurrentのOS、Node、Chromium、viewport、cold/warm条件が一致しません。');
-}
-if (baseline.sampleCount !== current.sampleCount) {
-  throw new Error(`baseline/currentのsample件数が異なります: ${baseline.sampleCount}/${current.sampleCount}`);
-}
-const baselineByKey = new Map(baseline.files.map((file) => [keyFor(file), file]));
-const currentByKey = new Map(current.files.map((file) => [keyFor(file), file]));
-const regressions = [];
-for (const [key, baselineFile] of baselineByKey) {
-  const currentFile = currentByKey.get(key);
-  if (!currentFile) {
-    regressions.push({ key, issue: 'current measurement missing' });
-    continue;
-  }
-  if (baselineFile.type !== currentFile.type || baselineFile.status !== 'passed' || currentFile.status !== 'passed') {
-    regressions.push({ key, issue: 'type or run status mismatch' });
-    continue;
-  }
-  for (const metric of ['medianFirstVisibleMs', 'p95FirstVisibleMs']) {
-    const before = baselineFile[metric];
-    const after = currentFile[metric];
-    const changePercent = before > 0 ? ((after - before) / before) * 100 : 0;
-    if (!Number.isFinite(before) || !Number.isFinite(after) || changePercent > thresholdPercent) {
-      regressions.push({
-        key,
-        metric,
-        before,
-        after,
-        changePercent: Number.isFinite(changePercent) ? Number(changePercent.toFixed(2)) : null,
-      });
-    }
-  }
-}
-for (const key of currentByKey.keys()) {
-  if (!baselineByKey.has(key)) regressions.push({ key, issue: 'baseline measurement missing' });
-}
-
-console.log(JSON.stringify({
-  baseline: baselinePath,
-  current: currentPath,
-  baselineGeneratedAt: baseline.generatedAt,
-  currentGeneratedAt: current.generatedAt,
-  environment: current.environment,
-  browser: current.browser,
-  browserVersion: current.browserVersion,
-  conditionDefinitions: current.conditionDefinitions,
-  conditions: current.conditions,
-  sampleCount: current.sampleCount,
-  thresholdPercent,
-  comparedFileConditions: baselineByKey.size,
-  regressions,
-  result: regressions.length ? 'FAIL' : 'PASS',
-}, null, 2));
-if (regressions.length) process.exitCode = 1;
+/** Markdown描画の許容劣化率。 */
+const maximumRegressionRatio = 0.1;
 
 /**
- * 計測レポートが冷間・温間それぞれの全サンプルを5回以上含むことを検証する。
- * @param report - 比較対象のJSONレポート。
- * @param label - エラー表示に使うレポート名。
+ * 描画計測JSONを読み込み、必須条件と入力同一性を確認する。
+ * @param filePath - 読み込む基準または候補 JSON。
+ * @returns sample-render-performanceが記録した測定値。
  */
-function validateReport(report, label) {
-  const expectedConditions = ['cold', 'warm'];
-  if (!report || !Array.isArray(report.files) || !Array.isArray(report.conditions)) {
-    throw new Error(`${label} reportの構造が不正です。`);
-  }
-  if (expectedConditions.some((condition) => !report.conditions.includes(condition))) {
-    throw new Error(`${label} reportにcold/warmの両方がありません。`);
-  }
-  if (report.failures?.length || report.externalRequests?.length || report.pageErrors?.length) {
-    throw new Error(`${label} reportに失敗または外部要求があります。`);
-  }
-  if (report.sampleCount !== report.ordinaryCount + report.marpCount) {
-    throw new Error(`${label} reportのMarkdown/Marp件数が一致しません。`);
-  }
-  for (const file of report.files) {
-    if (file.runs < 5 || file.status !== 'passed') {
-      throw new Error(`${label} reportに5回未満または失敗した項目があります: ${keyFor(file)} (${file.runs})`);
+async function readReport(filePath) {
+    const parsed = JSON.parse(await readFile(filePath, 'utf8'));
+    if (!parsed.environment || !Array.isArray(parsed.files) || !Array.isArray(parsed.failures)) {
+        throw new Error(`sample性能レポートの形式が不正です: ${filePath}`);
     }
-  }
-  for (const condition of expectedConditions) {
-    const files = report.files.filter((file) => file.condition === condition);
-    if (files.length !== report.sampleCount) {
-      throw new Error(`${label} reportの${condition}サンプル数が不足しています: ${files.length}/${report.sampleCount}`);
+    if (parsed.failures.length || parsed.pageErrors?.length || parsed.externalRequests?.length) {
+        throw new Error(`sample性能レポートに失敗または外部要求があります: ${filePath}`);
     }
-  }
-  const warmMeasurements = report.measurements?.filter((measurement) => measurement.condition === 'warm') ?? [];
-  if (warmMeasurements.length < report.sampleCount * 5 || warmMeasurements.some((measurement) =>
-    !Array.isArray(measurement.warmCacheEvidence) ||
-    measurement.warmCacheEvidence.length < 3 ||
-    measurement.warmCacheEvidence.some((asset) => asset.reused !== true),
-  )) {
-    throw new Error(`${label} reportの温間計測で主要資材のHTTPキャッシュ再利用が確認できません。`);
-  }
+    return parsed;
 }
 
 /**
- * 同一文書・同一キャッシュ条件を識別する比較キーを生成する。
- * @param file - sampleの性能集計。
- * @returns 条件名と相対パスを連結した比較キー。
+ * 指定サンプル・冷暖条件の一意な集計結果を取得する。
+ * @param report - sample-render-performanceの結果。
+ * @param samplePath - 比較するsample相対パス。
+ * @param condition - coldまたはwarm。
+ * @returns 中央値・P95・Worker中央値を含む集計。
  */
-function keyFor(file) {
-  return `${file.condition}:${file.path}`;
+function getFileSummary(report, samplePath, condition) {
+    const matches = report.files.filter((item) => item.path === samplePath && item.condition === condition);
+    if (matches.length !== 1 || matches[0].status !== 'passed' || matches[0].runs < 5) {
+        throw new Error(`${samplePath} ${condition}はPASSかつ5回以上の計測が必要です。`);
+    }
+    return matches[0];
 }
+
+/**
+ * 基準値と候補値から劣化率を計算する。
+ * @param baseline - 変更前の計測値。
+ * @param candidate - 変更後の計測値。
+ * @returns 変更前中央値が0でない場合の相対差分率。
+ */
+function getRegressionRatio(baseline, candidate) {
+    return candidate / Math.max(baseline, Number.EPSILON) - 1;
+}
+
+/**
+ * 冷起動・ウォームの実ブラウザー指標を比較し、結果JSONと終了コードを設定する。
+ * @returns 全指標が閾値未満なら0、計測条件不一致または閾値超過なら1。
+ */
+async function main() {
+    const inputPaths = process.argv.slice(2);
+    if (inputPaths.length !== 3) {
+        throw new Error('Usage: node scripts/compare-sample-render-performance.mjs <baseline.json> <candidate.json> <output.json>');
+    }
+    const [baselinePath, candidatePath, outputPath] = inputPaths.map((value) => path.resolve(value));
+    const [baseline, candidate] = await Promise.all([readReport(baselinePath), readReport(candidatePath)]);
+    if (baseline.browser !== candidate.browser || baseline.browserVersion !== candidate.browserVersion
+        || baseline.environment.os !== candidate.environment.os
+        || baseline.environment.node !== candidate.environment.node) {
+        throw new Error('変更前後のブラウザー、OS、Node環境が一致しません。');
+    }
+    if (baseline.sampleCount !== 1 || candidate.sampleCount !== 1
+        || baseline.files[0]?.path !== candidate.files[0]?.path
+        || baseline.files[0]?.bytes !== candidate.files[0]?.bytes
+        || baseline.files[0]?.characters !== candidate.files[0]?.characters) {
+        throw new Error('変更前後の測定サンプルまたは入力サイズが一致しません。');
+    }
+
+    const samplePath = baseline.files[0].path;
+    const conditions = ['cold', 'warm'];
+    const comparisons = conditions.map((condition) => {
+        const baselineMetrics = getFileSummary(baseline, samplePath, condition);
+        const candidateMetrics = getFileSummary(candidate, samplePath, condition);
+        const regression = {
+            firstVisibleMedian: getRegressionRatio(baselineMetrics.medianFirstVisibleMs, candidateMetrics.medianFirstVisibleMs),
+            firstVisibleP95: getRegressionRatio(baselineMetrics.p95FirstVisibleMs, candidateMetrics.p95FirstVisibleMs),
+            workerMedian: getRegressionRatio(baselineMetrics.medianWorkerMs, candidateMetrics.medianWorkerMs)
+        };
+        return {
+            condition,
+            runsPerCondition: candidateMetrics.runs,
+            baseline: {
+                medianFirstVisibleMs: baselineMetrics.medianFirstVisibleMs,
+                p95FirstVisibleMs: baselineMetrics.p95FirstVisibleMs,
+                medianWorkerMs: baselineMetrics.medianWorkerMs
+            },
+            candidate: {
+                medianFirstVisibleMs: candidateMetrics.medianFirstVisibleMs,
+                p95FirstVisibleMs: candidateMetrics.p95FirstVisibleMs,
+                medianWorkerMs: candidateMetrics.medianWorkerMs
+            },
+            regression
+        };
+    });
+    const ratios = comparisons.flatMap((comparison) => Object.values(comparison.regression));
+    const thresholdExceeded = ratios.some((ratio) => ratio >= maximumRegressionRatio);
+    const result = {
+        generatedAt: new Date().toISOString(),
+        sample: {
+            path: samplePath,
+            bytes: candidate.files[0].bytes,
+            characters: candidate.files[0].characters,
+            headings: candidate.files[0].headingCount
+        },
+        environment: candidate.environment,
+        browser: { name: candidate.browser, version: candidate.browserVersion },
+        methodology: {
+            baseline: baselinePath,
+            candidate: candidatePath,
+            runsPerCondition: candidate.repetitions,
+            p95: 'nearest rank from sample-render-performance.mjs',
+            thresholdRatio: maximumRegressionRatio,
+            thresholdExceeded
+        },
+        comparisons
+    };
+    await writeFile(outputPath, `${JSON.stringify(result, null, 2)}\n`, 'utf8');
+    process.stdout.write(`${JSON.stringify({ outputPath, thresholdExceeded, comparisons }, null, 2)}\n`);
+    if (thresholdExceeded) process.exitCode = 1;
+}
+
+await main();

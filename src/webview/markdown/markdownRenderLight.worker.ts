@@ -1,9 +1,9 @@
 /**
  * @fileoverview Web Worker内で軽量なMarkdown解析を実行し、要求ID付きでプレビュー結果を返す。
  */
-import { collectDiagnostics, getOutline, wordStats } from "../../shared/markdown";
+import { collectDiagnostics, wordStats } from "../../shared/markdown";
 import {
-    alignOutlineHeadingIds,
+    getOutlineForFormat,
     renderMarkdownUnsafeBlocks,
     type RenderOptions,
 } from "./markdownRendererCore";
@@ -43,7 +43,7 @@ self.addEventListener("message",
                 markdown,
                 preliminary: true,
                 unsafeBlocks,
-                outline: alignOutlineHeadingIds(getOutline(markdown), unsafeBlocks),
+                outline: getOutlineForFormat(markdown, options.renderFormat ?? "markdown", unsafeBlocks),
                 diagnostics: collectDiagnostics(markdown, options.language),
                 stats: wordStats(markdown),
             });

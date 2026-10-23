@@ -306,7 +306,7 @@ body[data-editor-theme] .ribbon-tabs button:hover {
  */
 
 body[data-editor-theme] .outline-children::before,
-body[data-editor-theme] .outline-children > .outline-node::before {
+body[data-editor-theme] .outline-children>.outline-node::before {
     border-color: var(--mve-theme-border) !important;
 }
 
@@ -436,6 +436,16 @@ body[data-editor-theme] .cm-scroller,
 body[data-editor-theme] .cm-content {
     color: var(--mve-theme-text) !important;
     background: var(--mve-theme-bg) !important;
+}
+
+/*
+ * @style body[data-editor-theme] .cm-mve-textile-list-marker
+ * Textileの入れ子リスト記号を階層ごとに見分けやすくし、編集中の本文文字列は装飾しない。
+ */
+
+body[data-editor-theme] .cm-mve-textile-list-marker {
+    color: var(--mve-syntax-keyword);
+    font-weight: 700;
 }
 
 /*

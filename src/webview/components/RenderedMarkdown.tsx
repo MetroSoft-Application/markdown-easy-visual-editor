@@ -13,6 +13,7 @@ import type { MermaidInteraction, WebviewSettings } from "../../shared/protocol"
 import type { Messages } from "../../shared/messages";
 import { getMessages } from "../../shared/messages";
 import { renderMarkdownFallback } from "../markdown/markdownFallback";
+import type { MarkdownRenderFormat } from "../markdown/markdownRendererCore";
 import {
   mermaidErrorMessage,
   renderMermaidSvg,
@@ -71,6 +72,10 @@ interface Props {
    * 解析・編集・変換の対象となるMarkdown本文。
    */
   markdown: string;
+  /**
+   * Markdown、Textile、または両形式を混在させる描画形式。
+   */
+  renderFormat?: MarkdownRenderFormat;
   /**
    * 表示または出力するHTML本文。
    */
@@ -1455,12 +1460,17 @@ function formatImageFileSize(
  * @returns 変換済みHTMLの描画領域。処理中または失敗時は対応する状態表示を含む。
  */
 function RenderedMarkdownLoader(props: Props): React.JSX.Element {
-  const { markdown, html, settings } = props;
+  const { markdown, html, settings, renderFormat = "markdown" } = props;
   const [rendered, setRendered] = useState<{
     /**
      * 解析・編集・変換の対象となるMarkdown本文。
      */
     markdown: string;
+
+    /**
+     * 表示結果を作ったMarkdown/Textile形式。
+     */
+    renderFormat: MarkdownRenderFormat;
 
     /**
      * Markdownプレビューで扱うlanguageの文字列。
@@ -1490,6 +1500,7 @@ function RenderedMarkdownLoader(props: Props): React.JSX.Element {
       void renderMarkdownFallback(markdown, {
         remoteImagesEnabled: settings.remoteImagesEnabled,
         language: settings.language,
+        renderFormat,
       })
         .then(
           /**
@@ -1499,6 +1510,7 @@ function RenderedMarkdownLoader(props: Props): React.JSX.Element {
             if (cancelled) return;
             setRendered({
               markdown,
+              renderFormat,
               language: settings.language,
               remoteImagesEnabled: settings.remoteImagesEnabled,
               html: value,
@@ -1518,7 +1530,7 @@ function RenderedMarkdownLoader(props: Props): React.JSX.Element {
         cancelled = true;
       };
     },
-    [html, markdown, settings.language, settings.remoteImagesEnabled],
+    [html, markdown, renderFormat, settings.language, settings.remoteImagesEnabled],
   );
 
   if (html !== undefined) {
@@ -1534,6 +1546,7 @@ function RenderedMarkdownLoader(props: Props): React.JSX.Element {
   if (
     !rendered ||
     rendered.markdown !== markdown ||
+    rendered.renderFormat !== renderFormat ||
     rendered.language !== settings.language ||
     rendered.remoteImagesEnabled !== settings.remoteImagesEnabled
   ) {

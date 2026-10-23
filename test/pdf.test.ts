@@ -324,3 +324,70 @@ describe('PDF local images',
                 expect(output.length).toBeGreaterThan(0);
             }, 15_000);
     });
+
+/** PDF出力に渡す混在Markdown HTMLがTextileブロックを保ち、実PDF生成まで到達することを確認する。 */
+describe('Textile PDF export',
+    () => {
+        it('uses the mixed Markdown/Textile HTML when generating a PDF',
+            async () => {
+                const markdown = [
+                    '# Mixed PDF heading',
+                    '',
+                    'Markdown **bold** and Textile +inserted+ and -deleted-.',
+                    '',
+                    '|Textile|PDF|',
+                    '|Mixed|preserved|',
+                    '',
+                    '<pre><code class="csharp">',
+                    'using System;',
+                    '',
+                    'internal static class HelloWorld',
+                    '{',
+                    '    private static void Main()',
+                    '    {',
+                    '        Console.WriteLine("Hello, world!");',
+                    '    }',
+                    '}',
+                    '</code></pre>'
+                ].join('\n');
+                const html = renderMarkdown(markdown, {
+                    remoteImagesEnabled: false,
+                    language: 'ja',
+                    renderFormat: 'mixed'
+                });
+                const documentUri = new TestUri('file', '/textile-mixed.md', '/textile-mixed.md');
+                const request = {
+                    html,
+                    css: 'table { border-collapse: collapse; }',
+                    options: {
+                        format: 'A4' as const,
+                        orientation: 'portrait' as const,
+                        margins: { top: 10, right: 10, bottom: 10, left: 10 },
+                        header: '',
+                        footer: '',
+                        saveWithoutDialog: true
+                    },
+                    documentUri,
+                    language: 'ja',
+                    purpose: 'preview' as const
+                } as unknown as PdfExportRequest;
+
+                expect(html).toContain('<strong>bold</strong>');
+                expect(html).toContain('<ins>inserted</ins>');
+                expect(html).toContain('<del>deleted</del>');
+                expect(html).toContain('<table>');
+                expect(html).toContain('class="csharp hljs"');
+                expect(html).toContain('<span class="hljs-keyword">using</span> System;\n\n<span class="hljs-keyword">internal</span>');
+                expect(html).not.toContain('<br');
+                const standaloneHtml = await buildStandaloneHtml(request);
+                expect(standaloneHtml).toContain('<ins>inserted</ins>');
+                expect(standaloneHtml).toContain('class="csharp hljs"');
+                expect(standaloneHtml).not.toContain('<br');
+
+                const pdf = await renderPdf(request);
+                expect(pdf.length).toBeGreaterThan(0);
+                const evidenceDirectory = path.resolve('sample', 'textile', 'evidence');
+                await fs.mkdir(evidenceDirectory, { recursive: true });
+                await fs.writeFile(path.join(evidenceDirectory, 'mixed-export.pdf'), pdf);
+            }, 20_000);
+    });

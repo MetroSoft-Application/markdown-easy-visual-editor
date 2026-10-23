@@ -882,14 +882,14 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
     /**
      * 指定文書またはアクティブWebviewへPDF/HTML出力コマンドを転送する。
      * @param command - Webviewへ転送するPDFまたはHTMLの出力コマンド。
-     * @param uri - 出力対象Markdown文書のURI。未指定時はアクティブWebviewへ転送する。
+     * @param uri - 出力対象のMarkdownまたはTextile文書URI。未指定時はアクティブWebviewへ転送する。
      */
     async exportFromUri(command: ExportCommand, uri?: vscode.Uri): Promise<void> {
         if (!uri) {
             this.sendCommand(command);
             return;
         }
-        if (uri.scheme !== 'file' || !isMarkdownDocumentPath(uri.fsPath)) return;
+        if (uri.scheme !== 'file' || !isPreviewableDocumentPath(uri.fsPath)) return;
 
         try {
             const panel = await this.ensureReadyPanel(uri);
@@ -2459,7 +2459,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
     /** ローカルMarkdownのフラグメントを見出し行へ解決して開く。 */
     private async openLocalResource(uri: vscode.Uri, href: string): Promise<void> {
         const fragmentIndex = href.indexOf('#');
-        if (fragmentIndex >= 0 && /\.(?:md|markdown)$/i.test(uri.path)) {
+        if (fragmentIndex >= 0 && /\.(?:md|markdown|textile)$/i.test(uri.path)) {
             const rawFragment = href.slice(fragmentIndex + 1);
             let id = rawFragment;
             try {
@@ -2469,7 +2469,8 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
             }
             if (id) {
                 const target = await vscode.workspace.openTextDocument(uri);
-                const line = headingLineForAnchor(target.getText(), id);
+                const format = /\.textile$/i.test(uri.path) ? 'textile' : 'mixed';
+                const line = headingLineForAnchor(target.getText(), id, format);
                 const editorAssociation = getEditorAssociation(uri);
                 const usesMveEditor = editorAssociation === VIEW_TYPE;
                 const usesAssociatedCustomEditor = editorAssociation !== undefined
@@ -3134,11 +3135,11 @@ function operationIdentity(clientId: string, opId: string): string {
 
 /**
  * 拡張機能の条件を判定する。
- * @param filePath - Markdown拡張子かを判定するファイルパス。
- * @returns 条件が成立したかを示す真偽値。
+ * @param filePath - MarkdownまたはTextileのプレビュー拡張子かを判定するファイルパス。
+ * @returns 対応するプレビュー形式を持つファイルならtrue。
  */
-function isMarkdownDocumentPath(filePath: string): boolean {
-    return /\.(?:md|markdown)$/i.test(filePath);
+function isPreviewableDocumentPath(filePath: string): boolean {
+    return /\.(?:md|markdown|textile)$/i.test(filePath);
 }
 
 /**

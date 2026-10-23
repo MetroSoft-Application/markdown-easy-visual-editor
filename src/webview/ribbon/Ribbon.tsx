@@ -41,6 +41,60 @@ export type { RibbonCommand, TableAction } from "./ribbonTypes";
 /** リボン表示で使うタブ識別子を既存名RibbonTabとして再公開する。 */
 export type { RibbonTabId as RibbonTab } from "./ribbonIds";
 
+/**
+ * Textile文書で有効にできないMarkdown記法を生成または変更するリボン項目。
+ */
+const MARKDOWN_SYNTAX_RIBBON_ITEMS: ReadonlySet<RibbonItemId> = new Set([
+  "style",
+  "quote",
+  "bulletList",
+  "orderedList",
+  "taskList",
+  "indent",
+  "outdent",
+  "bold",
+  "italic",
+  "strike",
+  "underline",
+  "highlight",
+  "code",
+  "superscript",
+  "subscript",
+  "textColor",
+  "clearInline",
+  "clearBlock",
+  "link",
+  "image",
+  "tableSize",
+  "insertTable",
+  "horizontalRule",
+  "hardBreak",
+  "codeLanguage",
+  "codeBlock",
+  "mermaid",
+  "math",
+  "footnote",
+  "toc",
+  "pageBreak",
+  "note",
+  "warning",
+  "emoji",
+  "insertEmoji",
+  "rowBefore",
+  "rowAfter",
+  "deleteRow",
+  "colBefore",
+  "colAfter",
+  "deleteColumn",
+  "tableHeader",
+  "alignLeft",
+  "alignCenter",
+  "alignRight",
+  "alignColumns",
+  "cellBreak",
+  "openTableEditor",
+]);
+
 validateRibbonConfiguration(
   RIBBON_LAYOUT,
   RIBBON_DEFINITIONS,
@@ -66,6 +120,11 @@ interface Props {
    * 編集操作を許可しない状態。
    */
   readOnly: boolean;
+
+  /**
+   * Textile文書かどうか。Markdown記法を挿入または編集するリボン項目を無効にする。
+   */
+  textileDocument?: boolean;
 
   /**
    * 選択範囲で有効なMarkdown書式の対応表。
@@ -133,6 +192,7 @@ interface Props {
  * @param messages リボン内のラベルと操作説明に使うローカライズ済み文言。
  * @param mode 本文編集面とプレビューの現在の表示モード。
  * @param readOnly 編集コマンドを無効にする読み取り専用状態。
+ * @param textileDocument Markdown記法のリボン操作を無効にするTextile文書。
  * @param activeMarks 選択範囲に適用されている書式マーク。
  * @param outlineVisible 目次パネルの表示状態。
  * @param scrollSyncEnabled 本文とプレビューのスクロール同期状態。
@@ -151,6 +211,7 @@ export function Ribbon({
   messages,
   mode,
   readOnly,
+  textileDocument = false,
   activeMarks,
   outlineVisible,
   scrollSyncEnabled,
@@ -336,18 +397,29 @@ export function Ribbon({
   function renderItem(id: RibbonItemId): React.JSX.Element {
     const definition = getItemDefinition(id);
     const implementation = getItemImplementation(id);
+    const markdownSyntaxDisabled =
+      textileDocument && isMarkdownSyntaxRibbonItem(id);
     if (implementation.kind === "button") {
+      const buttonImplementation: RibbonButtonImplementation =
+        markdownSyntaxDisabled
+          ? {
+              ...implementation,
+              disabled: (state) =>
+                (implementation.disabled?.(state) ?? false) ||
+                markdownSyntaxDisabled,
+            }
+          : implementation;
       return renderButton(
         id,
         definition.label,
         definition.options ?? {},
-        implementation,
+        buttonImplementation,
       );
     }
     return (
       <React.Fragment key={id}>
         {implementation.render(
-          context,
+          markdownSyntaxDisabled ? { ...context, readOnly: true } : context,
           definition,
 
           /**
@@ -553,6 +625,15 @@ export function Ribbon({
       )}
     </header>
   );
+}
+
+/**
+ * Textile文書でMarkdown構文を作成・変更するリボン項目か判定する。
+ * @param id - 描画対象のリボン項目ID。
+ * @returns Markdown書式操作に該当する場合はtrue。
+ */
+function isMarkdownSyntaxRibbonItem(id: RibbonItemId): boolean {
+  return MARKDOWN_SYNTAX_RIBBON_ITEMS.has(id);
 }
 
 /**

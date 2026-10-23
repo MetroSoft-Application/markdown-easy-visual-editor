@@ -86,7 +86,11 @@ import { isMveDebugEnabled, mveDebug } from "../runtime/debug";
 import { escapeHtml } from "../../shared/escapeHtml";
 import { sanitizeRenderedMarkdown } from "../markdown/markdownSanitizer";
 import { renderMarkdownFallback } from "../markdown/markdownFallback";
-import type { UnsafeMarkdownBlock } from "../markdown/markdownRendererCore";
+import {
+  getOutlineForFormat,
+  type MarkdownRenderFormat,
+  type UnsafeMarkdownBlock,
+} from "../markdown/markdownRendererCore";
 import {
   acceptMermaidRenderProgress,
   acceptMermaidRenderResult,
@@ -557,6 +561,18 @@ interface WebviewBootstrap {
 }
 
 /**
+ * 文書URIの拡張子からプレビュー形式を選び、未知の形式はMarkdownへ戻す。
+ * @param uri - 初期化時のVS Code文書URIまたはリンク先のファイルパス。
+ * @returns Textile専用、Markdown/Textile混在、またはMarkdown描画形式。
+ */
+function getRenderFormatForUri(uri?: string): MarkdownRenderFormat {
+  const path = (uri ?? "").split(/[?#]/, 1)[0].toLowerCase();
+  if (/\.textile$/.test(path)) return "textile";
+  if (/\.(?:md|markdown)$/.test(path)) return "mixed";
+  return "markdown";
+}
+
+/**
  * windowに埋め込まれた初期化データを読み、必須フィールドの有無を確認する。
  * @returns 有効なWebview初期化データ。埋め込み値がない、または必須フィールドが不足する場合はundefined。
  */
@@ -647,6 +663,10 @@ export function App(): React.JSX.Element {
   );
   const [initialized, setInitialized] = useState(Boolean(bootstrap));
   const [markdown, setMarkdown] = useState(bootstrap?.text ?? "");
+  const [renderFormat, setRenderFormat] = useState<MarkdownRenderFormat>(() =>
+    getRenderFormatForUri(bootstrap?.uri),
+  );
+  const isTextileDocument = renderFormat === "textile";
   // 入力経路と、解析・HTML化が重い表示経路を分離する。入力が再開した場合は
   // 既に予約済みの全文更新を同期的に取り消し、キーイベントへ割り込ませない。
   const [previewMarkdown, cancelPendingPreviewUpdate] =
@@ -663,8 +683,8 @@ export function App(): React.JSX.Element {
   const previewVisible =
     mode === "preview" || (mode === "split" && splitView !== "text");
   const hasMarpFrontMatterCandidateValue = useMemo(
-    () => hasMarpFrontMatterCandidate(previewMarkdown),
-    [previewMarkdown],
+    () => renderFormat !== "textile" && hasMarpFrontMatterCandidate(previewMarkdown),
+    [previewMarkdown, renderFormat],
   );
   const [isMarpDetected, setIsMarpDetected] = useState(false);
   const [marpDetectionMarkdown, setMarpDetectionMarkdown] = useState<string>();
@@ -699,6 +719,7 @@ export function App(): React.JSX.Element {
       previewMarkdown,
       settings.remoteImagesEnabled,
       settings.language,
+      renderFormat,
       markdownSnapshotEnabled,
       stagePreviewRefinementViewportRestore,
     );
@@ -2142,6 +2163,7 @@ export function App(): React.JSX.Element {
         return;
       }
       case "init":
+        setRenderFormat(getRenderFormatForUri(message.uri));
         if (initializedRef.current) {
           applyHostSettings(message.settings);
           if (
@@ -2824,6 +2846,21 @@ export function App(): React.JSX.Element {
    * @param command - 実行するリボン操作の種別と、その操作に必要な値。
    */
   function handleRibbon(command: RibbonCommand): void {
+    if (isTextileDocument) {
+      switch (command.type) {
+        case "sourceAction":
+        case "heading":
+        case "insert":
+        case "tableInsert":
+        case "codeBlock":
+        case "link":
+        case "image":
+        case "table":
+          return;
+        default:
+          break;
+      }
+    }
     commitSourceSnapshot();
     // 同一ジェスチャーから同じリボン操作が短時間に重複して届いても、編集は1回だけ適用する。
     const commandKey = JSON.stringify(command);
@@ -3155,7 +3192,7 @@ export function App(): React.JSX.Element {
     if (imageFiles.length) {
       event.preventDefault();
       event.stopImmediatePropagation();
-      await saveImageFiles(imageFiles);
+      if (!isTextileDocument) await saveImageFiles(imageFiles);
       return;
     }
     const html = event.clipboardData?.getData("text/html");
@@ -3172,6 +3209,7 @@ export function App(): React.JSX.Element {
     const hasTableClipboard =
       hasHtmlTable || (!html && (hasTsvMime || plainText.includes("\t")));
     if (
+      !isTextileDocument &&
       editor &&
       hasTableClipboard &&
       !isMarkdownCodeFencePosition(localTextRef.current, editor.getSelection())
@@ -3190,7 +3228,7 @@ export function App(): React.JSX.Element {
       }
       return;
     }
-    if (html && editor) {
+    if (html && editor && !isTextileDocument) {
       event.preventDefault();
       event.stopImmediatePropagation();
       const safe = DOMPurify.sanitize(html, {
@@ -3263,6 +3301,7 @@ export function App(): React.JSX.Element {
    * @param files - Webviewルートで読み書きするリソースの場所。
    */
   async function saveImageFiles(files: File[]): Promise<void> {
+    if (isTextileDocument) return;
     try {
       const images: ImagePayload[] = [];
       for (const file of files)
@@ -3286,6 +3325,7 @@ export function App(): React.JSX.Element {
    * Hostへ画像選択を要求し、応答を識別するIDを登録する。
    */
   function requestImagePicker(): void {
+    if (isTextileDocument) return;
     const requestId = createClientId();
     imageRequestsRef.current.add(requestId);
     vscode.postMessage({
@@ -3649,7 +3689,13 @@ export function App(): React.JSX.Element {
           }
           pdfOutput = root
             ? await serializePdfExport(root, sourceOptions)
-            : await serializePdfFallbackHtml(currentMarkdown, sourceOptions);
+            : await serializePdfFallbackHtml(
+                currentMarkdown,
+                sourceOptions,
+                renderFormat,
+                settings.remoteImagesEnabled,
+                settings.language,
+              );
           if (!root)
             setToast(messages.app.toast.pdfFallbackToMarkdown(diagnosticNotice));
           pdfCss = await collectEmbeddedPrintableCss(settings.previewFontFamily);
@@ -3719,9 +3765,11 @@ export function App(): React.JSX.Element {
       const currentMarkdown = localTextRef.current;
       const htmlRoot = root ?? document.createElement("div");
       if (!root) {
-        const fallback = document.createElement("pre");
-        fallback.textContent = currentMarkdown;
-        htmlRoot.append(fallback);
+        htmlRoot.innerHTML = await renderMarkdownFallback(currentMarkdown, {
+          remoteImagesEnabled: settings.remoteImagesEnabled,
+          language: settings.language,
+          renderFormat,
+        });
       }
       let html: string;
       try {
@@ -5546,6 +5594,7 @@ export function App(): React.JSX.Element {
         messages={messages}
         mode={mode}
         readOnly={readOnly}
+        textileDocument={isTextileDocument}
         activeMarks={activeMarks}
         outlineVisible={outlineVisible}
         scrollSyncEnabled={scrollSyncEnabled}
@@ -5809,6 +5858,7 @@ export function App(): React.JSX.Element {
                 <SourceEditor
                   ref={sourceRef}
                   value={markdown}
+                  renderFormat={renderFormat}
                   initialSelection={selectionStateRef.current}
                   searchHits={searchVisible ? searchHits : []}
                   activeSearchHit={
@@ -5906,17 +5956,24 @@ export function App(): React.JSX.Element {
                 ) : (
                   <RenderedMarkdown
                     markdown={renderedPreviewMarkdown}
+                    renderFormat={renderFormat}
                     html={previewHtml}
                     settings={settings}
                     imageZoom={zoom}
                     onImageResize={
-                      imageResizeEnabled ? splitPreviewImageResize : undefined
+                      imageResizeEnabled && !isTextileDocument
+                        ? splitPreviewImageResize
+                        : undefined
                     }
                     onImageReset={
-                      imageResizeEnabled ? splitPreviewImageReset : undefined
+                      imageResizeEnabled && !isTextileDocument
+                        ? splitPreviewImageReset
+                        : undefined
                     }
                     onImageAlign={
-                      imageResizeEnabled ? splitPreviewImageAlign : undefined
+                      imageResizeEnabled && !isTextileDocument
+                        ? splitPreviewImageAlign
+                        : undefined
                     }
                     onInspect={splitPreviewInspect}
                     onNavigate={splitPreviewNavigate}
@@ -5970,6 +6027,7 @@ export function App(): React.JSX.Element {
             ) : (
               <PdfPreview
                 markdown={renderedPreviewMarkdown}
+                renderFormat={renderFormat}
                 html={previewHtml}
                 settings={settings}
                 options={pdfOptions}
@@ -6572,6 +6630,7 @@ export function App(): React.JSX.Element {
         <div className="export-stage" aria-hidden="true">
           <RenderedMarkdown
             markdown={renderedPreviewMarkdown}
+            renderFormat={renderFormat}
             html={previewHtml}
             settings={exportSettings}
             onRendered={handleExportRendered}
@@ -6856,6 +6915,7 @@ function useMarkdownPreviewSnapshot(
   markdown: string,
   remoteImagesEnabled: boolean,
   language: WebviewSettings["language"],
+  renderFormat: MarkdownRenderFormat,
   enabled: boolean,
   onBeforeRefinement: () => void,
 ): [MarkdownPreviewSnapshot, () => void] {
@@ -6910,6 +6970,7 @@ function useMarkdownPreviewSnapshot(
           html = await renderMarkdownFallback(markdown, {
             remoteImagesEnabled,
             language,
+            renderFormat,
           });
         } catch (fallbackError) {
           if (generationRef.current !== id) return;
@@ -6932,10 +6993,16 @@ function useMarkdownPreviewSnapshot(
         setSnapshot({
           markdown,
           html,
-          outline: getOutline(markdown).flatMap((item) => {
-            const id = headingIds.get(item.offset);
-            return id ? [{ ...item, id }] : [];
-          }),
+          outline: getOutlineForFormat(
+            markdown,
+            renderFormat,
+            [...headingIds].map(([offset, headingId]) => ({
+              html: "",
+              headingOffset: offset,
+              headingId,
+              requiresSanitization: false,
+            })),
+          ),
           diagnostics: collectDiagnostics(markdown, language),
           stats: wordStats(markdown),
         });
@@ -7066,7 +7133,7 @@ function useMarkdownPreviewSnapshot(
           worker.postMessage({
             id,
             markdown,
-            options: { remoteImagesEnabled, language },
+            options: { remoteImagesEnabled, language, renderFormat },
           });
         } catch (error) {
           void applySynchronousFallback(error);
@@ -7075,7 +7142,7 @@ function useMarkdownPreviewSnapshot(
       void startWorker();
       return cancelActiveRender;
     },
-    [markdown, remoteImagesEnabled, language, enabled, cancelActiveRender],
+    [markdown, remoteImagesEnabled, language, renderFormat, enabled, cancelActiveRender],
   );
 
   useEffect(
@@ -7624,18 +7691,26 @@ async function serializePdfExport(
  * PDF用プレビューがない場合はMarkdown本文をpre要素へ入れ、PDFの本文・ヘッダー・フッター置換を行う。
  * @param markdown Markdown本文。
  * @param options PDF出力設定。
+ * @param renderFormat Markdown/Textile形式の変換設定。
+ * @param remoteImagesEnabled リモート画像を含めるかどうか。
+ * @param language 文書内メッセージに使う言語。
  * @param isCurrent 出力要求が最新かを判定する関数。省略時は常に最新として扱う。
- * @returns Markdownをpre要素で表示して置換したPDF出力データ。
+ * @returns 共通レンダラーで変換した本文を置換したPDF出力データ。
  */
 async function serializePdfFallbackHtml(
   markdown: string,
   options: PdfOptions,
+  renderFormat: MarkdownRenderFormat,
+  remoteImagesEnabled: boolean,
+  language: WebviewSettings["language"],
   isCurrent: () => boolean = () => true,
 ): Promise<{ html: string; options: PdfOptions }> {
   const fallbackRoot = document.createElement("div");
-  const pre = document.createElement("pre");
-  pre.textContent = markdown;
-  fallbackRoot.append(pre);
+  fallbackRoot.innerHTML = await renderMarkdownFallback(markdown, {
+    remoteImagesEnabled,
+    language,
+    renderFormat,
+  });
   return serializePdfExport(fallbackRoot, options, isCurrent);
 }
 
@@ -8265,6 +8340,7 @@ function HtmlDocumentRenderStage({
           <RenderedMarkdown
             key={document.id}
             markdown={document.markdown}
+            renderFormat={getRenderFormatForUri(document.id)}
             settings={settings}
             onRendered={
               /**
@@ -8282,6 +8358,7 @@ function HtmlDocumentRenderStage({
 /**
  * PDFページ、ツールバー、読み込み・エラー状態を表示するReact要素を構築する。
  * @param markdown - PDFプレビューへ表示するMarkdown本文。
+ * @param renderFormat - Markdown/Textile形式のプレビュー描画モード。
  * @param html - PDFプレビューで描画する変換済みHTML。
  * @param settings - プレビュー内のMarkdown描画へ渡すWebview設定。
  * @param options - PDFの用紙、余白、文字組版、ヘッダー、フッター設定。
@@ -8298,6 +8375,7 @@ function HtmlDocumentRenderStage({
  */
 function PdfPreview({
   markdown,
+  renderFormat,
   html,
   settings,
   options,
@@ -8315,6 +8393,9 @@ function PdfPreview({
    * 解析・編集・変換の対象となるMarkdown本文。
    */
   markdown: string;
+
+  /** PDFライブ表示がHTML未確定時に使う文書形式。 */
+  renderFormat: MarkdownRenderFormat;
 
   /**
    * 表示または出力するHTML本文。
@@ -8465,6 +8546,7 @@ function PdfPreview({
             )}
             <RenderedMarkdown
               markdown={markdown}
+              renderFormat={renderFormat}
               html={html}
               settings={settings}
               className="pdf-preview-content"

@@ -1,7 +1,7 @@
 {
   "name": "markdown-easy-visual-editor",
   "displayName": "Markdown Easy Visual Editor",
-  "description": "A visual Markdown editor for VS Code with live preview, source editing, formatting tools, image support, and PDF export.",
+  "description": "A visual Markdown and Textile editor for VS Code with live preview, source editing, formatting tools, image support, and PDF export.",
   "version": "1.4.4",
   "publisher": "MetroSoft-Application",
   "icon": "resources/icon.png",
@@ -19,6 +19,7 @@
   ],
   "keywords": [
     "markdown",
+    "textile",
     "custom editor",
     "preview",
     "mermaid",
@@ -52,6 +53,9 @@
           },
           {
             "filenamePattern": "*.markdown"
+          },
+          {
+            "filenamePattern": "*.textile"
           }
         ],
         "priority": "option"
@@ -116,17 +120,17 @@
       "explorer/context": [
         {
           "command": "markdownEasyVisualEditor.openVisual",
-          "when": "resourceExtname == .md || resourceExtname == .markdown",
+          "when": "resourceExtname == .md || resourceExtname == .markdown || resourceExtname == .textile",
           "group": "navigation@1"
         },
         {
           "command": "markdownEasyVisualEditor.exportPdf",
-          "when": "resourceExtname == .md || resourceExtname == .markdown",
+          "when": "resourceExtname == .md || resourceExtname == .markdown || resourceExtname == .textile",
           "group": "navigation@2"
         },
         {
           "command": "markdownEasyVisualEditor.exportHtml",
-          "when": "resourceExtname == .md || resourceExtname == .markdown",
+          "when": "resourceExtname == .md || resourceExtname == .markdown || resourceExtname == .textile",
           "group": "navigation@3"
         },
         {
@@ -138,14 +142,14 @@
       "editor/context": [
         {
           "command": "markdownEasyVisualEditor.openVisual",
-          "when": "resourceExtname == .md || resourceExtname == .markdown",
+          "when": "resourceExtname == .md || resourceExtname == .markdown || resourceExtname == .textile",
           "group": "navigation@1"
         }
       ],
       "editor/title/context": [
         {
           "command": "markdownEasyVisualEditor.openVisual",
-          "when": "resourceExtname == .md || resourceExtname == .markdown",
+          "when": "resourceExtname == .md || resourceExtname == .markdown || resourceExtname == .textile",
           "group": "navigation@1"
         }
       ],
@@ -534,6 +538,7 @@
     "test:smoke-build": "npm run build && npm run test:smoke",
     "test:sample-matrix": "npm run build && node scripts/sample-matrix.mjs && node scripts/sample-render-performance.mjs && node scripts/marp-sample-matrix.mjs",
     "test:sample-render-performance": "npm run build && node scripts/sample-render-performance.mjs",
+    "benchmark:textile": "node scripts/textile-render-performance.mjs",
     "test:marp-sample-matrix": "npm run build && node scripts/marp-sample-matrix.mjs",
     "test:marp": "npm run check && npm test -- test/marpFrontMatter.test.ts test/marpRenderer.test.ts && npm run test:marp-sample-matrix",
     "test:pdf-preview": "npm run build && node scripts/pdf-preview-smoke.mjs",
@@ -568,9 +573,11 @@
     "marked": "^18.0.9",
     "mermaid": "^11.16.1",
     "pdfjs-dist": "^6.2.108",
+    "pele": "1.6.0",
     "playwright-core": "^1.62.1",
     "react": "^19.2.8",
     "react-dom": "^19.2.8",
+    "textile-js": "2.1.1",
     "turndown": "^7.2.4",
     "turndown-plugin-gfm": "^1.0.2",
     "yaml": "^2.8.1"

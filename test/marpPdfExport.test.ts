@@ -1,3 +1,6 @@
+/**
+ * @fileoverview Marpの複数スライドと空デッキをPDF出力用HTMLへ変換する仕様を検証する。
+ */
 import { describe, expect, it } from "vitest";
 import { createMarpPdfExportContent } from "../src/webview/marp/marpPdfExport";
 

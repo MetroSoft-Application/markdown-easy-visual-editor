@@ -181,6 +181,46 @@ describe('HTML export',
                 expect(child).not.toContain('language-mermaid');
             });
 
+        /** Textile文書をリンク変換対象に含め、出力本文とアウトラインのIDを合わせる。 */
+        it('converts linked Textile documents and builds their matching outline', async () => {
+            const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markdown-easy-visual-editor-html-'));
+            temporaryDirectories.push(directory);
+            const childPath = path.join(directory, 'child.textile');
+            await fs.writeFile(childPath, 'h1. Child heading\n\np. A Textile child.\n', 'utf8');
+
+            const target = path.join(directory, 'main.html');
+            vscodeMock.showSaveDialog.mockResolvedValue(new TestUri(target));
+            const result = await exportHtml({
+                markdown: 'h1. Main heading\n\n"Child":child.textile#child-heading',
+                html: '<h1>Main heading</h1><p><a href="#" data-mve-link="child.textile#child-heading">Child</a></p>',
+                css: '',
+                options: {
+                    embedImages: false,
+                    convertLinkedMarkdown: true,
+                    showOutlineSidebar: true,
+                    saveWithoutDialog: false
+                },
+                documentUri: new TestUri(path.join(directory, 'main.textile')) as any,
+                language: 'en'
+            });
+
+            expect(result?.paths.map(
+                /**
+                 * HTML出力結果から検証するファイルパスを取り出す。
+                 * @param uri - Extension Hostが返した出力先URI。
+                 * @returns 出力済みファイルの絶対パス。
+                 */
+                (uri) => uri.fsPath)).toEqual([
+                target,
+                path.join(directory, 'child.html')
+            ]);
+            const rootHtml = await fs.readFile(target, 'utf8');
+            const childHtml = await fs.readFile(path.join(directory, 'child.html'), 'utf8');
+            expect(rootHtml).toContain('href="child.html#child-heading"');
+            expect(childHtml).toMatch(/<h1 id="child-heading"><a class="mve-heading-anchor"[^>]*>Child heading<\/a><\/h1>/u);
+            expect(childHtml).toContain('href="#child-heading"');
+        });
+
         it('resolves workspace-rooted section links when exporting linked Markdown', async () => {
             const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markdown-easy-visual-editor-html-'));
             temporaryDirectories.push(directory);
@@ -548,6 +588,55 @@ describe('HTML export',
                 expect(child).toContain('<a href="#child">Child</a>');
                 expect(child).toContain('<a href="#details">Details</a>');
             });
+
+        /** .mdの実出力でも混在MarkdownとTextileの見出し・phraseが同じHTML本文へ入ることを確認する。 */
+        it('exports Markdown and Textile blocks together for mixed Markdown documents', async () => {
+            const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markdown-easy-visual-editor-html-'));
+            temporaryDirectories.push(directory);
+            const markdown = [
+                '# Mixed Markdown',
+                '',
+                '**Markdown bold** remains Markdown.',
+                '',
+                'Textile +inserted+, -deleted-, and ??citation?? remain recognizable.',
+                '',
+                'h2. Textile heading'
+            ].join('\n');
+            const target = path.join(directory, 'mixed.html');
+            vscodeMock.showSaveDialog.mockResolvedValue(new TestUri(target));
+            await exportHtml({
+                markdown,
+                html: renderMarkdownUnsafe(markdown, {
+                    remoteImagesEnabled: true,
+                    language: 'en',
+                    renderFormat: 'mixed'
+                }),
+                css: '',
+                options: {
+                    embedImages: false,
+                    convertLinkedMarkdown: false,
+                    showOutlineSidebar: true,
+                    saveWithoutDialog: false
+                },
+                documentUri: new TestUri(path.join(directory, 'mixed.md')) as any,
+                language: 'en'
+            });
+
+            const output = await fs.readFile(target, 'utf8');
+            expect(output).toContain('<h1 id="mixed-markdown"><a class="mve-heading-anchor"');
+            expect(output).toContain('Mixed Markdown</a></h1>');
+            expect(output).toContain('<h2 id="textile-heading"><a class="mve-heading-anchor"');
+            expect(output).toContain('Textile heading</a></h2>');
+            expect(output).toContain('<strong>Markdown bold</strong>');
+            expect(output).toContain('<ins>inserted</ins>');
+            expect(output).toContain('<del>deleted</del>');
+            expect(output).toContain('<cite>citation</cite>');
+            expect(output).toContain('<a href="#textile-heading">Textile heading</a>');
+            expect(output).not.toContain('h2. Textile heading');
+            const evidenceDirectory = path.resolve('sample', 'textile', 'evidence');
+            await fs.mkdir(evidenceDirectory, { recursive: true });
+            await fs.writeFile(path.join(evidenceDirectory, 'mixed-export.html'), output, 'utf8');
+        });
 
         it('exports beside the Markdown file without opening a save dialog by default',
             async () => {

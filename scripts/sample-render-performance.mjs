@@ -454,11 +454,14 @@ async function measureSample(sample, condition) {
     const status = await page.locator('.split-preview .mve-marp-preview').getAttribute('data-mve-marp-status').catch(() => undefined);
     const alert = await page.locator('.split-preview [role="alert"]').innerText().catch(() => undefined);
     const diagnostics = await page.evaluate(() => ({
+      location: window.location.href,
+      readyState: document.readyState,
+      bodyText: document.body?.innerText?.slice(0, 500),
       renderedMarkdown: document.querySelector('.split-preview .rendered-markdown')?.innerText?.slice(0, 500),
       renderedMarkdownLength: document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-document-length'),
       renderRevision: document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-render-revision'),
-      messages: summarizeMessages(window.__mveMessages.slice(-10)),
-      incomingMessages: summarizeMessages(window.__mveIncomingMessages.slice(-10)),
+      messageTypes: (window.__mveMessages ?? []).slice(-10).map((message) => message?.type),
+      incomingMessageTypes: (window.__mveIncomingMessages ?? []).slice(-10).map((message) => message?.type),
       workerUri: document.body.dataset.mveMarpWorkerUri,
       frameUri: document.body.dataset.mveMarpFrameUri,
       resources: performance.getEntriesByType('resource').map((entry) => entry.name).filter((name) => name.includes('marp')),
@@ -483,8 +486,8 @@ async function measureSample(sample, condition) {
           frameState,
         };
       })(),
-      errors: summarizeMessages(window.__mveDebugLog?.slice(-10) ?? []),
-    })).catch(() => undefined);
+      debugEntries: (window.__mveDebugLog ?? []).slice(-10).map((entry) => String(entry?.message ?? entry).slice(0, 200)),
+    })).catch((diagnosticError) => ({ evaluationError: String(diagnosticError) }));
     const frameDiagnostics = await Promise.all(page.frames()
       .filter((frame) => frame.url() === 'about:srcdoc')
       .map(async (frame) => frame.evaluate(() => ({
@@ -498,6 +501,7 @@ async function measureSample(sample, condition) {
       })).catch((frameError) => String(frameError))));
     const failure = {
       path: sample.relativePath,
+      expectedText: sample.expectedText,
       cause: error instanceof Error ? error.message : String(error),
       status,
       alert,
@@ -675,6 +679,7 @@ function extractFirstContent(markdown) {
     .replace(/<!--[\s\S]*?-->/g, '');
   for (const line of body.split('\n')) {
     if (!line.trim() || /^\s*(```|~~~)/.test(line)) continue;
+    if (/^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?\s*$/u.test(line)) continue;
     const text = normalizeMarkdownText(line);
     if (text.length >= 5) return text;
   }
@@ -736,16 +741,32 @@ function isExpectedMissingImage(image, reference, sample) {
 }
 
 /**
- * Markdownインライン記法を除き、本文照合用の文字列へ整える。
- * @param value - Markdown記法を含む文字列。
+ * Markdown・Textileのインライン記法と表区切りを除き、本文照合用の文字列へ整える。
+ * @param value - MarkdownまたはTextile記法を含む文字列。
  * @returns HTMLテキストに近い照合用の文字列。
  */
 function normalizeMarkdownText(value) {
   return value
+    .replace(/!([^!\s()]+)(?:\(([^)]*)\))?!https?:\/\/[^\s]+/g,
+      (match, _source, alt) => `${alt ?? ''}${/[.,;!?]+$/u.exec(match)?.[0] ?? ''}`)
+    .replace(/!([^!\s()]+)(?:\(([^)]*)\))?!/g, (_match, _source, alt) => alt ?? '')
+    .replace(/\[([a-z][\w-]*)\]https?:\/\/[^\s\]]+/gi,
+      (match, label) => `${label}${/[.,;!?]+$/u.exec(match)?.[0] ?? ''}`)
+    .replace(/"(?:\([^)]+\)\.\s*)?([^"\r\n]+)":\S+/g,
+      (match, label) => `${label}${/[.,;!?]+$/u.exec(match)?.[0] ?? ''}`)
+    .replace(/%\([^)]+\)([^%\r\n]+)%/g, '$1')
     .replace(/!\[([^\]]*)\]\([^)]*\)/g, '$1')
     .replace(/\[([^\]]+)\]\([^)]*\)/g, '$1')
+    .replace(/^\s*\|/, '')
+    .replace(/\|\s*$/, '')
+    .replace(/\s*\|\s*/g, ' ')
     .replace(/\s+\{#[^}]+\}/g, '')
     .replace(/<[^>]*>/g, '')
+    .replace(/(^|\s)\+([^+]+)\+(?=$|\s|[.,;:!?])/gu, '$1$2')
+    .replace(/(^|\s)-([^-]+)-(?=$|\s|[.,;:!?])/gu, '$1$2')
+    .replace(/\?\?([^?]+)\?\?/gu, '$1')
+    .replace(/@([^@]+)@/gu, '$1')
+    .replace(/\^([^^]+)\^/gu, '$1')
     .replace(/[`*_~]/g, '')
     .replace(/\\([\\`*_{}\[\]()#+.!>\-])/g, '$1')
     .replace(/\s+/g, ' ')

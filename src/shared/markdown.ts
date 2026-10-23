@@ -1879,6 +1879,7 @@ export function collectLocalResourceReferences(markdown: string): LocalResourceR
         });
 
     const commentState = { open: false };
+    let inTextileCodeBlock = false;
     const scanLines = lines.map(
         /**
          * 各lineからlengthを取り出して一覧化する。
@@ -1888,6 +1889,14 @@ export function collectLocalResourceReferences(markdown: string): LocalResourceR
          */
         (line, index) => {
             if (fencedLines.has(index + 1) || isIndentedResourceCodeLine(line)) return ' '.repeat(line.length);
+            if (inTextileCodeBlock) {
+                if (!line.trim()) inTextileCodeBlock = false;
+                return ' '.repeat(line.length);
+            }
+            if (/^(?:bc|pre)\.\s/.test(line)) {
+                inTextileCodeBlock = true;
+                return ' '.repeat(line.length);
+            }
             return maskHtmlComments(maskInlineCode(line), commentState);
         });
     const scanSource = scanLines.join('\n');
@@ -1937,6 +1946,7 @@ export function collectLocalResourceReferences(markdown: string): LocalResourceR
             line
         });
     }
+    references.push(...collectTextileResourceReferences(scanLines));
 
     // 参照定義が単独で書かれている場合も、定義行自体を検査対象にする。
     definitions.forEach(
@@ -1953,6 +1963,37 @@ export function collectLocalResourceReferences(markdown: string): LocalResourceR
                     ...(definition.workspaceRooted ? { workspaceRooted: true } : {}),
                     line: definition.line
                 });
+            }
+        });
+    return references;
+}
+
+/**
+ * Masked source linesからTextile形式のローカル画像・リンクを抽出する。
+ * Markdownフェンス、インラインコード、HTMLコメント、Textileコードブロックは呼び出し元でマスク済み。
+ * @param lines - 各行番号を保った参照解析用ソース行。
+ * @returns リソース種別、参照先、行番号を持つTextile参照一覧。
+ */
+function collectTextileResourceReferences(lines: readonly string[]): LocalResourceReference[] {
+    const references: LocalResourceReference[] = [];
+    lines.forEach(
+        /**
+         * 各Textile行からリンクと画像記法を抽出する。
+         * @param line - Textile参照を含む可能性があるマスク済みソース行。
+         * @param index - 走査中の0始まり行番号。
+         */
+        (line, index) => {
+            for (const match of line.matchAll(/"([^"\r\n]+)":([^\s<>]+)/g)) {
+                const source = match[2].replace(/[.,!?;:]+$/, '');
+                if (isLocalResourceSource(source)) {
+                    references.push({ kind: 'link', source, line: index + 1 });
+                }
+            }
+            for (const match of line.matchAll(/!(?!\[)([^!\s()]+)(?:\(([^)]*)\))?!/g)) {
+                const source = match[1];
+                if (isLocalResourceSource(source)) {
+                    references.push({ kind: 'image', source, line: index + 1 });
+                }
             }
         });
     return references;
@@ -2731,9 +2772,21 @@ function countLineBreaks(value: string): number {
  * 描画と同じ見出しIDの割り当て順で、リンク先の行番号を求める。
  * @param markdown 見出し階層を走査するMarkdown本文。
  * @param targetId 移動先として検索する見出しアンカーID。
+ * @param format 文書の描画形式。省略時は既存互換のMarkdown形式を使う。
  * @returns 一致した見出しの1始まり行番号。本文にIDがない場合はundefined。
  */
-export function headingLineForAnchor(markdown: string, targetId: string): number | undefined {
+export function headingLineForAnchor(
+    markdown: string,
+    targetId: string,
+    format: 'markdown' | 'mixed' | 'textile' = 'markdown'
+): number | undefined {
+    if (format !== 'markdown') {
+        return getOutlineForFormatSource(markdown, format).find(
+            /** @param heading - 指定形式から抽出したアウトライン見出し。 */
+            (heading) => heading.id === targetId
+        )?.line;
+    }
+
     const counts = new Map<string, number>();
     const usedIds = new Set<string>();
     const parser = new Marked({ gfm: true, breaks: false });
@@ -2779,6 +2832,140 @@ export function headingLineForAnchor(markdown: string, targetId: string): number
     };
 
     return findInTokens(tokens, markdown, 1);
+}
+
+/**
+ * Markdown、Textile、Markdown優先の混在文書から、描画と共通のIDを持つ見出し一覧を作る。
+ * @param source - 見出し位置を保ったまま解析する文書本文。
+ * @param format - Markdown専用、Textile専用、またはMarkdown優先の混在描画形式。
+ * @returns 文書順のアウトライン見出し一覧。コードブロック内のTextile見出しは含まない。
+ */
+export function getOutlineForFormatSource(
+    source: string,
+    format: 'markdown' | 'mixed' | 'textile'
+): OutlineItem[] {
+    if (format === 'markdown') return getOutline(source);
+    if (format === 'mixed' && !/^h[1-6]\.\s/m.test(source)) return getOutline(source);
+    const candidates = format === 'mixed'
+        ? [...getOutline(source), ...getTextileAnchorHeadings(source, true)]
+        : getTextileAnchorHeadings(source, false);
+    const counts = new Map<string, number>();
+    const usedIds = new Set<string>();
+    return candidates
+        .sort(
+            /**
+             * 異なる記法の見出し候補を原文順へ並べる。
+             * @param left - 左側の見出し候補。
+             * @param right - 右側の見出し候補。
+             * @returns UTF-16オフセットの昇順を示す比較値。
+             */
+            (left, right) => left.offset - right.offset
+        )
+        .map(
+            /**
+             * 見出し記法を取り除き、文書内で一意な描画アンカーを割り当てる。
+             * @param item - MarkdownまたはTextileの見出し候補。
+             * @returns 表示文字列と描画IDを確定した見出し項目。
+             */
+            (item) => {
+                const rawLine = source.slice(item.offset).split(/\r\n|\r|\n/, 1)[0] ?? '';
+                const markdownHeading = /^#{1,6}\s+(.+?)\s*$/.exec(rawLine);
+                const textileHeading = /^h[1-6]\.\s+(.+?)\s*$/.exec(rawLine);
+                const rawHeading = textileHeading
+                    ? stripTextileAnchorHeadingMarkup(textileHeading[1])
+                    : markdownHeading?.[1] ?? item.text;
+                return {
+                    ...item,
+                    id: nextHeadingAnchorId(rawHeading, counts, usedIds)
+                };
+            }
+        );
+}
+
+/**
+ * Textile見出しを原文上の行・UTF-16オフセットとともに収集する。
+ * 混在MarkdownではMarkdownフェンス内を除外し、Textileコードブロックも常に除外する。
+ * @param source - Textileまたは混在Markdownの文書本文。
+ * @param skipMarkdownFences - trueの場合、Markdownフェンスの範囲を見出し探索から除外する。
+ * @returns Textile見出しのレベル、本文、行番号、ソースオフセット。
+ */
+function getTextileAnchorHeadings(
+    source: string,
+    skipMarkdownFences: boolean
+): Array<Pick<OutlineItem, 'level' | 'line' | 'offset' | 'text'>> {
+    const headings: Array<Pick<OutlineItem, 'level' | 'line' | 'offset' | 'text'>> = [];
+    let offset = 0;
+    let lineNumber = 1;
+    let fenceCharacter: string | undefined;
+    let fenceLength = 0;
+    let inTextileCode = false;
+    for (const rawLine of source.match(/[^\r\n]*(?:\r\n|\r|\n|$)/g) ?? []) {
+        if (!rawLine) break;
+        const line = rawLine.replace(/(?:\r\n|\r|\n)$/, '');
+        const fence = /^\s{0,3}(`{3,}|~{3,})/.exec(line);
+        if (skipMarkdownFences && fence) {
+            const marker = fence[1][0];
+            if (!fenceCharacter) {
+                fenceCharacter = marker;
+                fenceLength = fence[1].length;
+            } else if (marker === fenceCharacter && fence[1].length >= fenceLength) {
+                fenceCharacter = undefined;
+                fenceLength = 0;
+            }
+            offset += rawLine.length;
+            lineNumber += 1;
+            continue;
+        }
+        if (fenceCharacter || inTextileCode) {
+            if (!line.trim()) inTextileCode = false;
+            offset += rawLine.length;
+            lineNumber += 1;
+            continue;
+        }
+        if (/^(?:bc|pre)\.\s/.test(line)) {
+            inTextileCode = true;
+            offset += rawLine.length;
+            lineNumber += 1;
+            continue;
+        }
+        const heading = /^h([1-6])\.\s+(.+?)\s*$/.exec(line);
+        if (heading) {
+            headings.push({
+                level: Number(heading[1]),
+                text: stripTextileAnchorHeadingMarkup(heading[2]),
+                line: lineNumber,
+                offset
+            });
+        }
+        offset += rawLine.length;
+        lineNumber += 1;
+    }
+    return headings;
+}
+
+/**
+ * Textileのリンク・画像・装飾記法を見出しスラッグ用の可視テキストへ整える。
+ * @param source - Textile見出し本文。
+ * @returns Textile記号を除いた見出し本文。
+ */
+function stripTextileAnchorHeadingMarkup(source: string): string {
+    return source
+        .replace(/"([^"\r\n]+)":\S+/g, '$1')
+        .replace(/!([^!\r\n(]+)\(([^)]*)\)!/g, '$2')
+        .replace(/!([^!\r\n]+)!/g, '')
+        .replace(/@([^@\r\n]+)@/g, '$1')
+        .replace(/\*\*?([^*\r\n]+)\*\*?/g, '$1')
+        .replace(/__?([^_\r\n]+)__?/g, '$1')
+        .replace(/\+\+?([^+\r\n]+)\+\+?/g, '$1')
+        .replace(/--?([^- \r\n][^- \r\n]*?)--?/g, '$1')
+        .replace(/\?\?([^?\r\n]+)\?\?/g, '$1')
+        .replace(/<\/?[^>]+>/g, '')
+        .replace(/&amp;/gi, '&')
+        .replace(/&lt;/gi, '<')
+        .replace(/&gt;/gi, '>')
+        .replace(/&quot;/gi, '"')
+        .replace(/&#39;/gi, "'")
+        .trim();
 }
 
 /**

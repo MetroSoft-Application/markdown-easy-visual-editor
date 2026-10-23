@@ -176,7 +176,7 @@ flowchart TD
   A[Start] --> B[Done]
 ```
 
-In the Markdown preview, right-click a rendered Mermaid diagram and choose **Copy as PNG** to copy the whole diagram as an image. This also works for diagrams displayed as raster images. Preview zoom does not change the copied image size; very large diagrams are scaled down to fit the PNG size limit.
+In the Markdown preview, right-click a rendered Mermaid diagram and choose **Copy as PNG** to copy the whole diagram as an image. SVG diagrams are rasterized at 3× their source dimensions, independent of preview zoom; diagrams already displayed as raster images retain their source resolution. Very large diagrams are scaled down to fit the PNG size limit.
 
 ### Marp slide previews
 

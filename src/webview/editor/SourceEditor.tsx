@@ -68,6 +68,8 @@ import type { Messages } from "../../shared/messages";
 import { isMveDebugEnabled, mveDebug } from "../runtime/debug";
 import { exactSelectionMatchExtension } from "./cmSelectionMatchHighlight";
 import { htmlUrlAttributeHighlightExtension } from "./cmHtmlUrlHighlight";
+import { textileListMarkerHighlightExtension } from "./cmTextileListHighlight";
+import type { MarkdownRenderFormat } from "../markdown/markdownRendererCore";
 
 /**
  * 本文編集面で扱う値の種類と境界を表す型。
@@ -116,14 +118,14 @@ const CARET_PRESERVING_LINE_ACTIONS = new Set<SourceAction>([
  */
 export interface TextEditorHandle {
   /**
-    * 現在の選択範囲へMarkdownを挿入し、指定時はインライン内容として扱う。
+   * 現在の選択範囲へMarkdownを挿入し、指定時はインライン内容として扱う。
    * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
    * @param inline 挿入するMarkdown内容をインライン形式として扱う場合はtrue。
    * @returns なし。エディター文書を直接更新する。
    */
   insert(markdown: string, inline?: boolean): void;
   /**
-    * 変更後のMarkdown本文と選択範囲を一度に反映する。
+   * 変更後のMarkdown本文と選択範囲を一度に反映する。
    * @param edit - 編集後の本文と適用後の選択範囲。
    */
   applyEdit(edit: SourceEdit): void;
@@ -154,12 +156,12 @@ export interface TextEditorHandle {
    */
   getSelection(): TextSelection;
   /**
-    * 指定した本文範囲をCodeMirrorの選択状態にする。
+   * 指定した本文範囲をCodeMirrorの選択状態にする。
    * @param selection - 本文上の開始・終了オフセットで指定する選択範囲。
    */
   setSelection(selection: TextSelection): void;
   /**
-    * 指定範囲がエディター内に見えるようスクロールする。
+   * 指定範囲がエディター内に見えるようスクロールする。
    * @param selection - 表示位置へ移動する本文上の選択範囲。
    */
   revealRange(selection: TextSelection): void;
@@ -169,7 +171,7 @@ export interface TextEditorHandle {
    */
   getViewport(): EditorViewportAnchor | undefined;
   /**
-    * 保存したアンカーに対応する本文位置をエディターへ表示する。
+   * 保存したアンカーに対応する本文位置をエディターへ表示する。
    * @param anchor - 本文編集面で復元する可視位置アンカー。
    */
   restoreViewport(anchor: EditorViewportAnchor): void;
@@ -532,39 +534,36 @@ function updateVisibleSpaceDecorations(
 ): DecorationSet {
   if (update.viewportChanged) return visibleSpaceDecorations(update.view);
   let next = decorations.map(update.changes);
-  update.changes.iterChangedRanges(
-
-    (_fromA, _toA, fromB, toB) => {
-      const additions: Range<Decoration>[] = [];
-      if (toB > fromB) {
-        for (const visible of update.view.visibleRanges) {
-          const scanFrom = Math.max(fromB, visible.from);
-          const scanTo = Math.min(toB, visible.to);
-          if (scanTo <= scanFrom) continue;
-          const text = update.state.doc.sliceString(scanFrom, scanTo, "\n");
-          for (let index = 0; index < text.length; index += 1) {
-            if (text[index] === " ") {
-              additions.push(
-                Decoration.mark({ class: "cm-visible-space" }).range(
-                  scanFrom + index,
-                  scanFrom + index + 1,
-                ),
-              );
-            }
+  update.changes.iterChangedRanges((_fromA, _toA, fromB, toB) => {
+    const additions: Range<Decoration>[] = [];
+    if (toB > fromB) {
+      for (const visible of update.view.visibleRanges) {
+        const scanFrom = Math.max(fromB, visible.from);
+        const scanTo = Math.min(toB, visible.to);
+        if (scanTo <= scanFrom) continue;
+        const text = update.state.doc.sliceString(scanFrom, scanTo, "\n");
+        for (let index = 0; index < text.length; index += 1) {
+          if (text[index] === " ") {
+            additions.push(
+              Decoration.mark({ class: "cm-visible-space" }).range(
+                scanFrom + index,
+                scanFrom + index + 1,
+              ),
+            );
           }
         }
-        // 置換前の空白装飾が変更後の文字へ写像されても残らないよう、変更範囲だけ入れ替える。
-        next = next.update({
-          filterFrom: fromB,
-          filterTo: toB,
-
-          filter:  () => false,
-          add: additions,
-          sort: true,
-        });
       }
-    },
-  );
+      // 置換前の空白装飾が変更後の文字へ写像されても残らないよう、変更範囲だけ入れ替える。
+      next = next.update({
+        filterFrom: fromB,
+        filterTo: toB,
+
+        filter: () => false,
+        add: additions,
+        sort: true,
+      });
+    }
+  });
   return next;
 }
 
@@ -623,6 +622,11 @@ interface Props {
    * CodeMirrorへ表示して編集するMarkdown本文。
    */
   value: string;
+
+  /**
+   * 対象文書のプレビュー形式。Textile単独文書だけでTextile専用マーカー装飾を有効にする。
+   */
+  renderFormat?: MarkdownRenderFormat;
 
   /**
    * エディター初期表示時に選択する本文範囲。
@@ -697,6 +701,7 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
    * CodeMirrorを使った本文編集面を表示し、入力と選択をHostへ通知するコンポーネント。
    * @param messages - エディター内で表示するローカライズ済み文言。
    * @param value - エディターに表示するMarkdown本文。
+   * @param renderFormat - Textile専用またはMarkdown優先の混在形式。
    * @param initialSelection - エディター初期表示時に選択する本文範囲。
    * @param searchHits - 本文内で強調する検索一致範囲の一覧。
    * @param activeSearchHit - 現在選択中の検索一致範囲。
@@ -709,12 +714,13 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
    * @param onViewportChange - エディターの表示位置とユーザー操作状態を親へ通知する処理。
    * @param onUserScrollIntent - ユーザー起点のスクロールを親へ通知する処理。
    * @param ref - 親からエディターの公開メソッドを呼び出すRef。
-    * @returns CodeMirrorの本文編集領域と入力・選択・スクロール連携を含む要素。
+   * @returns CodeMirrorの本文編集領域と入力・選択・スクロール連携を含む要素。
    */
   function SourceEditor(
     {
       messages,
       value,
+      renderFormat = "markdown",
       initialSelection,
       searchHits = [],
       activeSearchHit,
@@ -738,6 +744,7 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
     const selectionRef = useRef(onSelectionChange);
     const viewportRef = useRef(onViewportChange);
     const viewportIntentRef = useRef(onUserScrollIntent);
+    const renderFormatCompartmentRef = useRef(new Compartment());
     const userScrollPendingRef = useRef(false);
     const pointerScrollActiveRef = useRef(false);
     const touchScrollActiveRef = useRef(false);
@@ -840,6 +847,11 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
             ),
             lineNumbers(),
             markdownLanguage({ codeLanguages: sourceCodeLanguages }),
+            renderFormatCompartmentRef.current.of(
+              renderFormat === "textile"
+                ? textileListMarkerHighlightExtension
+                : [],
+            ),
             // 標準スタイルは濃い青を含むため使わず、明るいテーマ配色を1つだけ適用する。
             syntaxHighlighting(vscodeSyntaxHighlightStyle),
             htmlUrlAttributeHighlightExtension,
@@ -920,7 +932,6 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
                   viewportRestoreGenerationRef.current += 1;
                   let changes: TextChange[] = [];
                   update.changes.iterChanges(
-
                     (fromA, toA, _fromB, _toB, inserted) => {
                       changes.push({
                         rangeOffset: editorOffsetToExternal(
@@ -1016,34 +1027,34 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
           viewportIntentRef.current?.();
         };
 
-         const beginPointerScroll = /**
-          * ポインター操作をユーザー起点として記録し、スクロール同期を始める。
+        const beginPointerScroll = /**
+         * ポインター操作をユーザー起点として記録し、スクロール同期を始める。
          */ () => {
           markUserScrollIntent();
           pointerScrollActiveRef.current = true;
         };
 
-         const endPointerScroll = /**
-          * ポインター操作によるスクロール状態を解除する。
+        const endPointerScroll = /**
+         * ポインター操作によるスクロール状態を解除する。
          */ () => {
           pointerScrollActiveRef.current = false;
         };
 
-         const beginTouchScroll = /**
-          * タッチ操作をユーザー起点として記録し、スクロール同期を始める。
+        const beginTouchScroll = /**
+         * タッチ操作をユーザー起点として記録し、スクロール同期を始める。
          */ () => {
           markUserScrollIntent();
           touchScrollActiveRef.current = true;
         };
 
-         const endTouchScroll = /**
-          * タッチ操作によるスクロール状態を解除する。
+        const endTouchScroll = /**
+         * タッチ操作によるスクロール状態を解除する。
          */ () => {
           touchScrollActiveRef.current = false;
         };
 
-         const scheduleInputSettled = /**
-          * 直前の入力通知を置き換え、入力が止まってから確定通知を遅延実行する。
+        const scheduleInputSettled = /**
+         * 直前の入力通知を置き換え、入力が止まってから確定通知を遅延実行する。
          */ () => {
           inputActivityRef.current?.();
           if (inputSettledTimerRef.current !== undefined)
@@ -1060,8 +1071,8 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
           );
         };
 
-         const settleComposition = /**
-          * IME入力を確定し、確定本文と選択範囲をHostへ渡す。
+        const settleComposition = /**
+         * IME入力を確定し、確定本文と選択範囲をHostへ渡す。
          */ () => {
           if (!compositionActiveRef.current) return;
           if (compositionEndTimerRef.current !== undefined)
@@ -1139,8 +1150,8 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
           );
         };
 
-         const beginComposition = /**
-          * IME変換前の本文と選択範囲を保存し、親から届く古い本文の上書きを防ぐ。
+        const beginComposition = /**
+         * IME変換前の本文と選択範囲を保存し、親から届く古い本文の上書きを防ぐ。
          */ () => {
           // 直前のcompositionendと次の入力開始が連続した場合も、前回分を失わず先に確定する。
           if (compositionEndTimerRef.current !== undefined) settleComposition();
@@ -1155,8 +1166,8 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
           };
         };
 
-         const endComposition = /**
-          * compositionend直後のブラウザー更新後にIME入力を確定する。
+        const endComposition = /**
+         * compositionend直後のブラウザー更新後にIME入力を確定する。
          */ () => {
           if (compositionEndTimerRef.current !== undefined)
             window.clearTimeout(compositionEndTimerRef.current);
@@ -1180,9 +1191,9 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
           settleComposition();
         };
 
-         const publishViewport = /**
-          * 可視位置アンカーをDOM属性と親コンポーネントへ通知する。
-          * @param anchor - 復元後に上位へ通知する可視位置アンカー。
+        const publishViewport = /**
+         * 可視位置アンカーをDOM属性と親コンポーネントへ通知する。
+         * @param anchor - 復元後に上位へ通知する可視位置アンカー。
          */ (anchor: EditorViewportAnchor) =>
           publishViewportData(hostRef.current, anchor);
         let scrollFrame = 0;
@@ -1243,61 +1254,58 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
         window.addEventListener("pointercancel", endPointerScroll);
         window.addEventListener("touchend", endTouchScroll);
         window.addEventListener("touchcancel", endTouchScroll);
-        const resizeObserver = new ResizeObserver(
+        const resizeObserver = new ResizeObserver(() => {
+          // レイアウトサイズ変更後に保存済み表示位置を復元し、復元対象がなければ現在位置を再通知する。
+          const restoreAnchor = viewportRestoreAnchorRef.current;
+          if (restoreAnchor) {
+            const generation = ++viewportRestoreGenerationRef.current;
+            restoreViewportUntilSettled(
+              view,
+              restoreAnchor,
+              hostRef.current,
+              programmaticScrollPendingRef,
 
-          () => {
-            // レイアウトサイズ変更後に保存済み表示位置を復元し、復元対象がなければ現在位置を再通知する。
-            const restoreAnchor = viewportRestoreAnchorRef.current;
-            if (restoreAnchor) {
-              const generation = ++viewportRestoreGenerationRef.current;
-              restoreViewportUntilSettled(
-                view,
-                restoreAnchor,
-                hostRef.current,
-                programmaticScrollPendingRef,
+              /**
+               * 復元要求が最新世代のままかを確認する。
+               */
+              () => viewportRestoreGenerationRef.current === generation,
 
-                /**
-                 * 復元要求が最新世代のままかを確認する。
-                 */
-                () => viewportRestoreGenerationRef.current === generation,
-
-                /**
+              /**
 
                  * @param restored - 復元処理が確定した本文編集面の可視位置アンカー。
                  */
-                (restored) => viewportRef.current?.(restored, false),
+              (restored) => viewportRef.current?.(restored, false),
 
-                /**
-                 * ビューポート復元中の状態を解除する。
-                 */
-                () => {
-                  viewportRestoreActiveRef.current = false;
-                },
-              );
-              return;
-            }
-            view.requestMeasure({
-              read: /**
-               * 現在のスクロール位置から本文内の可視アンカーを計測する。
-               * @returns 計測できた場合は文書内オフセット付きアンカー、未表示の場合はundefined。
-               */ () => readViewport(view),
-
-              write: /**
-               * 本文編集面の値を保存先または共有状態へ書き出す。
-               * @param anchor - read段階で計測した可視位置アンカー。未計測時はundefined。
-               */ (anchor) => {
-                if (anchor) publishViewport(anchor);
+              /**
+               * ビューポート復元中の状態を解除する。
+               */
+              () => {
+                viewportRestoreActiveRef.current = false;
               },
-            });
-          },
-        );
+            );
+            return;
+          }
+          view.requestMeasure({
+            read: /**
+             * 現在のスクロール位置から本文内の可視アンカーを計測する。
+             * @returns 計測できた場合は文書内オフセット付きアンカー、未表示の場合はundefined。
+             */ () => readViewport(view),
+
+            write: /**
+             * 本文編集面の値を保存先または共有状態へ書き出す。
+             * @param anchor - read段階で計測した可視位置アンカー。未計測時はundefined。
+             */ (anchor) => {
+              if (anchor) publishViewport(anchor);
+            },
+          });
+        });
         resizeObserver.observe(view.scrollDOM);
         viewRef.current = view;
         publishSelectionData(hostRef.current, view.state);
         view.requestMeasure({
-           read: /**
-            * 初期表示位置から本文内の可視アンカーを計測する。
-            * @returns 計測できた場合は文書内オフセット付きアンカー、未表示の場合はundefined。
+          read: /**
+           * 初期表示位置から本文内の可視アンカーを計測する。
+           * @returns 計測できた場合は文書内オフセット付きアンカー、未表示の場合はundefined。
            */ () => readViewport(view),
 
           write: /**
@@ -1353,6 +1361,24 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
 
     useEffect(
       /**
+       * 対象文書の形式に応じてTextileリスト記号の表示装飾を更新する。
+       */
+      () => {
+        const view = viewRef.current;
+        if (!view) return;
+        view.dispatch({
+          effects: renderFormatCompartmentRef.current.reconfigure(
+            renderFormat === "textile"
+              ? textileListMarkerHighlightExtension
+              : [],
+          ),
+        });
+      },
+      [renderFormat],
+    );
+
+    useEffect(
+      /**
        * 依存状態の変化に応じて表示または購読を更新する。
        */
       () => {
@@ -1394,13 +1420,11 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
         );
         const nextEditorValue = normalizeLineEndings(value);
         const changes = computeTextChanges(currentEditorValue, nextEditorValue);
-        const editorChanges = changes.map(
-          (change) => ({
-            from: change.rangeOffset,
-            to: change.rangeOffset + change.rangeLength,
-            insert: toEditorInsertion(view.state, change.text),
-          }),
-        );
+        const editorChanges = changes.map((change) => ({
+          from: change.rangeOffset,
+          to: change.rangeOffset + change.rangeLength,
+          insert: toEditorInsertion(view.state, change.text),
+        }));
         const changeSet = view.state.changes(editorChanges);
         const snapshot =
           view.scrollDOM.clientHeight > 0
@@ -1524,8 +1548,8 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
         },
 
         getSelection: /**
-          * CodeMirror内の選択範囲を外部本文のUTF-16オフセットへ変換する。
-          * @returns エディターが未マウントの場合は空範囲。
+         * CodeMirror内の選択範囲を外部本文のUTF-16オフセットへ変換する。
+         * @returns エディターが未マウントの場合は空範囲。
          */ () => {
           const view = viewRef.current;
           const main = view?.state.selection.main;
@@ -1574,8 +1598,8 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
         },
 
         getViewport: /**
-          * 現在のスクロール位置を文書内アンカーへ変換する。
-          * @returns エディターが表示中なら可視アンカー、未マウントならundefined。
+         * 現在のスクロール位置を文書内アンカーへ変換する。
+         * @returns エディターが表示中なら可視アンカー、未マウントならundefined。
          */ () => {
           const view = viewRef.current;
           return view ? readViewport(view) : undefined;

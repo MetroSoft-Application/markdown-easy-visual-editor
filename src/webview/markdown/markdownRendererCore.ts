@@ -2,7 +2,7 @@
  * @fileoverview Markdownを段階的に解析・変換し、HTML・見出し・画像情報を安定した中間結果へまとめる。
  */
 import katex from 'katex';
-import { Marked, Renderer, type Token } from 'marked';
+import { Marked, Renderer, type Token, type Tokens, type TokenizerAndRendererExtension } from 'marked';
 import { footnoteDefinitionSyntax, mathBlockSyntax, tableOfContentsSyntax } from '../../shared/markdownBlockSyntax';
 import {
     getOutline,
@@ -11,7 +11,13 @@ import {
     WORKSPACE_SECTION_LINK_TITLE,
     type OutlineItem
 } from '../../shared/markdown';
+import { decodeTextileCodeEntities, renderTextile } from '../../shared/textileAdapter';
 import { getMessages, type Messages, type SupportedLanguage } from '../../shared/messages';
+
+/**
+ * 既定Markdown、Textile専用、Markdown優先の混在描画を区別する形式。
+ */
+export type MarkdownRenderFormat = 'markdown' | 'mixed' | 'textile';
 
 /**
  * Markdown変換へ渡す設定項目と既定値のデータ形状。
@@ -22,6 +28,11 @@ export interface RenderOptions {
      * trueならhttp(s)画像を読み込み、falseなら画像本体の代わりにブロック表示する。
      */
     remoteImagesEnabled: boolean;
+
+    /**
+     * 描画形式。省略時は既存文書との互換性を保つMarkdown。
+     */
+    renderFormat?: MarkdownRenderFormat;
 
     /**
      * メッセージとKaTeXエラー表示に使う言語。省略時は日本語。
@@ -94,6 +105,11 @@ export interface UnsafeMarkdownBlock {
     headingOffset?: number;
     /** 実際に描画した見出しのID。 */
     headingId?: string;
+    /**
+     * 一つのTextile描画ブロックに含まれる複数見出しのソース位置と描画ID。
+     * 脚注など文書全体の文脈を必要とする場合も、アウトラインの対応を保つ。
+     */
+    headingIds?: Array<{ offset: number; id: string }>;
 
     /**
      * trueならHTML出力をサニタイズする必要がある。Markdown由来の非HTML変換結果ではfalse。
@@ -113,6 +129,9 @@ export function alignOutlineHeadingIds(
 ): OutlineItem[] {
     const byOffset = new Map<number, string>();
     for (const block of blocks) {
+        for (const heading of block.headingIds ?? []) {
+            byOffset.set(heading.offset, heading.id);
+        }
         if (block.headingOffset !== undefined && block.headingId) {
             byOffset.set(block.headingOffset, block.headingId);
         }
@@ -144,6 +163,13 @@ export function renderMarkdownUnsafeBlocks(
     options: RenderOptions,
     highlightCode?: CodeHighlighter
 ): UnsafeMarkdownBlock[] {
+    const requestedFormat = options.renderFormat ?? 'markdown';
+    const renderFormat = requestedFormat === 'mixed' && !hasMixedTextileSyntaxCandidate(markdown)
+        ? 'markdown'
+        : requestedFormat;
+    if (renderFormat === 'textile') {
+        return renderTextileDocumentBlocks(markdown, options, highlightCode);
+    }
     // 見出しIDと脚注参照番号を1回の描画中だけ保持し、同名見出しや複数参照を区別する。
     const messages = getMessages(options.language ?? 'ja');
     const renderer = new Renderer();
@@ -153,9 +179,49 @@ export function renderMarkdownUnsafeBlocks(
     const footnoteDefinitions = collectFootnoteDefinitions(markdown);
     const footnoteCounts = new Map<string, number>();
     let imageIndex = 0;
+    const sourceHeadings = renderFormat === 'mixed' && hasMixedTextileHeadingCandidate(markdown)
+        ? getSourceOutlineForFormat(markdown, renderFormat)
+        : [];
+    const sourceHeadingIdsByOffset = new Map(sourceHeadings.map(
+        /**
+         * heading rendererが元文書位置から見出しIDを引けるようにする。
+         * @param heading - 描画形式を反映したアウトライン項目。
+         * @returns 見出しソース位置と確定IDの組。
+         */
+        (heading) => [heading.offset, heading.id]
+    ));
+    const textileHeadings = renderFormat === 'mixed'
+        ? sourceHeadings.filter(
+            /**
+             * 明示的なTextile見出しだけをTextileトークンへ関連付ける。
+             * @param heading - 描画形式を反映したアウトライン項目。
+             * @returns ソース位置がTextile見出しの場合はtrue。
+             */
+            (heading) => /^h[1-6](?:[<>=()]*)(?:\([^)]*\))?(?:\{[^}]*\})?(?:\[[^\]]*\])?\./i.test(markdown.slice(heading.offset))
+        )
+        : sourceHeadings;
+    const textileHeadingsByOffset = new Map(textileHeadings.map(
+        /**
+         * Textile block rendererが見出しを参照できるようにする。
+         * @param heading - Textileソースに対応するアウトライン項目。
+         * @returns 見出しソース位置とアウトライン項目の組。
+         */
+        (heading) => [heading.offset, heading]
+    ));
+    let activeTextileSourceOffset: number | undefined;
+    let renderedTextileHeadingId: string | undefined;
+    let mixedTextileImageIndex = 0;
 
     /**
-     * Markdown変換で扱う一覧または対応表。
+     * Textileブロック画像にMarkdown画像編集経路と独立した連番を割り当てる。
+     * @returns 次の混在Textile画像番号。
+     */
+    function nextMixedTextileImageIndex(): number {
+        return mixedTextileImageIndex++;
+    }
+
+    /**
+     * Markdown見出しから固有IDを決め、アウトラインへのリンク先を保つrenderer。
      */
     renderer.heading =
         /**
@@ -166,13 +232,16 @@ export function renderMarkdownUnsafeBlocks(
          */
         function ({ tokens, depth }) {
             const content = this.parser.parseInline(tokens);
-            const id = nextHeadingAnchorId(tokens.map((token) => token.raw).join(''), headingIds, usedHeadingIds);
+            const id = renderFormat === 'mixed'
+                ? sourceHeadingIdsByOffset.get(activeTextileSourceOffset ?? -1)
+                ?? nextHeadingAnchorId(tokens.map((token) => token.raw).join(''), headingIds, usedHeadingIds)
+                : nextHeadingAnchorId(tokens.map((token) => token.raw).join(''), headingIds, usedHeadingIds);
             renderedHeadingId = id;
             return `<h${depth} id="${escapeAttribute(id)}" data-mve-heading="true">${content.replace(/\s+\{#[^}]+\}(?=(?:<\/span>)*\s*$)/, '')}</h${depth}>`;
         };
 
     /**
-     * Markdown変換で扱う一覧または対応表。
+     * Markdownのリンク、コード、HTML token用rendererを束ねる。
      */
     renderer.link =
         /**
@@ -234,21 +303,57 @@ export function renderMarkdownUnsafeBlocks(
     /** Markdown内のHTML tokenを表示用ブロックまたは装飾済みHTMLへ変換するrenderer。 */
     renderer.html =
         /**
-         * MarkdownのHTML tokenをページ区切りまたは通常HTMLへ変換する。
+         * MarkdownのHTML tokenへ混在形式の言語付きコード強調を適用し、画像情報を付ける。
          * @param text - HTML tokenに含まれる本文。
-         * @returns ページ区切りまたは画像情報を付加したHTML。
+         * @returns ページ区切り、強調済みコード、または画像情報を付加したHTML。
          */
         ({ text }) => {
             if (/^<!--\s*pagebreak\s*-->$/i.test(text.trim())) return `<div class="page-break" aria-label="${escapeAttribute(messages.renderer.pageBreak)}"></div>`;
-            return decorateHtmlImages(text,
+            const html = renderFormat === 'mixed' ? highlightTextileCodeBlocks(text, highlightCode, true) : text;
+            return decorateHtmlImages(html,
                 /**
-                 * Markdown変換の前提条件を準備し、回帰条件を検証するテストケース。
+                 * HTML token内のimg要素へ文書内の連番を付与する。
+                 * @returns 次のHTML画像番号。
                  */
                 () => imageIndex++);
         };
 
-    // 標準Markdownの解析器へ独自記法を登録し、拡張記法も同じトークン処理へ流す。
+    // Textile専用ブロックは明示的な接頭辞とTextile表だけに限定し、曖昧な記法はMarkedへ残す。
     const parser = new Marked({ gfm: true, breaks: false, renderer });
+    if (renderFormat === 'mixed') {
+        parser.use({
+            extensions: [
+                createMixedTextileBlockExtension(
+                    options,
+                    highlightCode,
+                    nextMixedTextileImageIndex,
+                    /**
+                     * Textileブロック開始位置に対応するアウトライン見出しを返す。
+                     * @param offset - 現在ブロックのUTF-16開始位置。
+                     * @returns 見出し項目が存在する場合は1項目の一覧。
+                     */
+                    (offset) => {
+                        const heading = textileHeadingsByOffset.get(offset);
+                        return heading ? [heading] : [];
+                    },
+                    /**
+                     * Textile block rendererが確定した見出しIDをブロック結果へ渡す。
+                     * @param headingId - Textile見出しの描画ID。
+                     */
+                    (headingId) => {
+                        renderedTextileHeadingId = headingId;
+                    },
+                    /**
+                     * 変換中のMarked tokenの原文開始位置を参照する。
+                     * @returns 現在のtoken開始位置。位置がない場合はundefined。
+                     */
+                    () => activeTextileSourceOffset
+                ),
+                ...createMixedTextileInlineExtensions(options, messages.renderer.remoteImageDisabled)
+            ]
+        });
+    }
+    // 標準Markdown拡張と既存独自構文を同じトークン処理へ流す。
     parser.use({
         extensions: [
             inlineDelimited('highlight', /^==(?=\S)([\s\S]*?\S)==/, 'mark'),
@@ -283,13 +388,18 @@ export function renderMarkdownUnsafeBlocks(
         (token, index): UnsafeMarkdownBlock | undefined => {
             const tokenList = Object.assign([token], { links });
             renderedHeadingId = undefined;
+            renderedTextileHeadingId = undefined;
+            activeTextileSourceOffset = ranges[index]?.from;
             const rendered = String(parser.parser(tokenList));
             if (!rendered.trim()) return undefined;
             const range = ranges[index];
+            const textileHeading = token.type === 'mveTextileBlock'
+                ? textileHeadingsByOffset.get(range.from)
+                : undefined;
             return {
                 html: `<div class="markdown-source-block" data-source-from="${range.from}" data-source-to="${range.to}">${rendered}</div>`,
-                headingOffset: token.type === 'heading' ? range.from : undefined,
-                headingId: token.type === 'heading' ? renderedHeadingId : undefined,
+                headingOffset: token.type === 'heading' ? range.from : textileHeading?.offset,
+                headingId: token.type === 'heading' ? renderedHeadingId : renderedTextileHeadingId,
                 // コード/Mermaid本文と属性はrenderer.code内ですべてエスケープ済み。
                 requiresSanitization: token.type !== 'code'
             };
@@ -346,30 +456,1254 @@ function isLocalMarkdownLink(href: string): boolean {
 }
 
 /**
+ * MarkdownとTextileの見出しを描画済みブロックIDへ対応付ける。
+ * @param source - 原文を変更せずに解析する文書本文。
+ * @param format - Markdown専用、Textile専用、または両形式を混在させる描画形式。
+ * @param blocks - 描画後の見出しIDとソース位置を含むブロック一覧。
+ * @returns 文書順に並んだ見出し項目。表示できない見出しは除く。
+ */
+export function getOutlineForFormat(
+    source: string,
+    format: MarkdownRenderFormat,
+    blocks: UnsafeMarkdownBlock[]
+): OutlineItem[] {
+    return alignOutlineHeadingIds(getSourceOutlineForFormat(source, format), blocks);
+}
+
+/**
+ * 指定形式の見出しを文書順にまとめ、混在形式ではアンカーIDの重複も共有して採番する。
+ * @param source - 原文を走査する文書本文。
+ * @param format - Markdown専用、Textile専用、または両形式を混在させる描画形式。
+ * @returns ソース順に並んだ見出し一覧。
+ */
+function getSourceOutlineForFormat(
+    source: string,
+    format: MarkdownRenderFormat
+): OutlineItem[] {
+    if (format === 'textile') return getTextileOutline(source);
+    const markdownItems = getOutline(source);
+    if (format === 'markdown') return markdownItems;
+    const textileItems = getTextileOutline(source, true);
+    const counts = new Map<string, number>();
+    const usedIds = new Set<string>();
+    return [...markdownItems, ...textileItems]
+        .sort(
+            /**
+             * 混在形式のMarkdown・Textile見出しを原文順へ並べる。
+             * @param left - 左側の見出し候補。
+             * @param right - 右側の見出し候補。
+             * @returns 原文位置の昇順を示す比較値。
+             */
+            (left, right) => left.offset - right.offset
+        )
+        .map(
+            /**
+             * MarkdownとTextileの見出しへ文書順の重複回避IDを割り当てる。
+             * @param item - MarkdownまたはTextileのアウトライン候補。
+             * @returns 確定IDを割り当てたアウトライン項目。
+             */
+            (item) => {
+                const rawLine = source.slice(item.offset).split(/\r\n|\r|\n/, 1)[0] ?? '';
+                const markdownHeading = /^#{1,6}\s+(.+?)\s*$/.exec(rawLine);
+                const textileHeading = /^h[1-6](?:[<>=()]*)(?:\([^)]*\))?(?:\{[^}]*\})?(?:\[[^\]]*\])?\.\s+(.+?)\s*$/i.exec(rawLine);
+                const rawHeading = textileHeading
+                    ? stripTextileHeadingMarkup(textileHeading[1])
+                    : markdownHeading?.[1] ?? item.text;
+                return {
+                    ...item,
+                    id: nextHeadingAnchorId(rawHeading, counts, usedIds)
+                };
+            }
+        );
+}
+
+/**
+ * Textile見出しをソース位置と一意なアンカーID付きで収集する。
+ * Markdown混在時はMarkdownフェンス内を除外し、Textileコードブロック内も常に除外する。
+ * @param source - 見出しを解析する文書本文。
+ * @param skipMarkdownFences - 混在文書のMarkdownフェンス内容を無視する場合はtrue。
+ * @returns Textile見出しのアウトライン項目。
+ */
+function getTextileOutline(source: string, skipMarkdownFences = false): OutlineItem[] {
+    const result: OutlineItem[] = [];
+    const counts = new Map<string, number>();
+    const usedIds = new Set<string>();
+    let offset = 0;
+    let lineNumber = 0;
+    let fenceCharacter: string | undefined;
+    let fenceLength = 0;
+    let inTextileCode = false;
+    let extendedTextileBlock = false;
+    let rawPreformatted = false;
+    let rawNoTextile = false;
+    for (const rawLine of source.split(/(?<=\n)|(?<=\r)(?!\n)/)) {
+        const line = rawLine.replace(/(?:\r\n|\r|\n)$/, '');
+        const fence = /^\s{0,3}(\x60{3,}|~{3,})/.exec(line);
+        if (skipMarkdownFences && fence) {
+            const marker = fence[1][0];
+            if (!fenceCharacter) {
+                fenceCharacter = marker;
+                fenceLength = fence[1].length;
+            } else if (marker === fenceCharacter && fence[1].length >= fenceLength) {
+                fenceCharacter = undefined;
+                fenceLength = 0;
+            }
+            offset += rawLine.length;
+            lineNumber += 1;
+            continue;
+        }
+        if (fenceCharacter) {
+            offset += rawLine.length;
+            lineNumber += 1;
+            continue;
+        }
+        if (extendedTextileBlock && isTextileBlockLead(line)) extendedTextileBlock = false;
+        else if (extendedTextileBlock) {
+            offset += rawLine.length;
+            lineNumber += 1;
+            continue;
+        }
+        if (rawPreformatted) {
+            if (/<\/pre\s*>/i.test(line)) rawPreformatted = false;
+            offset += rawLine.length;
+            lineNumber += 1;
+            continue;
+        }
+        if (rawNoTextile) {
+            if (/<\/notextile\s*>/i.test(line)) rawNoTextile = false;
+            offset += rawLine.length;
+            lineNumber += 1;
+            continue;
+        }
+        if (inTextileCode) {
+            if (!line.trim()) inTextileCode = false;
+            offset += rawLine.length;
+            lineNumber += 1;
+            continue;
+        }
+        if (/<pre\b[^>]*>/i.test(line)) {
+            if (!/<\/pre\s*>/i.test(line)) rawPreformatted = true;
+            offset += rawLine.length;
+            lineNumber += 1;
+            continue;
+        }
+        if (/<notextile\b[^>]*>/i.test(line)) {
+            if (!/<\/notextile\s*>/i.test(line)) rawNoTextile = true;
+            offset += rawLine.length;
+            lineNumber += 1;
+            continue;
+        }
+        if (isTextileExtendedBlockLead(line)) {
+            extendedTextileBlock = true;
+            offset += rawLine.length;
+            lineNumber += 1;
+            continue;
+        }
+        if (/^(?:bc|pre|notextile)(?:\([^)]*\))?(?:\{[^}]*\})?(?:\[[^\]]*\])?\.\s/i.test(line)) {
+            inTextileCode = true;
+            offset += rawLine.length;
+            lineNumber += 1;
+            continue;
+        }
+        const heading = /^h([1-6])(?:[<>=()]*)(?:\([^)]*\))?(?:\{[^}]*\})?(?:\[[^\]]*\])?\.\s+(.+?)\s*$/i.exec(line);
+        if (heading) {
+            const text = stripTextileHeadingMarkup(heading[2]);
+            result.push({
+                level: Number(heading[1]),
+                text,
+                line: lineNumber + 1,
+                offset,
+                id: nextHeadingAnchorId(text, counts, usedIds)
+            });
+        }
+        offset += rawLine.length;
+        lineNumber += 1;
+    }
+    return result;
+}
+
+/**
+ * Textile見出しの表示文字列から装飾記号、リンク先、HTML風タグを除去する。
+ * @param source - Textile見出しの記法付き本文。
+ * @returns slugとアウトライン表示に使う見出し文字列。
+ */
+function stripTextileHeadingMarkup(source: string): string {
+    return source
+        .replace(/"([^"\r\n]+)":\S+/g, '$1')
+        .replace(/!([^!\r\n(]+)\(([^)]*)\)!/g, '$2')
+        .replace(/!([^!\r\n]+)!/g, '')
+        .replace(/@([^@\r\n]+)@/g, '$1')
+        .replace(/\*\*?([^*\r\n]+)\*\*?/g, '$1')
+        .replace(/__?([^_\r\n]+)__?/g, '$1')
+        .replace(/\+\+?([^+\r\n]+)\+\+?/g, '$1')
+        .replace(/--?([^- \r\n][^- \r\n]*?)--?/g, '$1')
+        .replace(/\?\?([^?\r\n]+)\?\?/g, '$1')
+        .replace(/<\/?[^>]+>/g, '')
+        .replace(/&amp;/gi, '&')
+        .replace(/&lt;/gi, '<')
+        .replace(/&gt;/gi, '>')
+        .replace(/&quot;/gi, '"')
+        .replace(/&#39;/gi, "'")
+        .trim();
+}
+
+/**
+ * Textile専用文書を空行区切りの原文範囲ごとに描画する。
+ * @param source - Textile構文を含む原文。
+ * @param options - 画像と表示言語の描画設定。
+ * @param highlightCode - 言語クラス付きコードへ使うハイライト関数。
+ * @returns サニタイズ前HTMLと編集位置を対応付けたTextileブロック一覧。
+ */
+function renderTextileDocumentBlocks(
+    source: string,
+    options: RenderOptions,
+    highlightCode?: CodeHighlighter
+): UnsafeMarkdownBlock[] {
+    const headings = getTextileOutline(source);
+    const blocks: UnsafeMarkdownBlock[] = [];
+    let imageIndex = 0;
+
+    /**
+     * Textileプレビュー内画像へ文書内の通し番号を割り当てる。
+     * @returns 次のTextile画像番号。
+     */
+    function nextTextileImageIndex(): number {
+        return imageIndex++;
+    }
+
+    for (const range of getTextileSourceRanges(source)) {
+        const headingsInRange = headings.filter((heading) => heading.offset >= range.from && heading.offset < range.to);
+        appendTextileSourceBlock(
+            blocks,
+            source,
+            range.from,
+            range.to,
+            headingsInRange,
+            options,
+            nextTextileImageIndex,
+            highlightCode
+        );
+    }
+    return blocks;
+}
+
+/**
+ * Textile文書を通常ブロックと複数行ブロックに分け、文書スコープの記法は一括変換へ渡す。
+ * bc..、pre..、notextile..は次の明示ブロックまで空行を含めて保持する。
+ * @param source - 分割せず保持しているTextile原文。
+ * @returns ソース位置を保った描画単位。脚注を含む場合は文書全体を一単位で返す。
+ */
+function getTextileSourceRanges(source: string): Array<{ from: number; to: number }> {
+    if (!source.trim()) return [];
+    if (/(?:^|\r?\n)\s*fn\d+\./i.test(source)) return [{ from: 0, to: source.length }];
+
+    let sourceOffset = 0;
+    const lines = source.split(/(?<=\n)|(?<=\r)(?!\n)/).map(
+        /**
+         * 各原文行へUTF-16開始・終了位置を付け、描画単位の境界を算出する。
+         * @param raw - 改行を含む原文の一行。
+         * @returns 行本文と原文範囲。
+         */
+        (raw) => {
+            const from = sourceOffset;
+            sourceOffset += raw.length;
+            return {
+                text: raw.replace(/(?:\r\n|\r|\n)$/, ''),
+                from,
+                to: from + raw.length
+            };
+        }
+    );
+    const ranges: Array<{ from: number; to: number }> = [];
+    let blockFrom: number | undefined;
+    let blockTo = 0;
+    let extendedBlock = false;
+    let rawPreformatted = false;
+    let rawNoTextile = false;
+    let index = 0;
+
+    while (index < lines.length) {
+        const line = lines[index];
+        if (!line) break;
+        if (extendedBlock && isTextileBlockLead(line.text)) {
+            if (blockFrom !== undefined) ranges.push({ from: blockFrom, to: line.from });
+            blockFrom = undefined;
+            extendedBlock = false;
+            rawPreformatted = false;
+            rawNoTextile = false;
+            continue;
+        }
+        if (blockFrom === undefined && !line.text.trim()) {
+            index += 1;
+            continue;
+        }
+        blockFrom ??= line.from;
+        blockTo = line.text.trim() || extendedBlock || rawPreformatted ? line.to : line.from;
+
+        if (/<pre\b[^>]*>/i.test(line.text) && !/<\/pre\s*>/i.test(line.text)) rawPreformatted = true;
+        if (rawPreformatted && /<\/pre\s*>/i.test(line.text)) rawPreformatted = false;
+        if (/<notextile\b[^>]*>/i.test(line.text) && !/<\/notextile\s*>/i.test(line.text)) rawNoTextile = true;
+        if (rawNoTextile && /<\/notextile\s*>/i.test(line.text)) rawNoTextile = false;
+        if (isTextileExtendedBlockLead(line.text)) extendedBlock = true;
+        if (extendedBlock || rawPreformatted || rawNoTextile) {
+            blockTo = line.to;
+            index += 1;
+            continue;
+        }
+        if (!line.text.trim()) {
+            if (blockFrom !== undefined) ranges.push({ from: blockFrom, to: blockTo });
+            blockFrom = undefined;
+        }
+        index += 1;
+    }
+    if (blockFrom !== undefined) ranges.push({ from: blockFrom, to: blockTo });
+    return ranges.filter((range) => range.to > range.from);
+}
+
+/**
+ * Textileのブロック接頭辞または表行として独立して始まる行か判定する。
+ * @param line - 走査中のTextile行。
+ * @returns Textileブロック境界として扱う場合はtrue。
+ */
+function isTextileBlockLead(line: string): boolean {
+    return /^(?:p|div|bq|bc|pre|notextile|h[1-6])(?:[<>=()]*)(?:\([^)]*\))?(?:\{[^}]*\})?(?:\[[^\]]*\])?\.{1,2}(?:\s|$)/i.test(line)
+        || isTextileTableRow(line)
+        || /^(?:p|div|bq|bc|pre|notextile|h[1-6])\.(?:https?:\/\/|\()/i.test(line);
+}
+
+/**
+ * 次の明示ブロックまで空行を含めて保持するTextile構文か判定する。
+ * @param line - 描画単位の先頭候補行。
+ * @returns 二重ピリオドの拡張ブロックならtrue。
+ */
+function isTextileExtendedBlockLead(line: string): boolean {
+    return /^(?:p|div|bq|bc|pre|notextile|h[1-6])(?:[<>=()]*)(?:\([^)]*\))?(?:\{[^}]*\})?(?:\[[^\]]*\])?\.\.(?:\s|$)/i.test(line);
+}
+
+/**
+ * Textileソース範囲を変換し、見出しIDと画像情報を付けてブロック配列へ追加する。
+ * @param blocks - 描画結果を追加する配列。
+ * @param source - 元文書本文。
+ * @param from - ブロック開始位置のUTF-16オフセット。
+ * @param to - ブロック終了位置のUTF-16オフセット。
+ * @param headingsByOffset - Textile見出しを位置から引く対応表。
+ * @param options - 画像と表示言語の描画設定。
+ * @param nextImageIndex - 次の文書内画像番号を発行する関数。
+ * @param highlightCode - 言語クラス付きコードへ使うハイライト関数。
+ */
+function appendTextileSourceBlock(
+    blocks: UnsafeMarkdownBlock[],
+    source: string,
+    from: number,
+    to: number,
+    headings: readonly OutlineItem[],
+    options: RenderOptions,
+    nextImageIndex: () => number,
+    highlightCode?: CodeHighlighter
+): void {
+    const result = renderTextileOutput(source.slice(from, to), options, nextImageIndex, headings, highlightCode);
+    blocks.push({
+        html: '<div class="markdown-source-block" data-source-from="' + from + '" data-source-to="' + to + '">' + result.html + '</div>',
+        headingOffset: headings.length === 1 ? headings[0]?.offset : undefined,
+        headingId: headings.length === 1 ? result.headingIds[0]?.id : undefined,
+        headingIds: result.headingIds,
+        requiresSanitization: true
+    });
+}
+
+/**
+ * Textile構文をHTMLへ変換し、既存のリンク・画像・見出し属性を適用する。
+ * @param source - 変換対象のTextile本文。
+ * @param options - リモート画像を含むプレビュー設定。
+ * @param nextImageIndex - 次の文書内画像番号を発行する関数。
+ * @param headings - このブロックに対応するアウトライン見出し。
+ * @param highlightCode - 言語クラス付きコードへ使うハイライト関数。
+ * @returns Textile HTMLと対応する見出しID。
+ */
+function renderTextileOutput(
+    source: string,
+    options: RenderOptions,
+    nextImageIndex: () => number,
+    headings: readonly OutlineItem[],
+    highlightCode?: CodeHighlighter
+): { html: string; headingId?: string; headingIds: Array<{ offset: number; id: string }> } {
+    let headingIndex = 0;
+    const headingIds: Array<{ offset: number; id: string }> = [];
+    let html = renderTextile(source);
+    html = highlightTextileCodeBlocks(html, highlightCode);
+    html = html.replace(
+        /<h([1-6])\b([^>]*)>([\s\S]*?)<\/h\1>/gi,
+        /**
+         * Textile.jsの見出しへアウトラインと一致するIDを設定する。
+         * @param tag - Textile.jsが生成した見出し全体。
+         * @param level - h1からh6までの見出しレベル文字列。
+         * @param attributes - 見出しの既存属性。
+         * @param content - 見出しタグ内の描画本文。
+         * @returns 開始タグにIDを付けた見出しHTML。
+         */
+        (tag, level: string, attributes: string, content: string) => {
+            const heading = headings[headingIndex];
+            if (!heading || heading.level !== Number(level) || stripTextileHeadingMarkup(content) !== heading.text) return tag;
+            headingIndex += 1;
+            headingIds.push({ offset: heading.offset, id: heading.id });
+            const openingTag = upsertHtmlAttribute(
+                upsertHtmlAttribute('<h' + level + attributes + '>', 'id', escapeAttribute(heading.id)),
+                'data-mve-heading',
+                'true'
+            );
+            return openingTag + content + '</h' + level + '>';
+        }
+    );
+    html = html.replace(
+        /<a\b[^>]*>/gi,
+        /**
+         * TextileのローカルリンクをHost経由で解決する属性へ変換する。
+         * @param tag - Textile.jsが生成したリンク開始タグ。
+         * @returns ローカルリンク用data属性を付けた開始タグ。
+         */
+        (tag) => {
+            const href = readHtmlAttribute(tag, 'href');
+            if (!href || href.startsWith('#') || !isLocalMarkdownLink(href)) return tag;
+            return upsertHtmlAttribute(
+                upsertHtmlAttribute(tag, 'href', '#'),
+                'data-mve-link',
+                href
+            );
+        }
+    );
+    html = html.replace(
+        /<img\b[^>]*>/gi,
+        /**
+         * Textile画像にリモート画像ポリシーを適用する。
+         * @param tag - Textile.jsが生成した画像要素。
+         * @returns 許可された画像要素、または代替文字列。
+         */
+        (tag) => {
+            const sourceUri = readHtmlAttribute(tag, 'src') ?? '';
+            if (!options.remoteImagesEnabled && /^https?:/i.test(sourceUri)) {
+                const alt = readHtmlAttribute(tag, 'alt') || sourceUri;
+                return '<span class="blocked-image">' + escapeHtml(alt) + '</span>';
+            }
+            return tag;
+        }
+    );
+    const decoratedHtml = decorateHtmlImages(html, nextImageIndex, 'textile');
+    const renderHtml = options.renderFormat === 'mixed'
+        ? decoratedHtml.replace(
+            /<img\b[^>]*>/gi,
+            /**
+             * Textile画像はMarkdown用のソース書換え機能へ渡さない。
+             * @param tag - Textile.jsが生成した装飾済み画像要素。
+             * @returns 編集ハンドルを無効にした画像要素。
+             */
+            (tag) => upsertHtmlAttribute(tag, 'data-mve-resizable', 'false')
+        )
+        : decoratedHtml;
+    return { html: renderHtml, headingId: headingIds[0]?.id, headingIds };
+}
+
+/**
+ * 言語クラス付きTextile raw HTMLコードを既存のコードハイライト処理へ渡す。
+ * @param html - Textile変換後のHTML。
+ * @param highlighter - 指定言語の本文をHTMLトークンへ変換する関数。
+ * @param trimWrapperNewlines - 混在Markdownのraw HTMLでは、pre/codeタグ直内の整形用改行を一つずつ除く。
+ * @returns 認識された言語を持つcode要素へハイライト結果を反映したHTML。
+ */
+function highlightTextileCodeBlocks(
+    html: string,
+    highlighter?: CodeHighlighter,
+    trimWrapperNewlines = false
+): string {
+    if (!highlighter) return html;
+    return html.replace(
+        /<pre\b([^>]*)>\s*<code\b([^>]*)>([\s\S]*?)<\/code\s*>\s*<\/pre\s*>/gi,
+        /**
+         * 既存のpre/code属性を保ち、言語クラスに対応する本文だけを強調表示する。
+         * @param _block - 置換対象のpre要素全体。
+         * @param preAttributes - pre要素の開始タグ属性。
+         * @param codeAttributes - code要素の開始タグ属性。
+         * @param body - エスケープ済みコード本文。
+         * @returns 強調表示できた場合は更新したpre要素、未対応言語なら原文要素。
+         */
+        (block, preAttributes: string, codeAttributes: string, body: string) => {
+            const codeOpen = `<code${codeAttributes}>`;
+            const classNames = (readHtmlAttribute(codeOpen, 'class') ?? '').split(/\s+/).filter(Boolean);
+            const languageCandidates = classNames.map((className) => {
+                const languageClass = /^(?:language-|lang-)(.+)$/i.exec(className);
+                return languageClass?.[1] ?? className;
+            }).filter((language) => language.toLowerCase() !== 'hljs');
+            const decodedBody = decodeTextileCodeEntities(body);
+            const source = trimWrapperNewlines
+                ? decodedBody.replace(/^(?:\r\n|\r|\n)/, '').replace(/(?:\r\n|\r|\n)$/, '')
+                : decodedBody;
+            let highlighted: string | undefined;
+            for (const language of languageCandidates) {
+                highlighted = highlighter(source, language);
+                if (highlighted !== undefined) break;
+            }
+            if (highlighted === undefined) return block;
+            const updatedClasses = [...new Set([...classNames, 'hljs'])].join(' ');
+            const highlightedCodeOpen = upsertHtmlAttribute(codeOpen, 'class', updatedClasses);
+            return `<pre${preAttributes}>${highlightedCodeOpen}${highlighted}</code></pre>`;
+        }
+    );
+}
+
+/**
+ * Markdownブロック構文と衝突しないTextile接頭辞または表行か判定する。
+ * @param line - 現在の文書行。
+ * @returns Textileブロックとして解析できる場合はtrue。
+ */
+function isMixedTextileBlockLead(line: string): boolean {
+    return isTextileBlockLead(line);
+}
+
+/**
+ * Textile表の行形式を判定し、通常の文章中のパイプを除外する。
+ * @param line - Textile表候補行。
+ * @returns 先頭と末尾を含む複数セル形式の場合はtrue。
+ */
+function isTextileTableRow(line: string): boolean {
+    return /^\|.+\|$/.test(line) && line.indexOf('|', 1) >= 0;
+}
+
+/**
+ * Textile表のMarkdown混在ブロックをソース先頭から切り出す。
+ * 見出しは1行、Textile表は連続する表行、それ以外は空行または次のMarkdownブロックまで。
+ * @param source - 現在のMarked入力残部。
+ * @returns Textileブロックの原文。開始位置が一致しない場合はundefined。
+ */
+function readMixedTextileBlock(source: string): string | undefined {
+    const firstLine = readSourceLine(source, 0);
+    if (!firstLine || !isMixedTextileBlockLead(firstLine.text)) return undefined;
+    const heading = /^h[1-6](?:[<>=()]*)(?:\([^)]*\))?(?:\{[^}]*\})?(?:\[[^\]]*\])?\.\s+/i.test(firstLine.text);
+    const code = /^(?:bc|pre)(?:\([^)]*\))?(?:\{[^}]*\})?(?:\[[^\]]*\])?\.{1,2}\s+/i.test(firstLine.text);
+    const extended = isTextileExtendedBlockLead(firstLine.text);
+    const table = isTextileTableRow(firstLine.text);
+    if (table && isMarkdownPipeTable(source, firstLine.nextOffset)) return undefined;
+    let end = firstLine.nextOffset;
+    if (heading || firstLine.nextOffset === source.length) return source.slice(0, end);
+    let cursor = end;
+    while (cursor < source.length) {
+        const line = readSourceLine(source, cursor);
+        if (!line) break;
+        if (extended && isTextileBlockLead(line.text)) break;
+        if (!line.text.trim()) {
+            if (extended) {
+                end = line.nextOffset;
+                cursor = line.nextOffset;
+                continue;
+            }
+            break;
+        }
+        if (table) {
+            if (!isTextileTableRow(line.text)) break;
+        } else if (!code && isMarkdownBlockStart(line.text)) {
+            break;
+        }
+        end = line.nextOffset;
+        cursor = line.nextOffset;
+    }
+    return source.slice(0, end);
+}
+
+/**
+ * Textile表候補の直後にMarkdownのGFM区切り行があるか判定する。
+ * @param source - 表候補から始まるMarkdown本文。
+ * @param nextOffset - 1行目の直後にある次行の開始位置。
+ * @returns Markdown表として認識される場合はtrue。
+ */
+function isMarkdownPipeTable(source: string, nextOffset: number): boolean {
+    const separator = readSourceLine(source, nextOffset)?.text;
+    return Boolean(separator && /^\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?$/.test(separator));
+}
+
+/**
+ * Markdown独自拡張と衝突しないTextile phrase modifierの候補正規表現。
+ * 単語境界は候補が見つかった後にコードポイント単位で確認し、全文描画での正規表現負荷を抑える。
+ */
+const MIXED_TEXTILE_PHRASE_PATTERN = /(?<!\+)\+(?!\+)[^+\s\r\n](?:[^+\r\n]*[^+\s\r\n])?\+(?!\+)|(?<!-)-(?!-)[^-\s\r\n](?:[^-\r\n]*[^-\s\r\n])?-(?!-)|(?<!\?)\?\?(?!\?)[^?\s\r\n](?:[^?\r\n]*[^?\s\r\n])?\?\?(?!\?)/;
+
+/** Textile phrase候補を現在位置で確認し、各文字位置からの再検索を避けるsticky matcher。 */
+const MIXED_TEXTILE_PHRASE_AT_POSITION = new RegExp(MIXED_TEXTILE_PHRASE_PATTERN.source, 'y');
+/** Textileリンク候補を現在位置で確認するsticky matcher。 */
+const MIXED_TEXTILE_LINK_AT_POSITION = /"[^"\r\n]+":\S/y;
+/** Textile shortcut linkをMarkdown linkと区別して確認するsticky matcher。 */
+const MIXED_TEXTILE_REFERENCE_LINK_AT_POSITION = /\[[a-z][\w-]*\]https?:\/\/[^\s\]]+/iy;
+/** Textile画像の後ろにリンクURLが続くNotePM形式を確認するsticky matcher。 */
+const MIXED_TEXTILE_LINKED_IMAGE_AT_POSITION = /!(?!\[)[^!\s()]+(?:\([^)]*\))?!https?:\/\/[^\s]+/y;
+/** Textile画像候補を現在位置で確認するsticky matcher。 */
+const MIXED_TEXTILE_IMAGE_AT_POSITION = /!(?!\[)[^!\s()]+(?:\([^)]*\))?!/y;
+/** Textileのclass付きphrase span候補を現在位置で確認するsticky matcher。 */
+const MIXED_TEXTILE_CLASS_SPAN_AT_POSITION = /%\([a-z][\w-]*\)[^%\r\n]+%/iy;
+/** Textile inline code候補を現在位置で確認するsticky matcher。 */
+const MIXED_TEXTILE_CODE_AT_POSITION = /@[^@\r\n]+@/y;
+/**
+ * Textile固有の綴りがない文書で境界解析を省略する広い候補検査。
+ * コードやHTML内の一致も許容し、正確な判定は後続の状態付き走査に任せる。
+ */
+const MIXED_TEXTILE_SYNTAX_HINT = /^(?: {0,3}(?:h[1-6]|p|div|bq|bc|pre|notextile)\S*\.(?:\.|[ \t]))|"(?:\([^)]+\)\.\s*)?[^"\r\n]+":\S+|\[[a-z][\w-]*\]https?:\/\/|!(?!\[)[^!\s()]+(?:\([^)]*\))?!|@[^@\r\n]+@|%\([a-z][\w-]*\)[^%\r\n]+%|(?<![\w+])\+(?!\+)[^\s+\r\n](?:[^+\r\n]*[^\s+\r\n])?\+(?![+\w])|(?<![\w>-])-(?!-)[^\s\r\n-](?:[^-\r\n]*[^-\s\r\n])?-(?![-\w>])|(?<!\w)\?\?(?!\?)[^\s?\r\n](?:[^?\r\n]*[^\s?\r\n])?\?\?(?!\?)(?!\w)/im;
+
+/**
+ * Textileブロック見出しが混在文書に含まれる場合だけ、重複回避用の共有アウトラインを作る。
+ * @param source - Textile見出し候補を含む混在文書。
+ * @returns Textileのh1.からh6.で始まる行が存在する場合はtrue。
+ */
+function hasMixedTextileHeadingCandidate(source: string): boolean {
+    return /^h[1-6](?:[<>=()]*)(?:\([^)]*\))?(?:\{[^}]*\})?(?:\[[^\]]*\])?\.\s+/im.test(source);
+}
+
+/**
+ * Textileブロックと記号を含む行だけ詳しく調べ、Markdownコード内の候補を除外する。
+ * @param source - 構文候補を調べるMarkdown本文。
+ * @returns 表示可能な範囲にTextile構文候補が見つかった場合はtrue。
+ */
+function hasMixedTextileSyntaxCandidate(source: string): boolean {
+    if (!MIXED_TEXTILE_SYNTAX_HINT.test(source)) return source.includes('|') && hasNonMarkdownTextileTable(source);
+    let fenceCharacter: string | undefined;
+    let fenceLength = 0;
+    let lineOffset = 0;
+    // 通常文字は正規表現エンジンでまとめて飛ばし、記法候補だけ境界判定する。
+    const inlineCandidates = /[\x60<"'!\[%@+\-?]/g;
+    while (lineOffset < source.length) {
+        const line = readSourceLine(source, lineOffset);
+        if (!line) return false;
+        const fence = /^ {0,3}(`{3,}|~{3,})/.exec(line.text);
+        if (fenceCharacter) {
+            const isClosingFence = fence
+                && fence[1][0] === fenceCharacter
+                && fence[1].length >= fenceLength
+                && !line.text.slice(fence[0].length).trim();
+            if (isClosingFence) {
+                fenceCharacter = undefined;
+                fenceLength = 0;
+            }
+            lineOffset = line.nextOffset;
+            continue;
+        }
+        if (fence) {
+            fenceCharacter = fence[1][0];
+            fenceLength = fence[1].length;
+            lineOffset = line.nextOffset;
+            continue;
+        }
+        if (isMixedTextileBlockLead(line.text)) return true;
+        if (isTextileTableRow(line.text)) {
+            const separator = readSourceLine(source, line.nextOffset);
+            if (separator && isMarkdownPipeTable(source, line.nextOffset)) {
+                lineOffset = separator.nextOffset;
+                while (lineOffset < source.length) {
+                    const row = readSourceLine(source, lineOffset);
+                    if (!row || !isTextileTableRow(row.text)) break;
+                    lineOffset = row.nextOffset;
+                }
+                continue;
+            }
+            return true;
+        }
+        let cursor = lineOffset;
+        while (cursor < line.nextOffset) {
+            inlineCandidates.lastIndex = cursor;
+            const candidate = inlineCandidates.exec(source);
+            if (!candidate || candidate.index >= line.nextOffset) break;
+            cursor = candidate.index;
+            const character = source[cursor];
+            if (character === '`') {
+                cursor = skipMarkdownInlineCode(source, cursor, line.nextOffset);
+                continue;
+            }
+            if (character === '<') {
+                cursor = skipHtmlTag(source, cursor, line.nextOffset);
+                continue;
+            }
+            const linkedImage = character === '!'
+                && matchesTextileCandidateAt(MIXED_TEXTILE_LINKED_IMAGE_AT_POSITION, source, cursor);
+            const matcher = character === '"' ? MIXED_TEXTILE_LINK_AT_POSITION
+                : character === '[' ? MIXED_TEXTILE_REFERENCE_LINK_AT_POSITION
+                    : character === '!' ? linkedImage
+                        ? MIXED_TEXTILE_LINKED_IMAGE_AT_POSITION
+                        : MIXED_TEXTILE_IMAGE_AT_POSITION
+                        : character === '%' ? MIXED_TEXTILE_CLASS_SPAN_AT_POSITION
+                        : character === '@' ? MIXED_TEXTILE_CODE_AT_POSITION
+                            : character === '+' || character === '-' || character === '?'
+                                ? MIXED_TEXTILE_PHRASE_AT_POSITION : undefined;
+            if (!matcher) {
+                cursor += 1;
+                continue;
+            }
+            if (isMarkdownEscaped(source, cursor)) {
+                cursor += 1;
+                continue;
+            }
+            if (matcher === MIXED_TEXTILE_PHRASE_AT_POSITION) {
+                if (matchesMixedTextilePhraseAt(source, cursor)) return true;
+            } else if (matcher && matchesTextileCandidateAt(matcher, source, cursor)) {
+                return true;
+            }
+            cursor += 1;
+        }
+        lineOffset = line.nextOffset;
+    }
+    return false;
+}
+
+/**
+ * Textile表候補だけを検索し、GFM区切り行で確認できるMarkdown表は飛ばす。
+ * @param source - 表候補を含む可能性のあるMarkdown本文。
+ * @returns Markdown表以外のTextile表行が見つかった場合はtrue。
+ */
+function hasNonMarkdownTextileTable(source: string): boolean {
+    let pipeOffset = source.indexOf('|');
+    while (pipeOffset >= 0) {
+        const lineStart = Math.max(
+            source.lastIndexOf('\n', pipeOffset - 1),
+            source.lastIndexOf('\r', pipeOffset - 1)
+        ) + 1;
+        const line = readSourceLine(source, lineStart);
+        if (!line) return false;
+        if (isTextileTableRow(line.text)) {
+            const separator = readSourceLine(source, line.nextOffset);
+            if (separator && isMarkdownPipeTable(source, line.nextOffset)) {
+                pipeOffset = source.indexOf('|', separator.nextOffset);
+                while (pipeOffset >= 0) {
+                    const rowStart = Math.max(
+                        source.lastIndexOf('\n', pipeOffset - 1),
+                        source.lastIndexOf('\r', pipeOffset - 1)
+                    ) + 1;
+                    const row = readSourceLine(source, rowStart);
+                    if (!row || !isTextileTableRow(row.text)) break;
+                    pipeOffset = source.indexOf('|', row.nextOffset);
+                }
+                continue;
+            }
+            return true;
+        }
+        pipeOffset = source.indexOf('|', line.nextOffset);
+    }
+    return false;
+}
+
+/**
+ * Textile候補matcherを現在位置から実行し、グローバル検索状態を残さない。
+ * @param matcher - Textileリンク、画像、code、phraseのsticky正規表現。
+ * @param source - 混在Markdown本文。
+ * @param offset - 現在走査しているUTF-16位置。
+ * @returns matcherが現在位置から始まる候補を認識した場合はtrue。
+ */
+function matchesTextileCandidateAt(matcher: RegExp, source: string, offset: number): boolean {
+    matcher.lastIndex = offset;
+    return matcher.exec(source)?.index === offset;
+}
+
+/**
+ * Textile phrase候補を検査し、前後が単語文字なら記法として扱わない。
+ * @param source - 現在の混在Markdown本文。
+ * @param offset - Textile記号の候補位置。
+ * @returns 完全なphrase候補が単語境界にある場合はtrue。
+ */
+function matchesMixedTextilePhraseAt(source: string, offset: number): boolean {
+    MIXED_TEXTILE_PHRASE_AT_POSITION.lastIndex = offset;
+    const match = MIXED_TEXTILE_PHRASE_AT_POSITION.exec(source);
+    return match?.index === offset
+        && !isUnicodeWordCharacterBefore(source, offset)
+        && !isUnicodeWordCharacterAt(source, offset + match[0].length);
+}
+
+/**
+ * Markedのinline start hook用に次の有効Textile phrase開始位置を探す。
+ * @param source - 現在のMarked inline入力残部。
+ * @returns 有効候補の位置、または候補がない場合はundefined。
+ */
+function findMixedTextilePhraseCandidate(source: string): number | undefined {
+    for (let offset = 0; offset < source.length; offset += 1) {
+        const character = source[offset];
+        if (character !== '+' && character !== '-' && character !== '?') continue;
+        if (isMarkdownEscaped(source, offset)) continue;
+        if (matchesMixedTextilePhraseAt(source, offset)) return offset;
+    }
+    return undefined;
+}
+
+/**
+ * UTF-16位置にあるUnicode文字が英数字、漢字、かななどの単語文字か確認する。
+ * @param source - 判定対象文字列。
+ * @param offset - コードポイント開始位置。
+ * @returns 文字がUnicode文字・数値・アンダースコアの場合はtrue。
+ */
+function isUnicodeWordCharacterAt(source: string, offset: number): boolean {
+    if (offset < 0 || offset >= source.length) return false;
+    const codePoint = source.codePointAt(offset);
+    return codePoint !== undefined && /[\p{L}\p{N}_]/u.test(String.fromCodePoint(codePoint));
+}
+
+/**
+ * UTF-16位置直前のUnicodeコードポイントが単語文字か確認する。
+ * @param source - 判定対象文字列。
+ * @param offset - 判定境界位置。
+ * @returns 直前の文字がUnicode文字・数値・アンダースコアの場合はtrue。
+ */
+function isUnicodeWordCharacterBefore(source: string, offset: number): boolean {
+    if (offset <= 0) return false;
+    let previousIndex = offset - 1;
+    const trailingUnit = source.charCodeAt(previousIndex);
+    if (trailingUnit >= 0xdc00 && trailingUnit <= 0xdfff && previousIndex > 0) {
+        const leadingUnit = source.charCodeAt(previousIndex - 1);
+        if (leadingUnit >= 0xd800 && leadingUnit <= 0xdbff) previousIndex -= 1;
+    }
+    return isUnicodeWordCharacterAt(source, previousIndex);
+}
+
+/**
+ * Markdownの同一行内にあるbacktick code spanを飛び越し、その内部を候補検査から除外する。
+ * @param source - 混在Markdown本文。
+ * @param offset - 開始backtickの位置。
+ * @param lineEnd - 現在行の終端位置。
+ * @returns 対応する閉じ記号の後、または開始記号の直後の位置。
+ */
+function skipMarkdownInlineCode(source: string, offset: number, lineEnd: number): number {
+    let markerEnd = offset;
+    while (markerEnd < lineEnd && source[markerEnd] === '`') markerEnd += 1;
+    const markerLength = markerEnd - offset;
+    let cursor = markerEnd;
+    while (cursor < lineEnd) {
+        const nextMarker = source.indexOf('`', cursor);
+        if (nextMarker < 0 || nextMarker >= lineEnd) return markerEnd;
+        let nextMarkerEnd = nextMarker;
+        while (nextMarkerEnd < lineEnd && source[nextMarkerEnd] === '`') nextMarkerEnd += 1;
+        if (nextMarkerEnd - nextMarker === markerLength) return nextMarkerEnd;
+        cursor = nextMarkerEnd;
+    }
+    return markerEnd;
+}
+
+/**
+ * HTML tagまたはautolinkを飛び越え、属性内のTextile記号を候補から除外する。
+ * @param source - 混在Markdown本文。
+ * @param offset - 開始山括弧の位置。
+ * @param lineEnd - 現在行の終端位置。
+ * @returns 閉じ山括弧の後、または開始山括弧の直後の位置。
+ */
+function skipHtmlTag(source: string, offset: number, lineEnd: number): number {
+    let quote: string | undefined;
+    for (let cursor = offset + 1; cursor < lineEnd; cursor += 1) {
+        const character = source[cursor];
+        if (quote) {
+            if (character === quote) quote = undefined;
+        } else if (character === '"' || character === "'") {
+            quote = character;
+        } else if (character === '>') {
+            return cursor + 1;
+        }
+    }
+    return offset + 1;
+}
+
+/**
+ * Markdownのbackslash escapeに含まれる記号をTextile候補から除外する。
+ * @param source - 混在Markdown本文。
+ * @param offset - escapeされているか確認する記号位置。
+ * @returns 直前の連続backslash数が奇数の場合はtrue。
+ */
+function isMarkdownEscaped(source: string, offset: number): boolean {
+    let backslashes = 0;
+    for (let cursor = offset - 1; cursor >= 0 && source[cursor] === '\\'; cursor -= 1) backslashes += 1;
+    return backslashes % 2 === 1;
+}
+
+/**
+ * Markdown本文の指定位置から改行コードを保って1行読む。
+ * @param source - 原文本文。
+ * @param offset - 読み始めるUTF-16オフセット。
+ * @returns 行本文と次の行の開始位置。本文末尾ならundefined。
+ */
+function readSourceLine(source: string, offset: number): { text: string; nextOffset: number } | undefined {
+    if (offset >= source.length) return undefined;
+    const match = /[^\r\n]*(?:\r\n|\r|\n|$)/.exec(source.slice(offset));
+    if (!match || !match[0]) return undefined;
+    const raw = match[0];
+    return {
+        text: raw.replace(/(?:\r\n|\r|\n)$/, ''),
+        nextOffset: offset + raw.length
+    };
+}
+
+/**
+ * Textile段落切り出し時にMarkdownの明確なブロック構文を優先する。
+ * @param line - 次のソース行。
+ * @returns 見出し、フェンス、引用、リストまたはHTML開始行ならtrue。
+ */
+function isMarkdownBlockStart(line: string): boolean {
+    return /^(?: {0,3}(?:#{1,6}\s|\x60{3,}|~{3,}|>\s|[-+*]\s|\d+[.)]\s)| {0,3}<[A-Za-z!/])/.test(line);
+}
+
+/**
+ * TextileブロックをMarkedのカスタムトークンとして登録する。
+ * @param options - 画像と表示言語の描画設定。
+ * @param highlighter - 言語クラス付きコードへ使うハイライト関数。
+ * @param nextImageIndex - 文書内画像番号を発行する関数。
+ * @param headingsAtOffset - ソース位置に対応する見出し一覧を取得する関数。
+ * @param setRenderedHeadingId - HTML化した見出しIDを受け取る処理。
+ * @param activeSourceOffset - 今描画中のMarkedトークンのソース開始位置を返す関数。
+ * @returns 明示的なTextileブロックを描画するMarked拡張。
+ */
+function createMixedTextileBlockExtension(
+    options: RenderOptions,
+    highlighter: CodeHighlighter | undefined,
+    nextImageIndex: () => number,
+    headingsAtOffset: (offset: number) => readonly OutlineItem[],
+    setRenderedHeadingId: (headingId: string | undefined) => void,
+    activeSourceOffset: () => number | undefined
+): TokenizerAndRendererExtension {
+    return {
+        name: 'mveTextileBlock',
+        level: 'block',
+        tokenizer:
+            /**
+             * 明示的なTextileブロックのみをMarkedカスタムトークンへ変換する。
+             * @param source - 現在のMarked入力残部。
+             * @returns Textileブロックトークン、またはMarkdownへ処理を戻すundefined。
+             */
+            (source) => {
+                const raw = readMixedTextileBlock(source);
+                return raw ? { type: 'mveTextileBlock', raw, text: raw } : undefined;
+            },
+        renderer:
+            /**
+             * Textileブロックを変換し、描画した見出しIDをアウトライン経路へ返す。
+             * @param token - Textileブロックとして認識済みのMarkedトークン。
+             * @returns Textile.jsが生成した未サニタイズHTML。
+             */
+            (token) => {
+                const offset = activeSourceOffset();
+                const result = renderTextileOutput(
+                    token.raw,
+                    options,
+                    nextImageIndex,
+                    offset === undefined ? [] : headingsAtOffset(offset),
+                    highlighter
+                );
+                setRenderedHeadingId(result.headingId);
+                return result.html;
+            }
+    };
+}
+
+/**
+ * Markdown優先の混在文書にTextileリンク、画像、インラインコードを追加する。
+ * Markdown書式記号の解釈はMarkedへ残す。
+ * @param options - リモート画像許可状態を含む混在Markdown描画設定。
+ * @param blockedImageMessage - リモート画像が無効なときに代替表示へ設定する説明。
+ * @returns Textile固有インライン構文を処理するMarked拡張一覧。
+ */
+function createMixedTextileInlineExtensions(
+    options: RenderOptions,
+    blockedImageMessage: string
+): TokenizerAndRendererExtension[] {
+    return [
+        {
+            name: 'mveTextileReferenceLink',
+            level: 'inline',
+            start:
+                /**
+                 * Textile shortcut linkの英字ラベルとURLの組み合わせを探す。
+                 * @param source - 現在位置以降のMarked inline入力残部。
+                 * @returns 次のTextile shortcut link候補位置。候補がなければundefined。
+                 */
+                (source) => /\[[a-z][\w-]*\]https?:\/\/[^\s\]]+/i.exec(source)?.index,
+            tokenizer:
+                /**
+                 * Markdownの角括弧リンクと衝突しないTextile shortcut linkを認識する。
+                 * @param source - 現在のMarked inline入力残部。
+                 * @returns Textile shortcut link token、または未認識時のundefined。
+                 */
+                (source) => {
+                    const match = /^\[([a-z][\w-]*)\](https?:\/\/[^\s\]]+)/i.exec(source);
+                    const destination = match ? splitTrailingTextileLinkPunctuation(match[2]) : undefined;
+                    return match
+                        ? { type: 'mveTextileReferenceLink', raw: match[0], href: destination?.href, trailing: destination?.trailing, text: match[1] }
+                        : undefined;
+                },
+            renderer:
+                /**
+                 * Textile shortcut linkを安全な表示名とURI属性へ変換する。
+                 * @param token - Textile shortcut link token。
+                 * @returns リンク先の種類を保持したHTMLアンカー。
+                 */
+                (token) => renderMixedTextileLink(token.href, escapeHtml(token.text)) + escapeHtml(token.trailing ?? '')
+        },
+        {
+            name: 'mveTextileLink',
+            level: 'inline',
+            start:
+                /**
+                 * Textileリンクらしい引用符までMarkedの走査位置を進める。
+                 * @param source - 現在位置以降のMarked inline入力残部。
+                 * @returns 次のTextileリンク候補位置。候補がない場合はundefined。
+                 */
+                (source) => /"[^"\r\n]+":\S/.exec(source)?.index,
+            tokenizer:
+                /**
+                 * Textileリンク構文をMarkdownリンクと衝突しない位置で認識する。
+                 * @param source - 現在のMarked inline入力残部。
+                 * @returns Textileリンクトークン、または未認識時のundefined。
+                 */
+                (source) => {
+                    const match = /^"(?:\(([^)]+)\)\.\s*)?([^"\r\n]+)":([^\s<>]+)/.exec(source);
+                    const destination = match ? splitTrailingTextileLinkPunctuation(match[3]) : undefined;
+                    return match
+                        ? { type: 'mveTextileLink', raw: match[0], href: destination?.href, trailing: destination?.trailing, text: match[2], className: match[1] }
+                        : undefined;
+                },
+            renderer:
+                /**
+                 * TextileリンクをHTMLへ出力し、ローカルURIはHost解決属性へ置き換える。
+                 * @param token - Textileリンクトークン。
+                 * @returns HTMLアンカー要素。
+                 */
+                (token) => {
+                    const label = escapeHtml(token.text);
+                    return renderMixedTextileLink(token.href, label, token.className) + escapeHtml(token.trailing ?? '');
+                }
+        },
+        {
+            name: 'mveTextileImage',
+            level: 'inline',
+            start:
+                /**
+                 * Markdown画像ではないTextile画像の開始位置をMarkedへ伝える。
+                 * @param source - 現在位置以降のMarked inline入力残部。
+                 * @returns 次のTextile画像候補位置。候補がない場合はundefined。
+                 */
+                (source) => /!(?!\[)[^!\s()]+(?:\([^)]*\))?!/.exec(source)?.index,
+            tokenizer:
+                /**
+                 * Textile画像記法をMarkdown画像記法と区別して認識する。
+                 * @param source - 現在のMarked inline入力残部。
+                 * @returns Textile画像トークン、または未認識時のundefined。
+                 */
+                (source) => {
+                    const match = /^!(?!\[)([^!\s()]+)(?:\(([^)]*)\))?!(https?:\/\/[^\s]+)?/i.exec(source);
+                    const destination = match?.[3]
+                        ? splitTrailingTextileLinkPunctuation(match[3])
+                        : undefined;
+                    return match
+                        ? {
+                            type: 'mveTextileImage',
+                            raw: match[0],
+                            href: match[1],
+                            text: match[2] ?? '',
+                            target: destination?.href,
+                            trailing: destination?.trailing
+                        }
+                        : undefined;
+                },
+            renderer:
+                /**
+                 * Textile画像をソース書換えハンドルなしで出力し、Markdown画像の連番を保つ。
+                 * @param token - Textile画像トークン。
+                 * @returns 画像、または無効化されたリモート画像の代替表示。
+                 */
+                (token) => {
+                    const image = renderMixedTextileImage(token.href, token.text, options, blockedImageMessage);
+                    return token.target
+                        ? renderMixedTextileLink(token.target, image) + escapeHtml(token.trailing ?? '')
+                        : image;
+                }
+        },
+        {
+            name: 'mveTextileCode',
+            level: 'inline',
+            start:
+                /**
+                 * Textile @code@候補までMarkedの通常文字走査を省略する。
+                 * @param source - 現在位置以降のMarked inline入力残部。
+                 * @returns 次のTextile code候補位置。候補がない場合はundefined。
+                 */
+                (source) => /@[^@\r\n]+@/.exec(source)?.index,
+            tokenizer:
+                /**
+                 * Textile @code@ を認識し、Markdownバッククォートとは別に扱う。
+                 * @param source - 現在のMarked inline入力残部。
+                 * @returns Textile code token、または未認識時のundefined。
+                 */
+                (source) => {
+                    const match = /^@([^@\r\n]+)@/.exec(source);
+                    return match
+                        ? { type: 'mveTextileCode', raw: match[0], text: match[1] }
+                        : undefined;
+                },
+            renderer:
+                /**
+                 * Textile inline code本文をHTML要素用にエスケープする。
+                 * @param token - Textile inline code token。
+                 * @returns HTML code要素。
+                 */
+                (token) => '<code>' + escapeHtml(token.text) + '</code>'
+        },
+        {
+            name: 'mveTextileClassSpan',
+            level: 'inline',
+            start:
+                /**
+                 * Textileのclass付きphrase spanをMarkdown本文から探す。
+                 * @param source - 現在位置以降のMarked inline入力残部。
+                 * @returns 次のclass付きspan候補位置。候補がなければundefined。
+                 */
+                (source) => /%\([a-z][\w-]*\)[^%\r\n]+%/i.exec(source)?.index,
+            tokenizer:
+                /**
+                 * Textile class spanのクラスと本文を認識する。
+                 * @param source - 現在のMarked inline入力残部。
+                 * @returns class span token、または未認識時のundefined。
+                 */
+                (source) => {
+                    const match = /^%\(([a-z][\w-]*)\)([^%\r\n]+)%/i.exec(source);
+                    return match
+                        ? { type: 'mveTextileClassSpan', raw: match[0], className: match[1], text: match[2] }
+                        : undefined;
+                },
+            renderer:
+                /**
+                 * Textile class spanをclass属性とエスケープ済み本文で出力する。
+                 * @param token - class名と本文を持つTextile span token。
+                 * @returns サニタイズ前のspan HTML。
+                 */
+                (token) => '<span class="' + escapeAttribute(token.className) + '">' + escapeHtml(token.text) + '</span>'
+        },
+        {
+            name: 'mveTextilePhrase',
+            level: 'inline',
+            start:
+                /**
+                 * Markedの通常テキストを次のphrase modifier直前で分割する。
+                 * @param source - 現在位置以降のMarked inline本文。
+                 * @returns 次の有効候補位置。候補がない場合はundefined。
+                 */
+                (source) => findMixedTextilePhraseCandidate(source),
+            tokenizer:
+                /**
+                 * Markdownと記号の意味が重ならないTextile phrase modifierを認識する。
+                 * Markedがコード範囲を処理した後にだけ呼ばれ、GFM二重チルダを優先させる。
+                 * @param source - 現在のMarked inline入力残部。
+                 * @returns Textile phrase token、または未認識時のundefined。
+                 */
+                (source) => {
+                    const marker = source.startsWith('??') ? '??' : source[0];
+                    if (marker !== '+' && marker !== '-' && marker !== '??') {
+                        return undefined;
+                    }
+                    if (marker !== '??' && source.startsWith(marker + marker)) {
+                        return undefined;
+                    }
+                    const end = source.indexOf(marker, marker.length);
+                    if (end <= marker.length) return undefined;
+                    if (marker !== '??' && source[end + 1] === marker) return undefined;
+                    const text = source.slice(marker.length, end);
+                    if (/^\s|\s$/.test(text)) return undefined;
+                    const raw = source.slice(0, end + marker.length);
+                    return { type: 'mveTextilePhrase', raw, marker, text };
+                },
+            renderer:
+                /**
+                 * Textile phrase modifier本文を対応するHTML要素で囲み、本文をエスケープする。
+                 * @param token - Textile phrase markerと本文を持つトークン。
+                 * @returns サニタイズ前のins、del、cite、sup、sub要素。
+                 */
+                (token) => {
+                    const tag = token.marker === '+' ? 'ins'
+                        : token.marker === '-' ? 'del'
+                            : token.marker === '??' ? 'cite' : undefined;
+                    return tag ? '<' + tag + '>' + escapeHtml(token.text) + '</' + tag + '>' : escapeHtml(token.text);
+                }
+        }
+    ];
+}
+
+/**
+ * 混在Markdown内のTextile画像をMarkdownソース編集用の画像連番に混ぜず描画する。
+ * @param href - Textile画像ソースURI。
+ * @param alt - Textile画像の代替文字列。
+ * @param options - リモート画像許可状態を含む描画設定。
+ * @param blockedImageMessage - リモート画像を表示できないときの説明。
+ * @returns サニタイズ前の画像要素またはブロック表示。
+ */
+function renderMixedTextileImage(
+    href: string,
+    alt: string,
+    options: RenderOptions,
+    blockedImageMessage: string
+): string {
+    if (!options.remoteImagesEnabled && /^https?:/i.test(href)) {
+        return '<span class="blocked-image" title="' + escapeAttribute(blockedImageMessage) + '">'
+            + escapeHtml(alt || href)
+            + '</span>';
+    }
+    const source = escapeAttribute(href);
+    return '<img src="' + source + '" loading="lazy" decoding="async" data-original-src="' + source
+        + '" data-mve-image-kind="textile" data-mve-image-align="left" data-mve-resizable="false"'
+        + ' data-mve-can-reset="false" alt="' + escapeAttribute(alt) + '">';
+}
+
+/**
+ * 混在Markdown内のTextileリンクをローカルURI解決属性または通常hrefで出力する。
+ * @param href - リンク先URI。
+ * @param content - エスケープ済みラベルまたは生成済み画像要素。
+ * @param className - Textileリンクへ任意指定されたclass属性。
+ * @returns サニタイズ前のアンカー要素。
+ */
+function renderMixedTextileLink(href: string, content: string, className?: string): string {
+    const classAttribute = className ? ' class="' + escapeAttribute(className) + '"' : '';
+    if (isLocalMarkdownLink(href)) {
+        return '<a' + classAttribute + ' href="#" data-mve-link="' + escapeAttribute(href) + '">' + content + '</a>';
+    }
+    return '<a' + classAttribute + ' href="' + escapeAttribute(href) + '">' + content + '</a>';
+}
+
+/**
+ * Textileリンクの直後にある通常文の句読点をリンク先URIから分離する。
+ * @param href - 記法中のリンク先と、続けて入力された句読点。
+ * @returns URI本体とアンカー外へ戻す句読点。
+ */
+function splitTrailingTextileLinkPunctuation(href: string): { href: string; trailing: string } {
+    const punctuation = /[.,;!?]+$/u.exec(href)?.[0] ?? '';
+    return punctuation
+        ? { href: href.slice(0, -punctuation.length), trailing: punctuation }
+        : { href, trailing: '' };
+}
+
+/**
  * HTML内の画像要素へ連番のdata属性を付ける。
  * @param html - 表示または出力するHTML本文。
  * @param nextIndex 次の画像インデックスを取得する関数。
- * @returns 画像インデックス属性を付けたHTML。
+ * @param kind 画像DOMに付与する描画形式。省略時は従来のHTML形式。
+ * @returns 画像属性を補完したHTML。
  */
-function decorateHtmlImages(html: string, nextIndex: () => number): string {
-    return html.replace(/<img\b[^>]*>/gi,
+function decorateHtmlImages(
+    html: string,
+    nextIndex: () => number,
+    kind: 'html' | 'textile' = 'html'
+): string {
+    return html.replace(
+        /<img\b[^>]*>/gi,
         /**
-         * Markdown変換の前提条件を準備し、回帰条件を検証するテストケース。
+         * 画像の元URI、プレビュー番号、形式、配置属性を既定値にそろえる。
          * @param tag - 正規表現に一致したHTMLのimg開始タグ。
+         * @returns プレビュー属性を持つ画像開始タグ。
          */
         (tag) => {
             const source = readHtmlAttribute(tag, 'src') ?? '';
             const index = nextIndex();
             let decorated = upsertHtmlAttribute(tag, 'data-original-src', readHtmlAttribute(tag, 'data-original-src') ?? source);
             decorated = upsertHtmlAttribute(decorated, 'data-mve-image-index', String(index));
-            decorated = upsertHtmlAttribute(decorated, 'data-mve-image-kind', 'html');
+            decorated = upsertHtmlAttribute(decorated, 'data-mve-image-kind', kind);
             decorated = upsertHtmlAttribute(decorated, 'data-mve-image-align', normalizeImageAlignment(readHtmlAttribute(tag, 'align')));
             decorated = upsertHtmlAttribute(decorated, 'data-mve-resizable', /^https?:\/\//i.test(source) ? 'false' : 'true');
             decorated = upsertHtmlAttribute(decorated, 'data-mve-can-reset', hasHtmlAttribute(tag, 'width') ? 'true' : 'false');
             if (!readHtmlAttribute(tag, 'loading')) decorated = upsertHtmlAttribute(decorated, 'loading', 'lazy');
             if (!readHtmlAttribute(tag, 'decoding')) decorated = upsertHtmlAttribute(decorated, 'decoding', 'async');
             return decorated;
-        });
+        }
+    );
 }
 
 /**
