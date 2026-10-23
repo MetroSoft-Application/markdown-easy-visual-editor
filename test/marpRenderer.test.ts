@@ -60,4 +60,35 @@ describe("Marp Markdown rendering", () => {
     expect(html).not.toContain("data-marp-twemoji");
     expect(html).not.toContain("twemoji");
   });
+
+  it("preserves a bounded per-diagram scale from Mermaid fence metadata", () => {
+    const result = renderMarpMarkdown(
+      [
+        "---",
+        "marp: true",
+        "---",
+        "",
+        "```mermaid {scale=65%}",
+        "flowchart LR",
+        "A --> B",
+        "```",
+        "",
+        "```mermaid {scale=250%}",
+        "flowchart LR",
+        "B --> C",
+        "```",
+        "",
+        "```javascript {scale=65%}",
+        "const value = 1;",
+        "```",
+      ].join("\n"),
+      "file:///extension/marp-katex-fonts/",
+    );
+    const html = result.slides.join("\n");
+
+    expect(html).toContain('data-mve-mermaid-scale="65"');
+    expect(html.match(/data-mve-mermaid-scale=/g)).toHaveLength(1);
+    expect(html).toContain('class="language-mermaid"');
+    expect(html).toContain('class="language-javascript"');
+  });
 });

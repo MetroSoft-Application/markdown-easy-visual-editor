@@ -210,6 +210,8 @@ describe('PDF local images',
                 expect(html).toContain('.mve-print pre, .mve-print code { font-size: 8pt; }');
                 expect(html).toContain('line-height: 1.4');
                 expect(html).toContain('.mve-print p { margin-bottom: 10pt; }');
+                expect(html).toContain('.mve-marp-pdf-slide:not(:last-child) { break-after: page; page-break-after: always; }');
+                expect(html).toContain('.mve-marp-pdf-slide .marpit > svg { display: block; width: 100% !important; height: auto !important; max-width: 100%; max-height: 100vh; }');
                 expect(html).toContain('font-family: "Test Font", sans-serif, "Noto Sans JP", "Yu Gothic UI", sans-serif;');
             });
 

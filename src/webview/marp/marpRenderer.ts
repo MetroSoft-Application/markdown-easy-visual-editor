@@ -87,6 +87,10 @@ interface MappedToken {
   content?: string;
 }
 
+interface MarpFenceToken {
+  info: string;
+}
+
 /**
  * Marp Core内部のslide token mappingを読み出すためのMarp派生クラス。
  */
@@ -124,6 +128,31 @@ export function renderMarpMarkdown(
           : "",
     },
   });
+  const defaultFenceRenderer = marp.markdown.renderer.rules.fence as ((
+    this: unknown,
+    tokens: MarpFenceToken[],
+    index: number,
+    options: unknown,
+    env: unknown,
+    renderer: unknown,
+  ) => string) | undefined;
+  if (defaultFenceRenderer) {
+    marp.markdown.renderer.rules.fence = function (
+      this: unknown,
+      tokens: MarpFenceToken[],
+      index: number,
+      options: unknown,
+      env: unknown,
+      renderer: unknown,
+    ) {
+      const html = defaultFenceRenderer.call(this, tokens, index, options, env, renderer);
+      const token = tokens[index];
+      const scale = token.info.trim().match(/^mermaid\s+\{[^}]*\bscale\s*=\s*(\d{1,3})%[^}]*\}$/i)?.[1];
+      const scalePercent = scale ? Number(scale) : NaN;
+      if (!Number.isInteger(scalePercent) || scalePercent < 10 || scalePercent > 200) return html;
+      return html.replace(/^<pre\b/i, `<pre data-mve-mermaid-scale="${scalePercent}"`);
+    };
+  }
   const rendered = marp.render(markdown, { htmlAsArray: true });
   const normalizeMarkdownImageReference = (source: string) =>
     normalizeMarpImageReference(

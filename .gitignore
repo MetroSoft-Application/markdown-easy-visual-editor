@@ -25,3 +25,6 @@ sample/assets/*
 sample/marp/*
 !sample/marp/*.md
 !sample/mermaid
+!sample/mermaid/*.md
+AGENTS.md
+*.pptx

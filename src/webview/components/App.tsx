@@ -95,6 +95,7 @@ import { RenderedMarkdown, type InspectorTarget } from "./RenderedMarkdown";
 import { PdfDocumentPreview } from "./PdfDocumentPreview";
 import { MarpPreview } from "../marp/MarpPreview";
 import type { MarpPreviewHandle } from "../marp/MarpPreview";
+import type { MarpPdfExportContent } from "../marp/marpPdfExport";
 import type { MarpSlideSourceRange } from "../marp/marpRenderer";
 import { Ribbon, type RibbonCommand } from "../ribbon/Ribbon";
 import {
@@ -658,6 +659,7 @@ export function App(): React.JSX.Element {
   const scrollSyncEnabledRef = useRef(scrollSyncEnabled);
   scrollSyncEnabledRef.current = scrollSyncEnabled;
   const [exportStageRequested, setExportStageRequested] = useState(false);
+  const [marpPdfExportRequested, setMarpPdfExportRequested] = useState(false);
   const previewVisible =
     mode === "preview" || (mode === "split" && splitView !== "text");
   const hasMarpFrontMatterCandidateValue = useMemo(
@@ -712,6 +714,9 @@ export function App(): React.JSX.Element {
   const marpDetectionRequestRef = useRef<
     { requestId: string; markdown: string } | undefined
   >(undefined);
+  const marpPdfDetectionResultRef = useRef<
+    { markdown: string; isMarp: boolean; failed: boolean } | undefined
+  >(undefined);
   const previewMarkdownForMarpRef = useRef(previewMarkdown);
   previewMarkdownForMarpRef.current = previewMarkdown;
   const messages = useMemo(
@@ -725,7 +730,7 @@ export function App(): React.JSX.Element {
     () => {
       if (
         !initialized ||
-        !previewVisible ||
+        (!previewVisible && !marpPdfExportRequested) ||
         !hasMarpFrontMatterCandidateValue
       ) {
         marpDetectionRequestRef.current = undefined;
@@ -736,6 +741,7 @@ export function App(): React.JSX.Element {
         return;
       }
 
+      marpPdfDetectionResultRef.current = undefined;
       const request = {
         requestId: createClientId(),
         markdown: previewMarkdown,
@@ -757,6 +763,7 @@ export function App(): React.JSX.Element {
     [
       hasMarpFrontMatterCandidateValue,
       initialized,
+      marpPdfExportRequested,
       mode,
       previewMarkdown,
       splitView,
@@ -899,6 +906,7 @@ export function App(): React.JSX.Element {
   const sourceRef = useRef<TextEditorHandle>(null);
   const splitPreviewRef = useRef<HTMLDivElement>(null);
   const marpPreviewRef = useRef<MarpPreviewHandle>(null);
+  const marpPdfExportPreviewRef = useRef<MarpPreviewHandle>(null);
   const editorAreaRef = useRef<HTMLElement>(null);
   const exportRootRef = useRef<HTMLDivElement>(null);
   const exportStageRequestCountRef = useRef(0);
@@ -943,6 +951,7 @@ export function App(): React.JSX.Element {
   const selectionStateRef = useRef<TextSelection>({ from: 0, to: 0 });
   const imageRequestsRef = useRef(new Set<string>());
   const pdfRequestsRef = useRef(new Set<string>());
+  const pdfExportInProgressRef = useRef(false);
   const htmlRequestsRef = useRef(new Set<string>());
   const pdfPreviewRequestRef = useRef("");
   const pdfPreviewSignatureRef = useRef<string | undefined>(undefined);
@@ -2121,6 +2130,11 @@ export function App(): React.JSX.Element {
         )
           return;
         marpDetectionRequestRef.current = undefined;
+        marpPdfDetectionResultRef.current = {
+          markdown: request.markdown,
+          isMarp: message.isMarp,
+          failed: false,
+        };
         setMarpDetectionPending(false);
         setIsMarpDetected(message.isMarp);
         setMarpDetectionMarkdown(request.markdown);
@@ -2310,6 +2324,11 @@ export function App(): React.JSX.Element {
             marpDetectionRequest?.requestId === message.requestId
           ) {
             marpDetectionRequestRef.current = undefined;
+            marpPdfDetectionResultRef.current = {
+              markdown: marpDetectionRequest.markdown,
+              isMarp: false,
+              failed: true,
+            };
             setMarpDetectionPending(false);
             setIsMarpDetected(false);
             setMarpDetectionMarkdown(marpDetectionRequest.markdown);
@@ -3319,6 +3338,36 @@ export function App(): React.JSX.Element {
     );
   }
 
+  /** 描画済みのMarpスライドが現在の本文に一致するまで待つ。 */
+  async function waitForMarpPdfExportContent(
+    sourceMarkdown: string,
+  ): Promise<MarpPdfExportContent | undefined> {
+    const deadline = Date.now() + 60_000;
+    while (Date.now() < deadline) {
+      const content =
+        marpPreviewRef.current?.getPdfExportContent(sourceMarkdown) ??
+        marpPdfExportPreviewRef.current?.getPdfExportContent(sourceMarkdown);
+      if (content) return content;
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 50));
+    }
+    return undefined;
+  }
+
+  async function waitForMarpPdfDetection(
+    sourceMarkdown: string,
+  ): Promise<boolean | undefined> {
+    if (!hasMarpFrontMatterCandidate(sourceMarkdown)) return false;
+    const deadline = Date.now() + 15_000;
+    while (Date.now() < deadline) {
+      const result = marpPdfDetectionResultRef.current;
+      if (result?.markdown === sourceMarkdown) {
+        return result.failed ? undefined : result.isMarp;
+      }
+      await new Promise<void>((resolve) => window.setTimeout(resolve, 25));
+    }
+    return undefined;
+  }
+
   /**
    * PDF/HTML出力用DOMを用意し、出力対象のルート要素を返す。
    * @returns 出力用ルート要素。初期化がキャンセルされた場合はundefined。
@@ -3518,9 +3567,17 @@ export function App(): React.JSX.Element {
       setToast(messages.app.invalidOutputReplacementPattern);
       return;
     }
-    setToast(messages.host.pdfProgress);
-    flushPdfOptionsPersistence();
-    await withExportStage(async () => {
+    if (
+      pdfExportInProgressRef.current ||
+      pdfRequestsRef.current.size > 0
+    )
+      return;
+    pdfExportInProgressRef.current = true;
+    let marpPdfDetectionRequested = false;
+    try {
+      setToast(messages.host.pdfProgress);
+      flushPdfOptionsPersistence();
+      await withExportStage(async () => {
       if (!(await waitForCurrentPreviewSnapshot())) {
         setToast(
           messages.app.toast.operationFailed(
@@ -3531,6 +3588,19 @@ export function App(): React.JSX.Element {
       }
       requestLocalResourceCheck("pdf");
       const currentMarkdown = localTextRef.current;
+      if (
+        !previewVisible &&
+        hasMarpFrontMatterCandidate(currentMarkdown)
+      ) {
+        marpPdfDetectionRequested = true;
+        marpPdfDetectionResultRef.current = undefined;
+        setMarpPdfExportRequested(true);
+      }
+      const isMarpPdfExport = await waitForMarpPdfDetection(currentMarkdown);
+      if (isMarpPdfExport === undefined) {
+        setToast(messages.app.marpPreview.failed);
+        return;
+      }
       const currentSummary = summarizeDiagnostics(
         mergeDiagnostics(
           currentMarkdown,
@@ -3557,17 +3627,33 @@ export function App(): React.JSX.Element {
             diagnosticNotice,
           ),
         );
-      const root = await ensureExportRoot();
-      if (!(await waitForHtmlMermaidRendering(root))) {
-        setToast(`${messages.renderer.mermaidError}: timeout`);
-        return;
-      }
       const sourceOptions = pdfOptionsRef.current;
       let pdfOutput: { html: string; options: PdfOptions };
+      let pdfCss: string;
       try {
-        pdfOutput = root
-          ? await serializePdfExport(root, sourceOptions)
-          : await serializePdfFallbackHtml(currentMarkdown, sourceOptions);
+        if (isMarpPdfExport) {
+          const content = await waitForMarpPdfExportContent(currentMarkdown);
+          if (!content) {
+            setToast(messages.app.marpPreview.failed);
+            return;
+          }
+          const marpRoot = document.createElement("div");
+          marpRoot.innerHTML = content.html;
+          pdfOutput = await serializePdfExport(marpRoot, sourceOptions);
+          pdfCss = `${content.css}\n${await collectEmbeddedPrintableCss(settings.previewFontFamily)}`;
+        } else {
+          const root = await ensureExportRoot();
+          if (!(await waitForHtmlMermaidRendering(root))) {
+            setToast(`${messages.renderer.mermaidError}: timeout`);
+            return;
+          }
+          pdfOutput = root
+            ? await serializePdfExport(root, sourceOptions)
+            : await serializePdfFallbackHtml(currentMarkdown, sourceOptions);
+          if (!root)
+            setToast(messages.app.toast.pdfFallbackToMarkdown(diagnosticNotice));
+          pdfCss = await collectEmbeddedPrintableCss(settings.previewFontFamily);
+        }
       } catch (error) {
         setToast(
           error instanceof TextReplacementTimeoutError
@@ -3576,19 +3662,21 @@ export function App(): React.JSX.Element {
         );
         return;
       }
-      if (!root)
-        setToast(messages.app.toast.pdfFallbackToMarkdown(diagnosticNotice));
       const requestId = createClientId();
       const message: WebviewToHostMessage = {
         type: "exportPdf",
         requestId,
         html: pdfOutput.html,
-        css: await collectEmbeddedPrintableCss(settings.previewFontFamily),
+        css: pdfCss,
         options: pdfOutput.options,
       };
       pdfRequestsRef.current.add(requestId);
       vscode.postMessage(message);
-    });
+      });
+    } finally {
+      pdfExportInProgressRef.current = false;
+      if (marpPdfDetectionRequested) setMarpPdfExportRequested(false);
+    }
   }
 
   /**
@@ -6488,6 +6576,19 @@ export function App(): React.JSX.Element {
             settings={exportSettings}
             onRendered={handleExportRendered}
           />
+          {exportStageRequested &&
+            marpPdfExportRequested &&
+            isMarpDocument &&
+            !previewVisible && (
+            <MarpPreview
+              ref={marpPdfExportPreviewRef}
+              markdown={marpPreviewMarkdown}
+              settings={exportSettings}
+              messages={messages}
+              zoom={1}
+              onNavigate={() => undefined}
+            />
+          )}
         </div>
       )}
       {htmlRenderRequests.map((htmlRenderRequest) => (

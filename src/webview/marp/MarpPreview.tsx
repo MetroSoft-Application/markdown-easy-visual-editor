@@ -14,7 +14,12 @@ import type { WebviewSettings } from "../../shared/protocol";
 import type { Messages } from "../../shared/messages";
 import type { MarpImageResizeTarget } from "../../shared/imageResize";
 import type { PreviewViewportAnchor } from "../preview/scrollAnchors";
+import { mermaidErrorMessage, renderMermaidSvg } from "../markdown/mermaidRenderer";
+import type { MermaidTheme } from "../markdown/mermaidRenderer";
+import { sanitizeRenderedMarkdown } from "../markdown/markdownSanitizer";
 import { ImagePreviewDialog } from "../components/RenderedMarkdown";
+import { createMarpPdfExportContent } from "./marpPdfExport";
+import type { MarpPdfExportContent } from "./marpPdfExport";
 import type { MarpRenderResult, MarpSlideSourceRange } from "./marpRenderer";
 import { findMarpSourceRangeAtOffset } from "./marpSourceRanges";
 import { isCurrentMarpWorkerResponse } from "./marpWorkerProtocol";
@@ -99,6 +104,8 @@ export interface MarpPreviewHandle {
   captureViewport(): PreviewViewportAnchor | undefined;
   /** 指定本文と、iframeへ反映済みのスライド位置情報の生成元が一致するかを返す。 */
   isMarkdownRendered(sourceMarkdown: string): boolean;
+  /** 描画完了済みの指定本文をPDFへ渡すためのスライドHTMLとCSSを返す。 */
+  getPdfExportContent(sourceMarkdown: string): MarpPdfExportContent | undefined;
 }
 
 /**
@@ -308,6 +315,20 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
       scrollToOffset,
       captureViewport,
       isMarkdownRendered: (sourceMarkdown: string) => layoutMarkdownRef.current === sourceMarkdown,
+      getPdfExportContent: (sourceMarkdown: string) => {
+        const result = latestResultRef.current;
+        if (
+          layoutMarkdownRef.current !== sourceMarkdown ||
+          renderedMarkdownRef.current !== sourceMarkdown ||
+          !result
+        ) {
+          return undefined;
+        }
+        return createMarpPdfExportContent(
+          result.slides.map((slide) => sanitizeRenderedMarkdown(slide, true)),
+          result.css,
+        );
+      },
     }), [scrollToOffset, captureViewport]);
 
     useEffect(() => {
@@ -338,6 +359,7 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
     useLayoutEffect(() => {
       const currentGeneration = ++generationRef.current;
       assetDataUrlCacheRef.current.clear();
+      const mermaidRenderController = new AbortController();
       // 次の描画が完了するまで現在のスライドと位置情報を保持する。
       // ローディング要素の挿入と表示高さの消失によるスクロールの跳躍を防ぐ。
       setError(undefined);
@@ -384,6 +406,7 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
       setError(undefined);
       return () => {
         window.clearTimeout(debounce);
+        mermaidRenderController.abort();
         generationRef.current += 1;
       };
 
@@ -422,6 +445,9 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
             response,
             assetDataUrlCacheRef.current,
             settings.remoteImagesEnabled === true,
+            settings.mermaidTheme,
+            settings.language,
+            mermaidRenderController.signal,
           )
             .then((resolvedResponse) => {
               if (settled || generationRef.current !== generation) return;
@@ -460,7 +486,7 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
         if (settled) return;
         settled = true;
       }
-    }, [markdown, messages.app.marpPreview.failed, onStartupStage, postRenderToFrame, releaseWorker, settings.remoteImagesEnabled]);
+    }, [markdown, messages.app.marpPreview.failed, onStartupStage, postRenderToFrame, releaseWorker, settings.editorTheme, settings.language, settings.mermaidTheme, settings.remoteImagesEnabled]);
 
     useEffect(
       () => () => {
@@ -936,8 +962,11 @@ async function proxyMarpAssets(
   response: MarpWorkerResponse,
   cache: Map<string, Promise<string>>,
   allowRemoteImages: boolean,
+  mermaidTheme: WebviewSettings["mermaidTheme"],
+  language: WebviewSettings["language"],
+  signal: AbortSignal,
 ): Promise<MarpWorkerResponse> {
-  const slides = await Promise.all(response.slides.map(async (html) => {
+  const parsedSlides = await Promise.all(response.slides.map(async (html) => {
     const parsed = new DOMParser().parseFromString(html, "text/html");
     for (const element of Array.from(parsed.body.querySelectorAll<HTMLElement | SVGElement>("*"))) {
       const tagName = element.tagName.toLowerCase();
@@ -969,14 +998,106 @@ async function proxyMarpAssets(
         if (resolvedStyle !== originalStyle) element.setAttribute("style", resolvedStyle);
       }
     }
-    return parsed.body.innerHTML;
+    return parsed;
   }));
+  for (const parsed of parsedSlides) {
+    await renderMarpMermaidBlocks(parsed.body, mermaidTheme, language, signal);
+  }
   const css = await proxyCssAssetUrls(response.css, cache, allowRemoteImages);
   return {
     ...response,
-    slides,
-    css,
+    slides: parsedSlides.map((parsed) => parsed.body.innerHTML),
+    css: `${css}\n.mve-marp-slide .mve-marp-mermaid{display:flex;justify-content:center;max-width:100%;overflow-x:auto}.mve-marp-slide .mve-marp-mermaid>svg{display:block;max-width:100%;height:auto}.mve-marp-slide .mve-marp-mermaid-error{display:block;color:#b42318}.mve-marp-slide .mve-marp-mermaid-error-message{margin:.4em 0;white-space:pre-wrap}`,
   };
+}
+
+/**
+ * MarpのMermaidコードフェンスをHost描画したSVGへ置き換える。
+ * @param content - Mermaidコードフェンスを含むスライド本文。
+ * @param mermaidTheme - Mermaidテーマ設定。
+ * @param language - エラー表示に使う言語。
+ * @param signal - 古い描画要求を中断するAbortSignal。
+ */
+async function renderMarpMermaidBlocks(
+  content: HTMLElement,
+  mermaidTheme: WebviewSettings["mermaidTheme"],
+  language: WebviewSettings["language"],
+  signal: AbortSignal,
+): Promise<void> {
+  const blocks = Array.from(content.querySelectorAll<HTMLPreElement>("pre"))
+    .flatMap((pre) => {
+      const code = pre.querySelector("code");
+      const isMermaid = code && Array.from(code.classList).some(
+        (className) => /^(?:language|lang)-mermaid$/i.test(className),
+      );
+      return code && isMermaid ? [{ pre, code }] : [];
+    });
+
+  for (const { pre, code } of blocks) {
+    if (signal.aborted) throw new Error("Marp Mermaid rendering was cancelled.");
+    const source = code.textContent ?? "";
+    const container = document.createElement("div");
+    container.className = "mve-marp-mermaid";
+    container.setAttribute("role", "img");
+    const scalePercent = Number(pre.dataset.mveMermaidScale);
+    const theme = resolveMarpMermaidTheme(mermaidTheme, pre);
+
+    try {
+      const rendered = await renderMermaidSvg(source, theme, signal);
+      if (signal.aborted) throw new Error("Marp Mermaid rendering was cancelled.");
+      const template = document.createElement("template");
+      template.innerHTML = rendered.svg;
+      const svg = template.content.querySelector("svg");
+      if (!svg) throw new Error("Mermaid rendering returned no SVG.");
+      if (rendered.ariaLabel) container.setAttribute("aria-label", rendered.ariaLabel);
+      if (Number.isInteger(scalePercent) && scalePercent >= 10 && scalePercent <= 200) {
+        const viewBoxWidth = svg.viewBox.baseVal.width;
+        if (viewBoxWidth > 0 && scalePercent !== 100) {
+          svg.style.width = `${viewBoxWidth * scalePercent / 100}px`;
+          container.dataset.mveMermaidScale = String(scalePercent);
+        }
+      }
+      svg.setAttribute("aria-hidden", "true");
+      container.append(template.content);
+    } catch (error) {
+      if (signal.aborted) throw error;
+      container.className = "mve-marp-mermaid mve-marp-mermaid-error";
+      container.setAttribute("role", "group");
+      container.append(pre.cloneNode(true));
+      const message = document.createElement("p");
+      message.className = "mve-marp-mermaid-error-message";
+      message.setAttribute("role", "alert");
+      message.textContent = mermaidErrorMessage(error, language);
+      container.append(message);
+    }
+
+    pre.replaceWith(container);
+  }
+}
+
+/**
+ * Marpスライド内のMermaid図に適用するテーマを解決する。
+ * @param mermaidTheme - Mermaidテーマ設定。
+ * @param block - 対象のMermaidコードブロック。
+ * @returns Mermaid描画に使う配色テーマ。
+ */
+function resolveMarpMermaidTheme(
+  mermaidTheme: WebviewSettings["mermaidTheme"],
+  block: HTMLElement,
+): MermaidTheme {
+  if (mermaidTheme !== "auto") return mermaidTheme;
+
+  const slide = block.closest<HTMLElement>("section");
+  for (let element: HTMLElement | null = block; element; element = element.parentElement) {
+    if (element.classList.contains("invert")) return "dark";
+    const slideTheme = element.dataset.theme?.toLowerCase();
+    if (slideTheme === "dark") return "dark";
+    if (slideTheme === "light") return "default";
+    if (element === slide) break;
+  }
+
+  // Marp slides have their own canvas theme; the editor chrome can use a different theme.
+  return "default";
 }
 
 /**

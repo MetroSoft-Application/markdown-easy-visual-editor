@@ -85,3 +85,8 @@
 
 - Added image resizing to Marp slide previews.
 - Fixed Marp previews returning to the first slide while the Markdown is being updated.
+
+## 1.4.4
+
+- Added Mermaid diagrams to Marp slides, with per-diagram size adjustment.
+- Added page breaks between Marp slides in PDF exports.

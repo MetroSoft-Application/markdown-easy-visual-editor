@@ -686,6 +686,9 @@ const PRINT_CSS = `
   body { margin: 0; font-family: ${DEFAULT_FONT_FAMILY_STACK}; color: #202124; }
   .mve-print { max-width: none; }
   .page-break { break-after: page; }
+  .mve-marp-pdf-slide { break-inside: avoid; page-break-inside: avoid; }
+  .mve-marp-pdf-slide:not(:last-child) { break-after: page; page-break-after: always; }
+  .mve-marp-pdf-slide .marpit > svg { display: block; width: 100% !important; height: auto !important; max-width: 100%; max-height: 100vh; }
   table { width: 100%; border-collapse: collapse; }
   table th, table td { word-break: normal; overflow-wrap: anywhere; }
   table th[data-mve-nowrap="true"], table td[data-mve-nowrap="true"] { white-space: nowrap; overflow-wrap: normal; }

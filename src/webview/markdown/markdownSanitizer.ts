@@ -6,9 +6,13 @@ import DOMPurify from "dompurify";
 /**
  * Markdown描画HTMLから許可されない要素と属性を除去する。
  * @param html - 表示または出力するHTML本文。
+ * @param allowMarpitForeignObject - Marpit SVG内のHTMLを保持するPDF出力時のみtrue。
  * @returns DOMPurifyで危険な要素・属性を除去したHTML。
  */
-export function sanitizeRenderedMarkdown(html: string): string {
+export function sanitizeRenderedMarkdown(
+    html: string,
+    allowMarpitForeignObject = false,
+): string {
     return DOMPurify.sanitize(html, {
         ADD_ATTR: [
             "target",
@@ -26,7 +30,12 @@ export function sanitizeRenderedMarkdown(html: string): string {
             "data-copy-code",
             "data-language",
         ],
-        ADD_TAGS: ["mark", "ins"],
+        ADD_TAGS: allowMarpitForeignObject
+            ? ["mark", "ins", "foreignObject"]
+            : ["mark", "ins"],
+        ...(allowMarpitForeignObject
+            ? { HTML_INTEGRATION_POINTS: { "annotation-xml": true, foreignobject: true } }
+            : {}),
         ALLOW_DATA_ATTR: true,
     });
 }
