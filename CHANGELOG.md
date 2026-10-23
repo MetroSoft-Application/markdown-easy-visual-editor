@@ -90,3 +90,9 @@
 
 - Added Mermaid diagrams to Marp slides, with per-diagram size adjustment.
 - Added page breaks between Marp slides in PDF exports.
+
+## 1.5.0
+
+- Added Textile document previews with mixed Markdown and Textile rendering.
+- Added syntax highlighting for nested Textile list markers.
+- Added Textile rendering to HTML and PDF output.

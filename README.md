@@ -1,12 +1,13 @@
 # Markdown Easy Visual Editor
 
-Markdown Easy Visual Editor is a VS Code extension for writing Markdown with a live visual preview. Your document remains Markdown, so you can edit the source directly while reviewing the rendered result beside it.
+Markdown Easy Visual Editor is a VS Code extension for writing Markdown and Textile with a live visual preview. Your document remains in its source format, so you can edit it directly while reviewing the rendered result beside it.
 
 <img src="./resources/image1.png" alt="image" width="800">
 
 ## Features
 
 - Edit Markdown and preview the result side by side.
+- Open `.textile` documents in the visual editor, and use Textile syntax alongside Markdown in Markdown documents.
 - Switch between split view, text-only view, and preview-only view.
 - Use the ribbon to format text, create lists, insert links, images, tables, code blocks, math, Mermaid diagrams, footnotes, alerts, and more.
 - Navigate long documents with an outline generated from headings.
@@ -193,6 +194,20 @@ marp: true
 - Marp slides appear in split view, preview-only view, and print preview.
 - The preview returns to the regular Markdown or PDF path when the marker is removed or set to `false`.
 - The built-in `default`, `gaia`, and `uncover` themes are available. PDF and HTML exports continue to use their existing output flow.
+
+## Supported Textile
+
+- Open `.textile` documents in the visual editor to preview Textile formatting, lists, tables, links, images, and code. 
+- Textile headings appear in the outline, nested list markers are highlighted while editing, and rendered content is included in HTML/PDF exports. 
+- Markdown files can mix recognized Textile syntax. Markdown takes precedence where the syntaxes overlap.
+
+```text
+h1. Textile heading
+p. A paragraph with *strong*, +inserted+, and @inline code@.
+* Bullet
+** Nested bullet
+"Textile website":https://textile-lang.com/
+```
 
 ## Preview and export to PDF
 
