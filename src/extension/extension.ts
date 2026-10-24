@@ -1411,6 +1411,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                                 html: message.html,
                                 css: message.css,
                                 options: message.options,
+                                editorTheme: message.editorTheme,
                                 documentUri: document.uri,
                                 language: this.getLanguage()
                             })
@@ -1449,6 +1450,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                                 markdown: message.markdown,
                                 html: message.html,
                                 css: message.css,
+                                editorTheme: message.editorTheme,
                                 options: message.options,
                                 documentUri: document.uri,
                                 language: this.getLanguage(),
@@ -1532,6 +1534,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                                     html: message.html,
                                     css: message.css,
                                     options: message.options,
+                                    editorTheme: message.editorTheme,
                                     documentUri: document.uri,
                                     language: this.getLanguage(),
                                     purpose: 'preview',

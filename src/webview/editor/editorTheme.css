@@ -1,5 +1,5 @@
 /**
- * @fileoverview CodeMirrorと編集面の基本テーマ変数、選択色、カーソル、診断表示を定義する。
+ * @fileoverview CodeMirror、編集面、Markdownプレビューの色と状態をテーマごとに定義する。
  * スタイルだけを変更し、本文データと編集状態を変更しない。
  */
 /*
@@ -20,6 +20,7 @@ body[data-editor-theme="light"] {
     --mve-theme-hover: #eaeef2;
     --mve-theme-active: #ddf4ff;
     --mve-theme-accent: #0969da;
+    --mve-theme-pdf-heading: #0969da;
     --mve-theme-shadow: rgba(31, 35, 40, 0.16);
     --mve-theme-code: #f6f8fa;
     --mve-syntax-link: #0050b3;
@@ -134,6 +135,7 @@ body[data-editor-theme="dark"] {
     --mve-theme-hover: #21262d;
     --mve-theme-active: #1f3a5f;
     --mve-theme-accent: #58a6ff;
+    --mve-theme-pdf-heading: #0550ae;
     --mve-theme-shadow: rgba(0, 0, 0, 0.45);
     --mve-theme-code: #161b22;
     --mve-syntax-link: #4ec9b0;
@@ -501,6 +503,23 @@ body[data-editor-theme] .editor-area>.rendered-markdown,
 body[data-editor-theme] .inspector-preview .rendered-markdown {
     color: var(--mve-theme-text) !important;
     background: var(--mve-theme-bg) !important;
+}
+
+/*
+ * @style body[data-editor-theme] .split-preview .rendered-markdown :is(h1, h2, h3, h4, h5, h6)
+ * 分割プレビューの見出しをテーマ別アクセント色で表示し、本文色に埋もれずライト・ダーク両方で判読できるようにする。
+ */
+
+body[data-editor-theme] .split-preview .rendered-markdown :is(h1, h2, h3, h4, h5, h6) {
+    color: var(--mve-theme-accent) !important;
+}
+
+/*
+ * @style body[data-editor-theme] .pdf-preview-live-content .rendered-markdown :is(h1, h2, h3, h4, h5, h6)
+ * 白いPDFページ上で読める濃さのテーマ別色を、PDFプレビューのライブ表示に適用する。
+ */
+body[data-editor-theme] .pdf-preview-live-content .rendered-markdown :is(h1, h2, h3, h4, h5, h6) {
+    color: var(--mve-theme-pdf-heading) !important;
 }
 
 

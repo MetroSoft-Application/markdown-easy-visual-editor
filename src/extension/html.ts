@@ -1,5 +1,5 @@
 /**
- * @fileoverview Markdownプレビュー用HTMLを組み立て、テーマ・設定・リソースURIをWebviewへ渡す。HTMLへ入る値をエスケープする。
+ * @fileoverview HTML出力を組み立て、テーマ別の見出し色、設定、リソースURIを反映する。HTMLへ入る値をエスケープする。
  */
 import { promises as fs } from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -8,7 +8,7 @@ import * as vscode from 'vscode';
 import { decodeHTMLAttribute } from 'entities';
 import { Marked, Renderer } from 'marked';
 import { getMessages } from '../shared/messages';
-import { DEFAULT_PDF_OPTIONS, type HtmlExportOptions } from '../shared/protocol';
+import { DEFAULT_PDF_OPTIONS, type EditorTheme, type HtmlExportOptions } from '../shared/protocol';
 import { fontFamilyForCss } from '../shared/fontFamily';
 import { escapeHtml } from '../shared/escapeHtml';
 import { footnoteDefinitionSyntax, mathBlockSyntax, tableOfContentsSyntax } from '../shared/markdownBlockSyntax';
@@ -42,6 +42,11 @@ export interface HtmlExportRequest {
      * HTMLで解析・表示・保存する本文。
      */
     css: string;
+
+    /**
+     * HTML出力の見出し色を選ぶ編集テーマ。省略時はダークテーマとして扱う。
+     */
+    editorTheme?: EditorTheme;
 
     /**
      * 呼び出し側が指定する処理設定。
@@ -228,7 +233,8 @@ export async function writePreparedHtml(
                 document.markdown,
                 request.options,
                 request.fontFamily,
-                getHtmlRenderFormat(document.sourcePath)
+                getHtmlRenderFormat(document.sourcePath),
+                request.editorTheme
             );
             await fs.mkdir(path.dirname(document.outputPath), { recursive: true });
             await fs.writeFile(document.outputPath, standalone, 'utf8');
@@ -393,6 +399,7 @@ function renderLinkedMarkdown(markdown: string, format: 'markdown' | 'mixed' | '
  * @param options - HTML出力時の画像・リンク・アウトライン表示設定。
  * @param fontFamily - 生成HTMLの本文へ適用するフォントファミリー。
  * @param renderFormat - アウトラインを作るMarkdownまたはTextileの描画形式。
+ * @param editorTheme - 白いHTML背景で見出しを判読できる色を選ぶテーマ。未指定時はダークテーマ。
  * @returns 単体で表示・保存できるHTML文書。
  */
 function buildStandaloneHtml(
@@ -402,7 +409,8 @@ function buildStandaloneHtml(
     markdown: string,
     options: HtmlExportOptions,
     fontFamily?: string,
-    renderFormat: 'markdown' | 'mixed' | 'textile' = 'markdown'
+    renderFormat: 'markdown' | 'mixed' | 'textile' = 'markdown',
+    editorTheme: EditorTheme = 'dark'
 ): string {
     const safeCss = css.replace(/<\/style/gi, '<\\/style');
     const safeFontFamily = fontFamilyForCss(fontFamily, DEFAULT_PDF_OPTIONS.fontFamily);
@@ -411,7 +419,7 @@ function buildStandaloneHtml(
         ? `<div class="mve-html-layout mve-html-layout-with-outline">${buildHtmlOutlineSidebar(markdown, language, renderFormat)}${buildHtmlOutlineResizer(language)}${buildHtmlOutlineShowButton(language)}${main}</div>`
         : main;
     const outlineResizeScript = options.showOutlineSidebar ? `<script>${HTML_OUTLINE_RESIZER_SCRIPT}</script>` : '';
-    return `<!doctype html><html lang="${escapeAttribute(language)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${safeCss}\n${HTML_CSS(safeFontFamily)}</style></head><body>${content}${outlineResizeScript}</body></html>`;
+    return `<!doctype html><html lang="${escapeAttribute(language)}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><style>${safeCss}\n${HTML_CSS(safeFontFamily, editorTheme)}</style></head><body>${content}${outlineResizeScript}</body></html>`;
 }
 
 /** HTML出力用アウトラインの階層を保持する。 */
@@ -1203,12 +1211,15 @@ export const HTML_OUTLINE_RESIZER_SCRIPT = `
 `;
 
 const HTML_CSS = /**
- * HTML出力用の印刷・レイアウト規則を指定フォントで生成する。
+ * HTML出力用の印刷・レイアウト規則、白背景向けコード配色、テーマ別見出し色を生成する。
  * @param fontFamily - body要素へ適用するCSSフォント指定。
+ * @param editorTheme - 見出し色の選択に使うテーマ。未指定時はダークテーマ。
+ * @returns 白いHTML背景上でコードと見出しを判読できるCSS。
 
- */ (fontFamily: string): string => `
+ */ (fontFamily: string, editorTheme: EditorTheme = 'dark'): string => `
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body { margin: 0; font-family: ${fontFamily}; color: #202124; background: #fff; }
+  .mve-html :is(h1, h2, h3, h4, h5, h6) { color: ${editorTheme === 'light' ? '#0969da' : '#0550ae'}; }
   .mve-html-layout { min-height: 100vh; }
   .mve-html-layout-with-outline { display: grid; grid-template-columns: minmax(160px, var(--mve-html-outline-width, 240px)) 8px minmax(0, 1fr); grid-template-areas: "sidebar divider content"; }
   .mve-html { grid-area: content; min-width: 0; max-width: 100%; margin: 0 auto; padding: 24px; box-sizing: border-box; }
@@ -1242,6 +1253,14 @@ const HTML_CSS = /**
   img { max-width: 100%; height: auto; }
   table { width: 100%; border-collapse: collapse; }
   table th, table td { word-break: normal; overflow-wrap: anywhere; }
+  .mve-html pre { color: #24292f; background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 4px; padding: 12px; overflow-x: auto; overflow-wrap: anywhere; white-space: pre-wrap; }
+  .mve-html pre code { color: inherit; background: transparent !important; }
+  .mve-html :not(pre) > code { color: #24292f; background: #eff1f3; border-radius: 3px; padding: .12em .35em; }
+  .mve-html .hljs-keyword, .mve-html .hljs-selector-tag, .mve-html .hljs-literal { color: #8250df; }
+  .mve-html .hljs-string, .mve-html .hljs-attr { color: #0a3069; }
+  .mve-html .hljs-title, .mve-html .hljs-section { color: #953800; }
+  .mve-html .hljs-comment { color: #6e7781; }
+  .mve-html .hljs-number { color: #0550ae; }
   pre { overflow-x: auto; }
   a { color: inherit; text-decoration: underline; }
   .mve-html .mve-heading-anchor { color: inherit; }

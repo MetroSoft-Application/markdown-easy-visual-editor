@@ -1524,6 +1524,7 @@ export function App(): React.JSX.Element {
       printPreview,
       settings.language,
       settings.remoteImagesEnabled,
+      settings.editorTheme,
       version,
     ],
   );
@@ -3734,6 +3735,7 @@ export function App(): React.JSX.Element {
         html: pdfOutput.html,
         css: pdfCss,
         options: pdfOutput.options,
+        editorTheme: settings.editorTheme ?? "dark",
       };
       pdfRequestsRef.current.add(requestId);
       vscode.postMessage(message);
@@ -3808,6 +3810,7 @@ export function App(): React.JSX.Element {
         markdown: currentMarkdown,
         html,
         css: await collectEmbeddedPrintableCss(settings.previewFontFamily),
+        editorTheme: settings.editorTheme ?? "dark",
         options,
         textReplacements,
       });
@@ -3876,7 +3879,8 @@ export function App(): React.JSX.Element {
     }
     // 画像のloadやResizeObserverでexport-stageのDOMが変わっても、同じ本文のPDFを再生成しない。
     // 画像サイズの変更はMarkdown本文が変わるため、このキーも変わる。
-    const signature = `${settings.language}\0${settings.remoteImagesEnabled}\0${settings.mermaidTheme}\0${normalizeMermaidFontSize(settings.mermaidFontSize)}\0${JSON.stringify(pdfOptions)}\0${markdown}`;
+    // 言語・テーマ・PDF設定・本文が同じ要求だけを同一PDFとして扱う。
+    const signature = `${settings.language}\0${settings.editorTheme ?? "dark"}\0${settings.remoteImagesEnabled}\0${settings.mermaidTheme}\0${normalizeMermaidFontSize(settings.mermaidFontSize)}\0${JSON.stringify(pdfOptions)}\0${markdown}`;
     if (pdfPreviewSignatureRef.current === signature) return;
     const requestId = createClientId();
     pdfPreviewRequestRef.current = requestId;
@@ -3941,6 +3945,7 @@ export function App(): React.JSX.Element {
       html: pdfOutput.html,
       css,
       options: pdfOutput.options,
+      editorTheme: settings.editorTheme ?? "dark",
     });
   }
 

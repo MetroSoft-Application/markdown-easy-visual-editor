@@ -496,7 +496,7 @@ export interface WebviewSettings extends FontFamilySettings {
     mermaidHostRendering?: boolean;
 
     /**
-     * PDF見出しeditorThemeの文字サイズ。
+     * ライト・ダークのプレビュー表示とHTML/PDF出力に反映するエディタテーマ。未設定時はダークテーマ。
      */
     editorTheme?: EditorTheme;
 
@@ -1240,6 +1240,11 @@ export type WebviewToHostMessage =
          * 呼び出し側が指定する処理設定。
          */
         options: PdfOptions;
+
+        /**
+         * PDF見出しへ適用する編集テーマ。省略された既存Webview要求はダークテーマとして扱う。
+         */
+        editorTheme?: EditorTheme;
     }
     | {
 
@@ -1267,6 +1272,11 @@ export type WebviewToHostMessage =
          * 共有プロトコルで受け渡すcssの文字列。
          */
         css: string;
+
+        /**
+         * HTML出力の見出し色を選ぶ編集テーマ。省略された既存Webview要求はダークテーマとして扱う。
+         */
+        editorTheme?: EditorTheme;
 
         /**
          * 呼び出し側が指定する処理設定。
@@ -1332,6 +1342,11 @@ export type WebviewToHostMessage =
          * 呼び出し側が指定する処理設定。
          */
         options: PdfOptions;
+
+        /**
+         * PDF見出しへ適用する編集テーマ。省略された既存Webview要求はダークテーマとして扱う。
+         */
+        editorTheme?: EditorTheme;
     }
     | {
 

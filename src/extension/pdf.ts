@@ -7,6 +7,7 @@ import { promises as fs } from 'node:fs';
 import path from 'node:path';
 import {
     normalizePdfOptions,
+    type EditorTheme,
     type NormalizedPdfOptions,
     type PdfOptions,
     type PdfPaperFormat
@@ -30,6 +31,10 @@ export interface PdfExportRequest {
      * 呼び出し側が指定する処理設定。
      */
     options: PdfOptions;
+    /**
+     * PDF見出し色を選ぶ編集テーマ。未指定の旧要求はダークテーマ色へフォールバックする。
+     */
+    editorTheme?: EditorTheme;
     /**
      * PDFで読み書きするリソースの場所。
      */
@@ -458,7 +463,7 @@ export async function buildStandaloneHtml(request: PdfExportRequest): Promise<st
     let body = stripUnsafeMarkup(request.html);
     body = await embedLocalImages(body, request.documentUri);
     const css = request.css.replace(/<\/style/gi, '<\\/style');
-    return `<!doctype html><html lang="${request.language}"><head><meta charset="utf-8"><style>${css}\n${PRINT_CSS}\n${printOptionsCss(options)}</style></head><body><main class="mve-print">${body}</main></body></html>`;
+    return `<!doctype html><html lang="${request.language}"><head><meta charset="utf-8"><style>${css}\n${PRINT_CSS}\n${printOptionsCss(options, request.editorTheme)}</style></head><body><main class="mve-print">${body}</main></body></html>`;
 }
 
 /**
@@ -699,16 +704,23 @@ const PRINT_CSS = `
 `;
 
 /**
- * PDFを出力または保存できる文字列へ整える。
+ * PDF本文の文字設定とテーマ別見出し色を適用する印刷CSSを生成する。
  * @param options - PDF本文のフォント、文字サイズ、行高、段落間隔を指定する正規化済み設定。
+ * @param editorTheme - 白いPDF用紙上で見出しを判読できる色を選ぶテーマ。未指定時はダークテーマ。
+ * @returns フォント、文字サイズ、行高、段落間隔、見出し色を含む印刷CSS。
 
  */
-function printOptionsCss(options: NormalizedPdfOptions): string {
+function printOptionsCss(
+    options: NormalizedPdfOptions,
+    editorTheme: EditorTheme = 'dark'
+): string {
     const fontFamily = sanitizeCssFontFamily(options.fontFamily);
     const headings = options.headingFontSizes;
+    const headingColor = editorTheme === 'light' ? '#0969da' : '#0550ae';
     return `
   body, .mve-print { font-family: ${fontFamily}; font-size: ${options.bodyFontSize}pt; line-height: ${options.lineHeight}; }
   .mve-print .rendered-markdown { font-size: inherit; line-height: inherit; }
+  .mve-print :is(h1, h2, h3, h4, h5, h6) { color: ${headingColor}; }
   .mve-print h1 { font-size: ${headings.h1}pt; }
   .mve-print h2 { font-size: ${headings.h2}pt; }
   .mve-print h3 { font-size: ${headings.h3}pt; }

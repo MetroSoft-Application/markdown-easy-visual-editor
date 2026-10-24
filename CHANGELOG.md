@@ -100,3 +100,7 @@
 ## 1.5.1
 
 - Added a global Mermaid font-size setting for previews and HTML/PDF output, including Marp.
+
+## 1.5.2
+
+- Added theme-specific heading colors to previews and HTML/PDF output.

@@ -290,12 +290,15 @@ function PdfPage({
 
   useEffect(
     /**
-      * ページが表示範囲へ近づいた時だけCanvasへ描画し、effect破棄時には描画を中断する。
+      * PDF文書が切り替わったページ状態を待機へ戻し、表示範囲へ近づいた時だけ描画する。
      */
     () => {
       const container = pageRef.current;
       const canvas = canvasRef.current;
       if (!container || !canvas) return;
+      statusRef.current = "waiting";
+      setStatus("waiting");
+      renderTaskRef.current = undefined;
       let cancelled = false;
       let observer: IntersectionObserver | undefined;
 

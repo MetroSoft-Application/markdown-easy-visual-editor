@@ -181,6 +181,40 @@ describe('HTML export',
                 expect(child).not.toContain('language-mermaid');
             });
 
+        /** HTML出力の各見出しレベルへテーマ別の色を適用し、旧要求の既定値も保つ。 */
+        it('uses readable theme-specific colors for standalone HTML headings', async () => {
+            const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markdown-easy-visual-editor-html-'));
+            temporaryDirectories.push(directory);
+            const cases = [
+                { name: 'light', editorTheme: 'light' as const, color: '#0969da' },
+                { name: 'dark', editorTheme: 'dark' as const, color: '#0550ae' },
+                { name: 'legacy', editorTheme: undefined, color: '#0550ae' }
+            ];
+
+            for (const testCase of cases) {
+                const target = path.join(directory, `${testCase.name}.html`);
+                vscodeMock.showSaveDialog.mockResolvedValue(new TestUri(target));
+                const request = {
+                    markdown: '# Main',
+                    html: '<h1>Main</h1><p><code>inline</code></p><figure class="code-figure"><figcaption>text</figcaption><pre><code class="hljs language-text">Before:</code></pre></figure>',
+                    css: '',
+                    ...(testCase.editorTheme ? { editorTheme: testCase.editorTheme } : {}),
+                    options: { embedImages: false, convertLinkedMarkdown: false, saveWithoutDialog: false },
+                    documentUri: new TestUri(path.join(directory, `${testCase.name}.md`)) as any,
+                    language: 'en'
+                };
+
+                await exportHtml(request);
+
+                const output = await fs.readFile(target, 'utf8');
+                expect(output).toContain(`.mve-html :is(h1, h2, h3, h4, h5, h6) { color: ${testCase.color}; }`);
+                expect(output).toContain('.mve-html pre code { color: inherit; background: transparent !important; }');
+                expect(output).toContain('.mve-html :not(pre) > code { color: #24292f; background: #eff1f3; border-radius: 3px; padding: .12em .35em; }');
+                expect(output).toContain('.mve-html .hljs-title, .mve-html .hljs-section { color: #953800; }');
+                expect(output).toContain('<main class="mve-html"><h1 id="main"><a class="mve-heading-anchor"');
+            }
+        });
+
         /** Textile文書をリンク変換対象に含め、出力本文とアウトラインのIDを合わせる。 */
         it('converts linked Textile documents and builds their matching outline', async () => {
             const directory = await fs.mkdtemp(path.join(os.tmpdir(), 'markdown-easy-visual-editor-html-'));

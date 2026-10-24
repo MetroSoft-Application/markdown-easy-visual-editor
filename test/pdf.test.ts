@@ -171,6 +171,9 @@ afterEach(
 
 describe('PDF local images',
     () => {
+        /**
+         * 白いPDF用紙に適したライト・ダーク見出し色と、テーマ未指定時の互換動作を検証する。
+         */
         it('normalizes typography settings and includes them in the standalone print HTML',
             async () => {
                 expect(normalizePdfOptions({ format: 'Letter' }).format).toBe('A4');
@@ -210,9 +213,15 @@ describe('PDF local images',
                 expect(html).toContain('.mve-print pre, .mve-print code { font-size: 8pt; }');
                 expect(html).toContain('line-height: 1.4');
                 expect(html).toContain('.mve-print p { margin-bottom: 10pt; }');
+                expect(html).toContain('<main class="mve-print"><h1>見出し</h1><p>本文</p>');
+                expect(html).toContain('.mve-print :is(h1, h2, h3, h4, h5, h6) { color: #0550ae; }');
                 expect(html).toContain('.mve-marp-pdf-slide:not(:last-child) { break-after: page; page-break-after: always; }');
                 expect(html).toContain('.mve-marp-pdf-slide .marpit > svg { display: block; width: 100% !important; height: auto !important; max-width: 100%; max-height: 100vh; }');
                 expect(html).toContain('font-family: "Test Font", sans-serif, "Noto Sans JP", "Yu Gothic UI", sans-serif;');
+
+                const lightHtml = await buildStandaloneHtml({ ...request, editorTheme: 'light' });
+                expect(lightHtml).toContain('<main class="mve-print"><h1>見出し</h1><p>本文</p>');
+                expect(lightHtml).toContain('.mve-print :is(h1, h2, h3, h4, h5, h6) { color: #0969da; }');
             });
 
         it('embeds a relative local image and produces a PDF with it',

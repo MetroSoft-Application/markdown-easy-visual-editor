@@ -80,20 +80,40 @@ const browser = await chromium.launch({ executablePath, headless: true });
 
 try {
   const pdfSource = await browser.newPage();
-  await pdfSource.setContent('<!doctype html><html><body>'
-    + '<h1>PDF preview smoke</h1><p>large document page content</p>'.repeat(160)
+  const darkPdfHtml = '<!doctype html><html><body><h1 style="color:#0550ae">PDF preview smoke</h1>'
+    + '<p>large document page content</p>'.repeat(160)
+    + '</body></html>';
+  await pdfSource.setContent(darkPdfHtml);
+  const darkPdf = await pdfSource.pdf({ format: 'A4', printBackground: true });
+  await pdfSource.setContent('<!doctype html><html><body><h1 style="color:#0969da">PDF preview light</h1>'
     + '</body></html>');
-  const pdfBase64 = (await pdfSource.pdf({ format: 'A4', printBackground: true })).toString('base64');
+  const lightPdf = await pdfSource.pdf({ format: 'A4', printBackground: true });
+  const targetPdfByteLength = Math.max(darkPdf.length, lightPdf.length);
+  const previewPdfs = [darkPdf, lightPdf].map(
+    /**
+     * PDF末尾へ空白を足し、異なる文書でもReactのページkeyが同じ長さになる状態を作る。
+     * @param pdf - 目標サイズまで空白で拡張するPDFデータ。
+     * @returns 同じBase64文字列長になるよう拡張したPDFデータ。
+     */
+    (pdf) => Buffer.concat([pdf, Buffer.alloc(targetPdfByteLength - pdf.length, 32)]).toString('base64'));
+  if (previewPdfs[0] === previewPdfs[1]) {
+    throw new Error('Theme transition fixtures must contain different PDF data.');
+  }
+  if (previewPdfs[0].length !== previewPdfs[1].length) {
+    throw new Error('Theme transition fixtures must have equal Base64 lengths.');
+  }
   await pdfSource.close();
 
   const context = await browser.newContext();
   await context.addInitScript(
   /**
-   * @param previewPdf - PDF・プレビュー・スモーク検証へ渡す入力。
+   * @param previewDocuments - テーマ切替前後にPDFプレビューへ渡す同じ長さのPDF一覧。
    */
-  (previewPdf) => {
+  (previewDocuments) => {
     window.__mveDebugEnabled = true;
     window.__mveMessages = [];
+    window.__mvePdfResponseIndex = 0;
+    window.__mvePdfResponsesSent = 0;
     window.acquireVsCodeApi =
     /**
      * WebviewからVS Codeのメッセージ送信・状態保存APIを取得する。
@@ -108,13 +128,18 @@ try {
        */ (message) => {
         window.__mveMessages.push(message);
         if (message.type === 'renderPdfPreview') {
+          const responseIndex = Math.min(window.__mvePdfResponseIndex, previewDocuments.length - 1);
+          window.__mvePdfResponseIndex += 1;
           setTimeout(
           /**
            * 指定時間の経過後に後続処理を実行する。
            */
-          () => window.dispatchEvent(new MessageEvent('message', {
-            data: { type: 'pdfPreviewReady', requestId: message.requestId, pdfBase64: previewPdf }
-          })), 0);
+          () => {
+            window.__mvePdfResponsesSent += 1;
+            window.dispatchEvent(new MessageEvent('message', {
+              data: { type: 'pdfPreviewReady', requestId: message.requestId, pdfBase64: previewDocuments[responseIndex] }
+            }));
+          }, 0);
         }
       },
 
@@ -128,7 +153,7 @@ try {
        * PDF・プレビュー・スモーク検証の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
        */ () => undefined
     });
-  }, pdfBase64);
+  }, previewPdfs);
 
   const page = await context.newPage();
   const pageErrors = [];
@@ -161,6 +186,7 @@ try {
     mermaidTheme: 'default',
     workspaceTrusted: true,
     language: 'ja',
+    editorTheme: 'dark',
     editorFontFamily: '',
     previewFontFamily: 'Test Preview Font',
     pdfOptions: { fontFamily: 'Test Preview Font' }
@@ -273,12 +299,44 @@ try {
     throw new Error(`PDF zoom button did not enlarge the page: ${widthAfterShrink} -> ${widthAfterButtonZoom}`);
   }
 
+  await page.waitForSelector('.pdf-preview-pdf-layer:not(.is-preparing)');
+  const initialPageCount = Number(await page.locator('.pdf-pages').getAttribute('data-page-count'));
+  await page.evaluate(
+  /**
+   * テーマ切替後の設定をHostメッセージとしてWebviewへ通知する。
+   * @param lightSettings - ライトテーマを含む更新後のWebview設定。
+   */
+  (lightSettings) => window.dispatchEvent(new MessageEvent('message', {
+    data: { type: 'settingsChanged', settings: lightSettings }
+  })), { ...settings, editorTheme: 'light' });
+  await page.waitForFunction(
+    /**
+     * ライトテーマでのPDF再生成要求が送られたことを確認する。
+     * @returns 対象テーマのPDF要求が存在するときtrue。
+     */
+    () => window.__mveMessages.some(
+      /**
+       * ライトテーマを指定したPDFプレビュー要求を選択する。
+       * @param message - WebviewがHostへ送ったメッセージ。
+       * @returns ライトテーマ向けのPDFプレビュー要求の場合はtrue。
+       */
+      (message) => message.type === 'renderPdfPreview' && message.editorTheme === 'light'));
+  await page.waitForFunction(
+    /**
+     * 新しい1ページPDFが描画され、PDFレイヤーが表示状態へ戻ることを確認する。
+     * @returns 新しいページの描画完了とレイヤー表示を確認できたときtrue。
+     */
+    () => Number(document.querySelector('.pdf-pages')?.getAttribute('data-page-count')) === 1
+      && document.querySelector('.pdf-page-ready') !== null
+      && document.querySelector('.pdf-preview-pdf-layer:not(.is-preparing)') !== null);
+
   const result = await page.evaluate(
   /**
-   * ブラウザー内の「.pdf-pages」を読み取り、検証用の値へ変換する。
-  * @returns ブラウザー内で読み取った値または変換結果。
+   * ブラウザー内のPDFページ状態とズーム値を読み取り、検証用の値へ変換する。
+   * @param metrics - ズーム操作前後の幅とテーマ切替前のページ数。
+   * @returns ブラウザー内で読み取った値または変換結果。
    */
-  ({ widthBeforeZoom, widthAfterZoom, widthAfterShrink, widthAfterButtonZoom }) => ({
+  ({ widthBeforeZoom, widthAfterZoom, widthAfterShrink, widthAfterButtonZoom, initialPageCount }) => ({
     previewMessages: window.__mveMessages.filter(
     /**
      * 種別「renderPdfPreview」のメッセージだけを残す。
@@ -286,10 +344,11 @@ try {
 
      */
     (message) => message.type === 'renderPdfPreview'),
-    pages: Number(document.querySelector('.pdf-pages')?.getAttribute('data-page-count') ?? 0),
+    pages: initialPageCount,
     readyPages: document.querySelectorAll('.pdf-page-ready').length,
     visiblePdfLayers: document.querySelectorAll('.pdf-preview-pdf-layer:not(.is-preparing)').length,
     visibleLiveLayers: document.querySelectorAll('.pdf-preview-live-layer').length,
+    themeTransitionPages: Number(document.querySelector('.pdf-pages')?.getAttribute('data-page-count') ?? 0),
     widthBeforeZoom,
     widthAfterZoom,
     widthAfterShrink,
@@ -310,7 +369,7 @@ try {
        * @returns イベントを取り出した変換結果の一覧。
        */
       (entry) => entry.event)
-  }), { widthBeforeZoom, widthAfterZoom, widthAfterShrink, widthAfterButtonZoom });
+  }), { widthBeforeZoom, widthAfterZoom, widthAfterShrink, widthAfterButtonZoom, initialPageCount });
   result.requests = result.previewMessages.length;
   result.previewCssChars = Math.max(...result.previewMessages.map(
   /**
@@ -323,7 +382,7 @@ try {
     throw new Error('Preview font was not applied to the PDF preview CSS.');
   }
   if (pageErrors.length) throw new Error(`PDF preview page error: ${pageErrors.join(' / ')}`);
-  if (result.requests !== 1 || result.previewCssChars >= 200_000
+  if (result.requests !== 2 || result.previewCssChars >= 200_000
     || result.pages < 2 || result.readyPages < 1 || result.visiblePdfLayers !== 1 || result.visibleLiveLayers !== 0) {
     throw new Error(`PDF preview smoke failed: ${JSON.stringify(result)}`);
   }
@@ -337,7 +396,7 @@ try {
     throw new Error(`PDF zoom debug events missing: ${JSON.stringify(result.debugEvents)}`);
   }
   console.log(`PDF preview metrics: requests=${result.requests}, cssChars=${result.previewCssChars}`);
-  console.log(`PDFプレビュー確認: ${result.pages}ページ、描画済み${result.readyPages}ページ、要求${result.requests}回、幅${result.widthBeforeZoom}->${result.widthAfterZoom}->${result.widthAfterShrink}->${result.widthAfterButtonZoom}`);
+  console.log(`PDFプレビュー確認: 初期${result.pages}ページ、テーマ切替後${result.themeTransitionPages}ページ、描画済み${result.readyPages}ページ、表示PDFレイヤー${result.visiblePdfLayers}件、要求${result.requests}回、幅${result.widthBeforeZoom}->${result.widthAfterZoom}->${result.widthAfterShrink}->${result.widthAfterButtonZoom}`);
   await context.close();
 } finally {
   await browser.close();
