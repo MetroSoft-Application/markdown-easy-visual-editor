@@ -191,6 +191,16 @@ export type RibbonCommand =
     }
     | {
         /**
+         * Mermaid図の共通文字サイズを変更するコマンドです。
+         */
+        type: "setMermaidFontSize";
+        /**
+         * プレビューとHTML/PDF出力へ適用する文字サイズ（px）。
+         */
+        fontSize: number;
+    }
+    | {
+        /**
          * HTML出力を開始するコマンドです。
          */
         type: "exportHtml";
@@ -299,6 +309,10 @@ export interface RibbonImplementationContext extends RibbonButtonState {
      */
     previewFontFamily: string;
     /**
+     * Mermaidプレビューと出力に現在適用される文字サイズ（px）。
+     */
+    mermaidFontSize: number;
+    /**
      * リボン型のイベントまたはメッセージを受け取り、状態を更新する。
      * @param options - 呼び出し側が指定する処理設定。
      */
@@ -404,6 +418,16 @@ export interface RibbonImplementationContext extends RibbonButtonState {
      * @param value - プレビューへ適用するフォント名の編集中ドラフト。
      */
     setPreviewFontFamilyDraft: (value: string) => void;
+
+    /**
+     * Mermaid文字サイズ入力欄の編集中ドラフト。
+     */
+    mermaidFontSizeDraft: string;
+    /**
+     * Mermaid文字サイズ入力欄の編集中ドラフトを更新する。
+     * @param value - 8〜48pxの範囲で編集している文字列。
+     */
+    setMermaidFontSizeDraft: (value: string) => void;
 }
 
 /**

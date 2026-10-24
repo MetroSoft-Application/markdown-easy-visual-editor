@@ -60,6 +60,15 @@ const markdownWorkerScript = await readFile(path.resolve('dist/markdown-worker.j
  */
 const markdownRichWorkerScript = await readFile(path.resolve('dist/markdown-rich-worker.js'));
 /**
+ * サンプル検証で本番と同じPele WorkerからSVGを作成するスクリプト。
+ */
+const peleRenderWorkerScript = await readFile(path.resolve('dist/pele-render-worker.js'));
+/**
+ * サンプル05の設定変更試験に使う先頭Mermaidフローチャート。
+ */
+const sampleFiveFlowchartSource = /```mermaid\s*\r?\n([\s\S]*?)\r?\n```/.exec(samples[5])?.[1];
+if (!sampleFiveFlowchartSource) throw new Error('sample/05 にMermaidフローチャートがありません。');
+/**
  * Host描画の大きなMermaid応答をPNG経路へ通すための1x1透明PNGデータ。
  */
 const mermaidPngPlaceholder = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=';
@@ -152,6 +161,21 @@ try {
   const rendererPage = await rendererContext.newPage();
   await rendererPage.setContent('<!doctype html><html><body></body></html>');
   await rendererPage.addScriptTag({ path: path.resolve('dist/mermaid.min.js') });
+  await rendererPage.evaluate((script) => {
+    const workerUrl = URL.createObjectURL(new Blob([script], { type: 'text/javascript' }));
+    const worker = new Worker(workerUrl);
+    const state = window;
+    state.__mvePeleWorker = worker;
+    state.__mvePeleWorkerReady = new Promise((resolve) => {
+      const onMessage = (event) => {
+        if (!event.data?.ready) return;
+        worker.removeEventListener('message', onMessage);
+        resolve();
+      };
+      worker.addEventListener('message', onMessage);
+    });
+  }, peleRenderWorkerScript.toString('utf8'));
+  await rendererPage.waitForFunction(() => Boolean(window.__mvePeleWorkerReady));
   let rendererQueue = Promise.resolve();
   let lightweightMermaidRendering = false;
   const cancelledRenderRequests = new Set();
@@ -207,10 +231,34 @@ try {
            * ブラウザー内の「svg」を読み取り、検証用の値へ変換する。
           * @returns ブラウザー内で読み取った値または変換結果。
            */
-          async ({ source, theme, requestId }) => {
-              window.mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme, suppressErrorRendering: true });
-              await window.mermaid.parse(source);
-              const svg = (await window.mermaid.render(`sample-matrix-${requestId}`, source)).svg;
+          async ({ source, theme, requestId, fontSize, peleSource }) => {
+              let svg;
+              if (source.trim() === peleSource.trim()) {
+                const worker = window.__mvePeleWorker;
+                await window.__mvePeleWorkerReady;
+                const rendered = await new Promise((resolve, reject) => {
+                  const onMessage = (event) => {
+                    if (event.data?.id !== requestId) return;
+                    worker.removeEventListener('message', onMessage);
+                    if (event.data.error) reject(new Error(event.data.error));
+                    else resolve(event.data.svg);
+                  };
+                  worker.addEventListener('message', onMessage);
+                  worker.postMessage({
+                    id: requestId,
+                    source,
+                    theme,
+                    fontFamily: 'sans-serif',
+                    fontSize,
+                    now: Date.now()
+                  });
+                });
+                svg = rendered;
+              } else {
+                window.mermaid.initialize({ startOnLoad: false, securityLevel: 'strict', theme, suppressErrorRendering: true });
+                await window.mermaid.parse(source);
+                svg = (await window.mermaid.render(`sample-matrix-${requestId}`, source)).svg;
+              }
               const container = document.createElement('div');
               container.style.cssText = 'position:absolute;left:-100000px;top:0;width:1200px;visibility:hidden';
               container.innerHTML = svg;
@@ -244,7 +292,7 @@ try {
                * @returns 本文を取り出した変換結果の一覧。
                */
               (item) => item.text).join(', ') };
-            }, message);
+            }, { ...message, peleSource: sampleFiveFlowchartSource });
         if (cancelledRenderRequests.delete(message.requestId)) return;
         if (rendered.svg.length >= 80_000) rendered.pngBase64 = mermaidPngPlaceholder;
         if (closingContext || page.isClosed()) return;
@@ -353,7 +401,7 @@ try {
   } catch (error) {
     throw new Error(`Webview did not become ready: ${pageErrors.join(' | ')}`, { cause: error });
   }
-  const settings = { imageDirectory: 'assets/${documentBasename}', maxPasteSizeMb: 20, remoteImagesEnabled: false, mermaidTheme: 'default', mermaidHostRendering: true, workspaceTrusted: true };
+  const settings = { imageDirectory: 'assets/${documentBasename}', maxPasteSizeMb: 20, remoteImagesEnabled: false, mermaidTheme: 'default', mermaidFontSize: 16, mermaidHostRendering: true, workspaceTrusted: true };
   await page.evaluate(
   /**
    * Host側の本文状態を読み取り、検証用の値へ変換する。
@@ -459,11 +507,154 @@ try {
     throw new Error('sample/05 の遅延シンタックスハイライトを確認できません。');
   }
   await page.locator('.split-preview .mermaid').first().scrollIntoViewIfNeeded();
-  await page.waitForFunction(
-  /**
-   * ブラウザー内に「.split-preview .mermaid[data-mermaid-status=」が現れるまで待機する。
-   */
-  () => document.querySelectorAll('.split-preview .mermaid[data-mermaid-status="ready"]').length >= 1);
+  try {
+    await page.waitForFunction(
+    /**
+     * ブラウザー内に「.split-preview .mermaid[data-mermaid-status=」が現れるまで待機する。
+     */
+    () => document.querySelectorAll('.split-preview .mermaid[data-mermaid-status="ready"]').length >= 1);
+  } catch (error) {
+    const state = await page.evaluate(() => ({
+      workerStatus: document.body.dataset.mveMarkdownWorkerStatus,
+      diagrams: Array.from(document.querySelectorAll('.split-preview .mermaid'), (node) => ({
+        status: node.getAttribute('data-mermaid-status'),
+        error: node.getAttribute('data-mermaid-error'),
+        source: decodeURIComponent(node.getAttribute('data-mermaid-source') ?? '').slice(0, 100),
+      })),
+      requests: window.__mveMessages.filter((message) => message.type === 'renderMermaid').map((message) => ({
+        fontSize: message.fontSize,
+        text: message.text?.slice(0, 100),
+      })),
+      recentMessages: window.__mveMessages.slice(-8).map((message) => message.type),
+    }));
+    throw new Error(`sample/05 Mermaid初期描画が完了しませんでした: ${JSON.stringify(state)}; pageErrors=${pageErrors.join(' | ')}`, { cause: error });
+  }
+  const initialMermaidFontSizes = await page.evaluate((peleSource) => {
+    const diagram = document.querySelector('.split-preview .mermaid');
+    const labels = Array.from(diagram?.querySelectorAll('svg text, svg foreignObject *') ?? [])
+      .filter((element) => element.textContent?.trim())
+      .map((element) => Number.parseFloat(getComputedStyle(element).fontSize))
+      .filter(Number.isFinite);
+    if (diagram) window.__mveMermaidFontSizeProbe = diagram;
+    return {
+      count: document.querySelectorAll('.split-preview .mermaid').length,
+      readyCount: document.querySelectorAll('.split-preview .mermaid[data-mermaid-status="ready"]').length,
+      requestCount: window.__mveMessages.filter((message) => message.type === 'renderMermaid').length,
+      usesPeleFixture: decodeURIComponent(diagram?.getAttribute('data-mermaid-source') ?? '').trim() === peleSource.trim(),
+      labelFontSizes: labels,
+    };
+  }, sampleFiveFlowchartSource);
+  if (initialMermaidFontSizes.count < 4 || initialMermaidFontSizes.readyCount < 1 ||
+    !initialMermaidFontSizes.usesPeleFixture || !initialMermaidFontSizes.labelFontSizes.includes(16)) {
+    throw new Error(`sample/05 initial visible Mermaid render did not complete: ${JSON.stringify(initialMermaidFontSizes)}`);
+  }
+  const ribbonTabLabels = await page.locator('.ribbon-tabs button[role="tab"]').allTextContents();
+  const settingsTab = page.locator('.ribbon-tabs button[role="tab"]').filter({ hasText: /settings|設定/i });
+  if (await settingsTab.count() !== 1) {
+    throw new Error(`sample/05 Settings tab was not found: ${JSON.stringify(ribbonTabLabels)}`);
+  }
+  await settingsTab.click();
+  const mermaidFontSizeInput = page.locator('#mve-mermaid-font-size');
+  await mermaidFontSizeInput.waitFor();
+  if (await mermaidFontSizeInput.inputValue() !== '16') {
+    throw new Error(`sample/05 Mermaid font-size setting did not start at 16px: ${await mermaidFontSizeInput.inputValue()}`);
+  }
+  await mermaidFontSizeInput.fill('28');
+  await mermaidFontSizeInput.press('Enter');
+  await page.waitForFunction(() => window.__mveMessages.some(
+    (message) => message.type === 'setMermaidFontSize' && message.fontSize === 28,
+  ));
+  await page.locator('.split-preview .mermaid').first().scrollIntoViewIfNeeded();
+  try {
+    await page.waitForFunction(
+      /**
+       * 再利用されたMermaidノードが新しい文字サイズのHost描画を受け取って完了するまで待機する。
+       * @param initialRequestCount - 設定変更前のMermaid描画要求数。
+       */
+      (initialRequestCount) => {
+        const diagrams = Array.from(document.querySelectorAll('.split-preview .mermaid'));
+        const newSizeRequests = window.__mveMessages.filter(
+          (message) => message.type === 'renderMermaid' && message.fontSize === 28,
+        ).length;
+        return diagrams.length >= 4 && newSizeRequests > 0 &&
+          window.__mveMessages.filter((message) => message.type === 'renderMermaid').length > initialRequestCount &&
+          diagrams[0]?.getAttribute('data-mermaid-status') === 'ready';
+      },
+      initialMermaidFontSizes.requestCount,
+      { timeout: 15_000 },
+    );
+  } catch (error) {
+    const state = await page.evaluate(() => ({
+      diagrams: Array.from(document.querySelectorAll('.split-preview .mermaid'), (node) => ({
+        status: node.getAttribute('data-mermaid-status'),
+        sameNode: node === window.__mveMermaidFontSizeProbe,
+        fontSize: node.querySelector('svg text') ? getComputedStyle(node.querySelector('svg text')).fontSize : undefined,
+      })),
+      requests: window.__mveMessages.filter((message) => message.type === 'renderMermaid').map((message) => ({
+        fontSize: message.fontSize,
+        text: message.text?.slice(0, 100),
+      })),
+      fontSizeSettingMessages: window.__mveMessages
+        .filter((message) => message.type === 'setMermaidFontSize')
+        .map((message) => message.fontSize),
+      recentMessages: window.__mveMessages.slice(-12).map((message) => message.type),
+    }));
+    throw new Error(`sample/05 Mermaid size update did not complete: ${JSON.stringify(state)}; pageErrors=${pageErrors.join(' | ')}`, { cause: error });
+  }
+  const resizedMermaidState = await page.evaluate(() => {
+    const diagram = document.querySelector('.split-preview .mermaid');
+    const labels = Array.from(diagram?.querySelectorAll('svg text, svg foreignObject *') ?? [])
+      .filter((element) => element.textContent?.trim())
+      .map((element) => Number.parseFloat(getComputedStyle(element).fontSize))
+      .filter(Number.isFinite);
+    return {
+      sameNode: diagram === window.__mveMermaidFontSizeProbe,
+      requestFontSizes: window.__mveMessages
+        .filter((message) => message.type === 'renderMermaid')
+        .filter((message) => message.fontSize === 28)
+        .map((message) => message.fontSize),
+      labelFontSizes: labels,
+    };
+  });
+  if (!resizedMermaidState.sameNode || !resizedMermaidState.requestFontSizes.length ||
+    resizedMermaidState.requestFontSizes.some((fontSize) => fontSize !== 28) ||
+    !resizedMermaidState.labelFontSizes.includes(28)) {
+    throw new Error(`sample/05 reused Mermaid nodes did not redraw at 28px: ${JSON.stringify(resizedMermaidState)}`);
+  }
+  await mermaidFontSizeInput.fill('16');
+  await mermaidFontSizeInput.press('Enter');
+  await page.locator('.split-preview .mermaid').first().scrollIntoViewIfNeeded();
+  try {
+    await page.waitForFunction(() => {
+      const settingChanged = window.__mveMessages.some(
+        (message) => message.type === 'setMermaidFontSize' && message.fontSize === 16,
+      );
+      const diagram = document.querySelector('.split-preview .mermaid');
+      const labels = Array.from(diagram?.querySelectorAll('svg text, svg foreignObject *') ?? [])
+        .filter((element) => element.textContent?.trim());
+      return settingChanged &&
+        diagram === window.__mveMermaidFontSizeProbe &&
+        diagram?.getAttribute('data-mermaid-status') === 'ready' &&
+        labels.some((element) => Number.parseFloat(getComputedStyle(element).fontSize) === 16);
+    }, undefined, { timeout: 15_000 });
+  } catch (error) {
+    const state = await page.evaluate(() => ({
+      inputValue: document.querySelector('#mve-mermaid-font-size')?.value,
+      settings: window.__mveMessages.filter((message) => message.type === 'setMermaidFontSize').map((message) => message.fontSize),
+      requests: window.__mveMessages.filter((message) => message.type === 'renderMermaid').map((message) => message.fontSize),
+      diagrams: Array.from(document.querySelectorAll('.split-preview .mermaid'), (diagram) => ({
+        status: diagram.getAttribute('data-mermaid-status'),
+        sameNode: diagram === window.__mveMermaidFontSizeProbe,
+        fontSize: diagram.querySelector('svg text') ? getComputedStyle(diagram.querySelector('svg text')).fontSize : undefined,
+      })),
+    }));
+    throw new Error(`sample/05 Mermaid setting restore did not complete: ${JSON.stringify(state)}`, { cause: error });
+  }
+  const restoredMermaidNode = await page.locator('.split-preview .mermaid').first().evaluate(
+    (node) => node === window.__mveMermaidFontSizeProbe,
+  );
+  if (!restoredMermaidNode) throw new Error('sample/05 Mermaid node identity changed while restoring 16px.');
+  await page.locator('.ribbon-tabs button[role="tab"]').filter({ hasText: /home|ホーム/i }).click();
   await load(6);
   await page.locator('.split-preview .mermaid').first().scrollIntoViewIfNeeded();
   try {
@@ -512,7 +703,9 @@ try {
   () => (document.querySelector('.cm-scroller')?.scrollTop ?? 0) < 80);
   // scrollIntoViewだけでは直前のソース→プレビュー同期に上書きされ得る。
   // 実際のホイール操作と同じ意図を先に通知し、大規模図を確実に可視範囲へ入れる。
-  await page.locator('.split-preview').dispatchEvent('wheel', { deltaY: 1 });
+  await page.locator('.split-preview').hover();
+  await page.mouse.wheel(0, 10_000);
+  await page.waitForFunction(() => (document.querySelector('.split-preview')?.scrollTop ?? 0) > 0);
   await page.locator('.split-preview .mermaid').first().evaluate(
   (node) => node.scrollIntoView({ block: 'center' }));
   try {
@@ -879,6 +1072,30 @@ try {
         type: message.type,
         requestId: message.requestId
       })),
+      mermaidRequestCount: window.__mveMessages.filter(
+      /**
+       * Mermaid要求数を残し、末尾が編集ACKだけになるタイムアウトでも描画要求の有無を判別する。
+       * @param message - 検査対象のWebview発Hostメッセージ。
+       * @returns Mermaid描画要求ならtrue。
+       */
+      (message) => message.type === 'renderMermaid').length,
+      mermaidCancelCount: window.__mveMessages.filter(
+      /**
+       * キャンセル数を残し、連続編集中に最終要求まで取り消されたかを判別する。
+       * @param message - 検査対象のWebview発Hostメッセージ。
+       * @returns Mermaid描画キャンセルならtrue。
+       */
+      (message) => message.type === 'cancelMermaidRender').length,
+      previewViewport: (() => {
+        const root = document.querySelector('.split-preview .rendered-markdown');
+        const scroll = root?.closest('.preview-scroll-container');
+        const firstDiagram = root?.querySelector('.mermaid');
+        return {
+          viewportHeight: scroll?.clientHeight,
+          scrollTop: scroll?.scrollTop,
+          firstDiagramTop: firstDiagram?.getBoundingClientRect().top
+        };
+      })(),
       debug: (window.__mveDebugLog ?? []).slice(-30)
     }));
     throw new Error(`continuous Mermaid rendering did not settle: ${JSON.stringify(state)}`, { cause: error });

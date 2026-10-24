@@ -3,7 +3,12 @@
  */
 import { createClientId } from '../runtime/id';
 import { getMessages, type SupportedLanguage } from '../../shared/messages';
-import type { HostToWebviewMessage, MermaidInteraction } from '../../shared/protocol';
+import {
+    DEFAULT_MERMAID_FONT_SIZE,
+    normalizeMermaidFontSize,
+    type HostToWebviewMessage,
+    type MermaidInteraction
+} from '../../shared/protocol';
 import { sharedVsCodeApi } from '../runtime/vscodeApi';
 
 /** Peleの配色プリセット。 */
@@ -42,14 +47,16 @@ const hostRequests = new Map<string, {
  * @param source - Mermaid図ソース。
  * @param theme - 描画配色。
  * @param signal - 呼び出し側からのキャンセル通知。
+ * @param fontSize - 図ラベルへ適用する文字サイズ。省略時は既定の16px。
  * @returns SVG、必要時のPNG、リンク操作領域。
  */
 export function renderMermaidSvg(
     source: string,
     theme: MermaidTheme,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    fontSize: number = DEFAULT_MERMAID_FONT_SIZE
 ): Promise<MermaidRenderResult> {
-    return requestHostRender(source, theme, signal);
+    return requestHostRender(source, theme, signal, fontSize);
 }
 
 /**
@@ -98,12 +105,14 @@ export function acceptMermaidRenderProgress(
  * @param source - Mermaid図ソース。
  * @param theme - 描画配色。
  * @param signal - 呼び出し側からのキャンセル通知。
+ * @param fontSize - 図ラベルへ適用する文字サイズ。
  * @returns Hostが返す描画結果。
  */
 function requestHostRender(
     source: string,
     theme: MermaidTheme,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    fontSize: number = DEFAULT_MERMAID_FONT_SIZE
 ): Promise<MermaidRenderResult> {
     const requestId = createClientId();
     return new Promise<MermaidRenderResult>((resolve, reject) => {
@@ -138,7 +147,13 @@ function requestHostRender(
             removeAbortListener: () => signal?.removeEventListener('abort', onAbort)
         });
         signal?.addEventListener('abort', onAbort, { once: true });
-        sharedVsCodeApi.postMessage({ type: 'renderMermaid', requestId, source, theme });
+        sharedVsCodeApi.postMessage({
+            type: 'renderMermaid',
+            requestId,
+            source,
+            theme,
+            fontSize: normalizeMermaidFontSize(fontSize)
+        });
     });
 }
 

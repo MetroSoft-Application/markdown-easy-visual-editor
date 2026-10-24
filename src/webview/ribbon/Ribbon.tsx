@@ -168,6 +168,11 @@ interface Props {
    * リボンで共有するフォント設定または移行状態。
    */
   previewFontFamily: string;
+
+  /**
+   * MermaidプレビューとHTML/PDF出力に適用する文字サイズ（px）。
+   */
+  mermaidFontSize: number;
   /**
     * HTML出力設定の変更をHostへ通知し、永続化とプレビュー反映を依頼する。
    * @param options - 呼び出し側が指定する処理設定。
@@ -202,6 +207,7 @@ interface Props {
  * @param imageDirectory ローカル画像を保存するディレクトリ。
  * @param editorFontFamily 本文編集面に使うフォント名。
  * @param previewFontFamily プレビューに使うフォント名。
+ * @param mermaidFontSize MermaidプレビューとHTML/PDF出力に使う文字サイズ。
  * @param onHtmlOptionsChange HTML出力設定の変更を親へ通知する処理。
  * @param onPdfSaveWithoutDialogChange PDF保存ダイアログ設定の変更を親へ通知する処理。
  * @param onCommand 選択された編集または出力コマンドを親へ通知する処理。
@@ -221,6 +227,7 @@ export function Ribbon({
   imageDirectory,
   editorFontFamily,
   previewFontFamily,
+  mermaidFontSize,
   onHtmlOptionsChange,
   onPdfSaveWithoutDialogChange,
   onCommand,
@@ -240,6 +247,9 @@ export function Ribbon({
     useState(editorFontFamily);
   const [previewFontFamilyDraft, setPreviewFontFamilyDraft] =
     useState(previewFontFamily);
+  const [mermaidFontSizeDraft, setMermaidFontSizeDraft] = useState(
+    String(mermaidFontSize),
+  );
   const [imageResizeControlsVisible, setImageResizeControlsVisible] = useState(
     getPreviewImageResizeControlsVisible,
   );
@@ -269,6 +279,7 @@ export function Ribbon({
     imageDirectory,
     editorFontFamily,
     previewFontFamily,
+    mermaidFontSize,
     onHtmlOptionsChange,
     onPdfSaveWithoutDialogChange,
     onCommand,
@@ -290,6 +301,8 @@ export function Ribbon({
     setEditorFontFamilyDraft,
     previewFontFamilyDraft,
     setPreviewFontFamilyDraft,
+    mermaidFontSizeDraft,
+    setMermaidFontSizeDraft,
   };
 
   useEffect(
@@ -321,6 +334,13 @@ export function Ribbon({
      */
     () => setPreviewFontFamilyDraft(previewFontFamily),
     [previewFontFamily],
+  );
+  useEffect(
+    /**
+     * Hostから受け取ったMermaid文字サイズを編集欄へ同期する。
+     */
+    () => setMermaidFontSizeDraft(String(mermaidFontSize)),
+    [mermaidFontSize],
   );
   /**
    * リボン項目の定義と実装から、適切なボタン表示を作る。

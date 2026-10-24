@@ -827,6 +827,21 @@ export interface Messages {
             fonts: string;
 
             /**
+             * Mermaid設定グループの見出しとして表示するローカライズ済み文言。
+             */
+            mermaid: string;
+
+            /**
+             * Mermaid文字サイズ入力欄のラベルとして表示するローカライズ済み文言。
+             */
+            mermaidFontSize: string;
+
+            /**
+             * Mermaid文字サイズの有効範囲と出力先を説明するローカライズ済み文言。
+             */
+            mermaidFontSizeHint: string;
+
+            /**
              * フォント設定設定の表示文言として表示するローカライズ済み文言。
              */
             fontSettings: string;

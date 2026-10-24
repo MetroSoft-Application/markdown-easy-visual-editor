@@ -10,6 +10,8 @@ interface PeleRenderRequest {
     source: string;
     theme: 'default' | 'dark' | 'neutral';
     fontFamily: string;
+    /** Peleのノードとエッジラベルに適用する正規化済み文字サイズ。 */
+    fontSize: number;
     now: number;
 }
 
@@ -47,7 +49,7 @@ workerScope.onmessage = (event) => {
         const options: RenderOptions = {
             fontFamily: request.fontFamily || 'sans-serif',
             fontFamilyMono: 'monospace',
-            fontSize: 16,
+            fontSize: request.fontSize,
             idPrefix: `mve-${request.id.replace(/[^a-zA-Z0-9_-]/g, '-')}`,
             responsive: false,
             autoDirection: false,

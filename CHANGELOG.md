@@ -96,3 +96,7 @@
 - Added Textile document previews with mixed Markdown and Textile rendering.
 - Added syntax highlighting for nested Textile list markers.
 - Added Textile rendering to HTML and PDF output.
+
+## 1.5.1
+
+- Added a global Mermaid font-size setting for previews and HTML/PDF output, including Marp.

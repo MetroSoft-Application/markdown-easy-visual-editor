@@ -2,7 +2,7 @@
   "name": "markdown-easy-visual-editor",
   "displayName": "Markdown Easy Visual Editor",
   "description": "A visual Markdown and Textile editor for VS Code with live preview, source editing, formatting tools, image support, and PDF export.",
-  "version": "1.5.0",
+  "version": "1.5.1",
   "publisher": "MetroSoft-Application",
   "icon": "resources/icon.png",
   "repository": {
@@ -284,6 +284,14 @@
           ],
           "default": "auto",
           "description": "Theme for the Mermaid preview."
+        },
+        "markdownEasyVisualEditor.mermaid.fontSize": {
+          "type": "number",
+          "minimum": 8,
+          "maximum": 48,
+          "default": 16,
+          "scope": "application",
+          "description": "Font size in pixels for Mermaid diagrams in the preview and HTML/PDF output."
         },
         "markdownEasyVisualEditor.pdf.browserPath": {
           "type": "string",

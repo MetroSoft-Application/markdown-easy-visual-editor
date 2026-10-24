@@ -3,6 +3,12 @@
  */
 import React, { useRef } from "react";
 import type { EditorTheme } from "../../shared/protocol";
+import {
+  DEFAULT_MERMAID_FONT_SIZE,
+  MAX_MERMAID_FONT_SIZE,
+  MIN_MERMAID_FONT_SIZE,
+  normalizeMermaidFontSize,
+} from "../../shared/protocol";
 import { normalizeFontFamily } from "../../shared/fontFamily";
 import { TEXT_COLOR_HEX, TEXT_COLOR_IDS } from "../../shared/textColor";
 import { setPreviewImageResizeControlsVisible } from "../preview/previewImageResizeControls";
@@ -906,6 +912,77 @@ export const RIBBON_IMPLEMENTATIONS: Record<
               />
             </label>
           </form>
+          {definition.options?.hint && (
+            <span className="ribbon-setting-hint">
+              {resolveLabel(definition.options.hint)}
+            </span>
+          )}
+        </>
+      );
+    },
+  ),
+  mermaidFontSize: control(
+    /**
+     * Mermaid図の共通文字サイズを編集する数値入力欄を生成する。
+     * @param context - 現在値、編集ドラフト、Host通知を含むリボン表示コンテキスト。
+     * @param definition - ラベルと説明を含むMermaid設定定義。
+     * @param resolveLabel - ローカライズキーを表示文言へ変換する関数。
+     * @returns Mermaid文字サイズの入力欄と範囲説明。
+     */
+    (context, definition, resolveLabel) => {
+      const save = /**
+       * 入力値を8〜48pxへ収め、確定値だけをHostへ通知する。
+       */ () => {
+        const draft = context.mermaidFontSizeDraft.trim();
+        const fontSize =
+          draft === ""
+            ? DEFAULT_MERMAID_FONT_SIZE
+            : normalizeMermaidFontSize(Number(draft));
+        context.setMermaidFontSizeDraft(String(fontSize));
+        if (fontSize !== context.mermaidFontSize)
+          context.onCommand({ type: "setMermaidFontSize", fontSize });
+      };
+      return (
+        <>
+          <div className="ribbon-setting-form">
+            <label>
+              <span>{resolveLabel(definition.label)}</span>
+              <input
+                className="ribbon-mermaid-font-size"
+                id="mve-mermaid-font-size"
+                type="number"
+                min={MIN_MERMAID_FONT_SIZE}
+                max={MAX_MERMAID_FONT_SIZE}
+                step={1}
+                value={context.mermaidFontSizeDraft}
+                onChange={
+                  /**
+                   * 入力中の値をドラフトへ反映し、確定までは描画設定を変えない。
+                   * @param event - Mermaid文字サイズ入力の変更イベント。
+                   */
+                  (event) => context.setMermaidFontSizeDraft(event.target.value)
+                }
+                onBlur={save}
+                onKeyDown={
+                  /**
+                   * Enterで確定し、Escapeで現在のHost設定へ戻す。
+                   * @param event - Mermaid文字サイズ入力のキーボードイベント。
+                   */
+                  (event) => {
+                    if (event.key === "Enter") {
+                      event.preventDefault();
+                      event.currentTarget.blur();
+                    } else if (event.key === "Escape") {
+                      event.preventDefault();
+                      context.setMermaidFontSizeDraft(
+                        String(context.mermaidFontSize),
+                      );
+                    }
+                  }
+                }
+              />
+            </label>
+          </div>
           {definition.options?.hint && (
             <span className="ribbon-setting-hint">
               {resolveLabel(definition.options.hint)}

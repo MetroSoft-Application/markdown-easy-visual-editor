@@ -18,6 +18,25 @@ export type ViewMode = 'both' | 'text' | 'preview';
  */
 export type EditorTheme = 'light' | 'dark';
 
+/** Mermaid SVGの文字サイズ設定に使う既定値（px）。 */
+export const DEFAULT_MERMAID_FONT_SIZE = 16;
+
+/** Mermaid SVGで選択できる文字サイズの最小値（px）。 */
+export const MIN_MERMAID_FONT_SIZE = 8;
+
+/** Mermaid SVGで選択できる文字サイズの最大値（px）。 */
+export const MAX_MERMAID_FONT_SIZE = 48;
+
+/**
+ * Mermaid文字サイズを整数の8〜48pxへ正規化し、不正値は16pxへ戻す。
+ * @param value - 設定、メッセージ、または描画要求から受け取った候補値。
+ * @returns Mermaid描画と出力へ適用する有効な文字サイズ。
+ */
+export function normalizeMermaidFontSize(value: unknown): number {
+    if (typeof value !== 'number' || !Number.isFinite(value)) return DEFAULT_MERMAID_FONT_SIZE;
+    return Math.max(MIN_MERMAID_FONT_SIZE, Math.min(MAX_MERMAID_FONT_SIZE, Math.round(value)));
+}
+
 /**
  * PDF設定で選択できる用紙サイズの一覧。
  */
@@ -467,13 +486,13 @@ export interface WebviewSettings extends FontFamilySettings {
      */
     remoteImagesEnabled: boolean;
 
-    /**
-     * PDF見出しmermaidThemeの文字サイズ。
-     */
+    /** Mermaidプレビューと出力に適用する配色テーマ。 */
     mermaidTheme: 'auto' | 'default' | 'dark' | 'neutral';
     /**
-     * PDF見出しmermaidHostRenderingの文字サイズ。
+     * プレビューとHTML/PDF出力に共通して使うMermaid文字サイズ。旧Webview設定で未指定なら16pxを使う。
      */
+    mermaidFontSize?: number;
+    /** Mermaid SVGをExtension HostのPele Workerで描画する設定。 */
     mermaidHostRendering?: boolean;
 
     /**
@@ -1111,6 +1130,16 @@ export type WebviewToHostMessage =
     }
     | {
         /**
+         * Mermaid図の共通文字サイズを変更するメッセージです。
+         */
+        type: 'setMermaidFontSize';
+        /**
+         * MermaidプレビューとHTML/PDF出力に適用する文字サイズ候補（px）。Host側で範囲を正規化する。
+         */
+        fontSize: number;
+    }
+    | {
+        /**
          * 編集面とプレビューの表示モード変更を送るメッセージです。
          */
         type: 'setViewMode';
@@ -1325,6 +1354,11 @@ export type WebviewToHostMessage =
          * 描画や表示に適用する配色テーマ。
          */
         theme: 'default' | 'dark' | 'neutral';
+
+        /**
+         * 要求時点のMermaid文字サイズ。旧Webviewから省略された場合はHost設定値を使う。
+         */
+        fontSize?: number;
     }
     | {
         /**

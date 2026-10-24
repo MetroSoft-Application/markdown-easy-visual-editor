@@ -42,6 +42,35 @@ describeWithBrowser('Pele Mermaid描画', () => {
         expect(result.interactions.some((item) => item.type === 'text' && item.text.includes('障害対応'))).toBe(true);
     }, 30_000);
 
+    /**
+     * 同じソースで文字サイズを変更したとき、以前のサイズのSVGキャッシュを返さない。
+     */
+    it('設定されたMermaid文字サイズで描画し、サイズ別のキャッシュを使う', async () => {
+        const source = 'flowchart TD\n  A[Source] --> B[Preview]';
+        const workerPath = path.resolve('dist/pele-render-worker.js');
+        const commonOptions = { fontFamily: 'Arial', resourceScope: 'font-size-cache-test' };
+        const small = await renderPeleMermaid(
+            source,
+            'default',
+            workerPath,
+            () => Promise.resolve(browser),
+            undefined,
+            { ...commonOptions, fontSize: 16 }
+        );
+        const large = await renderPeleMermaid(
+            source,
+            'default',
+            workerPath,
+            () => Promise.resolve(browser),
+            undefined,
+            { ...commonOptions, fontSize: 28 }
+        );
+
+        expect(small.svg).toContain('font:16px sans-serif');
+        expect(large.svg).toContain('font:28px sans-serif');
+        expect(large.svg).not.toBe(small.svg);
+    }, 30_000);
+
     it('Mermaid構文エラー後も常駐Workerを再利用する', async () => {
         const options = { fontFamily: 'Arial', resourceScope: 'worker-recovery-test' };
         const initial = await renderPeleMermaid(

@@ -16,7 +16,9 @@ import {
   DEFAULT_HTML_EXPORT_SETTINGS,
   DEFAULT_HTML_EXPORT_OPTIONS,
   DEFAULT_PDF_OPTIONS,
+  DEFAULT_MERMAID_FONT_SIZE,
   PDF_PAPER_FORMATS,
+  normalizeMermaidFontSize,
   mergeHtmlExportOptions,
   normalizeHtmlExportSettings,
   normalizePdfOptions,
@@ -388,6 +390,7 @@ const DEFAULT_SETTINGS: WebviewSettings = {
   maxPasteSizeMb: 20,
   remoteImagesEnabled: true,
   mermaidTheme: "auto",
+  mermaidFontSize: DEFAULT_MERMAID_FONT_SIZE,
   viewMode: "both",
   outlineVisible: true,
   scrollSyncEnabled: true,
@@ -3038,6 +3041,22 @@ export function App(): React.JSX.Element {
         });
         return;
       }
+      case "setMermaidFontSize": {
+        const fontSize = normalizeMermaidFontSize(command.fontSize);
+        setSettings(
+          /**
+           * Mermaid文字サイズを出力用レンダーへ即時反映するため、他設定を保って更新する。
+           * @param current - 現在のWebview設定。
+           * @returns Mermaid文字サイズだけを更新した設定。
+           */
+          (current) => ({ ...current, mermaidFontSize: fontSize }),
+        );
+        vscode.postMessage({
+          type: "setMermaidFontSize",
+          fontSize,
+        });
+        return;
+      }
       case "find": {
         openSearch();
         return;
@@ -3857,7 +3876,7 @@ export function App(): React.JSX.Element {
     }
     // 画像のloadやResizeObserverでexport-stageのDOMが変わっても、同じ本文のPDFを再生成しない。
     // 画像サイズの変更はMarkdown本文が変わるため、このキーも変わる。
-    const signature = `${settings.language}\0${settings.remoteImagesEnabled}\0${settings.mermaidTheme}\0${JSON.stringify(pdfOptions)}\0${markdown}`;
+    const signature = `${settings.language}\0${settings.remoteImagesEnabled}\0${settings.mermaidTheme}\0${normalizeMermaidFontSize(settings.mermaidFontSize)}\0${JSON.stringify(pdfOptions)}\0${markdown}`;
     if (pdfPreviewSignatureRef.current === signature) return;
     const requestId = createClientId();
     pdfPreviewRequestRef.current = requestId;
@@ -5604,6 +5623,7 @@ export function App(): React.JSX.Element {
         imageDirectory={settings.imageDirectory}
         editorFontFamily={settings.editorFontFamily}
         previewFontFamily={settings.previewFontFamily}
+        mermaidFontSize={normalizeMermaidFontSize(settings.mermaidFontSize)}
         onHtmlOptionsChange={handleHtmlOptionsChange}
         onPdfSaveWithoutDialogChange={
           /**

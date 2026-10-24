@@ -4,7 +4,11 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import type { Browser, BrowserContext, Page } from 'playwright-core';
-import type { MermaidInteraction } from '../shared/protocol';
+import {
+    DEFAULT_MERMAID_FONT_SIZE,
+    normalizeMermaidFontSize,
+    type MermaidInteraction
+} from '../shared/protocol';
 
 /** Pele描画結果としてWebviewへ渡すSVGまたはPNGと操作領域。 */
 export interface PeleMermaidResult {
@@ -15,9 +19,11 @@ export interface PeleMermaidResult {
     hasImages?: boolean;
 }
 
-/** Pele描画時に適用するフォントと画像解決処理。 */
+/** Pele描画時に適用するフォント、文字サイズ、画像解決処理。 */
 export interface PeleRenderOptions {
     fontFamily: string;
+    /** Mermaidラベルへ適用する文字サイズ。省略時は旧動作互換の16px。 */
+    fontSize?: number;
     resourceScope?: string;
     renderTimeoutMs?: number;
     resolveImages?: (sources: string[], signal?: AbortSignal) => Promise<Record<string, string>>;
@@ -80,7 +86,9 @@ export function renderPeleMermaid(
 ): Promise<PeleMermaidResult> {
     if (signal?.aborted) return Promise.reject(new Error('Mermaid rendering was cancelled.'));
     const renderingNow = localDayStart(Date.now());
-    const key = `${theme}\0${options.fontFamily}\0${options.resourceScope ?? ''}\0${renderingNow}\0${source}`;
+    const fontSize = normalizeMermaidFontSize(options.fontSize ?? DEFAULT_MERMAID_FONT_SIZE);
+    const renderOptions = { ...options, fontSize };
+    const key = `${theme}\0${options.fontFamily}\0${fontSize}\0${options.resourceScope ?? ''}\0${renderingNow}\0${source}`;
     const cached = readCache(key);
     if (cached) return Promise.resolve(cached);
 
@@ -106,7 +114,7 @@ export function renderPeleMermaid(
                     workerPath,
                     acquireBrowser,
                     created.controller.signal,
-                    options,
+                    renderOptions,
                     renderingNow
                 ),
                 options.renderTimeoutMs ?? RENDER_TIMEOUT_MS,
@@ -207,6 +215,7 @@ async function renderQueued(
                     source: payload.source,
                     theme: payload.theme,
                     fontFamily: payload.fontFamily,
+                    fontSize: payload.fontSize,
                     now: payload.renderingNow
                 });
             } catch (error) {
@@ -223,7 +232,14 @@ async function renderQueued(
             ?? ''
         ).filter(Boolean);
         return { ...rendered, images };
-    }, { requestId, source, theme, fontFamily: options.fontFamily, renderingNow });
+    }, {
+        requestId,
+        source,
+        theme,
+        fontFamily: options.fontFamily,
+        fontSize: normalizeMermaidFontSize(options.fontSize ?? DEFAULT_MERMAID_FONT_SIZE),
+        renderingNow
+    });
 
     let rendered: Awaited<ReturnType<typeof renderWithWorker>> | undefined;
     for (let attempt = 0; attempt < 2 && !rendered; attempt++) {

@@ -36,6 +36,7 @@ export type RibbonGroupId =
     | "inspection"
     | "images"
     | "fonts"
+    | "mermaidSettings"
     | "help";
 
 /**
@@ -109,6 +110,7 @@ export type RibbonItemId =
     | "preflight"
     | "imageDirectory"
     | "fontSettings"
+    | "mermaidFontSize"
     | "shortcuts"
     | "features";
 

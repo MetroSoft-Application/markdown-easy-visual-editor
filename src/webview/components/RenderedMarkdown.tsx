@@ -10,10 +10,12 @@ import React, {
 } from "react";
 import type { ImageAlignment } from "../../shared/imageResize";
 import type { MermaidInteraction, WebviewSettings } from "../../shared/protocol";
+import { normalizeMermaidFontSize } from "../../shared/protocol";
 import type { Messages } from "../../shared/messages";
 import { getMessages } from "../../shared/messages";
 import { renderMarkdownFallback } from "../markdown/markdownFallback";
 import type { MarkdownRenderFormat } from "../markdown/markdownRendererCore";
+import { applyMermaidExportMarkup } from "../markdown/mermaidExport";
 import {
   mermaidErrorMessage,
   renderMermaidSvg,
@@ -189,6 +191,10 @@ function RenderedMarkdownView({
       }
     >(),
   );
+  /**
+   * DOM差分で除去される独自data属性に依存せず、各図へ適用済みの設定キーを保持する。
+   */
+  const mermaidRenderKeysRef = useRef(new WeakMap<HTMLElement, string>());
   const mermaidInteractionManagersRef = useRef(
     new Map<HTMLElement, () => void>(),
   );
@@ -305,6 +311,9 @@ function RenderedMarkdownView({
             ? "dark"
             : "default"
           : settings.mermaidTheme;
+      const mermaidFontSize = normalizeMermaidFontSize(
+        settings.mermaidFontSize,
+      );
       const mermaidRenderingLabel =
         getMessages(settings.language).renderer.mermaidRendering;
       const setLoadingAccessibility = (node: HTMLElement) => {
@@ -339,17 +348,20 @@ function RenderedMarkdownView({
       const interactionManagers = mermaidInteractionManagersRef.current;
       const mermaidObjectUrls = mermaidObjectUrlsRef.current;
       const renderControllers = mermaidRenderControllersRef.current;
+      const mermaidRenderKeys = mermaidRenderKeysRef.current;
       const scrollContainer = findScrollContainer(root);
       let lastViewportActivityAt = 0;
+      let validateExistingMermaidRenderKeys = true;
       interactionManagers.forEach((cleanup, node) => {
           if (node.isConnected) return;
           cleanup();
           interactionManagers.delete(node);
       });
-      // 差分DOMで保持された同一図の描画は継続する。図ソース・テーマが変わった要求だけを破棄する。
+      // 差分DOMで保持された同一設定の描画は継続し、図ソース・テーマ・文字サイズが異なる要求を破棄する。
       renderControllers.forEach((entry, node) => {
           const source = decodeURIComponent(node.dataset.mermaidSource ?? "");
-          if (node.isConnected && entry.key === `${theme}\0${source}`) return;
+          const expectedKey = JSON.stringify([theme, mermaidFontSize, source]);
+          if (node.isConnected && entry.key === expectedKey) return;
           entry.controller.abort();
           renderControllers.delete(node);
           delete node.dataset.mermaidStatus;
@@ -397,13 +409,8 @@ function RenderedMarkdownView({
           if (!node.isConnected || !isCurrent()) return;
         }
         if (!deferMermaid) {
-          if (rendered.external && rendered.svg.length >= 80_000) {
-            // 出力用SVGは文字列のまま保持し、直列化時だけ展開する。非表示DOMへの巨大SVG挿入を避ける。
-            node.replaceChildren();
-            node.dataset.mveExportSvg = encodeURIComponent(rendered.svg);
-          } else {
+          if (applyMermaidExportMarkup(node, rendered.svg, rendered.external)) {
             // ホスト側で既にID名前空間化済み。ここで再走査するとID数×SVG長の二次処理になる。
-            node.innerHTML = rendered.svg;
             prepareInlineSvg(node, rendered.ariaLabel);
           }
           clearLoadingAccessibility(node);
@@ -496,6 +503,21 @@ function RenderedMarkdownView({
         const allNodes = Array.from(
           root.querySelectorAll<HTMLElement>(".mermaid"),
         );
+        if (validateExistingMermaidRenderKeys) {
+          validateExistingMermaidRenderKeys = false;
+          // Reconcile stale keys during the existing node collection to avoid a second full DOM scan.
+          allNodes.forEach((node) => {
+            const source = decodeURIComponent(
+              node.dataset.mermaidSource ?? "",
+            );
+            const expectedKey = JSON.stringify([theme, mermaidFontSize, source]);
+            const previousKey = mermaidRenderKeys.get(node);
+            if (previousKey === undefined || previousKey === expectedKey) return;
+            delete node.dataset.mermaidStatus;
+            mermaidRenderKeys.delete(node);
+            clearLoadingAccessibility(node);
+          });
+        }
         const pending = allNodes.filter(
           /**
            * datasetの条件を満たすDOMノードだけを残す。
@@ -540,12 +562,13 @@ function RenderedMarkdownView({
             async (node) => {
               // ノードごとにソースを復元して描画し、以前の描画結果をエラー時の代替として保持する。
               const index = allNodes.indexOf(node);
-              const blockKey = `index:${index}`;
+              const blockKey = `index:${index}:${theme}\0${mermaidFontSize}`;
               const source = decodeURIComponent(
                 node.dataset.mermaidSource ?? "",
               );
-              const sourceCacheKey = `source:${theme}\0${source}`;
-              const renderKey = `${theme}\0${source}`;
+              const sourceCacheKey = `source:${theme}\0${mermaidFontSize}\0${source}`;
+              const renderKey = JSON.stringify([theme, mermaidFontSize, source]);
+              mermaidRenderKeys.set(node, renderKey);
               node.dataset.mermaidStatus = "rendering";
               setLoadingAccessibility(node);
               const controller = new AbortController();
@@ -581,6 +604,7 @@ function RenderedMarkdownView({
                   source,
                   theme,
                   controller.signal,
+                  mermaidFontSize,
                 );
                 if (
                   !node.isConnected ||
@@ -609,6 +633,8 @@ function RenderedMarkdownView({
                 const previous = mermaidCacheRef.current.get(
                   `block:${blockKey}`,
                 );
+                // 新設定の描画失敗で、属性に残る旧SVGをHTML/PDFへ出さない。
+                delete node.dataset.mveExportSvg;
                 if (previous)
                   await applyMermaid(node, source, previous, isCurrent);
                 else node.replaceChildren();
@@ -933,6 +959,7 @@ function RenderedMarkdownView({
       settings.editorTheme,
       settings.language,
       settings.mermaidTheme,
+      settings.mermaidFontSize,
       settings.mermaidHostRendering,
       Boolean(onImageResize),
       Boolean(onImageAlign),

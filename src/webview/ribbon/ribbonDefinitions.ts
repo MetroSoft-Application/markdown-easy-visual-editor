@@ -145,6 +145,10 @@ export const RIBBON_DEFINITIONS: RibbonDefinitions = {
             label: { kind: "message", path: "ribbon.settings.fonts" },
             className: "ribbon-settings-group",
         },
+        mermaidSettings: {
+            label: { kind: "message", path: "ribbon.settings.mermaid" },
+            className: "ribbon-settings-group ribbon-settings-mermaid-group",
+        },
         help: { label: { kind: "message", path: "ribbon.groups.help" } },
     },
 
@@ -462,6 +466,15 @@ export const RIBBON_DEFINITIONS: RibbonDefinitions = {
                 hint: {
                     kind: "message",
                     path: "ribbon.settings.fontFamilyHint",
+                },
+            },
+        },
+        mermaidFontSize: {
+            label: { kind: "message", path: "ribbon.settings.mermaidFontSize" },
+            options: {
+                hint: {
+                    kind: "message",
+                    path: "ribbon.settings.mermaidFontSizeHint",
                 },
             },
         },

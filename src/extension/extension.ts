@@ -9,6 +9,8 @@ import { randomBytes, randomUUID } from 'node:crypto';
 import {
     DEFAULT_HTML_EXPORT_SETTINGS,
     DEFAULT_PDF_OPTIONS,
+    DEFAULT_MERMAID_FONT_SIZE,
+    normalizeMermaidFontSize,
     normalizeHtmlExportSettings,
     normalizePdfOptions,
     type HostToWebviewMessage,
@@ -206,6 +208,7 @@ const GLOBAL_CONFIGURATION_KEYS = {
     previewImageResizeControlsVisible: 'preview.imageResizeControlsVisible',
     editorFontFamily: 'fonts.editorFamily',
     previewFontFamily: 'fonts.previewFamily',
+    mermaidFontSize: 'mermaid.fontSize',
     pdf: {
         format: 'pdf.format',
         orientation: 'pdf.orientation',
@@ -1208,6 +1211,9 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                             controller.signal,
                             {
                                 fontFamily: settings.previewFontFamily,
+                                fontSize: normalizeMermaidFontSize(
+                                    message.fontSize ?? settings.mermaidFontSize
+                                ),
                                 resourceScope: document.uri.toString(),
                                 resolveImages: (sources, signal) => resolveMermaidImageSources(
                                     sources,
@@ -1278,6 +1284,14 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                     await this.updateGlobalConfiguration([
                         [GLOBAL_CONFIGURATION_KEYS.editorFontFamily, fontSettings.editorFontFamily],
                         [GLOBAL_CONFIGURATION_KEYS.previewFontFamily, fontSettings.previewFontFamily]
+                    ]);
+                    this.broadcastSettings();
+                    return;
+                }
+                case 'setMermaidFontSize': {
+                    const fontSize = normalizeMermaidFontSize(message.fontSize);
+                    await this.updateGlobalConfiguration([
+                        [GLOBAL_CONFIGURATION_KEYS.mermaidFontSize, fontSize]
                     ]);
                     this.broadcastSettings();
                     return;
@@ -2577,6 +2591,12 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
             maxPasteSizeMb: config.get('images.maxPasteSizeMb', 20),
             remoteImagesEnabled: config.get('remoteImages.enabled', false),
             mermaidTheme: config.get('mermaid.theme', 'auto'),
+            mermaidFontSize: normalizeMermaidFontSize(this.getGlobalSetting(
+                config,
+                GLOBAL_CONFIGURATION_KEYS.mermaidFontSize,
+                undefined,
+                DEFAULT_MERMAID_FONT_SIZE
+            )),
             mermaidHostRendering: true,
             editorTheme: config.get<WebviewSettings['editorTheme']>('editor.theme', 'dark'),
             viewMode: normalizeViewMode(this.getGlobalSetting(

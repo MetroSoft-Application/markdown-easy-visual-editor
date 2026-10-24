@@ -45,6 +45,8 @@ The view buttons at the top of the editor provide three layouts:
 
 Use the **View** tab's **Outline** button to show or hide the heading outline. Select a heading in the outline to jump to that section. Use **Ctrl+wheel** or **Cmd+wheel** to zoom the editor and preview.
 
+![View controls, document outline, source, and preview](./resources/readme-view-outline.png)
+
 Right-click an outline item or a heading in the split Markdown preview, then choose **Copy link to section** for a same-document link or **Copy section link from this workspace folder** for a link usable from other Markdown files in that folder. The workspace link uses a folder-rooted path (for example, `[Heading](/guides/setup.md#setup "MVE workspace-root link")`); the title marks the path for this extension and is hidden in its preview. A stationary right-click opens this menu; right-click and drag on an outline item still reorders its section.
 
 The ribbon can be collapsed when you need more space for your document.
@@ -92,9 +94,13 @@ The ribbon is organized into tabs so common actions are easy to find.
 
 Apply headings, quotes, bullet lists, numbered lists, task lists, indentation, and text formatting such as bold, italic, strikethrough, underline, highlight, inline code, superscript, and subscript.
 
+![Home ribbon with Markdown source and live preview](./resources/readme-home.png)
+
 ### Insert
 
 Insert links, images, tables, horizontal rules, line breaks, code blocks, mathematical expressions, footnotes, tables of contents, page breaks, callouts, and emoji. When inserting a code block, choose its language to enable syntax highlighting.
+
+![Insert ribbon with source and live preview](./resources/readme-insert.png)
 
 ### Table
 
@@ -110,6 +116,8 @@ Place the cursor inside a Markdown table to:
 - Set a header name when adding a column.
 - Copy the table as tab-separated values with **Copy as TSV**.
 
+![Spreadsheet-like Markdown table editor](./resources/readme-table-editor.png)
+
 To bring spreadsheet data into Markdown, copy the cells and paste them into the editor. The data is inserted as a Markdown table or added to the table at the cursor position.
 
 Press `Alt+Enter` inside a table cell to insert a line break in that cell.
@@ -121,6 +129,8 @@ Open the same Markdown document as a regular text editor beside the visual edito
 ### Help
 
 Open **Shortcuts** for the built-in keyboard shortcut list, or open **Features** for a quick overview of the available editing tools.
+
+![Help ribbon and built-in keyboard shortcuts](./resources/readme-help-shortcuts.png)
 
 ## Images
 
@@ -144,6 +154,10 @@ To change this rule from the editor, open the **Settings** tab and edit **Image 
 
 When a preview is visible, select an image to inspect its alt text and reference. You can also drag its resize handle or use the alignment controls. Changes are written back to the Markdown source.
 
+![Image properties in the preview](./resources/readme-image-preview.png)
+
+![Image resizing in the live preview](./resources/readme-image-resize.png)
+
 PNG, APNG, JPEG, GIF, WebP, BMP, SVG, AVIF, ICO, HEIC, HEIF, JXL, and TIFF images are supported.
 
 Remote images can be displayed when **Markdown Easy Visual Editor: Remote Images Enabled** is enabled in VS Code settings.
@@ -151,6 +165,7 @@ Remote images can be displayed when **Markdown Easy Visual Editor: Remote Images
 ## Supported Markdown
 
 The renderer follows CommonMark and GitHub Flavored Markdown (GFM) conventions and supports:
+Mermaid diagrams are rendered with Pele.
 
 - Headings and heading-based outlines
 - Bullet lists, numbered lists, and task lists
@@ -179,6 +194,9 @@ flowchart TD
 
 In the Markdown preview, right-click a rendered Mermaid diagram and choose **Copy as PNG** to copy the whole diagram as an image. SVG diagrams are rasterized at 3× their source dimensions, independent of preview zoom; diagrams already displayed as raster images retain their source resolution. Very large diagrams are scaled down to fit the PNG size limit.
 
+
+![Rendered Markdown with tables, code, math, and Mermaid](./resources/readme-markdown-preview.png)
+
 ### Marp slide previews
 
 Add `marp: true` to the YAML front matter at the start of a Markdown file to render it as a Marp slide deck automatically:
@@ -189,7 +207,7 @@ marp: true
 ---
 ```
 
-![画像](resources/README/pasted-20261017-001943-0d3cb5.png)
+![Marp slide preview](./resources/readme-marp-preview.png)
 
 - Marp slides appear in split view, preview-only view, and print preview.
 - The preview returns to the regular Markdown or PDF path when the marker is removed or set to `false`.
@@ -209,6 +227,8 @@ p. A paragraph with *strong*, +inserted+, and @inline code@.
 "Textile website":https://textile-lang.com/
 ```
 
+![Textile source and rendered preview](./resources/readme-textile-preview.png)
+
 ## Preview and export to PDF
 
 ![demo3](./resources/demo3.gif)
@@ -223,8 +243,12 @@ p. A paragraph with *strong*, +inserted+, and @inline code@.
 4. Choose **Export PDF**.
 5. Leave **Export to the same folder without a dialog** enabled to save beside the Markdown file, or disable it to select the destination.
 
-- Use **Preflight check** before exporting to review missing local images, missing local links, invalid tables, and other document issues that may affect the result.\
-![demo4](./resources/demo4.gif)
+![PDF print settings](./resources/readme-print-settings.png)
+
+- Use **Preflight check** before exporting to review missing local images, missing local links, invalid tables, and other document issues that may affect the result.
+  ![demo4](./resources/demo4.gif)
+
+  ![Preflight check control and unresolved local references](./resources/readme-preflight-clean.png)
 - PDF export requires a trusted workspace and Microsoft Edge or Google Chrome. The extension first tries Microsoft Edge and then Google Chrome. If neither browser is detected, set **Markdown Easy Visual Editor: PDF Browser Path** in VS Code settings to the executable path of Edge or Chrome.
 
 ## Export to HTML
@@ -239,7 +263,11 @@ The **Export** tab can convert the current Markdown document to HTML.
 3. Choose **Export HTML**.
 4. Choose **Open** in the completion notification to view the generated HTML in Markdown Easy Visual Editor's HTML preview. Links between exported HTML files open in the same preview. To preview an existing HTML file, right-click it in Explorer and choose **Markdown Easy Visual Editor: Preview HTML**.
 
+![HTML export options](./resources/readme-export-options.png)
+
 When linked Markdown conversion is enabled, each linked Markdown file is also written as an HTML file in the corresponding location. Mermaid diagrams are rendered as SVG in the generated HTML. HTML export requires a trusted workspace.
+
+![Generated HTML in the editor preview](./resources/readme-html-preview.png)
 
 ## Export from the VS Code Explorer
 
@@ -254,7 +282,9 @@ By default, the exported file is saved beside the source Markdown file as `<name
 
 ## Settings
 
-Open the editor's **Settings** tab for image save paths and separate editor/preview fonts. For all settings, open VS Code Settings and search for **Markdown Easy Visual Editor**.
+Open the editor's **Settings** tab for image save paths, separate editor/preview fonts, and Mermaid font size. Mermaid font size is shared by the preview and HTML/PDF exports. For all settings, open VS Code Settings and search for **Markdown Easy Visual Editor**.
+
+![Editor settings](./resources/readme-settings.png)
 
 | Setting | Purpose | Default |
 | --- | --- | --- |
@@ -264,6 +294,7 @@ Open the editor's **Settings** tab for image save paths and separate editor/prev
 | **Images: Maximum Paste Size (MB)** | Set the maximum size of each pasted image. | `100` |
 | **Remote Images: Enabled** | Allow images referenced by remote URLs to appear in the preview. | Enabled |
 | **Mermaid: Theme** | Choose the Mermaid preview theme. | Auto |
+| **Mermaid: Font Size** | Set one font size for Mermaid diagrams in the preview and HTML/PDF output. | `16` px |
 | **PDF: Browser Path** | Specify an Edge or Chrome executable when automatic detection does not work. | Automatic detection |
 
 ## Keyboard shortcuts
@@ -274,6 +305,8 @@ Open the editor's **Settings** tab for image save paths and separate editor/prev
 | `Ctrl+V` / `Cmd+V` | Paste text, or save and insert an image when the clipboard contains one. |
 | `Alt+Enter` | Insert a line break inside a table cell. |
 | `Ctrl+wheel` / `Cmd+wheel` | Zoom the editor and preview. |
+
+![Search and replace in the editor](./resources/readme-search-replace-clean.png)
 
 ## Troubleshooting
 

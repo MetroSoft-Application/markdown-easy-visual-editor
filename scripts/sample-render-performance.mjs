@@ -1,16 +1,21 @@
 /**
- * @fileoverview sample配下の全Markdownを実際のWebviewで開き、初回描画と表示内容を検証する。
+ * @fileoverview sample配下のMarkdownを実際のWebviewで開き、初回表示と先頭Mermaid図の完成時間を検証する。
  */
 import { createServer } from 'node:http';
 import { mkdtemp, readFile, readdir, stat, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { chromium } from 'playwright-core';
+import { render as renderPeleDiagram } from 'pele';
 import { isMap, parseDocument } from 'yaml';
 
 const sampleRoot = path.resolve('sample');
 const distRoot = path.resolve('dist');
 const resourcesRoot = path.resolve('resources');
+/** sample/10 の先頭図は既存の不正な方向指定を含むため、計測対象1図の既知エラー件数を記録する。 */
+const knownFirstMermaidErrorCounts = new Map([
+  ['10-hierarchical-knowledge-base/README.md', 1],
+]);
 const markdownPaths = (await listMarkdownFiles(sampleRoot)).sort();
 if (markdownPaths.length < 10) {
   throw new Error(`sample内のMarkdownが10個未満です: ${markdownPaths.length}`);
@@ -28,6 +33,7 @@ const samples = await Promise.all(markdownPaths.map(async (relativePath) => {
     expectedText: expectedHeadings[0] ?? extractFirstContent(markdown),
     expectedHeadings,
     expectedMissingImageRefs: extractExpectedMissingImageRefs(markdown),
+    expectedMermaidErrorCount: knownFirstMermaidErrorCounts.get(relativePath) ?? 0,
   };
 }));
 const requestedSamples = process.env.MVE_SAMPLE_RENDER_FILTER
@@ -256,6 +262,7 @@ async function measureSample(sample, condition) {
   page.on('response', (response) => {
     if (response.status() >= 400) sampleDiagnostics.push(`HTTP ${response.status()}: ${response.url()}`);
   });
+  await page.exposeFunction('__mveHostRenderMermaid', renderSampleMermaid);
   await page.addInitScript((init) => {
     window.__mveMessages = [];
     window.__mveIncomingMessages = [];
@@ -267,6 +274,12 @@ async function measureSample(sample, condition) {
     window.acquireVsCodeApi = () => ({
       postMessage(message) {
         window.__mveMessages.push(message);
+        if (message.type === 'renderMermaid') {
+          void window.__mveHostRenderMermaid(message).then((result) => {
+            window.dispatchEvent(new MessageEvent('message', { data: result }));
+          });
+          return;
+        }
         if (message.type === 'detectMarpMarkdown') {
           setTimeout(() => window.dispatchEvent(new MessageEvent('message', {
             data: {
@@ -291,6 +304,7 @@ async function measureSample(sample, condition) {
               maxPasteSizeMb: 20,
               remoteImagesEnabled: false,
               mermaidTheme: 'default',
+              mermaidFontSize: 16,
               mermaidHostRendering: false,
               editorTheme: 'dark',
               viewMode: 'both',
@@ -322,6 +336,7 @@ async function measureSample(sample, condition) {
         await waitForMarpContent(page, sample);
       } else {
         await waitForMarkdownContent(page, sample);
+        await waitForMermaidContent(page, sample);
       }
       sampleRequests.length = 0;
       sampleDiagnostics.length = 0;
@@ -331,10 +346,19 @@ async function measureSample(sample, condition) {
     await page.locator('.split-editor .cm-content').waitFor();
     await page.waitForFunction(() => window.__mveMessages.some((message) => message.type === 'ready'));
 
+    let firstVisibleMs;
+    let mermaidCompleteMs;
+    let mermaidErrorCount = 0;
+    let mermaidMetrics;
     if (sample.isMarp) {
       await waitForMarpContent(page, sample);
+      firstVisibleMs = await readElapsedRenderTime(page);
     } else {
       await waitForMarkdownContent(page, sample);
+      firstVisibleMs = await readElapsedRenderTime(page);
+      mermaidMetrics = await waitForMermaidContent(page, sample);
+      mermaidCompleteMs = mermaidMetrics.completeMs;
+      mermaidErrorCount = mermaidMetrics.errorCount;
     }
     const marpVisibleText = sample.isMarp
       ? await page.frameLocator('.split-preview .mve-marp-preview iframe').locator('body').innerText()
@@ -345,17 +369,33 @@ async function measureSample(sample, condition) {
     const marpFrameMetrics = sample.isMarp
       ? await page.frameLocator('.split-preview .mve-marp-preview iframe').locator('body').evaluate((body) => {
         const images = Array.from(body.querySelectorAll('img'));
+        const mermaidDiagrams = Array.from(body.querySelectorAll('.mve-marp-mermaid'));
+        const mermaidErrorCount = mermaidDiagrams.filter((diagram) =>
+          diagram.classList.contains('mve-marp-mermaid-error'),
+        ).length;
         return {
           imageCount: images.length,
           imageReadyCount: images.filter((image) => image.complete && image.naturalWidth > 0).length,
           failedImages: images.filter((image) => image.complete && image.naturalWidth === 0)
             .map((image) => ({ alt: image.alt, src: image.getAttribute('data-original-src') ?? image.currentSrc ?? image.src })),
+          mermaidCount: mermaidDiagrams.length,
+          mermaidTotalCount: mermaidDiagrams.length,
+          mermaidReadyCount: mermaidDiagrams.length - mermaidErrorCount,
+          mermaidCompleteCount: mermaidDiagrams.length,
+          mermaidErrorCount,
         };
       })
       : undefined;
+    if (sample.isMarp && marpFrameMetrics?.mermaidCount) {
+      mermaidCompleteMs = firstVisibleMs;
+      mermaidErrorCount = marpFrameMetrics.mermaidErrorCount;
+    }
+    if (mermaidErrorCount !== sample.expectedMermaidErrorCount) {
+      throw new Error(`${sample.relativePath}のMermaidエラー件数が既知のサンプル状態と一致しません: ` +
+        `expected=${sample.expectedMermaidErrorCount}, actual=${mermaidErrorCount}`);
+    }
 
     const measurement = await page.evaluate(({ sampleInfo }) => {
-      const elapsedMs = performance.now() - window.__mvePerfStartedAt;
       const markdownRoot = document.querySelector('.split-preview .rendered-markdown');
       const marpRoot = document.querySelector('.split-preview .mve-marp-preview');
       const previewRoot = sampleInfo.isMarp ? marpRoot : markdownRoot;
@@ -380,15 +420,30 @@ async function measureSample(sample, condition) {
           : markdownRoot?.getAttribute('data-render-revision')),
         previewRootVisible: Boolean(previewRoot && previewRoot.getBoundingClientRect().width > 0 &&
           previewRoot.getBoundingClientRect().height > 0 && getComputedStyle(previewRoot).visibility === 'visible'),
-        firstVisibleMs: Math.round(elapsedMs),
+        firstVisibleMs: sampleInfo.firstVisibleMs,
+        mermaidCompleteMs: sampleInfo.mermaidCompleteMs,
         markdownWorkerMs: performance.getEntriesByName('mve-preview-markdown-worker').at(-1)?.duration,
         marpWorkerMs: Number(marpRoot?.getAttribute('data-mve-marp-render-duration-ms')) || undefined,
         slideCount: Number(marpRoot?.getAttribute('data-mve-marp-slide-count')) || undefined,
         headingCount: sampleInfo.isMarp
           ? sampleInfo.marpHeadingCount
           : markdownRoot?.querySelectorAll('h1,h2,h3,h4,h5,h6').length ?? 0,
-        mermaidCount: mermaidNodes.length,
-        mermaidReadyCount: mermaidNodes.filter((node) => ['ready', 'error'].includes(node.getAttribute('data-mermaid-status') ?? '')).length,
+        mermaidCount: sampleInfo.isMarp
+          ? sampleInfo.marpFrameMetrics?.mermaidCount ?? 0
+          : sampleInfo.mermaidMetrics?.measuredCount ?? 0,
+        mermaidTotalCount: sampleInfo.isMarp
+          ? sampleInfo.marpFrameMetrics?.mermaidTotalCount ?? 0
+          : mermaidNodes.length,
+        mermaidReadyCount: sampleInfo.isMarp
+          ? sampleInfo.marpFrameMetrics?.mermaidReadyCount ?? 0
+          : (sampleInfo.mermaidMetrics?.measuredCount ?? 0) - sampleInfo.mermaidErrorCount,
+        mermaidCompleteCount: sampleInfo.isMarp
+          ? sampleInfo.marpFrameMetrics?.mermaidCompleteCount ?? 0
+          : sampleInfo.mermaidMetrics?.measuredCount ?? 0,
+        mermaidErrorCount: sampleInfo.isMarp
+          ? sampleInfo.marpFrameMetrics?.mermaidErrorCount ?? 0
+          : sampleInfo.mermaidErrorCount,
+        expectedMermaidErrorCount: sampleInfo.expectedMermaidErrorCount,
         imageCount: sampleInfo.isMarp ? sampleInfo.marpFrameMetrics?.imageCount ?? 0 : images.length,
         imageReadyCount: sampleInfo.isMarp
           ? sampleInfo.marpFrameMetrics?.imageReadyCount ?? 0
@@ -408,7 +463,16 @@ async function measureSample(sample, condition) {
           .map((image) => ({ alt: image.alt, src: image.currentSrc || image.src })),
         visibleTextCharacters: visibleText.trim().length,
       };
-    }, { sampleInfo: { ...sample, marpVisibleText, marpHeadingCount, marpFrameMetrics } });
+    }, { sampleInfo: {
+      ...sample,
+      firstVisibleMs,
+      mermaidCompleteMs,
+      mermaidErrorCount,
+      mermaidMetrics,
+      marpVisibleText,
+      marpHeadingCount,
+      marpFrameMetrics,
+    } });
     measurement.marpWorkerFetchCount = sampleRequests.filter((request) => {
       try {
         return new URL(request).pathname.endsWith('/marp-worker.js');
@@ -536,6 +600,57 @@ function summarizeMessages(messages) {
 }
 
 /**
+ * テスト用Webviewから受け取ったMermaid要求を、製品と同じPELEレンダラーで同期的に描画する。
+ * @param message - WebviewがHostへ送ったMermaidソース、テーマ、文字サイズを含む要求。
+ * @returns Webviewの待機中要求を完了させる描画結果。失敗時は描画エラーを返す。
+ */
+function renderSampleMermaid(message) {
+  const requestId = typeof message?.requestId === 'string' ? message.requestId : '';
+  try {
+    const theme = ['default', 'dark', 'neutral'].includes(message?.theme) ? message.theme : 'default';
+    const result = renderPeleDiagram(message?.source ?? '', {
+      fontFamily: 'sans-serif',
+      fontFamilyMono: 'monospace',
+      fontSize: normalizeSampleMermaidFontSize(message?.fontSize),
+      idPrefix: `mve-sample-${requestId.replace(/[^a-zA-Z0-9_-]/g, '-')}`,
+      responsive: false,
+      autoDirection: false,
+      limit: 50_000,
+      outputLimit: 4_000_000,
+      maxEdges: 5_000,
+      linkSchemes: ['http', 'https', 'file'],
+      imageSchemes: ['http', 'https', 'file'],
+      links: true,
+      images: true,
+      now: Date.now(),
+    });
+    return {
+      type: 'mermaidRendered',
+      requestId,
+      svg: result.svg,
+      interactions: [],
+      ariaLabel: result.svg.match(/<title[^>]*>(.*?)<\/title>/s)?.[1] ?? 'Mermaid diagram',
+    };
+  } catch (error) {
+    return {
+      type: 'mermaidRendered',
+      requestId,
+      error: error instanceof Error ? error.message : String(error),
+    };
+  }
+}
+
+/**
+ * テストスクリプトから共有TypeScriptプロトコルを直接読み込めないため、描画要求のサイズを同じ範囲へ整える。
+ * @param value - Mermaid描画メッセージに含まれる任意のサイズ値。
+ * @returns 8〜48pxの整数。数値以外または有限でない値は既定の16pxへ戻す。
+ */
+function normalizeSampleMermaidFontSize(value) {
+  if (typeof value !== 'number' || !Number.isFinite(value)) return 16;
+  return Math.max(8, Math.min(48, Math.round(value)));
+}
+
+/**
  * Marpを可視描画し、全スライドの内容領域と最初の見出しを確認する。
  * @param page - sampleを表示中のWebviewページ。
  * @param sample - 本文と期待見出しを含むsample。
@@ -578,6 +693,57 @@ async function waitForMarpContent(page, sample) {
   if (sample.expectedHeadings.length && !slides[0]?.heading.includes(sample.expectedHeadings[0] ?? '')) {
     throw new Error(`${sample.relativePath}の先頭スライド見出しが一致しません: expected=${sample.expectedHeadings[0]}, actual=${slides[0]?.heading}`);
   }
+}
+
+/**
+ * 文書の最初の表示可能な描画からの経過時間を取得する。
+ * @param page - sampleを表示中のWebviewページ。
+ * @returns Webview初期化からの経過時間（ミリ秒）。
+ */
+async function readElapsedRenderTime(page) {
+  return page.evaluate(() => Math.round(performance.now() - window.__mvePerfStartedAt));
+}
+
+/**
+ * 通常Markdown内の先頭Mermaid図がHost SVGまたは明示的なエラーへ確定するまで待つ。
+ * @param page - sampleを表示中のWebviewページ。
+ * @param sample - 計測対象のMarkdownと識別パス。
+ * @returns 先頭図の確定時間とエラー数、および文書内の総図数。図がない文書ではcompleteMsを省略する。
+ */
+async function waitForMermaidContent(page, sample) {
+  const diagrams = page.locator('.split-preview .rendered-markdown .mermaid');
+  const count = await diagrams.count();
+  if (count === 0) return { count: 0, measuredCount: 0, errorCount: 0, completeMs: undefined };
+  const diagramFound = await page.evaluate(() => {
+    const node = document.querySelector('.split-preview .rendered-markdown .mermaid');
+    if (!node) return false;
+    node.scrollIntoView({ block: 'center' });
+    return true;
+  });
+  if (!diagramFound) throw new Error(`${sample.relativePath}の先頭Mermaid図が描画待ち中に置き換わりました。`);
+  try {
+    await page.waitForFunction(() => {
+      const node = document.querySelector('.split-preview .rendered-markdown .mermaid');
+      return ['ready', 'error'].includes(node?.getAttribute('data-mermaid-status') ?? '');
+    }, undefined, { timeout: 30_000 });
+  } catch (error) {
+    const state = await page.locator('.split-preview .rendered-markdown .mermaid').first().evaluate((node) => ({
+      status: node.getAttribute('data-mermaid-status'),
+      source: decodeURIComponent(node.getAttribute('data-mermaid-source') ?? '').slice(0, 100),
+      scrollTop: document.querySelector('.split-preview')?.scrollTop,
+    }));
+    throw new Error(`${sample.relativePath}の先頭Mermaid図の完了待ちがタイムアウトしました: ${JSON.stringify(state)}`, { cause: error });
+  }
+  return page.evaluate((diagramCount) => {
+    const node = document.querySelector('.split-preview .rendered-markdown .mermaid');
+    const errorCount = node?.getAttribute('data-mermaid-status') === 'error' ? 1 : 0;
+    return {
+      count: diagramCount,
+      measuredCount: 1,
+      errorCount,
+      completeMs: Math.round(performance.now() - window.__mvePerfStartedAt),
+    };
+  }, count);
 }
 
 /**
@@ -840,11 +1006,19 @@ function summarizeMeasurements(measurementsToSummarize) {
       .map((measurement) => measurement.firstVisibleMs)
       .sort((left, right) => left - right);
     if (!values.length) continue;
+    const mermaidValues = measurementsToSummarize
+      .filter((measurement) => measurement.type === type && measurement.mermaidCount > 0)
+      .map((measurement) => measurement.mermaidCompleteMs)
+      .filter(Number.isFinite)
+      .sort((left, right) => left - right);
     summary[type] = {
       count: values.length,
       medianFirstVisibleMs: percentile(values, 0.5),
       p95FirstVisibleMs: percentile(values, 0.95),
       maximumFirstVisibleMs: values.at(-1),
+      mermaidCount: mermaidValues.length,
+      medianMermaidCompleteMs: mermaidValues.length ? percentile(mermaidValues, 0.5) : undefined,
+      p95MermaidCompleteMs: mermaidValues.length ? percentile(mermaidValues, 0.95) : undefined,
     };
   }
   return summary;
@@ -864,6 +1038,11 @@ function summarizeFiles(samplesToSummarize, measurementsToSummarize) {
       .map((measurement) => measurement.markdownWorkerMs ?? measurement.marpWorkerMs)
       .filter(Number.isFinite)
       .sort((left, right) => left - right);
+    const mermaidDurations = runs
+      .filter((measurement) => measurement.mermaidCount > 0)
+      .map((measurement) => measurement.mermaidCompleteMs)
+      .filter(Number.isFinite)
+      .sort((left, right) => left - right);
     const latest = runs.at(-1);
     return {
       path: sample.relativePath,
@@ -875,6 +1054,14 @@ function summarizeFiles(samplesToSummarize, measurementsToSummarize) {
       p95FirstVisibleMs: percentile(durations, 0.95),
       maximumFirstVisibleMs: durations.at(-1) ?? 0,
       medianWorkerMs: workerDurations.length ? percentile(workerDurations, 0.5) : undefined,
+      mermaidCount: latest?.mermaidCount ?? 0,
+      mermaidTotalCount: latest?.mermaidTotalCount ?? 0,
+      mermaidReadyCount: latest?.mermaidReadyCount ?? 0,
+      mermaidCompleteCount: latest?.mermaidCompleteCount ?? 0,
+      mermaidErrorCount: latest?.mermaidErrorCount ?? 0,
+      expectedMermaidErrorCount: latest?.expectedMermaidErrorCount ?? 0,
+      medianMermaidCompleteMs: mermaidDurations.length ? percentile(mermaidDurations, 0.5) : undefined,
+      p95MermaidCompleteMs: mermaidDurations.length ? percentile(mermaidDurations, 0.95) : undefined,
       slideCount: latest?.slideCount,
       headingCount: latest?.headingCount,
       visibleTextCharacters: latest?.visibleTextCharacters ?? 0,
@@ -903,6 +1090,7 @@ function formatFileSummary(summary) {
   return `${summary.condition.padEnd(4)} ${summary.type.padEnd(8)} ${summary.path} | median=${summary.medianFirstVisibleMs} ms` +
     ` p95=${summary.p95FirstVisibleMs} ms max=${summary.maximumFirstVisibleMs} ms` +
     ` | worker median=${summary.medianWorkerMs?.toFixed(1) ?? '-'} ms` +
+    ` | Mermaid ${summary.mermaidCount ? `${summary.medianMermaidCompleteMs}/${summary.p95MermaidCompleteMs} ms median/p95` : 'none'}` +
     ` | slides=${summary.slideCount ?? '-'} headings=${summary.headingCount}` +
     ` | text=${summary.visibleTextCharacters} chars`;
 }

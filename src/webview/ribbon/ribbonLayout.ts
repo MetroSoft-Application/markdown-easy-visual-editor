@@ -168,6 +168,10 @@ export const RIBBON_LAYOUT: RibbonLayoutDefinition = {
                     id: "fonts",
                     itemIds: ["fontSettings"],
                 },
+                {
+                    id: "mermaidSettings",
+                    itemIds: ["mermaidFontSize"],
+                },
             ],
         },
         {

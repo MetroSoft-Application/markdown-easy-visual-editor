@@ -7,10 +7,12 @@ import React, {
   useEffect,
   useImperativeHandle,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
 } from "react";
 import type { WebviewSettings } from "../../shared/protocol";
+import { normalizeMermaidFontSize } from "../../shared/protocol";
 import type { Messages } from "../../shared/messages";
 import type { MarpImageResizeTarget } from "../../shared/imageResize";
 import type { PreviewViewportAnchor } from "../preview/scrollAnchors";
@@ -18,7 +20,11 @@ import { mermaidErrorMessage, renderMermaidSvg } from "../markdown/mermaidRender
 import type { MermaidTheme } from "../markdown/mermaidRenderer";
 import { sanitizeRenderedMarkdown } from "../markdown/markdownSanitizer";
 import { ImagePreviewDialog } from "../components/RenderedMarkdown";
-import { createMarpPdfExportContent } from "./marpPdfExport";
+import {
+  createMarpPdfExportContent,
+  createMarpPdfExportRenderSignature,
+  isMarpPdfExportReady,
+} from "./marpPdfExport";
 import type { MarpPdfExportContent } from "./marpPdfExport";
 import type { MarpRenderResult, MarpSlideSourceRange } from "./marpRenderer";
 import { findMarpSourceRangeAtOffset } from "./marpSourceRanges";
@@ -104,7 +110,7 @@ export interface MarpPreviewHandle {
   captureViewport(): PreviewViewportAnchor | undefined;
   /** 指定本文と、iframeへ反映済みのスライド位置情報の生成元が一致するかを返す。 */
   isMarkdownRendered(sourceMarkdown: string): boolean;
-  /** 描画完了済みの指定本文をPDFへ渡すためのスライドHTMLとCSSを返す。 */
+  /** 現在の本文と描画設定に一致する完成結果だけをPDFへ渡す。 */
   getPdfExportContent(sourceMarkdown: string): MarpPdfExportContent | undefined;
 }
 
@@ -176,6 +182,8 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
     const imageResizeLabelRef = useRef(messages.app.imageControls.resize);
     imageResizeLabelRef.current = messages.app.imageControls.resize;
     const latestResultRef = useRef<MarpWorkerResponse | undefined>(undefined);
+    // PDF出力が古いMermaid設定の結果を再利用しないよう、完成結果の生成設定を保持する。
+    const latestResultSettingsSignatureRef = useRef<string | undefined>(undefined);
     const lastViewportAnchorRef = useRef<PreviewViewportAnchor | undefined>(undefined);
     const pendingScrollTopOffsetRef = useRef(0);
     const frameReadyRef = useRef(false);
@@ -183,6 +191,20 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
     const rangesRef = useRef<MarpSlideSourceRange[]>([]);
     const currentMarkdownRef = useRef(markdown);
     currentMarkdownRef.current = markdown;
+    /**
+     * 出力世代署名にはMarkdown全文を含むため、描画条件が変わる場合に限ってシリアライズする。
+     */
+    const currentRenderSettingsSignature = useMemo(
+      () => createMarpPdfExportRenderSignature(markdown, settings),
+      [
+        markdown,
+        settings.editorTheme,
+        settings.language,
+        settings.mermaidTheme,
+        settings.mermaidFontSize,
+        settings.remoteImagesEnabled,
+      ],
+    );
     const renderedMarkdownRef = useRef<string | undefined>(undefined);
     // ranges/metricsと同じ世代の本文を、iframeのlayout受理時だけ更新する。
     const layoutMarkdownRef = useRef<string | undefined>(undefined);
@@ -317,11 +339,14 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
       isMarkdownRendered: (sourceMarkdown: string) => layoutMarkdownRef.current === sourceMarkdown,
       getPdfExportContent: (sourceMarkdown: string) => {
         const result = latestResultRef.current;
-        if (
-          layoutMarkdownRef.current !== sourceMarkdown ||
-          renderedMarkdownRef.current !== sourceMarkdown ||
-          !result
-        ) {
+        if (!result || !isMarpPdfExportReady({
+          requestedMarkdown: sourceMarkdown,
+          layoutMarkdown: layoutMarkdownRef.current,
+          renderedMarkdown: renderedMarkdownRef.current,
+          renderedSettingsSignature: latestResultSettingsSignatureRef.current,
+          currentSettingsSignature: currentRenderSettingsSignature,
+          hasRenderedResult: true,
+        })) {
           return undefined;
         }
         return createMarpPdfExportContent(
@@ -329,7 +354,7 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
           result.css,
         );
       },
-    }), [scrollToOffset, captureViewport]);
+    }), [scrollToOffset, captureViewport, currentRenderSettingsSignature]);
 
     useEffect(() => {
       onStartupStage?.("preview-mounted");
@@ -358,6 +383,7 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
 
     useLayoutEffect(() => {
       const currentGeneration = ++generationRef.current;
+      const renderSettingsSignature = currentRenderSettingsSignature;
       assetDataUrlCacheRef.current.clear();
       const mermaidRenderController = new AbortController();
       // 次の描画が完了するまで現在のスライドと位置情報を保持する。
@@ -446,6 +472,7 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
             assetDataUrlCacheRef.current,
             settings.remoteImagesEnabled === true,
             settings.mermaidTheme,
+            normalizeMermaidFontSize(settings.mermaidFontSize),
             settings.language,
             mermaidRenderController.signal,
           )
@@ -453,6 +480,7 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
               if (settled || generationRef.current !== generation) return;
               settled = true;
               latestResultRef.current = resolvedResponse;
+              latestResultSettingsSignatureRef.current = renderSettingsSignature;
               renderedMarkdownRef.current = source;
               setRenderDurationMs(resolvedResponse.renderDurationMs);
               setRenderCount((count) => count + 1);
@@ -486,7 +514,7 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
         if (settled) return;
         settled = true;
       }
-    }, [markdown, messages.app.marpPreview.failed, onStartupStage, postRenderToFrame, releaseWorker, settings.editorTheme, settings.language, settings.mermaidTheme, settings.remoteImagesEnabled]);
+    }, [markdown, messages.app.marpPreview.failed, onStartupStage, postRenderToFrame, releaseWorker, settings.editorTheme, settings.language, settings.mermaidTheme, settings.mermaidFontSize, settings.remoteImagesEnabled]);
 
     useEffect(
       () => () => {
@@ -956,6 +984,11 @@ function fetchFrameScript(signal: AbortSignal): Promise<string> {
  * VS Codeのsandbox iframeから直接取得できないローカル資産をdata URIへ変換する。
  * @param response - Marp Workerが返したスライドとテーマCSS。
  * @param cache - 同じMarp描画内の重複資産をまとめるPromise cache。
+ * @param allowRemoteImages - リモート画像をスライドへ残す設定。
+ * @param mermaidTheme - Mermaid図へ適用するテーマ設定。
+ * @param mermaidFontSize - Mermaid図へ適用する文字サイズ（px）。
+ * @param language - Mermaid描画エラーを表示する言語。
+ * @param signal - 古いMarp生成を中断する通知。
  * @returns ローカル資産をWebview側で解決したMarp描画結果。
  */
 async function proxyMarpAssets(
@@ -963,6 +996,7 @@ async function proxyMarpAssets(
   cache: Map<string, Promise<string>>,
   allowRemoteImages: boolean,
   mermaidTheme: WebviewSettings["mermaidTheme"],
+  mermaidFontSize: number,
   language: WebviewSettings["language"],
   signal: AbortSignal,
 ): Promise<MarpWorkerResponse> {
@@ -1001,7 +1035,13 @@ async function proxyMarpAssets(
     return parsed;
   }));
   for (const parsed of parsedSlides) {
-    await renderMarpMermaidBlocks(parsed.body, mermaidTheme, language, signal);
+    await renderMarpMermaidBlocks(
+      parsed.body,
+      mermaidTheme,
+      mermaidFontSize,
+      language,
+      signal,
+    );
   }
   const css = await proxyCssAssetUrls(response.css, cache, allowRemoteImages);
   return {
@@ -1015,12 +1055,14 @@ async function proxyMarpAssets(
  * MarpのMermaidコードフェンスをHost描画したSVGへ置き換える。
  * @param content - Mermaidコードフェンスを含むスライド本文。
  * @param mermaidTheme - Mermaidテーマ設定。
+ * @param mermaidFontSize - Mermaid図へ適用する文字サイズ（px）。
  * @param language - エラー表示に使う言語。
  * @param signal - 古い描画要求を中断するAbortSignal。
  */
 async function renderMarpMermaidBlocks(
   content: HTMLElement,
   mermaidTheme: WebviewSettings["mermaidTheme"],
+  mermaidFontSize: number,
   language: WebviewSettings["language"],
   signal: AbortSignal,
 ): Promise<void> {
@@ -1043,7 +1085,12 @@ async function renderMarpMermaidBlocks(
     const theme = resolveMarpMermaidTheme(mermaidTheme, pre);
 
     try {
-      const rendered = await renderMermaidSvg(source, theme, signal);
+      const rendered = await renderMermaidSvg(
+        source,
+        theme,
+        signal,
+        mermaidFontSize,
+      );
       if (signal.aborted) throw new Error("Marp Mermaid rendering was cancelled.");
       const template = document.createElement("template");
       template.innerHTML = rendered.svg;
