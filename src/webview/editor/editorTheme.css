@@ -13,6 +13,8 @@ body[data-editor-theme="light"] {
     --mve-theme-bg: #ffffff;
     --mve-theme-surface: #ffffff;
     --mve-theme-surface-alt: #f6f8fa;
+    --mve-theme-table-header: #bdd5ef;
+    --mve-theme-table-border: #626b75;
     --mve-theme-surface-raised: #ffffff;
     --mve-theme-text: #1f2328;
     --mve-theme-muted: #59636e;
@@ -128,6 +130,8 @@ body[data-editor-theme="dark"] {
     --mve-theme-bg: #0d1117;
     --mve-theme-surface: #0d1117;
     --mve-theme-surface-alt: #161b22;
+    --mve-theme-table-header: #1f3a5f;
+    --mve-theme-table-border: #7d8998;
     --mve-theme-surface-raised: #161b22;
     --mve-theme-text: #e6edf3;
     --mve-theme-muted: #8b949e;
@@ -535,16 +539,24 @@ body[data-editor-theme] .rendered-markdown .markdown-alert {
 }
 
 
+/*
+ * @style body[data-editor-theme] .rendered-markdown table, th, td
+ * テーマ別に十分なコントラストを持つセル罫線を使い、列境界を見分けやすくする。
+ */
 body[data-editor-theme] .rendered-markdown table,
 body[data-editor-theme] .rendered-markdown th,
 body[data-editor-theme] .rendered-markdown td {
     color: var(--mve-theme-text) !important;
-    border-color: var(--mve-theme-border) !important;
+    border-color: var(--mve-theme-table-border) !important;
 }
 
 
+/*
+ * @style body[data-editor-theme] .rendered-markdown th
+ * 表見出しに専用の明暗色を使い、隣接セルと見分けやすくする。
+ */
 body[data-editor-theme] .rendered-markdown th {
-    background: var(--mve-theme-surface-alt) !important;
+    background: var(--mve-theme-table-header) !important;
 }
 
 body[data-editor-theme] .pdf-preview-shell,

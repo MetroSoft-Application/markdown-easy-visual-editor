@@ -125,9 +125,11 @@ vi.mock('dompurify',
         }
     }));
 
-import { buildStandaloneHtml, exportPdf, renderPdf, type PdfExportRequest } from '../src/extension/pdf';
+import { acquirePdfBrowser, buildStandaloneHtml, closePdfBrowser, exportPdf, renderPdf, type PdfExportRequest } from '../src/extension/pdf';
 import { normalizePdfOptions } from '../src/shared/protocol';
+import { printContentCss } from '../src/shared/printContentCss';
 import { renderMarkdown } from '../src/webview/markdown/markdownRenderer';
+import { TABLE_WIDTH_COMPACT_PATTERN_MARKERS, TABLE_WIDTH_PATTERN_MARKERS, TABLE_WIDTH_WRAP_PATTERN_MARKERS } from './fixtures/table-width-patterns';
 
 /**
  * PDF・テストの回帰で一時生成物または検証対象を置くディレクトリ。
@@ -223,6 +225,234 @@ describe('PDF local images',
                 expect(lightHtml).toContain('<main class="mve-print"><h1>見出し</h1><p>本文</p>');
                 expect(lightHtml).toContain('.mve-print :is(h1, h2, h3, h4, h5, h6) { color: #0969da; }');
             });
+
+        /** PDF出力で小さい表を内容幅にし、印刷幅不足時にセル内折り返しを保つ。 */
+        it('keeps standalone PDF tables content-sized and wrappable', async () => {
+            const longCellText = 'unbrokenvalue'.repeat(24);
+            const samplePath = path.resolve('test/fixtures/table-width-wrap.md');
+            const sampleMarkdown = await fs.readFile(samplePath, 'utf8');
+            const sampleHtml = renderMarkdown(sampleMarkdown, { remoteImagesEnabled: false, language: 'ja', renderFormat: 'mixed' });
+            const pdfOptions = normalizePdfOptions({ format: 'A4' });
+            const printableViewport = {
+                width: Math.floor((210 - pdfOptions.margins.left - pdfOptions.margins.right) * 96 / 25.4),
+                height: Math.floor((297 - pdfOptions.margins.top - pdfOptions.margins.bottom) * 96 / 25.4)
+            };
+            const previewTable = `<table id="preview-table"><tbody><tr><td id="marked-cell" data-mve-nowrap="true">${longCellText}</td></tr></tbody></table>`;
+            const request = {
+                html: `<div id="fixture" style="width: 320px">${sampleHtml}${previewTable}</div>`,
+                css: printContentCss(pdfOptions.fontFamily),
+                options: pdfOptions,
+                documentUri: new TestUri('file', '/document.md', '/document.md'),
+                language: 'ja'
+            } as unknown as PdfExportRequest;
+
+            const html = await buildStandaloneHtml(request);
+
+            expect(sampleMarkdown).toContain(longCellText);
+            expect(sampleHtml).toContain('data-mve-short-value-candidate="true"');
+            expect(html).toContain('body{font-family:');
+            expect(html).toContain('padding:6px 8px');
+            expect(html).toContain('data-mve-short-value-label="true"');
+            expect(html).not.toContain('table { width: fit-content;');
+            expect(html).not.toContain('table { width: 100%;');
+            expect(html).toContain('table { width: max-content; max-width: 100%; border-collapse: collapse; }');
+            expect(html).toContain('table th { color: #202124; background-color: #bdd5ef; }');
+            expect(html).toContain('table th, table td { word-break: normal; overflow-wrap: anywhere; }');
+            expect(html).toContain('table th[data-mve-nowrap="true"], table td[data-mve-nowrap="true"] { white-space: normal; overflow-wrap: anywhere; }');
+            expect(html).toContain('table th[data-mve-short-value-candidate="true"], table td[data-mve-short-value-candidate="true"] { word-break: keep-all; overflow-wrap: break-word; }');
+            expect(html).toContain('table th[data-mve-short-value-label="true"] { white-space: nowrap; overflow-wrap: normal; }');
+
+            try {
+                const pdf = await renderPdf({ ...request, purpose: 'preview' });
+                expect(pdf.subarray(0, 4).toString('latin1')).toBe('%PDF');
+                expect((pdf.toString('latin1').match(/\/Type\s*\/Page\b/g) ?? []).length).toBeGreaterThan(0);
+
+                // 明示された成果物取得時だけ、印刷幅での60表PDFを追加生成して視覚確認へ渡す。
+                if (process.env.MVE_TABLE_WIDTH_CAPTURE_DIR) {
+                    await fs.mkdir(process.env.MVE_TABLE_WIDTH_CAPTURE_DIR, { recursive: true });
+                    const fullWidthPdf = await renderPdf({
+                        ...request,
+                        html: sampleHtml,
+                        purpose: 'preview'
+                    });
+                    await fs.writeFile(
+                        path.join(process.env.MVE_TABLE_WIDTH_CAPTURE_DIR, 'pdf-table-width-sample-60-patterns.pdf'),
+                        fullWidthPdf
+                    );
+                }
+
+                const browser = await acquirePdfBrowser('ja');
+                const context = await browser.newContext({ viewport: printableViewport });
+                try {
+                    const page = await context.newPage();
+                    await page.emulateMedia({ media: 'print' });
+                    await page.setContent(html, { waitUntil: 'load' });
+                    /** 60パターンをIDで取得し、印刷CSS適用後の全表幅と長文セルの描画行を測定する。 */
+                    const layout = await page.evaluate(({ tableMarkers, compactMarkers, wrapMarkers, printableWidth }) => {
+                        const fixture = document.getElementById('fixture')!;
+                        const tables = Array.from(fixture.querySelectorAll('table'));
+                        /** Fixture IDを表ヘッダーから解決し、表外へ移動した場合も失敗させる。 */
+                        const findTable = (marker: string) => {
+                            const inTable = tables.find((candidate) => candidate.textContent?.includes(marker));
+                            if (!inTable) throw new Error(`Missing fixture table marker: ${marker}`);
+                            return inTable;
+                        };
+                        /** 同じ高さの文字断片を1行として数え、見た目の折り返しを測る。 */
+                        const countTextLines = (node: Node) => {
+                            const range = document.createRange();
+                            range.selectNodeContents(node);
+                            return new Set(Array.from(range.getClientRects())
+                                .filter((rect) => rect.width > 0)
+                                .map((rect) => Math.round(rect.top))).size;
+                        };
+                        const patternTables = tableMarkers.map(findTable);
+                        const headerCell = findTable('P01').querySelector('thead th');
+                        const headerBackground = headerCell ? getComputedStyle(headerCell).backgroundColor : '';
+                        const headerTextColor = headerCell ? getComputedStyle(headerCell).color : '';
+                        const compactTableWidths = compactMarkers.map((marker) => findTable(marker).getBoundingClientRect().width);
+                        const separatorRows = tables.flatMap((table) => Array.from(table.rows)
+                            .filter((row) => Array.from(row.cells).some((cell) => cell.textContent?.trim() === '---'))).length;
+                        const markedCell = document.getElementById('marked-cell')!;
+                        const fixtureWidth = fixture.getBoundingClientRect().width;
+                        const widths = tables.map((table) => table.getBoundingClientRect().width);
+                        const wrapLineCounts = wrapMarkers.map((marker) => {
+                            const cells = Array.from(findTable(marker).querySelectorAll('tbody td'));
+                            return { marker, lines: Math.max(...cells.map(countTextLines)) };
+                        });
+                        /** 長文が隣列にある場合も、二文字の短い値を不要に分割しないことを検査する。 */
+                        const p24Table = findTable('P24');
+                        const shortValueCell = p24Table.querySelector('tbody tr:first-child td:nth-child(2)')!;
+                        const p24ShortValueLines = countTextLines(shortValueCell);
+                        const p24ShortValueCellWidth = shortValueCell.getBoundingClientRect().width;
+                        const p24ShortValueStyle = {
+                            candidate: shortValueCell.hasAttribute('data-mve-short-value-candidate'),
+                            wordBreak: getComputedStyle(shortValueCell).wordBreak,
+                            whiteSpace: getComputedStyle(shortValueCell).whiteSpace,
+                            overflowWrap: getComputedStyle(shortValueCell).overflowWrap,
+                            clientWidth: shortValueCell.clientWidth
+                        };
+                        /** P24とP29〜P32の具体的な短文がそれぞれ一行で残ることを確認する。 */
+                        const shortValueCases = [
+                            ['P24', '短文'], ['P29', 'P29 ID'], ['P29', '1'], ['P30', 'P30 番号'], ['P30', '02'], ['P30', '進行中'],
+                            ['P31', '003'], ['P31', '種別'], ['P31', 'PDF'], ['P31', '結果'], ['P31', '成功'],
+                            ['P31', 'P31 ID'], ['P32', '短い行'], ['P32', '最後の短い行'], ['P32', 'OK'], ['P32', '完了'], ['P58', 'ID']
+                        ];
+                        const shortValueCaseLines = shortValueCases.map(([marker, value]) => {
+                            const table = findTable(marker);
+                            const cell = Array.from(table.querySelectorAll('th, td')).find((candidate) => candidate.textContent?.trim() === value);
+                            return { marker, value, lines: cell ? countTextLines(cell) : 0 };
+                        });
+                        const alignmentCells = Array.from(findTable('P19').querySelectorAll('tbody tr:last-child td'));
+                        const explicitBreakCount = findTable('P20').querySelectorAll('br').length;
+                        const escapedPipeContent = findTable('P23').textContent?.includes('left | middle | right') ?? false;
+                        const emptyCellCount = findTable('P18').querySelectorAll('tbody td:empty').length;
+                        fixture.style.width = `${printableWidth}px`;
+                        const wideFixtureWidth = fixture.getBoundingClientRect().width;
+                        const wideTableWidths = tables.map((table) => table.getBoundingClientRect().width);
+                        const wideLongTableWidth = findTable('P09').getBoundingClientRect().width;
+                        return {
+                            tableCount: tables.length,
+                            fixtureWidth,
+                            compactTableWidths,
+                            maximumTableWidth: Math.max(...widths),
+                            patternTableCount: patternTables.length,
+                            headerBackground,
+                            headerTextColor,
+                            separatorRows,
+                            cellBorderTopWidth: getComputedStyle(markedCell).borderTopWidth,
+                            markedWhiteSpace: getComputedStyle(markedCell).whiteSpace,
+                            markedTextLineCount: countTextLines(markedCell.firstChild!),
+                            wrapLineCounts,
+                            p24ShortValueLines,
+                            p24ShortValueCellWidth,
+                            p24ShortValueStyle,
+                            shortValueCaseLines,
+                            alignment: alignmentCells.map((cell) => getComputedStyle(cell).textAlign.replace('-webkit-', '')),
+                            explicitBreakCount,
+                            escapedPipeContent,
+                            emptyCellCount,
+                            wideFixtureWidth,
+                            wideMaximumTableWidth: Math.max(...wideTableWidths),
+                            wideLongTableWidth,
+                        };
+                    }, {
+                        tableMarkers: TABLE_WIDTH_PATTERN_MARKERS,
+                        compactMarkers: TABLE_WIDTH_COMPACT_PATTERN_MARKERS,
+                        wrapMarkers: TABLE_WIDTH_WRAP_PATTERN_MARKERS,
+                        printableWidth: printableViewport.width
+                    });
+
+                    expect(layout.tableCount).toBe(TABLE_WIDTH_PATTERN_MARKERS.length + 1);
+                    expect(layout.patternTableCount).toBe(TABLE_WIDTH_PATTERN_MARKERS.length);
+                    expect(layout.headerBackground).toBe('rgb(189, 213, 239)');
+                    expect(layout.headerTextColor).toBe('rgb(32, 33, 36)');
+                    expect(layout.separatorRows).toBe(0);
+                    expect(layout.compactTableWidths.every((width) => width < layout.fixtureWidth)).toBe(true);
+                    expect(layout.maximumTableWidth).toBeLessThanOrEqual(layout.fixtureWidth + 1);
+                    expect(layout.wideMaximumTableWidth).toBeLessThanOrEqual(layout.wideFixtureWidth + 1);
+                    expect(layout.wideLongTableWidth).toBeCloseTo(layout.wideFixtureWidth, 0);
+                    expect(layout.cellBorderTopWidth).toBe('1px');
+                    expect(layout.markedWhiteSpace).toBe('normal');
+                    expect(layout.markedTextLineCount).toBeGreaterThan(1);
+                    expect(layout.wrapLineCounts.every(({ lines }) => lines > 1), JSON.stringify(layout.wrapLineCounts)).toBe(true);
+                    expect(layout.p24ShortValueLines, `P24 短文の幅確認: ${JSON.stringify({ lines: layout.p24ShortValueLines, cellWidth: layout.p24ShortValueCellWidth, state: layout.p24ShortValueStyle })}`).toBe(1);
+                    expect(layout.p24ShortValueStyle.candidate).toBe(true);
+                    expect(layout.p24ShortValueStyle.wordBreak).toBe('keep-all');
+                    expect(layout.p24ShortValueStyle.whiteSpace).toBe('normal');
+                    expect(layout.p24ShortValueStyle.overflowWrap).toBe('break-word');
+                    expect(layout.shortValueCaseLines, JSON.stringify(layout.shortValueCaseLines)).toEqual(layout.shortValueCaseLines.map(({ marker, value }) => ({ marker, value, lines: 1 })));
+                    expect(layout.alignment).toEqual(['left', 'center', 'right']);
+                    expect(layout.explicitBreakCount).toBeGreaterThan(0);
+                    expect(layout.escapedPipeContent).toBe(true);
+                    expect(layout.emptyCellCount).toBeGreaterThan(0);
+
+                    // 実PDFと同じ本文幅で、固定fixtureに依存せず60表の出力本文を直接検証する。
+                    const actualOutputHtml = await buildStandaloneHtml({ ...request, html: sampleHtml });
+                    await page.setContent(actualOutputHtml, { waitUntil: 'load' });
+                    await page.evaluate(() => document.fonts.ready);
+                    const actualOutputLayout = await page.evaluate((targetCases) => {
+                        const tables = Array.from(document.querySelectorAll('table'));
+                        const countLines = (node: Node) => {
+                            const range = document.createRange();
+                            range.selectNodeContents(node);
+                            return new Set(Array.from(range.getClientRects())
+                                .filter((rect) => rect.width > 0)
+                                .map((rect) => Math.round(rect.top))).size;
+                        };
+                        const cases = targetCases.map(([marker, value]) => {
+                            const table = tables.find((candidate) => candidate.textContent?.includes(marker));
+                            const cell = table && Array.from(table.querySelectorAll('th, td'))
+                                .find((candidate) => candidate.textContent?.trim() === value);
+                                return {
+                                    marker,
+                                    value,
+                                    lines: cell ? countLines(cell) : 0,
+                                    whiteSpace: cell ? getComputedStyle(cell).whiteSpace : '',
+                                    wordBreak: cell ? getComputedStyle(cell).wordBreak : '',
+                                    overflowWrap: cell ? getComputedStyle(cell).overflowWrap : '',
+                                    tableWidth: table?.getBoundingClientRect().width ?? 0,
+                                    parentWidth: table?.parentElement?.clientWidth ?? 0
+                                };
+                        });
+                        return {
+                            cases,
+                            overflowTables: tables.filter((table) => table.getBoundingClientRect().right > table.parentElement!.getBoundingClientRect().right + 1)
+                                .map((table) => table.textContent?.match(/P\\d{2}/)?.[0] ?? 'unknown')
+                        };
+                    }, [
+                        ['P24', '短文'], ['P29', 'P29 ID'], ['P29', '1'], ['P30', 'P30 番号'], ['P30', '進行中'],
+                        ['P31', 'P31 ID'], ['P31', 'PDF'], ['P31', '成功'], ['P32', '最後の短い行']
+                    ]);
+                    expect(actualOutputLayout.overflowTables, JSON.stringify(actualOutputLayout)).toEqual([]);
+                    expect(actualOutputLayout.cases.map(({ marker, value, lines }) => ({ marker, value, lines })), JSON.stringify(actualOutputLayout.cases))
+                        .toEqual(actualOutputLayout.cases.map(({ marker, value }) => ({ marker, value, lines: 1 })));
+                } finally {
+                    await context.close();
+                }
+            } finally {
+                await closePdfBrowser();
+            }
+        }, 30_000);
 
         it('embeds a relative local image and produces a PDF with it',
             async () => {

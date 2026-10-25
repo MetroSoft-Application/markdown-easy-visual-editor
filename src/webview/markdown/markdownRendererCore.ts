@@ -13,6 +13,7 @@ import {
 } from '../../shared/markdown';
 import { decodeTextileCodeEntities, renderTextile } from '../../shared/textileAdapter';
 import { getMessages, type Messages, type SupportedLanguage } from '../../shared/messages';
+import { classifyShortValueTableCell } from '../../shared/tableShortValueFit';
 
 /**
  * 既定Markdown、Textile専用、Markdown優先の混在描画を区別する形式。
@@ -238,6 +239,22 @@ export function renderMarkdownUnsafeBlocks(
                 : nextHeadingAnchorId(tokens.map((token) => token.raw).join(''), headingIds, usedHeadingIds);
             renderedHeadingId = id;
             return `<h${depth} id="${escapeAttribute(id)}" data-mve-heading="true">${content.replace(/\s+\{#[^}]+\}(?=(?:<\/span>)*\s*$)/, '')}</h${depth}>`;
+        };
+
+    renderer.tablecell =
+        /**
+         * 短い日本語語句・英字token・短い複合見出しだけに折り返し優先CSS用の属性を付ける。
+         * @param cell - Markedが解析した表セルの本文、見出し状態、配置。
+         * @returns 通常のth/tdに、短文候補だけを示すdata属性を付けたHTML。
+         */
+        function (cell) {
+            const content = this.parser.parseInline(cell.tokens);
+            const tagName = cell.header ? 'th' : 'td';
+            const alignAttribute = cell.align ? ` align="${cell.align}"` : '';
+            const shortValueMarker = classifyShortValueTableCell(cell.text, cell.header);
+            const candidateAttribute = shortValueMarker.candidate ? ' data-mve-short-value-candidate="true"' : '';
+            const labelAttribute = shortValueMarker.label ? ' data-mve-short-value-label="true"' : '';
+            return `<${tagName}${alignAttribute}${candidateAttribute}${labelAttribute}>${content}</${tagName}>\n`;
         };
 
     /**
@@ -1008,14 +1025,14 @@ function readMixedTextileBlock(source: string): string | undefined {
 }
 
 /**
- * Textile表候補の直後にMarkdownのGFM区切り行があるか判定する。
+ * Textile表候補の直後に1列以上のMarkdown GFM区切り行があるか判定する。
  * @param source - 表候補から始まるMarkdown本文。
  * @param nextOffset - 1行目の直後にある次行の開始位置。
  * @returns Markdown表として認識される場合はtrue。
  */
 function isMarkdownPipeTable(source: string, nextOffset: number): boolean {
     const separator = readSourceLine(source, nextOffset)?.text;
-    return Boolean(separator && /^\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)+\|?$/.test(separator));
+    return Boolean(separator && /^\s*\|?\s*:?-{3,}:?\s*(?:\|\s*:?-{3,}:?\s*)*\|?\s*$/.test(separator));
 }
 
 /**

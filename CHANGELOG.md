@@ -104,3 +104,7 @@
 ## 1.5.2
 
 - Added theme-specific heading colors to previews and HTML/PDF output.
+
+## 1.5.3
+
+- Fixed table sizing in HTML and PDF output so short cell values remain on one line and longer content wraps within the available page width.

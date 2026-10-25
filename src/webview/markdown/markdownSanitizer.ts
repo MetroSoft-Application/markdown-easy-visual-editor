@@ -24,6 +24,8 @@ export function sanitizeRenderedMarkdown(
             "data-mve-image-align",
             "data-mve-resizable",
             "data-mve-can-reset",
+            "data-mve-short-value-candidate",
+            "data-mve-short-value-label",
             "data-mve-text-color",
             "data-mermaid-source",
             "data-math-source",

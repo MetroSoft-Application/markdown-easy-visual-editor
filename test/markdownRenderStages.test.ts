@@ -90,6 +90,14 @@ describe('staged Markdown rendering',
             const table = '| Cell |\n| --- |\n| ' + sectionMarkdownLink('A|B', 'a|b') + ' |';
             const tableHtml = renderMarkdownUnsafeBlocks(table, options).map((block) => block.html).join('');
             expect(tableHtml).toContain('<a href="#a%7Cb">A|B</a>');
+
+            /** 短いセルだけ幅補正候補を印し、長文セルが測定対象へ混ざらないことを確認する。 */
+            const candidateTable = renderMarkdownUnsafeBlocks(
+                '| ID | 内容 |\n| --- | --- |\n| 短文 | 12文字を超える長い説明文を本文幅内で折り返します。 |',
+                options
+            ).map((block) => block.html).join('');
+            expect(candidateTable).toContain('<td data-mve-short-value-candidate="true">短文</td>');
+            expect(candidateTable).toContain('<td>12文字を超える長い説明文を本文幅内で折り返します。</td>');
         });
 
         it('keeps preview heading IDs aligned with outline links for repeated and explicit headings', () => {

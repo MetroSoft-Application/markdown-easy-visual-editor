@@ -507,7 +507,14 @@ const textileReviewSamples: readonly TextileReviewSample[] = [
         name: 'gfm-table-priority.md',
         format: 'mixed',
         fallback: '| Column | Value |\n| ------ | ----- |\n| First  | Markdown |\n| Second | GFM |',
-        expectedFragments: ['<table>', '<th>Column</th>', '<td>Markdown</td>', '<td>GFM</td>']
+        expectedFragments: ['<table>', '<th data-mve-short-value-candidate="true">Column</th>', '<td>Markdown</td>', '<td data-mve-short-value-candidate="true">GFM</td>']
+    },
+    {
+        name: 'gfm-single-column-table-priority.md',
+        format: 'mixed',
+        fallback: '| Column |\n| --- |\n| Markdown |',
+        expectedFragments: ['<table>', '<th data-mve-short-value-candidate="true">Column</th>', '<td>Markdown</td>'],
+        forbiddenFragments: ['---']
     },
     {
         name: 'escaped-markers.md',

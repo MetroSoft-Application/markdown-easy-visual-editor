@@ -273,6 +273,14 @@ export async function renderPdf(request: PdfExportRequest): Promise<Buffer> {
         );
         previewLog?.('assets ready');
         const options = normalizePdfOptions(request.options);
+        const printViewport = pdfPrintViewport(options);
+        await withRenderControl(
+            () => page.setViewportSize(printViewport),
+            request.signal,
+            deadlineAt,
+            'print viewport',
+            abortContext
+        );
         const pdf = await withRenderControl(
 
 
@@ -694,9 +702,18 @@ const PRINT_CSS = `
   .mve-marp-pdf-slide { break-inside: avoid; page-break-inside: avoid; }
   .mve-marp-pdf-slide:not(:last-child) { break-after: page; page-break-after: always; }
   .mve-marp-pdf-slide .marpit > svg { display: block; width: 100% !important; height: auto !important; max-width: 100%; max-height: 100vh; }
-  table { width: 100%; border-collapse: collapse; }
+  /* 表は内容の最大幅を基準にし、印刷本文を超える長文はセル内で折り返す。 */
+  /* 白い印刷面でも見出しセルと本文セルを色で区別できるようにする。 */
+  table th { color: #202124; background-color: #bdd5ef; }
+  table { width: max-content; max-width: 100%; border-collapse: collapse; }
   table th, table td { word-break: normal; overflow-wrap: anywhere; }
-  table th[data-mve-nowrap="true"], table td[data-mve-nowrap="true"] { white-space: nowrap; overflow-wrap: normal; }
+  /* プレビュー用のnowrap属性が出力へ残っても、印刷幅不足時は折り返す。 */
+  table th[data-mve-nowrap="true"], table td[data-mve-nowrap="true"] { white-space: normal; overflow-wrap: anywhere; }
+  /* 短い候補の列は内容幅を保ち、表で幅が足りない場合だけ緊急折り返しを許可する。 */
+  table th[data-mve-short-value-candidate="true"], table td[data-mve-short-value-candidate="true"] { word-break: keep-all; overflow-wrap: break-word; }
+  /* 空白を含む短い見出し語句は通常幅で一組にし、狭い用紙では折り返しへ戻す。 */
+  table th[data-mve-short-value-label="true"] { white-space: nowrap; overflow-wrap: normal; }
+  @media print and (max-width: 400px) { table th[data-mve-short-value-label="true"] { white-space: normal; overflow-wrap: anywhere; } }
   thead { display: table-header-group; }
   tr, img, pre, blockquote { break-inside: avoid; }
   img { max-width: 100%; height: auto; }
@@ -777,4 +794,32 @@ function pdfPaperOptions(
         return { width: `${width}mm`, height: `${height}mm`, landscape: false };
     }
     return { format, landscape: orientation === 'landscape' };
+}
+
+/**
+ * PDF出力のビューポートを用紙寸法と余白から計算する。
+ * Chromiumの既定画面幅に依存せず、出力設定どおりの印刷本文領域を組版する。
+ * @param options - 用紙、向き、余白を含む正規化済みPDF設定。
+ * @returns CSSピクセル単位に丸めた本文幅と本文高さ。
+ */
+function pdfPrintViewport(options: NormalizedPdfOptions): { width: number; height: number } {
+    const paperDimensionsMm: Record<PdfPaperFormat, { width: number; height: number }> = {
+        A0: { width: 841, height: 1189 },
+        A1: { width: 594, height: 841 },
+        A2: { width: 420, height: 594 },
+        A3: { width: 297, height: 420 },
+        A4: { width: 210, height: 297 },
+        A5: { width: 148, height: 210 },
+        A6: { width: 105, height: 148 },
+        B4: { width: 257, height: 364 },
+        B5: { width: 182, height: 257 }
+    };
+    const portraitDimensions = paperDimensionsMm[options.format];
+    const pageWidthMm = options.orientation === 'landscape' ? portraitDimensions.height : portraitDimensions.width;
+    const pageHeightMm = options.orientation === 'landscape' ? portraitDimensions.width : portraitDimensions.height;
+    const cssPixelsPerMillimeter = 96 / 25.4;
+    return {
+        width: Math.max(1, Math.floor((pageWidthMm - options.margins.left - options.margins.right) * cssPixelsPerMillimeter)),
+        height: Math.max(1, Math.floor((pageHeightMm - options.margins.top - options.margins.bottom) * cssPixelsPerMillimeter))
+    };
 }

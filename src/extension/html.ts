@@ -531,7 +531,13 @@ async function rewriteBody(
 
          */
         (tag) => rewriteLinkTag(tag, sourcePath, outputPath, documents, options));
-    result = result.replace(/\sdata-(?:original-src|mve-[\w-]+)(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?/gi, '');
+    result = result.replace(
+        /\sdata-(?:original-src|mve-[\w-]+)(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?/gi,
+        /** 出力で折り返し方を決める2属性だけを残し、他のWebview内部属性を除く。 */
+        (attribute) => /^\s+data-mve-short-value-(?:candidate|label)\s*=\s*(?:"true"|'true'|true)$/i.test(attribute)
+            ? attribute
+            : ''
+    );
     return addSectionLinks(result, language);
 }
 
@@ -1251,8 +1257,18 @@ const HTML_CSS = /**
   .mve-html-outline a:focus-visible { outline: 2px solid #1a73e8; outline-offset: -2px; background: #e8eaed; }
   .mve-html-outline-empty { padding: 0 12px; color: #5f6368; font-size: 12px; }
   img { max-width: 100%; height: auto; }
-  table { width: 100%; border-collapse: collapse; }
+  /* 表は内容の最大幅を基準にし、親要素を超える長文はセル内で折り返す。 */
+  table { width: max-content; max-width: 100%; border-collapse: collapse; }
+  /* 白背景のHTML出力では見出しセルを本文セルから色で判別できるようにする。 */
+  .mve-html table th { color: #202124; background-color: #bdd5ef; }
   table th, table td { word-break: normal; overflow-wrap: anywhere; }
+  /* プレビュー用のnowrap属性が出力へ残っても、表示幅不足時は折り返す。 */
+  table th[data-mve-nowrap="true"], table td[data-mve-nowrap="true"] { white-space: normal; overflow-wrap: anywhere; }
+  /* 短い候補の列は内容幅を保ち、表で幅が足りない場合だけ緊急折り返しを許可する。 */
+  table th[data-mve-short-value-candidate="true"], table td[data-mve-short-value-candidate="true"] { word-break: keep-all; overflow-wrap: break-word; }
+  /* 空白を含む短い見出し語句は通常幅で一組にし、狭い画面では折り返しへ戻す。 */
+  table th[data-mve-short-value-label="true"] { white-space: nowrap; overflow-wrap: normal; }
+  @media screen and (max-width: 400px) { table th[data-mve-short-value-label="true"] { white-space: normal; overflow-wrap: anywhere; } }
   .mve-html pre { color: #24292f; background: #f6f8fa; border: 1px solid #d0d7de; border-radius: 4px; padding: 12px; overflow-x: auto; overflow-wrap: anywhere; white-space: pre-wrap; }
   .mve-html pre code { color: inherit; background: transparent !important; }
   .mve-html :not(pre) > code { color: #24292f; background: #eff1f3; border-radius: 3px; padding: .12em .35em; }

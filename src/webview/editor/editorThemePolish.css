@@ -147,9 +147,13 @@ body[data-editor-theme] .pdf-preview-live-content .rendered-markdown .markdown-a
 }
 
 
+/*
+ * @style body[data-editor-theme] .pdf-preview-live-content .rendered-markdown th
+ * 白いPDF用紙上で表見出しを本文セルから判別できる色にする。
+ */
 body[data-editor-theme] .pdf-preview-live-content .rendered-markdown th {
     color: #202124 !important;
-    background: #eaf1fb !important;
+    background: #bdd5ef !important;
 }
 
 
