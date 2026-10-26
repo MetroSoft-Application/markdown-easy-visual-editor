@@ -1,0 +1,24 @@
+{
+  "name": "mve-output-filter",
+  "version": "0.1.0",
+  "description": "Standalone regex-based text filter for Markdown/HTML/PDF export pipelines and CI/CD.",
+  "type": "module",
+  "bin": {
+    "mve-output-filter": "./bin/mve-output-filter.mjs"
+  },
+  "exports": {
+    ".": "./lib/core.mjs"
+  },
+  "files": [
+    "bin",
+    "lib",
+    "README.md"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test"
+  }
+}
