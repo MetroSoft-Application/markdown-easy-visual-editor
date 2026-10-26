@@ -1,0 +1,15 @@
+{
+  "rules": [
+    {
+      "name": "omit-internal-block",
+      "pattern": "<!--\\s*internal:start\\s*-->[\\s\\S]*?<!--\\s*internal:end\\s*-->",
+      "flags": "gi",
+      "replacement": ""
+    },
+    {
+      "name": "replace-version-token",
+      "pattern": "\\{\\{VERSION\\}\\}",
+      "replacement": "1.5.3"
+    }
+  ]
+}
