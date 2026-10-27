@@ -1,0 +1,3 @@
+/* CLI export typography: same font and KaTeX sources as the Webview export. */
+@import "../src/webview/exportFonts.css";
+@import "highlight.js/styles/github.min.css";
