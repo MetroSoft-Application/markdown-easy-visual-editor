@@ -5,7 +5,7 @@
  */
 import * as esbuild from 'esbuild';
 import path from 'node:path';
-import { copyFile, mkdir, stat } from 'node:fs/promises';
+import { chmod, copyFile, mkdir, stat } from 'node:fs/promises';
 
 const root = process.cwd();
 const outdir = path.join(root, 'cli', 'dist');
@@ -22,6 +22,7 @@ await esbuild.build({
   platform: 'node',
   format: 'cjs',
   target: 'node20',
+  banner: { js: '#!/usr/bin/env node' },
   external: ['playwright-core'],
   plugins: [{
     name: 'vscode-host-adapter',
@@ -44,4 +45,5 @@ await esbuild.build({
 await Promise.all(['markdown-fallback.js', 'pele-render-worker.js', 'export-fonts.css'].map(
   (file) => copyFile(path.join(root, 'dist', file), path.join(outdir, file))
 ));
+await chmod(path.join(outdir, 'mve-convert.cjs'), 0o755);
 console.log('CLI built: cli/dist/mve-convert.cjs');
