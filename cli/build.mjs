@@ -5,7 +5,8 @@
  */
 import * as esbuild from 'esbuild';
 import path from 'node:path';
-import { chmod, copyFile, mkdir, stat } from 'node:fs/promises';
+import { appendFile, chmod, copyFile, mkdir, readFile, stat } from 'node:fs/promises';
+import postcss from 'postcss';
 
 const root = process.cwd();
 const outdir = path.join(root, 'cli', 'dist');
@@ -42,6 +43,20 @@ await esbuild.build({
   loader: { '.woff2': 'dataurl', '.woff': 'dataurl', '.ttf': 'dataurl' },
   logLevel: 'info'
 });
+// Preserve the original editor's syntax colors (not another theme).
+const editorCss = postcss.parse(await readFile(path.join(root, 'src/webview/styles.css'), 'utf8'));
+const syntaxRules = [];
+editorCss.walkRules((rule) => {
+  if (rule.selector.includes('.hljs') || rule.selector.includes('.katex')) {
+    syntaxRules.push(rule.parent.type === 'atrule'
+      ? '@' + rule.parent.name + ' ' + rule.parent.params + '{' + rule.toString() + '}'
+      : rule.toString());
+  }
+});
+if (!syntaxRules.some((rule) => rule.includes('.hljs-keyword'))) {
+  throw new Error('Editor syntax color rules not found');
+}
+await appendFile(path.join(outdir, 'print-assets.css'), '\n' + syntaxRules.join('\n'));
 await Promise.all(['markdown-fallback.js', 'pele-render-worker.js', 'export-fonts.css'].map(
   (file) => copyFile(path.join(root, 'dist', file), path.join(outdir, file))
 ));
