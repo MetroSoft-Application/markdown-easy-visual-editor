@@ -1,0 +1,23 @@
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "lib": [
+      "ES2022",
+      "DOM"
+    ],
+    "types": [
+      "node"
+    ],
+    "paths": {
+      "vscode": [
+        "./vscode-bridge.ts"
+      ]
+    }
+  },
+  "include": [
+    "./*.ts"
+  ],
+  "exclude": [
+    "dist"
+  ]
+}
