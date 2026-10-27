@@ -33,7 +33,7 @@ const source = path.resolve(flags.get('--input'));
 const references = ['html', 'pdf'].map((ext) => path.resolve(flags.get('--reference-' + ext)));
 const output = path.resolve(flags.get('--out-dir') || 'cli/visual-report');
 const executable = flags.get('--browser') || process.env.MVE_CLI_TEST_BROWSER;
-const maxRatio = Number(flags.get('--max-different-ratio') || '0.001');
+const maxRatio = Number(flags.get('--max-different-ratio') || '0');
 if (!(maxRatio >= 0 && maxRatio <= 1)) throw new Error('Invalid pixel difference threshold.');
 await fs.mkdir(output, { recursive: true });
 const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'mve-visual-parity-'));
@@ -174,7 +174,7 @@ async function pixels(left, right, name) {
                     Math.abs(x.data[i] - y.data[i]),
                     Math.abs(x.data[i + 1] - y.data[i + 1]),
                     Math.abs(x.data[i + 2] - y.data[i + 2])
-                ) > 12;
+                ) > 0;
                 if (mismatch) changed++;
                 diff.data[i] = mismatch ? 255 : 245;
                 diff.data[i + 1] = mismatch ? 0 : 245;
