@@ -15,7 +15,8 @@
     }
   },
   "include": [
-    "./*.ts"
+    "./*.ts",
+    "../src/shared/textile-js.d.ts"
   ],
   "exclude": [
     "dist"
