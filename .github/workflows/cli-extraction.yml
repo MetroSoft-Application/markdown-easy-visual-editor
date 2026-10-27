@@ -17,6 +17,18 @@ on:
       - '.github/workflows/cli-extraction.yml'
 
 jobs:
+  baseline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
   conversion:
     runs-on: ubuntu-latest
     timeout-minutes: 35
@@ -27,10 +39,6 @@ jobs:
           node-version: '22'
           cache: 'npm'
       - run: npm ci
-      - name: Original project type checks and test suite
-        run: |
-          npm run check
-          npm test
       - name: CLI type checks
         run: npm run check:cli
       - name: Build the original assets and CLI
