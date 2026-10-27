@@ -33,6 +33,14 @@ await esbuild.build({
   }],
   logLevel: 'info'
 });
+await esbuild.build({
+  entryPoints: [path.join(root, 'cli', 'print-assets.css')],
+  outfile: path.join(outdir, 'print-assets.css'),
+  bundle: true,
+  minify: true,
+  loader: { '.woff2': 'dataurl', '.woff': 'dataurl', '.ttf': 'dataurl' },
+  logLevel: 'info'
+});
 await Promise.all(['markdown-fallback.js', 'pele-render-worker.js', 'export-fonts.css'].map(
   (file) => copyFile(path.join(root, 'dist', file), path.join(outdir, file))
 ));
