@@ -57,7 +57,7 @@ export class Uri {
 }
 
 export const window = {
-    async showSaveDialog(): Promise<Uri | undefined> {
+    async showSaveDialog(_options?: unknown): Promise<Uri | undefined> {
         return outputPath ? Uri.file(outputPath) : undefined;
     }
 };
