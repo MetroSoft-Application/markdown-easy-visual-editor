@@ -534,6 +534,7 @@
     "build:cli": "npm run build && node cli/build.mjs",
     "check:cli": "tsc -p cli/tsconfig.json --noEmit",
     "test:cli": "npm run build:cli && node --test cli/test/smoke.mjs",
+    "verify:cli-render": "node cli/test/render-parity.mjs",
     "watch": "node scripts/build.mjs --watch",
     "check": "npm run check:documentation-comments && tsc -p tsconfig.json --noEmit && tsc -p tsconfig.webview.json --noEmit",
     "check:documentation-comments": "node scripts/check-documentation-comments.mjs",
