@@ -1,0 +1,44 @@
+name: CLI extraction checks
+
+on:
+  push:
+    paths:
+      - 'cli/**'
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/cli-extraction.yml'
+  pull_request:
+    paths:
+      - 'cli/**'
+      - 'src/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/cli-extraction.yml'
+
+jobs:
+  conversion:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+      - run: npm ci
+      - name: Original project type checks and test suite
+        run: |
+          npm run check
+          npm test
+      - name: CLI type checks
+        run: npm run check:cli
+      - name: Build the original assets and CLI
+        run: npm run build:cli
+      - name: Install Chromium for parity smoke tests
+        run: npx playwright-core install --with-deps chromium
+      - name: Convert Markdown, linked HTML and PDF
+        run: |
+          BROWSER=$(find "$HOME/.cache/ms-playwright" -type f \\( -path '*/chrome-linux/chrome' -o -path '*/chrome-linux64/chrome' -o -path '*/chrome-linux/headless_shell' -o -path '*/chrome-headless-shell-linux64/chrome-headless-shell' \\) | head -n 1)
+          if [ -z "$BROWSER" ]; then echo 'Chromium binary not found' >&2; exit 1; fi
+          MVE_CLI_TEST_BROWSER="$BROWSER" node --test cli/test/smoke.mjs
