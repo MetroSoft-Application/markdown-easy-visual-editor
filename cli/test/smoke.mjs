@@ -1,6 +1,6 @@
 /**
- * Browser-backed CLI smoke tests. Run after the editor and CLI bundles build.
- * These exercise exported files, rather than merely parsing CLI options.
+ * ブラウザーを使うCLIのスモークテスト。エディターとCLIのバンドルをビルドした後に実行する。
+ * CLI引数の解析だけでなく、実際に書き出されたファイルを検証する。
  */
 import assert from 'node:assert/strict';
 import { execFile } from 'node:child_process';
@@ -72,7 +72,7 @@ test('HTML CLI renders math, Mermaid, local images and linked Markdown', async (
         assert.match(html, /<svg\b/);
         assert.match(html, /child\.html/);
         assert.match(child, /Linked body/);
-        // Inspect the painted output rather than just checking HTML tags.
+        // HTMLタグの有無だけでなく、描画結果を確認する。
         const launch = process.env.MVE_CLI_TEST_BROWSER
             ? { executablePath: process.env.MVE_CLI_TEST_BROWSER, headless: true }
             : { channel: 'msedge', headless: true };

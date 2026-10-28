@@ -1,7 +1,7 @@
 /**
- * Build a separate Node CLI without pulling the VS Code extension host into it.
- * The editor imports the CLI-owned HTML/PDF output modules in-process; the
- * Markdown renderer and resource adapters remain repository-shared sources.
+ * VS Code Extension Hostを取り込まず、独立したNode.js CLIをビルドする。
+ * エディターはCLIが所有するHTML/PDF出力モジュールをプロセス内で読み込む。
+ * Markdownレンダラーとリソースアダプターはリポジトリ共通の実装を使う。
  */
 import * as esbuild from 'esbuild';
 import path from 'node:path';
@@ -43,7 +43,7 @@ await esbuild.build({
   loader: { '.woff2': 'dataurl', '.woff': 'dataurl', '.ttf': 'dataurl' },
   logLevel: 'info'
 });
-// Preserve the original editor's syntax colors (not another theme).
+// エディターで使うシンタックスカラーを維持し、別テーマへ置き換えない。
 const editorCss = postcss.parse(await readFile(path.join(root, 'src/webview/styles.css'), 'utf8'));
 const syntaxRules = [];
 editorCss.walkRules((rule) => {

@@ -1,2 +1,2 @@
-/* Font and KaTeX rules shared with the editor. Syntax colors are supplied by its webview styles. */
+/* フォントとKaTeXの規則をエディターと共有し、シンタックスカラーはWebviewのスタイルから取り込む。 */
 @import "../src/webview/exportFonts.css";

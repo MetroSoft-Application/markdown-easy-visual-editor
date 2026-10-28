@@ -1,7 +1,7 @@
 /**
- * Local-file-only VS Code host adapter for the conversion CLI.
- * Keep this boundary small: it lets the CLI reuse the existing HTML/PDF engines
- * without loading the VS Code extension host.
+ * 変換CLI用のローカルファイル専用VS Codeホストアダプター。
+ * この境界を小さく保ち、CLIが既存のHTML/PDFエンジンを再利用できるようにする。
+ * VS Code Extension Host全体は読み込まない。
  */
 import path from 'node:path';
 import { promises as fs } from 'node:fs';
@@ -21,7 +21,7 @@ export function configureCliHost(config: {
     browserPath = config.browserPath;
 }
 
-/** Minimal file URI, limited to the methods used by the current exporters. */
+/** 現在の出力処理が使うメソッドだけに制限した最小限のファイルURI型。 */
 export class Uri {
     readonly scheme = 'file';
     readonly authority = '';

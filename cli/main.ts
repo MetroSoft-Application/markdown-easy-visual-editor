@@ -1,10 +1,9 @@
 /**
- * @fileoverview Markdown-to-HTML/PDF CLI entrypoint. It parses file-based
- * requests, invokes the CLI-owned output modules, and closes browser resources.
+ * @fileoverview MarkdownからHTML/PDFを出力するCLIのエントリポイント。
+ * ファイル入力を解析してCLI所有の出力モジュールを呼び出し、ブラウザー資源を解放する。
  *
- * Markdown rendering and workspace helpers are shared with the editor; HTML
- * and PDF output implementations are owned by the CLI and also used in-process
- * by the Extension Host.
+ * Markdownの描画とワークスペース関連の処理はエディターと共有する。
+ * HTML/PDF出力の実装はCLIが所有し、Extension Hostからもプロセス内で利用する。
  */
 import path from 'node:path';
 import { promises as fs } from 'node:fs';
@@ -25,11 +24,11 @@ import { prepareExportHtml } from '../src/shared/exportHtml';
 import { printContentCss } from '../src/shared/printContentCss';
 import { SUPPORTED_LANGUAGES, type SupportedLanguage } from '../src/shared/messages';
 
-/** Formats accepted by the file-based CLI entrypoint. */
+/** ファイル入力型CLIが受け付ける出力形式。 */
 type OutputFormat = 'html' | 'pdf';
-/** Heading themes accepted by HTML and PDF output. */
+/** HTML/PDF出力で使用できる見出しテーマ。 */
 type Theme = 'dark' | 'light';
-/** Normalized CLI arguments consumed by the conversion operation. */
+/** 変換処理が受け取る正規化済みのCLI引数。 */
 interface Arguments {
     input: string;
     output?: string;
@@ -44,9 +43,9 @@ interface Arguments {
     outline: boolean;
 }
 
-/** Directory containing the CLI bundle's copied renderer and print assets. */
+/** CLIバンドル用に複製したレンダラーと印刷素材を格納するディレクトリ。 */
 const assetDir = __dirname;
-/** Help text kept in sync with the accepted command-line options. */
+/** 受け付けるコマンドラインオプションと対応させるヘルプ文。 */
 const usage = `Usage: mve-convert INPUT.md [--format html|pdf] [-o OUTPUT]
   --format html|pdf       Output format (default: html)
   -o, --output PATH       Output file (default: INPUT.html or INPUT.pdf)
@@ -62,10 +61,10 @@ const usage = `Usage: mve-convert INPUT.md [--format html|pdf] [-o OUTPUT]
 `;
 
 /**
- * Parse CLI arguments into a normalized conversion request.
- * @param argv - Arguments after the executable name; paths remain resolved by the parser.
- * @returns A conversion request, or undefined when help was requested.
- * @throws Error when an option, value, or required input path is invalid.
+ * CLI引数を正規化済みの変換要求へ解析する。
+ * @param argv - 実行ファイル名より後ろの引数。パスは解析処理内で解決する。
+ * @returns 変換要求。ヘルプ表示が指定された場合はundefined。
+ * @throws オプション、値、必須入力パスが無効な場合にErrorを送出する。
  */
 export function parseArguments(argv: readonly string[]): Arguments | undefined {
     if (argv.includes('-h') || argv.includes('--help')) return undefined;
@@ -131,7 +130,7 @@ export function parseArguments(argv: readonly string[]): Arguments | undefined {
         language, browserPath, workspaceRoot, theme, mermaidTheme, linked, embedImages, outline };
 }
 
-/** Mermaid images may only read real files contained in the workspace. */
+/** Mermaid図の画像参照では、ワークスペース内に存在する実ファイルだけを読み込む。 */
 async function readDiagramLocalImage(
     source: string, sourceFile: string, workspaceRoot: string
 ): Promise<Uint8Array | undefined> {
@@ -153,8 +152,8 @@ async function readDiagramLocalImage(
 }
 
 /**
- * Run the original browser renderer (including DOMPurify), then the original
- * Pele diagram worker. Reusing one browser avoids repeated launch overhead.
+ * DOMPurifyを含む既存のブラウザーレンダラーを実行してから、既存のPele図表ワーカーを実行する。
+ * ブラウザーを再利用し、起動を繰り返すコストを抑える。
  */
 async function renderMarkdownFile(
     page: Page, markdown: string, sourceFile: string, args: Arguments
@@ -217,10 +216,10 @@ async function renderMarkdownFile(
 }
 
 /**
- * Render one Markdown file and write its selected HTML or PDF output.
- * @param args - Validated input, output, browser, and rendering options.
- * @returns Absolute paths written by this conversion.
- * @throws Error when input or output paths are invalid or rendering fails.
+ * Markdown文書を1件描画し、指定されたHTMLまたはPDFを書き出す。
+ * @param args - 検証済みの入力・出力・ブラウザー・描画オプション。
+ * @returns この変換で書き込んだ絶対パス。
+ * @throws 入力または出力パスが無効な場合、または描画に失敗した場合にErrorを送出する。
  */
 export async function convert(args: Arguments): Promise<readonly string[]> {
     const inputStat = await fs.stat(args.input);
@@ -267,7 +266,7 @@ export async function convert(args: Arguments): Promise<readonly string[]> {
             fontFamily: DEFAULT_FONT_FAMILY_STACK,
             editorTheme: args.theme
         };
-        // Exactly the host's collection, link rewrite, image embedding, and HTML writer.
+        // 文書収集、リンク書き換え、画像埋め込み、HTML書き出しはExtension Hostと同じ処理を使う。
         const preparation = await prepareHtmlExport(request);
         if (!preparation) throw new Error('Output path was not selected.');
         const linked = await Promise.all(preparation.documents.slice(1).map(async (document) => ({
@@ -283,7 +282,7 @@ export async function convert(args: Arguments): Promise<readonly string[]> {
     }
 }
 
-/** Run the process entrypoint and translate failures into a nonzero exit code. */
+/** プロセスのエントリポイントを実行し、失敗を0以外の終了コードへ変換する。 */
 async function main(): Promise<void> {
     try {
         const args = parseArguments(process.argv.slice(2));

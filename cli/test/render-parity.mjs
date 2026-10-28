@@ -1,13 +1,13 @@
 /**
- * Compare real VS Code HTML/PDF exports with actual CLI conversions using
- * browser screenshots, PDF.js page rasterization and pixel-level diffs.
+ * ブラウザーのスクリーンショット、PDF.jsによるページ画像化、画素差分を使い、
+ * 実際のVS Code HTML/PDF出力とCLIの変換結果を比較する。
  *
  * node cli/test/render-parity.mjs --input sample.md
  *   --reference-html editor.html --reference-pdf editor.pdf
  *   [--browser /path/to/chromium] [--out-dir parity-results]
  *
- * The references must be exported by the existing editor with matching
- * settings. Merely creating a valid PDF is not an output-parity test.
+ * 比較用ファイルは同じ設定で既存エディターから出力する。
+ * PDFを生成できただけでは、出力互換性を検証したことにならない。
  */
 import { createServer } from 'node:http';
 import { promises as fs } from 'node:fs';
