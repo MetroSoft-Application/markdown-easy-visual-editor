@@ -1,8 +1,10 @@
 /**
- * Markdown -> HTML / PDF command line entry point.
+ * @fileoverview Markdown-to-HTML/PDF CLI entrypoint. It parses file-based
+ * requests, invokes the CLI-owned output modules, and closes browser resources.
  *
- * All actual Markdown, HTML and PDF transformations call the existing editor
- * implementations. No renderer fork is maintained in this CLI.
+ * Markdown rendering and workspace helpers are shared with the editor; HTML
+ * and PDF output implementations are owned by the CLI and also used in-process
+ * by the Extension Host.
  */
 import path from 'node:path';
 import { promises as fs } from 'node:fs';
@@ -10,8 +12,8 @@ import { fileURLToPath } from 'node:url';
 import { parse as parseYaml } from 'yaml';
 import type { Page } from 'playwright-core';
 import { Uri, configureCliHost } from './vscode-bridge';
-import { prepareHtmlExport, writePreparedHtml } from '../src/extension/html';
-import { acquirePdfBrowser, closePdfBrowser, renderPdf } from '../src/extension/pdf';
+import { prepareHtmlExport, writePreparedHtml } from './html';
+import { acquirePdfBrowser, closePdfBrowser, renderPdf } from './pdf';
 import { closePeleRenderer, renderPeleMermaid } from '../src/extension/peleMermaid';
 import { MAX_MERMAID_IMAGE_BYTES, resolveMermaidImageSources } from '../src/extension/mermaidImages';
 import { namespaceMermaidSvg } from '../src/shared/mermaidSvg';
@@ -23,8 +25,11 @@ import { prepareExportHtml } from '../src/shared/exportHtml';
 import { printContentCss } from '../src/shared/printContentCss';
 import { SUPPORTED_LANGUAGES, type SupportedLanguage } from '../src/shared/messages';
 
+/** Formats accepted by the file-based CLI entrypoint. */
 type OutputFormat = 'html' | 'pdf';
+/** Heading themes accepted by HTML and PDF output. */
 type Theme = 'dark' | 'light';
+/** Normalized CLI arguments consumed by the conversion operation. */
 interface Arguments {
     input: string;
     output?: string;
@@ -39,7 +44,9 @@ interface Arguments {
     outline: boolean;
 }
 
+/** Directory containing the CLI bundle's copied renderer and print assets. */
 const assetDir = __dirname;
+/** Help text kept in sync with the accepted command-line options. */
 const usage = `Usage: mve-convert INPUT.md [--format html|pdf] [-o OUTPUT]
   --format html|pdf       Output format (default: html)
   -o, --output PATH       Output file (default: INPUT.html or INPUT.pdf)
@@ -54,6 +61,12 @@ const usage = `Usage: mve-convert INPUT.md [--format html|pdf] [-o OUTPUT]
   -h, --help              Show usage
 `;
 
+/**
+ * Parse CLI arguments into a normalized conversion request.
+ * @param argv - Arguments after the executable name; paths remain resolved by the parser.
+ * @returns A conversion request, or undefined when help was requested.
+ * @throws Error when an option, value, or required input path is invalid.
+ */
 export function parseArguments(argv: readonly string[]): Arguments | undefined {
     if (argv.includes('-h') || argv.includes('--help')) return undefined;
     let input: string | undefined;
@@ -203,6 +216,12 @@ async function renderMarkdownFile(
     }, { markup: html, svgs: rendered }));
 }
 
+/**
+ * Render one Markdown file and write its selected HTML or PDF output.
+ * @param args - Validated input, output, browser, and rendering options.
+ * @returns Absolute paths written by this conversion.
+ * @throws Error when input or output paths are invalid or rendering fails.
+ */
 export async function convert(args: Arguments): Promise<readonly string[]> {
     const inputStat = await fs.stat(args.input);
     if (!inputStat.isFile()) throw new Error('Input must be a file.');
@@ -264,6 +283,7 @@ export async function convert(args: Arguments): Promise<readonly string[]> {
     }
 }
 
+/** Run the process entrypoint and translate failures into a nonzero exit code. */
 async function main(): Promise<void> {
     try {
         const args = parseArguments(process.argv.slice(2));

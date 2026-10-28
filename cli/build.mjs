@@ -1,7 +1,7 @@
 /**
  * Build a separate Node CLI without pulling the VS Code extension host into it.
- * The current shared conversion sources remain in the parent repository until
- * extraction to a versioned conversion-core package is complete.
+ * The editor imports the CLI-owned HTML/PDF output modules in-process; the
+ * Markdown renderer and resource adapters remain repository-shared sources.
  */
 import * as esbuild from 'esbuild';
 import path from 'node:path';

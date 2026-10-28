@@ -1,10 +1,11 @@
 # Markdown Easy Convert — staged CLI extraction
 
-This directory is the initial separation boundary for the Markdown-to-HTML/PDF
-command-line application. It is **not yet an independently releasable package**.
-The present source imports the original rendering/export implementations from
-`../src`; the next extraction phase must move those implementations to a
-versioned shared core and make the editor consume that package.
+This directory owns the HTML/PDF output modules and the Markdown-to-HTML/PDF
+command-line application. The VS Code extension imports the same output
+modules in-process through compatibility facades under `src/extension/`, so
+the editor and CLI use one HTML/PDF writer. The CLI is **not yet an
+independently releasable package** because it still depends on repository
+sources and root-level runtime dependencies.
 
 ## Build
 
@@ -26,23 +27,26 @@ node cli/dist/mve-convert.cjs docs/readme.md --format html --linked --outline
 node cli/dist/mve-convert.cjs docs/readme.md --format pdf --output out/readme.pdf
 ```
 
-The CLI reuses the **original** browser Markdown renderer and sanitizer,
-HTML link/image writer, PDF printer, and Pele Mermaid worker. The same browser is
-reused within one invocation. Local Mermaid images are only read inside the
-specified workspace root. `--linked` renders each linked Markdown document
-with the same renderer rather than the host's reduced fallback renderer.
+The CLI reuses the browser Markdown renderer and sanitizer, HTML link/image
+writer, PDF printer, and Pele Mermaid worker. The same browser is reused within
+one invocation. Local Mermaid images are only read inside the specified
+workspace root. `--linked` renders each linked Markdown document with the same
+renderer rather than the host's reduced fallback renderer.
 
 ## Parity and release gate
 
-The current implementation is an **integration starting point**, not proof of
-pixel-identical output or performance parity. The editor is not switched to the
-CLI, and its existing code paths remain unchanged.
+The editor calls the CLI-owned HTML/PDF output modules in-process while keeping
+its existing Webview render requests, save dialogs, progress messages, and
+unsaved document contents. This is not a separately launched CLI process. The
+shared output path does not by itself prove pixel-identical output or
+performance parity.
 
 Before declaring independent release readiness:
 
-1. Move the Markdown renderer, HTML writer, PDF engine, CSS/fonts, Pele/Marp
-   workers and file/URI abstractions into a versioned shared conversion package.
-   Import it from **both** the editor and the CLI; do not duplicate algorithms.
+1. Move the Markdown renderer, CLI-owned HTML/PDF output modules, CSS/fonts,
+   Pele/Marp workers and file/URI abstractions into a versioned shared
+   conversion package. Import it from **both** the editor and the CLI; do not
+   duplicate algorithms.
 2. Complete the Marp slide conversion path. The CLI currently **fails clearly**
    on Marp-enabled input instead of silently producing a different document.
 3. Add exact support for the editor's configurable output text replacements,
@@ -61,4 +65,5 @@ Before declaring independent release readiness:
    the standalone CLI repository.
 
 Keep `private: true` in this directory's package.json until these gates pass.
-Do not remove the editor's existing renderer/exporter during the transition.
+Keep the Extension Host compatibility facades until all imports and tests use
+the shared conversion package.
