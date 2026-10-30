@@ -1,0 +1,29 @@
+/**
+ * @fileoverview HTML/PDF出力に埋め込むフォント、KaTeX、コードブロック用スタイル。
+ */
+@import "./exportFonts.css";
+
+/** HTML/PDFのコードブロックでWebviewと共通のシンタックス色を使う。 */
+.hljs-keyword,
+.hljs-selector-tag,
+.hljs-literal {
+    color: #c586c0;
+}
+
+.hljs-string,
+.hljs-attr {
+    color: #ce9178;
+}
+
+.hljs-title,
+.hljs-section {
+    color: #dcdcaa;
+}
+
+.hljs-comment {
+    color: #6a9955;
+}
+
+.hljs-number {
+    color: #b5cea8;
+}

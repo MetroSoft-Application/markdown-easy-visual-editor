@@ -148,12 +148,11 @@ vi.mock('vscode',
         },
     }));
 
-const htmlExportMock = vi.hoisted(() => ({
-    prepareHtmlExport: vi.fn(async (..._args: any[]): Promise<any> => ({ documents: [] })),
-    writePreparedHtml: vi.fn(async (..._args: any[]): Promise<any> => undefined),
+/** 保存要求だけが独立エンジンを呼び、HTMLプレビューには影響しないことを確認する。 */
+const exportEngineMock = vi.hoisted(() => ({
+    exportWithEngine: vi.fn(async (..._args: any[]): Promise<any> => undefined),
 }));
-
-vi.mock('../src/extension/html', () => htmlExportMock);
+vi.mock('../src/extension/exportEngine', () => exportEngineMock);
 
 const htmlPreviewMock = vi.hoisted(() => ({ openHtmlPreview: vi.fn(async () => undefined) }));
 vi.mock('../src/extension/htmlPreview', () => htmlPreviewMock);
@@ -280,10 +279,8 @@ afterEach(
         vscodeMock.withProgress.mockImplementation(async (_options: unknown, task: () => Promise<unknown>) => task());
         vscodeMock.openExternal.mockReset();
         vscodeMock.openExternal.mockResolvedValue(true);
-        htmlExportMock.prepareHtmlExport.mockReset();
-        htmlExportMock.prepareHtmlExport.mockResolvedValue({ documents: [] });
-        htmlExportMock.writePreparedHtml.mockReset();
-        htmlExportMock.writePreparedHtml.mockResolvedValue(undefined);
+        exportEngineMock.exportWithEngine.mockReset();
+        exportEngineMock.exportWithEngine.mockResolvedValue(undefined);
         vscodeMock.configuration.get.mockClear();
         vscodeMock.configuration.inspect.mockClear();
         vscodeMock.configuration.update.mockReset();
@@ -295,21 +292,45 @@ afterEach(
     });
 
 describe('HTML export completion action in the extension host', () => {
+    /** 未確認の編集内容を古い文書版で出力成功にしない。 */
+    it('rejects an export snapshot whose Host document version changed', async () => {
+        const provider = new MarkdownEasyVisualEditorProvider(createContext());
+        const document = createDocument('file:///workspace/root/source.md');
+        document.getText = () => '# Newer';
+        const panel = addPanel(provider, document);
+        await (provider as any).handleMessage(document, panel, {
+            type: 'exportHtml',
+            requestId: 'stale-export',
+            markdown: '# Older',
+            documentVersion: 1,
+            rendering: { renderFormat: 'mixed', mermaidTheme: 'auto', mermaidFontSize: 16,
+                fontFamily: 'sans-serif', remoteImagesEnabled: false, language: 'en' },
+            options: { embedImages: false, convertLinkedMarkdown: false,
+                showOutlineSidebar: false, saveWithoutDialog: true },
+            textReplacements: [],
+        });
+        expect(exportEngineMock.exportWithEngine).not.toHaveBeenCalled();
+        expect(panel.webview.postMessage).toHaveBeenCalledWith(expect.objectContaining({
+            type: 'operationFailed', requestId: 'stale-export'
+        }));
+    });
+
     it('opens exported HTML in the dedicated preview', async () => {
         const provider = new MarkdownEasyVisualEditorProvider(createContext());
         const document = createDocument('file:///workspace/root/source.md');
         const panel = addPanel(provider, document);
         const target = vscodeMock.file('/workspace/root/out/source.html');
-        htmlExportMock.prepareHtmlExport.mockResolvedValue({ documents: [] });
-        htmlExportMock.writePreparedHtml.mockResolvedValue({ target, paths: [target] });
+        document.getText = () => '# Section';
+        exportEngineMock.exportWithEngine.mockResolvedValue({ target, paths: [target] });
         vscodeMock.showInformationMessage.mockImplementation(async (_message, openAction) => openAction);
 
         await (provider as any).handleMessage(document, panel, {
             type: 'exportHtml',
             requestId: 'html-open-test',
             markdown: '# Section',
-            html: '<h1 id="section">Section</h1>',
-            css: '',
+            documentVersion: 1,
+            rendering: { renderFormat: 'mixed', mermaidTheme: 'auto', mermaidFontSize: 16,
+                fontFamily: 'sans-serif', remoteImagesEnabled: false, language: 'en' },
             options: {
                 embedImages: false,
                 convertLinkedMarkdown: false,
@@ -329,16 +350,17 @@ describe('HTML export completion action in the extension host', () => {
         const document = createDocument('file:///workspace/root/source.md');
         const panel = addPanel(provider, document);
         const target = vscodeMock.file('/workspace/root/out/source.html');
-        htmlExportMock.prepareHtmlExport.mockResolvedValue({ documents: [] });
-        htmlExportMock.writePreparedHtml.mockResolvedValue({ target, paths: [target] });
+        document.getText = () => '# Section';
+        exportEngineMock.exportWithEngine.mockResolvedValue({ target, paths: [target] });
         vscodeMock.showInformationMessage.mockResolvedValue(undefined);
 
         await (provider as any).handleMessage(document, panel, {
             type: 'exportHtml',
             requestId: 'html-dismiss-test',
             markdown: '# Section',
-            html: '<h1 id="section">Section</h1>',
-            css: '',
+            documentVersion: 1,
+            rendering: { renderFormat: 'mixed', mermaidTheme: 'auto', mermaidFontSize: 16,
+                fontFamily: 'sans-serif', remoteImagesEnabled: false, language: 'en' },
             options: {
                 embedImages: false,
                 convertLinkedMarkdown: false,

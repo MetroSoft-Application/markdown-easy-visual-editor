@@ -1,27 +1,27 @@
 /**
- * @fileoverview HTML出力を組み立て、テーマ別の見出し色、設定、リソースURIを反映する。HTMLへ入る値をエスケープする。
+ * @fileoverview 独立CLIが所有するHTML出力処理。設定・リンク・画像を反映してHTMLを書き出す。
  */
 import { promises as fs } from 'node:fs';
 import { createHash } from 'node:crypto';
 import path from 'node:path';
-import * as vscode from 'vscode';
+import { fileURLToPath } from 'node:url';
 import { decodeHTMLAttribute } from 'entities';
 import { Marked, Renderer } from 'marked';
-import { getMessages } from '../shared/messages';
-import { DEFAULT_PDF_OPTIONS, type EditorTheme, type HtmlExportOptions } from '../shared/protocol';
-import { fontFamilyForCss } from '../shared/fontFamily';
-import { escapeHtml } from '../shared/escapeHtml';
-import { footnoteDefinitionSyntax, mathBlockSyntax, tableOfContentsSyntax } from '../shared/markdownBlockSyntax';
+import { getMessages } from './source/shared/messages';
+import { DEFAULT_PDF_OPTIONS, type EditorTheme, type HtmlExportOptions } from './source/shared/protocol';
+import { fontFamilyForCss } from './source/shared/fontFamily';
+import { escapeHtml } from './source/shared/escapeHtml';
+import { footnoteDefinitionSyntax, mathBlockSyntax, tableOfContentsSyntax } from './source/shared/markdownBlockSyntax';
 import {
     collectLocalResourceReferences,
     getOutlineForFormatSource,
     nextHeadingAnchorId,
     WORKSPACE_SECTION_LINK_TITLE,
     type OutlineItem
-} from '../shared/markdown';
-import { renderTextile } from '../shared/textileAdapter';
-import { isDocumentRelativeResourcePath, workspaceRootPathSegments } from './resourceLink';
-import { decodeLocalResourceSource } from './resourceCheck';
+} from './source/shared/markdown';
+import { renderTextile } from './source/shared/textileAdapter';
+import { isDocumentRelativeResourcePath, workspaceRootPathSegments } from './source/shared/resourceLink';
+import { decodeLocalResourceSource } from './source/shared/resourceCheck';
 
 /**
  * HTMLで送受信するメッセージまたは要求のデータ形状。
@@ -56,7 +56,11 @@ export interface HtmlExportRequest {
     /**
      * HTMLで読み書きするリソースの場所。
      */
-    documentUri: vscode.Uri;
+    documentPath: string;
+    /** Destination selected by the caller, independently of any editor dialog. */
+    outputPath: string;
+    /** Root used for slash-prefixed workspace links. */
+    workspaceRoot: string;
 
     /**
      * HTMLで扱うlanguageの文字列。
@@ -77,12 +81,12 @@ export interface HtmlExportResult {
     /**
      * 出力HTMLファイルを保存する最終パス。
      */
-    target: vscode.Uri;
+    target: string;
 
     /**
      * HTMLで扱うpathsの一覧。
      */
-    paths: vscode.Uri[];
+    paths: string[];
 }
 
 /**
@@ -93,7 +97,7 @@ export interface HtmlDocument {
     /**
      * VS Codeまたはブラウザーが扱うリソースURI。
      */
-    uri: vscode.Uri;
+    uri: string;
 
     /**
      * HTMLで読み書きするリソースの場所。
@@ -124,7 +128,7 @@ export interface HtmlExportPreparation {
     /**
      * export処理が保存先として選んだHTMLファイルのURI。
      */
-    target: vscode.Uri;
+    target: string;
 
     /**
      * 文書URIと開いている文書オブジェクトの対応表。
@@ -149,40 +153,14 @@ export interface HtmlRenderedDocument {
 }
 
 /**
- * Markdownと関連HTML文書を解決し、設定を適用したHTMLを保存する。
- * @param request - HTML本文・CSS・元文書URI・言語・フォント・出力設定をまとめた要求。
- * @returns 書き出したHTMLのURIと関連文書情報。保存ダイアログをキャンセルした場合はundefined。
- */
-export async function exportHtml(request: HtmlExportRequest): Promise<HtmlExportResult | undefined> {
-    const preparation = await prepareHtmlExport(request);
-    if (!preparation) return undefined;
-    return writePreparedHtml(request, preparation);
-}
-
-/**
  * HTMLの保存先を決定し、出力対象のローカル文書を収集する。
  * @param request - HTML本文・CSS・元文書URI・言語・フォント・出力設定をまとめた要求。
  * @returns 書き出し用HTMLと関連文書を準備した結果。保存をキャンセルした場合はundefined。
  */
 export async function prepareHtmlExport(request: HtmlExportRequest): Promise<HtmlExportPreparation | undefined> {
-    const defaultUri = request.documentUri.scheme === 'file'
-        ? vscode.Uri.file(path.join(
-            path.dirname(request.documentUri.fsPath),
-            `${path.basename(request.documentUri.fsPath, path.extname(request.documentUri.fsPath))}.html`
-        ))
-        : undefined;
-    const target = request.options.saveWithoutDialog && defaultUri
-        ? defaultUri
-        : await vscode.window.showSaveDialog({
-            defaultUri,
-            filters: { HTML: ['html', 'htm'] },
-            saveLabel: 'HTML出力'
-        });
-    if (!target) return undefined;
-
-    const targetPath = ensureHtmlExtension(target.fsPath);
+    const targetPath = ensureHtmlExtension(request.outputPath);
     return {
-        target: vscode.Uri.file(targetPath),
+        target: targetPath,
         documents: await collectDocuments(request, targetPath)
     };
 }
@@ -191,18 +169,20 @@ export async function prepareHtmlExport(request: HtmlExportRequest): Promise<Htm
  * HTMLの値を保存先または共有状態へ書き出す。
  * @param request - HTML本文・CSS・元文書URI・言語・フォント・出力設定をまとめた要求。
  * @param preparation - HTML保存先URIと、出力対象文書のレコード一覧。
- * @param renderedDocuments - Webviewから受け取った識別子付きHTML描画結果の一覧。
+ * @param renderedDocuments - リンク先文書をCLIで描画した識別子付きHTMLの一覧。
+ * @param signal - 中断時に残りのファイル書き込みを止める通知。
  * @returns 保存したHTMLファイルのURIと、出力で参照するファイルURI一覧。
  */
 export async function writePreparedHtml(
     request: HtmlExportRequest,
     preparation: HtmlExportPreparation,
-    renderedDocuments: readonly HtmlRenderedDocument[] = []
+    renderedDocuments: readonly HtmlRenderedDocument[] = [],
+    signal?: AbortSignal
 ): Promise<HtmlExportResult> {
     const renderedById = new Map(renderedDocuments.map(
         /**
          * 各documentから識別子を取り出して一覧化する。
-         * @param document - Webviewで描画された識別子とHTML本文を持つ結果レコード。
+         * @param document - CLIで描画された識別子とHTML本文を持つ結果レコード。
          * @returns 識別子を取り出した変換結果の一覧。
          */
         (document) => [normalizePath(document.id), document.html]));
@@ -218,13 +198,15 @@ export async function writePreparedHtml(
          * @returns htmlを取り出した変換結果の一覧。
          */
         async (document) => {
+            signal?.throwIfAborted();
             const body = await rewriteBody(
                 document.html,
                 document.sourcePath,
                 document.outputPath,
                 documents,
                 request.options,
-                request.language
+                request.language,
+                request.workspaceRoot
             );
             const standalone = buildStandaloneHtml(
                 body,
@@ -236,10 +218,15 @@ export async function writePreparedHtml(
                 getHtmlRenderFormat(document.sourcePath),
                 request.editorTheme
             );
+            signal?.throwIfAborted();
             await fs.mkdir(path.dirname(document.outputPath), { recursive: true });
-            await fs.writeFile(document.outputPath, standalone, 'utf8');
-            return vscode.Uri.file(document.outputPath);
+            signal?.throwIfAborted();
+            await fs.writeFile(document.outputPath, standalone, { encoding: 'utf8', signal });
+            signal?.throwIfAborted();
+            return document.outputPath;
         }));
+
+    signal?.throwIfAborted();
 
     return {
         target: preparation.target,
@@ -256,11 +243,9 @@ export async function writePreparedHtml(
 async function collectDocuments(request: HtmlExportRequest, targetPath: string): Promise<HtmlDocument[]> {
     const documents: HtmlDocument[] = [];
     const byPath = new Map<string, HtmlDocument>();
-    const rootPath = request.documentUri.scheme === 'file'
-        ? path.resolve(request.documentUri.fsPath)
-        : '';
+    const rootPath = path.resolve(request.documentPath);
     const root = {
-        uri: request.documentUri,
+        uri: rootPath,
         sourcePath: rootPath,
         markdown: request.markdown,
         html: request.html,
@@ -284,24 +269,25 @@ async function collectDocuments(request: HtmlExportRequest, targetPath: string):
             const linkedUri = resolveLocalFileUri(
                 document.uri,
                 reference.source,
-                reference.workspaceRooted === true
+                reference.workspaceRooted === true,
+                request.workspaceRoot
             );
-            if (!linkedUri || !isMarkdownPath(linkedUri.fsPath)) continue;
-            const linkedPath = normalizePath(linkedUri.fsPath);
+            if (!linkedUri || !isMarkdownPath(linkedUri)) continue;
+            const linkedPath = normalizePath(linkedUri);
             if (byPath.has(linkedPath)) continue;
             let markdown: string;
             try {
-                markdown = Buffer.from(await vscode.workspace.fs.readFile(linkedUri)).toString('utf8');
+                markdown = await fs.readFile(linkedUri, 'utf8');
             } catch {
                 // 存在しないリンクは元のリンクを残し、他のページの変換を継続する。
                 continue;
             }
             const linkedDocument: HtmlDocument = {
                 uri: linkedUri,
-                sourcePath: linkedUri.fsPath,
+                sourcePath: linkedUri,
                 markdown,
-                html: renderLinkedMarkdown(markdown, getHtmlRenderFormat(linkedUri.fsPath)),
-                outputPath: outputPathFor(linkedUri.fsPath, rootPath, targetPath)
+                html: renderLinkedMarkdown(markdown, getHtmlRenderFormat(linkedUri)),
+                outputPath: outputPathFor(linkedUri, rootPath, targetPath)
             };
             byPath.set(linkedPath, linkedDocument);
             documents.push(linkedDocument);
@@ -314,7 +300,7 @@ async function collectDocuments(request: HtmlExportRequest, targetPath: string):
  * Markdownを見出しアンカーとローカル参照情報を含むHTMLへ描画する。
  * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
  * @param format - MarkdownまたはTextile文書の描画形式。
- * @returns HTML出力の初期変換本文。最終出力時にはWebview描画結果で置換されます。
+ * @returns リンク先文書のHTML本文。CLIで再描画した結果があれば出力前に置換する。
  */
 function renderLinkedMarkdown(markdown: string, format: 'markdown' | 'mixed' | 'textile'): string {
     if (format === 'textile') return renderTextile(markdown);
@@ -511,7 +497,8 @@ async function rewriteBody(
     outputPath: string,
     documents: HtmlDocument[],
     options: HtmlExportOptions,
-    language: string
+    language: string,
+    workspaceRoot: string
 ): Promise<string> {
     let result = stripUnsafeMarkup(html);
     const imageTags = [...result.matchAll(/<img\b[^>]*>/gi)].map(
@@ -530,7 +517,7 @@ async function rewriteBody(
          * @param tag - 書き換えるa要素のHTMLタグ全体。
 
          */
-        (tag) => rewriteLinkTag(tag, sourcePath, outputPath, documents, options));
+        (tag) => rewriteLinkTag(tag, sourcePath, outputPath, documents, options, workspaceRoot));
     result = result.replace(
         /\sdata-(?:original-src|mve-[\w-]+)(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?/gi,
         /** 出力で折り返し方を決める2属性だけを残し、他のWebview内部属性を除く。 */
@@ -870,7 +857,8 @@ function rewriteLinkTag(
     sourcePath: string,
     outputPath: string,
     documents: HtmlDocument[],
-    options: HtmlExportOptions
+    options: HtmlExportOptions,
+    workspaceRoot: string
 ): string {
     const original = decodeHtmlEntities(readAttribute(tag, 'data-mve-link') ?? readAttribute(tag, 'href'));
     if (!original || !sourcePath) {
@@ -882,7 +870,7 @@ function rewriteLinkTag(
     if (isRemoteResource(original)) return cleanDataAttributes(tag);
     const workspaceRooted = readAttribute(tag, 'data-mve-workspace-rooted') === 'true';
     const linkedPath = workspaceRooted
-        ? resolveLocalFileUri(vscode.Uri.file(sourcePath), original, true)?.fsPath
+        ? resolveLocalFileUri(sourcePath, original, true, workspaceRoot)
         : resolveLocalPath(sourcePath, original);
     if (!linkedPath) return cleanDataAttributes(tag);
     const linkedDocument = documents.find(
@@ -903,27 +891,25 @@ function rewriteLinkTag(
  * @param source - MarkdownまたはHTMLから取得したローカルURI、パス、参照文字列。
  * @returns 条件に一致する値。未検出時はundefinedまたはnull。
  */
-function resolveLocalFileUri(baseUri: vscode.Uri, source: string, workspaceRooted = false): vscode.Uri | undefined {
+function resolveLocalFileUri(basePath: string, source: string, workspaceRooted = false, workspaceRoot = path.dirname(basePath)): string | undefined {
     const clean = decodeLocalResourceSource(source);
     if (!clean || isRemoteResource(clean)) return undefined;
     if (workspaceRooted && clean.startsWith('/')) {
-        if (baseUri.scheme !== 'file') return undefined;
         const segments = workspaceRootPathSegments(clean);
-        const workspaceFolder = vscode.workspace.getWorkspaceFolder(baseUri);
-        if (!segments || !workspaceFolder || workspaceFolder.uri.scheme !== 'file') return undefined;
-        return vscode.Uri.file(path.join(workspaceFolder.uri.fsPath, ...segments));
+        if (!segments) return undefined;
+        const relative = path.relative(workspaceRoot, basePath);
+        if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) return undefined;
+        return path.join(workspaceRoot, ...segments);
     }
     if (workspaceRooted && !isDocumentRelativeResourcePath(clean)) return undefined;
     if (/^file:/i.test(clean)) {
         try {
-            const parsed = vscode.Uri.parse(clean);
-            return parsed.scheme === 'file' ? parsed : undefined;
+            return fileURLToPath(clean);
         } catch {
             return undefined;
         }
     }
-    if (baseUri.scheme !== 'file') return undefined;
-    return vscode.Uri.file(resolveLocalPath(baseUri.fsPath, clean));
+    return resolveLocalPath(basePath, clean);
 }
 
 /**
@@ -936,7 +922,7 @@ function resolveLocalPath(baseFilePath: string, source: string): string {
     const clean = decodeLocalResourceSource(source);
     if (/^file:/i.test(clean)) {
         try {
-            return path.normalize(vscode.Uri.parse(clean).fsPath);
+            return path.normalize(fileURLToPath(clean));
         } catch {
             return clean;
         }
@@ -1262,7 +1248,7 @@ const HTML_CSS = /**
   /* 白背景のHTML出力では見出しセルを本文セルから色で判別できるようにする。 */
   .mve-html table th { color: #202124; background-color: #bdd5ef; }
   table th, table td { word-break: normal; overflow-wrap: anywhere; }
-  /* プレビュー用のnowrap属性が出力へ残っても、表示幅不足時は折り返す。 */
+  /* 入力HTMLのnowrap属性が残っても、表示幅不足時は折り返す。 */
   table th[data-mve-nowrap="true"], table td[data-mve-nowrap="true"] { white-space: normal; overflow-wrap: anywhere; }
   /* 短い候補の列は内容幅を保ち、表で幅が足りない場合だけ緊急折り返しを許可する。 */
   table th[data-mve-short-value-candidate="true"], table td[data-mve-short-value-candidate="true"] { word-break: keep-all; overflow-wrap: break-word; }

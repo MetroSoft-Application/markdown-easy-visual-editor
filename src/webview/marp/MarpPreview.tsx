@@ -7,7 +7,6 @@ import React, {
   useEffect,
   useImperativeHandle,
   useLayoutEffect,
-  useMemo,
   useRef,
   useState,
 } from "react";
@@ -18,14 +17,7 @@ import type { MarpImageResizeTarget } from "../../shared/imageResize";
 import type { PreviewViewportAnchor } from "../preview/scrollAnchors";
 import { mermaidErrorMessage, renderMermaidSvg } from "../markdown/mermaidRenderer";
 import type { MermaidTheme } from "../markdown/mermaidRenderer";
-import { sanitizeRenderedMarkdown } from "../markdown/markdownSanitizer";
 import { ImagePreviewDialog } from "../components/RenderedMarkdown";
-import {
-  createMarpPdfExportContent,
-  createMarpPdfExportRenderSignature,
-  isMarpPdfExportReady,
-} from "./marpPdfExport";
-import type { MarpPdfExportContent } from "./marpPdfExport";
 import type { MarpRenderResult, MarpSlideSourceRange } from "./marpRenderer";
 import { findMarpSourceRangeAtOffset } from "./marpSourceRanges";
 import { isCurrentMarpWorkerResponse } from "./marpWorkerProtocol";
@@ -110,8 +102,6 @@ export interface MarpPreviewHandle {
   captureViewport(): PreviewViewportAnchor | undefined;
   /** 指定本文と、iframeへ反映済みのスライド位置情報の生成元が一致するかを返す。 */
   isMarkdownRendered(sourceMarkdown: string): boolean;
-  /** 現在の本文と描画設定に一致する完成結果だけをPDFへ渡す。 */
-  getPdfExportContent(sourceMarkdown: string): MarpPdfExportContent | undefined;
 }
 
 /**
@@ -182,8 +172,6 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
     const imageResizeLabelRef = useRef(messages.app.imageControls.resize);
     imageResizeLabelRef.current = messages.app.imageControls.resize;
     const latestResultRef = useRef<MarpWorkerResponse | undefined>(undefined);
-    // PDF出力が古いMermaid設定の結果を再利用しないよう、完成結果の生成設定を保持する。
-    const latestResultSettingsSignatureRef = useRef<string | undefined>(undefined);
     const lastViewportAnchorRef = useRef<PreviewViewportAnchor | undefined>(undefined);
     const pendingScrollTopOffsetRef = useRef(0);
     const frameReadyRef = useRef(false);
@@ -191,20 +179,6 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
     const rangesRef = useRef<MarpSlideSourceRange[]>([]);
     const currentMarkdownRef = useRef(markdown);
     currentMarkdownRef.current = markdown;
-    /**
-     * 出力世代署名にはMarkdown全文を含むため、描画条件が変わる場合に限ってシリアライズする。
-     */
-    const currentRenderSettingsSignature = useMemo(
-      () => createMarpPdfExportRenderSignature(markdown, settings),
-      [
-        markdown,
-        settings.editorTheme,
-        settings.language,
-        settings.mermaidTheme,
-        settings.mermaidFontSize,
-        settings.remoteImagesEnabled,
-      ],
-    );
     const renderedMarkdownRef = useRef<string | undefined>(undefined);
     // ranges/metricsと同じ世代の本文を、iframeのlayout受理時だけ更新する。
     const layoutMarkdownRef = useRef<string | undefined>(undefined);
@@ -337,24 +311,7 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
       scrollToOffset,
       captureViewport,
       isMarkdownRendered: (sourceMarkdown: string) => layoutMarkdownRef.current === sourceMarkdown,
-      getPdfExportContent: (sourceMarkdown: string) => {
-        const result = latestResultRef.current;
-        if (!result || !isMarpPdfExportReady({
-          requestedMarkdown: sourceMarkdown,
-          layoutMarkdown: layoutMarkdownRef.current,
-          renderedMarkdown: renderedMarkdownRef.current,
-          renderedSettingsSignature: latestResultSettingsSignatureRef.current,
-          currentSettingsSignature: currentRenderSettingsSignature,
-          hasRenderedResult: true,
-        })) {
-          return undefined;
-        }
-        return createMarpPdfExportContent(
-          result.slides.map((slide) => sanitizeRenderedMarkdown(slide, true)),
-          result.css,
-        );
-      },
-    }), [scrollToOffset, captureViewport, currentRenderSettingsSignature]);
+    }), [scrollToOffset, captureViewport]);
 
     useEffect(() => {
       onStartupStage?.("preview-mounted");
@@ -383,7 +340,6 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
 
     useLayoutEffect(() => {
       const currentGeneration = ++generationRef.current;
-      const renderSettingsSignature = currentRenderSettingsSignature;
       assetDataUrlCacheRef.current.clear();
       const mermaidRenderController = new AbortController();
       // 次の描画が完了するまで現在のスライドと位置情報を保持する。
@@ -480,7 +436,6 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
               if (settled || generationRef.current !== generation) return;
               settled = true;
               latestResultRef.current = resolvedResponse;
-              latestResultSettingsSignatureRef.current = renderSettingsSignature;
               renderedMarkdownRef.current = source;
               setRenderDurationMs(resolvedResponse.renderDurationMs);
               setRenderCount((count) => count + 1);

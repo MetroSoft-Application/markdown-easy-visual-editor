@@ -95,32 +95,6 @@ const PDF_EXPORT_RENDER_TIMEOUT_MS = 60_000;
 const PDF_CONTEXT_CLOSE_TIMEOUT_MS = 2_000;
 
 /**
- * 保存先または一時プレビューへPDFを生成し、処理後にブラウザー資源を解放する。
- * @param request - HTML・CSS、正規表現置換を含むPDF設定、元Markdown URI、言語、出力用途、キャンセルSignalをまとめた要求。
- * @returns 保存したPDFのURI。保存をキャンセルした場合はundefined。
- * @throws ブラウザ起動、HTML設定、またはPDF出力に失敗した場合。
- */
-export async function exportPdf(request: PdfExportRequest): Promise<vscode.Uri | undefined> {
-    // 保存先を決め、HTMLをPDFへ変換してブラウザ資源を確実に解放する。
-    const defaultUri = request.documentUri.with({
-        path: request.documentUri.path.replace(/\.(?:md|markdown)$/i, '') + '.pdf'
-    });
-    const target = request.options.saveWithoutDialog
-        ? defaultUri
-        : await vscode.window.showSaveDialog({
-            defaultUri,
-            filters: { PDF: ['pdf'] },
-            saveLabel: getMessages(request.language).ribbon.labels.exportPdf
-        });
-    if (!target) return undefined;
-
-    // MarkdownのHTMLを単独で表示できる文書へ組み立て、PDF出力用ブラウザを起動する。
-    const pdf = await renderPdf(request);
-    await fs.writeFile(target.fsPath, pdf);
-    return target;
-}
-
-/**
  * 印刷用HTMLと設定からPDFを生成し、出力先へ保存する。
  * @param request - PDF化するHTML・CSS、PDF設定、元Markdown URI、言語、出力用途、キャンセルSignalをまとめた要求。
  * @returns 生成したPDFファイルのバイト列。

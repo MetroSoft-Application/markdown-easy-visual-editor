@@ -1,0 +1,41 @@
+{
+  "name": "@metrosoft/markdown-easy-convert",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Standalone Markdown to HTML/PDF CLI extraction workspace",
+  "bin": {
+    "mve-convert": "dist/mve-convert.cjs"
+  },
+  "files": [
+    "dist/**",
+    "browsers.json"
+  ],
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "playwright-core": "1.62.1"
+  },
+  "devDependencies": {
+    "@fontsource/noto-sans-jp": "5.3.0",
+    "@fontsource/noto-sans-mono": "5.3.0",
+    "@marp-team/marp-core": "4.4.0",
+    "@types/node": "24.13.3",
+    "chromium-bidi": "0.5.22",
+    "dompurify": "3.4.13",
+    "entities": "4.5.0",
+    "esbuild": "0.28.2",
+    "highlight.js": "11.11.2",
+    "katex": "0.16.47",
+    "marked": "18.0.9",
+    "pele": "1.6.0",
+    "textile-js": "2.1.1",
+    "typescript": "7.0.2",
+    "yaml": "2.9.0"
+  },
+  "scripts": {
+    "build": "node build.mjs",
+    "check": "tsc -p tsconfig.json --noEmit",
+    "test": "npm run build && node --test test/cli.test.mjs"
+  }
+}

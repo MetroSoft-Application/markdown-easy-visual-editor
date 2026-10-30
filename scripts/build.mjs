@@ -216,9 +216,25 @@ async function copyAssets() {
   ]);
 }
 
+/**
+ * 保存要求時だけ読むCLI成果物を、プレビュー資産と別ディレクトリへ配置する。
+ * CLIビルドはcli/内のソースと依存のみを入力にし、拡張側へ同期しない。
+ */
+async function copyExportEngine() {
+  await import('../cli/build.mjs');
+  await mkdir('dist/export-engine', { recursive: true });
+  for (const asset of ['mve-convert.cjs', 'print-assets.css', 'pele-render-worker.js',
+    'markdown-fallback.js', 'output-replacements.js']) {
+    await copyFile(`cli/dist/${asset}`, `dist/export-engine/${asset}`);
+  }
+  await copyFile('cli/browsers.json', 'dist/browsers.json');
+  await copyFile('cli/package.json', 'dist/package.json');
+}
+
 // dist は生成物専用である。過去ビルドの chunk や runtime を VSIX へ混入させない。
 await rm('dist', { recursive: true, force: true });
 await copyAssets();
+await copyExportEngine();
 
 if (watch) {
   const extensionContext = await esbuild.context(extensionOptions);

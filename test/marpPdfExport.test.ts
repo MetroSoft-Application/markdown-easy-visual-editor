@@ -2,11 +2,7 @@
  * @fileoverview Marp PDF用HTMLの生成と、本文・設定変更直後の古い描画結果を出力しない仕様を検証する。
  */
 import { describe, expect, it } from "vitest";
-import {
-  createMarpPdfExportContent,
-  createMarpPdfExportRenderSignature,
-  isMarpPdfExportReady,
-} from "../src/webview/marp/marpPdfExport";
+import { createMarpPdfExportContent } from "../cli/source/webview/marp/marpPdfExport";
 
 describe("Marp PDF export content", () => {
   it("wraps each rendered slide separately and retains Marp CSS", () => {
@@ -30,41 +26,4 @@ describe("Marp PDF export content", () => {
     expect(createMarpPdfExportContent([], "")).toBeUndefined();
   });
 
-  /**
-   * 同じ本文の旧フォントサイズ結果が、設定変更後のPDF出力へ再利用されないことを確認する。
-   */
-  it("waits for the current font-size render before exporting the same Markdown", () => {
-    const markdown = "---\nmarp: true\n---\n```mermaid\nflowchart TD\n  A --> B\n```";
-    const settings = {
-      editorTheme: "dark" as const,
-      language: "ja" as const,
-      mermaidTheme: "default" as const,
-      remoteImagesEnabled: false,
-    };
-    const previousSettingsSignature = createMarpPdfExportRenderSignature(
-      markdown,
-      { ...settings, mermaidFontSize: 16 },
-    );
-    const currentSettingsSignature = createMarpPdfExportRenderSignature(
-      markdown,
-      { ...settings, mermaidFontSize: 28 },
-    );
-
-    expect(isMarpPdfExportReady({
-      requestedMarkdown: markdown,
-      layoutMarkdown: markdown,
-      renderedMarkdown: markdown,
-      renderedSettingsSignature: previousSettingsSignature,
-      currentSettingsSignature,
-      hasRenderedResult: true,
-    })).toBe(false);
-    expect(isMarpPdfExportReady({
-      requestedMarkdown: markdown,
-      layoutMarkdown: markdown,
-      renderedMarkdown: markdown,
-      renderedSettingsSignature: currentSettingsSignature,
-      currentSettingsSignature,
-      hasRenderedResult: true,
-    })).toBe(true);
-  });
 });

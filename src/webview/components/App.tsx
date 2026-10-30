@@ -102,7 +102,6 @@ import { RenderedMarkdown, type InspectorTarget } from "./RenderedMarkdown";
 import { PdfDocumentPreview } from "./PdfDocumentPreview";
 import { MarpPreview } from "../marp/MarpPreview";
 import type { MarpPreviewHandle } from "../marp/MarpPreview";
-import type { MarpPdfExportContent } from "../marp/marpPdfExport";
 import type { MarpSlideSourceRange } from "../marp/marpRenderer";
 import { Ribbon, type RibbonCommand } from "../ribbon/Ribbon";
 import {
@@ -682,8 +681,6 @@ export function App(): React.JSX.Element {
   const scrollSyncEnabled = settings.scrollSyncEnabled !== false;
   const scrollSyncEnabledRef = useRef(scrollSyncEnabled);
   scrollSyncEnabledRef.current = scrollSyncEnabled;
-  const [exportStageRequested, setExportStageRequested] = useState(false);
-  const [marpPdfExportRequested, setMarpPdfExportRequested] = useState(false);
   const previewVisible =
     mode === "preview" || (mode === "split" && splitView !== "text");
   const hasMarpFrontMatterCandidateValue = useMemo(
@@ -712,9 +709,8 @@ export function App(): React.JSX.Element {
   const marpPreviewMarkdown = marpDetectionMarkdown ?? previewMarkdown;
   const markdownSnapshotEnabled =
     initialized &&
-    (!previewVisible || previewMarkdown === markdown || exportStageRequested) &&
-    (exportStageRequested ||
-      !previewVisible ||
+    (!previewVisible || previewMarkdown === markdown) &&
+    (!previewVisible ||
       !hasMarpFrontMatterCandidateValue ||
       (marpDetectionResolvedForCurrentMarkdown && !isMarpDetected)) &&
     !marpDetectionFailed;
@@ -739,9 +735,6 @@ export function App(): React.JSX.Element {
   const marpDetectionRequestRef = useRef<
     { requestId: string; markdown: string } | undefined
   >(undefined);
-  const marpPdfDetectionResultRef = useRef<
-    { markdown: string; isMarp: boolean; failed: boolean } | undefined
-  >(undefined);
   const previewMarkdownForMarpRef = useRef(previewMarkdown);
   previewMarkdownForMarpRef.current = previewMarkdown;
   const messages = useMemo(
@@ -755,7 +748,7 @@ export function App(): React.JSX.Element {
     () => {
       if (
         !initialized ||
-        (!previewVisible && !marpPdfExportRequested) ||
+        !previewVisible ||
         !hasMarpFrontMatterCandidateValue
       ) {
         marpDetectionRequestRef.current = undefined;
@@ -766,7 +759,6 @@ export function App(): React.JSX.Element {
         return;
       }
 
-      marpPdfDetectionResultRef.current = undefined;
       const request = {
         requestId: createClientId(),
         markdown: previewMarkdown,
@@ -788,7 +780,6 @@ export function App(): React.JSX.Element {
     [
       hasMarpFrontMatterCandidateValue,
       initialized,
-      marpPdfExportRequested,
       mode,
       previewMarkdown,
       splitView,
@@ -904,17 +895,6 @@ export function App(): React.JSX.Element {
     requestId: "",
     loading: false,
   });
-  const [htmlRenderRequests, setHtmlRenderRequests] = useState<
-    Extract<
-      HostToWebviewMessage,
-      {
-        /**
-         * 関連Markdown文書のHTML描画を要求するメッセージの判別値です。
-         */
-        type: "renderHtmlDocuments";
-      }
-    >[]
-  >([]);
   const [toast, setToast] = useState("");
   const [sectionLinkMenu, setSectionLinkMenu] = useState<{
     id: string;
@@ -931,13 +911,8 @@ export function App(): React.JSX.Element {
   const sourceRef = useRef<TextEditorHandle>(null);
   const splitPreviewRef = useRef<HTMLDivElement>(null);
   const marpPreviewRef = useRef<MarpPreviewHandle>(null);
-  const marpPdfExportPreviewRef = useRef<MarpPreviewHandle>(null);
   const editorAreaRef = useRef<HTMLElement>(null);
   const exportRootRef = useRef<HTMLDivElement>(null);
-  const exportStageRequestCountRef = useRef(0);
-  const exportStageWaitersRef = useRef<
-    Array<(root: HTMLDivElement | undefined) => void>
-  >([]);
   const previewSnapshotWaitersRef = useRef<Array<() => void>>([]);
   const searchInputRef = useRef<HTMLInputElement>(null);
   const hostTextRef = useRef(bootstrap?.text ?? "");
@@ -972,6 +947,8 @@ export function App(): React.JSX.Element {
   const inFlightOperationRef = useRef<PendingLocalOperation | undefined>(
     undefined,
   );
+  /** 出力前のACK待機を、同期イベントでのみ再評価する。 */
+  const exportSyncWaitersRef = useRef(new Set<() => void>());
   const pendingHistoryCommandsRef = useRef<Array<"undo" | "redo">>([]);
   const selectionStateRef = useRef<TextSelection>({ from: 0, to: 0 });
   const imageRequestsRef = useRef(new Set<string>());
@@ -2156,11 +2133,6 @@ export function App(): React.JSX.Element {
         )
           return;
         marpDetectionRequestRef.current = undefined;
-        marpPdfDetectionResultRef.current = {
-          markdown: request.markdown,
-          isMarp: message.isMarp,
-          failed: false,
-        };
         setMarpDetectionPending(false);
         setIsMarpDetected(message.isMarp);
         setMarpDetectionMarkdown(request.markdown);
@@ -2247,10 +2219,12 @@ export function App(): React.JSX.Element {
         rememberSettledOperation(message.opId);
         sendNextLocalOperation();
         flushHistoryCommands();
+        notifyExportSyncWaiters();
         return;
       }
       case "externalChanges":
         applyExternalChanges(message);
+        notifyExportSyncWaiters();
         return;
       case "resyncRequired":
         if (message.clientId !== clientIdRef.current) return;
@@ -2261,6 +2235,7 @@ export function App(): React.JSX.Element {
           message.opId,
           message.operationApplied,
         );
+        notifyExportSyncWaiters();
         return;
       case "settingsChanged":
         applyHostSettings(message.settings);
@@ -2351,11 +2326,6 @@ export function App(): React.JSX.Element {
             marpDetectionRequest?.requestId === message.requestId
           ) {
             marpDetectionRequestRef.current = undefined;
-            marpPdfDetectionResultRef.current = {
-              markdown: marpDetectionRequest.markdown,
-              isMarp: false,
-              failed: true,
-            };
             setMarpDetectionPending(false);
             setIsMarpDetected(false);
             setMarpDetectionMarkdown(marpDetectionRequest.markdown);
@@ -2401,13 +2371,6 @@ export function App(): React.JSX.Element {
           const htmlFailed = message.requestId
             ? htmlRequestsRef.current.delete(message.requestId)
             : false;
-          if (htmlFailed && message.requestId) {
-            setHtmlRenderRequests((requests) =>
-              requests.filter(
-                (request) => request.requestId !== message.requestId,
-              ),
-            );
-          }
           const resourceCheckRequest = message.requestId
             ? resourceCheckRequestsRef.current.get(message.requestId)
             : undefined;
@@ -2446,14 +2409,6 @@ export function App(): React.JSX.Element {
             message.paths.length,
           ),
         );
-        return;
-      case "renderHtmlDocuments":
-        setHtmlRenderRequests((requests) => [
-          ...requests.filter(
-            (request) => request.requestId !== message.requestId,
-          ),
-          message,
-        ]);
         return;
       case "pdfPreviewReady":
         if (isMarpDocument) return;
@@ -2703,6 +2658,39 @@ export function App(): React.JSX.Element {
       (previous) => (previous === current ? previous : current),
     );
     return current;
+  }
+
+  /** ACK・再同期・外部編集後に、出力要求の同期待機を再評価する。 */
+  function notifyExportSyncWaiters(): void {
+    for (const notify of exportSyncWaitersRef.current) notify();
+  }
+
+  /**
+   * Webviewの最新編集をHostへ適用してから本文と文書版を固定する。
+   * 未解決の再同期やACK不一致は時間切れで失敗し、古い本文を出力しない。
+   */
+  async function waitForHostExportSnapshot(): Promise<{ markdown: string; version: number }> {
+    commitSourceSnapshot();
+    sendNextLocalOperation();
+    return new Promise((resolve, reject) => {
+      let settled = false;
+      const finish = (error?: Error) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timeout);
+        exportSyncWaitersRef.current.delete(check);
+        if (error) reject(error);
+        else resolve({ markdown: hostTextRef.current, version: versionRef.current });
+      };
+      const check = () => {
+        if (!initializedRef.current || resyncInFlightRef.current ||
+            inFlightOperationRef.current || localTextRef.current !== hostTextRef.current) return;
+        finish();
+      };
+      const timeout = window.setTimeout(() => finish(new Error('Host edit ACK timed out.')), 10_000);
+      exportSyncWaitersRef.current.add(check);
+      check();
+    });
   }
 
   /**
@@ -3399,96 +3387,6 @@ export function App(): React.JSX.Element {
     );
   }
 
-  /** 描画済みのMarpスライドが現在の本文に一致するまで待つ。 */
-  async function waitForMarpPdfExportContent(
-    sourceMarkdown: string,
-  ): Promise<MarpPdfExportContent | undefined> {
-    const deadline = Date.now() + 60_000;
-    while (Date.now() < deadline) {
-      const content =
-        marpPreviewRef.current?.getPdfExportContent(sourceMarkdown) ??
-        marpPdfExportPreviewRef.current?.getPdfExportContent(sourceMarkdown);
-      if (content) return content;
-      await new Promise<void>((resolve) => window.setTimeout(resolve, 50));
-    }
-    return undefined;
-  }
-
-  async function waitForMarpPdfDetection(
-    sourceMarkdown: string,
-  ): Promise<boolean | undefined> {
-    if (!hasMarpFrontMatterCandidate(sourceMarkdown)) return false;
-    const deadline = Date.now() + 15_000;
-    while (Date.now() < deadline) {
-      const result = marpPdfDetectionResultRef.current;
-      if (result?.markdown === sourceMarkdown) {
-        return result.failed ? undefined : result.isMarp;
-      }
-      await new Promise<void>((resolve) => window.setTimeout(resolve, 25));
-    }
-    return undefined;
-  }
-
-  /**
-   * PDF/HTML出力用DOMを用意し、出力対象のルート要素を返す。
-   * @returns 出力用ルート要素。初期化がキャンセルされた場合はundefined。
-   */
-  async function ensureExportRoot(): Promise<HTMLDivElement | undefined> {
-    if (exportRootRef.current && (printPreview || exportStageRequested))
-      return exportRootRef.current;
-    return new Promise(
-      /**
-       * 遅延処理の完了または失敗を待機側へ通知する。
-       * @param resolve - Promiseの成功を通知する関数。
-       */
-      (resolve) => {
-        let waiter: ((root: HTMLDivElement | undefined) => void) | undefined;
-        const timeout = window.setTimeout(
-          /**
-           * 指定時間の経過後に後続処理を実行する。
-           */
-          () => {
-            const index = waiter
-              ? exportStageWaitersRef.current.indexOf(waiter)
-              : -1;
-            if (index >= 0) exportStageWaitersRef.current.splice(index, 1);
-            resolve(exportRootRef.current ?? undefined);
-          },
-          15_000,
-        );
-        waiter =
-          /**
-           * Webviewルートが指定条件を満たすまで待機する。
-           * @param root - エクスポート用プレビューの描画ルート。未マウント時はundefined。
-           */
-          (root) => {
-            window.clearTimeout(timeout);
-            resolve(root);
-          };
-        exportStageWaitersRef.current.push(waiter);
-        setExportStageRequested(true);
-      },
-    );
-  }
-
-  /** 出力処理のDOM確保を管理し、完了後に要求数に応じて状態を戻す。 */
-  async function withExportStage(action: () => Promise<void>): Promise<void> {
-    exportStageRequestCountRef.current += 1;
-    setExportStageRequested(true);
-    try {
-      await action();
-    } finally {
-      exportStageRequestCountRef.current = Math.max(
-        0,
-        exportStageRequestCountRef.current - 1,
-      );
-      if (exportStageRequestCountRef.current === 0) {
-        if (!printPreviewRef.current) exportRootRef.current = null;
-        setExportStageRequested(false);
-      }
-    }
-  }
-
   /**
    * Webviewルートの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
    * @param update - 現在の正規化済みPDF設定を受け取り、次に保存するPDF設定を返す更新関数。
@@ -3607,150 +3505,69 @@ export function App(): React.JSX.Element {
     );
   }
 
-  /** 信頼状態と検索文字列を検証し、最新HTMLと置換済みPDFデータをHostへ送る。 */
+  /** HostのACKと文書版を固定した原文から、CLIと同じPDF出力を要求する。 */
   async function requestPdfExport(): Promise<void> {
     if (!settings.workspaceTrusted) {
       setToast(messages.app.toast.workspaceTrustRequired);
       return;
     }
-    if (
-      pdfOptionsRef.current.textReplacements.some(
-        /**
-         * 入力済みパターンを検証し、未入力の追加行は保留として扱う。
-         * @param rule 検証対象の出力置換ルール。
-         * @returns 不正なパターンならtrue。
-         */
-        (rule) =>
-          rule.pattern.length > 0 &&
-          !isTextReplacementPatternValid(rule.pattern),
-      )
-    ) {
+    const options = pdfOptionsRef.current;
+    if (options.textReplacements.some((rule) =>
+      rule.pattern.length > 0 && !isTextReplacementPatternValid(rule.pattern))) {
       setToast(messages.app.invalidOutputReplacementPattern);
       return;
     }
-    if (
-      pdfExportInProgressRef.current ||
-      pdfRequestsRef.current.size > 0
-    )
-      return;
+    if (pdfExportInProgressRef.current || pdfRequestsRef.current.size > 0) return;
     pdfExportInProgressRef.current = true;
-    let marpPdfDetectionRequested = false;
     try {
       setToast(messages.host.pdfProgress);
       flushPdfOptionsPersistence();
-      await withExportStage(async () => {
-      if (!(await waitForCurrentPreviewSnapshot())) {
-        setToast(
-          messages.app.toast.operationFailed(
-            `${messages.renderer.mermaidError}: timeout`,
-          ),
-        );
-        return;
-      }
       requestLocalResourceCheck("pdf");
-      const currentMarkdown = localTextRef.current;
-      if (
-        !previewVisible &&
-        hasMarpFrontMatterCandidate(currentMarkdown)
-      ) {
-        marpPdfDetectionRequested = true;
-        marpPdfDetectionResultRef.current = undefined;
-        setMarpPdfExportRequested(true);
-      }
-      const isMarpPdfExport = await waitForMarpPdfDetection(currentMarkdown);
-      if (isMarpPdfExport === undefined) {
-        setToast(messages.app.marpPreview.failed);
-        return;
-      }
-      const currentSummary = summarizeDiagnostics(
+      const diagnostics = summarizeDiagnostics(
         mergeDiagnostics(
-          currentMarkdown,
+          localTextRef.current,
           localResourceDiagnostics,
           settings.language,
         ),
       );
-      const diagnosticNotice = currentSummary.errors.length
-        ? currentSummary.errors
-            .map(
-              /**
-               * 行番号があれば診断文の先頭へ付ける。
-               * @param item - PDF書き出し前に表示するエラー診断。
-               * @returns 行番号付きの診断文。行番号がなければ元のメッセージ。
-               */
-              (item) => `${item.line ? `行${item.line}: ` : ""}${item.message}`,
-            )
-            .join(" / ")
-        : "";
-      if (diagnosticNotice)
-        setToast(
-          messages.app.toast.pdfStartedWithDiagnostics(
-            currentSummary.errors.length,
-            diagnosticNotice,
-          ),
-        );
-      const sourceOptions = pdfOptionsRef.current;
-      let pdfOutput: { html: string; options: PdfOptions };
-      let pdfCss: string;
-      try {
-        if (isMarpPdfExport) {
-          const content = await waitForMarpPdfExportContent(currentMarkdown);
-          if (!content) {
-            setToast(messages.app.marpPreview.failed);
-            return;
-          }
-          const marpRoot = document.createElement("div");
-          marpRoot.innerHTML = content.html;
-          pdfOutput = await serializePdfExport(marpRoot, sourceOptions);
-          pdfCss = `${content.css}\n${await collectEmbeddedPrintableCss(settings.previewFontFamily)}`;
-        } else {
-          const root = await ensureExportRoot();
-          if (!(await waitForHtmlMermaidRendering(root))) {
-            setToast(`${messages.renderer.mermaidError}: timeout`);
-            return;
-          }
-          pdfOutput = root
-            ? await serializePdfExport(root, sourceOptions)
-            : await serializePdfFallbackHtml(
-                currentMarkdown,
-                sourceOptions,
-                renderFormat,
-                settings.remoteImagesEnabled,
-                settings.language,
-              );
-          if (!root)
-            setToast(messages.app.toast.pdfFallbackToMarkdown(diagnosticNotice));
-          pdfCss = await collectEmbeddedPrintableCss(settings.previewFontFamily);
-        }
-      } catch (error) {
-        setToast(
-          error instanceof TextReplacementTimeoutError
-            ? messages.app.outputReplacementTimeout
-            : messages.app.outputReplacementFailed,
-        );
-        return;
-      }
+      const diagnosticNotice = diagnostics.errors.map(
+        /** 出力を継続する場合も、既存の行番号付き診断を利用者へ伝える。 */
+        (item) => `${item.line ? `行${item.line}: ` : ""}${item.message}`,
+      ).join(" / ");
+      if (diagnosticNotice) setToast(messages.app.toast.pdfStartedWithDiagnostics(
+        diagnostics.errors.length,
+        diagnosticNotice,
+      ));
+      const snapshot = await waitForHostExportSnapshot();
       const requestId = createClientId();
-      const message: WebviewToHostMessage = {
+      pdfRequestsRef.current.add(requestId);
+      vscode.postMessage({
         type: "exportPdf",
         requestId,
-        html: pdfOutput.html,
-        css: pdfCss,
-        options: pdfOutput.options,
+        markdown: snapshot.markdown,
+        documentVersion: snapshot.version,
+        rendering: {
+          renderFormat,
+          mermaidTheme: settings.mermaidTheme,
+          mermaidFontSize: normalizeMermaidFontSize(settings.mermaidFontSize),
+          fontFamily: settings.previewFontFamily || DEFAULT_PDF_OPTIONS.fontFamily,
+          remoteImagesEnabled: settings.remoteImagesEnabled,
+          language: settings.language,
+        },
+        options,
         editorTheme: settings.editorTheme ?? "dark",
-      };
-      pdfRequestsRef.current.add(requestId);
-      vscode.postMessage(message);
-      });
+      } satisfies WebviewToHostMessage);
+    } catch (error) {
+      setToast(messages.app.toast.operationFailed(
+        error instanceof Error ? error.message : String(error)));
     } finally {
       pdfExportInProgressRef.current = false;
-      if (marpPdfDetectionRequested) setMarpPdfExportRequested(false);
     }
   }
 
   /**
-   * HTML文書をレンダリングし、HostからのHTML出力要求を完了させる。
-   * @param options - 画像埋め込み、リンク先Markdown変換、保存ダイアログのHTML出力設定。
-   * @returns 出力要求が完了したときに解決するPromise。
+   * 最新編集のACK後に固定した原文と全設定をHTML出力へ送る。
+   * リンク先文書も出力エンジンが同じ描画経路で処理する。
    */
   async function requestHtmlExport(options: HtmlExportOptions): Promise<void> {
     if (!settings.workspaceTrusted) {
@@ -3758,93 +3575,37 @@ export function App(): React.JSX.Element {
       return;
     }
     const textReplacements = pdfOptionsRef.current.textReplacements;
-    if (
-      textReplacements.some(
-        (rule) =>
-          rule.pattern.length > 0 &&
-          !isTextReplacementPatternValid(rule.pattern),
-      )
-    ) {
+    if (textReplacements.some((rule) =>
+      rule.pattern.length > 0 && !isTextReplacementPatternValid(rule.pattern))) {
       setToast(messages.app.invalidOutputReplacementPattern);
       return;
     }
-    setToast(messages.host.htmlProgress);
-    await withExportStage(async () => {
-      if (!(await waitForCurrentPreviewSnapshot())) {
-        setToast(
-          messages.app.toast.operationFailed(
-            `${messages.renderer.mermaidError}: timeout`,
-          ),
-        );
-        return;
-      }
-      const root = await ensureExportRoot();
-      if (!(await waitForHtmlMermaidRendering(root))) {
-        setToast(`${messages.renderer.mermaidError}: timeout`);
-        return;
-      }
+    try {
+      setToast(messages.host.htmlProgress);
+      const snapshot = await waitForHostExportSnapshot();
       const requestId = createClientId();
-      const currentMarkdown = localTextRef.current;
-      const htmlRoot = root ?? document.createElement("div");
-      if (!root) {
-        htmlRoot.innerHTML = await renderMarkdownFallback(currentMarkdown, {
-          remoteImagesEnabled: settings.remoteImagesEnabled,
-          language: settings.language,
-          renderFormat,
-        });
-      }
-      let html: string;
-      try {
-        html = await serializeOutputHtml(htmlRoot, textReplacements);
-      } catch (error) {
-        setToast(
-          error instanceof TextReplacementTimeoutError
-            ? messages.app.outputReplacementTimeout
-            : messages.app.outputReplacementFailed,
-        );
-        return;
-      }
       htmlRequestsRef.current.add(requestId);
       vscode.postMessage({
         type: "exportHtml",
         requestId,
-        markdown: currentMarkdown,
-        html,
-        css: await collectEmbeddedPrintableCss(settings.previewFontFamily),
+        markdown: snapshot.markdown,
+        documentVersion: snapshot.version,
+        rendering: {
+          renderFormat,
+          mermaidTheme: settings.mermaidTheme,
+          mermaidFontSize: normalizeMermaidFontSize(settings.mermaidFontSize),
+          fontFamily: settings.previewFontFamily || DEFAULT_PDF_OPTIONS.fontFamily,
+          remoteImagesEnabled: settings.remoteImagesEnabled,
+          language: settings.language,
+        },
         editorTheme: settings.editorTheme ?? "dark",
         options,
         textReplacements,
-      });
-    });
-  }
-
-  /**
-   * Webviewルートが指定条件を満たすまで待機する。
-   * @param root - 配下の未完了Mermaid描画を監視するHTML出力ルート。未指定時は現在の出力ルートを使う。
-   * @returns 条件が成立したかを示す真偽値。
-   */
-  async function waitForHtmlMermaidRendering(
-    root: HTMLDivElement | null | undefined = exportRootRef.current,
-  ): Promise<boolean> {
-    if (!root) return true;
-    const deadline = Date.now() + 60_000;
-    while (
-      root.querySelector(
-        '.mermaid:not([data-mermaid-status]), .mermaid[data-mermaid-status="rendering"]',
-      ) &&
-      Date.now() < deadline
-    ) {
-      await new Promise<void>(
-        /**
-         * 遅延処理の完了または失敗を待機側へ通知する。
-         * @param resolve - Promiseの成功を通知する関数。
-         */
-        (resolve) => window.setTimeout(resolve, 50),
-      );
+      } satisfies WebviewToHostMessage);
+    } catch (error) {
+      setToast(messages.app.toast.operationFailed(
+        error instanceof Error ? error.message : String(error)));
     }
-    return !root.querySelector(
-      '.mermaid:not([data-mermaid-status]), .mermaid[data-mermaid-status="rendering"]',
-    );
   }
 
   /** 印刷プレビュー用の置換を実行し、重複要求を避けて最新のPDFデータをHostへ送る。 */
@@ -3956,14 +3717,6 @@ export function App(): React.JSX.Element {
    */
   function handleExportRendered(element: HTMLElement): void {
     exportRootRef.current = element as HTMLDivElement;
-    const waiters = exportStageWaitersRef.current.splice(0);
-    waiters.forEach(
-      /**
-       * 成功結果通知ごとに成功結果通知を実行する。
-       * @param resolve - Promiseの成功を通知する関数。
-       */
-      (resolve) => resolve(exportRootRef.current ?? undefined),
-    );
     if (
       printPreview &&
       !isMarpDocument &&
@@ -6652,7 +6405,7 @@ export function App(): React.JSX.Element {
             : messages.app.status.synced}
         </span>
       </footer>
-      {(printPreview || exportStageRequested) && (
+      {printPreview && (
         <div className="export-stage" aria-hidden="true">
           <RenderedMarkdown
             markdown={renderedPreviewMarkdown}
@@ -6661,49 +6414,8 @@ export function App(): React.JSX.Element {
             settings={exportSettings}
             onRendered={handleExportRendered}
           />
-          {exportStageRequested &&
-            marpPdfExportRequested &&
-            isMarpDocument &&
-            !previewVisible && (
-            <MarpPreview
-              ref={marpPdfExportPreviewRef}
-              markdown={marpPreviewMarkdown}
-              settings={exportSettings}
-              messages={messages}
-              zoom={1}
-              onNavigate={() => undefined}
-            />
-          )}
         </div>
       )}
-      {htmlRenderRequests.map((htmlRenderRequest) => (
-        <HtmlDocumentRenderStage
-          key={htmlRenderRequest.requestId}
-          request={htmlRenderRequest}
-          settings={exportSettings}
-          onRendered={
-            /**
-             * @param documents - 文書URIと開いている文書オブジェクトの対応表。
-             * @param error - レンダリングまたは置換の失敗時にHostへ返す文言。
-             */
-            (documents, error) => {
-              vscode.postMessage({
-                type: "htmlDocumentsRendered",
-                requestId: htmlRenderRequest.requestId,
-                documents,
-                error,
-              });
-              if (error) setToast(error);
-              setHtmlRenderRequests((requests) =>
-                requests.filter(
-                  (request) =>
-                    request.requestId !== htmlRenderRequest.requestId,
-                ),
-              );
-            }
-          }
-        />
-      ))}
       {helpTopic && (
         <HelpDialog
           topic={helpTopic}
@@ -7656,28 +7368,6 @@ function hasActiveTextReplacementRules(
 }
 
 /**
- * PDFとHTMLの出力本文を複製し、置換ルールを適用してシリアライズする。
- * @param element 出力対象HTMLを含むDOMルート。
- * @param rules 上から順に適用する置換ルール。
- * @param isCurrent 出力要求が最新のままかを確認する関数。省略時は常に最新として扱う。
- * @returns 置換済みの出力本文。
- */
-async function serializeOutputHtml(
-  element: HTMLElement,
-  rules: readonly TextReplacementRule[],
-  isCurrent: () => boolean = () => true,
-): Promise<string> {
-  if (!isCurrent()) throw new TextReplacementCancelledError();
-  if (!hasActiveTextReplacementRules(rules))
-    return serializeExportHtml(element);
-  const exportCopy = element.cloneNode(true) as HTMLElement;
-  exportCopy.innerHTML = prepareExportHtml(exportCopy.innerHTML);
-  await applyTextReplacements(exportCopy, rules, [], isCurrent);
-  if (!isCurrent()) throw new TextReplacementCancelledError();
-  return prepareExportHtml(exportCopy.innerHTML);
-}
-
-/**
  * PDF出力用のDOMとヘッダー・フッターへ置換を適用し、完成したHTMLと設定を返す。
  * @param element 出力用DOMのルート要素。
  * @param options 置換ルールを含むPDF出力設定。検索文字列がすべて空なら変更せず返す。
@@ -7711,33 +7401,6 @@ async function serializePdfExport(
       footer: headerFooter[1],
     },
   };
-}
-
-/**
- * PDF用プレビューがない場合はMarkdown本文をpre要素へ入れ、PDFの本文・ヘッダー・フッター置換を行う。
- * @param markdown Markdown本文。
- * @param options PDF出力設定。
- * @param renderFormat Markdown/Textile形式の変換設定。
- * @param remoteImagesEnabled リモート画像を含めるかどうか。
- * @param language 文書内メッセージに使う言語。
- * @param isCurrent 出力要求が最新かを判定する関数。省略時は常に最新として扱う。
- * @returns 共通レンダラーで変換した本文を置換したPDF出力データ。
- */
-async function serializePdfFallbackHtml(
-  markdown: string,
-  options: PdfOptions,
-  renderFormat: MarkdownRenderFormat,
-  remoteImagesEnabled: boolean,
-  language: WebviewSettings["language"],
-  isCurrent: () => boolean = () => true,
-): Promise<{ html: string; options: PdfOptions }> {
-  const fallbackRoot = document.createElement("div");
-  fallbackRoot.innerHTML = await renderMarkdownFallback(markdown, {
-    remoteImagesEnabled,
-    language,
-    renderFormat,
-  });
-  return serializePdfExport(fallbackRoot, options, isCurrent);
 }
 
 /** 正規表現の処理が上限時間内に終わらなかった場合に使うエラー。 */
@@ -8253,132 +7916,6 @@ function locateTextPosition(
   const span = spans[Math.min(low, spans.length - 1)];
   const offset = span.nodeStart + Math.max(0, position - span.start);
   return { node: span.node, offset };
-}
-
-/**
- * Hostが指定したMarkdown文書を非表示領域でレンダリングし、HTML出力用データを返す。
- * @param request - HTML出力対象のMarkdown文書一覧を含むHost要求。
- * @param settings - 非表示レンダリングに使うWebview設定。
- * @param onRendered - 全文書のHTMLが揃った後、文書IDとHTMLの一覧を受け取る処理。
- * @returns HTML出力用レンダリング領域のReact要素。
- */
-function HtmlDocumentRenderStage({
-  request,
-  settings,
-  onRendered,
-}: {
-  /** Markdown本文、出力設定、要求IDを含むHTMLレンダリング要求。 */
-  request: Extract<
-    HostToWebviewMessage,
-    {
-      /**
-       * HTML文書のレンダリング要求メッセージを選ぶ判別値。
-       */
-      type: "renderHtmlDocuments";
-    }
-  >;
-
-  /** 非表示レンダリングに使う言語、フォント、セキュリティ設定。 */
-  settings: WebviewSettings;
-  /**
-   * 全文書の描画が揃った後、サニタイズ済みHTMLか失敗文言を親へ通知する。
-   * @param documents 文書IDとHTML本文の対応一覧。失敗時は空配列。
-   * @param error いずれかの文書をHTML化できなかった場合の表示文言。
-   */
-  onRendered: (
-    documents: Array<{
-      /**
-       * Webviewルートで扱うidの文字列。
-       */
-      id: string;
-      /** 対象Markdown文書からレンダリングしたHTML本文。 */
-      html: string;
-    }>,
-    error?: string,
-  ) => void;
-}): React.JSX.Element {
-  const renderedRef = useRef(new Map<string, string>());
-  const completedRef = useRef(false);
-  const onRenderedRef = useRef(onRendered);
-  onRenderedRef.current = onRendered;
-  useEffect(() => {
-    completedRef.current = false;
-    return () => {
-      completedRef.current = true;
-    };
-  }, []);
-
-  /**
-   * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
-   * @param id - 描画完了を対応付けるMarkdown文書ID。
-   * @param element - 出力用HTMLをシリアライズする、描画済み文書のDOM要素。
-   */
-  async function handleRendered(
-    id: string,
-    element: HTMLElement,
-  ): Promise<void> {
-    if (completedRef.current) return;
-    try {
-      const html = await serializeOutputHtml(
-        element,
-        request.textReplacements,
-        () => !completedRef.current,
-      );
-      if (completedRef.current) return;
-      renderedRef.current.set(id, html);
-      if (renderedRef.current.size !== request.documents.length) return;
-      completedRef.current = true;
-      onRenderedRef.current(
-        request.documents.map(
-          /**
-           * 各HTML出力文書のIDに対応するレンダリング済み本文をまとめる。
-           * @param document - Hostから受け取ったHTML出力対象文書。
-           * @returns 文書IDとサニタイズ済みHTML本文の組。
-           */
-          (document) => ({
-            id: document.id,
-            html: renderedRef.current.get(document.id) ?? "",
-          }),
-        ),
-      );
-    } catch (error) {
-      if (completedRef.current) return;
-      completedRef.current = true;
-      const outputMessages = getMessages(settings.language).app;
-      onRenderedRef.current(
-        [],
-        error instanceof TextReplacementTimeoutError
-          ? outputMessages.outputReplacementTimeout
-          : outputMessages.outputReplacementFailed,
-      );
-    }
-  }
-
-  return (
-    <div className="export-stage html-document-render-stage" aria-hidden="true">
-      {request.documents.map(
-        /**
-         * HTML出力対象文書ごとに非表示のMarkdownレンダラーを作る。
-         * @param document - 描画するMarkdown本文とHost側の文書ID。
-         * @returns その文書をレンダリングするReact要素。
-         */
-        (document) => (
-          <RenderedMarkdown
-            key={document.id}
-            markdown={document.markdown}
-            renderFormat={getRenderFormatForUri(document.id)}
-            settings={settings}
-            onRendered={
-              /**
-               * @param element - 出力用HTMLがレンダリングされた文書のルート要素。
-               */
-              (element) => handleRendered(document.id, element)
-            }
-          />
-        ),
-      )}
-    </div>
-  );
 }
 
 /**

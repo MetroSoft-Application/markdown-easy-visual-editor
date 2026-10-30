@@ -72,7 +72,71 @@ vi.mock('vscode',
         }
     }));
 
-import { exportHtml, prepareHtmlExport, writePreparedHtml } from '../src/extension/html';
+import {
+    prepareHtmlExport as prepareEngineHtmlExport,
+    writePreparedHtml as writeEngineHtmlExport,
+    type HtmlExportRequest,
+    type HtmlExportPreparation,
+    type HtmlRenderedDocument
+} from '../cli/html';
+
+type HtmlTestRequest = Omit<HtmlExportRequest, 'documentPath' | 'outputPath' | 'workspaceRoot'> & {
+    documentUri: TestUri;
+};
+
+type HtmlTestPreparation = {
+    request: HtmlExportRequest;
+    preparation: HtmlExportPreparation;
+};
+
+async function prepareHtmlExport(request: HtmlTestRequest): Promise<HtmlTestPreparation | undefined> {
+    const defaultPath = path.join(
+        path.dirname(request.documentUri.fsPath),
+        path.basename(request.documentUri.fsPath, path.extname(request.documentUri.fsPath)) + '.html'
+    );
+    const target = request.options.saveWithoutDialog
+        ? new TestUri(defaultPath)
+        : await vscodeMock.showSaveDialog({
+            defaultUri: new TestUri(defaultPath),
+            filters: { HTML: ['html', 'htm'] },
+            saveLabel: 'HTML出力'
+        });
+    if (!target) return undefined;
+    const workspace = vscodeMock.getWorkspaceFolder(request.documentUri) as { uri: TestUri } | undefined;
+    const engineRequest: HtmlExportRequest = {
+        markdown: request.markdown,
+        html: request.html,
+        css: request.css,
+        editorTheme: request.editorTheme,
+        options: request.options,
+        documentPath: request.documentUri.fsPath,
+        outputPath: target.fsPath,
+        workspaceRoot: workspace?.uri.fsPath ?? path.dirname(request.documentUri.fsPath),
+        language: request.language,
+        fontFamily: request.fontFamily
+    };
+    const preparation = await prepareEngineHtmlExport(engineRequest);
+    if (!preparation) return undefined;
+    return { request: engineRequest, preparation };
+}
+
+async function writePreparedHtml(
+    _request: HtmlTestRequest,
+    prepared: HtmlTestPreparation,
+    rendered: readonly HtmlRenderedDocument[] = []
+): Promise<{ target: TestUri; paths: TestUri[] }> {
+    const result = await writeEngineHtmlExport(prepared.request, prepared.preparation, rendered);
+    return {
+        target: new TestUri(result.target),
+        paths: result.paths.map((item) => new TestUri(item))
+    };
+}
+
+async function exportHtml(request: HtmlTestRequest): Promise<{ target: TestUri; paths: TestUri[] } | undefined> {
+    const prepared = await prepareHtmlExport(request);
+    if (!prepared) return undefined;
+    return writePreparedHtml(request, prepared);
+}
 
 /**
  * HTML・テストの回帰で一時生成物または検証対象を置くディレクトリ。

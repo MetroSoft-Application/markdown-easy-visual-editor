@@ -6,7 +6,84 @@
 import path from 'node:path';
 import { randomBytes } from 'node:crypto';
 import * as vscode from 'vscode';
-import { HTML_OUTLINE_RESIZER_SCRIPT } from './html';
+/** HTMLアウトラインの幅をポインターまたはキーボードで変更するスクリプト本文。 */
+export const HTML_OUTLINE_RESIZER_SCRIPT = `
+(() => {
+  const layout = document.querySelector('.mve-html-layout-with-outline');
+  const separator = layout?.querySelector('.mve-html-outline-resizer');
+  const hideButton = layout?.querySelector('.mve-html-outline-hide');
+  const showButton = layout?.querySelector('.mve-html-outline-show');
+  if (!(layout instanceof HTMLElement) || !(separator instanceof HTMLElement)) return;
+  const canToggleOutline = hideButton instanceof HTMLButtonElement && showButton instanceof HTMLButtonElement;
+
+  const minimumWidth = 160;
+  const maximumWidth = 800;
+  const separatorWidth = 8;
+  const mainMinimumWidth = 240;
+  let width = Number(separator.getAttribute('aria-valuenow')) || 240;
+  let dragOffset = 0;
+
+  const getMaximumWidth = () => {
+    if (window.matchMedia('(max-width: 720px)').matches) return maximumWidth;
+    return Math.max(minimumWidth, Math.min(maximumWidth, layout.clientWidth - separatorWidth - mainMinimumWidth));
+  };
+
+  const updateWidth = (nextWidth) => {
+    const maxWidth = getMaximumWidth();
+    width = Math.min(maxWidth, Math.max(minimumWidth, Math.round(nextWidth)));
+    layout.style.setProperty('--mve-html-outline-width', width + 'px');
+    separator.setAttribute('aria-valuemax', String(maxWidth));
+    separator.setAttribute('aria-valuenow', String(width));
+    separator.setAttribute('aria-valuetext', width + 'px');
+  };
+
+  if (canToggleOutline) {
+    const setOutlineVisible = (visible) => {
+      layout.classList.toggle('mve-html-outline-hidden', !visible);
+      hideButton.setAttribute('aria-expanded', String(visible));
+      showButton.setAttribute('aria-expanded', String(visible));
+      showButton.hidden = visible;
+      updateWidth(width);
+      (visible ? hideButton : showButton).focus();
+    };
+
+    hideButton.addEventListener('click', () => setOutlineVisible(false));
+    showButton.addEventListener('click', () => setOutlineVisible(true));
+  }
+
+  separator.addEventListener('pointerdown', (event) => {
+    if (event.button !== 0) return;
+    dragOffset = event.clientX - layout.getBoundingClientRect().left - width;
+    separator.setPointerCapture(event.pointerId);
+    document.body.classList.add('mve-html-is-resizing');
+    event.preventDefault();
+  });
+
+  separator.addEventListener('pointermove', (event) => {
+    if (!separator.hasPointerCapture(event.pointerId)) return;
+    updateWidth(event.clientX - layout.getBoundingClientRect().left - dragOffset);
+  });
+
+  const stopResizing = () => document.body.classList.remove('mve-html-is-resizing');
+  separator.addEventListener('pointerup', stopResizing);
+  separator.addEventListener('pointercancel', stopResizing);
+  separator.addEventListener('lostpointercapture', stopResizing);
+
+  separator.addEventListener('keydown', (event) => {
+    const step = event.shiftKey ? 48 : 16;
+    if (event.key === 'ArrowLeft') updateWidth(width - step);
+    else if (event.key === 'ArrowRight') updateWidth(width + step);
+    else if (event.key === 'Home') updateWidth(minimumWidth);
+    else if (event.key === 'End') updateWidth(getMaximumWidth());
+    else return;
+    event.preventDefault();
+  });
+
+  window.addEventListener('resize', () => updateWidth(width));
+  updateWidth(width);
+})();
+`;
+
 
 /** プレビュー内リンクからExtension Hostへ通知する遷移種別とhref。 */
 type PreviewMessage = { type: 'navigate' | 'external'; href: string };

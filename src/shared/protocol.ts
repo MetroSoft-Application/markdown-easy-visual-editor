@@ -536,6 +536,25 @@ export interface WebviewSettings extends FontFamilySettings {
 }
 
 /**
+ * 出力要求時点で確定した描画設定。プレビューのHTMLを使わず原文から再描画するために渡す。
+ * 未指定の旧Webview要求は出力エラーとし、古い描画結果で成功させない。
+ */
+export interface ExportRenderSnapshot {
+    /** MarkdownまたはTextileの明示形式。 */
+    renderFormat: 'markdown' | 'mixed' | 'textile';
+    /** Mermaid図の配色。autoはeditorThemeから確定する。 */
+    mermaidTheme: WebviewSettings['mermaidTheme'];
+    /** Mermaid図へ適用する8〜48pxの文字サイズ。 */
+    mermaidFontSize: number;
+    /** 本文と図へ適用するフォント族。 */
+    fontFamily: string;
+    /** 外部画像を出力に残す場合true。 */
+    remoteImagesEnabled: boolean;
+    /** 数式や本文の言語に使う確定済み言語。 */
+    language: SupportedLanguage;
+}
+
+/**
  * 本文置換1件の開始オフセット、削除する長さ、挿入文字列を表します。
  */
 export interface TextChange {
@@ -813,34 +832,6 @@ export type HostToWebviewMessage =
          * 共有プロトコルで受け渡すpathsの文字列。
          */
         paths: string[]
-    }
-    | {
-
-        /**
-         * 関連HTML文書の描画を要求するメッセージです。
-         */
-        type: 'renderHtmlDocuments';
-
-        /**
-         * 非同期要求と対応する応答を照合するID。
-         */
-        requestId: string;
-
-        /**
-         * 文書URIと開いている文書オブジェクトの対応表。
-         */
-        documents: Array<{
-            /**
-             * 共有プロトコルで受け渡すidの文字列。
-             */
-            id: string;
-            /**
-             * 共有プロトコルで受け渡すmarkdownの文字列。
-             */
-            markdown: string
-        }>;
-        /** 出力本文へ適用する置換ルール。 */
-        textReplacements: TextReplacementRule[];
     }
     | {
         /**
@@ -1225,16 +1216,22 @@ export type WebviewToHostMessage =
          * 非同期要求と対応する応答を照合するID。
          */
         requestId: string;
+        /** ACK確認後の正本文書。旧メッセージでは未指定。 */
+        markdown?: string;
+        /** markdownに対応するVS Code文書バージョン。 */
+        documentVersion?: number;
+        /** 本文と同時に固定した出力描画設定。 */
+        rendering?: ExportRenderSnapshot;
 
         /**
-         * 共有プロトコルで受け渡すhtmlの文字列。
+         * 旧Webviewが送信したHTML。現行出力は原文から生成するため参照しない。
          */
-        html: string;
+        html?: string;
 
         /**
-         * 共有プロトコルで受け渡すcssの文字列。
+         * 旧Webviewが送信したCSS。現行出力は原文から生成するため参照しない。
          */
-        css: string;
+        css?: string;
 
         /**
          * 呼び出し側が指定する処理設定。
@@ -1262,16 +1259,20 @@ export type WebviewToHostMessage =
          * 共有プロトコルで受け渡すmarkdownの文字列。
          */
         markdown: string;
+        /** markdownに対応するVS Code文書バージョン。 */
+        documentVersion?: number;
+        /** 本文と同時に固定した出力描画設定。 */
+        rendering?: ExportRenderSnapshot;
 
         /**
-         * 共有プロトコルで受け渡すhtmlの文字列。
+         * 旧Webviewが送信したHTML。現行出力は原文から生成するため参照しない。
          */
-        html: string;
+        html?: string;
 
         /**
-         * 共有プロトコルで受け渡すcssの文字列。
+         * 旧Webviewが送信したCSS。現行出力は原文から生成するため参照しない。
          */
-        css: string;
+        css?: string;
 
         /**
          * HTML出力の見出し色を選ぶ編集テーマ。省略された既存Webview要求はダークテーマとして扱う。
@@ -1287,34 +1288,6 @@ export type WebviewToHostMessage =
          * HTML出力対象の本文へ上から順に適用する置換ルール。
          */
         textReplacements: TextReplacementRule[];
-    }
-    | {
-
-        /**
-         * 関連文書を含むHTML描画結果を返すメッセージです。
-         */
-        type: 'htmlDocumentsRendered';
-
-        /**
-         * 非同期要求と対応する応答を照合するID。
-         */
-        requestId: string;
-
-        /**
-         * 文書URIと開いている文書オブジェクトの対応表。
-         */
-        documents: Array<{
-            /**
-             * 共有プロトコルで受け渡すidの文字列。
-             */
-            id: string;
-            /**
-             * 共有プロトコルで受け渡すhtmlの文字列。
-             */
-            html: string
-        }>;
-        /** レンダリングに失敗した場合にHostへ返す説明。 */
-        error?: string;
     }
     | {
 

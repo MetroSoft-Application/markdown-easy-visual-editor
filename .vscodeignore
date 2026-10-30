@@ -15,6 +15,7 @@
 **/*.map
 **/AGENTS.md
 /dist/mermaid.min.js
+/cli/**
 artifacts/**
 assets/**
 dist/*.log

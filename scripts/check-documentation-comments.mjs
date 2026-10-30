@@ -2,10 +2,11 @@
  * @fileoverview Git index上の対象ソースについて、ファイル概要、export function形式の引数・戻り値タグ、既知の空疎なブロックコメントを検査する。
  * CSSではファイル概要のみを調べる。他の宣言形式やコメントの意味は判定しないため、内容を目視と第三者レビューで確認する。
  */
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
-const ROOTS = ['src/', 'scripts/', 'test/'];
+const ROOTS = ['src/', 'scripts/', 'test/', 'cli/'];
 const ADDITIONAL_FILES = new Set(['vitest.config.mts']);
 const SELF_CHECKED_FILES = ['scripts/check-documentation-comments.mjs'];
 const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.mjs', '.cjs', '.mts', '.css']);
@@ -285,7 +286,8 @@ async function inspectFile(projectRoot, relativePath) {
 async function main() {
   const projectRoot = process.cwd();
   const index = await readFile(path.join(projectRoot, '.git', 'index'));
-  const files = getSourceFiles(readTrackedPaths(index));
+  const files = getSourceFiles(readTrackedPaths(index))
+    .filter((file) => existsSync(path.join(projectRoot, file)));
   const diagnostics = (await Promise.all(files.map((file) => inspectFile(projectRoot, file)))).flat();
   if (diagnostics.length > 0) {
     process.stderr.write(`${diagnostics.join('\n')}\n`);

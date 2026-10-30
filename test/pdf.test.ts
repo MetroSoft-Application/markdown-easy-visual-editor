@@ -125,7 +125,7 @@ vi.mock('dompurify',
         }
     }));
 
-import { acquirePdfBrowser, buildStandaloneHtml, closePdfBrowser, exportPdf, renderPdf, type PdfExportRequest } from '../src/extension/pdf';
+import { acquirePdfBrowser, buildStandaloneHtml, closePdfBrowser, renderPdf, type PdfExportRequest } from '../src/extension/pdf';
 import { normalizePdfOptions } from '../src/shared/protocol';
 import { printContentCss } from '../src/shared/printContentCss';
 import { renderMarkdown } from '../src/webview/markdown/markdownRenderer';
@@ -484,9 +484,9 @@ describe('PDF local images',
                 const imageBytes = await fs.readFile(imagePath);
                 expect(standaloneHtml).toContain(`src="data:image/svg+xml;base64,${imageBytes.toString('base64')}"`);
 
-                const output = await exportPdf(request);
-                expect(output?.fsPath).toBe(path.join(directory, 'document.pdf'));
-                expect((await fs.stat(path.join(directory, 'document.pdf'))).size).toBeGreaterThan(0);
+                const output = await renderPdf(request);
+                expect(output.subarray(0, 4).toString()).toBe('%PDF');
+                expect(output.length).toBeGreaterThan(0);
             }, 30_000);
 
         it('does not wait indefinitely for a remote image that never finishes',
@@ -529,10 +529,10 @@ describe('PDF local images',
                 } as unknown as PdfExportRequest;
 
                 const startedAt = Date.now();
-                const output = await exportPdf(request);
+                const output = await renderPdf(request);
                 expect(Date.now() - startedAt).toBeLessThan(15_000);
-                expect(output?.fsPath).toBe(path.join(directory, 'document.pdf'));
-                expect((await fs.stat(path.join(directory, 'document.pdf'))).size).toBeGreaterThan(0);
+                expect(output.subarray(0, 4).toString()).toBe('%PDF');
+                expect(output.length).toBeGreaterThan(0);
             }, 20_000);
 
         it('renders sample/03-images.md within the preview budget',

@@ -23,6 +23,7 @@ const limits = {
  * 起動・regressionで読み書きするリソースの場所。
  */
 const requiredTopLevelFiles = [
+  'browsers.json',
   'export-fonts.css',
   'extension.js',
   'markdown-fallback.js',
@@ -35,6 +36,7 @@ const requiredTopLevelFiles = [
   'pele-render-worker.js',
   'pdf.worker.min.mjs',
   'pdfjs.mjs',
+  'package.json',
   'playwright.js',
   'styles.css',
   'webview.css',
@@ -109,8 +111,11 @@ async function listFiles(directory) {
   return files;
 }
 const allDistFiles = await listFiles(path.resolve('dist'));
-/** dist内の全ファイルサイズを合計し、配布成果物の総サイズとする。 */
-const totalBytes = (await Promise.all(allDistFiles.map(
+/** 起動時に読まない出力エンジンは、プレビューと起動のサイズ閾値から分離する。 */
+const startupDistFiles = allDistFiles.filter((file) =>
+  !file.includes(`${path.sep}export-engine${path.sep}`));
+/** 起動とプレビューに必要な成果物だけのサイズを合計する。 */
+const totalBytes = (await Promise.all(startupDistFiles.map(
 /**
  * dist内のファイルサイズを読み取る。
  * @param file - サイズを測るファイルパス。
