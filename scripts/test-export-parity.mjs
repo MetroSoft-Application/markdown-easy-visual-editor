@@ -43,7 +43,7 @@ await Promise.all(['html', 'pdf'].map((format) =>
   engine.convert({
     input, output: format === 'html' ? referenceHtml : referencePdf,
     format, markdown, language: 'ja', browserPath: browser,
-    workspaceRoot: directory, theme: 'dark', mermaidTheme: 'dark',
+    workspaceRoot: directory, theme: 'dark', mermaidTheme: 'auto',
     linked: false, embedImages: false, outline: false, force: true,
     remoteImagesEnabled: true, renderFormat: 'mixed',
   })));

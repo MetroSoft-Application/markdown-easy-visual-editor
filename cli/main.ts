@@ -327,7 +327,7 @@ async function renderMarkdownFile(
             source, args.mermaidTheme === 'auto' ? 'default' : args.mermaidTheme,
             path.join(assetDir, 'pele-render-worker.js'),
             () => acquirePdfBrowser(args.language, args.browserPath), args.signal, {
-                fontFamily: args.fontFamily ?? DEFAULT_FONT_FAMILY_STACK,
+                fontFamily: args.fontFamily ?? '',
                 fontSize: args.mermaidFontSize,
                 resourceScope: sourceFile,
                 resolveImages: (sources, signal) => resolveMermaidImageSources(
@@ -376,7 +376,7 @@ async function renderMarpPdf(
                 block.source, args.mermaidTheme === 'auto' ? 'default' : args.mermaidTheme,
                 path.join(assetDir, 'pele-render-worker.js'),
                 () => acquirePdfBrowser(args.language, args.browserPath), args.signal, {
-                    fontFamily: args.fontFamily ?? DEFAULT_FONT_FAMILY_STACK,
+                    fontFamily: args.fontFamily ?? '',
                     fontSize: args.mermaidFontSize,
                     resourceScope: sourceFile,
                     resolveImages: (sources, signal) => resolveMermaidImageSources(

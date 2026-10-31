@@ -10,6 +10,7 @@
  * PDFを生成できただけでは、出力互換性を検証したことにならない。
  */
 import { createServer } from 'node:http';
+import { createHash } from 'node:crypto';
 import { promises as fs } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -36,31 +37,65 @@ const executable = flags.get('--browser') || process.env.MVE_CLI_TEST_BROWSER;
 const maxRatio = Number(flags.get('--max-different-ratio') || '0');
 if (!(maxRatio >= 0 && maxRatio <= 1)) throw new Error('Invalid pixel difference threshold.');
 await fs.mkdir(output, { recursive: true });
-const temp = await fs.mkdtemp(path.join(os.tmpdir(), 'mve-visual-parity-'));
-const candidates = ['html', 'pdf'].map((ext) => path.join(temp, 'candidate.' + ext));
+const suppliedCandidates = ['html', 'pdf'].map((ext) => flags.get('--candidate-' + ext));
+if (suppliedCandidates.some(Boolean) && suppliedCandidates.some((value) => !value)) {
+    throw new Error('Both --candidate-html and --candidate-pdf are required together.');
+}
+const temp = suppliedCandidates.some(Boolean) ? undefined : await fs.mkdtemp(path.join(os.tmpdir(), 'mve-visual-parity-'));
+const candidates = suppliedCandidates.some(Boolean)
+    ? suppliedCandidates.map((file) => path.resolve(file))
+    : ['html', 'pdf'].map((ext) => path.join(temp, 'candidate.' + ext));
 const errors = [];
-const report = { input: source, references, threshold: maxRatio, html: [], pdf: [], errors };
+const report = {
+    input: source,
+    references,
+    candidates,
+    browser: executable ? path.resolve(executable) : 'chrome',
+    config: flags.has('--config') ? path.resolve(flags.get('--config')) : null,
+    workspaceRoot: flags.has('--workspace-root') ? path.resolve(flags.get('--workspace-root')) : null,
+    candidateMode: suppliedCandidates.some(Boolean) ? 'provided-files' : 'cli-generated',
+    threshold: maxRatio,
+    html: [],
+    pdf: [],
+    errors
+};
+const fingerprint = async (file) => {
+    const bytes = await fs.readFile(file);
+    return { path: file, bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') };
+};
+report.files = {
+    input: await fingerprint(source),
+    references: await Promise.all(references.map(fingerprint)),
+    candidates: await Promise.all(candidates.map(fingerprint)),
+    config: report.config ? await fingerprint(report.config) : null
+};
 let browser;
 let server;
 
-async function screenshotHtml(file, label, width) {
-    const page = await browser.newPage({ viewport: { width, height: 900 }, deviceScaleFactor: 1 });
+async function screenshotHtml(page, file, label, width) {
+    await page.setViewportSize({ width, height: 900 });
     const pageErrors = [];
+    page.removeAllListeners('pageerror');
     page.on('pageerror', (error) => pageErrors.push(String(error)));
     try {
         await page.goto(pathToFileURL(file).href, { waitUntil: 'load', timeout: 30000 });
-        await page.evaluate(async () => {
+        const settle = () => page.evaluate(async () => {
             await document.fonts.ready;
-            await Promise.all([...document.images].map((img) => img.complete
-                ? undefined
-                : Promise.race([
+            await Promise.all([...document.images].map(async (img) => {
+                if (!img.complete) await Promise.race([
                     new Promise((resolve) => {
                         img.addEventListener('load', resolve, { once: true });
                         img.addEventListener('error', resolve, { once: true });
                     }),
                     new Promise((resolve) => setTimeout(resolve, 5000))
-                ])));
+                ]);
+                if (img.naturalWidth && typeof img.decode === 'function') await img.decode().catch(() => undefined);
+            }));
+            await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
         });
+        await settle();
+        await page.reload({ waitUntil: 'load', timeout: 30000 });
+        await settle();
         const dom = await page.evaluate(() => {
             const main = document.querySelector('main') || document.body;
             return {
@@ -79,7 +114,7 @@ async function screenshotHtml(file, label, width) {
         await page.screenshot({ path: png, fullPage: true, animations: 'disabled' });
         return { png, dom, pageErrors };
     } finally {
-        await page.close();
+        await page.goto('about:blank');
     }
 }
 
@@ -152,12 +187,24 @@ async function screenshotPdf(file, label, origin) {
                         rect: item.rect.map((value) => Math.round(value * 100) / 100)
                     })));
                     const structure = await sheet.getStructTree();
+                    const ids = new Map();
+                    const normalizeStructure = (value) => {
+                        if (Array.isArray(value)) return value.map(normalizeStructure);
+                        if (!value || typeof value !== 'object') return value;
+                        return Object.fromEntries(Object.keys(value).sort().map((key) => {
+                            if (key !== 'id') return [key, normalizeStructure(value[key])];
+                            const id = String(value[key]);
+                            if (!ids.has(id)) ids.set(id, ids.size);
+                            return [key, 'id-' + ids.get(id)];
+                        }));
+                    };
                     results.push({
                         text: text.items.map((item) => item.str || '').join(' ').replace(/\s+/g, ' ').trim(),
                         width: canvas.width,
                         height: canvas.height,
                         links,
                         tagged: Boolean(structure?.children?.length),
+                        tagStructure: normalizeStructure(structure),
                         data: canvas.toDataURL('image/png').split(',')[1]
                     });
                     canvas.width = canvas.height = 0;
@@ -232,28 +279,39 @@ async function pixels(left, right, name) {
 }
 
 try {
-    await fs.stat('cli/dist/mve-convert.cjs').catch(() => {
-        throw new Error('Build CLI first: npm run build:cli');
-    });
+    if (!suppliedCandidates.some(Boolean)) {
+        await fs.stat('cli/dist/mve-convert.cjs').catch(() => {
+            throw new Error('Build CLI first: npm run build:cli');
+        });
+    }
     browser = await chromium.launch(executable
         ? { executablePath: path.resolve(executable), headless: true }
         : { channel: 'chrome', headless: true });
-    for (const [index, ext] of ['html', 'pdf'].entries()) {
-        const args = ['cli/dist/mve-convert.cjs', source, '--format', ext, '--output', candidates[index]];
-        if (executable) args.push('--browser', executable);
-        if (flags.has('--config')) args.push('--config', flags.get('--config'));
-        if (flags.has('--workspace-root')) args.push('--workspace-root', flags.get('--workspace-root'));
-        if (ext === 'html' && flags.has('--linked')) args.push('--linked');
-        if (ext === 'html' && flags.has('--outline')) args.push('--outline');
-        if (ext === 'html' && flags.get('--embed-images') === 'true') args.push('--embed-images');
-        await run(process.execPath, args, { timeout: 180000 });
+    report.browserVersion = browser.version();
+    if (!suppliedCandidates.some(Boolean)) {
+        for (const [index, ext] of ['html', 'pdf'].entries()) {
+            const args = ['cli/dist/mve-convert.cjs', source, '--format', ext, '--output', candidates[index]];
+            if (executable) args.push('--browser', executable);
+            if (flags.has('--config')) args.push('--config', flags.get('--config'));
+            if (flags.has('--workspace-root')) args.push('--workspace-root', flags.get('--workspace-root'));
+            if (ext === 'html' && flags.has('--linked')) args.push('--linked');
+            if (ext === 'html' && flags.has('--outline')) args.push('--outline');
+            if (ext === 'html' && flags.get('--embed-images') === 'true') args.push('--embed-images');
+            await run(process.execPath, args, { timeout: 180000 });
+        }
     }
     for (const width of [800, 1440]) {
-        const [reference, candidate] = await Promise.all([
-            screenshotHtml(references[0], 'reference-html', width),
-            screenshotHtml(candidates[0], 'candidate-html', width)
-        ]);
-        const difference = await pixels(reference.png, candidate.png, 'html-' + width);
+        const htmlPage = await browser.newPage({ viewport: { width, height: 900 }, deviceScaleFactor: 1 });
+        let reference;
+        let candidate;
+        let difference;
+        try {
+            reference = await screenshotHtml(htmlPage, references[0], 'reference-html', width);
+            candidate = await screenshotHtml(htmlPage, candidates[0], 'candidate-html', width);
+            difference = await pixels(reference.png, candidate.png, 'html-' + width);
+        } finally {
+            await htmlPage.close();
+        }
         const problems = [];
         if (reference.dom.text !== candidate.dom.text) problems.push('body text');
         if (JSON.stringify(reference.dom.headings) !== JSON.stringify(candidate.dom.headings)) problems.push('headings');
@@ -267,10 +325,8 @@ try {
         report.html.push({ width, difference, problems, reference, candidate });
     }
     const origin = await pdfServer();
-    const [referencePages, candidatePages] = await Promise.all([
-        screenshotPdf(references[1], 'reference-pdf', origin),
-        screenshotPdf(candidates[1], 'candidate-pdf', origin)
-    ]);
+    const referencePages = await screenshotPdf(references[1], 'reference-pdf', origin);
+    const candidatePages = await screenshotPdf(candidates[1], 'candidate-pdf', origin);
     if (JSON.stringify(referencePages.outline) !== JSON.stringify(candidatePages.outline)) errors.push('PDF bookmarks mismatch');
     if (JSON.stringify(referencePages.markInfo) !== JSON.stringify(candidatePages.markInfo)) errors.push('PDF tag metadata mismatch');
     if (referencePages.pages.length !== candidatePages.pages.length) errors.push('PDF page count mismatch');
@@ -282,6 +338,7 @@ try {
         if (reference.width !== candidate.width || reference.height !== candidate.height) problems.push('page size');
         if (JSON.stringify(reference.links) !== JSON.stringify(candidate.links)) problems.push('links');
         if (reference.tagged !== candidate.tagged) problems.push('tags');
+        if (JSON.stringify(reference.tagStructure) !== JSON.stringify(candidate.tagStructure)) problems.push('tag structure');
         if (difference.ratio > maxRatio) problems.push('rendered pixel difference');
         if (problems.length) errors.push('PDF page ' + (index + 1) + ': ' + problems.join(', '));
         report.pdf.push({ page: index + 1, reference, candidate, difference, problems });
@@ -294,7 +351,7 @@ try {
 } finally {
     if (browser) await browser.close().catch(() => undefined);
     if (server) await new Promise((resolve) => server.close(resolve));
-    await fs.rm(temp, { recursive: true, force: true });
+    if (temp) await fs.rm(temp, { recursive: true, force: true });
     await fs.writeFile(path.join(output, 'report.json'), JSON.stringify(report, null, 2) + '\n');
 }
 console.log('Visual comparison:', path.join(output, 'report.json'));
