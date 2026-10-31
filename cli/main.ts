@@ -17,7 +17,7 @@ import { namespaceMermaidSvg } from './source/shared/mermaidSvg';
 import { decodeLocalResourceSource } from './source/shared/resourceCheck';
 import { DEFAULT_HTML_EXPORT_OPTIONS, DEFAULT_PDF_OPTIONS, PDF_PAPER_FORMATS, isTextReplacementPatternValid, normalizeHtmlExportSettings, normalizePdfOptions, type HtmlExportOptions, type PdfOptions } from './source/shared/protocol';
 import { DEFAULT_FONT_FAMILY_STACK } from './source/shared/fontFamily';
-import { hasMarpFrontMatterCandidate, isMarpMarkdown } from './source/shared/marpFrontMatter';
+import { hasMarpFrontMatterCandidate, isMarpMarkdown, stripMarpFrontMatter } from './source/shared/marpFrontMatter';
 import { renderMarpMarkdown } from './source/webview/marp/marpRenderer';
 import { createMarpPdfExportContent } from './source/webview/marp/marpPdfExport';
 import { prepareExportHtml } from './source/shared/exportHtml';
@@ -67,6 +67,7 @@ const usage = `Usage: mve-convert INPUT.md --format html|pdf [-o OUTPUT]
   --language CODE         ja, en, zh-cn, ko, fr, de, es (default: ja)
   --theme light|dark      Heading color theme (default: dark)
   --mermaid-theme NAME    auto, default, dark, neutral (default: auto)
+  --outline               Add the HTML outline sidebar
   --linked                Recursively export linked Markdown (HTML)
   --no-embed-images       Keep relative image paths (HTML)
   -h, --help              Show usage
@@ -293,12 +294,13 @@ async function readDiagramLocalImage(
 
 /**
  * DOMPurifyを含む既存のブラウザーレンダラーを実行してから、既存のPele図表ワーカーを実行する。
- * ブラウザーを再利用し、起動を繰り返すコストを抑える。
+ * HTMLでは有効なMarp設定だけを除いて通常のMarkdown出力を保ち、ブラウザー起動を繰り返さないようPageを再利用する。
  */
 async function renderMarkdownFile(
     page: Page, markdown: string, sourceFile: string, args: Arguments
 ): Promise<string> {
     const renderFormat = args.renderFormat ?? (/\.textile$/i.test(sourceFile) ? 'textile' : 'mixed');
+    const source = args.format === 'html' ? stripMarpFrontMatter(markdown, parseMarpFrontMatter) : markdown;
     const html = await page.evaluate(({ source, format, language, remoteImagesEnabled }) => {
         const renderer = (globalThis as unknown as {
             mveMarkdownFallback?: {
@@ -311,7 +313,7 @@ async function renderMarkdownFile(
         return renderer.renderMarkdown(source, {
             remoteImagesEnabled, renderFormat: format, language
         });
-    }, { source: markdown, format: renderFormat, language: args.language,
+    }, { source, format: renderFormat, language: args.language,
         remoteImagesEnabled: args.remoteImagesEnabled ?? true });
 
     const diagrams = await page.evaluate((markup) => {
@@ -349,6 +351,17 @@ async function renderMarkdownFile(
         });
         return root.innerHTML;
     }, { markup: html, svgs: rendered }));
+}
+
+/**
+ * Marp YAMLのルート設定だけを有効として認識する。
+ * @param yaml - 文書先頭のYAML front matter本文。
+ * @returns 有効なYAMLオブジェクトでmarpが真偽値trueの場合にtrue。
+ */
+function parseMarpFrontMatter(yaml: string): boolean {
+    const parsed = parseYaml(yaml);
+    return parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
+        && parsed.marp === true;
 }
 
 /**
@@ -521,11 +534,7 @@ async function convertExclusive(args: Arguments): Promise<readonly string[]> {
         await page.addScriptTag({ path: path.join(assetDir, 'markdown-fallback.js') });
         const markdown = args.markdown ?? await fs.readFile(args.input, 'utf8');
         const marp = args.format === 'pdf' && hasMarpFrontMatterCandidate(markdown)
-            && isMarpMarkdown(markdown, (yaml) => {
-                const parsed = parseYaml(yaml);
-                return parsed !== null && typeof parsed === 'object' && !Array.isArray(parsed)
-                    && parsed.marp === true;
-            });
+            && isMarpMarkdown(markdown, parseMarpFrontMatter);
         const marpContent = marp ? await renderMarpPdf(page, markdown, args.input, args) : undefined;
         const renderedHtml = marpContent?.html ?? await renderMarkdownFile(page, markdown, args.input, args);
         const replacementOptions = args.pdfOptions ?? DEFAULT_PDF_OPTIONS;
@@ -542,7 +551,8 @@ async function convertExclusive(args: Arguments): Promise<readonly string[]> {
                 options: replaced.options,
                 editorTheme: args.theme,
                 language: args.language,
-                signal: args.signal
+                signal: args.signal,
+                preferCssPageSize: marpContent !== undefined
             });
             args.signal?.throwIfAborted();
             await fs.mkdir(path.dirname(output), { recursive: true });

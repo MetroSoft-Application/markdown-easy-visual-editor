@@ -41,6 +41,8 @@ export interface PdfExportRequest {
     documentPath: string;
     /** Browser executable selected by the caller, if any. */
     browserPath?: string;
+    /** Marp PDFではCSSのスライド寸法を優先する。省略時は選択用紙を使う。 */
+    preferCssPageSize?: boolean;
     /**
      * PDF生成時のエラーやstatusに使う表示言語。
      */
@@ -273,13 +275,13 @@ export async function renderPdfWithProfile(
             () => page.pdf({
                 ...pdfPaperOptions(options.format, options.orientation),
                 printBackground: true,
-                preferCSSPageSize: false,
-                margin: {
+                preferCSSPageSize: request.preferCssPageSize === true,
+                ...(request.preferCssPageSize !== true ? { margin: {
                     top: `${options.margins.top}mm`,
                     right: `${options.margins.right}mm`,
                     bottom: `${options.margins.bottom}mm`,
                     left: `${options.margins.left}mm`
-                },
+                } } : {}),
                 displayHeaderFooter: Boolean(options.header || options.footer),
                 headerTemplate: template(options.header),
                 footerTemplate: template(options.footer, true),
@@ -458,7 +460,8 @@ export async function buildStandaloneHtml(request: PdfExportRequest): Promise<st
     let body = stripUnsafeMarkup(request.html);
     body = await embedLocalImages(body, request.documentPath);
     const css = request.css.replace(/<\/style/gi, '<\\/style');
-    return `<!doctype html><html lang="${request.language}"><head><meta charset="utf-8"><style>${css}\n${PRINT_CSS}\n${printOptionsCss(options, request.editorTheme)}</style></head><body><main class="mve-print">${body}</main></body></html>`;
+    const pageSizeCss = request.preferCssPageSize ? '' : '@page { size: auto; }';
+    return `<!doctype html><html lang="${request.language}"><head><meta charset="utf-8"><style>${css}\n${pageSizeCss}\n${PRINT_CSS}\n${printOptionsCss(options, request.editorTheme)}</style></head><body><main class="mve-print">${body}</main></body></html>`;
 }
 
 /**
@@ -672,7 +675,6 @@ function mimeFromPath(filePath: string): string {
  * PDFで解析・表示・保存する本文。
  */
 const PRINT_CSS = `
-  @page { size: auto; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   body { margin: 0; font-family: ${DEFAULT_FONT_FAMILY_STACK}; color: #202124; }
   .mve-print { max-width: none; }
