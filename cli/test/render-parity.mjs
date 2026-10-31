@@ -5,6 +5,8 @@
  * node cli/test/render-parity.mjs --input sample.md
  *   --reference-html editor.html --reference-pdf editor.pdf
  *   [--browser /path/to/chromium] [--out-dir parity-results]
+ *   [--html-linked true] [--html-outline true]
+ *   [--html-embed-images true | --html-no-embed-images true]
  *
  * 比較用ファイルは同じ設定で既存エディターから出力する。
  * PDFを生成できただけでは、出力互換性を検証したことにならない。
@@ -20,15 +22,27 @@ import { promisify } from 'node:util';
 import { chromium } from 'playwright-core';
 
 const run = promisify(execFile);
+/** 比較スクリプトが実際に転送または処理する引数だけを受け付ける。 */
+const supportedFlags = new Set([
+    '--input', '--reference-html', '--reference-pdf', '--out-dir', '--browser',
+    '--max-different-ratio', '--candidate-html', '--candidate-pdf', '--config',
+    '--workspace-root', '--html-linked', '--html-outline',
+    '--html-embed-images', '--html-no-embed-images'
+]);
 const flags = new Map();
 for (let i = 2; i < process.argv.length; i += 2) {
     if (!process.argv[i]?.startsWith('--') || !process.argv[i + 1]) {
         throw new Error('Every option must be a --name value pair.');
     }
+    if (!supportedFlags.has(process.argv[i])) throw new Error('Unknown option: ' + process.argv[i]);
     flags.set(process.argv[i], process.argv[i + 1]);
 }
 for (const name of ['--input', '--reference-html', '--reference-pdf']) {
     if (!flags.has(name)) throw new Error('Missing ' + name);
+}
+for (const name of ['--html-linked', '--html-outline', '--html-embed-images', '--html-no-embed-images']) {
+    const value = flags.get(name);
+    if (value !== undefined && value !== 'true' && value !== 'false') throw new Error('Invalid ' + name + ': ' + value);
 }
 const source = path.resolve(flags.get('--input'));
 const references = ['html', 'pdf'].map((ext) => path.resolve(flags.get('--reference-' + ext)));
@@ -294,9 +308,10 @@ try {
             if (executable) args.push('--browser', executable);
             if (flags.has('--config')) args.push('--config', flags.get('--config'));
             if (flags.has('--workspace-root')) args.push('--workspace-root', flags.get('--workspace-root'));
-            if (ext === 'html' && flags.has('--linked')) args.push('--linked');
-            if (ext === 'html' && flags.has('--outline')) args.push('--outline');
-            if (ext === 'html' && flags.get('--embed-images') === 'true') args.push('--embed-images');
+            if (ext === 'html' && flags.get('--html-linked') === 'true') args.push('--html-linked');
+            if (ext === 'html' && flags.get('--html-outline') === 'true') args.push('--html-outline');
+            if (ext === 'html' && flags.get('--html-embed-images') === 'true') args.push('--html-embed-images');
+            if (ext === 'html' && flags.get('--html-no-embed-images') === 'true') args.push('--html-no-embed-images');
             await run(process.execPath, args, { timeout: 180000 });
         }
     }

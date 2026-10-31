@@ -59,6 +59,8 @@ export interface HtmlExportRequest {
     documentPath: string;
     /** Destination selected by the caller, independently of any editor dialog. */
     outputPath: string;
+    /** trueの場合だけ既存HTMLを上書きする。省略時は排他的な新規作成で既存内容を保護する。 */
+    overwrite?: boolean;
     /** Root used for slash-prefixed workspace links. */
     workspaceRoot: string;
 
@@ -166,7 +168,7 @@ export async function prepareHtmlExport(request: HtmlExportRequest): Promise<Htm
 }
 
 /**
- * HTMLの値を保存先または共有状態へ書き出す。
+ * 検査済みの出力計画を保存し、overwriteがtrueでない限り既存ファイルを保護する。
  * @param request - HTML本文・CSS・元文書URI・言語・フォント・出力設定をまとめた要求。
  * @param preparation - HTML保存先URIと、出力対象文書のレコード一覧。
  * @param renderedDocuments - リンク先文書をCLIで描画した識別子付きHTMLの一覧。
@@ -221,7 +223,9 @@ export async function writePreparedHtml(
             signal?.throwIfAborted();
             await fs.mkdir(path.dirname(document.outputPath), { recursive: true });
             signal?.throwIfAborted();
-            await fs.writeFile(document.outputPath, standalone, { encoding: 'utf8', signal });
+            await fs.writeFile(document.outputPath, standalone, {
+                encoding: 'utf8', flag: request.overwrite ? 'w' : 'wx', signal
+            });
             signal?.throwIfAborted();
             return document.outputPath;
         }));
@@ -1052,12 +1056,13 @@ function getHtmlRenderFormat(value: string): 'mixed' | 'textile' {
 }
 
 /**
- * 絶対化、正規化、小文字化したファイルパスを返す。
- * @param value - 絶対化・正規化・小文字化して比較するファイルパス。
-
+ * Windowsでは大文字・小文字を統一し、POSIXでは別文書の大小文字を保持する比較用パスを返す。
+ * @param value - 文書の収集、描画結果、リンク先を照合するファイルパス。
+ * @returns 絶対化・正規化したパス。小文字化はWindowsに限る。
  */
 function normalizePath(value: string): string {
-    return path.normalize(path.resolve(value)).toLowerCase();
+    const resolved = path.resolve(value);
+    return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
 }
 
 /**
@@ -1073,9 +1078,9 @@ function replaceExtension(value: string, extension: string): string {
 /**
  * 出力ファイルパスにHTML拡張子がない場合は.htmlを付ける。
  * @param value - HTML拡張子を付ける出力ファイルパス。
-
+ * @returns .html/.htmはそのまま、その他は.htmlを補完する。検査と書き込みで共用する。
  */
-function ensureHtmlExtension(value: string): string {
+export function ensureHtmlExtension(value: string): string {
     return /\.html?$/i.test(value) ? value : `${value}.html`;
 }
 

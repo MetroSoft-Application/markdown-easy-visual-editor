@@ -9,7 +9,7 @@ import { promises as fs } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { parse as parseYaml } from 'yaml';
 import type { BrowserContext, Page } from 'playwright-core';
-import { prepareHtmlExport, writePreparedHtml } from './html';
+import { ensureHtmlExtension, prepareHtmlExport, writePreparedHtml } from './html';
 import { acquirePdfBrowser, closePdfBrowser, renderPdf } from './pdf';
 import { closePeleRenderer, renderPeleMermaid } from './source/runtime/peleMermaid';
 import { MAX_MERMAID_IMAGE_BYTES, resolveMermaidImageSources } from './source/runtime/mermaidImages';
@@ -33,6 +33,7 @@ export interface Arguments {
     input: string;
     output?: string;
     format: OutputFormat;
+    /** 生成文言と描画用HTMLの言語。CLI起動時は引数、JSON設定、enの順に決める。 */
     language: SupportedLanguage;
     browserPath?: string;
     workspaceRoot?: string;
@@ -61,15 +62,16 @@ const usage = `Usage: mve-convert INPUT.md --format html|pdf [-o OUTPUT]
   -o, --output PATH       Output file (default: INPUT.html or INPUT.pdf)
   --config PATH           JSON export settings
   --force                 Overwrite existing output files
-  --embed-images          Embed local images in HTML
+  --html-embed-images     Embed local images in HTML
   --workspace-root PATH   Workspace root for root-relative Markdown links
   --browser PATH          Chromium/Edge/Chrome executable for rendering
-  --language CODE         ja, en, zh-cn, ko, fr, de, es (default: ja)
+  --language CODE         Generated labels and HTML lang (default: en)
+                          ja, en, zh-cn, ko, fr, de, es; does not translate text
   --theme light|dark      Heading color theme (default: dark)
   --mermaid-theme NAME    auto, default, dark, neutral (default: auto)
-  --outline               Add the HTML outline sidebar
-  --linked                Recursively export linked Markdown (HTML)
-  --no-embed-images       Keep relative image paths (HTML)
+  --html-outline          Add the HTML outline sidebar
+  --html-linked           Recursively export linked Markdown (HTML)
+  --html-no-embed-images  Keep relative image paths (HTML)
   -h, --help              Show usage
   --version               Show package version
 `;
@@ -85,7 +87,7 @@ export function parseArguments(argv: readonly string[]): Arguments | undefined {
     let input: string | undefined;
     let output: string | undefined;
     let format: OutputFormat | undefined;
-    let language: SupportedLanguage = 'ja';
+    let language: SupportedLanguage = 'en';
     let browserPath: string | undefined;
     let workspaceRoot: string | undefined;
     let theme: Theme = 'dark';
@@ -98,10 +100,10 @@ export function parseArguments(argv: readonly string[]): Arguments | undefined {
     let configPath: string | undefined;
     for (let index = 0; index < argv.length; index += 1) {
         const arg = argv[index];
-        if (arg === '--linked') { linked = true; continue; }
-        if (arg === '--embed-images') { embedImages = true; continue; }
-        if (arg === '--no-embed-images') { embedImages = false; continue; }
-        if (arg === '--outline') { outline = true; continue; }
+        if (arg === '--html-linked') { linked = true; continue; }
+        if (arg === '--html-embed-images') { embedImages = true; continue; }
+        if (arg === '--html-no-embed-images') { embedImages = false; continue; }
+        if (arg === '--html-outline') { outline = true; continue; }
         if (arg === '--force') { force = true; continue; }
         if (!arg.startsWith('-')) {
             if (input !== undefined) throw new Error('Only one input file is supported.');
@@ -146,8 +148,8 @@ export function parseArguments(argv: readonly string[]): Arguments | undefined {
     }
     if (!input) throw new Error('Input Markdown path is required.');
     if (!format) throw new Error('--format html|pdf is required.');
-    if (format === 'pdf' && (linked || outline || argv.includes('--no-embed-images'))) {
-        throw new Error('--linked, --outline, --no-embed-images are HTML-only options.');
+    if (format === 'pdf' && (linked || outline || argv.includes('--html-embed-images') || argv.includes('--html-no-embed-images'))) {
+        throw new Error('--html-embed-images, --html-no-embed-images, --html-linked, and --html-outline are HTML-only options.');
     }
     return { input: path.resolve(input), output: output && path.resolve(output), format,
         language, browserPath, workspaceRoot, theme, mermaidTheme, linked, embedImages, outline, force, configPath };
@@ -265,9 +267,11 @@ async function loadConfig(args: Arguments, argv: readonly string[]): Promise<Arg
         workspaceRoot: argv.includes('--workspace-root') ? args.workspaceRoot : config.workspaceRoot ? path.resolve(base, config.workspaceRoot) : args.workspaceRoot,
         pdfOptions: pdf ? normalizePdfOptions(pdf) : undefined,
         htmlOptions: html ? normalizeHtmlExportSettings(html) : undefined,
-        linked: argv.includes('--linked') ? true : html ? Boolean((html as Record<string, unknown>).convertLinkedMarkdown) : args.linked,
-        embedImages: argv.includes('--no-embed-images') ? false : argv.includes('--embed-images') ? true : html ? Boolean((html as Record<string, unknown>).embedImages) : args.embedImages,
-        outline: argv.includes('--outline') ? true : html ? Boolean((html as Record<string, unknown>).showOutlineSidebar) : args.outline
+        linked: argv.includes('--html-linked') ? true : html ? Boolean((html as Record<string, unknown>).convertLinkedMarkdown) : args.linked,
+        // 画像フラグはJSONより優先し、両方指定された場合は引数解析で最後に読んだ値を使う。
+        embedImages: argv.includes('--html-no-embed-images') || argv.includes('--html-embed-images')
+            ? args.embedImages : html ? Boolean((html as Record<string, unknown>).embedImages) : args.embedImages,
+        outline: argv.includes('--html-outline') ? true : html ? Boolean((html as Record<string, unknown>).showOutlineSidebar) : args.outline
     };
 }
 
@@ -451,12 +455,31 @@ async function replaceOutput(
 let conversionTail: Promise<void> = Promise.resolve();
 
 /**
- * 出力先の別名（シンボリックリンク、ハードリンク、大小文字違い）から原文を守る。
+ * 未作成の出力でも、既存の親ディレクトリやリンク先の実パスから保存予定先を求める。
+ * @param output - 検査する出力先。ファイルや末尾のディレクトリは未作成でもよい。
+ * @returns シンボリックリンク・ジャンクションを解決した絶対パス。
+ * @throws ENOENT以外のファイルシステムエラーは伝播し、リンク循環は書き込み前に拒否する。
+ */
+async function resolveOutputPath(output: string): Promise<string> {
+    const absolute = path.resolve(output);
+    try {
+        return await fs.realpath(absolute);
+    } catch (error) {
+        if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+        const parent = path.dirname(absolute);
+        if (parent === absolute) throw error;
+        return path.join(await resolveOutputPath(parent), path.basename(absolute));
+    }
+}
+
+/**
+ * 出力先の別名から原文を守り、複数文書が同じ出力ファイルへ書き込まれるのを防ぐ。
  * @param sources - 主文書とリンク先文書の実ファイルパス。
  * @param outputs - 書き込み予定の全出力パス。
- * @throws いずれかの出力先が原文と同じ実体である場合。
+ * @throws 出力先が原文と同じ実体である場合、または出力先同士が重複する場合。
  */
 async function assertDistinctFiles(sources: readonly string[], outputs: readonly string[]): Promise<void> {
+    /** Windowsの既存のパス比較規則を保ち、POSIXの大小文字を区別する。 */
     const normalized = (value: string): string => {
         const resolved = path.resolve(value);
         return process.platform === 'win32' ? resolved.toLowerCase() : resolved;
@@ -472,14 +495,23 @@ async function assertDistinctFiles(sources: readonly string[], outputs: readonly
             throw error;
         })
     })));
+    const outputPaths = new Set<string>();
+    const outputFiles = new Set<string>();
     for (const output of outputs) {
+        const outputPath = normalized(await resolveOutputPath(output));
+        if (outputPaths.has(outputPath)) throw new Error(`Output paths must be distinct: ${output}`);
+        outputPaths.add(outputPath);
         if (sourcePaths.has(normalized(output))) throw new Error(`Output must differ from input: ${output}`);
         const target = await fs.stat(output).catch((error: NodeJS.ErrnoException) => {
             if (error.code === 'ENOENT') return undefined;
             throw error;
         });
         if (!target) continue;
-        const targetRealPath = normalized(await fs.realpath(output));
+        // --forceでも、既存のハードリンク・シンボリックリンク別名への二重書き込みは許可しない。
+        const identity = `${target.dev}:${target.ino}`;
+        if (outputFiles.has(identity)) throw new Error(`Output paths must be distinct: ${output}`);
+        outputFiles.add(identity);
+        const targetRealPath = outputPath;
         if (sourceFiles.some((source) => source.stat &&
             ((source.stat.dev === target.dev && source.stat.ino === target.ino)
                 || (source.realPath && normalized(source.realPath) === targetRealPath)))) {
@@ -511,7 +543,8 @@ async function convertExclusive(args: Arguments): Promise<readonly string[]> {
         const inputStat = await fs.stat(args.input);
         if (!inputStat.isFile()) throw new Error('Input must be a file.');
     }
-    const output = args.output ?? args.input.replace(/\.[^.\\/]+$/, '') + '.' + args.format;
+    const requestedOutput = args.output ?? args.input.replace(/\.[^.\\/]+$/, '') + '.' + args.format;
+    const output = args.format === 'html' ? ensureHtmlExtension(requestedOutput) : requestedOutput;
     await assertDistinctFiles([args.input], [output]);
     if (!args.force) {
         try {
@@ -556,7 +589,7 @@ async function convertExclusive(args: Arguments): Promise<readonly string[]> {
             });
             args.signal?.throwIfAborted();
             await fs.mkdir(path.dirname(output), { recursive: true });
-            await fs.writeFile(output, pdf, { signal: args.signal });
+            await fs.writeFile(output, pdf, { flag: args.force ? 'w' : 'wx', signal: args.signal });
             args.signal?.throwIfAborted();
             return [output];
         }
@@ -570,6 +603,7 @@ async function convertExclusive(args: Arguments): Promise<readonly string[]> {
             },
             documentPath: args.input,
             outputPath: output,
+            overwrite: args.force === true,
             workspaceRoot: args.workspaceRoot ?? path.dirname(args.input),
             language: args.language,
             fontFamily,
@@ -581,7 +615,7 @@ async function convertExclusive(args: Arguments): Promise<readonly string[]> {
         await assertDistinctFiles(preparation.documents.map((document) => document.sourcePath),
             preparation.documents.map((document) => document.outputPath));
         if (!args.force) {
-            for (const document of preparation.documents.slice(1)) {
+            for (const document of preparation.documents) {
                 try {
                     await fs.stat(document.outputPath);
                     throw new Error(`Output already exists: ${document.outputPath}`);
@@ -608,7 +642,7 @@ async function convertExclusive(args: Arguments): Promise<readonly string[]> {
     }
 }
 
-/** プロセスのエントリポイントを実行し、失敗を0以外の終了コードへ変換する。 */
+/** CLIを実行し、引数・設定エラーを2、変換エラーを1、中断を130の終了コードへ変換する。 */
 async function main(): Promise<void> {
     const controller = new AbortController();
     /** Node の既定の即時終了を抑え、変換の資源解放を待って 130 を返す。 */
@@ -629,7 +663,7 @@ async function main(): Promise<void> {
     } catch (error) {
         process.stderr.write((error instanceof Error ? error.message : String(error)) + '\n');
         process.exitCode = controller.signal.aborted ? 130
-            : error instanceof Error && /^(Unknown argument|Missing value|Invalid |Input Markdown path|--format|Only one input|Configuration |rendering |pdf must|html must|browserPath must|workspaceRoot must|Unknown configuration|Unknown rendering)/.test(error.message)
+            : error instanceof Error && /^(Unknown argument|Missing value|Invalid |Input Markdown path|--format|--html-|Only one input|Configuration |rendering |pdf must|html must|browserPath must|workspaceRoot must|Unknown configuration|Unknown rendering)/.test(error.message)
             ? 2 : 1;
     } finally {
         process.removeListener('SIGINT', onInterrupt);
