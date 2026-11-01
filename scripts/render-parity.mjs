@@ -1,0 +1,381 @@
+/**
+ * @fileoverview ブラウザーのスクリーンショット、PDF.jsによるページ画像化、画素差分を使い、
+ * 実際のVS Code HTML/PDF出力とCLIの変換結果を比較する。
+ *
+ * node scripts/render-parity.mjs --input sample.md
+ *   --reference-html editor.html --reference-pdf editor.pdf
+ *   [--browser /path/to/chromium] [--out-dir parity-results]
+ *   [--language ja] [--theme light|dark] [--mermaid-theme auto]
+ *   [--html-linked true] [--html-outline true]
+ *   [--html-embed-images true | --html-no-embed-images true]
+ *
+ * 比較用ファイルは同じ設定で既存エディターから出力する。
+ * PDFを生成できただけでは、出力互換性を検証したことにならない。
+ */
+import { createServer } from 'node:http';
+import { createHash } from 'node:crypto';
+import { promises as fs } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { pathToFileURL } from 'node:url';
+import { execFile } from 'node:child_process';
+import { promisify } from 'node:util';
+import { chromium } from 'playwright-core';
+
+const run = promisify(execFile);
+/** 比較スクリプトが実際に転送または処理する引数だけを受け付ける。 */
+const supportedFlags = new Set([
+    '--input', '--reference-html', '--reference-pdf', '--out-dir', '--browser',
+    '--max-different-ratio', '--candidate-html', '--candidate-pdf', '--config',
+    '--workspace-root', '--language', '--theme', '--mermaid-theme', '--html-linked', '--html-outline',
+    '--html-embed-images', '--html-no-embed-images'
+]);
+const flags = new Map();
+for (let i = 2; i < process.argv.length; i += 2) {
+    if (!process.argv[i]?.startsWith('--') || !process.argv[i + 1]) {
+        throw new Error('Every option must be a --name value pair.');
+    }
+    if (!supportedFlags.has(process.argv[i])) throw new Error('Unknown option: ' + process.argv[i]);
+    flags.set(process.argv[i], process.argv[i + 1]);
+}
+for (const name of ['--input', '--reference-html', '--reference-pdf']) {
+    if (!flags.has(name)) throw new Error('Missing ' + name);
+}
+for (const name of ['--html-linked', '--html-outline', '--html-embed-images', '--html-no-embed-images']) {
+    const value = flags.get(name);
+    if (value !== undefined && value !== 'true' && value !== 'false') throw new Error('Invalid ' + name + ': ' + value);
+}
+const source = path.resolve(flags.get('--input'));
+const references = ['html', 'pdf'].map((ext) => path.resolve(flags.get('--reference-' + ext)));
+const output = path.resolve(flags.get('--out-dir') || 'artifacts/visual-report');
+const executable = flags.get('--browser') || process.env.MVE_CLI_TEST_BROWSER;
+const maxRatio = Number(flags.get('--max-different-ratio') || '0');
+if (!(maxRatio >= 0 && maxRatio <= 1)) throw new Error('Invalid pixel difference threshold.');
+await fs.mkdir(output, { recursive: true });
+const suppliedCandidates = ['html', 'pdf'].map((ext) => flags.get('--candidate-' + ext));
+if (suppliedCandidates.some(Boolean) && suppliedCandidates.some((value) => !value)) {
+    throw new Error('Both --candidate-html and --candidate-pdf are required together.');
+}
+const temp = suppliedCandidates.some(Boolean) ? undefined : await fs.mkdtemp(path.join(os.tmpdir(), 'mve-visual-parity-'));
+const candidates = suppliedCandidates.some(Boolean)
+    ? suppliedCandidates.map((file) => path.resolve(file))
+    : ['html', 'pdf'].map((ext) => path.join(temp, 'candidate.' + ext));
+const errors = [];
+const report = {
+    input: source,
+    references,
+    candidates,
+    browser: executable ? path.resolve(executable) : 'chrome',
+    config: flags.has('--config') ? path.resolve(flags.get('--config')) : null,
+    workspaceRoot: flags.has('--workspace-root') ? path.resolve(flags.get('--workspace-root')) : null,
+    candidateMode: suppliedCandidates.some(Boolean) ? 'provided-files' : 'cli-generated',
+    threshold: maxRatio,
+    html: [],
+    pdf: [],
+    errors
+};
+const fingerprint = async (file) => {
+    const bytes = await fs.readFile(file);
+    return { path: file, bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') };
+};
+// CLIで生成する候補はこの時点でまだ存在しないため、候補の指紋は生成後に記録する。
+report.files = {
+    input: await fingerprint(source),
+    references: await Promise.all(references.map(fingerprint)),
+    candidates: [],
+    config: report.config ? await fingerprint(report.config) : null
+};
+let browser;
+let server;
+
+async function screenshotHtml(page, file, label, width) {
+    await page.setViewportSize({ width, height: 900 });
+    const pageErrors = [];
+    page.removeAllListeners('pageerror');
+    page.on('pageerror', (error) => pageErrors.push(String(error)));
+    try {
+        await page.goto(pathToFileURL(file).href, { waitUntil: 'load', timeout: 30000 });
+        const settle = () => page.evaluate(async () => {
+            await document.fonts.ready;
+            await Promise.all([...document.images].map(async (img) => {
+                if (!img.complete) await Promise.race([
+                    new Promise((resolve) => {
+                        img.addEventListener('load', resolve, { once: true });
+                        img.addEventListener('error', resolve, { once: true });
+                    }),
+                    new Promise((resolve) => setTimeout(resolve, 5000))
+                ]);
+                if (img.naturalWidth && typeof img.decode === 'function') await img.decode().catch(() => undefined);
+            }));
+            await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
+        });
+        await settle();
+        await page.reload({ waitUntil: 'load', timeout: 30000 });
+        await settle();
+        const dom = await page.evaluate(() => {
+            const main = document.querySelector('main') || document.body;
+            return {
+                text: main.innerText.replace(/\s+/g, ' ').trim(),
+                headings: [...main.querySelectorAll('h1,h2,h3,h4,h5,h6')].map((h) => h.textContent.trim()),
+                images: main.querySelectorAll('img').length,
+                diagrams: main.querySelectorAll('svg').length,
+                brokenImages: [...main.querySelectorAll('img')]
+                    .filter((img) => !img.complete || !img.naturalWidth).map((img) => img.src.slice(0, 120)),
+                unrenderedMermaid: main.querySelectorAll('[data-mermaid-source]:not(:has(svg))').length,
+                overflow: [...main.querySelectorAll('table,pre,img,svg')]
+                    .filter((el) => el.getBoundingClientRect().right > innerWidth + 3).length
+            };
+        });
+        const png = path.join(output, label + '-' + width + '.png');
+        await page.screenshot({ path: png, fullPage: true, animations: 'disabled' });
+        return { png, dom, pageErrors };
+    } finally {
+        await page.goto('about:blank');
+    }
+}
+
+async function pdfServer() {
+    const allowed = new Map([
+        ['/pdfjs.mjs', path.resolve('node_modules/pdfjs-dist/build/pdf.mjs')],
+        ['/pdf.worker.min.mjs', path.resolve('node_modules/pdfjs-dist/build/pdf.worker.min.mjs')]
+    ]);
+    server = createServer(async (request, response) => {
+        if (request.url === '/') {
+            response.writeHead(200, { 'content-type': 'text/html; charset=utf-8' });
+            response.end('<!doctype html><html><body></body></html>');
+            return;
+        }
+        const file = allowed.get(request.url);
+        if (!file) return void response.writeHead(404).end();
+        try {
+            response.writeHead(200, { 'content-type': 'text/javascript' });
+            response.end(await fs.readFile(file));
+        } catch {
+            response.writeHead(500).end();
+        }
+    });
+    await new Promise((resolve, reject) => {
+        server.once('error', reject);
+        server.listen(0, '127.0.0.1', resolve);
+    });
+    return 'http://127.0.0.1:' + server.address().port + '/';
+}
+
+async function screenshotPdf(file, label, origin) {
+    const page = await browser.newPage();
+    try {
+        await page.goto(origin);
+        const pdf = await page.evaluate(async (base64) => {
+            const pdfjs = await import('/pdfjs.mjs');
+            pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
+            const bytes = Uint8Array.from(atob(base64), (char) => char.charCodeAt(0));
+            const loadingTask = pdfjs.getDocument({ data: bytes });
+            try {
+                const document = await loadingTask.promise;
+                const results = [];
+                const destinationPage = async (destination) => {
+                    const resolved = typeof destination === 'string'
+                        ? await document.getDestination(destination) : destination;
+                    if (!Array.isArray(resolved) || !resolved[0]) return null;
+                    return (await document.getPageIndex(resolved[0])) + 1;
+                };
+                const outlineShape = async (items) => Promise.all((items ?? []).map(async (item) => ({
+                    title: item.title,
+                    url: item.url ?? null,
+                    page: await destinationPage(item.dest),
+                    children: await outlineShape(item.items)
+                })));
+                const outline = await outlineShape(await document.getOutline());
+                const markInfo = await document.getMarkInfo();
+                for (let index = 1; index <= document.numPages; index++) {
+                    const sheet = await document.getPage(index);
+                    const viewport = sheet.getViewport({ scale: 1.5 });
+                    const canvas = window.document.createElement('canvas');
+                    canvas.width = Math.ceil(viewport.width);
+                    canvas.height = Math.ceil(viewport.height);
+                    await sheet.render({ canvasContext: canvas.getContext('2d', { alpha: false }), viewport }).promise;
+                    const text = await sheet.getTextContent();
+                    const annotations = (await sheet.getAnnotations({ intent: 'display' }))
+                        .filter((item) => item.subtype === 'Link');
+                    const links = await Promise.all(annotations.map(async (item) => ({
+                        url: item.url ?? item.unsafeUrl ?? null,
+                        page: await destinationPage(item.dest),
+                        rect: item.rect.map((value) => Math.round(value * 100) / 100)
+                    })));
+                    const structure = await sheet.getStructTree();
+                    const ids = new Map();
+                    const normalizeStructure = (value) => {
+                        if (Array.isArray(value)) return value.map(normalizeStructure);
+                        if (!value || typeof value !== 'object') return value;
+                        return Object.fromEntries(Object.keys(value).sort().map((key) => {
+                            if (key !== 'id') return [key, normalizeStructure(value[key])];
+                            const id = String(value[key]);
+                            if (!ids.has(id)) ids.set(id, ids.size);
+                            return [key, 'id-' + ids.get(id)];
+                        }));
+                    };
+                    results.push({
+                        text: text.items.map((item) => item.str || '').join(' ').replace(/\s+/g, ' ').trim(),
+                        width: canvas.width,
+                        height: canvas.height,
+                        links,
+                        tagged: Boolean(structure?.children?.length),
+                        tagStructure: normalizeStructure(structure),
+                        data: canvas.toDataURL('image/png').split(',')[1]
+                    });
+                    canvas.width = canvas.height = 0;
+                    sheet.cleanup();
+                }
+                return { pages: results, outline, markInfo };
+            } finally {
+                await loadingTask.destroy();
+            }
+        }, (await fs.readFile(file)).toString('base64'));
+        return { outline: pdf.outline, markInfo: pdf.markInfo,
+            pages: await Promise.all(pdf.pages.map(async (entry, i) => {
+            const png = path.join(output, label + '-page-' + (i + 1) + '.png');
+            await fs.writeFile(png, Buffer.from(entry.data, 'base64'));
+            return { ...entry, data: undefined, png };
+        })) };
+    } finally {
+        await page.close();
+    }
+}
+
+async function pixels(left, right, name) {
+    const page = await browser.newPage();
+    try {
+        const [a, b] = await Promise.all([fs.readFile(left), fs.readFile(right)]);
+        const result = await page.evaluate(async ({ first, second }) => {
+            const image = (b64) => new Promise((resolve, reject) => {
+                const img = new Image();
+                img.onload = () => resolve(img);
+                img.onerror = reject;
+                img.src = 'data:image/png;base64,' + b64;
+            });
+            const [a, b] = await Promise.all([image(first), image(second)]);
+            const canvas = document.createElement('canvas');
+            canvas.width = Math.max(a.width, b.width);
+            canvas.height = Math.max(a.height, b.height);
+            const ctx = canvas.getContext('2d', { willReadFrequently: true });
+            const sample = (img) => {
+                ctx.fillStyle = '#fff';
+                ctx.fillRect(0, 0, canvas.width, canvas.height);
+                ctx.drawImage(img, 0, 0);
+                return ctx.getImageData(0, 0, canvas.width, canvas.height);
+            };
+            const x = sample(a), y = sample(b), diff = ctx.createImageData(canvas.width, canvas.height);
+            let changed = 0;
+            for (let i = 0; i < x.data.length; i += 4) {
+                const mismatch = Math.max(
+                    Math.abs(x.data[i] - y.data[i]),
+                    Math.abs(x.data[i + 1] - y.data[i + 1]),
+                    Math.abs(x.data[i + 2] - y.data[i + 2])
+                ) > 0;
+                if (mismatch) changed++;
+                diff.data[i] = mismatch ? 255 : 245;
+                diff.data[i + 1] = mismatch ? 0 : 245;
+                diff.data[i + 2] = mismatch ? 0 : 245;
+                diff.data[i + 3] = 255;
+            }
+            ctx.putImageData(diff, 0, 0);
+            return {
+                ratio: changed / (canvas.width * canvas.height),
+                referenceSize: [a.width, a.height], candidateSize: [b.width, b.height],
+                png: canvas.toDataURL('image/png').split(',')[1]
+            };
+        }, { first: a.toString('base64'), second: b.toString('base64') });
+        const png = path.join(output, name + '-diff.png');
+        await fs.writeFile(png, Buffer.from(result.png, 'base64'));
+        return { ratio: result.ratio, referenceSize: result.referenceSize,
+            candidateSize: result.candidateSize, diff: png };
+    } finally {
+        await page.close();
+    }
+}
+
+try {
+    if (!suppliedCandidates.some(Boolean)) {
+        await fs.stat('dist/export-engine/mve-convert.cjs').catch(() => {
+            throw new Error('Build CLI first: npm run build');
+        });
+    }
+    browser = await chromium.launch(executable
+        ? { executablePath: path.resolve(executable), headless: true }
+        : { channel: 'chrome', headless: true });
+    report.browserVersion = browser.version();
+    if (!suppliedCandidates.some(Boolean)) {
+        for (const [index, ext] of ['html', 'pdf'].entries()) {
+            const args = ['dist/export-engine/mve-convert.cjs', source, '--format', ext, '--output', candidates[index]];
+            if (executable) args.push('--browser', executable);
+            if (flags.has('--config')) args.push('--config', flags.get('--config'));
+            if (flags.has('--workspace-root')) args.push('--workspace-root', flags.get('--workspace-root'));
+            // 基準側と同じ言語・テーマで生成しないと、lang属性や見出し色の違いが差分として現れる。
+            for (const name of ['--language', '--theme', '--mermaid-theme']) {
+                if (flags.has(name)) args.push(name, flags.get(name));
+            }
+            if (ext === 'html' && flags.get('--html-linked') === 'true') args.push('--html-linked');
+            if (ext === 'html' && flags.get('--html-outline') === 'true') args.push('--html-outline');
+            if (ext === 'html' && flags.get('--html-embed-images') === 'true') args.push('--html-embed-images');
+            if (ext === 'html' && flags.get('--html-no-embed-images') === 'true') args.push('--html-no-embed-images');
+            await run(process.execPath, args, { timeout: 180000 });
+        }
+    }
+    report.files.candidates = await Promise.all(candidates.map(fingerprint));
+    for (const width of [800, 1440]) {
+        const htmlPage = await browser.newPage({ viewport: { width, height: 900 }, deviceScaleFactor: 1 });
+        let reference;
+        let candidate;
+        let difference;
+        try {
+            reference = await screenshotHtml(htmlPage, references[0], 'reference-html', width);
+            candidate = await screenshotHtml(htmlPage, candidates[0], 'candidate-html', width);
+            difference = await pixels(reference.png, candidate.png, 'html-' + width);
+        } finally {
+            await htmlPage.close();
+        }
+        const problems = [];
+        if (reference.dom.text !== candidate.dom.text) problems.push('body text');
+        if (JSON.stringify(reference.dom.headings) !== JSON.stringify(candidate.dom.headings)) problems.push('headings');
+        if (reference.dom.images !== candidate.dom.images || reference.dom.diagrams !== candidate.dom.diagrams) problems.push('images/SVG');
+        if (reference.dom.brokenImages.length || candidate.dom.brokenImages.length) problems.push('broken images');
+        if (reference.dom.unrenderedMermaid || candidate.dom.unrenderedMermaid) problems.push('unrendered Mermaid');
+        if (candidate.dom.overflow) problems.push('horizontal overflow');
+        if (candidate.pageErrors.length) problems.push('browser exceptions');
+        if (difference.ratio > maxRatio) problems.push('rendered pixel difference');
+        if (problems.length) errors.push('HTML ' + width + 'px: ' + problems.join(', '));
+        report.html.push({ width, difference, problems, reference, candidate });
+    }
+    const origin = await pdfServer();
+    const referencePages = await screenshotPdf(references[1], 'reference-pdf', origin);
+    const candidatePages = await screenshotPdf(candidates[1], 'candidate-pdf', origin);
+    if (JSON.stringify(referencePages.outline) !== JSON.stringify(candidatePages.outline)) errors.push('PDF bookmarks mismatch');
+    if (JSON.stringify(referencePages.markInfo) !== JSON.stringify(candidatePages.markInfo)) errors.push('PDF tag metadata mismatch');
+    if (referencePages.pages.length !== candidatePages.pages.length) errors.push('PDF page count mismatch');
+    for (let index = 0; index < Math.min(referencePages.pages.length, candidatePages.pages.length); index++) {
+        const reference = referencePages.pages[index], candidate = candidatePages.pages[index];
+        const difference = await pixels(reference.png, candidate.png, 'pdf-page-' + (index + 1));
+        const problems = [];
+        if (reference.text !== candidate.text) problems.push('text');
+        if (reference.width !== candidate.width || reference.height !== candidate.height) problems.push('page size');
+        if (JSON.stringify(reference.links) !== JSON.stringify(candidate.links)) problems.push('links');
+        if (reference.tagged !== candidate.tagged) problems.push('tags');
+        if (JSON.stringify(reference.tagStructure) !== JSON.stringify(candidate.tagStructure)) problems.push('tag structure');
+        if (difference.ratio > maxRatio) problems.push('rendered pixel difference');
+        if (problems.length) errors.push('PDF page ' + (index + 1) + ': ' + problems.join(', '));
+        report.pdf.push({ page: index + 1, reference, candidate, difference, problems });
+    }
+    report.pdfPageCounts = { reference: referencePages.pages.length, candidate: candidatePages.pages.length };
+    report.pdfStructure = { reference: { outline: referencePages.outline, markInfo: referencePages.markInfo },
+        candidate: { outline: candidatePages.outline, markInfo: candidatePages.markInfo } };
+} catch (error) {
+    errors.push(error.stack || String(error));
+} finally {
+    if (browser) await browser.close().catch(() => undefined);
+    if (server) await new Promise((resolve) => server.close(resolve));
+    if (temp) await fs.rm(temp, { recursive: true, force: true });
+    await fs.writeFile(path.join(output, 'report.json'), JSON.stringify(report, null, 2) + '\n');
+}
+console.log('Visual comparison:', path.join(output, 'report.json'));
+for (const error of errors) console.error(error);
+if (errors.length) process.exitCode = 1;

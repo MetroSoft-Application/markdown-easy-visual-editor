@@ -95,32 +95,6 @@ const PDF_EXPORT_RENDER_TIMEOUT_MS = 60_000;
 const PDF_CONTEXT_CLOSE_TIMEOUT_MS = 2_000;
 
 /**
- * 保存先または一時プレビューへPDFを生成し、処理後にブラウザー資源を解放する。
- * @param request - HTML・CSS、正規表現置換を含むPDF設定、元Markdown URI、言語、出力用途、キャンセルSignalをまとめた要求。
- * @returns 保存したPDFのURI。保存をキャンセルした場合はundefined。
- * @throws ブラウザ起動、HTML設定、またはPDF出力に失敗した場合。
- */
-export async function exportPdf(request: PdfExportRequest): Promise<vscode.Uri | undefined> {
-    // 保存先を決め、HTMLをPDFへ変換してブラウザ資源を確実に解放する。
-    const defaultUri = request.documentUri.with({
-        path: request.documentUri.path.replace(/\.(?:md|markdown)$/i, '') + '.pdf'
-    });
-    const target = request.options.saveWithoutDialog
-        ? defaultUri
-        : await vscode.window.showSaveDialog({
-            defaultUri,
-            filters: { PDF: ['pdf'] },
-            saveLabel: getMessages(request.language).ribbon.labels.exportPdf
-        });
-    if (!target) return undefined;
-
-    // MarkdownのHTMLを単独で表示できる文書へ組み立て、PDF出力用ブラウザを起動する。
-    const pdf = await renderPdf(request);
-    await fs.writeFile(target.fsPath, pdf);
-    return target;
-}
-
-/**
  * 印刷用HTMLと設定からPDFを生成し、出力先へ保存する。
  * @param request - PDF化するHTML・CSS、PDF設定、元Markdown URI、言語、出力用途、キャンセルSignalをまとめた要求。
  * @returns 生成したPDFファイルのバイト列。
@@ -718,6 +692,12 @@ const PRINT_CSS = `
   tr, img, pre, blockquote { break-inside: avoid; }
   img { max-width: 100%; height: auto; }
   a { color: inherit; text-decoration: underline; }
+  /* WebviewのCSSにはダークテーマ用のハイライト色が含まれるため、白い用紙ではHTML/PDF出力と同じ明るい背景用の色で上書きする。Marpスライドはテーマの配色を保つ。 */
+  .mve-print .hljs-keyword:not(.marpit *), .mve-print .hljs-selector-tag:not(.marpit *), .mve-print .hljs-literal:not(.marpit *) { color: #8250df; }
+  .mve-print .hljs-string:not(.marpit *), .mve-print .hljs-attr:not(.marpit *) { color: #0a3069; }
+  .mve-print .hljs-title:not(.marpit *), .mve-print .hljs-section:not(.marpit *) { color: #953800; }
+  .mve-print .hljs-comment:not(.marpit *) { color: #6e7781; }
+  .mve-print .hljs-number:not(.marpit *) { color: #0550ae; }
 `;
 
 /**

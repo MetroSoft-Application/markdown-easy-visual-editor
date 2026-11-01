@@ -1016,6 +1016,9 @@ try {
   }
   await page.getByRole('button', { name: '＋行', exact: true }).click();
   if (await page.locator('.mve-table-editor-grid tbody tr').count() !== 3) throw new Error('table editor row draft action did not apply once');
+  // 行追加後のフォーカス移動は次フレームで行われる。完了前にfillすると、focusとinsertTextの間で
+  // フォーカスが追加行へ移り、入力が別セルへ入るため、追加行へのフォーカス確定を待ってから入力する。
+  await page.waitForFunction(() => document.activeElement?.getAttribute('data-table-cell') === '2:0');
   const sortHeaderA = page.locator('th.mve-table-editor-column-selector').nth(0);
   const sortHeaderB = page.locator('th.mve-table-editor-column-selector').nth(1);
   /** 現在のテーブル行を、ソート結果照合用のセル文字列配列として取得する。 */
@@ -1618,8 +1621,15 @@ try {
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (node) => node === document.querySelector('.split-editor .cm-editor'), editorNode))) throw new Error('blank-line edit remounted the source editor');
+  // 直前のundo結果をプレビューが描画し終える前に位置を記録すると、旧本文の位置で描かれたブロックを
+  // 基準にしてしまい、同期後の新しい描画と比較して数文字分ずれる。プレビューが現在の本文へ追いつくまで待つ。
+  await page.waitForFunction(() =>
+    Number(document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-document-length'))
+      === window.__mveHostText.length);
+  // 利用者と同じく、各ペインでwheel直後にスクロールさせる。wheelをまとめて先に送ると、
+  // ソースからの同期スクロールが利用者操作の印を消費し、プレビューの位置変更がプログラム由来と扱われて
+  // 描画直後の保留復元で元の位置へ戻される。
   await page.locator('.cm-scroller').dispatchEvent('wheel', { deltaY: 1 });
-  await page.locator('.split-preview').dispatchEvent('wheel', { deltaY: 1 });
   await page.locator('.cm-scroller').evaluate(
   /**
    * ブラウザー内の状態を読み取り、検証用の値へ変換する。
@@ -1627,6 +1637,7 @@ try {
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (element) => { element.scrollTop = (element.scrollHeight - element.clientHeight) * 0.7; });
+  await page.locator('.split-preview').dispatchEvent('wheel', { deltaY: 1 });
   await page.locator('.split-preview').evaluate(
   /**
    * ブラウザー内の状態を読み取り、検証用の値へ変換する。
@@ -2461,6 +2472,19 @@ try {
   if (!(await page.locator('.cm-content span[class*="ͼ"], .cm-content .tok-keyword, .cm-content .tok-string').count())) {
     throw new Error('source syntax highlighting is missing');
   }
+  // 折り返し幅の変化後、data-viewport-*は再計測の途中で一瞬だけ旧値を公開することがある。
+  // scrollTopは動いていないため、単発の読み取りではなく、アンカーが可視範囲に戻るまで待ってから判定する。
+  await page.waitForFunction(
+  /**
+   * 切替前のソースアンカーが、現在公開されている可視範囲に含まれるまで待つ。
+   * @param target - 切替前に記録したソース本文のオフセット。
+   */
+  (target) => {
+    const editor = document.querySelector('.source-editor');
+    const from = Number(editor?.getAttribute('data-viewport-offset'));
+    const to = Number(editor?.getAttribute('data-viewport-end-offset'));
+    return from <= target && target <= to;
+  }, anchorsBeforeModeChange.source, { timeout: 2_000 }).catch(() => undefined);
   const sourceAfterModeChange = await page.evaluate(
   /**
    * ブラウザー内の「.source-editor」を読み取り、検証用の値へ変換する。

@@ -16,8 +16,8 @@ import {
     type HostToWebviewMessage,
     type ImagePayload,
     type HtmlExportSettings,
+    type ExportRenderSnapshot,
     type NormalizedPdfOptions,
-    type TextReplacementRule,
     type ViewMode,
     type WebviewSettings,
     type WebviewToHostMessage
@@ -52,15 +52,11 @@ import { getMessages, resolveLanguage, type Messages } from '../shared/messages'
 import { isMarpMarkdown } from '../shared/marpFrontMatter';
 import type { MarpFrontMatterParser } from '../shared/marpFrontMatter';
 import { hasMermaidFence } from '../shared/markdownFence';
-import { acquirePdfBrowser, closePdfBrowser, exportPdf, renderPdf } from './pdf';
+import { acquirePdfBrowser, closePdfBrowser, renderPdf } from './pdf';
+import { exportWithEngine } from './exportEngine';
 import { closePeleRenderer, PeleRendererUnavailableError, preparePeleRenderer, renderPeleMermaid } from './peleMermaid';
 import { MAX_MERMAID_IMAGE_BYTES, resolveMermaidImageSources } from './mermaidImages';
 import { namespaceMermaidSvg } from '../shared/mermaidSvg';
-import {
-    prepareHtmlExport,
-    writePreparedHtml,
-    type HtmlRenderedDocument
-} from './html';
 import { decodeLocalResourceSource, isMissingResourceError } from './resourceCheck';
 import { classifyResourceLink, isDocumentRelativeResourcePath, workspaceRootPathSegments } from './resourceLink';
 import { openHtmlPreview } from './htmlPreview';
@@ -394,6 +390,33 @@ interface StartupTiming {
     firstMermaidReadyMs?: number;
 
     /**
+     * プレビューの最終描画がDOMへ反映されるまでの起動経過時間。最終描画は、rich Workerの結果・フォールバック描画、
+     * またはコードハイライト不要時の軽量Workerの結果（この場合 previewReadyMs とほぼ同時）のいずれか。
+     */
+    richReadyMs?: number;
+
+    /**
+     * 初期表示範囲に重なるMermaid図がすべて描画完了するまでの起動経過時間。
+     */
+    visibleMermaidReadyMs?: number;
+
+    /**
+     * visibleMermaidReadyMs 判定時に表示範囲へ重なっていたMermaid図の数。
+     */
+    visibleMermaidCount?: number;
+
+    /**
+     * 拡張バンドルの評価開始から activate() 完了までの時間。同一Extension Hostで2回目以降に開いた文書でも初回activationの値を示す。
+     */
+    activationMs?: number;
+
+    /**
+     * このExtension Hostで何番目に解決したエディターかを示す1始まりの通し番号。
+     * 同じ文書を開き直したとき、計測側が前回の計測値と区別するために使う。
+     */
+    resolveSequence: number;
+
+    /**
      * 計測項目ごとのWebview起動時間や件数。
      */
     webviewMetrics?: Record<string, number>;
@@ -405,11 +428,18 @@ interface StartupTiming {
 }
 
 /**
+ * esbuildのbannerが dist/extension.js の先頭で定義する、バンドル評価開始時刻（Date.now()）。
+ * CommonJSのモジュールスコープ変数なのでグローバルを汚さない。bannerを通らない実行（単体テスト等）では未定義。
+ */
+declare const __mveBundleStartedAt: number | undefined;
+
+/**
  * カスタムエディターと拡張機能コマンドをVS Codeへ登録する。
  * @param context - VS Codeが拡張機能へ渡すExtensionContext。購読の登録や拡張リソース参照に使う。
  */
 export function activate(context: vscode.ExtensionContext): void {
     // カスタムエディターと拡張機能の各コマンドをVS Codeへ登録する。
+    const activateStartedAt = Date.now();
     const startupBenchmarkEnabled = process.env.MVE_STARTUP_BENCHMARK === '1';
     const provider = new MarkdownEasyVisualEditorProvider(context, startupBenchmarkEnabled);
     context.subscriptions.push(
@@ -467,6 +497,9 @@ export function activate(context: vscode.ExtensionContext): void {
             () => provider.executeHistoryCommand('redo')),
     );
     if (startupBenchmarkEnabled) {
+        // バンドル評価開始時刻はビルド時のbannerが定義する。テスト等でbannerが無い場合はactivate()本体だけを測る。
+        const bundleStartedAt = typeof __mveBundleStartedAt === 'number' ? __mveBundleStartedAt : activateStartedAt;
+        provider.startupActivationMs = Date.now() - bundleStartedAt;
         context.subscriptions.push(vscode.commands.registerCommand(
             'markdownEasyVisualEditor._getStartupTiming',
 
@@ -567,27 +600,6 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
     }>();
 
     /**
-     * HTML描画要求IDをキーに、完了通知・拒否通知・timeoutを保持するMap。
-     */
-    private readonly pendingHtmlRenderRequests = new Map<string, {
-        /**
-         * Webviewからreadyを受け取ったとき、対象パネルを待機側へ渡す。
-         * @param documents - HTMLへ変換するリンク先文書のIDとMarkdown本文の一覧。
-         */
-        resolve: (documents: HtmlRenderedDocument[]) => void;
-        /**
-         * パネルの破棄や処理失敗を待機中のPromiseへ通知する。
-         * @param error - 処理に失敗した理由または例外。
-         */
-        reject: (error: Error) => void;
-
-        /**
-         * 拡張機能の遅延処理を管理するタイマー。
-         */
-        timer: ReturnType<typeof setTimeout>;
-    }>();
-
-    /**
      * 文書ごとに登録されたWebview ready待機者。
      */
     private readonly panelReadyWaiters = new Map<string, Set<PanelReadyWaiter>>();
@@ -616,6 +628,16 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
      * 文書ごとの起動計測値。
      */
     private readonly startupTimings = new Map<string, StartupTiming>();
+
+    /**
+     * 起動計測が有効な場合に activate() 完了時点で記録する初回activation時間（ミリ秒）。未記録ならundefined。
+     */
+    startupActivationMs?: number;
+
+    /**
+     * 起動計測で直前に割り当てた resolveSequence。計測無効時は増えない。
+     */
+    private startupResolveSequence = 0;
 
     /** 移行・設定画面・HTML/PDF出力からのglobal設定書き込みを順序どおり実行するPromise。 */
     private globalSettingsUpdateChain: Promise<void> = Promise.resolve();
@@ -716,15 +738,19 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
             const timing: StartupTiming = {
                 uri: key,
                 documentLength: documentText.length,
-                resolveStartedAt: Date.now()
+                resolveStartedAt: Date.now(),
+                resolveSequence: ++this.startupResolveSequence
             };
+            if (this.startupActivationMs !== undefined) timing.activationMs = this.startupActivationMs;
             this.panelStartupTimings.set(webviewPanel, timing);
             this.startupTimings.set(key, timing);
         }
         this.documents.set(key, document);
         // 空文書でもTextDocument.eolとは無関係に、同期本文の座標系をLFへ固定する。
+        // 全文の正規化は大きな文書ほど重いため、登録とWebview HTMLの初期本文で同じ結果を使い回す。
+        const canonicalText = toCanonicalText(documentText);
         if (!this.canonicalDocumentTexts.has(key)) {
-            this.canonicalDocumentTexts.set(key, toCanonicalText(documentText));
+            this.canonicalDocumentTexts.set(key, canonicalText);
         }
         const group = this.panels.get(key) ?? new Set<vscode.WebviewPanel>();
         group.add(webviewPanel);
@@ -733,10 +759,11 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
         this.activeDocument = document;
 
         // Mermaidが含まれる表示文書では、初回描画要求より先にブラウザーと描画ページを準備する。
+        // cold起動のブラウザー準備は数秒かかるため、Webviewの読み込みと並行して最も早い時点で始める
+        // （初期化完了まで遅らせる案は、初回表示・初回Mermaidとも遅くなることを実測で確認済み）。
         const settings = this.getSettings(document);
         if (settings.viewMode !== 'text' && hasMermaidFence(documentText)) {
-            const workerPath = vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'pele-render-worker.js').fsPath;
-            void preparePeleRenderer(workerPath, () => acquirePdfBrowser(this.getLanguage())).catch(() => undefined);
+            this.prewarmMermaidRenderer();
         }
 
         const workspaceRoots = (vscode.workspace.workspaceFolders ?? []).map(
@@ -750,7 +777,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
             enableScripts: true,
             localResourceRoots: [this.context.extensionUri, vscode.Uri.joinPath(document.uri, '..'), ...workspaceRoots]
         };
-        webviewPanel.webview.html = this.getWebviewHtml(webviewPanel.webview, document);
+        webviewPanel.webview.html = this.getWebviewHtml(webviewPanel.webview, document, settings, canonicalText);
 
         // Webviewからのメッセージを対象文書とパネルに紐付けて処理する。
         const messageDisposable = webviewPanel.webview.onDidReceiveMessage(
@@ -1130,6 +1157,17 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                     if (this.panelClientIds.get(panel) !== message.clientId) return;
                     this.markStartup(panel, 'firstMermaidReadyMs');
                     return;
+                case 'startupRichReady':
+                    if (this.panelClientIds.get(panel) !== message.clientId) return;
+                    this.markStartup(panel, 'richReadyMs');
+                    return;
+                case 'startupVisibleMermaidReady': {
+                    if (this.panelClientIds.get(panel) !== message.clientId) return;
+                    const timing = this.panelStartupTimings.get(panel);
+                    if (timing && timing.visibleMermaidReadyMs === undefined) timing.visibleMermaidCount = message.visibleCount;
+                    this.markStartup(panel, 'visibleMermaidReadyMs');
+                    return;
+                }
                 case 'startupMarpStage': {
                     if (this.panelClientIds.get(panel) !== message.clientId) return;
                     const timing = this.panelStartupTimings.get(panel);
@@ -1367,15 +1405,6 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                     this.post(panel, { type: 'sectionLinkCopied' });
                     return;
                 }
-                case 'htmlDocumentsRendered': {
-                    const pending = this.pendingHtmlRenderRequests.get(message.requestId);
-                    if (!pending) return;
-                    clearTimeout(pending.timer);
-                    this.pendingHtmlRenderRequests.delete(message.requestId);
-                    if (message.error) pending.reject(new Error(message.error));
-                    else pending.resolve(message.documents);
-                    return;
-                }
                 case 'requestResync': {
                     // 直前までの編集連鎖を待ってから、最新本文と操作適用状態を返す。
                     const documentKey = document.uri.toString();
@@ -1398,24 +1427,23 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                     return;
                 }
                 case 'exportPdf': {
-                    // 信頼済みワークスペースでHTMLと設定をPDF出力へ渡す。
                     if (!vscode.workspace.isTrusted) {
                         throw new Error(this.getMessages().host.pdfTrustRequired);
                     }
-                    const target = await vscode.window.withProgress(
-                        { location: vscode.ProgressLocation.Notification, title: this.getMessages().host.pdfProgress, cancellable: false },
-
-
-                        () =>
-                            exportPdf({
-                                html: message.html,
-                                css: message.css,
-                                options: message.options,
-                                editorTheme: message.editorTheme,
-                                documentUri: document.uri,
-                                language: this.getLanguage()
-                            })
+                    const snapshot = await this.verifyExportSnapshot(document, message);
+                    const result = await vscode.window.withProgress(
+                        { location: vscode.ProgressLocation.Notification,
+                            title: this.getMessages().host.pdfProgress, cancellable: false },
+                        () => exportWithEngine({
+                            documentUri: document.uri,
+                            markdown: snapshot.markdown,
+                            format: 'pdf',
+                            rendering: snapshot.rendering,
+                            editorTheme: message.editorTheme ?? 'dark',
+                            pdfOptions: message.options
+                        })
                     );
+                    const target = result?.target;
                     if (target) {
                         this.post(panel, { type: 'pdfExported', requestId: message.requestId, path: target.fsPath });
                         const messages = this.getMessages();
@@ -1439,39 +1467,22 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                     if (!vscode.workspace.isTrusted) {
                         throw new Error(this.getMessages().host.htmlTrustRequired);
                     }
+                    const snapshot = await this.verifyExportSnapshot(document, message);
                     const result = await vscode.window.withProgress(
-                        { location: vscode.ProgressLocation.Notification, title: this.getMessages().host.htmlProgress, cancellable: false },
-
-                        /**
-                         * 進捗通知の中でHTMLを準備し、リンク先文書を必要に応じて描画する。
-                         */
-                        async () => {
-                            const request = {
-                                markdown: message.markdown,
-                                html: message.html,
-                                css: message.css,
-                                editorTheme: message.editorTheme,
-                                options: message.options,
-                                documentUri: document.uri,
-                                language: this.getLanguage(),
-                                fontFamily: this.getFontSettings().previewFontFamily || DEFAULT_PDF_OPTIONS.fontFamily
-                            };
-                            const preparation = await prepareHtmlExport(request);
-                            if (!preparation) return undefined;
-                            const linkedDocuments = message.options.convertLinkedMarkdown
-                                ? preparation.documents.slice(1).map(
-                                    (item) => ({ id: item.sourcePath, markdown: item.markdown }))
-                                : [];
-                            const renderedDocuments = linkedDocuments.length
-                                ? await this.requestHtmlDocumentRender(
-                                    panel,
-                                    message.requestId,
-                                    linkedDocuments,
-                                    message.textReplacements
-                                )
-                                : [];
-                            return writePreparedHtml(request, preparation, renderedDocuments);
-                        }
+                        { location: vscode.ProgressLocation.Notification,
+                            title: this.getMessages().host.htmlProgress, cancellable: false },
+                        () => exportWithEngine({
+                            documentUri: document.uri,
+                            markdown: snapshot.markdown,
+                            format: 'html',
+                            rendering: snapshot.rendering,
+                            editorTheme: message.editorTheme ?? 'dark',
+                            pdfOptions: {
+                                ...this.getPdfOptions(),
+                                textReplacements: message.textReplacements
+                            },
+                            htmlOptions: message.options
+                        })
                     );
                     if (result) {
                         this.post(panel, {
@@ -2579,6 +2590,26 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
     }
 
     /**
+     * 出力前のWebview ACKとHost編集キューを照合し、原文と全描画設定を固定する。
+     * 旧メッセージや文書版のずれは拒否し、古いWebview HTMLで成功させない。
+     */
+    private async verifyExportSnapshot(
+        document: vscode.TextDocument,
+        message: Extract<WebviewToHostMessage, { type: 'exportPdf' | 'exportHtml' }>
+    ): Promise<{ markdown: string; rendering: ExportRenderSnapshot }> {
+        if (typeof message.markdown !== 'string' ||
+            !Number.isInteger(message.documentVersion) || !message.rendering) {
+            throw new Error('Export source snapshot is missing.');
+        }
+        await (this.editChains.get(document.uri.toString()) ?? Promise.resolve());
+        if (document.isClosed || document.version !== message.documentVersion ||
+            this.canonicalText(document) !== message.markdown) {
+            throw new Error('Export source changed before the Host confirmed it. Please retry.');
+        }
+        return { markdown: message.markdown, rendering: message.rendering };
+    }
+
+    /**
      * VS Code設定とワークスペース信頼状態をWebviewへ渡す設定にまとめる。
      * 文書URIは文書スコープの設定参照に使い、アプリ全体の表示・出力設定はglobal値を使う。
      * @param document 設定の文書スコープを決める文書。省略時はglobalの値を参照する。
@@ -2942,6 +2973,15 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
     }
 
     /**
+     * Mermaid描画用の共有ブラウザーと描画ページを先に準備する。準備済み・準備中なら preparePeleRenderer 側で再利用され、二重起動しない。
+     * 失敗はここでは通知しない。実際の描画要求で同じ準備を再試行し、その結果をWebviewへ返す。
+     */
+    private prewarmMermaidRenderer(): void {
+        const workerPath = vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'pele-render-worker.js').fsPath;
+        void preparePeleRenderer(workerPath, () => acquirePdfBrowser(this.getLanguage())).catch(() => undefined);
+    }
+
+    /**
      * 拡張機能の変更または利用者の操作意図を記録し、後続処理へ渡す。
      * @param panel - 起動時間を計測しているWebviewPanel。
      * @param field - 記録する起動計測項目名。
@@ -2949,6 +2989,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
     private markStartup(
         panel: vscode.WebviewPanel,
         field: 'webviewReadyMs' | 'initializedMs' | 'previewReadyMs' | 'firstMermaidRequestedMs' | 'firstMermaidReadyMs'
+            | 'richReadyMs' | 'visibleMermaidReadyMs'
     ): void {
         const timing = this.panelStartupTimings.get(panel);
         if (!timing || timing[field] !== undefined) return;
@@ -2976,51 +3017,6 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
     }
 
     /**
-     * 関連するMarkdown文書群のHTML描画結果をWebviewへ返す。
-     * @param panel - HTML描画要求を送り、描画結果を受け取るWebviewPanel。
-     * @param requestId - 要求と応答を対応付ける識別子。
-     * @param documents - Webviewで描画するリンク先の識別子とMarkdown本文の一覧。
-     * @returns 各文書のURIとHTMLを含む描画結果一覧。
-     */
-    private requestHtmlDocumentRender(
-        panel: vscode.WebviewPanel,
-        requestId: string,
-        documents: Array<{
-            /**
-             * 拡張機能で扱うidの文字列。
-             */
-            id: string;
-            /** リンク先Markdown本文。 */
-            markdown: string
-        }>,
-        textReplacements: TextReplacementRule[]
-    ): Promise<HtmlRenderedDocument[]> {
-        return new Promise(
-            /**
-             * 遅延処理の完了または失敗を待機側へ通知する。
-             * @param resolve - Promiseの成功を通知する関数。
-             * @param reject - Promiseの失敗を通知する関数。
-             */
-            (resolve, reject) => {
-                const timer = setTimeout(
-                    /**
-                     * 指定時間の経過後に後続処理を実行する。
-                     */
-                    () => {
-                        this.pendingHtmlRenderRequests.delete(requestId);
-                        reject(new Error(this.getMessages().host.htmlRenderTimeout));
-                    }, 120_000);
-                this.pendingHtmlRenderRequests.set(requestId, { resolve, reject, timer });
-                this.post(panel, {
-                    type: 'renderHtmlDocuments',
-                    requestId,
-                    documents,
-                    textReplacements
-                });
-            });
-    }
-
-    /**
      * 現在の設定を登録済みの全Webviewパネルへ通知する。
      */
     private broadcastSettings(): void {
@@ -3040,9 +3036,16 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
      * WebviewのCSP、スクリプトURI、初期設定を含むHTMLシェルを生成する。
      * @param webview - リソースURIとCSPを使ってHTMLを生成するWebview。
      * @param document - 初期設定と本文をHTMLに含める対象TextDocument。
+     * @param settings - 呼び出し側が同じ解決処理内で取得済みの getSettings(document) の結果。
+     * @param canonicalText - 呼び出し側が document.getText() から作った正規化済み本文。HTML生成時点の文書内容と一致している必要がある。
      * @returns リソースURIと文書初期値を埋め込んだWebview HTML。
      */
-    private getWebviewHtml(webview: vscode.Webview, document: vscode.TextDocument): string {
+    private getWebviewHtml(
+        webview: vscode.Webview,
+        document: vscode.TextDocument,
+        settings: WebviewSettings,
+        canonicalText: string
+    ): string {
         // Webviewで読み込むリソースURIとCSP nonceを作り、安全なHTMLシェルを生成する。
         const scriptUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'webview.js'));
         const markdownWorkerUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'markdown-worker.js'));
@@ -3056,8 +3059,6 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
         const bundledStyleUri = webview.asWebviewUri(vscode.Uri.joinPath(this.context.extensionUri, 'dist', 'webview.css'));
         const baseUri = webview.asWebviewUri(vscode.Uri.joinPath(document.uri, '..'));
         const nonce = randomUUID().replace(/-/g, '');
-        const settings = this.getSettings(document);
-        const canonicalText = this.canonicalText(document);
         const markdownWorkerPreload = settings.viewMode !== 'text'
             ? `<link rel="preload" href="${markdownWorkerUri}" as="fetch" crossorigin="anonymous">`
             : '';

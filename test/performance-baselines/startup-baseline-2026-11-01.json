@@ -1,0 +1,3292 @@
+{
+  "kind": "vscode-startup",
+  "generatedAt": "2026-11-01T09:38:26.691Z",
+  "platform": "win32-x64",
+  "osRelease": "10.0.22631",
+  "cpu": "12th Gen Intel(R) Core(TM) i9-12900H",
+  "nodeVersion": "v22.23.1",
+  "vscodeVersion": "1.144.0",
+  "extensionDevelopmentPath": "E:\\source\\markdown-easy-visual-editor",
+  "extensionTestsPath": "E:\\source\\markdown-easy-visual-editor\\test\\integration\\startup.cjs",
+  "sampleRoot": "E:\\source\\markdown-easy-visual-editor\\sample",
+  "repetitions": 5,
+  "conditionDefinitions": {
+    "cold": "新しいVS Codeプロセスと新規プロファイルで、拡張機能のactivationを含む初回オープン。OSのファイルキャッシュは温まっている。",
+    "warm": "cold計測と同じプロセスで全エディターを閉じた後の再オープン。activation済みで、共有ブラウザー等の常駐資源は残る。"
+  },
+  "scenarios": [
+    {
+      "name": "plain",
+      "file": "plain.md",
+      "waitFor": {
+        "rich": true
+      },
+      "runs": [
+        {
+          "file": "C:\\Users\\adtd1\\AppData\\Local\\Temp\\mve-real-startup-796c95\\plain.md",
+          "editorOpenedMs": 1437,
+          "endToEndMs": 3660,
+          "uri": "file:///c%3A/Users/adtd1/AppData/Local/Temp/mve-real-startup-796c95/plain.md",
+          "documentLength": 44,
+          "resolveSequence": 1,
+          "activationMs": 60,
+          "webviewReadyMs": 1404,
+          "initializedMs": 1469,
+          "webviewMetrics": {
+            "previewReportedAt": 1141.8000000715256,
+            "bundleExecutedAt": 528.2000000476837,
+            "initReceivedAt": 528.2000000476837,
+            "workerResponseAt": 1038.8999999761581,
+            "markdownWorkerDuration": 288.89999997615814,
+            "sanitizeChunkDuration": 6.600000023841858,
+            "domReconcileDuration": 0.3999999761581421,
+            "markdownWorkerFetchStartedAt": 58.800000071525574,
+            "markdownWorkerFetchDuration": 168.5,
+            "markdownWorkerResourceCount": 1,
+            "webviewFetchStartedAt": 59.300000071525574,
+            "webviewFetchDuration": 255.89999997615814
+          },
+          "previewReadyMs": 1821,
+          "richReadyMs": 2488,
+          "vscodeVersion": "1.144.0",
+          "warm": {
+            "file": "C:\\Users\\adtd1\\AppData\\Local\\Temp\\mve-real-startup-796c95\\plain.md",
+            "editorOpenedMs": 169,
+            "endToEndMs": 1254,
+            "uri": "file:///c%3A/Users/adtd1/AppData/Local/Temp/mve-real-startup-796c95/plain.md",
+            "documentLength": 44,
+            "resolveSequence": 2,
+            "activationMs": 60,
+            "webviewReadyMs": 710,
+            "initializedMs": 720,
+            "webviewMetrics": {
+              "previewReportedAt": 681.4000000953674,
+              "bundleExecutedAt": 391.40000009536743,
+              "initReceivedAt": 391.40000009536743,
+              "workerResponseAt": 664.7000000476837,
+              "markdownWorkerDuration": 167.90000009536743,
+              "sanitizeChunkDuration": 5.799999952316284,
+              "domReconcileDuration": 0.3999999761581421,
+              "markdownWorkerFetchStartedAt": 38,
+              "markdownWorkerFetchDuration": 101.90000009536743,
+              "markdownWorkerResourceCount": 1,
+              "webviewFetchStartedAt": 38.300000071525574,
+              "webviewFetchDuration": 203.29999995231628
+            },
+            "previewReadyMs": 890,
+            "richReadyMs": 1180
+          }
+        },
+        {
+          "file": "C:\\Users\\adtd1\\AppData\\Local\\Temp\\mve-real-startup-796c95\\plain.md",
+          "editorOpenedMs": 1317,
+          "endToEndMs": 3285,
+          "uri": "file:///c%3A/Users/adtd1/AppData/Local/Temp/mve-real-startup-796c95/plain.md",
+          "documentLength": 44,
+          "resolveSequence": 1,
+          "activationMs": 83,
+          "webviewReadyMs": 1195,
+          "initializedMs": 1221,
+          "webviewMetrics": {
+            "previewReportedAt": 1088,
+            "bundleExecutedAt": 421,
+            "initReceivedAt": 421,
+            "workerResponseAt": 986.4000000953674,
+            "markdownWorkerDuration": 327,
+            "sanitizeChunkDuration": 6.800000071525574,
+            "domReconcileDuration": 0.6000000238418579,
+            "markdownWorkerFetchStartedAt": 37.300000071525574,
+            "markdownWorkerFetchDuration": 90.19999992847443,
+            "markdownWorkerResourceCount": 1,
+            "webviewFetchStartedAt": 37.90000009536743,
+            "webviewFetchDuration": 171.29999995231628
+          },
+          "previewReadyMs": 1640,
+          "richReadyMs": 2181,
+          "vscodeVersion": "1.144.0",
+          "warm": {
+            "file": "C:\\Users\\adtd1\\AppData\\Local\\Temp\\mve-real-startup-796c95\\plain.md",
+            "editorOpenedMs": 153,
+            "endToEndMs": 1161,
+            "uri": "file:///c%3A/Users/adtd1/AppData/Local/Temp/mve-real-startup-796c95/plain.md",
+            "documentLength": 44,
+            "resolveSequence": 2,
+            "activationMs": 83,
+            "webviewReadyMs": 600,
+            "initializedMs": 606,
+            "webviewMetrics": {
+              "previewReportedAt": 658.1999999284744,
+              "bundleExecutedAt": 357.60000002384186,
+              "initReceivedAt": 357.60000002384186,
+              "workerResponseAt": 636.7999999523163,
+              "markdownWorkerDuration": 193.59999990463257,
+              "sanitizeChunkDuration": 6.100000023841858,
+              "domReconcileDuration": 0.2999999523162842,
+              "markdownWorkerFetchStartedAt": 53.5,
+              "markdownWorkerFetchDuration": 104.39999997615814,
+              "markdownWorkerResourceCount": 1,
+              "webviewFetchStartedAt": 54,
+              "webviewFetchDuration": 182.10000002384186
+            },
+            "previewReadyMs": 810,
+            "richReadyMs": 1078
+          }
+        },
+        {
+          "file": "C:\\Users\\adtd1\\AppData\\Local\\Temp\\mve-real-startup-796c95\\plain.md",
+          "editorOpenedMs": 1269,
+          "endToEndMs": 3443,
+          "uri": "file:///c%3A/Users/adtd1/AppData/Local/Temp/mve-real-startup-796c95/plain.md",
+          "documentLength": 44,
+          "resolveSequence": 1,
+          "activationMs": 81,
+          "webviewReadyMs": 1227,
+          "initializedMs": 1240,
+          "webviewMetrics": {
+            "previewReportedAt": 1171.2999999523163,
+            "bundleExecutedAt": 520.1999999284744,
+            "initReceivedAt": 520.1999999284744,
+            "workerResponseAt": 1067.7999999523163,
+            "markdownWorkerDuration": 312.5,
+            "sanitizeChunkDuration": 7.200000047683716,
+            "domReconcileDuration": 0.5,
+            "markdownWorkerFetchStartedAt": 34.799999952316284,
+            "markdownWorkerFetchDuration": 179.89999997615814,
+            "markdownWorkerResourceCount": 1,
+            "webviewFetchStartedAt": 35.299999952316284,
+            "webviewFetchDuration": 276.7000000476837
+          },
+          "previewReadyMs": 1632,
+          "richReadyMs": 2262,
+          "vscodeVersion": "1.144.0",
+          "warm": {
+            "file": "C:\\Users\\adtd1\\AppData\\Local\\Temp\\mve-real-startup-796c95\\plain.md",
+            "editorOpenedMs": 168,
+            "endToEndMs": 1153,
+            "uri": "file:///c%3A/Users/adtd1/AppData/Local/Temp/mve-real-startup-796c95/plain.md",
+            "documentLength": 44,
+            "resolveSequence": 2,
+            "activationMs": 81,
+            "webviewReadyMs": 561,
+            "initializedMs": 571,
+            "webviewMetrics": {
+              "previewReportedAt": 611.5999999046326,
+              "bundleExecutedAt": 317.7999999523163,
+              "initReceivedAt": 317.7999999523163,
+              "workerResponseAt": 590.8999999761581,
+              "markdownWorkerDuration": 165,
+              "sanitizeChunkDuration": 6,
+              "domReconcileDuration": 0.5,
+              "markdownWorkerFetchStartedAt": 38,
+              "markdownWorkerFetchDuration": 50.89999997615814,
+              "markdownWorkerResourceCount": 1,
+              "webviewFetchStartedAt": 38.39999997615814,
+              "webviewFetchDuration": 129.29999995231628
+            },
+            "previewReadyMs": 748,
+            "richReadyMs": 1026
+          }
+        },
+        {
+          "file": "C:\\Users\\adtd1\\AppData\\Local\\Temp\\mve-real-startup-796c95\\plain.md",
+          "editorOpenedMs": 1194,
+          "endToEndMs": 3532,
+          "uri": "file:///c%3A/Users/adtd1/AppData/Local/Temp/mve-real-startup-796c95/plain.md",
+          "documentLength": 44,
+          "resolveSequence": 1,
+          "activationMs": 32,
+          "webviewReadyMs": 1478,
+          "initializedMs": 1490,
+          "webviewMetrics": {
+            "previewReportedAt": 1170.5,
+            "bundleExecutedAt": 554.8000000715256,
+            "initReceivedAt": 554.8000000715256,
+            "workerResponseAt": 1063.8000000715256,
+            "markdownWorkerDuration": 285.60000002384186,
+            "sanitizeChunkDuration": 7.100000023841858,
+            "domReconcileDuration": 0.8999999761581421,
+            "markdownWorkerFetchStartedAt": 39.39999997615814,
+            "markdownWorkerFetchDuration": 208.90000009536743,
+            "markdownWorkerResourceCount": 1,
+            "webviewFetchStartedAt": 40,
+            "webviewFetchDuration": 313.7000000476837
+          },
+          "previewReadyMs": 1905,
+          "richReadyMs": 2428,
+          "vscodeVersion": "1.144.0",
+          "warm": {
+            "file": "C:\\Users\\adtd1\\AppData\\Local\\Temp\\mve-real-startup-796c95\\plain.md",
+            "editorOpenedMs": 172,
+            "endToEndMs": 1372,
+            "uri": "file:///c%3A/Users/adtd1/AppData/Local/Temp/mve-real-startup-796c95/plain.md",
+            "documentLength": 44,
+            "resolveSequence": 2,
+            "activationMs": 32,
+            "webviewReadyMs": 629,
+            "initializedMs": 643,
+            "webviewMetrics": {
+              "previewReportedAt": 629.6000000238419,
+              "bundleExecutedAt": 376.10000002384186,
+              "initReceivedAt": 376.10000002384186,
+              "workerResponseAt": 605.2999999523163,
+              "markdownWorkerDuration": 132.70000004768372,
+              "sanitizeChunkDuration": 6,
+              "domReconcileDuration": 0.3999999761581421,
+              "markdownWorkerFetchStartedAt": 55.89999997615814,
+              "markdownWorkerFetchDuration": 55.89999997615814,
+              "markdownWorkerResourceCount": 1,
+              "webviewFetchStartedAt": 56.299999952316284,
+              "webviewFetchDuration": 169
+            },
+            "previewReadyMs": 798,
+            "richReadyMs": 1188
+          }
+        },
+        {
+          "file": "C:\\Users\\adtd1\\AppData\\Local\\Temp\\mve-real-startup-796c95\\plain.md",
+          "editorOpenedMs": 1131,
+          "endToEndMs": 3050,
+          "uri": "file:///c%3A/Users/adtd1/AppData/Local/Temp/mve-real-startup-796c95/plain.md",
+          "documentLength": 44,
+          "resolveSequence": 1,
+          "activationMs": 26,
+          "webviewReadyMs": 1172,
+          "initializedMs": 1253,
+          "webviewMetrics": {
+            "previewReportedAt": 1160.4000000953674,
+            "bundleExecutedAt": 518.8000000715256,
+            "initReceivedAt": 518.8000000715256,
+            "workerResponseAt": 1055.5,
+            "markdownWorkerDuration": 317.8000000715256,
+            "sanitizeChunkDuration": 7.799999952316284,
+            "domReconcileDuration": 0.6999999284744263,
+            "markdownWorkerFetchStartedAt": 31.300000071525574,
+            "markdownWorkerFetchDuration": 178,
+            "markdownWorkerResourceCount": 1,
+            "webviewFetchStartedAt": 32.200000047683716,
+            "webviewFetchDuration": 270.39999997615814
+          },
+          "previewReadyMs": 1545,
+          "richReadyMs": 2046,
+          "vscodeVersion": "1.144.0",
+          "warm": {
+            "file": "C:\\Users\\adtd1\\AppData\\Local\\Temp\\mve-real-startup-796c95\\plain.md",
+            "editorOpenedMs": 168,
+            "endToEndMs": 1299,
+            "uri": "file:///c%3A/Users/adtd1/AppData/Local/Temp/mve-real-startup-796c95/plain.md",
+            "documentLength": 44,
+            "resolveSequence": 2,
+            "activationMs": 26,
+            "webviewReadyMs": 653,
+            "initializedMs": 664,
+            "webviewMetrics": {
+              "previewReportedAt": 725.2000000476837,
+              "bundleExecutedAt": 403.2999999523163,
+              "initReceivedAt": 403.2999999523163,
+              "workerResponseAt": 703.8999999761581,
+              "markdownWorkerDuration": 175.60000002384186,
+              "sanitizeChunkDuration": 5.600000023841858,
+              "domReconcileDuration": 0.5,
+              "markdownWorkerFetchStartedAt": 33.5,
+              "markdownWorkerFetchDuration": 105.60000002384186,
+              "markdownWorkerResourceCount": 1,
+              "webviewFetchStartedAt": 33.89999997615814,
+              "webviewFetchDuration": 213.60000002384186
+            },
+            "previewReadyMs": 849,
+            "richReadyMs": 1144
+          }
+        }
+      ],
+      "median": {
+        "runs": 5,
+        "editorOpenedMs": 1269,
+        "endToEndMs": 3443,
+        "activationMs": 60,
+        "webviewReadyMs": 1227,
+        "initializedMs": 1253,
+        "previewReadyMs": 1640,
+        "richReadyMs": 2262
+      },
+      "statistics": {
+        "cold": {
+          "editorOpenedMs": {
+            "count": 5,
+            "median": 1269,
+            "p95": 1437,
+            "max": 1437
+          },
+          "endToEndMs": {
+            "count": 5,
+            "median": 3443,
+            "p95": 3660,
+            "max": 3660
+          },
+          "activationMs": {
+            "count": 5,
+            "median": 60,
+            "p95": 83,
+            "max": 83
+          },
+          "webviewReadyMs": {
+            "count": 5,
+            "median": 1227,
+            "p95": 1478,
+            "max": 1478
+          },
+          "initializedMs": {
+            "count": 5,
+            "median": 1253,
+            "p95": 1490,
+            "max": 1490
+          },
+          "previewReadyMs": {
+            "count": 5,
+            "median": 1640,
+            "p95": 1905,
+            "max": 1905
+          },
+          "richReadyMs": {
+            "count": 5,
+            "median": 2262,
+            "p95": 2488,
+            "max": 2488
+          }
+        },
+        "warm": {
+          "editorOpenedMs": {
+            "count": 5,
+            "median": 168,
+            "p95": 172,
+            "max": 172
+          },
+          "endToEndMs": {
+            "count": 5,
+            "median": 1254,
+            "p95": 1372,
+            "max": 1372
+          },
+          "webviewReadyMs": {
+            "count": 5,
+            "median": 629,
+            "p95": 710,
+            "max": 710
+          },
+          "initializedMs": {
+            "count": 5,
+            "median": 643,
+            "p95": 720,
+            "max": 720
+          },
+          "previewReadyMs": {
+            "count": 5,
+            "median": 810,
+            "p95": 890,
+            "max": 890
+          },
+          "richReadyMs": {
+            "count": 5,
+            "median": 1144,
+            "p95": 1188,
+            "max": 1188
+          }
+        }
+      },
+      "limits": {
+        "endToEndMs": 2300,
+        "previewReadyMs": 1400
+      },
+      "failures": [
+        "plain の実VS Code起動性能が回帰しました: endToEndMs=3443ms > 2300ms",
+        "plain の実VS Code起動性能が回帰しました: previewReadyMs=1640ms > 1400ms"
+      ]
+    },
+    {
+      "name": "representative",
+      "file": "06-specification-template.md",
+      "waitFor": {
+        "rich": true
+      },
+      "runs": [
+        {
+          "file": "E:\\source\\markdown-easy-visual-editor\\sample\\06-specification-template.md",
+          "editorOpenedMs": 2235,
+          "endToEndMs": 5298,
+          "uri": "file:///e%3A/source/markdown-easy-visual-editor/sample/06-specification-template.md",
+          "documentLength": 2105,
+          "resolveSequence": 1,
+          "activationMs": 28,
+          "webviewReadyMs": 1925,
+          "initializedMs": 1947,
+          "webviewMetrics": {
+            "previewReportedAt": 1781.1000000238419,
+            "bundleExecutedAt": 672.1000000238419,
+            "initReceivedAt": 672.1000000238419,
+            "workerResponseAt": 1511.2999999523163,
+            "markdownWorkerDuration": 467,
+            "sanitizeChunkDuration": 7.200000047683716,
+            "domReconcileDuration": 2.8000000715255737,
+            "markdownWorkerFetchStartedAt": 37.5,
+            "markdownWorkerFetchDuration": 328.5,
+            "markdownWorkerResourceCount": 1,
+            "webviewFetchStartedAt": 37.89999997615814,
+            "webviewFetchDuration": 440.60000002384186
+          },
+          "previewReadyMs": 2623,
+          "richReadyMs": 4030,
+          "vscodeVersion": "1.144.0",
+          "warm": {
+            "file": "E:\\source\\markdown-easy-visual-editor\\sample\\06-specification-template.md",
+            "editorOpenedMs": 130,
+            "endToEndMs": 2224,
+            "uri": "file:///e%3A/source/markdown-easy-visual-editor/sample/06-specification-template.md",
+            "documentLength": 2105,
+            "resolveSequence": 2,
+            "activationMs": 28,
+            "webviewReadyMs": 566,
+            "initializedMs": 576,
+            "webviewMetrics": {
+              "previewReportedAt": 748.1000000238419,
+              "bundleExecutedAt": 296.89999997615814,
+              "initReceivedAt": 296.89999997615814,
+              "workerResponseAt": 663.3000000715256,
+              "markdownWorkerDuration": 225.29999995231628,
+              "sanitizeChunkDuration": 6.300000071525574,
+              "domReconcileDuration": 3.0999999046325684,
+              "markdownWorkerFetchStartedAt": 29.700000047683716,
+              "markdownWorkerFetchDuration": 35,
+              "markdownWorkerResourceCount": 1,
+              "webviewFetchStartedAt": 30.100000023841858,
+              "webviewFetchDuration": 126.39999997615814
+            },
+            "previewReadyMs": 875,
+            "richReadyMs": 2155
+          }
+        },
+        {
+          "file": "E:\\source\\markdown-easy-visual-editor\\sample\\06-specification-template.md",
+          "editorOpenedMs": 2338,
+          "endToEndMs": 5623,
+          "uri": "file:///e%3A/source/markdown-easy-visual-editor/sample/06-specification-template.md",
+          "documentLength": 2105,
+          "resolveSequence": 1,
+          "activationMs": 84,
+          "webviewReadyMs": 1924,
+          "initializedMs": 1933,
+          "webviewMetrics": {
+            "previewReportedAt": 1768.7000000476837,
+            "bundleExecutedAt": 619.7999999523163,
+            "initReceivedAt": 619.7999999523163,
+            "workerResponseAt": 1479.7000000476837,
+            "markdownWorkerDuration": 474.10000002384186,
+            "sanitizeChunkDuration": 7.700000047683716,
+            "domReconcileDuration": 2.899999976158142,
+            "markdownWorkerFetchStartedAt": 47.89999997615814,
+            "markdownWorkerFetchDuration": 271.60000002384186,
+            "markdownWorkerResourceCount": 1,
+            "webviewFetchStartedAt": 48.39999997615814,
+            "webviewFetchDuration": 347.7000000476837
+          },
+          "previewReadyMs": 2649,
+          "richReadyMs": 4131,
+          "vscodeVersion": "1.144.0",
+          "warm": {
+            "file": "E:\\source\\markdown-easy-visual-editor\\sample\\06-specification-template.md",
+            "editorOpenedMs": 144,
+            "endToEndMs": 2394,
+            "uri": "file:///e%3A/source/markdown-easy-visual-editor/sample/06-specification-template.md",
+            "documentLength": 2105,
+            "resolveSequence": 2,
+            "activationMs": 84,
+            "webviewReadyMs": 705,
+            "initializedMs": 715,
+            "webviewMetrics": {
+              "previewReportedAt": 861.1999999284744,
+              "bundleExecutedAt": 380.5,
+              "initReceivedAt": 380.5,
+              "workerResponseAt": 769.6999999284744,
+              "markdownWorkerDuration": 227.69999992847443,
+              "sanitizeChunkDuration": 7.300000071525574,
+              "domReconcileDuration": 3.200000047683716,
+              "markdownWorkerFetchStartedAt": 34.09999990463257,
+              "markdownWorkerFetchDuration": 108.5,
+              "markdownWorkerResourceCount": 1,
+              "webviewFetchStartedAt": 34.5,
+              "webviewFetchDuration": 191.89999997615814
+            },
+            "previewReadyMs": 1023,
+            "richReadyMs": 2309
+          }
+        },
+        {
+          "file": "E:\\source\\markdown-easy-visual-editor\\sample\\06-specification-template.md",
+          "editorOpenedMs": 2167,
+          "endToEndMs": 5258,
+          "uri": "file:///e%3A/source/markdown-easy-visual-editor/sample/06-specification-template.md",
+          "documentLength": 2105,
+          "resolveSequence": 1,
+          "activationMs": 26,
+          "webviewReadyMs": 2172,
+          "initializedMs": 2241,
+          "webviewMetrics": {
+            "previewReportedAt": 1786.6999999284744,
+            "bundleExecutedAt": 696.0999999046326,
+            "initReceivedAt": 696.0999999046326,
+            "workerResponseAt": 1487.0999999046326,
+            "markdownWorkerDuration": 450.39999997615814,
+            "sanitizeChunkDuration": 7.5,
+            "domReconcileDuration": 3.0999999046325684,
+            "markdownWorkerFetchStartedAt": 35.59999990463257,
+            "markdownWorkerFetchDuration": 349.60000002384186,
+            "markdownWorkerResourceCount": 1,
+            "webviewFetchStartedAt": 36,
+            "webviewFetchDuration": 440
+          },
+          "previewReadyMs": 2845,
+          "richReadyMs": 4420,
+          "vscodeVersion": "1.144.0",
+          "warm": {
+            "file": "E:\\source\\markdown-easy-visual-editor\\sample\\06-specification-template.md",
+            "editorOpenedMs": 138,
+            "endToEndMs": 2423,
+            "uri": "file:///e%3A/source/markdown-easy-visual-editor/sample/06-specification-template.md",
+            "documentLength": 2105,
+            "resolveSequence": 2,
+            "activationMs": 26,
+            "webviewReadyMs": 719,
+            "initializedMs": 728,
+            "webviewMetrics": {
+              "previewReportedAt": 869.3000000715256,
+              "bundleExecutedAt": 338.2000000476837,
+              "initReceivedAt": 338.2000000476837,
+              "workerResponseAt": 776.4000000953674,
+              "markdownWorkerDuration": 289.2999999523163,
+              "sanitizeChunkDuration": 8,
+              "domReconcileDuration": 3.299999952316284,
+              "markdownWorkerFetchStartedAt": 36.300000071525574,
+              "markdownWorkerFetchDuration": 28.199999928474426,
+              "markdownWorkerResourceCount": 1,
+              "webviewFetchStartedAt": 36.700000047683716,
+              "webviewFetchDuration": 163.39999997615814
+            },
+            "previewReadyMs": 1100,
+            "richReadyMs": 2337
+          }
+        },
+        {
+          "file": "E:\\source\\markdown-easy-visual-editor\\sample\\06-specification-template.md",
+          "editorOpenedMs": 2368,
+          "endToEndMs": 5278,
+          "uri": "file:///e%3A/source/markdown-easy-visual-editor/sample/06-specification-template.md",
+          "documentLength": 2105,
+          "resolveSequence": 1,
+          "activationMs": 29,
+          "webviewReadyMs": 1757,
+          "initializedMs": 1775,
+          "webviewMetrics": {
+            "previewReportedAt": 1714.5,
+            "bundleExecutedAt": 494.60000002384186,
+            "initReceivedAt": 494.60000002384186,
+            "workerResponseAt": 1382.3999999761581,
+            "markdownWorkerDuration": 532.3000000715256,
+            "sanitizeChunkDuration": 6.899999976158142,
+            "domReconcileDuration": 3,
+            "markdownWorkerFetchStartedAt": 40.39999997615814,
+            "markdownWorkerFetchDuration": 84.80000007152557,
+            "markdownWorkerResourceCount": 1,
+            "webviewFetchStartedAt": 40.89999997615814,
+            "webviewFetchDuration": 240.89999997615814
+          },
+          "previewReadyMs": 2616,
+          "richReadyMs": 3966,
+          "vscodeVersion": "1.144.0",
+          "warm": {
+            "file": "E:\\source\\markdown-easy-visual-editor\\sample\\06-specification-template.md",
+            "editorOpenedMs": 117,
+            "endToEndMs": 2298,
+            "uri": "file:///e%3A/source/markdown-easy-visual-editor/sample/06-specification-template.md",
+            "documentLength": 2105,
+            "resolveSequence": 2,
+            "activationMs": 29,
+            "webviewReadyMs": 546,
+            "initializedMs": 557,
+            "webviewMetrics": {
+              "previewReportedAt": 716.6000000238419,
+              "bundleExecutedAt": 271.60000002384186,
+              "initReceivedAt": 271.60000002384186,
+              "workerResponseAt": 661.5,
+              "markdownWorkerDuration": 244.79999995231628,
+              "sanitizeChunkDuration": 5.899999976158142,
+              "domReconcileDuration": 3,
+              "markdownWorkerFetchStartedAt": 34.300000071525574,
+              "markdownWorkerFetchDuration": 25.699999928474426,
+              "markdownWorkerResourceCount": 1,
+              "webviewFetchStartedAt": 34.700000047683716,
+              "webviewFetchDuration": 116.60000002384186
+            },
+            "previewReadyMs": 846,
+            "richReadyMs": 2192
+          }
+        },
+        {
+          "file": "E:\\source\\markdown-easy-visual-editor\\sample\\06-specification-template.md",
+          "editorOpenedMs": 2393,
+          "endToEndMs": 5330,
+          "uri": "file:///e%3A/source/markdown-easy-visual-editor/sample/06-specification-template.md",
+          "documentLength": 2105,
+          "resolveSequence": 1,
+          "activationMs": 41,
+          "webviewReadyMs": 2045,
+          "initializedMs": 2080,
+          "webviewMetrics": {
+            "previewReportedAt": 1812.6000000238419,
+            "bundleExecutedAt": 702.9000000953674,
+            "initReceivedAt": 702.9000000953674,
+            "workerResponseAt": 1478.8000000715256,
+            "markdownWorkerDuration": 408.89999997615814,
+            "sanitizeChunkDuration": 6.700000047683716,
+            "domReconcileDuration": 3.100000023841858,
+            "markdownWorkerFetchStartedAt": 29.40000009536743,
+            "markdownWorkerFetchDuration": 378.89999997615814,
+            "markdownWorkerResourceCount": 1,
+            "webviewFetchStartedAt": 29.90000009536743,
+            "webviewFetchDuration": 461.5
+          },
+          "previewReadyMs": 2763,
+          "richReadyMs": 4006,
+          "vscodeVersion": "1.144.0",
+          "warm": {
+            "file": "E:\\source\\markdown-easy-visual-editor\\sample\\06-specification-template.md",
+            "editorOpenedMs": 105,
+            "endToEndMs": 2152,
+            "uri": "file:///e%3A/source/markdown-easy-visual-editor/sample/06-specification-template.md",
+            "documentLength": 2105,
+            "resolveSequence": 2,
+            "activationMs": 41,
+            "webviewReadyMs": 522,
+            "initializedMs": 533,
+            "webviewMetrics": {
+              "previewReportedAt": 736.3000000715256,
+              "bundleExecutedAt": 283.2000000476837,
+              "initReceivedAt": 283.2000000476837,
+              "workerResponseAt": 654.3999999761581,
+              "markdownWorkerDuration": 247.90000009536743,
+              "sanitizeChunkDuration": 6.399999976158142,
+              "domReconcileDuration": 3,
+              "markdownWorkerFetchStartedAt": 27.600000023841858,
+              "markdownWorkerFetchDuration": 47.60000002384186,
+              "markdownWorkerResourceCount": 1,
+              "webviewFetchStartedAt": 28,
+              "webviewFetchDuration": 131
+            },
+            "previewReadyMs": 850,
+            "richReadyMs": 2060
+          }
+        }
+      ],
+      "median": {
+        "runs": 5,
+        "editorOpenedMs": 2338,
+        "endToEndMs": 5298,
+        "activationMs": 29,
+        "webviewReadyMs": 1925,
+        "initializedMs": 1947,
+        "previewReadyMs": 2649,
+        "richReadyMs": 4030
+      },
+      "statistics": {
+        "cold": {
+          "editorOpenedMs": {
+            "count": 5,
+            "median": 2338,
+            "p95": 2393,
+            "max": 2393
+          },
+          "endToEndMs": {
+            "count": 5,
+            "median": 5298,
+            "p95": 5623,
+            "max": 5623
+          },
+          "activationMs": {
+            "count": 5,
+            "median": 29,
+            "p95": 84,
+            "max": 84
+          },
+          "webviewReadyMs": {
+            "count": 5,
+            "median": 1925,
+            "p95": 2172,
+            "max": 2172
+          },
+          "initializedMs": {
+            "count": 5,
+            "median": 1947,
+            "p95": 2241,
+            "max": 2241
+          },
+          "previewReadyMs": {
+            "count": 5,
+            "median": 2649,
+            "p95": 2845,
+            "max": 2845
+          },
+          "richReadyMs": {
+            "count": 5,
+            "median": 4030,
+            "p95": 4420,
+            "max": 4420
+          }
+        },
+        "warm": {
+          "editorOpenedMs": {
+            "count": 5,
+            "median": 130,
+            "p95": 144,
+            "max": 144
+          },
+          "endToEndMs": {
+            "count": 5,
+            "median": 2298,
+            "p95": 2423,
+            "max": 2423
+          },
+          "webviewReadyMs": {
+            "count": 5,
+            "median": 566,
+            "p95": 719,
+            "max": 719
+          },
+          "initializedMs": {
+            "count": 5,
+            "median": 576,
+            "p95": 728,
+            "max": 728
+          },
+          "previewReadyMs": {
+            "count": 5,
+            "median": 875,
+            "p95": 1100,
+            "max": 1100
+          },
+          "richReadyMs": {
+            "count": 5,
+            "median": 2192,
+            "p95": 2337,
+            "max": 2337
+          }
+        }
+      },
+      "limits": {
+        "endToEndMs": 2800,
+        "previewReadyMs": 1800
+      },
+      "failures": [
+        "representative の実VS Code起動性能が回帰しました: endToEndMs=5298ms > 2800ms",
+        "representative の実VS Code起動性能が回帰しました: previewReadyMs=2649ms > 1800ms"
+      ]
+    },
+    {
+      "name": "marp",
+      "file": "02-multiple-slides.md",
+      "waitFor": {},
+      "runs": [
+        {
+          "file": "E:\\source\\markdown-easy-visual-editor\\sample\\marp\\02-multiple-slides.md",
+          "editorOpenedMs": 1903,
+          "endToEndMs": 4446,
+          "uri": "file:///e%3A/source/markdown-easy-visual-editor/sample/marp/02-multiple-slides.md",
+          "documentLength": 202,
+          "resolveSequence": 1,
+          "activationMs": 104,
+          "webviewReadyMs": 1509,
+          "initializedMs": 1525,
+          "marpStages": [
+            {
+              "stage": "worker-fetch-start",
+              "elapsedMs": 1686
+            },
+            {
+              "stage": "preview-mounted",
+              "elapsedMs": 1709
+            },
+            {
+              "stage": "iframe-script-fetch-start",
+              "elapsedMs": 1710
+            },
+            {
+              "stage": "iframe-script-fetched",
+              "elapsedMs": 1861
+            },
+            {
+              "stage": "worker-bundle-fetched",
+              "elapsedMs": 1897
+            },
+            {
+              "stage": "worker-created",
+              "elapsedMs": 1904
+            },
+            {
+              "stage": "worker-render-start",
+              "elapsedMs": 1907
+            },
+            {
+              "stage": "iframe-ready",
+              "elapsedMs": 2112
+            },
+            {
+              "stage": "worker-response-received",
+              "elapsedMs": 2469
+            },
+            {
+              "stage": "asset-resolution-start",
+              "elapsedMs": 2470
+            },
+            {
+              "stage": "asset-resolution-complete",
+              "elapsedMs": 2473
+            },
+            {
+              "stage": "iframe-render-posted",
+              "elapsedMs": 2474
+            },
+            {
+              "stage": "iframe-received",
+              "elapsedMs": 2697
+            },
+            {
+              "stage": "iframe-slides-created",
+              "elapsedMs": 2698
+            },
+            {
+              "stage": "iframe-dom-replaced",
+              "elapsedMs": 2698
+            },
+            {
+              "stage": "iframe-browser-support-applied",
+              "elapsedMs": 2699
+            },
+            {
+              "stage": "iframe-layout-received",
+              "detail": "slides=3",
+              "elapsedMs": 2700
+            },
+            {
+              "stage": "iframe-layout-published",
+              "elapsedMs": 2702
+            },
+            {
+              "stage": "preview-ready",
+              "elapsedMs": 2709
+            },
+            {
+              "stage": "iframe-layout-received",
+              "detail": "slides=3",
+              "elapsedMs": 2717
+            },
+            {
+              "stage": "iframe-layout-received",
+              "detail": "slides=3",
+              "elapsedMs": 2720
+            }
+          ],
+          "webviewMetrics": {
+            "previewReportedAt": 2241.0999999046326,
+            "bundleExecutedAt": 633.5,
+            "initReceivedAt": 633.5,
+            "markdownWorkerFetchStartedAt": 43.199999928474426,
+            "markdownWorkerFetchDuration": 256.8000000715256,
+            "markdownWorkerResourceCount": 1,
+            "webviewFetchStartedAt": 43.59999990463257,
+            "webviewFetchDuration": 343.2000000476837
+          },
+          "previewReadyMs": 2700,
+          "vscodeVersion": "1.144.0",
+          "warm": {
+            "file": "E:\\source\\markdown-easy-visual-editor\\sample\\marp\\02-multiple-slides.md",
+            "editorOpenedMs": 132,
+            "endToEndMs": 1332,
+            "uri": "file:///e%3A/source/markdown-easy-visual-editor/sample/marp/02-multiple-slides.md",
+            "documentLength": 202,
+            "resolveSequence": 2,
+            "activationMs": 104,
+            "webviewReadyMs": 528,
+            "initializedMs": 535,
+            "marpStages": [
+              {
+                "stage": "worker-fetch-start",
+                "elapsedMs": 590
+              },
+              {
+                "stage": "preview-mounted",
+                "elapsedMs": 592
+              },
+              {
+                "stage": "iframe-script-fetch-start",
+                "elapsedMs": 593
+              },
+              {
+                "stage": "iframe-script-fetched",
+                "elapsedMs": 610
+              },
+              {
+                "stage": "worker-bundle-fetched",
+                "elapsedMs": 619
+              },
+              {
+                "stage": "worker-created",
+                "elapsedMs": 619
+              },
+              {
+                "stage": "worker-render-start",
+                "elapsedMs": 620
+              },
+              {
+                "stage": "iframe-ready",
+                "elapsedMs": 754
+              },
+              {
+                "stage": "worker-response-received",
+                "elapsedMs": 1047
+              },
+              {
+                "stage": "asset-resolution-start",
+                "elapsedMs": 1048
+              },
+              {
+                "stage": "asset-resolution-complete",
+                "elapsedMs": 1051
+              },
+              {
+                "stage": "iframe-render-posted",
+                "elapsedMs": 1052
+              },
+              {
+                "stage": "iframe-received",
+                "elapsedMs": 1222
+              },
+              {
+                "stage": "iframe-slides-created",
+                "elapsedMs": 1224
+              },
+              {
+                "stage": "iframe-dom-replaced",
+                "elapsedMs": 1225
+              },
+              {
+                "stage": "iframe-browser-support-applied",
+                "elapsedMs": 1226
+              },
+              {
+                "stage": "iframe-layout-received",
+                "detail": "slides=3",
+                "elapsedMs": 1226
+              },
+              {
+                "stage": "iframe-layout-published",
+                "elapsedMs": 1228
+              },
+              {
+                "stage": "preview-ready",
+                "elapsedMs": 1229
+              },
+              {
+                "stage": "iframe-layout-received",
+                "detail": "slides=3",
+                "elapsedMs": 1253
+              },
+              {
+                "stage": "iframe-layout-received",
+                "detail": "slides=3",
+                "elapsedMs": 1254
+              }
+            ],
+            "webviewMetrics": {
+              "previewReportedAt": 1096.4000000953674,
+              "bundleExecutedAt": 281.60000002384186,
+              "initReceivedAt": 281.60000002384186,
+              "markdownWorkerFetchStartedAt": 30.40000009536743,
+              "markdownWorkerFetchDuration": 23.09999990463257,
+              "markdownWorkerResourceCount": 1,
+              "webviewFetchStartedAt": 30.700000047683716,
+              "webviewFetchDuration": 122.60000002384186
+            },
+            "previewReadyMs": 1227
+          }
+        },
+        {
+          "file": "E:\\source\\markdown-easy-visual-editor\\sample\\marp\\02-multiple-slides.md",
+          "editorOpenedMs": 1925,
+          "endToEndMs": 4454,
+          "uri": "file:///e%3A/source/markdown-easy-visual-editor/sample/marp/02-multiple-slides.md",
+          "documentLength": 202,
+          "resolveSequence": 1,
+          "activationMs": 253,
+          "webviewReadyMs": 1404,
+          "initializedMs": 1413,
+          "marpStages": [
+            {
+              "stage": "worker-fetch-start",
+              "elapsedMs": 1608
+            },
+            {
+              "stage": "preview-mounted",
+              "elapsedMs": 1623
+            },
+            {
+              "stage": "iframe-script-fetch-start",
+              "elapsedMs": 1624
+            },
+            {
+              "stage": "iframe-script-fetched",
+              "elapsedMs": 1677
+            },
+            {
+              "stage": "worker-bundle-fetched",
+              "elapsedMs": 1723
+            },
+            {
+              "stage": "worker-created",
+              "elapsedMs": 1736
+            },
+            {
+              "stage": "worker-render-start",
+              "elapsedMs": 1737
+            },
+            {
+              "stage": "iframe-ready",
+              "elapsedMs": 1898
+            },
+            {
+              "stage": "worker-response-received",
+              "elapsedMs": 2324
+            },
+            {
+              "stage": "asset-resolution-start",
+              "elapsedMs": 2349
+            },
+            {
+              "stage": "asset-resolution-complete",
+              "elapsedMs": 2351
+            },
+            {
+              "stage": "iframe-render-posted",
+              "elapsedMs": 2352
+            },
+            {
+              "stage": "iframe-received",
+              "elapsedMs": 2677
+            },
+            {
+              "stage": "iframe-slides-created",
+              "elapsedMs": 2678
+            },
+            {
+              "stage": "iframe-dom-replaced",
+              "elapsedMs": 2680
+            },
+            {
+              "stage": "iframe-browser-support-applied",
+              "elapsedMs": 2681
+            },
+            {
+              "stage": "iframe-layout-received",
+              "detail": "slides=3",
+              "elapsedMs": 2683
+            },
+            {
+              "stage": "iframe-layout-published",
+              "elapsedMs": 2690
+            },
+            {
+              "stage": "preview-ready",
+              "elapsedMs": 2691
+            },
+            {
+              "stage": "iframe-layout-received",
+              "detail": "slides=3",
+              "elapsedMs": 2702
+            },
+            {
+              "stage": "iframe-layout-received",
+              "detail": "slides=3",
+              "elapsedMs": 2704
+            }
+          ],
+          "webviewMetrics": {
+            "previewReportedAt": 2245.3000000715256,
+            "bundleExecutedAt": 612.5,
+            "initReceivedAt": 612.5,
+            "markdownWorkerFetchStartedAt": 32.5,
+            "markdownWorkerFetchDuration": 233.30000007152557,
+            "markdownWorkerResourceCount": 1,
+            "webviewFetchStartedAt": 33,
+            "webviewFetchDuration": 367.2000000476837
+          },
+          "previewReadyMs": 2687,
+          "vscodeVersion": "1.144.0",
+          "warm": {
+            "file": "E:\\source\\markdown-easy-visual-editor\\sample\\marp\\02-multiple-slides.md",
+            "editorOpenedMs": 188,
+            "endToEndMs": 1935,
+            "uri": "file:///e%3A/source/markdown-easy-visual-editor/sample/marp/02-multiple-slides.md",
+            "documentLength": 202,
+            "resolveSequence": 2,
+            "activationMs": 253,
+            "webviewReadyMs": 892,
+            "initializedMs": 901,
+            "marpStages": [
+              {
+                "stage": "worker-fetch-start",
+                "elapsedMs": 1007
+              },
+              {
+                "stage": "preview-mounted",
+                "elapsedMs": 1010
+              },
+              {
+                "stage": "iframe-script-fetch-start",
+                "elapsedMs": 1012
+              },
+              {
+                "stage": "iframe-script-fetched",
+                "elapsedMs": 1056
+              },
+              {
+                "stage": "worker-bundle-fetched",
+                "elapsedMs": 1067
+              },
+              {
+                "stage": "worker-created",
+                "elapsedMs": 1067
+              },
+              {
+                "stage": "worker-render-start",
+                "elapsedMs": 1068
+              },
+              {
+                "stage": "iframe-ready",
+                "elapsedMs": 1378
+              },
+              {
+                "stage": "worker-response-received",
+                "elapsedMs": 1594
+              },
+              {
+                "stage": "asset-resolution-start",
+                "elapsedMs": 1595
+              },
+              {
+                "stage": "asset-resolution-complete",
+                "elapsedMs": 1598
+              },
+              {
+                "stage": "iframe-render-posted",
+                "elapsedMs": 1599
+              },
+              {
+                "stage": "iframe-received",
+                "elapsedMs": 1783
+              },
+              {
+                "stage": "iframe-slides-created",
+                "elapsedMs": 1784
+              },
+              {
+                "stage": "iframe-dom-replaced",
+                "elapsedMs": 1785
+              },
+              {
+                "stage": "iframe-browser-support-applied",
+                "elapsedMs": 1787
+              },
+              {
+                "stage": "iframe-layout-received",
+                "detail": "slides=3",
+                "elapsedMs": 1788
+              },
+              {
+                "stage": "iframe-layout-published",
+                "elapsedMs": 1791
+              },
+              {
+                "stage": "preview-ready",
+                "elapsedMs": 1793
+              },
+              {
+                "stage": "iframe-layout-received",
+                "detail": "slides=3",
+                "elapsedMs": 1803
+              },
+              {
+                "stage": "iframe-layout-received",
+                "detail": "slides=3",
+                "elapsedMs": 1804
+              }
+            ],
+            "webviewMetrics": {
+              "previewReportedAt": 1585.5,
+              "bundleExecutedAt": 491.7999999523163,
+              "initReceivedAt": 491.7999999523163,
+              "markdownWorkerFetchStartedAt": 40.299999952316284,
+              "markdownWorkerFetchDuration": 48.800000071525574,
+              "markdownWorkerResourceCount": 1,
+              "webviewFetchStartedAt": 40.700000047683716,
+              "webviewFetchDuration": 252
+            },
+            "previewReadyMs": 1789
+          }
+        },
+        {
+          "file": "E:\\source\\markdown-easy-visual-editor\\sample\\marp\\02-multiple-slides.md",
+          "editorOpenedMs": 1581,
+          "endToEndMs": 3874,
+          "uri": "file:///e%3A/source/markdown-easy-visual-editor/sample/marp/02-multiple-slides.md",
+          "documentLength": 202,
+          "resolveSequence": 1,
+          "activationMs": 50,
+          "webviewReadyMs": 1148,
+          "initializedMs": 1157,
+          "marpStages": [
+            {
+              "stage": "worker-fetch-start",
+              "elapsedMs": 1407
+            },
+            {
+              "stage": "preview-mounted",
+              "elapsedMs": 1413
+            },
+            {
+              "stage": "iframe-script-fetch-start",
+              "elapsedMs": 1413
+            },
+            {
+              "stage": "iframe-script-fetched",
+              "elapsedMs": 1472
+            },
+            {
+              "stage": "worker-bundle-fetched",
+              "elapsedMs": 1505
+            },
+            {
+              "stage": "worker-created",
+              "elapsedMs": 1510
+            },
+            {
+              "stage": "worker-render-start",
+              "elapsedMs": 1511
+            },
+            {
+              "stage": "iframe-ready",
+              "elapsedMs": 1847
+            },
+            {
+              "stage": "worker-response-received",
+              "elapsedMs": 2073
+            },
+            {
+              "stage": "asset-resolution-start",
+              "elapsedMs": 2076
+            },
+            {
+              "stage": "asset-resolution-complete",
+              "elapsedMs": 2076
+            },
+            {
+              "stage": "iframe-render-posted",
+              "elapsedMs": 2077
+            },
+            {
+              "stage": "iframe-received",
+              "elapsedMs": 2455
+            },
+            {
+              "stage": "iframe-slides-created",
+              "elapsedMs": 2461
+            },
+            {
+              "stage": "iframe-dom-replaced",
+              "elapsedMs": 2462
+            },
+            {
+              "stage": "iframe-browser-support-applied",
+              "elapsedMs": 2462
+            },
+            {
+              "stage": "iframe-layout-received",
+              "detail": "slides=3",
+              "elapsedMs": 2463
+            },
+            {
+              "stage": "iframe-layout-published",
+              "elapsedMs": 2465
+            },
+            {
+              "stage": "preview-ready",
+              "elapsedMs": 2465
+            },
+            {
+              "stage": "iframe-layout-received",
+              "detail": "slides=3",
+              "elapsedMs": 2472
+            }
+          ],
+          "webviewMetrics": {
+            "previewReportedAt": 2059.2000000476837,
+            "bundleExecutedAt": 445.2999999523163,
+            "initReceivedAt": 445.2999999523163,
+            "markdownWorkerFetchStartedAt": 31,
+            "markdownWorkerFetchDuration": 88.10000002384186,
+            "markdownWorkerResourceCount": 1,
+            "webviewFetchStartedAt": 31.5,
+            "webviewFetchDuration": 204.10000002384186
+          },
+          "previewReadyMs": 2464,
+          "vscodeVersion": "1.144.0",
+          "warm": {
+            "file": "E:\\source\\markdown-easy-visual-editor\\sample\\marp\\02-multiple-slides.md",
+            "editorOpenedMs": 158,
+            "endToEndMs": 1477,
+            "uri": "file:///e%3A/source/markdown-easy-visual-editor/sample/marp/02-multiple-slides.md",
+            "documentLength": 202,
+            "resolveSequence": 2,
+            "activationMs": 50,
+            "webviewReadyMs": 597,
+            "initializedMs": 608,
+            "marpStages": [
+              {
+                "stage": "worker-fetch-start",
+                "elapsedMs": 665
+              },
+              {
+                "stage": "preview-mounted",
+                "elapsedMs": 668
+              },
+              {
+                "stage": "iframe-script-fetch-start",
+                "elapsedMs": 669
+              },
+              {
+                "stage": "iframe-script-fetched",
+                "elapsedMs": 696
+              },
+              {
+                "stage": "worker-bundle-fetched",
+                "elapsedMs": 712
+              },
+              {
+                "stage": "worker-created",
+                "elapsedMs": 715
+              },
+              {
+                "stage": "worker-render-start",
+                "elapsedMs": 718
+              },
+              {
+                "stage": "iframe-ready",
+                "elapsedMs": 902
+              },
+              {
+                "stage": "worker-response-received",
+                "elapsedMs": 1156
+              },
+              {
+                "stage": "asset-resolution-start",
+                "elapsedMs": 1157
+              },
+              {
+                "stage": "asset-resolution-complete",
+                "elapsedMs": 1158
+              },
+              {
+                "stage": "iframe-render-posted",
+                "elapsedMs": 1159
+              },
+              {
+                "stage": "iframe-received",
+                "elapsedMs": 1376
+              },
+              {
+                "stage": "iframe-slides-created",
+                "elapsedMs": 1376
+              },
+              {
+                "stage": "iframe-dom-replaced",
+                "elapsedMs": 1377
+              },
+              {
+                "stage": "iframe-browser-support-applied",
+                "elapsedMs": 1378
+              },
+              {
+                "stage": "iframe-layout-received",
+                "detail": "slides=3",
+                "elapsedMs": 1378
+              },
+              {
+                "stage": "iframe-layout-published",
+                "elapsedMs": 1380
+              }
+            ],
+            "webviewMetrics": {
+              "previewReportedAt": 1253.2999999523163,
+              "bundleExecutedAt": 308.10000002384186,
+              "initReceivedAt": 308.10000002384186,
+              "markdownWorkerFetchStartedAt": 45,
+              "markdownWorkerFetchDuration": 46.5,
+              "markdownWorkerResourceCount": 1,
+              "webviewFetchStartedAt": 45.39999997615814,
+              "webviewFetchDuration": 125.89999997615814
+            },
+            "previewReadyMs": 1379
+          }
+        },
+        {
+          "file": "E:\\source\\markdown-easy-visual-editor\\sample\\marp\\02-multiple-slides.md",
+          "editorOpenedMs": 1623,
+          "endToEndMs": 4184,
+          "uri": "file:///e%3A/source/markdown-easy-visual-editor/sample/marp/02-multiple-slides.md",
+          "documentLength": 202,
+          "resolveSequence": 1,
+          "activationMs": 218,
+          "webviewReadyMs": 1304,
+          "initializedMs": 1318,
+          "marpStages": [
+            {
+              "stage": "worker-fetch-start",
+              "elapsedMs": 1508
+            },
+            {
+              "stage": "preview-mounted",
+              "elapsedMs": 1593
+            },
+            {
+              "stage": "iframe-script-fetch-start",
+              "elapsedMs": 1593
+            },
+            {
+              "stage": "iframe-script-fetched",
+              "elapsedMs": 1718
+            },
+            {
+              "stage": "worker-bundle-fetched",
+              "elapsedMs": 1731
+            },
+            {
+              "stage": "worker-created",
+              "elapsedMs": 1736
+            },
+            {
+              "stage": "worker-render-start",
+              "elapsedMs": 1737
+            },
+            {
+              "stage": "iframe-ready",
+              "elapsedMs": 1994
+            },
+            {
+              "stage": "worker-response-received",
+              "elapsedMs": 2260
+            },
+            {
+              "stage": "asset-resolution-start",
+              "elapsedMs": 2262
+            },
+            {
+              "stage": "asset-resolution-complete",
+              "elapsedMs": 2264
+            },
+            {
+              "stage": "iframe-render-posted",
+              "elapsedMs": 2264
+            },
+            {
+              "stage": "iframe-received",
+              "elapsedMs": 2697
+            },
+            {
+              "stage": "iframe-slides-created",
+              "elapsedMs": 2721
+            },
+            {
+              "stage": "iframe-dom-replaced",
+              "elapsedMs": 2721
+            },
+            {
+              "stage": "iframe-browser-support-applied",
+              "elapsedMs": 2722
+            },
+            {
+              "stage": "iframe-layout-received",
+              "detail": "slides=3",
+              "elapsedMs": 2723
+            },
+            {
+              "stage": "iframe-layout-published",
+              "elapsedMs": 2725
+            },
+            {
+              "stage": "preview-ready",
+              "elapsedMs": 2725
+            },
+            {
+              "stage": "iframe-layout-received",
+              "detail": "slides=3",
+              "elapsedMs": 2727
+            },
+            {
+              "stage": "iframe-layout-received",
+              "detail": "slides=3",
+              "elapsedMs": 2727
+            }
+          ],
+          "webviewMetrics": {
+            "previewReportedAt": 2275,
+            "bundleExecutedAt": 523.2000000476837,
+            "initReceivedAt": 523.2000000476837,
+            "markdownWorkerFetchStartedAt": 30.200000047683716,
+            "markdownWorkerFetchDuration": 186.79999995231628,
+            "markdownWorkerResourceCount": 1,
+            "webviewFetchStartedAt": 30.600000023841858,
+            "webviewFetchDuration": 258.3000000715256
+          },
+          "previewReadyMs": 2723,
+          "vscodeVersion": "1.144.0",
+          "warm": {
+            "file": "E:\\source\\markdown-easy-visual-editor\\sample\\marp\\02-multiple-slides.md",
+            "editorOpenedMs": 141,
+            "endToEndMs": 1510,
+            "uri": "file:///e%3A/source/markdown-easy-visual-editor/sample/marp/02-multiple-slides.md",
+            "documentLength": 202,
+            "resolveSequence": 2,
+            "activationMs": 218,
+            "webviewReadyMs": 595,
+            "initializedMs": 605,
+            "marpStages": [
+              {
+                "stage": "worker-fetch-start",
+                "elapsedMs": 659
+              },
+              {
+                "stage": "preview-mounted",
+                "elapsedMs": 661
+              },
+              {
+                "stage": "iframe-script-fetch-start",
+                "elapsedMs": 662
+              },
+              {
+                "stage": "iframe-script-fetched",
+                "elapsedMs": 683
+              },
+              {
+                "stage": "worker-bundle-fetched",
+                "elapsedMs": 694
+              },
+              {
+                "stage": "worker-created",
+                "elapsedMs": 695
+              },
+              {
+                "stage": "worker-render-start",
+                "elapsedMs": 695
+              },
+              {
+                "stage": "iframe-ready",
+                "elapsedMs": 969
+              },
+              {
+                "stage": "worker-response-received",
+                "elapsedMs": 1231
+              },
+              {
+                "stage": "asset-resolution-start",
+                "elapsedMs": 1232
+              },
+              {
+                "stage": "asset-resolution-complete",
+                "elapsedMs": 1234
+              },
+              {
+                "stage": "iframe-render-posted",
+                "elapsedMs": 1234
+              },
+              {
+                "stage": "iframe-received",
+                "elapsedMs": 1398
+              },
+              {
+                "stage": "iframe-slides-created",
+                "elapsedMs": 1400
+              },
+              {
+                "stage": "iframe-dom-replaced",
+                "elapsedMs": 1401
+              },
+              {
+                "stage": "iframe-browser-support-applied",
+                "elapsedMs": 1402
+              },
+              {
+                "stage": "iframe-layout-received",
+                "detail": "slides=3",
+                "elapsedMs": 1402
+              },
+              {
+                "stage": "iframe-layout-published",
+                "elapsedMs": 1404
+              },
+              {
+                "stage": "preview-ready",
+                "elapsedMs": 1407
+              },
+              {
+                "stage": "iframe-layout-received",
+                "detail": "slides=3",
+                "elapsedMs": 1413
+              },
+              {
+                "stage": "iframe-layout-received",
+                "detail": "slides=3",
+                "elapsedMs": 1417
+              }
+            ],
+            "webviewMetrics": {
+              "previewReportedAt": 1264.1999999284744,
+              "bundleExecutedAt": 336.5,
+              "initReceivedAt": 336.5,
+              "markdownWorkerFetchStartedAt": 42.89999997615814,
+              "markdownWorkerFetchDuration": 56.89999997615814,
+              "markdownWorkerResourceCount": 1,
+              "webviewFetchStartedAt": 43.39999997615814,
+              "webviewFetchDuration": 148.20000004768372
+            },
+            "previewReadyMs": 1403
+          }
+        },
+        {
+          "file": "E:\\source\\markdown-easy-visual-editor\\sample\\marp\\02-multiple-slides.md",
+          "editorOpenedMs": 1472,
+          "endToEndMs": 3721,
+          "uri": "file:///e%3A/source/markdown-easy-visual-editor/sample/marp/02-multiple-slides.md",
+          "documentLength": 202,
+          "resolveSequence": 1,
+          "activationMs": 37,
+          "webviewReadyMs": 1300,
+          "initializedMs": 1309,
+          "marpStages": [
+            {
+              "stage": "worker-fetch-start",
+              "elapsedMs": 1570
+            },
+            {
+              "stage": "preview-mounted",
+              "elapsedMs": 1606
+            },
+            {
+              "stage": "iframe-script-fetch-start",
+              "elapsedMs": 1611
+            },
+            {
+              "stage": "iframe-script-fetched",
+              "elapsedMs": 1668
+            },
+            {
+              "stage": "worker-bundle-fetched",
+              "elapsedMs": 1723
+            },
+            {
+              "stage": "worker-created",
+              "elapsedMs": 1736
+            },
+            {
+              "stage": "worker-render-start",
+              "elapsedMs": 1737
+            },
+            {
+              "stage": "iframe-ready",
+              "elapsedMs": 1852
+            },
+            {
+              "stage": "worker-response-received",
+              "elapsedMs": 2202
+            },
+            {
+              "stage": "asset-resolution-start",
+              "elapsedMs": 2203
+            },
+            {
+              "stage": "asset-resolution-complete",
+              "elapsedMs": 2206
+            },
+            {
+              "stage": "iframe-render-posted",
+              "elapsedMs": 2207
+            },
+            {
+              "stage": "iframe-received",
+              "elapsedMs": 2347
+            },
+            {
+              "stage": "iframe-slides-created",
+              "elapsedMs": 2348
+            },
+            {
+              "stage": "iframe-dom-replaced",
+              "elapsedMs": 2349
+            },
+            {
+              "stage": "iframe-browser-support-applied",
+              "elapsedMs": 2349
+            },
+            {
+              "stage": "iframe-layout-received",
+              "detail": "slides=3",
+              "elapsedMs": 2350
+            },
+            {
+              "stage": "iframe-layout-published",
+              "elapsedMs": 2351
+            },
+            {
+              "stage": "preview-ready",
+              "elapsedMs": 2352
+            }
+          ],
+          "webviewMetrics": {
+            "previewReportedAt": 1987.2000000476837,
+            "bundleExecutedAt": 602.1000000238419,
+            "initReceivedAt": 602.1000000238419,
+            "markdownWorkerFetchStartedAt": 37.10000002384186,
+            "markdownWorkerFetchDuration": 235.5,
+            "markdownWorkerResourceCount": 1,
+            "webviewFetchStartedAt": 37.799999952316284,
+            "webviewFetchDuration": 336.7000000476837
+          },
+          "previewReadyMs": 2350,
+          "vscodeVersion": "1.144.0",
+          "warm": {
+            "file": "E:\\source\\markdown-easy-visual-editor\\sample\\marp\\02-multiple-slides.md",
+            "editorOpenedMs": 153,
+            "endToEndMs": 1404,
+            "uri": "file:///e%3A/source/markdown-easy-visual-editor/sample/marp/02-multiple-slides.md",
+            "documentLength": 202,
+            "resolveSequence": 2,
+            "activationMs": 37,
+            "webviewReadyMs": 589,
+            "initializedMs": 598,
+            "marpStages": [
+              {
+                "stage": "worker-fetch-start",
+                "elapsedMs": 652
+              },
+              {
+                "stage": "preview-mounted",
+                "elapsedMs": 655
+              },
+              {
+                "stage": "iframe-script-fetch-start",
+                "elapsedMs": 656
+              },
+              {
+                "stage": "iframe-script-fetched",
+                "elapsedMs": 681
+              },
+              {
+                "stage": "worker-bundle-fetched",
+                "elapsedMs": 691
+              },
+              {
+                "stage": "worker-created",
+                "elapsedMs": 692
+              },
+              {
+                "stage": "worker-render-start",
+                "elapsedMs": 693
+              },
+              {
+                "stage": "iframe-ready",
+                "elapsedMs": 921
+              },
+              {
+                "stage": "worker-response-received",
+                "elapsedMs": 1128
+              },
+              {
+                "stage": "asset-resolution-start",
+                "elapsedMs": 1129
+              },
+              {
+                "stage": "asset-resolution-complete",
+                "elapsedMs": 1130
+              },
+              {
+                "stage": "iframe-render-posted",
+                "elapsedMs": 1131
+              },
+              {
+                "stage": "iframe-received",
+                "elapsedMs": 1310
+              },
+              {
+                "stage": "iframe-slides-created",
+                "elapsedMs": 1310
+              },
+              {
+                "stage": "iframe-dom-replaced",
+                "elapsedMs": 1311
+              },
+              {
+                "stage": "iframe-browser-support-applied",
+                "elapsedMs": 1311
+              },
+              {
+                "stage": "iframe-layout-received",
+                "detail": "slides=3",
+                "elapsedMs": 1312
+              },
+              {
+                "stage": "iframe-layout-published",
+                "elapsedMs": 1313
+              },
+              {
+                "stage": "preview-ready",
+                "elapsedMs": 1315
+              },
+              {
+                "stage": "iframe-layout-received",
+                "detail": "slides=3",
+                "elapsedMs": 1333
+              },
+              {
+                "stage": "iframe-layout-received",
+                "detail": "slides=3",
+                "elapsedMs": 1334
+              }
+            ],
+            "webviewMetrics": {
+              "previewReportedAt": 1149.1999999284744,
+              "bundleExecutedAt": 292.7999999523163,
+              "initReceivedAt": 292.7999999523163,
+              "markdownWorkerFetchStartedAt": 33.5,
+              "markdownWorkerFetchDuration": 28.199999928474426,
+              "markdownWorkerResourceCount": 1,
+              "webviewFetchStartedAt": 34,
+              "webviewFetchDuration": 126.29999995231628
+            },
+            "previewReadyMs": 1312
+          }
+        }
+      ],
+      "median": {
+        "runs": 5,
+        "editorOpenedMs": 1623,
+        "endToEndMs": 4184,
+        "activationMs": 104,
+        "webviewReadyMs": 1304,
+        "initializedMs": 1318,
+        "previewReadyMs": 2687
+      },
+      "statistics": {
+        "cold": {
+          "editorOpenedMs": {
+            "count": 5,
+            "median": 1623,
+            "p95": 1925,
+            "max": 1925
+          },
+          "endToEndMs": {
+            "count": 5,
+            "median": 4184,
+            "p95": 4454,
+            "max": 4454
+          },
+          "activationMs": {
+            "count": 5,
+            "median": 104,
+            "p95": 253,
+            "max": 253
+          },
+          "webviewReadyMs": {
+            "count": 5,
+            "median": 1304,
+            "p95": 1509,
+            "max": 1509
+          },
+          "initializedMs": {
+            "count": 5,
+            "median": 1318,
+            "p95": 1525,
+            "max": 1525
+          },
+          "previewReadyMs": {
+            "count": 5,
+            "median": 2687,
+            "p95": 2723,
+            "max": 2723
+          }
+        },
+        "warm": {
+          "editorOpenedMs": {
+            "count": 5,
+            "median": 153,
+            "p95": 188,
+            "max": 188
+          },
+          "endToEndMs": {
+            "count": 5,
+            "median": 1477,
+            "p95": 1935,
+            "max": 1935
+          },
+          "webviewReadyMs": {
+            "count": 5,
+            "median": 595,
+            "p95": 892,
+            "max": 892
+          },
+          "initializedMs": {
+            "count": 5,
+            "median": 605,
+            "p95": 901,
+            "max": 901
+          },
+          "previewReadyMs": {
+            "count": 5,
+            "median": 1379,
+            "p95": 1789,
+            "max": 1789
+          }
+        }
+      },
+      "limits": {
+        "endToEndMs": 5000,
+        "previewReadyMs": 3000
+      },
+      "failures": []
+    },
+    {
+      "name": "mermaid-first",
+      "file": "mermaid.md",
+      "waitFor": {
+        "mermaid": true,
+        "rich": true,
+        "visibleMermaid": true
+      },
+      "runs": [
+        {
+          "file": "C:\\Users\\adtd1\\AppData\\Local\\Temp\\mve-real-startup-796c95\\mermaid.md",
+          "editorOpenedMs": 1734,
+          "endToEndMs": 3746,
+          "uri": "file:///c%3A/Users/adtd1/AppData/Local/Temp/mve-real-startup-796c95/mermaid.md",
+          "documentLength": 46,
+          "resolveSequence": 1,
+          "activationMs": 28,
+          "webviewReadyMs": 1505,
+          "initializedMs": 1517,
+          "webviewMetrics": {
+            "previewReportedAt": 913.7999999523163,
+            "bundleExecutedAt": 414.5,
+            "initReceivedAt": 414.5,
+            "workerResponseAt": 898.7999999523163,
+            "markdownWorkerDuration": 251.09999990463257,
+            "sanitizeChunkDuration": 0.09999990463256836,
+            "domReconcileDuration": 0.7999999523162842,
+            "markdownWorkerFetchStartedAt": 31.299999952316284,
+            "markdownWorkerFetchDuration": 70.60000002384186,
+            "markdownWorkerResourceCount": 1,
+            "webviewFetchStartedAt": 31.699999928474426,
+            "webviewFetchDuration": 174
+          },
+          "previewReadyMs": 1768,
+          "firstMermaidRequestedMs": 1851,
+          "richReadyMs": 2235,
+          "firstMermaidReadyMs": 2968,
+          "visibleMermaidCount": 1,
+          "visibleMermaidReadyMs": 2972,
+          "vscodeVersion": "1.144.0",
+          "warm": {
+            "file": "C:\\Users\\adtd1\\AppData\\Local\\Temp\\mve-real-startup-796c95\\mermaid.md",
+            "editorOpenedMs": 116,
+            "endToEndMs": 1038,
+            "uri": "file:///c%3A/Users/adtd1/AppData/Local/Temp/mve-real-startup-796c95/mermaid.md",
+            "documentLength": 46,
+            "resolveSequence": 2,
+            "activationMs": 28,
+            "webviewReadyMs": 516,
+            "initializedMs": 530,
+            "webviewMetrics": {
+              "previewReportedAt": 530.7000000476837,
+              "bundleExecutedAt": 279.2000000476837,
+              "initReceivedAt": 279.2000000476837,
+              "workerResponseAt": 519.7000000476837,
+              "markdownWorkerDuration": 142.70000004768372,
+              "sanitizeChunkDuration": 0,
+              "domReconcileDuration": 0.5,
+              "markdownWorkerFetchStartedAt": 37.5,
+              "markdownWorkerFetchDuration": 17.5,
+              "markdownWorkerResourceCount": 1,
+              "webviewFetchStartedAt": 37.90000009536743,
+              "webviewFetchDuration": 94.19999992847443
+            },
+            "previewReadyMs": 666,
+            "firstMermaidRequestedMs": 761,
+            "firstMermaidReadyMs": 780,
+            "visibleMermaidCount": 1,
+            "visibleMermaidReadyMs": 781,
+            "richReadyMs": 955
+          }
+        },
+        {
+          "file": "C:\\Users\\adtd1\\AppData\\Local\\Temp\\mve-real-startup-796c95\\mermaid.md",
+          "editorOpenedMs": 2340,
+          "endToEndMs": 4417,
+          "uri": "file:///c%3A/Users/adtd1/AppData/Local/Temp/mve-real-startup-796c95/mermaid.md",
+          "documentLength": 46,
+          "resolveSequence": 1,
+          "activationMs": 131,
+          "webviewReadyMs": 1702,
+          "initializedMs": 1717,
+          "webviewMetrics": {
+            "previewReportedAt": 1148.7999999523163,
+            "bundleExecutedAt": 559.6999999284744,
+            "initReceivedAt": 559.6999999284744,
+            "workerResponseAt": 1137.1999999284744,
+            "markdownWorkerDuration": 327.60000002384186,
+            "sanitizeChunkDuration": 0.10000002384185791,
+            "domReconcileDuration": 0.5,
+            "markdownWorkerFetchStartedAt": 34.60000002384186,
+            "markdownWorkerFetchDuration": 226.59999990463257,
+            "markdownWorkerResourceCount": 1,
+            "webviewFetchStartedAt": 35.10000002384186,
+            "webviewFetchDuration": 304
+          },
+          "previewReadyMs": 2050,
+          "firstMermaidRequestedMs": 2137,
+          "richReadyMs": 2617,
+          "firstMermaidReadyMs": 3021,
+          "visibleMermaidCount": 1,
+          "visibleMermaidReadyMs": 3022,
+          "vscodeVersion": "1.144.0",
+          "warm": {
+            "file": "C:\\Users\\adtd1\\AppData\\Local\\Temp\\mve-real-startup-796c95\\mermaid.md",
+            "editorOpenedMs": 179,
+            "endToEndMs": 1170,
+            "uri": "file:///c%3A/Users/adtd1/AppData/Local/Temp/mve-real-startup-796c95/mermaid.md",
+            "documentLength": 46,
+            "resolveSequence": 2,
+            "activationMs": 131,
+            "webviewReadyMs": 590,
+            "initializedMs": 603,
+            "webviewMetrics": {
+              "previewReportedAt": 597.6999999284744,
+              "bundleExecutedAt": 319.7999999523163,
+              "initReceivedAt": 319.7999999523163,
+              "workerResponseAt": 589.3999999761581,
+              "markdownWorkerDuration": 139.30000007152557,
+              "sanitizeChunkDuration": 0,
+              "domReconcileDuration": 0.5,
+              "markdownWorkerFetchStartedAt": 31.299999952316284,
+              "markdownWorkerFetchDuration": 42,
+              "markdownWorkerResourceCount": 1,
+              "webviewFetchStartedAt": 31.799999952316284,
+              "webviewFetchDuration": 131.10000002384186
+            },
+            "previewReadyMs": 736,
+            "firstMermaidRequestedMs": 820,
+            "firstMermaidReadyMs": 837,
+            "visibleMermaidCount": 1,
+            "visibleMermaidReadyMs": 839,
+            "richReadyMs": 1019
+          }
+        },
+        {
+          "file": "C:\\Users\\adtd1\\AppData\\Local\\Temp\\mve-real-startup-796c95\\mermaid.md",
+          "editorOpenedMs": 2016,
+          "endToEndMs": 4326,
+          "uri": "file:///c%3A/Users/adtd1/AppData/Local/Temp/mve-real-startup-796c95/mermaid.md",
+          "documentLength": 46,
+          "resolveSequence": 1,
+          "activationMs": 29,
+          "webviewReadyMs": 1873,
+          "initializedMs": 1924,
+          "webviewMetrics": {
+            "previewReportedAt": 1309.2999999523163,
+            "bundleExecutedAt": 729.2999999523163,
+            "initReceivedAt": 729.2999999523163,
+            "workerResponseAt": 1294.3999999761581,
+            "markdownWorkerDuration": 289.5,
+            "sanitizeChunkDuration": 0,
+            "domReconcileDuration": 0.6999999284744263,
+            "markdownWorkerFetchStartedAt": 29.5,
+            "markdownWorkerFetchDuration": 91.20000004768372,
+            "markdownWorkerResourceCount": 1,
+            "webviewFetchStartedAt": 30,
+            "webviewFetchDuration": 444.7999999523163
+          },
+          "previewReadyMs": 2164,
+          "firstMermaidRequestedMs": 2331,
+          "richReadyMs": 2939,
+          "firstMermaidReadyMs": 3343,
+          "visibleMermaidCount": 1,
+          "visibleMermaidReadyMs": 3347,
+          "vscodeVersion": "1.144.0",
+          "warm": {
+            "file": "C:\\Users\\adtd1\\AppData\\Local\\Temp\\mve-real-startup-796c95\\mermaid.md",
+            "editorOpenedMs": 209,
+            "endToEndMs": 1277,
+            "uri": "file:///c%3A/Users/adtd1/AppData/Local/Temp/mve-real-startup-796c95/mermaid.md",
+            "documentLength": 46,
+            "resolveSequence": 2,
+            "activationMs": 29,
+            "webviewReadyMs": 610,
+            "initializedMs": 622,
+            "webviewMetrics": {
+              "previewReportedAt": 638.5,
+              "bundleExecutedAt": 341,
+              "initReceivedAt": 341,
+              "workerResponseAt": 625.3999999761581,
+              "markdownWorkerDuration": 160.19999992847443,
+              "sanitizeChunkDuration": 0,
+              "domReconcileDuration": 0.5,
+              "markdownWorkerFetchStartedAt": 27,
+              "markdownWorkerFetchDuration": 68.69999992847443,
+              "markdownWorkerResourceCount": 1,
+              "webviewFetchStartedAt": 27.5,
+              "webviewFetchDuration": 154.69999992847443
+            },
+            "previewReadyMs": 808,
+            "firstMermaidRequestedMs": 871,
+            "firstMermaidReadyMs": 908,
+            "visibleMermaidCount": 1,
+            "visibleMermaidReadyMs": 913,
+            "richReadyMs": 1114
+          }
+        },
+        {
+          "file": "C:\\Users\\adtd1\\AppData\\Local\\Temp\\mve-real-startup-796c95\\mermaid.md",
+          "editorOpenedMs": 3420,
+          "endToEndMs": 5681,
+          "uri": "file:///c%3A/Users/adtd1/AppData/Local/Temp/mve-real-startup-796c95/mermaid.md",
+          "documentLength": 46,
+          "resolveSequence": 1,
+          "activationMs": 86,
+          "webviewReadyMs": 2516,
+          "initializedMs": 2527,
+          "webviewMetrics": {
+            "previewReportedAt": 1301,
+            "bundleExecutedAt": 764.1000000238419,
+            "initReceivedAt": 764.1000000238419,
+            "workerResponseAt": 1288.5,
+            "markdownWorkerDuration": 325,
+            "sanitizeChunkDuration": 0,
+            "domReconcileDuration": 0.7000000476837158,
+            "markdownWorkerFetchStartedAt": 94.20000004768372,
+            "markdownWorkerFetchDuration": 373.5,
+            "markdownWorkerResourceCount": 1,
+            "webviewFetchStartedAt": 95,
+            "webviewFetchDuration": 452.3000000715256
+          },
+          "previewReadyMs": 2824,
+          "firstMermaidRequestedMs": 2909,
+          "richReadyMs": 3277,
+          "firstMermaidReadyMs": 4023,
+          "visibleMermaidCount": 1,
+          "visibleMermaidReadyMs": 4027,
+          "vscodeVersion": "1.144.0",
+          "warm": {
+            "file": "C:\\Users\\adtd1\\AppData\\Local\\Temp\\mve-real-startup-796c95\\mermaid.md",
+            "editorOpenedMs": 123,
+            "endToEndMs": 1186,
+            "uri": "file:///c%3A/Users/adtd1/AppData/Local/Temp/mve-real-startup-796c95/mermaid.md",
+            "documentLength": 46,
+            "resolveSequence": 2,
+            "activationMs": 86,
+            "webviewReadyMs": 608,
+            "initializedMs": 621,
+            "webviewMetrics": {
+              "previewReportedAt": 628.3999999761581,
+              "bundleExecutedAt": 332.10000002384186,
+              "initReceivedAt": 332.10000002384186,
+              "workerResponseAt": 614.2000000476837,
+              "markdownWorkerDuration": 153.5,
+              "sanitizeChunkDuration": 0,
+              "domReconcileDuration": 1.100000023841858,
+              "markdownWorkerFetchStartedAt": 42.200000047683716,
+              "markdownWorkerFetchDuration": 29.09999990463257,
+              "markdownWorkerResourceCount": 1,
+              "webviewFetchStartedAt": 42.700000047683716,
+              "webviewFetchDuration": 138.69999992847443
+            },
+            "previewReadyMs": 775,
+            "firstMermaidRequestedMs": 857,
+            "firstMermaidReadyMs": 874,
+            "visibleMermaidCount": 1,
+            "visibleMermaidReadyMs": 876,
+            "richReadyMs": 1089
+          }
+        },
+        {
+          "file": "C:\\Users\\adtd1\\AppData\\Local\\Temp\\mve-real-startup-796c95\\mermaid.md",
+          "editorOpenedMs": 2195,
+          "endToEndMs": 4136,
+          "uri": "file:///c%3A/Users/adtd1/AppData/Local/Temp/mve-real-startup-796c95/mermaid.md",
+          "documentLength": 46,
+          "resolveSequence": 1,
+          "activationMs": 140,
+          "webviewReadyMs": 1638,
+          "initializedMs": 1651,
+          "webviewMetrics": {
+            "previewReportedAt": 1046.8999999761581,
+            "bundleExecutedAt": 584.5,
+            "initReceivedAt": 584.5,
+            "workerResponseAt": 1034.3999999761581,
+            "markdownWorkerDuration": 231.79999995231628,
+            "sanitizeChunkDuration": 0,
+            "domReconcileDuration": 0.5,
+            "markdownWorkerFetchStartedAt": 31.09999990463257,
+            "markdownWorkerFetchDuration": 230.10000002384186,
+            "markdownWorkerResourceCount": 1,
+            "webviewFetchStartedAt": 31.59999990463257,
+            "webviewFetchDuration": 336.5
+          },
+          "previewReadyMs": 1879,
+          "firstMermaidRequestedMs": 1972,
+          "richReadyMs": 2143,
+          "firstMermaidReadyMs": 2894,
+          "visibleMermaidCount": 1,
+          "visibleMermaidReadyMs": 2899,
+          "vscodeVersion": "1.144.0",
+          "warm": {
+            "file": "C:\\Users\\adtd1\\AppData\\Local\\Temp\\mve-real-startup-796c95\\mermaid.md",
+            "editorOpenedMs": 140,
+            "endToEndMs": 1253,
+            "uri": "file:///c%3A/Users/adtd1/AppData/Local/Temp/mve-real-startup-796c95/mermaid.md",
+            "documentLength": 46,
+            "resolveSequence": 2,
+            "activationMs": 140,
+            "webviewReadyMs": 644,
+            "initializedMs": 655,
+            "webviewMetrics": {
+              "previewReportedAt": 683.1999999284744,
+              "bundleExecutedAt": 386.89999997615814,
+              "initReceivedAt": 386.89999997615814,
+              "workerResponseAt": 672.7999999523163,
+              "markdownWorkerDuration": 165,
+              "sanitizeChunkDuration": 0,
+              "domReconcileDuration": 0.3999999761581421,
+              "markdownWorkerFetchStartedAt": 41.699999928474426,
+              "markdownWorkerFetchDuration": 34.800000071525574,
+              "markdownWorkerResourceCount": 1,
+              "webviewFetchStartedAt": 42.09999990463257,
+              "webviewFetchDuration": 181.20000004768372
+            },
+            "previewReadyMs": 818,
+            "firstMermaidRequestedMs": 901,
+            "firstMermaidReadyMs": 916,
+            "visibleMermaidCount": 1,
+            "visibleMermaidReadyMs": 917,
+            "richReadyMs": 1134
+          }
+        }
+      ],
+      "median": {
+        "runs": 5,
+        "editorOpenedMs": 2195,
+        "endToEndMs": 4326,
+        "activationMs": 86,
+        "webviewReadyMs": 1702,
+        "initializedMs": 1717,
+        "previewReadyMs": 2050,
+        "richReadyMs": 2617,
+        "firstMermaidRequestedMs": 2137,
+        "firstMermaidReadyMs": 3021,
+        "visibleMermaidReadyMs": 3022
+      },
+      "statistics": {
+        "cold": {
+          "editorOpenedMs": {
+            "count": 5,
+            "median": 2195,
+            "p95": 3420,
+            "max": 3420
+          },
+          "endToEndMs": {
+            "count": 5,
+            "median": 4326,
+            "p95": 5681,
+            "max": 5681
+          },
+          "activationMs": {
+            "count": 5,
+            "median": 86,
+            "p95": 140,
+            "max": 140
+          },
+          "webviewReadyMs": {
+            "count": 5,
+            "median": 1702,
+            "p95": 2516,
+            "max": 2516
+          },
+          "initializedMs": {
+            "count": 5,
+            "median": 1717,
+            "p95": 2527,
+            "max": 2527
+          },
+          "previewReadyMs": {
+            "count": 5,
+            "median": 2050,
+            "p95": 2824,
+            "max": 2824
+          },
+          "richReadyMs": {
+            "count": 5,
+            "median": 2617,
+            "p95": 3277,
+            "max": 3277
+          },
+          "firstMermaidRequestedMs": {
+            "count": 5,
+            "median": 2137,
+            "p95": 2909,
+            "max": 2909
+          },
+          "firstMermaidReadyMs": {
+            "count": 5,
+            "median": 3021,
+            "p95": 4023,
+            "max": 4023
+          },
+          "visibleMermaidReadyMs": {
+            "count": 5,
+            "median": 3022,
+            "p95": 4027,
+            "max": 4027
+          }
+        },
+        "warm": {
+          "editorOpenedMs": {
+            "count": 5,
+            "median": 140,
+            "p95": 209,
+            "max": 209
+          },
+          "endToEndMs": {
+            "count": 5,
+            "median": 1186,
+            "p95": 1277,
+            "max": 1277
+          },
+          "webviewReadyMs": {
+            "count": 5,
+            "median": 608,
+            "p95": 644,
+            "max": 644
+          },
+          "initializedMs": {
+            "count": 5,
+            "median": 621,
+            "p95": 655,
+            "max": 655
+          },
+          "previewReadyMs": {
+            "count": 5,
+            "median": 775,
+            "p95": 818,
+            "max": 818
+          },
+          "richReadyMs": {
+            "count": 5,
+            "median": 1089,
+            "p95": 1134,
+            "max": 1134
+          },
+          "firstMermaidRequestedMs": {
+            "count": 5,
+            "median": 857,
+            "p95": 901,
+            "max": 901
+          },
+          "firstMermaidReadyMs": {
+            "count": 5,
+            "median": 874,
+            "p95": 916,
+            "max": 916
+          },
+          "visibleMermaidReadyMs": {
+            "count": 5,
+            "median": 876,
+            "p95": 917,
+            "max": 917
+          }
+        }
+      },
+      "limits": {
+        "endToEndMs": 2500,
+        "previewReadyMs": 1200,
+        "firstMermaidReadyMs": 1700
+      },
+      "failures": [
+        "mermaid-first の実VS Code起動性能が回帰しました: endToEndMs=4326ms > 2500ms",
+        "mermaid-first の実VS Code起動性能が回帰しました: previewReadyMs=2050ms > 1200ms",
+        "mermaid-first の実VS Code起動性能が回帰しました: firstMermaidReadyMs=3021ms > 1700ms"
+      ]
+    },
+    {
+      "name": "mermaid-multi",
+      "file": "mermaid-multi.md",
+      "waitFor": {
+        "mermaid": true,
+        "rich": true,
+        "visibleMermaid": true
+      },
+      "runs": [
+        {
+          "file": "C:\\Users\\adtd1\\AppData\\Local\\Temp\\mve-real-startup-796c95\\mermaid-multi.md",
+          "editorOpenedMs": 2314,
+          "endToEndMs": 4686,
+          "uri": "file:///c%3A/Users/adtd1/AppData/Local/Temp/mve-real-startup-796c95/mermaid-multi.md",
+          "documentLength": 337,
+          "resolveSequence": 1,
+          "activationMs": 68,
+          "webviewReadyMs": 1815,
+          "initializedMs": 1827,
+          "webviewMetrics": {
+            "previewReportedAt": 949.7000000476837,
+            "bundleExecutedAt": 439.60000002384186,
+            "initReceivedAt": 439.60000002384186,
+            "workerResponseAt": 939.2000000476837,
+            "markdownWorkerDuration": 239.39999997615814,
+            "sanitizeChunkDuration": 0,
+            "domReconcileDuration": 0.5999999046325684,
+            "markdownWorkerFetchStartedAt": 33.700000047683716,
+            "markdownWorkerFetchDuration": 97.59999990463257,
+            "markdownWorkerResourceCount": 1,
+            "webviewFetchStartedAt": 34.299999952316284,
+            "webviewFetchDuration": 179.30000007152557
+          },
+          "previewReadyMs": 2057,
+          "firstMermaidRequestedMs": 2150,
+          "richReadyMs": 2337,
+          "firstMermaidReadyMs": 3321,
+          "visibleMermaidCount": 2,
+          "visibleMermaidReadyMs": 3490,
+          "vscodeVersion": "1.144.0",
+          "warm": {
+            "file": "C:\\Users\\adtd1\\AppData\\Local\\Temp\\mve-real-startup-796c95\\mermaid-multi.md",
+            "editorOpenedMs": 144,
+            "endToEndMs": 1247,
+            "uri": "file:///c%3A/Users/adtd1/AppData/Local/Temp/mve-real-startup-796c95/mermaid-multi.md",
+            "documentLength": 337,
+            "resolveSequence": 2,
+            "activationMs": 68,
+            "webviewReadyMs": 560,
+            "initializedMs": 571,
+            "webviewMetrics": {
+              "previewReportedAt": 576.5,
+              "bundleExecutedAt": 292.60000002384186,
+              "initReceivedAt": 292.60000002384186,
+              "workerResponseAt": 567.2000000476837,
+              "markdownWorkerDuration": 177.5,
+              "sanitizeChunkDuration": 0,
+              "domReconcileDuration": 0.6000000238418579,
+              "markdownWorkerFetchStartedAt": 32.200000047683716,
+              "markdownWorkerFetchDuration": 28.899999976158142,
+              "markdownWorkerResourceCount": 1,
+              "webviewFetchStartedAt": 32.700000047683716,
+              "webviewFetchDuration": 112.19999992847443
+            },
+            "previewReadyMs": 746,
+            "firstMermaidRequestedMs": 847,
+            "firstMermaidReadyMs": 868,
+            "visibleMermaidCount": 2,
+            "visibleMermaidReadyMs": 973,
+            "richReadyMs": 1132
+          }
+        },
+        {
+          "file": "C:\\Users\\adtd1\\AppData\\Local\\Temp\\mve-real-startup-796c95\\mermaid-multi.md",
+          "editorOpenedMs": 2086,
+          "endToEndMs": 4235,
+          "uri": "file:///c%3A/Users/adtd1/AppData/Local/Temp/mve-real-startup-796c95/mermaid-multi.md",
+          "documentLength": 337,
+          "resolveSequence": 1,
+          "activationMs": 28,
+          "webviewReadyMs": 1704,
+          "initializedMs": 1719,
+          "webviewMetrics": {
+            "previewReportedAt": 1034.1999999284744,
+            "bundleExecutedAt": 518.7999999523163,
+            "initReceivedAt": 518.7999999523163,
+            "workerResponseAt": 1022.6999999284744,
+            "markdownWorkerDuration": 244.89999997615814,
+            "sanitizeChunkDuration": 0.10000002384185791,
+            "domReconcileDuration": 0.8000000715255737,
+            "markdownWorkerFetchStartedAt": 38.5,
+            "markdownWorkerFetchDuration": 123,
+            "markdownWorkerResourceCount": 1,
+            "webviewFetchStartedAt": 39.60000002384186,
+            "webviewFetchDuration": 254.69999992847443
+          },
+          "previewReadyMs": 1979,
+          "firstMermaidRequestedMs": 2061,
+          "richReadyMs": 2400,
+          "firstMermaidReadyMs": 3112,
+          "visibleMermaidCount": 2,
+          "visibleMermaidReadyMs": 3292,
+          "vscodeVersion": "1.144.0",
+          "warm": {
+            "file": "C:\\Users\\adtd1\\AppData\\Local\\Temp\\mve-real-startup-796c95\\mermaid-multi.md",
+            "editorOpenedMs": 145,
+            "endToEndMs": 1135,
+            "uri": "file:///c%3A/Users/adtd1/AppData/Local/Temp/mve-real-startup-796c95/mermaid-multi.md",
+            "documentLength": 337,
+            "resolveSequence": 2,
+            "activationMs": 28,
+            "webviewReadyMs": 587,
+            "initializedMs": 598,
+            "webviewMetrics": {
+              "previewReportedAt": 607.6000000238419,
+              "bundleExecutedAt": 303.7000000476837,
+              "initReceivedAt": 303.7000000476837,
+              "workerResponseAt": 597.8000000715256,
+              "markdownWorkerDuration": 152.69999992847443,
+              "sanitizeChunkDuration": 0.10000002384185791,
+              "domReconcileDuration": 0.8000000715255737,
+              "markdownWorkerFetchStartedAt": 36,
+              "markdownWorkerFetchDuration": 43.39999997615814,
+              "markdownWorkerResourceCount": 1,
+              "webviewFetchStartedAt": 36.700000047683716,
+              "webviewFetchDuration": 114.79999995231628
+            },
+            "previewReadyMs": 748,
+            "firstMermaidRequestedMs": 834,
+            "firstMermaidReadyMs": 851,
+            "visibleMermaidCount": 2,
+            "visibleMermaidReadyMs": 961,
+            "richReadyMs": 1026
+          }
+        },
+        {
+          "file": "C:\\Users\\adtd1\\AppData\\Local\\Temp\\mve-real-startup-796c95\\mermaid-multi.md",
+          "editorOpenedMs": 2250,
+          "endToEndMs": 4338,
+          "uri": "file:///c%3A/Users/adtd1/AppData/Local/Temp/mve-real-startup-796c95/mermaid-multi.md",
+          "documentLength": 337,
+          "resolveSequence": 1,
+          "activationMs": 48,
+          "webviewReadyMs": 1821,
+          "initializedMs": 1833,
+          "webviewMetrics": {
+            "previewReportedAt": 1008.8999999761581,
+            "bundleExecutedAt": 453,
+            "initReceivedAt": 453,
+            "workerResponseAt": 999.2000000476837,
+            "markdownWorkerDuration": 273.89999997615814,
+            "sanitizeChunkDuration": 0,
+            "domReconcileDuration": 0.6000000238418579,
+            "markdownWorkerFetchStartedAt": 41.10000002384186,
+            "markdownWorkerFetchDuration": 120,
+            "markdownWorkerResourceCount": 1,
+            "webviewFetchStartedAt": 44.10000002384186,
+            "webviewFetchDuration": 180.5
+          },
+          "previewReadyMs": 2112,
+          "firstMermaidRequestedMs": 2189,
+          "richReadyMs": 2418,
+          "firstMermaidReadyMs": 3044,
+          "visibleMermaidCount": 2,
+          "visibleMermaidReadyMs": 3221,
+          "vscodeVersion": "1.144.0",
+          "warm": {
+            "file": "C:\\Users\\adtd1\\AppData\\Local\\Temp\\mve-real-startup-796c95\\mermaid-multi.md",
+            "editorOpenedMs": 125,
+            "endToEndMs": 1054,
+            "uri": "file:///c%3A/Users/adtd1/AppData/Local/Temp/mve-real-startup-796c95/mermaid-multi.md",
+            "documentLength": 337,
+            "resolveSequence": 2,
+            "activationMs": 48,
+            "webviewReadyMs": 572,
+            "initializedMs": 583,
+            "webviewMetrics": {
+              "previewReportedAt": 614.3999999761581,
+              "bundleExecutedAt": 310.6999999284744,
+              "initReceivedAt": 310.6999999284744,
+              "workerResponseAt": 604.6000000238419,
+              "markdownWorkerDuration": 151.69999992847443,
+              "sanitizeChunkDuration": 0,
+              "domReconcileDuration": 0.6000000238418579,
+              "markdownWorkerFetchStartedAt": 29.799999952316284,
+              "markdownWorkerFetchDuration": 27.700000047683716,
+              "markdownWorkerResourceCount": 1,
+              "webviewFetchStartedAt": 30.199999928474426,
+              "webviewFetchDuration": 136.30000007152557
+            },
+            "previewReadyMs": 728,
+            "firstMermaidRequestedMs": 812,
+            "firstMermaidReadyMs": 830,
+            "visibleMermaidCount": 2,
+            "visibleMermaidReadyMs": 944,
+            "richReadyMs": 985
+          }
+        },
+        {
+          "file": "C:\\Users\\adtd1\\AppData\\Local\\Temp\\mve-real-startup-796c95\\mermaid-multi.md",
+          "editorOpenedMs": 2451,
+          "endToEndMs": 4805,
+          "uri": "file:///c%3A/Users/adtd1/AppData/Local/Temp/mve-real-startup-796c95/mermaid-multi.md",
+          "documentLength": 337,
+          "resolveSequence": 1,
+          "activationMs": 279,
+          "webviewReadyMs": 1637,
+          "initializedMs": 1672,
+          "webviewMetrics": {
+            "previewReportedAt": 1032.3999999761581,
+            "bundleExecutedAt": 513.5,
+            "initReceivedAt": 513.5,
+            "workerResponseAt": 1021.3000000715256,
+            "markdownWorkerDuration": 239.89999997615814,
+            "sanitizeChunkDuration": 0,
+            "domReconcileDuration": 0.6000000238418579,
+            "markdownWorkerFetchStartedAt": 28.899999976158142,
+            "markdownWorkerFetchDuration": 136.5,
+            "markdownWorkerResourceCount": 1,
+            "webviewFetchStartedAt": 29.5,
+            "webviewFetchDuration": 241.5
+          },
+          "previewReadyMs": 1864,
+          "firstMermaidRequestedMs": 1948,
+          "richReadyMs": 2242,
+          "firstMermaidReadyMs": 3137,
+          "visibleMermaidCount": 2,
+          "visibleMermaidReadyMs": 3438,
+          "vscodeVersion": "1.144.0",
+          "warm": {
+            "file": "C:\\Users\\adtd1\\AppData\\Local\\Temp\\mve-real-startup-796c95\\mermaid-multi.md",
+            "editorOpenedMs": 144,
+            "endToEndMs": 1050,
+            "uri": "file:///c%3A/Users/adtd1/AppData/Local/Temp/mve-real-startup-796c95/mermaid-multi.md",
+            "documentLength": 337,
+            "resolveSequence": 2,
+            "activationMs": 279,
+            "webviewReadyMs": 586,
+            "initializedMs": 597,
+            "webviewMetrics": {
+              "previewReportedAt": 601.7000000476837,
+              "bundleExecutedAt": 311.7999999523163,
+              "initReceivedAt": 311.7999999523163,
+              "workerResponseAt": 593,
+              "markdownWorkerDuration": 146.10000002384186,
+              "sanitizeChunkDuration": 0,
+              "domReconcileDuration": 0.8000000715255737,
+              "markdownWorkerFetchStartedAt": 32.299999952316284,
+              "markdownWorkerFetchDuration": 40.200000047683716,
+              "markdownWorkerResourceCount": 1,
+              "webviewFetchStartedAt": 32.60000002384186,
+              "webviewFetchDuration": 125.5
+            },
+            "previewReadyMs": 740,
+            "firstMermaidRequestedMs": 826,
+            "firstMermaidReadyMs": 840,
+            "visibleMermaidCount": 2,
+            "visibleMermaidReadyMs": 954,
+            "richReadyMs": 977
+          }
+        },
+        {
+          "file": "C:\\Users\\adtd1\\AppData\\Local\\Temp\\mve-real-startup-796c95\\mermaid-multi.md",
+          "editorOpenedMs": 2523,
+          "endToEndMs": 4668,
+          "uri": "file:///c%3A/Users/adtd1/AppData/Local/Temp/mve-real-startup-796c95/mermaid-multi.md",
+          "documentLength": 337,
+          "resolveSequence": 1,
+          "activationMs": 41,
+          "webviewReadyMs": 1780,
+          "initializedMs": 1851,
+          "webviewMetrics": {
+            "previewReportedAt": 1088.7999999523163,
+            "bundleExecutedAt": 580,
+            "initReceivedAt": 580,
+            "workerResponseAt": 1078.2000000476837,
+            "markdownWorkerDuration": 234.5,
+            "sanitizeChunkDuration": 0.10000002384185791,
+            "domReconcileDuration": 0.6999999284744263,
+            "markdownWorkerFetchStartedAt": 37.89999997615814,
+            "markdownWorkerFetchDuration": 277.5,
+            "markdownWorkerResourceCount": 1,
+            "webviewFetchStartedAt": 38.299999952316284,
+            "webviewFetchDuration": 335.2000000476837
+          },
+          "previewReadyMs": 2000,
+          "firstMermaidRequestedMs": 2103,
+          "richReadyMs": 2437,
+          "firstMermaidReadyMs": 2936,
+          "visibleMermaidCount": 2,
+          "visibleMermaidReadyMs": 3118,
+          "vscodeVersion": "1.144.0",
+          "warm": {
+            "file": "C:\\Users\\adtd1\\AppData\\Local\\Temp\\mve-real-startup-796c95\\mermaid-multi.md",
+            "editorOpenedMs": 151,
+            "endToEndMs": 1209,
+            "uri": "file:///c%3A/Users/adtd1/AppData/Local/Temp/mve-real-startup-796c95/mermaid-multi.md",
+            "documentLength": 337,
+            "resolveSequence": 2,
+            "activationMs": 41,
+            "webviewReadyMs": 638,
+            "initializedMs": 650,
+            "webviewMetrics": {
+              "previewReportedAt": 589.9000000953674,
+              "bundleExecutedAt": 345.5,
+              "initReceivedAt": 345.5,
+              "workerResponseAt": 581.5,
+              "markdownWorkerDuration": 133.30000007152557,
+              "sanitizeChunkDuration": 0.10000002384185791,
+              "domReconcileDuration": 0.6000000238418579,
+              "markdownWorkerFetchStartedAt": 45.10000002384186,
+              "markdownWorkerFetchDuration": 49,
+              "markdownWorkerResourceCount": 1,
+              "webviewFetchStartedAt": 45.5,
+              "webviewFetchDuration": 140.70000004768372
+            },
+            "previewReadyMs": 779,
+            "firstMermaidRequestedMs": 876,
+            "firstMermaidReadyMs": 894,
+            "visibleMermaidCount": 2,
+            "visibleMermaidReadyMs": 997,
+            "richReadyMs": 1096
+          }
+        }
+      ],
+      "median": {
+        "runs": 5,
+        "editorOpenedMs": 2314,
+        "endToEndMs": 4668,
+        "activationMs": 48,
+        "webviewReadyMs": 1780,
+        "initializedMs": 1827,
+        "previewReadyMs": 2000,
+        "richReadyMs": 2400,
+        "firstMermaidRequestedMs": 2103,
+        "firstMermaidReadyMs": 3112,
+        "visibleMermaidReadyMs": 3292
+      },
+      "statistics": {
+        "cold": {
+          "editorOpenedMs": {
+            "count": 5,
+            "median": 2314,
+            "p95": 2523,
+            "max": 2523
+          },
+          "endToEndMs": {
+            "count": 5,
+            "median": 4668,
+            "p95": 4805,
+            "max": 4805
+          },
+          "activationMs": {
+            "count": 5,
+            "median": 48,
+            "p95": 279,
+            "max": 279
+          },
+          "webviewReadyMs": {
+            "count": 5,
+            "median": 1780,
+            "p95": 1821,
+            "max": 1821
+          },
+          "initializedMs": {
+            "count": 5,
+            "median": 1827,
+            "p95": 1851,
+            "max": 1851
+          },
+          "previewReadyMs": {
+            "count": 5,
+            "median": 2000,
+            "p95": 2112,
+            "max": 2112
+          },
+          "richReadyMs": {
+            "count": 5,
+            "median": 2400,
+            "p95": 2437,
+            "max": 2437
+          },
+          "firstMermaidRequestedMs": {
+            "count": 5,
+            "median": 2103,
+            "p95": 2189,
+            "max": 2189
+          },
+          "firstMermaidReadyMs": {
+            "count": 5,
+            "median": 3112,
+            "p95": 3321,
+            "max": 3321
+          },
+          "visibleMermaidReadyMs": {
+            "count": 5,
+            "median": 3292,
+            "p95": 3490,
+            "max": 3490
+          }
+        },
+        "warm": {
+          "editorOpenedMs": {
+            "count": 5,
+            "median": 144,
+            "p95": 151,
+            "max": 151
+          },
+          "endToEndMs": {
+            "count": 5,
+            "median": 1135,
+            "p95": 1247,
+            "max": 1247
+          },
+          "webviewReadyMs": {
+            "count": 5,
+            "median": 586,
+            "p95": 638,
+            "max": 638
+          },
+          "initializedMs": {
+            "count": 5,
+            "median": 597,
+            "p95": 650,
+            "max": 650
+          },
+          "previewReadyMs": {
+            "count": 5,
+            "median": 746,
+            "p95": 779,
+            "max": 779
+          },
+          "richReadyMs": {
+            "count": 5,
+            "median": 1026,
+            "p95": 1132,
+            "max": 1132
+          },
+          "firstMermaidRequestedMs": {
+            "count": 5,
+            "median": 834,
+            "p95": 876,
+            "max": 876
+          },
+          "firstMermaidReadyMs": {
+            "count": 5,
+            "median": 851,
+            "p95": 894,
+            "max": 894
+          },
+          "visibleMermaidReadyMs": {
+            "count": 5,
+            "median": 961,
+            "p95": 997,
+            "max": 997
+          }
+        }
+      },
+      "failures": []
+    },
+    {
+      "name": "large",
+      "file": "11-performance-stress.md",
+      "waitFor": {
+        "rich": true
+      },
+      "runs": [
+        {
+          "file": "E:\\source\\markdown-easy-visual-editor\\sample\\11-performance-stress.md",
+          "editorOpenedMs": 2671,
+          "endToEndMs": 6244,
+          "uri": "file:///e%3A/source/markdown-easy-visual-editor/sample/11-performance-stress.md",
+          "documentLength": 21412,
+          "resolveSequence": 1,
+          "activationMs": 37,
+          "webviewReadyMs": 2113,
+          "initializedMs": 2152,
+          "webviewMetrics": {
+            "previewReportedAt": 2555.899999976158,
+            "bundleExecutedAt": 688.6000000238419,
+            "initReceivedAt": 688.6000000238419,
+            "workerResponseAt": 1592.2999999523163,
+            "markdownWorkerDuration": 524.0999999046326,
+            "sanitizeChunkDuration": 14.299999952316284,
+            "domReconcileDuration": 14.300000071525574,
+            "markdownWorkerFetchStartedAt": 34.299999952316284,
+            "markdownWorkerFetchDuration": 366.5,
+            "markdownWorkerResourceCount": 1,
+            "webviewFetchStartedAt": 35.39999997615814,
+            "webviewFetchDuration": 438.5
+          },
+          "previewReadyMs": 3576,
+          "richReadyMs": 4708,
+          "vscodeVersion": "1.144.0",
+          "warm": {
+            "file": "E:\\source\\markdown-easy-visual-editor\\sample\\11-performance-stress.md",
+            "editorOpenedMs": 123,
+            "endToEndMs": 2314,
+            "uri": "file:///e%3A/source/markdown-easy-visual-editor/sample/11-performance-stress.md",
+            "documentLength": 21412,
+            "resolveSequence": 2,
+            "activationMs": 37,
+            "webviewReadyMs": 538,
+            "initializedMs": 549,
+            "webviewMetrics": {
+              "previewReportedAt": 1193.7000000476837,
+              "bundleExecutedAt": 282.2000000476837,
+              "initReceivedAt": 282.2000000476837,
+              "workerResponseAt": 755.3999999761581,
+              "markdownWorkerDuration": 356.7000000476837,
+              "sanitizeChunkDuration": 10.299999952316284,
+              "domReconcileDuration": 7.699999928474426,
+              "markdownWorkerFetchStartedAt": 28,
+              "markdownWorkerFetchDuration": 24,
+              "markdownWorkerResourceCount": 1,
+              "webviewFetchStartedAt": 28.5,
+              "webviewFetchDuration": 102.5
+            },
+            "previewReadyMs": 1332,
+            "richReadyMs": 2243
+          }
+        },
+        {
+          "file": "E:\\source\\markdown-easy-visual-editor\\sample\\11-performance-stress.md",
+          "editorOpenedMs": 2278,
+          "endToEndMs": 5631,
+          "uri": "file:///e%3A/source/markdown-easy-visual-editor/sample/11-performance-stress.md",
+          "documentLength": 21412,
+          "resolveSequence": 1,
+          "activationMs": 70,
+          "webviewReadyMs": 2173,
+          "initializedMs": 2183,
+          "webviewMetrics": {
+            "previewReportedAt": 2697.2999999523163,
+            "bundleExecutedAt": 861.5,
+            "initReceivedAt": 861.5,
+            "workerResponseAt": 1753.7999999523163,
+            "markdownWorkerDuration": 538.5,
+            "sanitizeChunkDuration": 11.5,
+            "domReconcileDuration": 16.799999952316284,
+            "markdownWorkerFetchStartedAt": 29.199999928474426,
+            "markdownWorkerFetchDuration": 381.40000009536743,
+            "markdownWorkerResourceCount": 1,
+            "webviewFetchStartedAt": 30,
+            "webviewFetchDuration": 600.8999999761581
+          },
+          "previewReadyMs": 3650,
+          "richReadyMs": 4452,
+          "vscodeVersion": "1.144.0",
+          "warm": {
+            "file": "E:\\source\\markdown-easy-visual-editor\\sample\\11-performance-stress.md",
+            "editorOpenedMs": 116,
+            "endToEndMs": 2278,
+            "uri": "file:///e%3A/source/markdown-easy-visual-editor/sample/11-performance-stress.md",
+            "documentLength": 21412,
+            "resolveSequence": 2,
+            "activationMs": 70,
+            "webviewReadyMs": 552,
+            "initializedMs": 563,
+            "webviewMetrics": {
+              "previewReportedAt": 1176.1000000238419,
+              "bundleExecutedAt": 279.6999999284744,
+              "initReceivedAt": 279.6999999284744,
+              "workerResponseAt": 791.1000000238419,
+              "markdownWorkerDuration": 359.60000002384186,
+              "sanitizeChunkDuration": 10.799999952316284,
+              "domReconcileDuration": 11.700000047683716,
+              "markdownWorkerFetchStartedAt": 24.600000023841858,
+              "markdownWorkerFetchDuration": 22.899999976158142,
+              "markdownWorkerResourceCount": 1,
+              "webviewFetchStartedAt": 25.299999952316284,
+              "webviewFetchDuration": 117
+            },
+            "previewReadyMs": 1295,
+            "richReadyMs": 2194
+          }
+        },
+        {
+          "file": "E:\\source\\markdown-easy-visual-editor\\sample\\11-performance-stress.md",
+          "editorOpenedMs": 2485,
+          "endToEndMs": 5784,
+          "uri": "file:///e%3A/source/markdown-easy-visual-editor/sample/11-performance-stress.md",
+          "documentLength": 21412,
+          "resolveSequence": 1,
+          "activationMs": 75,
+          "webviewReadyMs": 1961,
+          "initializedMs": 1983,
+          "webviewMetrics": {
+            "previewReportedAt": 2426.399999976158,
+            "bundleExecutedAt": 660.6999999284744,
+            "initReceivedAt": 660.6999999284744,
+            "workerResponseAt": 1472.8999999761581,
+            "markdownWorkerDuration": 442.10000002384186,
+            "sanitizeChunkDuration": 11.200000047683716,
+            "domReconcileDuration": 14.399999976158142,
+            "markdownWorkerFetchStartedAt": 29.100000023841858,
+            "markdownWorkerFetchDuration": 359.6999999284744,
+            "markdownWorkerResourceCount": 1,
+            "webviewFetchStartedAt": 29.899999976158142,
+            "webviewFetchDuration": 438.39999997615814
+          },
+          "previewReadyMs": 3299,
+          "richReadyMs": 4292,
+          "vscodeVersion": "1.144.0",
+          "warm": {
+            "file": "E:\\source\\markdown-easy-visual-editor\\sample\\11-performance-stress.md",
+            "editorOpenedMs": 146,
+            "endToEndMs": 2487,
+            "uri": "file:///e%3A/source/markdown-easy-visual-editor/sample/11-performance-stress.md",
+            "documentLength": 21412,
+            "resolveSequence": 2,
+            "activationMs": 75,
+            "webviewReadyMs": 632,
+            "initializedMs": 644,
+            "webviewMetrics": {
+              "previewReportedAt": 1340.2000000476837,
+              "bundleExecutedAt": 329.2999999523163,
+              "initReceivedAt": 329.2999999523163,
+              "workerResponseAt": 830.5,
+              "markdownWorkerDuration": 341.2999999523163,
+              "sanitizeChunkDuration": 13.800000071525574,
+              "domReconcileDuration": 14.799999952316284,
+              "markdownWorkerFetchStartedAt": 28.899999976158142,
+              "markdownWorkerFetchDuration": 27.700000047683716,
+              "markdownWorkerResourceCount": 1,
+              "webviewFetchStartedAt": 29.600000023841858,
+              "webviewFetchDuration": 136.89999997615814
+            },
+            "previewReadyMs": 1481,
+            "richReadyMs": 2374
+          }
+        },
+        {
+          "file": "E:\\source\\markdown-easy-visual-editor\\sample\\11-performance-stress.md",
+          "editorOpenedMs": 2491,
+          "endToEndMs": 5897,
+          "uri": "file:///e%3A/source/markdown-easy-visual-editor/sample/11-performance-stress.md",
+          "documentLength": 21412,
+          "resolveSequence": 1,
+          "activationMs": 45,
+          "webviewReadyMs": 2243,
+          "initializedMs": 2257,
+          "webviewMetrics": {
+            "previewReportedAt": 2468.2999999523163,
+            "bundleExecutedAt": 705.8999999761581,
+            "initReceivedAt": 705.8999999761581,
+            "workerResponseAt": 1526.1999999284744,
+            "markdownWorkerDuration": 477.89999997615814,
+            "sanitizeChunkDuration": 8.899999976158142,
+            "domReconcileDuration": 13.399999976158142,
+            "markdownWorkerFetchStartedAt": 50.89999997615814,
+            "markdownWorkerFetchDuration": 329.39999997615814,
+            "markdownWorkerResourceCount": 1,
+            "webviewFetchStartedAt": 51.60000002384186,
+            "webviewFetchDuration": 447.6999999284744
+          },
+          "previewReadyMs": 3654,
+          "richReadyMs": 4735,
+          "vscodeVersion": "1.144.0",
+          "warm": {
+            "file": "E:\\source\\markdown-easy-visual-editor\\sample\\11-performance-stress.md",
+            "editorOpenedMs": 142,
+            "endToEndMs": 2256,
+            "uri": "file:///e%3A/source/markdown-easy-visual-editor/sample/11-performance-stress.md",
+            "documentLength": 21412,
+            "resolveSequence": 2,
+            "activationMs": 45,
+            "webviewReadyMs": 626,
+            "initializedMs": 636,
+            "webviewMetrics": {
+              "previewReportedAt": 1278.0999999046326,
+              "bundleExecutedAt": 320.89999997615814,
+              "initReceivedAt": 320.89999997615814,
+              "workerResponseAt": 866.1999999284744,
+              "markdownWorkerDuration": 388.5,
+              "sanitizeChunkDuration": 11.699999928474426,
+              "domReconcileDuration": 14.800000071525574,
+              "markdownWorkerFetchStartedAt": 33.199999928474426,
+              "markdownWorkerFetchDuration": 34.60000002384186,
+              "markdownWorkerResourceCount": 1,
+              "webviewFetchStartedAt": 34,
+              "webviewFetchDuration": 117.89999997615814
+            },
+            "previewReadyMs": 1424,
+            "richReadyMs": 2184
+          }
+        },
+        {
+          "file": "E:\\source\\markdown-easy-visual-editor\\sample\\11-performance-stress.md",
+          "editorOpenedMs": 2758,
+          "endToEndMs": 6601,
+          "uri": "file:///e%3A/source/markdown-easy-visual-editor/sample/11-performance-stress.md",
+          "documentLength": 21412,
+          "resolveSequence": 1,
+          "activationMs": 59,
+          "webviewReadyMs": 2032,
+          "initializedMs": 2058,
+          "webviewMetrics": {
+            "previewReportedAt": 2742.7000000476837,
+            "bundleExecutedAt": 724.2000000476837,
+            "initReceivedAt": 724.2000000476837,
+            "workerResponseAt": 1779.6000000238419,
+            "markdownWorkerDuration": 708.7000000476837,
+            "sanitizeChunkDuration": 10.800000071525574,
+            "domReconcileDuration": 16,
+            "markdownWorkerFetchStartedAt": 30.5,
+            "markdownWorkerFetchDuration": 397.2000000476837,
+            "markdownWorkerResourceCount": 1,
+            "webviewFetchStartedAt": 31.200000047683716,
+            "webviewFetchDuration": 489.10000002384186
+          },
+          "previewReadyMs": 3700,
+          "richReadyMs": 4864,
+          "vscodeVersion": "1.144.0",
+          "warm": {
+            "file": "E:\\source\\markdown-easy-visual-editor\\sample\\11-performance-stress.md",
+            "editorOpenedMs": 142,
+            "endToEndMs": 2350,
+            "uri": "file:///e%3A/source/markdown-easy-visual-editor/sample/11-performance-stress.md",
+            "documentLength": 21412,
+            "resolveSequence": 2,
+            "activationMs": 59,
+            "webviewReadyMs": 660,
+            "initializedMs": 671,
+            "webviewMetrics": {
+              "previewReportedAt": 1196.2000000476837,
+              "bundleExecutedAt": 362.7999999523163,
+              "initReceivedAt": 362.7999999523163,
+              "workerResponseAt": 817,
+              "markdownWorkerDuration": 322.7000000476837,
+              "sanitizeChunkDuration": 11.100000023841858,
+              "domReconcileDuration": 14,
+              "markdownWorkerFetchStartedAt": 31.600000023841858,
+              "markdownWorkerFetchDuration": 28.100000023841858,
+              "markdownWorkerResourceCount": 1,
+              "webviewFetchStartedAt": 32.60000002384186,
+              "webviewFetchDuration": 151.79999995231628
+            },
+            "previewReadyMs": 1361,
+            "richReadyMs": 2269
+          }
+        }
+      ],
+      "median": {
+        "runs": 5,
+        "editorOpenedMs": 2491,
+        "endToEndMs": 5897,
+        "activationMs": 59,
+        "webviewReadyMs": 2113,
+        "initializedMs": 2152,
+        "previewReadyMs": 3650,
+        "richReadyMs": 4708
+      },
+      "statistics": {
+        "cold": {
+          "editorOpenedMs": {
+            "count": 5,
+            "median": 2491,
+            "p95": 2758,
+            "max": 2758
+          },
+          "endToEndMs": {
+            "count": 5,
+            "median": 5897,
+            "p95": 6601,
+            "max": 6601
+          },
+          "activationMs": {
+            "count": 5,
+            "median": 59,
+            "p95": 75,
+            "max": 75
+          },
+          "webviewReadyMs": {
+            "count": 5,
+            "median": 2113,
+            "p95": 2243,
+            "max": 2243
+          },
+          "initializedMs": {
+            "count": 5,
+            "median": 2152,
+            "p95": 2257,
+            "max": 2257
+          },
+          "previewReadyMs": {
+            "count": 5,
+            "median": 3650,
+            "p95": 3700,
+            "max": 3700
+          },
+          "richReadyMs": {
+            "count": 5,
+            "median": 4708,
+            "p95": 4864,
+            "max": 4864
+          }
+        },
+        "warm": {
+          "editorOpenedMs": {
+            "count": 5,
+            "median": 142,
+            "p95": 146,
+            "max": 146
+          },
+          "endToEndMs": {
+            "count": 5,
+            "median": 2314,
+            "p95": 2487,
+            "max": 2487
+          },
+          "webviewReadyMs": {
+            "count": 5,
+            "median": 626,
+            "p95": 660,
+            "max": 660
+          },
+          "initializedMs": {
+            "count": 5,
+            "median": 636,
+            "p95": 671,
+            "max": 671
+          },
+          "previewReadyMs": {
+            "count": 5,
+            "median": 1361,
+            "p95": 1481,
+            "max": 1481
+          },
+          "richReadyMs": {
+            "count": 5,
+            "median": 2243,
+            "p95": 2374,
+            "max": 2374
+          }
+        }
+      },
+      "failures": []
+    }
+  ],
+  "failures": [
+    "plain の実VS Code起動性能が回帰しました: endToEndMs=3443ms > 2300ms",
+    "plain の実VS Code起動性能が回帰しました: previewReadyMs=1640ms > 1400ms",
+    "representative の実VS Code起動性能が回帰しました: endToEndMs=5298ms > 2800ms",
+    "representative の実VS Code起動性能が回帰しました: previewReadyMs=2649ms > 1800ms",
+    "mermaid-first の実VS Code起動性能が回帰しました: endToEndMs=4326ms > 2500ms",
+    "mermaid-first の実VS Code起動性能が回帰しました: previewReadyMs=2050ms > 1200ms",
+    "mermaid-first の実VS Code起動性能が回帰しました: firstMermaidReadyMs=3021ms > 1700ms"
+  ],
+  "codeVersion": {
+    "commit": "83399b2",
+    "workingTree": "HEAD に起動計測用パッチのみ適用（startupRichReady / startupVisibleMermaidReady / activationMs / resolveSequence の記録、warm 再オープン計測）。描画・起動の挙動変更は含まない。"
+  },
+  "notes": "warm 条件の activationMs は cold 値の複製のため統計から除外した（比較対象外）。"
+}

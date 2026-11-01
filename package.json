@@ -2,7 +2,7 @@
   "name": "markdown-easy-visual-editor",
   "displayName": "Markdown Easy Visual Editor",
   "description": "A visual Markdown and Textile editor for VS Code with live preview, source editing, formatting tools, image support, and PDF export.",
-  "version": "1.5.3",
+  "version": "2.0.0",
   "publisher": "MetroSoft-Application",
   "icon": "resources/icon.png",
   "repository": {
@@ -538,6 +538,11 @@
     "test:startup": "npm run build && node scripts/startup-regression.mjs",
     "benchmark:vscode-startup": "npm run build && node scripts/benchmark-vscode-startup.mjs",
     "test:lazy-runtime": "npm run build && node scripts/lazy-runtime-smoke.mjs",
+    "test:bootstrap-startup": "npm run build && node scripts/bootstrap-startup-smoke.mjs",
+    "benchmark:compare": "node scripts/compare-performance-baseline.mjs",
+    "test:preview-independence": "node scripts/test-preview-independence.mjs",
+    "test:export-parity": "npm run build && node scripts/test-export-parity.mjs",
+    "benchmark:export": "npm run build && node scripts/benchmark-export.mjs",
     "test:extension": "npm run build && node scripts/test-extension-host.mjs",
     "test:packaged-extension": "npm run build && node scripts/test-packaged-extension.mjs",
     "test:ime": "node scripts/ime-caret-smoke.mjs",
@@ -552,7 +557,7 @@
     "test:pdf-preview": "npm run build && node scripts/pdf-preview-smoke.mjs",
     "test:watch": "vitest",
     "pdf:install-browser": "node scripts/install-pdf-browser.mjs",
-    "package": "npm run check && npm test && npm run build && node scripts/startup-regression.mjs && node scripts/lazy-runtime-smoke.mjs && npm run test:smoke && npm run test:sample-matrix && vsce package --target win32-x64 --no-dependencies --allow-missing-repository --out markdown-easy-visual-editor-0.1.0-win32-x64.vsix"
+    "package": "npm run check && npm test && npm run build && node scripts/startup-regression.mjs && node scripts/lazy-runtime-smoke.mjs && node scripts/bootstrap-startup-smoke.mjs && npm run test:smoke && npm run test:sample-matrix && vsce package --target win32-x64 --no-dependencies --allow-missing-repository --out markdown-easy-visual-editor-0.1.0-win32-x64.vsix"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.1",
@@ -591,6 +596,7 @@
     "yaml": "^2.8.1"
   },
   "devDependencies": {
+    "@metrosoft/markdown-easy-converter": "0.1.0",
     "@types/node": "^24.3.0",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",

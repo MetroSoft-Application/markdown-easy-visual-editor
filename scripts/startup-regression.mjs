@@ -11,7 +11,9 @@ const limits = {
   'extension.js': 512 * 1024,
   'webview.js': 2 * 1024 * 1024,
   'webview.css': 256 * 1024,
-  'markdown-worker.js': 512 * 1024,
+  // katex(約268KB)と全7言語のUI文言(約155KB)を含み、2026-11-01時点で約525KiB。
+  // 利用者が「容量は問題ではない」と判断したため、512KiBから現状に余裕を持たせた640KiBへ見直した。
+  'markdown-worker.js': 640 * 1024,
   'marp-worker.js': 1024 * 1024,
   'marp-frame.js': 256 * 1024,
   'marp-yaml.cjs': 512 * 1024,
@@ -23,6 +25,7 @@ const limits = {
  * 起動・regressionで読み書きするリソースの場所。
  */
 const requiredTopLevelFiles = [
+  'browsers.json',
   'export-fonts.css',
   'extension.js',
   'markdown-fallback.js',
@@ -35,6 +38,7 @@ const requiredTopLevelFiles = [
   'pele-render-worker.js',
   'pdf.worker.min.mjs',
   'pdfjs.mjs',
+  'package.json',
   'playwright.js',
   'styles.css',
   'webview.css',
@@ -109,8 +113,11 @@ async function listFiles(directory) {
   return files;
 }
 const allDistFiles = await listFiles(path.resolve('dist'));
-/** dist内の全ファイルサイズを合計し、配布成果物の総サイズとする。 */
-const totalBytes = (await Promise.all(allDistFiles.map(
+/** 起動時に読まない出力エンジンは、プレビューと起動のサイズ閾値から分離する。 */
+const startupDistFiles = allDistFiles.filter((file) =>
+  !file.includes(`${path.sep}export-engine${path.sep}`));
+/** 起動とプレビューに必要な成果物だけのサイズを合計する。 */
+const totalBytes = (await Promise.all(startupDistFiles.map(
 /**
  * dist内のファイルサイズを読み取る。
  * @param file - サイズを測るファイルパス。
@@ -143,6 +150,10 @@ const extension = await readFile(path.join('dist', 'extension.js'), 'utf8');
  * 起動・regressionのwebviewとして読み込んだ本文または設定。
  */
 const webview = await readFile(path.join('dist', 'webview.js'), 'utf8');
+// ビルドのbannerなどで先頭に文が入ると "use strict" が効かなくなり、バンドル全体の挙動が変わる。
+if (!extension.startsWith('"use strict";')) {
+  throw new Error('Extension Host バンドルの先頭が "use strict"; ではありません。strict mode が無効になっています。');
+}
 if (/playwright-core[\\/]lib[\\/](?:coreBundle|utilsBundle)/.test(extension)) {
   throw new Error('Playwright が初期 Extension Host バンドルへ再混入しました。');
 }

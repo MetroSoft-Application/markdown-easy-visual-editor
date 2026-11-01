@@ -16,6 +16,7 @@ const profileRoot = await mkdtemp(path.join(os.tmpdir(), 'markdown-easy-visual-e
 try {
   await runTests({
     version: 'stable',
+    vscodeExecutablePath: process.env.MVE_TEST_VSCODE_EXECUTABLE_PATH || undefined,
     extensionDevelopmentPath: path.resolve('.'),
     extensionTestsPath: path.resolve('test/integration/index.cjs'),
     launchArgs: [

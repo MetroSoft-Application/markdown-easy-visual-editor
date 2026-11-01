@@ -1987,11 +1987,6 @@ export interface Messages {
         htmlExported: (path: string) => string;
 
         /**
-         * 表示項目「HTMLの描画・timeout」の文言として表示するローカライズ済み文言。
-         */
-        htmlRenderTimeout: string;
-
-        /**
          * 開く操作のラベルとして表示するローカライズ済み文言。
          */
         open: string;
@@ -2609,7 +2604,6 @@ function createMessages(language: SupportedLanguage): Messages {
              * @param path - 読み書きするファイルまたはリソースの場所。
              * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              */ (path: string) => text('host.htmlExported', { path }),
-            htmlRenderTimeout: raw.host.htmlRenderTimeout,
             open: raw.host.open,
             saveCanceled: raw.host.saveCanceled,
             imageDocumentMustBeSaved: raw.host.imageDocumentMustBeSaved,

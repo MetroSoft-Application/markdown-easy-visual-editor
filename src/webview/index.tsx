@@ -6,7 +6,11 @@ import { createRoot } from "react-dom/client";
 import { EditorSelection } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import "katex/dist/katex.min.css";
-import { App, preloadMarkdownWorker } from "./components/App";
+import {
+  App,
+  preloadMarkdownWorker,
+  startSpeculativeFirstPreviewRender,
+} from "./components/App";
 import "./editor/cmMarkdownAutocomplete";
 import "./editor/editorTheme.css";
 import "./editor/editorThemePolish.css";
@@ -31,6 +35,8 @@ import { installTableEditorOverlay } from "./table-editor/tableEditorOverlay";
   }
 ).__mveBundleExecutedAt = performance.now();
 preloadMarkdownWorker();
+// Reactの初回マウント（数百ミリ秒）と並行して、初期本文の軽量Worker描画を先に始める。
+startSpeculativeFirstPreviewRender();
 
 /**
  * indexのイベントまたはメッセージを受け取り、状態を更新する。

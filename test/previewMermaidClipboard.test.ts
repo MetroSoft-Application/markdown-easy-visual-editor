@@ -7,6 +7,7 @@ import path from 'node:path';
 import { build } from 'esbuild';
 import { chromium, type Browser, type Page } from 'playwright-core';
 import { closePeleRenderer, renderPeleMermaid } from '../src/extension/peleMermaid';
+import { getMessages } from '../src/shared/messages';
 
 const executablePath = findChromium(path.resolve('.chromium'));
 const withBrowser = executablePath ? describe : describe.skip;
@@ -162,11 +163,13 @@ withBrowser('Mermaid PNGコピー', () => {
                 test.mermaidCopyTest.installPreviewImageContextMenu();
             });
             await page.locator('#diagram svg .pele-node text').first().click({ button: 'right' });
-            const menuItem = page.getByRole('menuitem', { name: 'PNGとしてコピー', exact: true });
+            // ラベル変更でテストだけが古い文言を待ち続けないよう、ページと同じ日本語ローカライズから取得する。
+            const labels = getMessages('ja').app.previewImageContextMenu;
+            const menuItem = page.getByRole('menuitem', { name: labels.copyPng, exact: true });
             await menuItem.click();
             await expect.poll(() => page.evaluate(() => (window as unknown as CopyTestWindow).copiedItems.length)).toBe(1);
             expect(await page.evaluate(() => (window as unknown as CopyTestWindow).copiedItems[0].types)).toEqual(['image/png']);
-            expect(await page.getByRole('status').textContent()).toContain('コピーしました');
+            expect(await page.getByRole('status').textContent()).toContain(labels.copied);
             const intercepted = await page.locator('#ordinary').evaluate(node => !node.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, cancelable: true })));
             expect(intercepted).toBe(false);
         } finally { await page.close(); }

@@ -23,6 +23,10 @@ const extensionOptions = {
   target: 'node20',
   sourcemap: false,
   external: ['vscode'],
+  // 起動計測でバンドル評価時間も含めたactivation時間を得るため、先頭でモジュールスコープ変数に時刻を残す。
+  // "use strict" はファイル先頭の文でなければ効かないため、bannerの先頭に置いてバンドル全体のstrict modeを保つ
+  // （esbuildが続けて出力する "use strict" は単なる式文になり無害）。startup-regression.mjs が先頭行を検査する。
+  banner: { js: '"use strict";var __mveBundleStartedAt = Date.now();' },
   plugins: [{
     name: 'defer-playwright-runtime',
     /**
@@ -216,9 +220,32 @@ async function copyAssets() {
   ]);
 }
 
+/** HTML/PDF出力に使う、npmで公開済みの変換CLIパッケージの導入先。 */
+const exportEnginePackage = 'node_modules/@metrosoft/markdown-easy-converter';
+
+/**
+ * 保存要求時だけ読むCLI成果物を、npmパッケージからプレビュー資産と別ディレクトリへ配置する。
+ * CLI内のPlaywrightは実行ファイルの1つ上の階層からpackage.jsonとbrowsers.jsonを読むため、両方をdist/へ置く。
+ * CLIがバンドルした依存のライセンス原文と、CLI本体のライセンスも同じ配布物に含める。
+ * 成果物が欠けている場合はcopyFile/cpが失敗し、出力できないVSIXやライセンス表示のないVSIXを作らない。
+ */
+async function copyExportEngine() {
+  await mkdir('dist/export-engine', { recursive: true });
+  for (const asset of ['mve-convert.cjs', 'print-assets.css', 'pele-render-worker.js',
+    'markdown-fallback.js', 'output-replacements.js']) {
+    await copyFile(`${exportEnginePackage}/dist/${asset}`, `dist/export-engine/${asset}`);
+  }
+  await cp(`${exportEnginePackage}/dist/third-party-licenses`, 'dist/export-engine/third-party-licenses',
+    { recursive: true, errorOnExist: false, force: true });
+  await copyFile(`${exportEnginePackage}/LICENSE.md`, 'dist/export-engine/LICENSE.md');
+  await copyFile(`${exportEnginePackage}/browsers.json`, 'dist/browsers.json');
+  await copyFile(`${exportEnginePackage}/package.json`, 'dist/package.json');
+}
+
 // dist は生成物専用である。過去ビルドの chunk や runtime を VSIX へ混入させない。
 await rm('dist', { recursive: true, force: true });
 await copyAssets();
+await copyExportEngine();
 
 if (watch) {
   const extensionContext = await esbuild.context(extensionOptions);

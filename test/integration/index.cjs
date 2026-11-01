@@ -327,6 +327,7 @@ async function run() {
     const marpHtml = await fs.readFile(marpHtmlPath, 'utf8');
     assert.match(marpHtml, /Marp export regression/, 'Marp文書のHTML出力から見出しが欠落しました。');
     assert.match(marpHtml, /existing Markdown export path/, 'Marp文書のHTML出力から本文が欠落しました。');
+    assert.doesNotMatch(marpHtml, /marp:\s*true/i, 'Marp設定用front matterがHTML本文に表示されました。');
     assert.doesNotMatch(marpHtml, /class=["']marpit(?:\s|["'])/i, 'HTML出力がMarpスライド形式へ変わりました。');
 
     const marpPdfPath = marpExportPath.replace(/\.md$/i, '.pdf');
@@ -366,6 +367,11 @@ async function run() {
     const parsedMarpPdf = await pdfLoadingTask.promise;
     try {
       const pdfPage = await parsedMarpPdf.getPage(1);
+      const pageViewport = pdfPage.getViewport({ scale: 1 });
+      assert.ok(
+        Math.abs(pageViewport.width / pageViewport.height - 16 / 9) < 0.02,
+        `Marp PDFのページ比率が16:9ではありません: ${pageViewport.width}x${pageViewport.height}`,
+      );
       const pdfText = (await pdfPage.getTextContent()).items
         .map((item) => 'str' in item ? item.str : '')
         .join(' ');

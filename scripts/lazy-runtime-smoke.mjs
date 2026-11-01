@@ -175,8 +175,8 @@ try {
   await verifyPeleMermaidUsesHost();
   await verifyCompactMermaidUsesHost();
   await verifyLargeMermaidKeepsHostIsolation();
-  await verifyLazyExportFonts();
-  console.log('遅延ランタイム: Markdown Worker 障害時フォールバック、Mermaid Host 障害時フォールバック、出力フォントを確認しました。');
+  await verifyLazyExportFontBoundary();
+  console.log('遅延ランタイム: Markdown Worker 障害時フォールバック、Mermaid Host 障害時フォールバック、出力フォントの所有境界を確認しました。');
 } finally {
   await browser.close();
   await new Promise(
@@ -1145,9 +1145,9 @@ async function verifyPeleMermaidUsesHost() {
 }
 
 /**
- * HTML export要求をWebviewへ送り、応答CSSに遅延ロードされた埋め込みfontが含まれることを確認する。
+ * HTML出力要求が原文だけを送り、埋め込みフォントは独立出力資産が所有することを確認する。
  */
-async function verifyLazyExportFonts() {
+async function verifyLazyExportFontBoundary() {
   const markdown = '# Export fonts\n\n埋め込みフォントの回帰検証。\n';
   const page = await openEditor(markdown, {
     workerUri: `${origin}/dist/markdown-worker.js`,
@@ -1178,7 +1178,7 @@ async function verifyLazyExportFonts() {
     (message) => message.type === 'exportHtml'), undefined, {
       timeout: 20_000
     });
-    const css = await page.evaluate(
+    const message = await page.evaluate(
     /**
      * HostとWebviewのメッセージ状態のfind結果を読み取り、検証用の値へ変換する。
      * @returns ブラウザー内で読み取った値または変換結果。
@@ -1189,9 +1189,13 @@ async function verifyLazyExportFonts() {
      * @param message - メッセージのtypeを参照する走査対象。
      * @returns 条件に一致した最初の要素。未検出時はundefined。
      */
-    (message) => message.type === 'exportHtml')?.css ?? '');
+    (message) => message.type === 'exportHtml'));
+    if (message?.markdown !== markdown || message?.css !== undefined || !Number.isInteger(message?.documentVersion)) {
+      throw new Error('HTML出力要求が確定原文・文書版だけを渡していません。');
+    }
+    const css = await readFile(path.resolve('dist', 'export-engine', 'print-assets.css'), 'utf8');
     if (css.length < 1024 * 1024 || !css.includes('@font-face') || !css.includes('data:font/')) {
-      throw new Error(`HTML 出力 CSS に埋め込みフォントがありません: ${css.length} chars`);
+      throw new Error(`出力エンジンの CSS に埋め込みフォントがありません: ${css.length} chars`);
     }
   } finally {
     await page.close();

@@ -12,10 +12,11 @@ import { isMap, parseDocument } from 'yaml';
 const sampleRoot = path.resolve('sample');
 const distRoot = path.resolve('dist');
 const resourcesRoot = path.resolve('resources');
-/** sample/10 の先頭図は既存の不正な方向指定を含むため、計測対象1図の既知エラー件数を記録する。 */
-const knownFirstMermaidErrorCounts = new Map([
-  ['10-hierarchical-knowledge-base/README.md', 1],
-]);
+/**
+ * 先頭のMermaid図が描画エラーになる既知のサンプルと件数。記載のないサンプルは0件を期待する。
+ * sample/10の先頭図は不正な方向指定を含んでいたが、正しいflowchart TDへ修正済みのため現在は対象がない。
+ */
+const knownFirstMermaidErrorCounts = new Map([]);
 const markdownPaths = (await listMarkdownFiles(sampleRoot)).sort();
 if (markdownPaths.length < 10) {
   throw new Error(`sample内のMarkdownが10個未満です: ${markdownPaths.length}`);
