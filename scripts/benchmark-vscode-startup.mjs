@@ -7,7 +7,7 @@
  */
 import { runTests } from '@vscode/test-electron';
 import { execFileSync } from 'node:child_process';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import { Writable } from 'node:stream';
@@ -47,6 +47,10 @@ const extensionDevelopmentPath = path.resolve(
  * 性能・VS Code・起動で使用するVS Code実行ファイル。指定時はダウンロードを行わない。
  */
 const vscodeExecutablePath = process.env.MVE_STARTUP_VSCODE_EXECUTABLE;
+/**
+ * 他の拡張機能を有効にして計測する場合の拡張機能フォルダー。未指定なら他の拡張機能を無効化して計測する。
+ */
+const otherExtensionsDir = process.env.MVE_STARTUP_EXTENSIONS_DIR;
 /**
  * 起動計測を実行するExtension Hostテストの場所。
  */
@@ -142,6 +146,11 @@ try {
     const samples = [];
     for (let iteration = 1; iteration <= repetitions; iteration += 1) {
       const profileRoot = await mkdtemp(path.join(os.tmpdir(), `mve-vscode-${name}-`));
+      if (process.env.MVE_STARTUP_USER_SETTINGS) {
+        // 計測用プロファイルへ利用者設定（JSON文字列）を書き込み、設定による起動時間の違いを比較できるようにする。
+        await mkdir(path.join(profileRoot, 'data', 'User'), { recursive: true });
+        await writeFile(path.join(profileRoot, 'data', 'User', 'settings.json'), process.env.MVE_STARTUP_USER_SETTINGS, 'utf8');
+      }
       const resultPath = path.join(temporaryRoot, `${name}-${iteration}.json`);
       const childOutput = [];
       const outputSink = new Writable({
@@ -166,10 +175,14 @@ try {
               MVE_STARTUP_WAIT_FOR_RICH: waitFor.rich ? '1' : '0',
               MVE_STARTUP_WAIT_FOR_VISIBLE_MERMAID: waitFor.visibleMermaid ? '1' : '0'
             },
+            // MVE_STARTUP_EXTENSIONS_DIR を指定すると、そのフォルダーの拡張機能を有効にしたまま計測する。
+            // 利用者の環境のように多数の拡張機能が同じExtension Hostで同時に起動する状況を再現するため。
+            // 指定フォルダーへはVS Codeが書き込むことがあるため、利用者の実フォルダーではなくコピーを渡す。
             launchArgs: [
               `--user-data-dir=${path.join(profileRoot, 'data')}`,
-              `--extensions-dir=${path.join(profileRoot, 'extensions')}`,
-              '--disable-extensions',
+              ...(otherExtensionsDir
+                ? [`--extensions-dir=${otherExtensionsDir}`]
+                : [`--extensions-dir=${path.join(profileRoot, 'extensions')}`, '--disable-extensions']),
               '--skip-welcome',
               '--skip-release-notes'
             ],
