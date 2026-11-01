@@ -7,21 +7,21 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { decodeHTMLAttribute } from 'entities';
 import { Marked, Renderer } from 'marked';
-import { getMessages } from './source/shared/messages';
-import { DEFAULT_PDF_OPTIONS, type EditorTheme, type HtmlExportOptions } from './source/shared/protocol';
-import { fontFamilyForCss } from './source/shared/fontFamily';
-import { escapeHtml } from './source/shared/escapeHtml';
-import { footnoteDefinitionSyntax, mathBlockSyntax, tableOfContentsSyntax } from './source/shared/markdownBlockSyntax';
+import { getMessages } from './shared/messages';
+import { DEFAULT_PDF_OPTIONS, type EditorTheme, type HtmlExportOptions } from './shared/protocol';
+import { fontFamilyForCss } from './shared/fontFamily';
+import { escapeHtml } from './shared/escapeHtml';
+import { footnoteDefinitionSyntax, mathBlockSyntax, tableOfContentsSyntax } from './shared/markdownBlockSyntax';
 import {
     collectLocalResourceReferences,
     getOutlineForFormatSource,
     nextHeadingAnchorId,
     WORKSPACE_SECTION_LINK_TITLE,
     type OutlineItem
-} from './source/shared/markdown';
-import { renderTextile } from './source/shared/textileAdapter';
-import { isDocumentRelativeResourcePath, workspaceRootPathSegments } from './source/shared/resourceLink';
-import { decodeLocalResourceSource } from './source/shared/resourceCheck';
+} from './shared/markdown';
+import { renderTextile } from './shared/textileAdapter';
+import { isDocumentRelativeResourcePath, workspaceRootPathSegments } from './shared/resourceLink';
+import { decodeLocalResourceSource } from './shared/resourceCheck';
 
 /**
  * HTMLで送受信するメッセージまたは要求のデータ形状。
@@ -97,7 +97,7 @@ export interface HtmlExportResult {
 export interface HtmlDocument {
 
     /**
-     * VS Codeまたはブラウザーが扱うリソースURI。
+     * ブラウザーが扱うリソースURI。
      */
     uri: string;
 
@@ -414,14 +414,14 @@ function buildStandaloneHtml(
 
 /** HTML出力用アウトラインの階層を保持する。 */
 interface HtmlOutlineNode {
-    /** エディターのアウトラインと同じMarkdown見出し情報。 */
+    /** getOutline が返すMarkdown見出し情報。 */
     item: OutlineItem;
     /** 現在の見出し配下に属する子見出し。 */
     children: HtmlOutlineNode[];
 }
 
 /**
- * エディターと同じ平坦なアウトラインを、見出しレベルに従ってツリー化する。
+ * getOutline が返す平坦なアウトラインを、見出しレベルに従ってツリー化する。
  * @param outline getOutlineで抽出した文書順の見出し一覧。
  * @returns HTMLサイドバー描画用の階層化された見出し。
  */
@@ -457,7 +457,7 @@ function renderHtmlOutlineNodes(nodes: readonly HtmlOutlineNode[], root = true):
 }
 
 /**
- * Markdownエディターと同じgetOutline結果からHTML出力用サイドバーを作る。
+ * getOutline の結果からHTML出力用サイドバーを作る。
  * @param markdown 出力文書の元Markdown。
  * @param language アウトライン見出し文言に使う表示言語。
  * @param renderFormat MarkdownまたはTextileの見出し認識形式。
@@ -524,7 +524,7 @@ async function rewriteBody(
         (tag) => rewriteLinkTag(tag, sourcePath, outputPath, documents, options, workspaceRoot));
     result = result.replace(
         /\sdata-(?:original-src|mve-[\w-]+)(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+))?/gi,
-        /** 出力で折り返し方を決める2属性だけを残し、他のWebview内部属性を除く。 */
+        /** 出力で折り返し方を決める2属性だけを残し、他の描画用内部属性を除く。 */
         (attribute) => /^\s+data-mve-short-value-(?:candidate|label)\s*=\s*(?:"true"|'true'|true)$/i.test(attribute)
             ? attribute
             : ''

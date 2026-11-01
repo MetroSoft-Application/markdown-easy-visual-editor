@@ -162,31 +162,46 @@ body[data-editor-theme] .pdf-preview-live-content .rendered-markdown td {
     border-color: #888 !important;
 }
 
+/*
+ * @style body[data-editor-theme="light"] .rendered-markdown .hljs-*, body[data-editor-theme] .pdf-preview-live-content .rendered-markdown .hljs-*
+ * 明るい背景のコードブロック用ハイライト色。ライトテーマのプレビューと、テーマに関係なく白い用紙で描くPDFプレビューに適用する。
+ * HTML出力(cli/src/html.ts)、PDF出力(cli/src/styles/print-assets.css)、PDFプレビュー描画(src/extension/pdf.tsのPRINT_CSS)と同じ値に保ち、
+ * 背景#f5f5f5に対して読める濃さにする。値の一致はtest/previewHighlightColors.test.tsで検査する。
+ */
 body[data-editor-theme="light"] .rendered-markdown .hljs-keyword,
 body[data-editor-theme="light"] .rendered-markdown .hljs-selector-tag,
-body[data-editor-theme="light"] .rendered-markdown .hljs-literal {
+body[data-editor-theme="light"] .rendered-markdown .hljs-literal,
+body[data-editor-theme] .pdf-preview-live-content .rendered-markdown .hljs-keyword,
+body[data-editor-theme] .pdf-preview-live-content .rendered-markdown .hljs-selector-tag,
+body[data-editor-theme] .pdf-preview-live-content .rendered-markdown .hljs-literal {
     color: #8250df !important;
 }
 
 
 body[data-editor-theme="light"] .rendered-markdown .hljs-string,
-body[data-editor-theme="light"] .rendered-markdown .hljs-attr {
+body[data-editor-theme="light"] .rendered-markdown .hljs-attr,
+body[data-editor-theme] .pdf-preview-live-content .rendered-markdown .hljs-string,
+body[data-editor-theme] .pdf-preview-live-content .rendered-markdown .hljs-attr {
     color: #0a3069 !important;
 }
 
 
 body[data-editor-theme="light"] .rendered-markdown .hljs-title,
-body[data-editor-theme="light"] .rendered-markdown .hljs-section {
+body[data-editor-theme="light"] .rendered-markdown .hljs-section,
+body[data-editor-theme] .pdf-preview-live-content .rendered-markdown .hljs-title,
+body[data-editor-theme] .pdf-preview-live-content .rendered-markdown .hljs-section {
     color: #953800 !important;
 }
 
 
-body[data-editor-theme="light"] .rendered-markdown .hljs-comment {
+body[data-editor-theme="light"] .rendered-markdown .hljs-comment,
+body[data-editor-theme] .pdf-preview-live-content .rendered-markdown .hljs-comment {
     color: #6e7781 !important;
 }
 
 
-body[data-editor-theme="light"] .rendered-markdown .hljs-number {
+body[data-editor-theme="light"] .rendered-markdown .hljs-number,
+body[data-editor-theme] .pdf-preview-live-content .rendered-markdown .hljs-number {
     color: #0550ae !important;
 }
 

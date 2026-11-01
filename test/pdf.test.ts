@@ -226,6 +226,41 @@ describe('PDF local images',
                 expect(lightHtml).toContain('.mve-print :is(h1, h2, h3, h4, h5, h6) { color: #0969da; }');
             });
 
+        /**
+         * PDFプレビューへ送られるWebview CSSのダークテーマ用ハイライト色が白い用紙に残らず、
+         * HTML/PDF出力と同じ色で描画されること、Marpスライドのテーマ色を上書きしないことを実Chromiumで検証する。
+         */
+        it('renders code highlight colors readable on the white page even with the Webview dark palette', async () => {
+            const expected: Record<string, string> = {
+                keyword: 'rgb(130, 80, 223)', 'selector-tag': 'rgb(130, 80, 223)', literal: 'rgb(130, 80, 223)',
+                string: 'rgb(10, 48, 105)', attr: 'rgb(10, 48, 105)',
+                title: 'rgb(149, 56, 0)', section: 'rgb(149, 56, 0)',
+                comment: 'rgb(110, 119, 129)', number: 'rgb(5, 80, 174)',
+            };
+            const tokens = Object.keys(expected);
+            const spans = tokens.map((name) => `<span id="${name}" class="hljs-${name}">${name}</span>`).join(' ');
+            const request = {
+                html: `<pre><code class="hljs">${spans}</code></pre><div class="marpit"><span id="marp-title" class="hljs-title">t</span></div>`,
+                css: await fs.readFile(path.resolve('src/webview/styles.css'), 'utf8'),
+                options: normalizePdfOptions({}),
+                documentUri: new TestUri('file', '/document.md', '/document.md'),
+                language: 'ja',
+            } as unknown as PdfExportRequest;
+            const html = await buildStandaloneHtml(request);
+            const browser = await acquirePdfBrowser('ja');
+            const page = await browser.newPage();
+            try {
+                await page.setContent(html, { waitUntil: 'load' });
+                const colors = await page.evaluate((ids) => Object.fromEntries(ids.map((id) =>
+                    [id, getComputedStyle(document.getElementById(id)!).color])), [...tokens, 'marp-title']);
+                // Marpテーマ用CSSを渡していないため、Marp内はWebview CSSの色(#dcdcaa)のまま残ることで「上書きしない」ことを確かめる。
+                expect(colors).toEqual({ ...expected, 'marp-title': 'rgb(220, 220, 170)' });
+            } finally {
+                await page.close();
+                await closePdfBrowser();
+            }
+        }, 30_000);
+
         /** PDF出力で小さい表を内容幅にし、印刷幅不足時にセル内折り返しを保つ。 */
         it('keeps standalone PDF tables content-sized and wrappable', async () => {
             const longCellText = 'unbrokenvalue'.repeat(24);

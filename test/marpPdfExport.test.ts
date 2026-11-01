@@ -2,7 +2,7 @@
  * @fileoverview Marp PDF用HTMLの生成と、本文・設定変更直後の古い描画結果を出力しない仕様を検証する。
  */
 import { describe, expect, it } from "vitest";
-import { createMarpPdfExportContent } from "../cli/source/webview/marp/marpPdfExport";
+import { createMarpPdfExportContent } from "../cli/src/renderer/marp/marpPdfExport";
 
 describe("Marp PDF export content", () => {
   it("wraps each rendered slide separately and retains Marp CSS", () => {

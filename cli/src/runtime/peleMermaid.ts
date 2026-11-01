@@ -41,21 +41,36 @@ export class PeleRendererUnavailableError extends Error {
     }
 }
 
+/** レンダー結果キャッシュの件数上限。 */
 const CACHE_LIMIT = 12;
+/** キャッシュ済みSVG/PNG文字列の合計容量上限。 */
 const CACHE_BYTE_LIMIT = 24 * 1024 * 1024;
+/** Worker描画要求に許す時間。 */
 const RENDER_TIMEOUT_MS = 180_000;
+/** この長さ以上のSVGをPNGプレビューへ縮小する閾値。 */
 const LARGE_SVG_LIMIT = 80_000;
+/** レンダー結果として保持できるSVG文字列の最大長。 */
 const MAX_FINAL_SVG_CHARS = 12_000_000;
+/** Mermaid描画結果キャッシュ。 */
 const cache = new Map<string, PeleMermaidResult>();
+/** 同じ描画キーの同時要求をまとめる処理表。 */
 const inFlight = new Map<string, RenderTask>();
+/** キャッシュ済み結果の文字列容量。 */
 let cacheBytes = 0;
+/** Worker操作を直列化するPromise末尾。 */
 let queueTail: Promise<void> = Promise.resolve();
+/** 描画ページのライフサイクルを所有するブラウザーコンテキスト。 */
 let browserContext: BrowserContext | undefined;
+/** Workerを実行する共有ページ。 */
 let rendererPage: Page | undefined;
+/** 同時初期化を一度にまとめるページ取得Promise。 */
 let pagePromise: Promise<Page> | undefined;
+/** Workerスクリプト読込の重複を避けるキャッシュ。 */
 let workerScriptCache = new Map<string, Promise<string>>();
+/** Workerへ送信する要求IDの採番値。 */
 let sequence = 0;
 
+/** キュー内で実行中のMermaid描画とキャンセル・完了状態。 */
 interface RenderTask {
     key: string;
     promise: Promise<PeleMermaidResult>;

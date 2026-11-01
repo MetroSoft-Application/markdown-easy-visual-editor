@@ -692,6 +692,12 @@ const PRINT_CSS = `
   tr, img, pre, blockquote { break-inside: avoid; }
   img { max-width: 100%; height: auto; }
   a { color: inherit; text-decoration: underline; }
+  /* WebviewのCSSにはダークテーマ用のハイライト色が含まれるため、白い用紙ではHTML/PDF出力と同じ明るい背景用の色で上書きする。Marpスライドはテーマの配色を保つ。 */
+  .mve-print .hljs-keyword:not(.marpit *), .mve-print .hljs-selector-tag:not(.marpit *), .mve-print .hljs-literal:not(.marpit *) { color: #8250df; }
+  .mve-print .hljs-string:not(.marpit *), .mve-print .hljs-attr:not(.marpit *) { color: #0a3069; }
+  .mve-print .hljs-title:not(.marpit *), .mve-print .hljs-section:not(.marpit *) { color: #953800; }
+  .mve-print .hljs-comment:not(.marpit *) { color: #6e7781; }
+  .mve-print .hljs-number:not(.marpit *) { color: #0550ae; }
 `;
 
 /**

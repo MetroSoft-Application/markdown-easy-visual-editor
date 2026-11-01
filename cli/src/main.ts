@@ -1,8 +1,6 @@
 /**
  * @fileoverview MarkdownからHTML/PDFを出力するCLIのエントリポイント。
- * ファイル入力を解析してCLI所有の出力モジュールを呼び出し、ブラウザー資源を解放する。
- *
- * 描画・出力に必要な実装と資産はCLIが所有し、拡張のプレビューから参照されない。
+ * 引数と設定ファイルを検証し、HTML (src/html.ts) / PDF (src/pdf.ts) の出力処理を呼び出して、ブラウザー資源を解放する。
  */
 import path from 'node:path';
 import { promises as fs } from 'node:fs';
@@ -10,19 +8,25 @@ import { fileURLToPath } from 'node:url';
 import { parse as parseYaml } from 'yaml';
 import type { BrowserContext, Page } from 'playwright-core';
 import { ensureHtmlExtension, prepareHtmlExport, writePreparedHtml } from './html';
-import { acquirePdfBrowser, closePdfBrowser, renderPdf } from './pdf';
-import { closePeleRenderer, renderPeleMermaid } from './source/runtime/peleMermaid';
-import { MAX_MERMAID_IMAGE_BYTES, resolveMermaidImageSources } from './source/runtime/mermaidImages';
-import { namespaceMermaidSvg } from './source/shared/mermaidSvg';
-import { decodeLocalResourceSource } from './source/shared/resourceCheck';
-import { DEFAULT_HTML_EXPORT_OPTIONS, DEFAULT_PDF_OPTIONS, PDF_PAPER_FORMATS, isTextReplacementPatternValid, normalizeHtmlExportSettings, normalizePdfOptions, type HtmlExportOptions, type PdfOptions } from './source/shared/protocol';
-import { DEFAULT_FONT_FAMILY_STACK } from './source/shared/fontFamily';
-import { hasMarpFrontMatterCandidate, isMarpMarkdown, stripMarpFrontMatter } from './source/shared/marpFrontMatter';
-import { renderMarpMarkdown } from './source/webview/marp/marpRenderer';
-import { createMarpPdfExportContent } from './source/webview/marp/marpPdfExport';
-import { prepareExportHtml } from './source/shared/exportHtml';
-import { printContentCss } from './source/shared/printContentCss';
-import { SUPPORTED_LANGUAGES, type SupportedLanguage } from './source/shared/messages';
+import { acquirePdfBrowser, closePdfBrowser, PdfBrowserUnavailableError, renderPdf } from './pdf';
+import { closePeleRenderer, renderPeleMermaid } from './runtime/peleMermaid';
+import { MAX_MERMAID_IMAGE_BYTES, resolveMermaidImageSources } from './runtime/mermaidImages';
+import { namespaceMermaidSvg } from './shared/mermaidSvg';
+import { decodeLocalResourceSource } from './shared/resourceCheck';
+import { DEFAULT_HTML_EXPORT_OPTIONS, DEFAULT_PDF_OPTIONS, PDF_PAPER_FORMATS, isTextReplacementPatternValid, normalizeHtmlExportSettings, normalizePdfOptions, type HtmlExportOptions, type PdfOptions } from './shared/protocol';
+import { DEFAULT_FONT_FAMILY_STACK } from './shared/fontFamily';
+import { hasMarpFrontMatterCandidate, isMarpMarkdown, stripMarpFrontMatter } from './shared/marpFrontMatter';
+import { renderMarpMarkdown } from './renderer/marp/marpRenderer';
+import { createMarpPdfExportContent } from './renderer/marp/marpPdfExport';
+import { prepareExportHtml } from './shared/exportHtml';
+import { printContentCss } from './shared/printContentCss';
+import { SUPPORTED_LANGUAGES, type SupportedLanguage } from './shared/messages';
+
+/**
+ * バンドルを直接読み込むテストが自動検出の失敗を組み立てられるよう再公開する。
+ * package.json に main / exports はなく、公開 API として互換性を保証しない。
+ */
+export { PdfBrowserUnavailableError };
 
 /** ファイル入力型CLIが受け付ける出力形式。 */
 export type OutputFormat = 'html' | 'pdf';
@@ -91,7 +95,7 @@ export function parseArguments(argv: readonly string[]): Arguments | undefined {
     let browserPath: string | undefined;
     let workspaceRoot: string | undefined;
     let theme: Theme = 'dark';
-    // auto はダーク表示設定に従う。CLI の既定描画設定もダークである。
+    // auto は VS Code 拡張との設定互換のための値で、CLI の描画では default と同じに扱う。
     let mermaidTheme: Arguments['mermaidTheme'] = 'auto';
     let linked = false;
     let embedImages = false;
@@ -369,7 +373,7 @@ function parseMarpFrontMatter(yaml: string): boolean {
 }
 
 /**
- * Marpのスライドを拡張と同じMarp Coreで描き、PDFのページ単位へ包む。
+ * MarpのスライドをMarp Coreで描き、PDFのページ単位へ包む。
  * Mermaidコードを残したまま成功とみなさず、Peleが失敗した場合は出力を中断する。
  */
 async function renderMarpPdf(
@@ -609,7 +613,7 @@ async function convertExclusive(args: Arguments): Promise<readonly string[]> {
             fontFamily,
             editorTheme: args.theme
         };
-        // 文書収集、リンク書き換え、画像埋め込み、HTML書き出しはExtension Hostと同じ処理を使う。
+        // 文書収集、リンク書き換え、画像埋め込み、HTML書き出しは src/html.ts の出力処理へ任せる。
         const preparation = await prepareHtmlExport(request);
         if (!preparation) throw new Error('Output path was not selected.');
         await assertDistinctFiles(preparation.documents.map((document) => document.sourcePath),
@@ -642,6 +646,43 @@ async function convertExclusive(args: Arguments): Promise<readonly string[]> {
     }
 }
 
+/**
+ * Edge と Chrome を自動検出できなかったときの CLI 向け案内。
+ * 共通の汎用文言は VS Code の設定画面を前提にしているため、CLI では指定方法を示す文言へ置き換える。
+ */
+const CLI_BROWSER_UNAVAILABLE_MESSAGE = 'Could not start Microsoft Edge or Google Chrome. '
+    + 'Install one of them, or pass a Chromium-based browser executable with --browser '
+    + '(or browserPath in the configuration file). Causes:';
+
+/**
+ * 起動失敗の原因を 1 行に縮める。Playwright の例外は 2 行目以降に長い起動ログを含むため先頭行だけを使う。
+ * 依存ライブラリ不足では先頭行が `Browser closed.` などの一般的な文言になり、ライブラリ名は起動ログ側に出るため、
+ * 共有ライブラリの読み込み失敗を示す行があれば先頭行に添える。
+ * @param error - 各ブラウザーチャンネルの起動で発生した例外。
+ * @returns 先頭行 (必要なら共有ライブラリの失敗行を ` — ` で連結した文言)。空の場合は `unknown error`。
+ */
+function firstErrorLine(error: unknown): string {
+    const lines = (error instanceof Error ? error.message : String(error)).split(/\r?\n/).map((line) => line.trim());
+    const first = lines[0] || 'unknown error';
+    const library = lines.find((line) => /error while loading shared libraries|cannot open shared object/i.test(line));
+    return library && library !== first ? `${first} — ${library}` : first;
+}
+
+/**
+ * 変換で発生した例外を、CLI の標準エラーへ書く文言にする。
+ * ブラウザー自動検出の失敗では、インストール済みでも起動できない場合 (Linux の依存ライブラリ不足など) を
+ * 利用者が判別できるよう、案内に続けて Edge / Chrome それぞれの失敗理由を 1 行ずつ添える。
+ * @param error - convert などから伝わった例外。
+ * @returns ブラウザー自動検出の失敗は CLI 向けの案内と原因、それ以外は例外の message (Error 以外は文字列化した値)。
+ */
+export function formatCliError(error: unknown): string {
+    if (error instanceof PdfBrowserUnavailableError) {
+        return `${CLI_BROWSER_UNAVAILABLE_MESSAGE}\n  Edge: ${firstErrorLine(error.edgeError)}`
+            + `\n  Chrome: ${firstErrorLine(error.chromeError)}`;
+    }
+    return error instanceof Error ? error.message : String(error);
+}
+
 /** CLIを実行し、引数・設定エラーを2、変換エラーを1、中断を130の終了コードへ変換する。 */
 async function main(): Promise<void> {
     const controller = new AbortController();
@@ -650,7 +691,7 @@ async function main(): Promise<void> {
     process.on('SIGINT', onInterrupt);
     try {
         const argv = process.argv.slice(2);
-        if (argv.includes('--version')) { process.stdout.write('0.1.0\n'); return; }
+        if (argv.includes('--version')) { process.stdout.write((await readPackageVersion()) + '\n'); return; }
         const parsed = parseArguments(argv);
         const args = parsed && await loadConfig(parsed, argv);
         if (!args) {
@@ -661,13 +702,27 @@ async function main(): Promise<void> {
         controller.signal.throwIfAborted();
         for (const file of written) process.stdout.write(file + '\n');
     } catch (error) {
-        process.stderr.write((error instanceof Error ? error.message : String(error)) + '\n');
+        process.stderr.write(formatCliError(error) + '\n');
         process.exitCode = controller.signal.aborted ? 130
             : error instanceof Error && /^(Unknown argument|Missing value|Invalid |Input Markdown path|--format|--html-|Only one input|Configuration |rendering |pdf must|html must|browserPath must|workspaceRoot must|Unknown configuration|Unknown rendering)/.test(error.message)
             ? 2 : 1;
     } finally {
         process.removeListener('SIGINT', onInterrupt);
     }
+}
+
+/**
+ * 配布物に必ず含まれるpackage.jsonから、CLIが表示するバージョンを取得する。
+ * @returns 公開パッケージのversion文字列。
+ * @throws package.jsonを読めない場合、JSONが壊れている場合、versionが文字列でない場合に失敗する。
+ */
+async function readPackageVersion(): Promise<string> {
+    const packagePath = path.resolve(assetDir, '..', 'package.json');
+    const metadata = JSON.parse(await fs.readFile(packagePath, 'utf8')) as { version?: unknown };
+    if (typeof metadata.version !== 'string' || metadata.version.length === 0) {
+        throw new Error('Package version is missing.');
+    }
+    return metadata.version;
 }
 
 if (require.main === module) void main();

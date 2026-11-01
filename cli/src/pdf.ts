@@ -11,9 +11,9 @@ import {
     type NormalizedPdfOptions,
     type PdfOptions,
     type PdfPaperFormat
-} from './source/shared/protocol';
-import { getMessages, type SupportedLanguage } from './source/shared/messages';
-import { DEFAULT_FONT_FAMILY_STACK, fontFamilyForCss } from './source/shared/fontFamily';
+} from './shared/protocol';
+import { getMessages, type SupportedLanguage } from './shared/messages';
+import { DEFAULT_FONT_FAMILY_STACK, fontFamilyForCss } from './shared/fontFamily';
 
 /**
  * PDF出力へ渡すHTML、CSS、設定、保存先をまとめた要求。
@@ -361,7 +361,7 @@ async function withRenderControl<T>(
          * 指定時間の経過後に後続処理を実行する。
          */
         () => {
-            console.warn(`[Markdown Easy Visual Editor] PDF ${stage} timed out.`);
+            // 同じ文言の例外を呼び出し元が表示するため、CLI の標準エラーへ重複した警告は出さない。
             cancel(new Error(`PDF ${stage} timed out.`));
         }, remainingMs);
     if (signal) {
@@ -562,10 +562,10 @@ function decodeImageSource(value: string | undefined): string | undefined {
 }
 
 /**
- * Markdown内のローカル画像参照を、文書位置に基づくVS Code URIへ解決する。
- * @param documentUri - 相対画像参照の基準となるMarkdown文書のURI。
+ * Markdown内のローカル画像参照を、文書位置に基づくファイルシステム上の絶対パスへ解決する。
+ * @param documentPath - 相対画像参照の基準となるMarkdown文書のパス。
  * @param source - Markdownから取り出したローカル画像URIまたはファイルパス。
- * @returns 条件に一致する値。未検出時はundefinedまたはnull。
+ * @returns 解決した絶対パス。不正な file: URI では undefined。
  */
 function resolveLocalImageUri(documentPath: string, source: string): string | undefined {
     if (/^file:/i.test(source)) {
@@ -582,10 +582,28 @@ function resolveLocalImageUri(documentPath: string, source: string): string | un
 }
 
 /**
+ * ブラウザーが明示されず、Edge と Chrome のどちらも起動できなかったことを表す。
+ * message は表示言語に応じた汎用文言で、各チャンネルの起動失敗は cause に保持する。
+ * CLI はこの型を見分けて --browser を案内する文言へ置き換えるため、診断ログを標準エラーへ別途出力しない。
+ */
+export class PdfBrowserUnavailableError extends Error {
+    /**
+     * @param message - 利用者へ表示する汎用文言。
+     * @param edgeError - Edge チャンネルの起動失敗。
+     * @param chromeError - Chrome チャンネルの起動失敗。
+     */
+    constructor(message: string, readonly edgeError: unknown, readonly chromeError: unknown) {
+        super(message, { cause: { edgeError, chromeError } });
+        this.name = 'PdfBrowserUnavailableError';
+    }
+}
+
+/**
  * 設定済みまたはインストール済みブラウザーを探し、PDF印刷に使うChromiumを起動する。
  * @param language - ブラウザー起動失敗時のメッセージに使う表示言語。
  * @returns 起動したPlaywright Browser。
- * @throws 利用可能なブラウザを起動できない場合。
+ * @throws PdfBrowserUnavailableError - ブラウザーが明示されず、Edge と Chrome のどちらも起動できない場合。
+ *   明示されたブラウザーの起動失敗は Playwright の例外をそのまま投げる。
  */
 async function launchPdfBrowser(language: SupportedLanguage, browserPath?: string): Promise<Browser> {
     // Playwrightを遅延ロードし、設定・Edge・Chromeの順にPDF用ブラウザを探す。
@@ -599,8 +617,7 @@ async function launchPdfBrowser(language: SupportedLanguage, browserPath?: strin
         try {
             return await chromium.launch({ channel: 'chrome', headless: true, timeout: PDF_BROWSER_LAUNCH_TIMEOUT_MS });
         } catch (chromeError) {
-            console.error('[Markdown Easy Visual Editor] EdgeとChromeの起動に失敗しました。', { edgeError, chromeError });
-            throw new Error(getMessages(language).host.pdfBrowserUnavailable);
+            throw new PdfBrowserUnavailableError(getMessages(language).host.pdfBrowserUnavailable, edgeError, chromeError);
         }
     }
 }

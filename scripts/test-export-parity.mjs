@@ -48,7 +48,7 @@ await Promise.all(['html', 'pdf'].map((format) =>
     remoteImagesEnabled: true, renderFormat: 'mixed',
   })));
 const comparison = await execute(process.execPath, [
-  'cli/test/render-parity.mjs', '--input', input,
+  'scripts/render-parity.mjs', '--input', input,
   '--reference-html', referenceHtml, '--reference-pdf', referencePdf,
   '--browser', browser, '--out-dir', directory,
 ], { maxBuffer: 1024 * 1024 });

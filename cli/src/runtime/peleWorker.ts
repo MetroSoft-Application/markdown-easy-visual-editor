@@ -5,6 +5,7 @@ import { render } from 'pele';
 import type { LinkInfo, RenderOptions } from 'pele';
 import { sanitizePeleRenderError } from '../shared/peleError';
 
+/** メインスレッドから隔離Workerへ送る描画要求。 */
 interface PeleRenderRequest {
     id: string;
     source: string;
@@ -15,6 +16,7 @@ interface PeleRenderRequest {
     now: number;
 }
 
+/** 隔離Workerからメインスレッドへ返す描画結果または安全化済みエラー。 */
 interface PeleRenderResponse {
     ready?: true;
     id: string;
@@ -23,6 +25,7 @@ interface PeleRenderResponse {
     error?: string;
 }
 
+/** 各テーマの描画色。未知のテーマは呼び出し側で正規化する。 */
 const palettes = {
     default: {
         bg: '#ffffff', fg: '#1f1f1f', muted: '#6e6e6e', line: '#1f1f1f',
@@ -38,11 +41,13 @@ const palettes = {
     }
 } as const;
 
+/** Workerのメッセージ入出力だけを参照する実行境界。 */
 const workerScope = globalThis as unknown as {
     onmessage: ((event: MessageEvent<PeleRenderRequest>) => void) | null;
     postMessage: (message: PeleRenderResponse) => void;
 };
 
+/** 各描画要求を処理し、失敗時も要求ID付きで応答してWorkerを再利用可能に保つ。 */
 workerScope.onmessage = (event) => {
     const request = event.data;
     try {

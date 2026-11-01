@@ -1,9 +1,0 @@
-{
-  "pdf": {
-    "header": "Alpha {page}",
-    "footer": "Alpha {page}/{pages}",
-    "textReplacements": [
-      { "pattern": "Alpha", "replacement": "Beta" }
-    ]
-  }
-}

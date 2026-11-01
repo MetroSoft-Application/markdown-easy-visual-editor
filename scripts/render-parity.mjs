@@ -2,7 +2,7 @@
  * @fileoverview ブラウザーのスクリーンショット、PDF.jsによるページ画像化、画素差分を使い、
  * 実際のVS Code HTML/PDF出力とCLIの変換結果を比較する。
  *
- * node cli/test/render-parity.mjs --input sample.md
+ * node scripts/render-parity.mjs --input sample.md
  *   --reference-html editor.html --reference-pdf editor.pdf
  *   [--browser /path/to/chromium] [--out-dir parity-results]
  *   [--html-linked true] [--html-outline true]
@@ -46,7 +46,7 @@ for (const name of ['--html-linked', '--html-outline', '--html-embed-images', '-
 }
 const source = path.resolve(flags.get('--input'));
 const references = ['html', 'pdf'].map((ext) => path.resolve(flags.get('--reference-' + ext)));
-const output = path.resolve(flags.get('--out-dir') || 'cli/visual-report');
+const output = path.resolve(flags.get('--out-dir') || 'artifacts/visual-report');
 const executable = flags.get('--browser') || process.env.MVE_CLI_TEST_BROWSER;
 const maxRatio = Number(flags.get('--max-different-ratio') || '0');
 if (!(maxRatio >= 0 && maxRatio <= 1)) throw new Error('Invalid pixel difference threshold.');
@@ -295,7 +295,7 @@ async function pixels(left, right, name) {
 try {
     if (!suppliedCandidates.some(Boolean)) {
         await fs.stat('cli/dist/mve-convert.cjs').catch(() => {
-            throw new Error('Build CLI first: npm run build:cli');
+            throw new Error('Build CLI first: npm run build');
         });
     }
     browser = await chromium.launch(executable

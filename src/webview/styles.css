@@ -910,6 +910,20 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
 }
 
 /*
+ * @style .split-preview .rendered-markdown > :first-child, .split-preview .rendered-markdown > :first-child > :first-child
+ * 先頭ブロックと、その内側の先頭要素の上マージンを打ち消し、プレビュー上端の余白を上パディングだけにする。
+ * 見出しのmargin-topは前の段落との区切り用で、先頭ではh1の2emと重なって3em以上の空白になるため。
+ * 描画結果は各ブロックをdiv.markdown-source-blockで包み、内側のh1のマージンはラッパーを突き抜けて上端へ出る。
+ * ラッパーのないフォールバック描画では、先頭の子が見出しなどの要素そのものになる。
+ * 入力のたびにブロック単位でDOMを差し替えるため、兄弟要素に依存する~や:emptyの複合セレクタは使わない。
+ * それらは大きな文書で後続の全ブロックのスタイル再計算を招く。そのため、HTMLコメントだけの先頭ブロックの後に続く見出しは対象外とする。
+ */
+.split-preview .rendered-markdown > :first-child,
+.split-preview .rendered-markdown > :first-child > :first-child {
+    margin-top: 0;
+}
+
+/*
  * @style .mve-marp-preview, .mve-marp-preview-scaled, .mve-marp-preview-frame
  * MarpのテーマCSSを隔離iframe内へ閉じ込め、スライド領域だけを親プレビューへ配置する。
  */

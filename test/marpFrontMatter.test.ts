@@ -8,7 +8,7 @@ import {
   isMarpMarkdown,
   stripMarpFrontMatter,
 } from "../src/shared/marpFrontMatter";
-import { stripMarpFrontMatter as stripCliMarpFrontMatter } from "../cli/source/shared/marpFrontMatter";
+import { stripMarpFrontMatter as stripCliMarpFrontMatter } from "../cli/src/shared/marpFrontMatter";
 
 /**
  * MarpのYAML判定関数を共有front matter判定へ渡す。

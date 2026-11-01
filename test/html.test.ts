@@ -78,7 +78,7 @@ import {
     type HtmlExportRequest,
     type HtmlExportPreparation,
     type HtmlRenderedDocument
-} from '../cli/html';
+} from '../cli/src/html';
 
 type HtmlTestRequest = Omit<HtmlExportRequest, 'documentPath' | 'outputPath' | 'workspaceRoot'> & {
     documentUri: TestUri;

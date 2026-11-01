@@ -6,27 +6,40 @@ import { request as httpRequest } from 'node:http';
 import { isIP, type LookupFunction } from 'node:net';
 import { request as httpsRequest } from 'node:https';
 
+/** Mermaid図ごとに取得する画像の件数上限。 */
 const MAX_IMAGE_COUNT = 8;
 /** Mermaid図1件から読み込む画像1枚の最大バイト数。 */
 export const MAX_MERMAID_IMAGE_BYTES = 2 * 1024 * 1024;
+/** HTTP応答から保持する画像1件の上限。 */
 const MAX_IMAGE_BYTES = MAX_MERMAID_IMAGE_BYTES;
+/** 1つのMermaid図で取得する画像データの合計上限。 */
 const MAX_TOTAL_IMAGE_BYTES = 8 * 1024 * 1024;
+/** 画像ヘッダー検査で許可する1画像の画素数上限。 */
 const MAX_IMAGE_PIXELS = 16_000_000;
+/** 1つのMermaid図に含まれる全画像の画素数上限。 */
 const MAX_TOTAL_IMAGE_PIXELS = 32_000_000;
+/** 巨大な画像寸法によるデコード負荷を避ける上限。 */
 const MAX_IMAGE_DIMENSION = 8192;
+/** 外部画像要求全体のタイムアウト。 */
 const NETWORK_TIMEOUT_MS = 4_000;
+/** DNS解決を待つ時間の上限。 */
 const DNS_TIMEOUT_MS = 4_000;
+/** 外部画像キャッシュの有効期間。 */
 const REMOTE_CACHE_TTL_MS = 30_000;
+/** 外部画像キャッシュの件数上限。 */
 const REMOTE_CACHE_LIMIT = 32;
 
+/** 画像データとして受け入れるラスター形式。 */
 type ImageMime = 'image/png' | 'image/jpeg' | 'image/gif' | 'image/webp';
 
+/** バイト列・形式・寸法検査を通過した画像。 */
 interface ValidatedImage {
     bytes: Buffer;
     mime: ImageMime;
     pixels: number;
 }
 
+/** 有効期限と総容量の管理に用いるキャッシュ項目。 */
 interface CachedImage {
     dataUri: string;
     expiresAt: number;
@@ -34,7 +47,9 @@ interface CachedImage {
     pixels: number;
 }
 
+/** 外部画像キャッシュ。キーは正規化したURL、値は検証済み画像と期限。 */
 const remoteImageCache = new Map<string, CachedImage>();
+/** キャッシュ済み画像バイト列の合計。上限超過時の古い項目削除に使う。 */
 let remoteImageCacheBytes = 0;
 
 /**
@@ -145,6 +160,7 @@ async function getRemoteImage(source: string, signal?: AbortSignal): Promise<Val
     return image;
 }
 
+/** 公開IPへ固定した要求先とTLS検証用の元ホスト情報。 */
 interface ImageRequestOptions {
     protocol: string;
     hostname: string;
@@ -267,6 +283,7 @@ function validateImage(bytes: Buffer): ValidatedImage | undefined {
     return { bytes, mime: dimensions.mime, pixels: dimensions.width * dimensions.height };
 }
 
+/** 画像ヘッダーから読み取った許可形式と寸法。 */
 interface ImageDimensions {
     width: number;
     height: number;
