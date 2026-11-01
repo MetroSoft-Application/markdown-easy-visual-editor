@@ -1,0 +1,3144 @@
+{
+ "sample/10-image-scroll-stress.md#markdown": [
+  {
+   "level": 1,
+   "text": "Image Scroll Synchronization Stress Sample",
+   "line": 1,
+   "offset": 0,
+   "id": "image-scroll-synchronization-stress-sample"
+  },
+  {
+   "level": 2,
+   "text": "Section 01",
+   "line": 7,
+   "offset": 328,
+   "id": "section-01"
+  },
+  {
+   "level": 3,
+   "text": "Marker 01-01",
+   "line": 11,
+   "offset": 482,
+   "id": "marker-01-01"
+  },
+  {
+   "level": 3,
+   "text": "Marker 01-02",
+   "line": 19,
+   "offset": 743,
+   "id": "marker-01-02"
+  },
+  {
+   "level": 3,
+   "text": "Marker 01-03",
+   "line": 27,
+   "offset": 1002,
+   "id": "marker-01-03"
+  },
+  {
+   "level": 3,
+   "text": "Marker 01-04",
+   "line": 35,
+   "offset": 1257,
+   "id": "marker-01-04"
+  },
+  {
+   "level": 3,
+   "text": "Marker 01-05",
+   "line": 43,
+   "offset": 1516,
+   "id": "marker-01-05"
+  },
+  {
+   "level": 2,
+   "text": "Section 02",
+   "line": 53,
+   "offset": 1812,
+   "id": "section-02"
+  },
+  {
+   "level": 3,
+   "text": "Marker 02-01",
+   "line": 57,
+   "offset": 1966,
+   "id": "marker-02-01"
+  },
+  {
+   "level": 3,
+   "text": "Marker 02-02",
+   "line": 65,
+   "offset": 2227,
+   "id": "marker-02-02"
+  },
+  {
+   "level": 3,
+   "text": "Marker 02-03",
+   "line": 73,
+   "offset": 2486,
+   "id": "marker-02-03"
+  },
+  {
+   "level": 3,
+   "text": "Marker 02-04",
+   "line": 81,
+   "offset": 2741,
+   "id": "marker-02-04"
+  },
+  {
+   "level": 3,
+   "text": "Marker 02-05",
+   "line": 89,
+   "offset": 3000,
+   "id": "marker-02-05"
+  },
+  {
+   "level": 2,
+   "text": "Section 03",
+   "line": 99,
+   "offset": 3296,
+   "id": "section-03"
+  },
+  {
+   "level": 3,
+   "text": "Marker 03-01",
+   "line": 103,
+   "offset": 3450,
+   "id": "marker-03-01"
+  },
+  {
+   "level": 3,
+   "text": "Marker 03-02",
+   "line": 111,
+   "offset": 3711,
+   "id": "marker-03-02"
+  },
+  {
+   "level": 3,
+   "text": "Marker 03-03",
+   "line": 119,
+   "offset": 3970,
+   "id": "marker-03-03"
+  },
+  {
+   "level": 3,
+   "text": "Marker 03-04",
+   "line": 127,
+   "offset": 4225,
+   "id": "marker-03-04"
+  },
+  {
+   "level": 3,
+   "text": "Marker 03-05",
+   "line": 135,
+   "offset": 4484,
+   "id": "marker-03-05"
+  },
+  {
+   "level": 2,
+   "text": "Section 04",
+   "line": 145,
+   "offset": 4780,
+   "id": "section-04"
+  },
+  {
+   "level": 3,
+   "text": "Marker 04-01",
+   "line": 149,
+   "offset": 4934,
+   "id": "marker-04-01"
+  },
+  {
+   "level": 3,
+   "text": "Marker 04-02",
+   "line": 157,
+   "offset": 5195,
+   "id": "marker-04-02"
+  },
+  {
+   "level": 3,
+   "text": "Marker 04-03",
+   "line": 165,
+   "offset": 5454,
+   "id": "marker-04-03"
+  },
+  {
+   "level": 3,
+   "text": "Marker 04-04",
+   "line": 173,
+   "offset": 5709,
+   "id": "marker-04-04"
+  },
+  {
+   "level": 3,
+   "text": "Marker 04-05",
+   "line": 181,
+   "offset": 5968,
+   "id": "marker-04-05"
+  },
+  {
+   "level": 2,
+   "text": "Section 05",
+   "line": 191,
+   "offset": 6264,
+   "id": "section-05"
+  },
+  {
+   "level": 3,
+   "text": "Marker 05-01",
+   "line": 195,
+   "offset": 6418,
+   "id": "marker-05-01"
+  },
+  {
+   "level": 3,
+   "text": "Marker 05-02",
+   "line": 203,
+   "offset": 6679,
+   "id": "marker-05-02"
+  },
+  {
+   "level": 3,
+   "text": "Marker 05-03",
+   "line": 211,
+   "offset": 6938,
+   "id": "marker-05-03"
+  },
+  {
+   "level": 3,
+   "text": "Marker 05-04",
+   "line": 219,
+   "offset": 7193,
+   "id": "marker-05-04"
+  },
+  {
+   "level": 3,
+   "text": "Marker 05-05",
+   "line": 227,
+   "offset": 7452,
+   "id": "marker-05-05"
+  },
+  {
+   "level": 2,
+   "text": "Section 06",
+   "line": 237,
+   "offset": 7748,
+   "id": "section-06"
+  },
+  {
+   "level": 3,
+   "text": "Marker 06-01",
+   "line": 241,
+   "offset": 7902,
+   "id": "marker-06-01"
+  },
+  {
+   "level": 3,
+   "text": "Marker 06-02",
+   "line": 249,
+   "offset": 8163,
+   "id": "marker-06-02"
+  },
+  {
+   "level": 3,
+   "text": "Marker 06-03",
+   "line": 257,
+   "offset": 8422,
+   "id": "marker-06-03"
+  },
+  {
+   "level": 3,
+   "text": "Marker 06-04",
+   "line": 265,
+   "offset": 8677,
+   "id": "marker-06-04"
+  },
+  {
+   "level": 3,
+   "text": "Marker 06-05",
+   "line": 273,
+   "offset": 8936,
+   "id": "marker-06-05"
+  },
+  {
+   "level": 2,
+   "text": "Section 07",
+   "line": 283,
+   "offset": 9232,
+   "id": "section-07"
+  },
+  {
+   "level": 3,
+   "text": "Marker 07-01",
+   "line": 287,
+   "offset": 9386,
+   "id": "marker-07-01"
+  },
+  {
+   "level": 3,
+   "text": "Marker 07-02",
+   "line": 295,
+   "offset": 9647,
+   "id": "marker-07-02"
+  },
+  {
+   "level": 3,
+   "text": "Marker 07-03",
+   "line": 303,
+   "offset": 9906,
+   "id": "marker-07-03"
+  },
+  {
+   "level": 3,
+   "text": "Marker 07-04",
+   "line": 311,
+   "offset": 10161,
+   "id": "marker-07-04"
+  },
+  {
+   "level": 3,
+   "text": "Marker 07-05",
+   "line": 319,
+   "offset": 10420,
+   "id": "marker-07-05"
+  },
+  {
+   "level": 2,
+   "text": "Section 08",
+   "line": 329,
+   "offset": 10716,
+   "id": "section-08"
+  },
+  {
+   "level": 3,
+   "text": "Marker 08-01",
+   "line": 333,
+   "offset": 10870,
+   "id": "marker-08-01"
+  },
+  {
+   "level": 3,
+   "text": "Marker 08-02",
+   "line": 341,
+   "offset": 11131,
+   "id": "marker-08-02"
+  },
+  {
+   "level": 3,
+   "text": "Marker 08-03",
+   "line": 349,
+   "offset": 11390,
+   "id": "marker-08-03"
+  },
+  {
+   "level": 3,
+   "text": "Marker 08-04",
+   "line": 357,
+   "offset": 11645,
+   "id": "marker-08-04"
+  },
+  {
+   "level": 3,
+   "text": "Marker 08-05",
+   "line": 365,
+   "offset": 11904,
+   "id": "marker-08-05"
+  }
+ ],
+ "sample/10-image-scroll-stress.md#mixed": [
+  {
+   "level": 1,
+   "text": "Image Scroll Synchronization Stress Sample",
+   "line": 1,
+   "offset": 0,
+   "id": "image-scroll-synchronization-stress-sample"
+  },
+  {
+   "level": 2,
+   "text": "Section 01",
+   "line": 7,
+   "offset": 328,
+   "id": "section-01"
+  },
+  {
+   "level": 3,
+   "text": "Marker 01-01",
+   "line": 11,
+   "offset": 482,
+   "id": "marker-01-01"
+  },
+  {
+   "level": 3,
+   "text": "Marker 01-02",
+   "line": 19,
+   "offset": 743,
+   "id": "marker-01-02"
+  },
+  {
+   "level": 3,
+   "text": "Marker 01-03",
+   "line": 27,
+   "offset": 1002,
+   "id": "marker-01-03"
+  },
+  {
+   "level": 3,
+   "text": "Marker 01-04",
+   "line": 35,
+   "offset": 1257,
+   "id": "marker-01-04"
+  },
+  {
+   "level": 3,
+   "text": "Marker 01-05",
+   "line": 43,
+   "offset": 1516,
+   "id": "marker-01-05"
+  },
+  {
+   "level": 2,
+   "text": "Section 02",
+   "line": 53,
+   "offset": 1812,
+   "id": "section-02"
+  },
+  {
+   "level": 3,
+   "text": "Marker 02-01",
+   "line": 57,
+   "offset": 1966,
+   "id": "marker-02-01"
+  },
+  {
+   "level": 3,
+   "text": "Marker 02-02",
+   "line": 65,
+   "offset": 2227,
+   "id": "marker-02-02"
+  },
+  {
+   "level": 3,
+   "text": "Marker 02-03",
+   "line": 73,
+   "offset": 2486,
+   "id": "marker-02-03"
+  },
+  {
+   "level": 3,
+   "text": "Marker 02-04",
+   "line": 81,
+   "offset": 2741,
+   "id": "marker-02-04"
+  },
+  {
+   "level": 3,
+   "text": "Marker 02-05",
+   "line": 89,
+   "offset": 3000,
+   "id": "marker-02-05"
+  },
+  {
+   "level": 2,
+   "text": "Section 03",
+   "line": 99,
+   "offset": 3296,
+   "id": "section-03"
+  },
+  {
+   "level": 3,
+   "text": "Marker 03-01",
+   "line": 103,
+   "offset": 3450,
+   "id": "marker-03-01"
+  },
+  {
+   "level": 3,
+   "text": "Marker 03-02",
+   "line": 111,
+   "offset": 3711,
+   "id": "marker-03-02"
+  },
+  {
+   "level": 3,
+   "text": "Marker 03-03",
+   "line": 119,
+   "offset": 3970,
+   "id": "marker-03-03"
+  },
+  {
+   "level": 3,
+   "text": "Marker 03-04",
+   "line": 127,
+   "offset": 4225,
+   "id": "marker-03-04"
+  },
+  {
+   "level": 3,
+   "text": "Marker 03-05",
+   "line": 135,
+   "offset": 4484,
+   "id": "marker-03-05"
+  },
+  {
+   "level": 2,
+   "text": "Section 04",
+   "line": 145,
+   "offset": 4780,
+   "id": "section-04"
+  },
+  {
+   "level": 3,
+   "text": "Marker 04-01",
+   "line": 149,
+   "offset": 4934,
+   "id": "marker-04-01"
+  },
+  {
+   "level": 3,
+   "text": "Marker 04-02",
+   "line": 157,
+   "offset": 5195,
+   "id": "marker-04-02"
+  },
+  {
+   "level": 3,
+   "text": "Marker 04-03",
+   "line": 165,
+   "offset": 5454,
+   "id": "marker-04-03"
+  },
+  {
+   "level": 3,
+   "text": "Marker 04-04",
+   "line": 173,
+   "offset": 5709,
+   "id": "marker-04-04"
+  },
+  {
+   "level": 3,
+   "text": "Marker 04-05",
+   "line": 181,
+   "offset": 5968,
+   "id": "marker-04-05"
+  },
+  {
+   "level": 2,
+   "text": "Section 05",
+   "line": 191,
+   "offset": 6264,
+   "id": "section-05"
+  },
+  {
+   "level": 3,
+   "text": "Marker 05-01",
+   "line": 195,
+   "offset": 6418,
+   "id": "marker-05-01"
+  },
+  {
+   "level": 3,
+   "text": "Marker 05-02",
+   "line": 203,
+   "offset": 6679,
+   "id": "marker-05-02"
+  },
+  {
+   "level": 3,
+   "text": "Marker 05-03",
+   "line": 211,
+   "offset": 6938,
+   "id": "marker-05-03"
+  },
+  {
+   "level": 3,
+   "text": "Marker 05-04",
+   "line": 219,
+   "offset": 7193,
+   "id": "marker-05-04"
+  },
+  {
+   "level": 3,
+   "text": "Marker 05-05",
+   "line": 227,
+   "offset": 7452,
+   "id": "marker-05-05"
+  },
+  {
+   "level": 2,
+   "text": "Section 06",
+   "line": 237,
+   "offset": 7748,
+   "id": "section-06"
+  },
+  {
+   "level": 3,
+   "text": "Marker 06-01",
+   "line": 241,
+   "offset": 7902,
+   "id": "marker-06-01"
+  },
+  {
+   "level": 3,
+   "text": "Marker 06-02",
+   "line": 249,
+   "offset": 8163,
+   "id": "marker-06-02"
+  },
+  {
+   "level": 3,
+   "text": "Marker 06-03",
+   "line": 257,
+   "offset": 8422,
+   "id": "marker-06-03"
+  },
+  {
+   "level": 3,
+   "text": "Marker 06-04",
+   "line": 265,
+   "offset": 8677,
+   "id": "marker-06-04"
+  },
+  {
+   "level": 3,
+   "text": "Marker 06-05",
+   "line": 273,
+   "offset": 8936,
+   "id": "marker-06-05"
+  },
+  {
+   "level": 2,
+   "text": "Section 07",
+   "line": 283,
+   "offset": 9232,
+   "id": "section-07"
+  },
+  {
+   "level": 3,
+   "text": "Marker 07-01",
+   "line": 287,
+   "offset": 9386,
+   "id": "marker-07-01"
+  },
+  {
+   "level": 3,
+   "text": "Marker 07-02",
+   "line": 295,
+   "offset": 9647,
+   "id": "marker-07-02"
+  },
+  {
+   "level": 3,
+   "text": "Marker 07-03",
+   "line": 303,
+   "offset": 9906,
+   "id": "marker-07-03"
+  },
+  {
+   "level": 3,
+   "text": "Marker 07-04",
+   "line": 311,
+   "offset": 10161,
+   "id": "marker-07-04"
+  },
+  {
+   "level": 3,
+   "text": "Marker 07-05",
+   "line": 319,
+   "offset": 10420,
+   "id": "marker-07-05"
+  },
+  {
+   "level": 2,
+   "text": "Section 08",
+   "line": 329,
+   "offset": 10716,
+   "id": "section-08"
+  },
+  {
+   "level": 3,
+   "text": "Marker 08-01",
+   "line": 333,
+   "offset": 10870,
+   "id": "marker-08-01"
+  },
+  {
+   "level": 3,
+   "text": "Marker 08-02",
+   "line": 341,
+   "offset": 11131,
+   "id": "marker-08-02"
+  },
+  {
+   "level": 3,
+   "text": "Marker 08-03",
+   "line": 349,
+   "offset": 11390,
+   "id": "marker-08-03"
+  },
+  {
+   "level": 3,
+   "text": "Marker 08-04",
+   "line": 357,
+   "offset": 11645,
+   "id": "marker-08-04"
+  },
+  {
+   "level": 3,
+   "text": "Marker 08-05",
+   "line": 365,
+   "offset": 11904,
+   "id": "marker-08-05"
+  }
+ ],
+ "sample/marp/01-minimal.md#markdown": [
+  {
+   "level": 1,
+   "text": "Marp preview",
+   "line": 6,
+   "offset": 50,
+   "id": "marp-preview"
+  }
+ ],
+ "sample/marp/01-minimal.md#mixed": [
+  {
+   "level": 1,
+   "text": "Marp preview",
+   "line": 6,
+   "offset": 50,
+   "id": "marp-preview"
+  }
+ ],
+ "sample/marp/02-multiple-slides.md#markdown": [
+  {
+   "level": 1,
+   "text": "First slide",
+   "line": 6,
+   "offset": 50,
+   "id": "first-slide"
+  },
+  {
+   "level": 1,
+   "text": "Second slide",
+   "line": 12,
+   "offset": 105,
+   "id": "second-slide"
+  },
+  {
+   "level": 1,
+   "text": "Third slide",
+   "line": 18,
+   "offset": 157,
+   "id": "third-slide"
+  }
+ ],
+ "sample/marp/02-multiple-slides.md#mixed": [
+  {
+   "level": 1,
+   "text": "First slide",
+   "line": 6,
+   "offset": 50,
+   "id": "first-slide"
+  },
+  {
+   "level": 1,
+   "text": "Second slide",
+   "line": 12,
+   "offset": 105,
+   "id": "second-slide"
+  },
+  {
+   "level": 1,
+   "text": "Third slide",
+   "line": 18,
+   "offset": 157,
+   "id": "third-slide"
+  }
+ ],
+ "sample/marp/03-theme-default.md#markdown": [
+  {
+   "level": 1,
+   "text": "Default theme",
+   "line": 7,
+   "offset": 66,
+   "id": "default-theme"
+  },
+  {
+   "level": 1,
+   "text": "Second slide",
+   "line": 13,
+   "offset": 130,
+   "id": "second-slide"
+  }
+ ],
+ "sample/marp/03-theme-default.md#mixed": [
+  {
+   "level": 1,
+   "text": "Default theme",
+   "line": 7,
+   "offset": 66,
+   "id": "default-theme"
+  },
+  {
+   "level": 1,
+   "text": "Second slide",
+   "line": 13,
+   "offset": 130,
+   "id": "second-slide"
+  }
+ ],
+ "sample/marp/04-theme-gaia.md#markdown": [
+  {
+   "level": 1,
+   "text": "Gaia theme",
+   "line": 7,
+   "offset": 63,
+   "id": "gaia-theme"
+  },
+  {
+   "level": 1,
+   "text": "Gaia theme slide two",
+   "line": 13,
+   "offset": 130,
+   "id": "gaia-theme-slide-two"
+  }
+ ],
+ "sample/marp/04-theme-gaia.md#mixed": [
+  {
+   "level": 1,
+   "text": "Gaia theme",
+   "line": 7,
+   "offset": 63,
+   "id": "gaia-theme"
+  },
+  {
+   "level": 1,
+   "text": "Gaia theme slide two",
+   "line": 13,
+   "offset": 130,
+   "id": "gaia-theme-slide-two"
+  }
+ ],
+ "sample/marp/05-theme-uncover.md#markdown": [
+  {
+   "level": 1,
+   "text": "Uncover theme",
+   "line": 7,
+   "offset": 66,
+   "id": "uncover-theme"
+  },
+  {
+   "level": 1,
+   "text": "Uncover theme slide two",
+   "line": 13,
+   "offset": 139,
+   "id": "uncover-theme-slide-two"
+  }
+ ],
+ "sample/marp/05-theme-uncover.md#mixed": [
+  {
+   "level": 1,
+   "text": "Uncover theme",
+   "line": 7,
+   "offset": 66,
+   "id": "uncover-theme"
+  },
+  {
+   "level": 1,
+   "text": "Uncover theme slide two",
+   "line": 13,
+   "offset": 139,
+   "id": "uncover-theme-slide-two"
+  }
+ ],
+ "sample/marp/06-page-size-4-3.md#markdown": [
+  {
+   "level": 1,
+   "text": "4:3 page size",
+   "line": 7,
+   "offset": 61,
+   "id": "43-page-size"
+  }
+ ],
+ "sample/marp/06-page-size-4-3.md#mixed": [
+  {
+   "level": 1,
+   "text": "4:3 page size",
+   "line": 7,
+   "offset": 61,
+   "id": "43-page-size"
+  }
+ ],
+ "sample/marp/07-directives.md#markdown": [
+  {
+   "level": 1,
+   "text": "Global directives",
+   "line": 9,
+   "offset": 112,
+   "id": "global-directives"
+  },
+  {
+   "level": 1,
+   "text": "Slide directives",
+   "line": 19,
+   "offset": 309,
+   "id": "slide-directives"
+  }
+ ],
+ "sample/marp/07-directives.md#mixed": [
+  {
+   "level": 1,
+   "text": "Global directives",
+   "line": 9,
+   "offset": 112,
+   "id": "global-directives"
+  },
+  {
+   "level": 1,
+   "text": "Slide directives",
+   "line": 19,
+   "offset": 309,
+   "id": "slide-directives"
+  }
+ ],
+ "sample/marp/08-local-inline-image.md#markdown": [
+  {
+   "level": 1,
+   "text": "Local inline image",
+   "line": 6,
+   "offset": 50,
+   "id": "local-inline-image"
+  }
+ ],
+ "sample/marp/08-local-inline-image.md#mixed": [
+  {
+   "level": 1,
+   "text": "Local inline image",
+   "line": 6,
+   "offset": 50,
+   "id": "local-inline-image"
+  }
+ ],
+ "sample/marp/09-local-background-image.md#markdown": [
+  {
+   "level": 1,
+   "text": "Local background image",
+   "line": 8,
+   "offset": 87,
+   "id": "local-background-image"
+  }
+ ],
+ "sample/marp/09-local-background-image.md#mixed": [
+  {
+   "level": 1,
+   "text": "Local background image",
+   "line": 8,
+   "offset": 87,
+   "id": "local-background-image"
+  }
+ ],
+ "sample/marp/10-math-katex.md#markdown": [
+  {
+   "level": 1,
+   "text": "KaTeX inline formula",
+   "line": 7,
+   "offset": 63,
+   "id": "katex-inline-formula"
+  },
+  {
+   "level": 1,
+   "text": "KaTeX block formula",
+   "line": 13,
+   "offset": 133,
+   "id": "katex-block-formula"
+  }
+ ],
+ "sample/marp/10-math-katex.md#mixed": [
+  {
+   "level": 1,
+   "text": "KaTeX inline formula",
+   "line": 7,
+   "offset": 63,
+   "id": "katex-inline-formula"
+  },
+  {
+   "level": 1,
+   "text": "KaTeX block formula",
+   "line": 13,
+   "offset": 133,
+   "id": "katex-block-formula"
+  }
+ ],
+ "sample/marp/11-fit-and-code.md#markdown": [
+  {
+   "level": 1,
+   "text": "A long heading that uses the Marp fit directive <!-- fit -->",
+   "line": 6,
+   "offset": 50,
+   "id": "a-long-heading-that-uses-the-marp-fit-directive-fit-"
+  },
+  {
+   "level": 1,
+   "text": "Code block slide",
+   "line": 12,
+   "offset": 167,
+   "id": "code-block-slide"
+  }
+ ],
+ "sample/marp/11-fit-and-code.md#mixed": [
+  {
+   "level": 1,
+   "text": "A long heading that uses the Marp fit directive <!-- fit -->",
+   "line": 6,
+   "offset": 50,
+   "id": "a-long-heading-that-uses-the-marp-fit-directive-fit-"
+  },
+  {
+   "level": 1,
+   "text": "Code block slide",
+   "line": 12,
+   "offset": 167,
+   "id": "code-block-slide"
+  }
+ ],
+ "sample/marp/12-large-deck-performance.md#markdown": [
+  {
+   "level": 1,
+   "text": "Performance deck 01",
+   "line": 7,
+   "offset": 67,
+   "id": "performance-deck-01"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 02",
+   "line": 20,
+   "offset": 243,
+   "id": "performance-deck-02"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 03",
+   "line": 33,
+   "offset": 419,
+   "id": "performance-deck-03"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 04",
+   "line": 46,
+   "offset": 595,
+   "id": "performance-deck-04"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 05",
+   "line": 57,
+   "offset": 778,
+   "id": "performance-deck-05"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 06",
+   "line": 70,
+   "offset": 954,
+   "id": "performance-deck-06"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 07",
+   "line": 83,
+   "offset": 1130,
+   "id": "performance-deck-07"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 08",
+   "line": 96,
+   "offset": 1306,
+   "id": "performance-deck-08"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 09",
+   "line": 107,
+   "offset": 1489,
+   "id": "performance-deck-09"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 10",
+   "line": 120,
+   "offset": 1665,
+   "id": "performance-deck-10"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 11",
+   "line": 133,
+   "offset": 1842,
+   "id": "performance-deck-11"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 12",
+   "line": 146,
+   "offset": 2019,
+   "id": "performance-deck-12"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 13",
+   "line": 157,
+   "offset": 2202,
+   "id": "performance-deck-13"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 14",
+   "line": 170,
+   "offset": 2379,
+   "id": "performance-deck-14"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 15",
+   "line": 183,
+   "offset": 2556,
+   "id": "performance-deck-15"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 16",
+   "line": 196,
+   "offset": 2733,
+   "id": "performance-deck-16"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 17",
+   "line": 207,
+   "offset": 2916,
+   "id": "performance-deck-17"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 18",
+   "line": 220,
+   "offset": 3093,
+   "id": "performance-deck-18"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 19",
+   "line": 233,
+   "offset": 3270,
+   "id": "performance-deck-19"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 20",
+   "line": 246,
+   "offset": 3447,
+   "id": "performance-deck-20"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 21",
+   "line": 257,
+   "offset": 3630,
+   "id": "performance-deck-21"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 22",
+   "line": 270,
+   "offset": 3807,
+   "id": "performance-deck-22"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 23",
+   "line": 283,
+   "offset": 3984,
+   "id": "performance-deck-23"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 24",
+   "line": 296,
+   "offset": 4161,
+   "id": "performance-deck-24"
+  }
+ ],
+ "sample/marp/12-large-deck-performance.md#mixed": [
+  {
+   "level": 1,
+   "text": "Performance deck 01",
+   "line": 7,
+   "offset": 67,
+   "id": "performance-deck-01"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 02",
+   "line": 20,
+   "offset": 243,
+   "id": "performance-deck-02"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 03",
+   "line": 33,
+   "offset": 419,
+   "id": "performance-deck-03"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 04",
+   "line": 46,
+   "offset": 595,
+   "id": "performance-deck-04"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 05",
+   "line": 57,
+   "offset": 778,
+   "id": "performance-deck-05"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 06",
+   "line": 70,
+   "offset": 954,
+   "id": "performance-deck-06"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 07",
+   "line": 83,
+   "offset": 1130,
+   "id": "performance-deck-07"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 08",
+   "line": 96,
+   "offset": 1306,
+   "id": "performance-deck-08"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 09",
+   "line": 107,
+   "offset": 1489,
+   "id": "performance-deck-09"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 10",
+   "line": 120,
+   "offset": 1665,
+   "id": "performance-deck-10"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 11",
+   "line": 133,
+   "offset": 1842,
+   "id": "performance-deck-11"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 12",
+   "line": 146,
+   "offset": 2019,
+   "id": "performance-deck-12"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 13",
+   "line": 157,
+   "offset": 2202,
+   "id": "performance-deck-13"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 14",
+   "line": 170,
+   "offset": 2379,
+   "id": "performance-deck-14"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 15",
+   "line": 183,
+   "offset": 2556,
+   "id": "performance-deck-15"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 16",
+   "line": 196,
+   "offset": 2733,
+   "id": "performance-deck-16"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 17",
+   "line": 207,
+   "offset": 2916,
+   "id": "performance-deck-17"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 18",
+   "line": 220,
+   "offset": 3093,
+   "id": "performance-deck-18"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 19",
+   "line": 233,
+   "offset": 3270,
+   "id": "performance-deck-19"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 20",
+   "line": 246,
+   "offset": 3447,
+   "id": "performance-deck-20"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 21",
+   "line": 257,
+   "offset": 3630,
+   "id": "performance-deck-21"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 22",
+   "line": 270,
+   "offset": 3807,
+   "id": "performance-deck-22"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 23",
+   "line": 283,
+   "offset": 3984,
+   "id": "performance-deck-23"
+  },
+  {
+   "level": 1,
+   "text": "Performance deck 24",
+   "line": 296,
+   "offset": 4161,
+   "id": "performance-deck-24"
+  }
+ ],
+ "sample/mermaid/01-flowchart-basic.md#markdown": [
+  {
+   "level": 1,
+   "text": "フローチャートの基本",
+   "line": 1,
+   "offset": 0,
+   "id": "フローチャートの基本"
+  }
+ ],
+ "sample/mermaid/01-flowchart-basic.md#mixed": [
+  {
+   "level": 1,
+   "text": "フローチャートの基本",
+   "line": 1,
+   "offset": 0,
+   "id": "フローチャートの基本"
+  }
+ ],
+ "sample/mermaid/02-flowchart-branches.md#markdown": [
+  {
+   "level": 1,
+   "text": "フローチャートの分岐",
+   "line": 1,
+   "offset": 0,
+   "id": "フローチャートの分岐"
+  }
+ ],
+ "sample/mermaid/02-flowchart-branches.md#mixed": [
+  {
+   "level": 1,
+   "text": "フローチャートの分岐",
+   "line": 1,
+   "offset": 0,
+   "id": "フローチャートの分岐"
+  }
+ ],
+ "sample/mermaid/03-flowchart-subgraphs.md#markdown": [
+  {
+   "level": 1,
+   "text": "フローチャートのサブグラフ",
+   "line": 1,
+   "offset": 0,
+   "id": "フローチャートのサブグラフ"
+  }
+ ],
+ "sample/mermaid/03-flowchart-subgraphs.md#mixed": [
+  {
+   "level": 1,
+   "text": "フローチャートのサブグラフ",
+   "line": 1,
+   "offset": 0,
+   "id": "フローチャートのサブグラフ"
+  }
+ ],
+ "sample/mermaid/04-flowchart-shapes-and-styles.md#markdown": [
+  {
+   "level": 1,
+   "text": "フローチャートの図形とスタイル",
+   "line": 1,
+   "offset": 0,
+   "id": "フローチャートの図形とスタイル"
+  }
+ ],
+ "sample/mermaid/04-flowchart-shapes-and-styles.md#mixed": [
+  {
+   "level": 1,
+   "text": "フローチャートの図形とスタイル",
+   "line": 1,
+   "offset": 0,
+   "id": "フローチャートの図形とスタイル"
+  }
+ ],
+ "sample/mermaid/05-sequence-basic.md#markdown": [
+  {
+   "level": 1,
+   "text": "シーケンス図の基本",
+   "line": 1,
+   "offset": 0,
+   "id": "シーケンス図の基本"
+  }
+ ],
+ "sample/mermaid/05-sequence-basic.md#mixed": [
+  {
+   "level": 1,
+   "text": "シーケンス図の基本",
+   "line": 1,
+   "offset": 0,
+   "id": "シーケンス図の基本"
+  }
+ ],
+ "sample/mermaid/06-sequence-control-flow.md#markdown": [
+  {
+   "level": 1,
+   "text": "シーケンス図の条件と並行処理",
+   "line": 1,
+   "offset": 0,
+   "id": "シーケンス図の条件と並行処理"
+  }
+ ],
+ "sample/mermaid/06-sequence-control-flow.md#mixed": [
+  {
+   "level": 1,
+   "text": "シーケンス図の条件と並行処理",
+   "line": 1,
+   "offset": 0,
+   "id": "シーケンス図の条件と並行処理"
+  }
+ ],
+ "sample/mermaid/07-sequence-notes-and-activation.md#markdown": [
+  {
+   "level": 1,
+   "text": "シーケンス図の注記と実行区間",
+   "line": 1,
+   "offset": 0,
+   "id": "シーケンス図の注記と実行区間"
+  }
+ ],
+ "sample/mermaid/07-sequence-notes-and-activation.md#mixed": [
+  {
+   "level": 1,
+   "text": "シーケンス図の注記と実行区間",
+   "line": 1,
+   "offset": 0,
+   "id": "シーケンス図の注記と実行区間"
+  }
+ ],
+ "sample/mermaid/08-class-diagram.md#markdown": [
+  {
+   "level": 1,
+   "text": "クラス図",
+   "line": 1,
+   "offset": 0,
+   "id": "クラス図"
+  }
+ ],
+ "sample/mermaid/08-class-diagram.md#mixed": [
+  {
+   "level": 1,
+   "text": "クラス図",
+   "line": 1,
+   "offset": 0,
+   "id": "クラス図"
+  }
+ ],
+ "sample/mermaid/09-state-diagram-basic.md#markdown": [
+  {
+   "level": 1,
+   "text": "状態遷移図の基本",
+   "line": 1,
+   "offset": 0,
+   "id": "状態遷移図の基本"
+  }
+ ],
+ "sample/mermaid/09-state-diagram-basic.md#mixed": [
+  {
+   "level": 1,
+   "text": "状態遷移図の基本",
+   "line": 1,
+   "offset": 0,
+   "id": "状態遷移図の基本"
+  }
+ ],
+ "sample/mermaid/10-state-diagram-composite.md#markdown": [
+  {
+   "level": 1,
+   "text": "状態遷移図の複合状態",
+   "line": 1,
+   "offset": 0,
+   "id": "状態遷移図の複合状態"
+  }
+ ],
+ "sample/mermaid/10-state-diagram-composite.md#mixed": [
+  {
+   "level": 1,
+   "text": "状態遷移図の複合状態",
+   "line": 1,
+   "offset": 0,
+   "id": "状態遷移図の複合状態"
+  }
+ ],
+ "sample/mermaid/11-er-diagram.md#markdown": [
+  {
+   "level": 1,
+   "text": "ER 図",
+   "line": 1,
+   "offset": 0,
+   "id": "er-図"
+  }
+ ],
+ "sample/mermaid/11-er-diagram.md#mixed": [
+  {
+   "level": 1,
+   "text": "ER 図",
+   "line": 1,
+   "offset": 0,
+   "id": "er-図"
+  }
+ ],
+ "sample/mermaid/12-gantt-schedule.md#markdown": [
+  {
+   "level": 1,
+   "text": "ガントチャートの基本",
+   "line": 1,
+   "offset": 0,
+   "id": "ガントチャートの基本"
+  }
+ ],
+ "sample/mermaid/12-gantt-schedule.md#mixed": [
+  {
+   "level": 1,
+   "text": "ガントチャートの基本",
+   "line": 1,
+   "offset": 0,
+   "id": "ガントチャートの基本"
+  }
+ ],
+ "sample/mermaid/13-gantt-dependencies.md#markdown": [
+  {
+   "level": 1,
+   "text": "ガントチャートの依存関係",
+   "line": 1,
+   "offset": 0,
+   "id": "ガントチャートの依存関係"
+  }
+ ],
+ "sample/mermaid/13-gantt-dependencies.md#mixed": [
+  {
+   "level": 1,
+   "text": "ガントチャートの依存関係",
+   "line": 1,
+   "offset": 0,
+   "id": "ガントチャートの依存関係"
+  }
+ ],
+ "sample/mermaid/14-pie-chart.md#markdown": [
+  {
+   "level": 1,
+   "text": "円グラフ",
+   "line": 1,
+   "offset": 0,
+   "id": "円グラフ"
+  }
+ ],
+ "sample/mermaid/14-pie-chart.md#mixed": [
+  {
+   "level": 1,
+   "text": "円グラフ",
+   "line": 1,
+   "offset": 0,
+   "id": "円グラフ"
+  }
+ ],
+ "sample/mermaid/15-mindmap.md#markdown": [
+  {
+   "level": 1,
+   "text": "マインドマップ",
+   "line": 1,
+   "offset": 0,
+   "id": "マインドマップ"
+  }
+ ],
+ "sample/mermaid/15-mindmap.md#mixed": [
+  {
+   "level": 1,
+   "text": "マインドマップ",
+   "line": 1,
+   "offset": 0,
+   "id": "マインドマップ"
+  }
+ ],
+ "sample/mermaid/16-timeline.md#markdown": [
+  {
+   "level": 1,
+   "text": "タイムライン",
+   "line": 1,
+   "offset": 0,
+   "id": "タイムライン"
+  }
+ ],
+ "sample/mermaid/16-timeline.md#mixed": [
+  {
+   "level": 1,
+   "text": "タイムライン",
+   "line": 1,
+   "offset": 0,
+   "id": "タイムライン"
+  }
+ ],
+ "sample/mermaid/17-git-graph.md#markdown": [
+  {
+   "level": 1,
+   "text": "Git グラフ",
+   "line": 1,
+   "offset": 0,
+   "id": "git-グラフ"
+  }
+ ],
+ "sample/mermaid/17-git-graph.md#mixed": [
+  {
+   "level": 1,
+   "text": "Git グラフ",
+   "line": 1,
+   "offset": 0,
+   "id": "git-グラフ"
+  }
+ ],
+ "sample/mermaid/18-user-journey.md#markdown": [
+  {
+   "level": 1,
+   "text": "ユーザージャーニー",
+   "line": 1,
+   "offset": 0,
+   "id": "ユーザージャーニー"
+  }
+ ],
+ "sample/mermaid/18-user-journey.md#mixed": [
+  {
+   "level": 1,
+   "text": "ユーザージャーニー",
+   "line": 1,
+   "offset": 0,
+   "id": "ユーザージャーニー"
+  }
+ ],
+ "sample/mermaid/19-quadrant-chart.md#markdown": [
+  {
+   "level": 1,
+   "text": "クアドラントチャート",
+   "line": 1,
+   "offset": 0,
+   "id": "クアドラントチャート"
+  }
+ ],
+ "sample/mermaid/19-quadrant-chart.md#mixed": [
+  {
+   "level": 1,
+   "text": "クアドラントチャート",
+   "line": 1,
+   "offset": 0,
+   "id": "クアドラントチャート"
+  }
+ ],
+ "sample/mermaid/20-xy-chart.md#markdown": [
+  {
+   "level": 1,
+   "text": "XY チャート",
+   "line": 1,
+   "offset": 0,
+   "id": "xy-チャート"
+  }
+ ],
+ "sample/mermaid/20-xy-chart.md#mixed": [
+  {
+   "level": 1,
+   "text": "XY チャート",
+   "line": 1,
+   "offset": 0,
+   "id": "xy-チャート"
+  }
+ ],
+ "sample/mermaid/21-block-diagram.md#markdown": [
+  {
+   "level": 1,
+   "text": "ブロック図",
+   "line": 1,
+   "offset": 0,
+   "id": "ブロック図"
+  }
+ ],
+ "sample/mermaid/21-block-diagram.md#mixed": [
+  {
+   "level": 1,
+   "text": "ブロック図",
+   "line": 1,
+   "offset": 0,
+   "id": "ブロック図"
+  }
+ ],
+ "sample/mermaid/22-architecture-diagram.md#markdown": [
+  {
+   "level": 1,
+   "text": "アーキテクチャ図",
+   "line": 1,
+   "offset": 0,
+   "id": "アーキテクチャ図"
+  }
+ ],
+ "sample/mermaid/22-architecture-diagram.md#mixed": [
+  {
+   "level": 1,
+   "text": "アーキテクチャ図",
+   "line": 1,
+   "offset": 0,
+   "id": "アーキテクチャ図"
+  }
+ ],
+ "sample/mermaid/23-sankey-diagram.md#markdown": [
+  {
+   "level": 1,
+   "text": "サンキー図",
+   "line": 1,
+   "offset": 0,
+   "id": "サンキー図"
+  }
+ ],
+ "sample/mermaid/23-sankey-diagram.md#mixed": [
+  {
+   "level": 1,
+   "text": "サンキー図",
+   "line": 1,
+   "offset": 0,
+   "id": "サンキー図"
+  }
+ ],
+ "sample/mermaid/24-requirement-diagram.md#markdown": [
+  {
+   "level": 1,
+   "text": "要求図",
+   "line": 1,
+   "offset": 0,
+   "id": "要求図"
+  }
+ ],
+ "sample/mermaid/24-requirement-diagram.md#mixed": [
+  {
+   "level": 1,
+   "text": "要求図",
+   "line": 1,
+   "offset": 0,
+   "id": "要求図"
+  }
+ ],
+ "sample/mermaid/25-packet-diagram.md#markdown": [
+  {
+   "level": 1,
+   "text": "パケット図",
+   "line": 1,
+   "offset": 0,
+   "id": "パケット図"
+  }
+ ],
+ "sample/mermaid/25-packet-diagram.md#mixed": [
+  {
+   "level": 1,
+   "text": "パケット図",
+   "line": 1,
+   "offset": 0,
+   "id": "パケット図"
+  }
+ ],
+ "sample/mermaid/26-c4-context.md#markdown": [
+  {
+   "level": 1,
+   "text": "C4 コンテキスト図",
+   "line": 1,
+   "offset": 0,
+   "id": "c4-コンテキスト図"
+  }
+ ],
+ "sample/mermaid/26-c4-context.md#mixed": [
+  {
+   "level": 1,
+   "text": "C4 コンテキスト図",
+   "line": 1,
+   "offset": 0,
+   "id": "c4-コンテキスト図"
+  }
+ ],
+ "sample/mermaid/27-treemap.md#markdown": [
+  {
+   "level": 1,
+   "text": "ツリーマップ",
+   "line": 1,
+   "offset": 0,
+   "id": "ツリーマップ"
+  }
+ ],
+ "sample/mermaid/27-treemap.md#mixed": [
+  {
+   "level": 1,
+   "text": "ツリーマップ",
+   "line": 1,
+   "offset": 0,
+   "id": "ツリーマップ"
+  }
+ ],
+ "sample/mermaid/28-kanban.md#markdown": [
+  {
+   "level": 1,
+   "text": "カンバン",
+   "line": 1,
+   "offset": 0,
+   "id": "カンバン"
+  }
+ ],
+ "sample/mermaid/28-kanban.md#mixed": [
+  {
+   "level": 1,
+   "text": "カンバン",
+   "line": 1,
+   "offset": 0,
+   "id": "カンバン"
+  }
+ ],
+ "sample/mermaid/29-radar-chart.md#markdown": [
+  {
+   "level": 1,
+   "text": "レーダーチャート",
+   "line": 1,
+   "offset": 0,
+   "id": "レーダーチャート"
+  }
+ ],
+ "sample/mermaid/29-radar-chart.md#mixed": [
+  {
+   "level": 1,
+   "text": "レーダーチャート",
+   "line": 1,
+   "offset": 0,
+   "id": "レーダーチャート"
+  }
+ ],
+ "sample/mermaid/30-tree-view.md#markdown": [
+  {
+   "level": 1,
+   "text": "ツリービュー",
+   "line": 1,
+   "offset": 0,
+   "id": "ツリービュー"
+  }
+ ],
+ "sample/mermaid/30-tree-view.md#mixed": [
+  {
+   "level": 1,
+   "text": "ツリービュー",
+   "line": 1,
+   "offset": 0,
+   "id": "ツリービュー"
+  }
+ ],
+ "sample/mermaid/31-swimlane.md#markdown": [
+  {
+   "level": 1,
+   "text": "スイムレーン図",
+   "line": 1,
+   "offset": 0,
+   "id": "スイムレーン図"
+  }
+ ],
+ "sample/mermaid/31-swimlane.md#mixed": [
+  {
+   "level": 1,
+   "text": "スイムレーン図",
+   "line": 1,
+   "offset": 0,
+   "id": "スイムレーン図"
+  }
+ ],
+ "sample/mermaid/32-event-modeling.md#markdown": [
+  {
+   "level": 1,
+   "text": "イベントモデリング",
+   "line": 1,
+   "offset": 0,
+   "id": "イベントモデリング"
+  }
+ ],
+ "sample/mermaid/32-event-modeling.md#mixed": [
+  {
+   "level": 1,
+   "text": "イベントモデリング",
+   "line": 1,
+   "offset": 0,
+   "id": "イベントモデリング"
+  }
+ ],
+ "sample/mermaid/33-marp-mermaid.md#markdown": [
+  {
+   "level": 1,
+   "text": "Marpスライド内のMermaid",
+   "line": 7,
+   "offset": 50,
+   "id": "marpスライド内のmermaid"
+  },
+  {
+   "level": 1,
+   "text": "API呼び出し",
+   "line": 20,
+   "offset": 209,
+   "id": "api呼び出し"
+  }
+ ],
+ "sample/mermaid/33-marp-mermaid.md#mixed": [
+  {
+   "level": 1,
+   "text": "Marpスライド内のMermaid",
+   "line": 7,
+   "offset": 50,
+   "id": "marpスライド内のmermaid"
+  },
+  {
+   "level": 1,
+   "text": "API呼び出し",
+   "line": 20,
+   "offset": 209,
+   "id": "api呼び出し"
+  }
+ ],
+ "sample/mermaid/34-marp-flowchart-basic.md#markdown": [
+  {
+   "level": 1,
+   "text": "Marp: フローチャートの基本",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-フローチャートの基本"
+  }
+ ],
+ "sample/mermaid/34-marp-flowchart-basic.md#mixed": [
+  {
+   "level": 1,
+   "text": "Marp: フローチャートの基本",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-フローチャートの基本"
+  }
+ ],
+ "sample/mermaid/35-marp-flowchart-branches.md#markdown": [
+  {
+   "level": 1,
+   "text": "Marp: フローチャートの分岐",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-フローチャートの分岐"
+  }
+ ],
+ "sample/mermaid/35-marp-flowchart-branches.md#mixed": [
+  {
+   "level": 1,
+   "text": "Marp: フローチャートの分岐",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-フローチャートの分岐"
+  }
+ ],
+ "sample/mermaid/36-marp-flowchart-subgraphs.md#markdown": [
+  {
+   "level": 1,
+   "text": "Marp: フローチャートのサブグラフ",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-フローチャートのサブグラフ"
+  }
+ ],
+ "sample/mermaid/36-marp-flowchart-subgraphs.md#mixed": [
+  {
+   "level": 1,
+   "text": "Marp: フローチャートのサブグラフ",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-フローチャートのサブグラフ"
+  }
+ ],
+ "sample/mermaid/37-marp-flowchart-shapes-and-styles.md#markdown": [
+  {
+   "level": 1,
+   "text": "Marp: フローチャートの図形とスタイル",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-フローチャートの図形とスタイル"
+  }
+ ],
+ "sample/mermaid/37-marp-flowchart-shapes-and-styles.md#mixed": [
+  {
+   "level": 1,
+   "text": "Marp: フローチャートの図形とスタイル",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-フローチャートの図形とスタイル"
+  }
+ ],
+ "sample/mermaid/38-marp-sequence-basic.md#markdown": [
+  {
+   "level": 1,
+   "text": "Marp: シーケンス図の基本",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-シーケンス図の基本"
+  }
+ ],
+ "sample/mermaid/38-marp-sequence-basic.md#mixed": [
+  {
+   "level": 1,
+   "text": "Marp: シーケンス図の基本",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-シーケンス図の基本"
+  }
+ ],
+ "sample/mermaid/39-marp-sequence-control-flow.md#markdown": [
+  {
+   "level": 1,
+   "text": "Marp: シーケンス図の条件と並行処理",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-シーケンス図の条件と並行処理"
+  }
+ ],
+ "sample/mermaid/39-marp-sequence-control-flow.md#mixed": [
+  {
+   "level": 1,
+   "text": "Marp: シーケンス図の条件と並行処理",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-シーケンス図の条件と並行処理"
+  }
+ ],
+ "sample/mermaid/40-marp-sequence-notes-and-activation.md#markdown": [
+  {
+   "level": 1,
+   "text": "Marp: シーケンス図の注記と実行区間",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-シーケンス図の注記と実行区間"
+  }
+ ],
+ "sample/mermaid/40-marp-sequence-notes-and-activation.md#mixed": [
+  {
+   "level": 1,
+   "text": "Marp: シーケンス図の注記と実行区間",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-シーケンス図の注記と実行区間"
+  }
+ ],
+ "sample/mermaid/41-marp-class-diagram.md#markdown": [
+  {
+   "level": 1,
+   "text": "Marp: クラス図",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-クラス図"
+  }
+ ],
+ "sample/mermaid/41-marp-class-diagram.md#mixed": [
+  {
+   "level": 1,
+   "text": "Marp: クラス図",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-クラス図"
+  }
+ ],
+ "sample/mermaid/42-marp-state-diagram-basic.md#markdown": [
+  {
+   "level": 1,
+   "text": "Marp: 状態遷移図の基本",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-状態遷移図の基本"
+  }
+ ],
+ "sample/mermaid/42-marp-state-diagram-basic.md#mixed": [
+  {
+   "level": 1,
+   "text": "Marp: 状態遷移図の基本",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-状態遷移図の基本"
+  }
+ ],
+ "sample/mermaid/43-marp-state-diagram-composite.md#markdown": [
+  {
+   "level": 1,
+   "text": "Marp: 状態遷移図の複合状態",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-状態遷移図の複合状態"
+  }
+ ],
+ "sample/mermaid/43-marp-state-diagram-composite.md#mixed": [
+  {
+   "level": 1,
+   "text": "Marp: 状態遷移図の複合状態",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-状態遷移図の複合状態"
+  }
+ ],
+ "sample/mermaid/44-marp-er-diagram.md#markdown": [
+  {
+   "level": 1,
+   "text": "Marp: ER 図",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-er-図"
+  }
+ ],
+ "sample/mermaid/44-marp-er-diagram.md#mixed": [
+  {
+   "level": 1,
+   "text": "Marp: ER 図",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-er-図"
+  }
+ ],
+ "sample/mermaid/45-marp-gantt-schedule.md#markdown": [
+  {
+   "level": 1,
+   "text": "Marp: ガントチャートの基本",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-ガントチャートの基本"
+  }
+ ],
+ "sample/mermaid/45-marp-gantt-schedule.md#mixed": [
+  {
+   "level": 1,
+   "text": "Marp: ガントチャートの基本",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-ガントチャートの基本"
+  }
+ ],
+ "sample/mermaid/46-marp-gantt-dependencies.md#markdown": [
+  {
+   "level": 1,
+   "text": "Marp: ガントチャートの依存関係",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-ガントチャートの依存関係"
+  }
+ ],
+ "sample/mermaid/46-marp-gantt-dependencies.md#mixed": [
+  {
+   "level": 1,
+   "text": "Marp: ガントチャートの依存関係",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-ガントチャートの依存関係"
+  }
+ ],
+ "sample/mermaid/47-marp-pie-chart.md#markdown": [
+  {
+   "level": 1,
+   "text": "Marp: 円グラフ",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-円グラフ"
+  }
+ ],
+ "sample/mermaid/47-marp-pie-chart.md#mixed": [
+  {
+   "level": 1,
+   "text": "Marp: 円グラフ",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-円グラフ"
+  }
+ ],
+ "sample/mermaid/48-marp-mindmap.md#markdown": [
+  {
+   "level": 1,
+   "text": "Marp: マインドマップ",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-マインドマップ"
+  }
+ ],
+ "sample/mermaid/48-marp-mindmap.md#mixed": [
+  {
+   "level": 1,
+   "text": "Marp: マインドマップ",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-マインドマップ"
+  }
+ ],
+ "sample/mermaid/49-marp-timeline.md#markdown": [
+  {
+   "level": 1,
+   "text": "Marp: タイムライン",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-タイムライン"
+  }
+ ],
+ "sample/mermaid/49-marp-timeline.md#mixed": [
+  {
+   "level": 1,
+   "text": "Marp: タイムライン",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-タイムライン"
+  }
+ ],
+ "sample/mermaid/50-marp-git-graph.md#markdown": [
+  {
+   "level": 1,
+   "text": "Marp: Git グラフ",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-git-グラフ"
+  }
+ ],
+ "sample/mermaid/50-marp-git-graph.md#mixed": [
+  {
+   "level": 1,
+   "text": "Marp: Git グラフ",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-git-グラフ"
+  }
+ ],
+ "sample/mermaid/51-marp-user-journey.md#markdown": [
+  {
+   "level": 1,
+   "text": "Marp: ユーザージャーニー",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-ユーザージャーニー"
+  }
+ ],
+ "sample/mermaid/51-marp-user-journey.md#mixed": [
+  {
+   "level": 1,
+   "text": "Marp: ユーザージャーニー",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-ユーザージャーニー"
+  }
+ ],
+ "sample/mermaid/52-marp-quadrant-chart.md#markdown": [
+  {
+   "level": 1,
+   "text": "Marp: クアドラントチャート",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-クアドラントチャート"
+  }
+ ],
+ "sample/mermaid/52-marp-quadrant-chart.md#mixed": [
+  {
+   "level": 1,
+   "text": "Marp: クアドラントチャート",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-クアドラントチャート"
+  }
+ ],
+ "sample/mermaid/53-marp-xy-chart.md#markdown": [
+  {
+   "level": 1,
+   "text": "Marp: XY チャート",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-xy-チャート"
+  }
+ ],
+ "sample/mermaid/53-marp-xy-chart.md#mixed": [
+  {
+   "level": 1,
+   "text": "Marp: XY チャート",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-xy-チャート"
+  }
+ ],
+ "sample/mermaid/54-marp-block-diagram.md#markdown": [
+  {
+   "level": 1,
+   "text": "Marp: ブロック図",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-ブロック図"
+  }
+ ],
+ "sample/mermaid/54-marp-block-diagram.md#mixed": [
+  {
+   "level": 1,
+   "text": "Marp: ブロック図",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-ブロック図"
+  }
+ ],
+ "sample/mermaid/55-marp-architecture-diagram.md#markdown": [
+  {
+   "level": 1,
+   "text": "Marp: アーキテクチャ図",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-アーキテクチャ図"
+  }
+ ],
+ "sample/mermaid/55-marp-architecture-diagram.md#mixed": [
+  {
+   "level": 1,
+   "text": "Marp: アーキテクチャ図",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-アーキテクチャ図"
+  }
+ ],
+ "sample/mermaid/56-marp-sankey-diagram.md#markdown": [
+  {
+   "level": 1,
+   "text": "Marp: サンキー図",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-サンキー図"
+  }
+ ],
+ "sample/mermaid/56-marp-sankey-diagram.md#mixed": [
+  {
+   "level": 1,
+   "text": "Marp: サンキー図",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-サンキー図"
+  }
+ ],
+ "sample/mermaid/57-marp-requirement-diagram.md#markdown": [
+  {
+   "level": 1,
+   "text": "Marp: 要求図",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-要求図"
+  }
+ ],
+ "sample/mermaid/57-marp-requirement-diagram.md#mixed": [
+  {
+   "level": 1,
+   "text": "Marp: 要求図",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-要求図"
+  }
+ ],
+ "sample/mermaid/58-marp-packet-diagram.md#markdown": [
+  {
+   "level": 1,
+   "text": "Marp: パケット図",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-パケット図"
+  }
+ ],
+ "sample/mermaid/58-marp-packet-diagram.md#mixed": [
+  {
+   "level": 1,
+   "text": "Marp: パケット図",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-パケット図"
+  }
+ ],
+ "sample/mermaid/59-marp-c4-context.md#markdown": [
+  {
+   "level": 1,
+   "text": "Marp: C4 コンテキスト図",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-c4-コンテキスト図"
+  }
+ ],
+ "sample/mermaid/59-marp-c4-context.md#mixed": [
+  {
+   "level": 1,
+   "text": "Marp: C4 コンテキスト図",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-c4-コンテキスト図"
+  }
+ ],
+ "sample/mermaid/60-marp-treemap.md#markdown": [
+  {
+   "level": 1,
+   "text": "Marp: ツリーマップ",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-ツリーマップ"
+  }
+ ],
+ "sample/mermaid/60-marp-treemap.md#mixed": [
+  {
+   "level": 1,
+   "text": "Marp: ツリーマップ",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-ツリーマップ"
+  }
+ ],
+ "sample/mermaid/61-marp-kanban.md#markdown": [
+  {
+   "level": 1,
+   "text": "Marp: カンバン",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-カンバン"
+  }
+ ],
+ "sample/mermaid/61-marp-kanban.md#mixed": [
+  {
+   "level": 1,
+   "text": "Marp: カンバン",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-カンバン"
+  }
+ ],
+ "sample/mermaid/62-marp-radar-chart.md#markdown": [
+  {
+   "level": 1,
+   "text": "Marp: レーダーチャート",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-レーダーチャート"
+  }
+ ],
+ "sample/mermaid/62-marp-radar-chart.md#mixed": [
+  {
+   "level": 1,
+   "text": "Marp: レーダーチャート",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-レーダーチャート"
+  }
+ ],
+ "sample/mermaid/63-marp-tree-view.md#markdown": [
+  {
+   "level": 1,
+   "text": "Marp: ツリービュー",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-ツリービュー"
+  }
+ ],
+ "sample/mermaid/63-marp-tree-view.md#mixed": [
+  {
+   "level": 1,
+   "text": "Marp: ツリービュー",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-ツリービュー"
+  }
+ ],
+ "sample/mermaid/64-marp-swimlane.md#markdown": [
+  {
+   "level": 1,
+   "text": "Marp: スイムレーン図",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-スイムレーン図"
+  }
+ ],
+ "sample/mermaid/64-marp-swimlane.md#mixed": [
+  {
+   "level": 1,
+   "text": "Marp: スイムレーン図",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-スイムレーン図"
+  }
+ ],
+ "sample/mermaid/65-marp-event-modeling.md#markdown": [
+  {
+   "level": 1,
+   "text": "Marp: イベントモデリング",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-イベントモデリング"
+  }
+ ],
+ "sample/mermaid/65-marp-event-modeling.md#mixed": [
+  {
+   "level": 1,
+   "text": "Marp: イベントモデリング",
+   "line": 7,
+   "offset": 50,
+   "id": "marp-イベントモデリング"
+  }
+ ],
+ "sample/mermaid/66-marp-mermaid-gallery.md#markdown": [
+  {
+   "level": 1,
+   "text": "Marp: フローチャートの基本",
+   "line": 8,
+   "offset": 105,
+   "id": "marp-フローチャートの基本"
+  },
+  {
+   "level": 1,
+   "text": "Marp: フローチャートの分岐",
+   "line": 23,
+   "offset": 329,
+   "id": "marp-フローチャートの分岐"
+  },
+  {
+   "level": 1,
+   "text": "Marp: フローチャートのサブグラフ",
+   "line": 42,
+   "offset": 664,
+   "id": "marp-フローチャートのサブグラフ"
+  },
+  {
+   "level": 1,
+   "text": "Marp: フローチャートの図形とスタイル",
+   "line": 69,
+   "offset": 1037,
+   "id": "marp-フローチャートの図形とスタイル"
+  },
+  {
+   "level": 1,
+   "text": "Marp: シーケンス図の基本",
+   "line": 95,
+   "offset": 1676,
+   "id": "marp-シーケンス図の基本"
+  },
+  {
+   "level": 1,
+   "text": "Marp: シーケンス図の条件と並行処理",
+   "line": 116,
+   "offset": 1964,
+   "id": "marp-シーケンス図の条件と並行処理"
+  },
+  {
+   "level": 1,
+   "text": "Marp: シーケンス図の注記と実行区間",
+   "line": 156,
+   "offset": 2801,
+   "id": "marp-シーケンス図の注記と実行区間"
+  },
+  {
+   "level": 1,
+   "text": "Marp: クラス図",
+   "line": 181,
+   "offset": 3274,
+   "id": "marp-クラス図"
+  },
+  {
+   "level": 1,
+   "text": "Marp: 状態遷移図の基本",
+   "line": 212,
+   "offset": 3818,
+   "id": "marp-状態遷移図の基本"
+  },
+  {
+   "level": 1,
+   "text": "Marp: 状態遷移図の複合状態",
+   "line": 228,
+   "offset": 3999,
+   "id": "marp-状態遷移図の複合状態"
+  },
+  {
+   "level": 1,
+   "text": "Marp: ER 図",
+   "line": 246,
+   "offset": 4278,
+   "id": "marp-er-図"
+  },
+  {
+   "level": 1,
+   "text": "Marp: ガントチャートの基本",
+   "line": 279,
+   "offset": 4834,
+   "id": "marp-ガントチャートの基本"
+  },
+  {
+   "level": 1,
+   "text": "Marp: ガントチャートの依存関係",
+   "line": 301,
+   "offset": 5226,
+   "id": "marp-ガントチャートの依存関係"
+  },
+  {
+   "level": 1,
+   "text": "Marp: 円グラフ",
+   "line": 322,
+   "offset": 5630,
+   "id": "marp-円グラフ"
+  },
+  {
+   "level": 1,
+   "text": "Marp: マインドマップ",
+   "line": 337,
+   "offset": 5761,
+   "id": "marp-マインドマップ"
+  },
+  {
+   "level": 1,
+   "text": "Marp: タイムライン",
+   "line": 357,
+   "offset": 5921,
+   "id": "marp-タイムライン"
+  },
+  {
+   "level": 1,
+   "text": "Marp: Git グラフ",
+   "line": 372,
+   "offset": 6088,
+   "id": "marp-git-グラフ"
+  },
+  {
+   "level": 1,
+   "text": "Marp: ユーザージャーニー",
+   "line": 391,
+   "offset": 6339,
+   "id": "marp-ユーザージャーニー"
+  },
+  {
+   "level": 1,
+   "text": "Marp: クアドラントチャート",
+   "line": 408,
+   "offset": 6548,
+   "id": "marp-クアドラントチャート"
+  },
+  {
+   "level": 1,
+   "text": "Marp: XY チャート",
+   "line": 429,
+   "offset": 6865,
+   "id": "marp-xy-チャート"
+  },
+  {
+   "level": 1,
+   "text": "Marp: ブロック図",
+   "line": 444,
+   "offset": 7076,
+   "id": "marp-ブロック図"
+  },
+  {
+   "level": 1,
+   "text": "Marp: アーキテクチャ図",
+   "line": 460,
+   "offset": 7268,
+   "id": "marp-アーキテクチャ図"
+  },
+  {
+   "level": 1,
+   "text": "Marp: サンキー図",
+   "line": 479,
+   "offset": 7604,
+   "id": "marp-サンキー図"
+  },
+  {
+   "level": 1,
+   "text": "Marp: 要求図",
+   "line": 495,
+   "offset": 7748,
+   "id": "marp-要求図"
+  },
+  {
+   "level": 1,
+   "text": "Marp: パケット図",
+   "line": 522,
+   "offset": 8176,
+   "id": "marp-パケット図"
+  },
+  {
+   "level": 1,
+   "text": "Marp: C4 コンテキスト図",
+   "line": 545,
+   "offset": 8456,
+   "id": "marp-c4-コンテキスト図"
+  },
+  {
+   "level": 1,
+   "text": "Marp: ツリーマップ",
+   "line": 563,
+   "offset": 8815,
+   "id": "marp-ツリーマップ"
+  },
+  {
+   "level": 1,
+   "text": "Marp: カンバン",
+   "line": 580,
+   "offset": 8973,
+   "id": "marp-カンバン"
+  },
+  {
+   "level": 1,
+   "text": "Marp: レーダーチャート",
+   "line": 597,
+   "offset": 9150,
+   "id": "marp-レーダーチャート"
+  },
+  {
+   "level": 1,
+   "text": "Marp: ツリービュー",
+   "line": 615,
+   "offset": 9423,
+   "id": "marp-ツリービュー"
+  },
+  {
+   "level": 1,
+   "text": "Marp: スイムレーン図",
+   "line": 633,
+   "offset": 9637,
+   "id": "marp-スイムレーン図"
+  },
+  {
+   "level": 1,
+   "text": "Marp: イベントモデリング",
+   "line": 654,
+   "offset": 9912,
+   "id": "marp-イベントモデリング"
+  }
+ ],
+ "sample/mermaid/66-marp-mermaid-gallery.md#mixed": [
+  {
+   "level": 1,
+   "text": "Marp: フローチャートの基本",
+   "line": 8,
+   "offset": 105,
+   "id": "marp-フローチャートの基本"
+  },
+  {
+   "level": 1,
+   "text": "Marp: フローチャートの分岐",
+   "line": 23,
+   "offset": 329,
+   "id": "marp-フローチャートの分岐"
+  },
+  {
+   "level": 1,
+   "text": "Marp: フローチャートのサブグラフ",
+   "line": 42,
+   "offset": 664,
+   "id": "marp-フローチャートのサブグラフ"
+  },
+  {
+   "level": 1,
+   "text": "Marp: フローチャートの図形とスタイル",
+   "line": 69,
+   "offset": 1037,
+   "id": "marp-フローチャートの図形とスタイル"
+  },
+  {
+   "level": 1,
+   "text": "Marp: シーケンス図の基本",
+   "line": 95,
+   "offset": 1676,
+   "id": "marp-シーケンス図の基本"
+  },
+  {
+   "level": 1,
+   "text": "Marp: シーケンス図の条件と並行処理",
+   "line": 116,
+   "offset": 1964,
+   "id": "marp-シーケンス図の条件と並行処理"
+  },
+  {
+   "level": 1,
+   "text": "Marp: シーケンス図の注記と実行区間",
+   "line": 156,
+   "offset": 2801,
+   "id": "marp-シーケンス図の注記と実行区間"
+  },
+  {
+   "level": 1,
+   "text": "Marp: クラス図",
+   "line": 181,
+   "offset": 3274,
+   "id": "marp-クラス図"
+  },
+  {
+   "level": 1,
+   "text": "Marp: 状態遷移図の基本",
+   "line": 212,
+   "offset": 3818,
+   "id": "marp-状態遷移図の基本"
+  },
+  {
+   "level": 1,
+   "text": "Marp: 状態遷移図の複合状態",
+   "line": 228,
+   "offset": 3999,
+   "id": "marp-状態遷移図の複合状態"
+  },
+  {
+   "level": 1,
+   "text": "Marp: ER 図",
+   "line": 246,
+   "offset": 4278,
+   "id": "marp-er-図"
+  },
+  {
+   "level": 1,
+   "text": "Marp: ガントチャートの基本",
+   "line": 279,
+   "offset": 4834,
+   "id": "marp-ガントチャートの基本"
+  },
+  {
+   "level": 1,
+   "text": "Marp: ガントチャートの依存関係",
+   "line": 301,
+   "offset": 5226,
+   "id": "marp-ガントチャートの依存関係"
+  },
+  {
+   "level": 1,
+   "text": "Marp: 円グラフ",
+   "line": 322,
+   "offset": 5630,
+   "id": "marp-円グラフ"
+  },
+  {
+   "level": 1,
+   "text": "Marp: マインドマップ",
+   "line": 337,
+   "offset": 5761,
+   "id": "marp-マインドマップ"
+  },
+  {
+   "level": 1,
+   "text": "Marp: タイムライン",
+   "line": 357,
+   "offset": 5921,
+   "id": "marp-タイムライン"
+  },
+  {
+   "level": 1,
+   "text": "Marp: Git グラフ",
+   "line": 372,
+   "offset": 6088,
+   "id": "marp-git-グラフ"
+  },
+  {
+   "level": 1,
+   "text": "Marp: ユーザージャーニー",
+   "line": 391,
+   "offset": 6339,
+   "id": "marp-ユーザージャーニー"
+  },
+  {
+   "level": 1,
+   "text": "Marp: クアドラントチャート",
+   "line": 408,
+   "offset": 6548,
+   "id": "marp-クアドラントチャート"
+  },
+  {
+   "level": 1,
+   "text": "Marp: XY チャート",
+   "line": 429,
+   "offset": 6865,
+   "id": "marp-xy-チャート"
+  },
+  {
+   "level": 1,
+   "text": "Marp: ブロック図",
+   "line": 444,
+   "offset": 7076,
+   "id": "marp-ブロック図"
+  },
+  {
+   "level": 1,
+   "text": "Marp: アーキテクチャ図",
+   "line": 460,
+   "offset": 7268,
+   "id": "marp-アーキテクチャ図"
+  },
+  {
+   "level": 1,
+   "text": "Marp: サンキー図",
+   "line": 479,
+   "offset": 7604,
+   "id": "marp-サンキー図"
+  },
+  {
+   "level": 1,
+   "text": "Marp: 要求図",
+   "line": 495,
+   "offset": 7748,
+   "id": "marp-要求図"
+  },
+  {
+   "level": 1,
+   "text": "Marp: パケット図",
+   "line": 522,
+   "offset": 8176,
+   "id": "marp-パケット図"
+  },
+  {
+   "level": 1,
+   "text": "Marp: C4 コンテキスト図",
+   "line": 545,
+   "offset": 8456,
+   "id": "marp-c4-コンテキスト図"
+  },
+  {
+   "level": 1,
+   "text": "Marp: ツリーマップ",
+   "line": 563,
+   "offset": 8815,
+   "id": "marp-ツリーマップ"
+  },
+  {
+   "level": 1,
+   "text": "Marp: カンバン",
+   "line": 580,
+   "offset": 8973,
+   "id": "marp-カンバン"
+  },
+  {
+   "level": 1,
+   "text": "Marp: レーダーチャート",
+   "line": 597,
+   "offset": 9150,
+   "id": "marp-レーダーチャート"
+  },
+  {
+   "level": 1,
+   "text": "Marp: ツリービュー",
+   "line": 615,
+   "offset": 9423,
+   "id": "marp-ツリービュー"
+  },
+  {
+   "level": 1,
+   "text": "Marp: スイムレーン図",
+   "line": 633,
+   "offset": 9637,
+   "id": "marp-スイムレーン図"
+  },
+  {
+   "level": 1,
+   "text": "Marp: イベントモデリング",
+   "line": 654,
+   "offset": 9912,
+   "id": "marp-イベントモデリング"
+  }
+ ],
+ "sample/mermaid/67-marp-mermaid-sizing.md#markdown": [
+  {
+   "level": 1,
+   "text": "縦長の図",
+   "line": 7,
+   "offset": 50,
+   "id": "縦長の図"
+  },
+  {
+   "level": 1,
+   "text": "図だけを縮小する",
+   "line": 23,
+   "offset": 266,
+   "id": "図だけを縮小する"
+  }
+ ],
+ "sample/mermaid/67-marp-mermaid-sizing.md#mixed": [
+  {
+   "level": 1,
+   "text": "縦長の図",
+   "line": 7,
+   "offset": 50,
+   "id": "縦長の図"
+  },
+  {
+   "level": 1,
+   "text": "図だけを縮小する",
+   "line": 23,
+   "offset": 266,
+   "id": "図だけを縮小する"
+  }
+ ],
+ "sample/mermaid/68-marp-pdf-page-break.md#markdown": [
+  {
+   "level": 1,
+   "text": "PDFの1ページ目",
+   "line": 7,
+   "offset": 50,
+   "id": "pdfの1ページ目"
+  },
+  {
+   "level": 1,
+   "text": "PDFの2ページ目",
+   "line": 18,
+   "offset": 142,
+   "id": "pdfの2ページ目"
+  },
+  {
+   "level": 1,
+   "text": "PDFの3ページ目",
+   "line": 24,
+   "offset": 196,
+   "id": "pdfの3ページ目"
+  }
+ ],
+ "sample/mermaid/68-marp-pdf-page-break.md#mixed": [
+  {
+   "level": 1,
+   "text": "PDFの1ページ目",
+   "line": 7,
+   "offset": 50,
+   "id": "pdfの1ページ目"
+  },
+  {
+   "level": 1,
+   "text": "PDFの2ページ目",
+   "line": 18,
+   "offset": 142,
+   "id": "pdfの2ページ目"
+  },
+  {
+   "level": 1,
+   "text": "PDFの3ページ目",
+   "line": 24,
+   "offset": 196,
+   "id": "pdfの3ページ目"
+  }
+ ],
+ "sample/mermaid/README.md#markdown": [
+  {
+   "level": 1,
+   "text": "Mermaid サンプル集",
+   "line": 1,
+   "offset": 0,
+   "id": "mermaid-サンプル集"
+  },
+  {
+   "level": 2,
+   "text": "フローチャート",
+   "line": 5,
+   "offset": 86,
+   "id": "フローチャート"
+  },
+  {
+   "level": 2,
+   "text": "相互作用と構造",
+   "line": 12,
+   "offset": 255,
+   "id": "相互作用と構造"
+  },
+  {
+   "level": 2,
+   "text": "計画と履歴",
+   "line": 27,
+   "offset": 731,
+   "id": "計画と履歴"
+  },
+  {
+   "level": 2,
+   "text": "分析と整理",
+   "line": 35,
+   "offset": 922,
+   "id": "分析と整理"
+  },
+  {
+   "level": 2,
+   "text": "Marpプレビュー用サンプル",
+   "line": 49,
+   "offset": 1273,
+   "id": "marpプレビュー用サンプル"
+  }
+ ],
+ "sample/mermaid/README.md#mixed": [
+  {
+   "level": 1,
+   "text": "Mermaid サンプル集",
+   "line": 1,
+   "offset": 0,
+   "id": "mermaid-サンプル集"
+  },
+  {
+   "level": 2,
+   "text": "フローチャート",
+   "line": 5,
+   "offset": 86,
+   "id": "フローチャート"
+  },
+  {
+   "level": 2,
+   "text": "相互作用と構造",
+   "line": 12,
+   "offset": 255,
+   "id": "相互作用と構造"
+  },
+  {
+   "level": 2,
+   "text": "計画と履歴",
+   "line": 27,
+   "offset": 731,
+   "id": "計画と履歴"
+  },
+  {
+   "level": 2,
+   "text": "分析と整理",
+   "line": 35,
+   "offset": 922,
+   "id": "分析と整理"
+  },
+  {
+   "level": 2,
+   "text": "Marpプレビュー用サンプル",
+   "line": 49,
+   "offset": 1273,
+   "id": "marpプレビュー用サンプル"
+  }
+ ]
+}

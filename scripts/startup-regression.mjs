@@ -150,6 +150,10 @@ const extension = await readFile(path.join('dist', 'extension.js'), 'utf8');
  * 起動・regressionのwebviewとして読み込んだ本文または設定。
  */
 const webview = await readFile(path.join('dist', 'webview.js'), 'utf8');
+// ビルドのbannerなどで先頭に文が入ると "use strict" が効かなくなり、バンドル全体の挙動が変わる。
+if (!extension.startsWith('"use strict";')) {
+  throw new Error('Extension Host バンドルの先頭が "use strict"; ではありません。strict mode が無効になっています。');
+}
 if (/playwright-core[\\/]lib[\\/](?:coreBundle|utilsBundle)/.test(extension)) {
   throw new Error('Playwright が初期 Extension Host バンドルへ再混入しました。');
 }

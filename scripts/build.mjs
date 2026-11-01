@@ -23,6 +23,10 @@ const extensionOptions = {
   target: 'node20',
   sourcemap: false,
   external: ['vscode'],
+  // 起動計測でバンドル評価時間も含めたactivation時間を得るため、先頭でモジュールスコープ変数に時刻を残す。
+  // "use strict" はファイル先頭の文でなければ効かないため、bannerの先頭に置いてバンドル全体のstrict modeを保つ
+  // （esbuildが続けて出力する "use strict" は単なる式文になり無害）。startup-regression.mjs が先頭行を検査する。
+  banner: { js: '"use strict";var __mveBundleStartedAt = Date.now();' },
   plugins: [{
     name: 'defer-playwright-runtime',
     /**

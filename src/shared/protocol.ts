@@ -987,6 +987,33 @@ export type WebviewToHostMessage =
     }
     | {
         /**
+         * 起動計測専用。プレビューの最終描画（rich Workerの結果、フォールバック描画、またはコードハイライト不要時の軽量Workerの結果）が
+         * プレビューDOMへ反映されたことを、Webviewごとに一度だけ通知する。
+         * settings.startupProbe が有効なWebviewだけが送信し、Hostは計測値の記録以外に使わない。
+         */
+        type: 'startupRichReady';
+        /**
+         * Webviewクライアントを識別し、古いWebviewからの通知を除外するID。
+         */
+        clientId: string
+    }
+    | {
+        /**
+         * 起動計測専用。分割プレビューの表示範囲に重なるMermaid図がすべて描画完了（成功または失敗）したことを通知する。
+         * 表示範囲外の図は遅延描画のため対象外。settings.startupProbe が有効なWebviewだけが送信する。
+         */
+        type: 'startupVisibleMermaidReady';
+        /**
+         * Webviewクライアントを識別し、古いWebviewからの通知を除外するID。
+         */
+        clientId: string;
+        /**
+         * 判定時点で表示範囲に重なっていたMermaid図の数。
+         */
+        visibleCount: number
+    }
+    | {
+        /**
          * Marp初回プレビュー起動の診断段階を通知するメッセージです。
          */
         type: 'startupMarpStage';

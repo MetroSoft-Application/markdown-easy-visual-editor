@@ -12,6 +12,18 @@ import {
     type OutlineItem
 } from '../../shared/markdown';
 import { decodeTextileCodeEntities, renderTextile } from '../../shared/textileAdapter';
+import {
+    alignOutlineHeadingIds,
+    getOutlineForFormat,
+    getSourceOutlineForFormat,
+    getTextileOutline,
+    isTextileBlockLead,
+    isTextileExtendedBlockLead,
+    isTextileTableRow,
+    stripTextileHeadingMarkup
+} from './markdownOutline';
+/** 見出しIDの対応付けとアウトライン抽出を既存の呼び出し元へ再公開する（実装は KaTeX・textile-js に依存しない markdownOutline.ts）。 */
+export { alignOutlineHeadingIds, getOutlineForFormat };
 import { getMessages, type Messages, type SupportedLanguage } from '../../shared/messages';
 import { classifyShortValueTableCell } from '../../shared/tableShortValueFit';
 
@@ -116,32 +128,6 @@ export interface UnsafeMarkdownBlock {
      * trueならHTML出力をサニタイズする必要がある。Markdown由来の非HTML変換結果ではfalse。
      */
     requiresSanitization: boolean;
-}
-
-/**
- * 描画済み見出しのIDをアウトラインへ反映し、Setext見出しでもリンク先を一致させる。
- * @param outline 表示する見出し一覧。
- * @param blocks 描画後の見出しIDを含むMarkdownブロック一覧。
- * @returns 描画済みIDを反映したアウトライン。対応するブロックがない項目は除く。
- */
-export function alignOutlineHeadingIds(
-    outline: OutlineItem[],
-    blocks: UnsafeMarkdownBlock[]
-): OutlineItem[] {
-    const byOffset = new Map<number, string>();
-    for (const block of blocks) {
-        for (const heading of block.headingIds ?? []) {
-            byOffset.set(heading.offset, heading.id);
-        }
-        if (block.headingOffset !== undefined && block.headingId) {
-            byOffset.set(block.headingOffset, block.headingId);
-        }
-    }
-    return outline.flatMap((item) => {
-        const id = byOffset.get(item.offset);
-        if (!id) return [];
-        return [id !== item.id ? { ...item, id } : item];
-    });
 }
 
 /**
@@ -473,198 +459,6 @@ function isLocalMarkdownLink(href: string): boolean {
 }
 
 /**
- * MarkdownとTextileの見出しを描画済みブロックIDへ対応付ける。
- * @param source - 原文を変更せずに解析する文書本文。
- * @param format - Markdown専用、Textile専用、または両形式を混在させる描画形式。
- * @param blocks - 描画後の見出しIDとソース位置を含むブロック一覧。
- * @returns 文書順に並んだ見出し項目。表示できない見出しは除く。
- */
-export function getOutlineForFormat(
-    source: string,
-    format: MarkdownRenderFormat,
-    blocks: UnsafeMarkdownBlock[]
-): OutlineItem[] {
-    return alignOutlineHeadingIds(getSourceOutlineForFormat(source, format), blocks);
-}
-
-/**
- * 指定形式の見出しを文書順にまとめ、混在形式ではアンカーIDの重複も共有して採番する。
- * @param source - 原文を走査する文書本文。
- * @param format - Markdown専用、Textile専用、または両形式を混在させる描画形式。
- * @returns ソース順に並んだ見出し一覧。
- */
-function getSourceOutlineForFormat(
-    source: string,
-    format: MarkdownRenderFormat
-): OutlineItem[] {
-    if (format === 'textile') return getTextileOutline(source);
-    const markdownItems = getOutline(source);
-    if (format === 'markdown') return markdownItems;
-    const textileItems = getTextileOutline(source, true);
-    const counts = new Map<string, number>();
-    const usedIds = new Set<string>();
-    return [...markdownItems, ...textileItems]
-        .sort(
-            /**
-             * 混在形式のMarkdown・Textile見出しを原文順へ並べる。
-             * @param left - 左側の見出し候補。
-             * @param right - 右側の見出し候補。
-             * @returns 原文位置の昇順を示す比較値。
-             */
-            (left, right) => left.offset - right.offset
-        )
-        .map(
-            /**
-             * MarkdownとTextileの見出しへ文書順の重複回避IDを割り当てる。
-             * @param item - MarkdownまたはTextileのアウトライン候補。
-             * @returns 確定IDを割り当てたアウトライン項目。
-             */
-            (item) => {
-                const rawLine = source.slice(item.offset).split(/\r\n|\r|\n/, 1)[0] ?? '';
-                const markdownHeading = /^#{1,6}\s+(.+?)\s*$/.exec(rawLine);
-                const textileHeading = /^h[1-6](?:[<>=()]*)(?:\([^)]*\))?(?:\{[^}]*\})?(?:\[[^\]]*\])?\.\s+(.+?)\s*$/i.exec(rawLine);
-                const rawHeading = textileHeading
-                    ? stripTextileHeadingMarkup(textileHeading[1])
-                    : markdownHeading?.[1] ?? item.text;
-                return {
-                    ...item,
-                    id: nextHeadingAnchorId(rawHeading, counts, usedIds)
-                };
-            }
-        );
-}
-
-/**
- * Textile見出しをソース位置と一意なアンカーID付きで収集する。
- * Markdown混在時はMarkdownフェンス内を除外し、Textileコードブロック内も常に除外する。
- * @param source - 見出しを解析する文書本文。
- * @param skipMarkdownFences - 混在文書のMarkdownフェンス内容を無視する場合はtrue。
- * @returns Textile見出しのアウトライン項目。
- */
-function getTextileOutline(source: string, skipMarkdownFences = false): OutlineItem[] {
-    const result: OutlineItem[] = [];
-    const counts = new Map<string, number>();
-    const usedIds = new Set<string>();
-    let offset = 0;
-    let lineNumber = 0;
-    let fenceCharacter: string | undefined;
-    let fenceLength = 0;
-    let inTextileCode = false;
-    let extendedTextileBlock = false;
-    let rawPreformatted = false;
-    let rawNoTextile = false;
-    for (const rawLine of source.split(/(?<=\n)|(?<=\r)(?!\n)/)) {
-        const line = rawLine.replace(/(?:\r\n|\r|\n)$/, '');
-        const fence = /^\s{0,3}(\x60{3,}|~{3,})/.exec(line);
-        if (skipMarkdownFences && fence) {
-            const marker = fence[1][0];
-            if (!fenceCharacter) {
-                fenceCharacter = marker;
-                fenceLength = fence[1].length;
-            } else if (marker === fenceCharacter && fence[1].length >= fenceLength) {
-                fenceCharacter = undefined;
-                fenceLength = 0;
-            }
-            offset += rawLine.length;
-            lineNumber += 1;
-            continue;
-        }
-        if (fenceCharacter) {
-            offset += rawLine.length;
-            lineNumber += 1;
-            continue;
-        }
-        if (extendedTextileBlock && isTextileBlockLead(line)) extendedTextileBlock = false;
-        else if (extendedTextileBlock) {
-            offset += rawLine.length;
-            lineNumber += 1;
-            continue;
-        }
-        if (rawPreformatted) {
-            if (/<\/pre\s*>/i.test(line)) rawPreformatted = false;
-            offset += rawLine.length;
-            lineNumber += 1;
-            continue;
-        }
-        if (rawNoTextile) {
-            if (/<\/notextile\s*>/i.test(line)) rawNoTextile = false;
-            offset += rawLine.length;
-            lineNumber += 1;
-            continue;
-        }
-        if (inTextileCode) {
-            if (!line.trim()) inTextileCode = false;
-            offset += rawLine.length;
-            lineNumber += 1;
-            continue;
-        }
-        if (/<pre\b[^>]*>/i.test(line)) {
-            if (!/<\/pre\s*>/i.test(line)) rawPreformatted = true;
-            offset += rawLine.length;
-            lineNumber += 1;
-            continue;
-        }
-        if (/<notextile\b[^>]*>/i.test(line)) {
-            if (!/<\/notextile\s*>/i.test(line)) rawNoTextile = true;
-            offset += rawLine.length;
-            lineNumber += 1;
-            continue;
-        }
-        if (isTextileExtendedBlockLead(line)) {
-            extendedTextileBlock = true;
-            offset += rawLine.length;
-            lineNumber += 1;
-            continue;
-        }
-        if (/^(?:bc|pre|notextile)(?:\([^)]*\))?(?:\{[^}]*\})?(?:\[[^\]]*\])?\.\s/i.test(line)) {
-            inTextileCode = true;
-            offset += rawLine.length;
-            lineNumber += 1;
-            continue;
-        }
-        const heading = /^h([1-6])(?:[<>=()]*)(?:\([^)]*\))?(?:\{[^}]*\})?(?:\[[^\]]*\])?\.\s+(.+?)\s*$/i.exec(line);
-        if (heading) {
-            const text = stripTextileHeadingMarkup(heading[2]);
-            result.push({
-                level: Number(heading[1]),
-                text,
-                line: lineNumber + 1,
-                offset,
-                id: nextHeadingAnchorId(text, counts, usedIds)
-            });
-        }
-        offset += rawLine.length;
-        lineNumber += 1;
-    }
-    return result;
-}
-
-/**
- * Textile見出しの表示文字列から装飾記号、リンク先、HTML風タグを除去する。
- * @param source - Textile見出しの記法付き本文。
- * @returns slugとアウトライン表示に使う見出し文字列。
- */
-function stripTextileHeadingMarkup(source: string): string {
-    return source
-        .replace(/"([^"\r\n]+)":\S+/g, '$1')
-        .replace(/!([^!\r\n(]+)\(([^)]*)\)!/g, '$2')
-        .replace(/!([^!\r\n]+)!/g, '')
-        .replace(/@([^@\r\n]+)@/g, '$1')
-        .replace(/\*\*?([^*\r\n]+)\*\*?/g, '$1')
-        .replace(/__?([^_\r\n]+)__?/g, '$1')
-        .replace(/\+\+?([^+\r\n]+)\+\+?/g, '$1')
-        .replace(/--?([^- \r\n][^- \r\n]*?)--?/g, '$1')
-        .replace(/\?\?([^?\r\n]+)\?\?/g, '$1')
-        .replace(/<\/?[^>]+>/g, '')
-        .replace(/&amp;/gi, '&')
-        .replace(/&lt;/gi, '<')
-        .replace(/&gt;/gi, '>')
-        .replace(/&quot;/gi, '"')
-        .replace(/&#39;/gi, "'")
-        .trim();
-}
-
-/**
  * Textile専用文書を空行区切りの原文範囲ごとに描画する。
  * @param source - Textile構文を含む原文。
  * @param options - 画像と表示言語の描画設定。
@@ -775,26 +569,6 @@ function getTextileSourceRanges(source: string): Array<{ from: number; to: numbe
     }
     if (blockFrom !== undefined) ranges.push({ from: blockFrom, to: blockTo });
     return ranges.filter((range) => range.to > range.from);
-}
-
-/**
- * Textileのブロック接頭辞または表行として独立して始まる行か判定する。
- * @param line - 走査中のTextile行。
- * @returns Textileブロック境界として扱う場合はtrue。
- */
-function isTextileBlockLead(line: string): boolean {
-    return /^(?:p|div|bq|bc|pre|notextile|h[1-6])(?:[<>=()]*)(?:\([^)]*\))?(?:\{[^}]*\})?(?:\[[^\]]*\])?\.{1,2}(?:\s|$)/i.test(line)
-        || isTextileTableRow(line)
-        || /^(?:p|div|bq|bc|pre|notextile|h[1-6])\.(?:https?:\/\/|\()/i.test(line);
-}
-
-/**
- * 次の明示ブロックまで空行を含めて保持するTextile構文か判定する。
- * @param line - 描画単位の先頭候補行。
- * @returns 二重ピリオドの拡張ブロックならtrue。
- */
-function isTextileExtendedBlockLead(line: string): boolean {
-    return /^(?:p|div|bq|bc|pre|notextile|h[1-6])(?:[<>=()]*)(?:\([^)]*\))?(?:\{[^}]*\})?(?:\[[^\]]*\])?\.\.(?:\s|$)/i.test(line);
 }
 
 /**
@@ -973,15 +747,6 @@ function highlightTextileCodeBlocks(
  */
 function isMixedTextileBlockLead(line: string): boolean {
     return isTextileBlockLead(line);
-}
-
-/**
- * Textile表の行形式を判定し、通常の文章中のパイプを除外する。
- * @param line - Textile表候補行。
- * @returns 先頭と末尾を含む複数セル形式の場合はtrue。
- */
-function isTextileTableRow(line: string): boolean {
-    return /^\|.+\|$/.test(line) && line.indexOf('|', 1) >= 0;
 }
 
 /**

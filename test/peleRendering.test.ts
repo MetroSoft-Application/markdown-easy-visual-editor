@@ -198,7 +198,8 @@ describeWithBrowser('Pele Mermaid描画', () => {
         await posted;
         controller.abort();
         await expect(cancelledRequest).rejects.toThrow('cancelled');
-        for (let attempt = 0; attempt < 50 && !page!.isClosed(); attempt++) {
+        // 応答しない描画は、取消後の猶予（1秒）を過ぎた時点でページごと破棄され、後続要求を塞がない。
+        for (let attempt = 0; attempt < 300 && !page!.isClosed(); attempt++) {
             await new Promise((resolve) => setTimeout(resolve, 10));
         }
         expect(page?.isClosed()).toBe(true);
@@ -214,6 +215,110 @@ describeWithBrowser('Pele Mermaid描画', () => {
         );
         expect(following.svg).toContain('<svg');
         expect(following.ariaLabel).toContain('Following request');
+    }, 30_000);
+
+    it('後続要求があると、応答しない取消描画を待ち続けずにページを破棄して後続を通す', async () => {
+        const options = { fontFamily: 'Arial', resourceScope: 'worker-cancel-follower-test' };
+        await renderPeleMermaid(
+            'flowchart TD\n  A[Warm] --> B[Ready]',
+            'default',
+            path.resolve('dist/pele-render-worker.js'),
+            () => Promise.resolve(browser),
+            undefined,
+            options
+        );
+        const page = findRendererPage(browser);
+        expect(page).toBeTruthy();
+        // Workerを応答しない状態にし、重い図の描画中に取り消された状況を再現する。
+        await page!.evaluate(() => {
+            const worker = (window as typeof window & { __mvePeleWorker?: Worker }).__mvePeleWorker;
+            if (!worker) throw new Error('Pele Worker is not initialized.');
+            worker.postMessage = () => {
+                window.dispatchEvent(new Event('mve-test-worker-posted'));
+            };
+        });
+        const posted = page!.evaluate(() => new Promise<void>((resolve) => {
+            window.addEventListener('mve-test-worker-posted', () => resolve(), { once: true });
+        }));
+        const controller = new AbortController();
+        const cancelledRequest = renderPeleMermaid(
+            'flowchart TD\n  A[Hung] --> B[Cancelled]',
+            'default',
+            path.resolve('dist/pele-render-worker.js'),
+            () => Promise.resolve(browser),
+            controller.signal,
+            options
+        );
+        await posted;
+        controller.abort();
+        await expect(cancelledRequest).rejects.toThrow('cancelled');
+        const startedAt = Date.now();
+        const following = await renderPeleMermaid(
+            'flowchart TD\n  A[Follower] --> B[Ready]',
+            'default',
+            path.resolve('dist/pele-render-worker.js'),
+            () => Promise.resolve(browser),
+            undefined,
+            options
+        );
+        expect(following.ariaLabel).toContain('Follower');
+        expect(page?.isClosed()).toBe(true);
+        // 取消から後続開始までの待ちは最大250ms。ページ再作成を含めても1秒の猶予全体は待たない。
+        expect(Date.now() - startedAt).toBeLessThan(5_000);
+    }, 30_000);
+
+    it('猶予内に終わる描画の取消では描画ページを保ち、次の要求で再利用する', async () => {
+        const options = { fontFamily: 'Arial', resourceScope: 'worker-cancel-keep-page-test' };
+        const initial = await renderPeleMermaid(
+            'flowchart TD\n  A[Keep page] --> B[Ready]',
+            'default',
+            path.resolve('dist/pele-render-worker.js'),
+            () => Promise.resolve(browser),
+            undefined,
+            options
+        );
+        expect(initial.svg).toContain('<svg');
+        const page = findRendererPage(browser);
+        expect(page).toBeTruthy();
+        // Workerへの依頼は通常どおり処理させ、依頼を送った時点だけを通知する。
+        await page!.evaluate(() => {
+            const worker = (window as typeof window & { __mvePeleWorker?: Worker }).__mvePeleWorker;
+            if (!worker) throw new Error('Pele Worker is not initialized.');
+            const post = worker.postMessage.bind(worker);
+            worker.postMessage = (message: unknown) => {
+                post(message);
+                window.dispatchEvent(new Event('mve-test-worker-posted'));
+            };
+        });
+        const posted = page!.evaluate(() => new Promise<void>((resolve) => {
+            window.addEventListener('mve-test-worker-posted', () => resolve(), { once: true });
+        }));
+        const controller = new AbortController();
+        const cancelledRequest = renderPeleMermaid(
+            'flowchart TD\n  A[Cancelled quickly] --> B[Finishes]',
+            'default',
+            path.resolve('dist/pele-render-worker.js'),
+            () => Promise.resolve(browser),
+            controller.signal,
+            options
+        );
+        await posted;
+        controller.abort();
+        await expect(cancelledRequest).rejects.toThrow('cancelled');
+
+        const following = await renderPeleMermaid(
+            'flowchart TD\n  A[After quick cancel] --> B[Ready]',
+            'default',
+            path.resolve('dist/pele-render-worker.js'),
+            () => Promise.resolve(browser),
+            undefined,
+            options
+        );
+        expect(following.ariaLabel).toContain('After quick cancel');
+        // 猶予の経過後も、取消された描画が完了済みならページは破棄されない。
+        await new Promise((resolve) => setTimeout(resolve, 1_200));
+        expect(page?.isClosed()).toBe(false);
+        expect(findRendererPage(browser)).toBe(page);
     }, 30_000);
 
     it('大規模フローチャートをプレビュー幅に収めて全ラベルを描画する', async () => {

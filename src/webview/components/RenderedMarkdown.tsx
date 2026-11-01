@@ -497,8 +497,8 @@ function RenderedMarkdownView({
 
       const renderNodes = /**
        * 未描画Mermaidノードを描画し、その状態をDOMへ反映する。
-       * @returns 条件が成立したかを示す真偽値。
-       */ async (): Promise<boolean> => {
+       * @returns 未描画の図が残っていればtrue。同時要求の上限に達して何も開始しなかった場合は "saturated"。
+       */ async (): Promise<boolean | "saturated"> => {
         // 未描画のMermaidノードを抽出し、SVG描画結果またはエラー表示を反映する。
         const allNodes = Array.from(
           root.querySelectorAll<HTMLElement>(".mermaid"),
@@ -549,9 +549,22 @@ function RenderedMarkdownView({
             (node) => !node.dataset.mermaidStatus,
           );
         }
-        // ホスト側は直列描画なので、可視・画面外・出力のいずれも要求を先行投入しない。
-        // 世代ごとに1件だけ開始し、更新時の取消対象と180秒監視を1件に保つ。
-        const batch = pending.slice(0, 1);
+        // ホスト側は直列描画だが、1件ずつの往復ではホストの待ち時間が生じる。表示範囲付近の図を
+        // このプレビュー全体で同時に MERMAID_REQUEST_BATCH 件まで要求し、ホストのキューを途切れさせない。
+        // 上限はチャンク単位ではなく処理中の全要求に掛け、スクロールの停止ごとに要求が積み上がって表示中の図が後回しになるのを防ぐ。
+        // 待機中の要求はホストが受信直後と10秒ごとに進捗を返すため180秒監視で失効せず、未開始の要求の取消はホスト側で安価に済む。
+        const inFlightCount = allNodes.filter(
+          /**
+           * 描画要求を処理中の図かを判定する。
+           * @param node - Mermaid図のノード。
+           * @returns 処理中ならtrue。
+           */
+          (node) => node.dataset.mermaidStatus === "rendering",
+        ).length;
+        const capacity = MERMAID_REQUEST_BATCH - inFlightCount;
+        // 上限に達している場合は何もしない。処理中のチャンクが完了したときに続きを予約する。
+        if (capacity <= 0) return "saturated";
+        const batch = pending.slice(0, capacity);
         await Promise.all(
           batch.map(
             /**
@@ -674,9 +687,10 @@ function RenderedMarkdownView({
 
       const scheduleRenderNodes = /**
        * 遅延後にMermaid描画を1チャンク実行し、表示範囲内の残件があれば次のチャンクを予約する。
-       * @param delay - 次のMermaid描画chunkを開始するまでの遅延（ミリ秒）。
+       * 既定の遅延は0。HTML更新は親側で120ms遅延済みで、入力中は isPreviewInputActive で開始しないため、追加の待ちは置かない。
+       * @param delay - 次のMermaid描画chunkを開始するまでの遅延（ミリ秒）。スクロール・入力再開では呼び出し側が120msを指定する。
        * @param restart - 既存の描画タイマーを解除して予約し直す場合true。
-       */ (delay = deferMermaid ? 80 : 0, restart = false) => {
+       */ (delay = 0, restart = false) => {
         const startedAt = performance.now();
         if (restart && renderTimer !== undefined) {
           window.clearTimeout(renderTimer);
@@ -694,8 +708,12 @@ function RenderedMarkdownView({
             () => {
               renderTimer = undefined;
               void renderNodes().then(
-
-                () => {
+                /**
+                 * 表示範囲付近に未描画の図が残っていれば次のチャンクを予約する。上限で何もしなかった場合は、処理中チャンクの完了に任せる。
+                 * @param result - チャンクの実行結果。"saturated" なら同時要求の上限で何も開始しなかった。
+                 */
+                (result) => {
+                  if (result === "saturated") return;
                   const hasNextForegroundNode = Array.from(
                     root.querySelectorAll<HTMLElement>(".mermaid"),
                   ).some(
@@ -1804,9 +1822,16 @@ function syncRenderedBlockAttributes(current: Element, next: Element): void {
 }
 
 /**
- * Webview側で保持するMermaid描画結果の最大件数。
+ * 1回の描画チャンクで同時にホストへ送るMermaid描画要求の最大数。ホストは直列に処理するため、
+ * 往復の待ちを隠せる程度に留め、編集で取り消す要求が増えすぎないようにする。
  */
-const MERMAID_CACHE_ENTRY_LIMIT = 16;
+const MERMAID_REQUEST_BATCH = 4;
+
+/**
+ * Webview側で保持するMermaid描画結果の最大件数。1図につき位置キーとソースキーの2件を使うため、
+ * 図の多い文書でも再描画時に再利用できるよう余裕を持たせる。メモリはバイト上限で別途制限する。
+ */
+const MERMAID_CACHE_ENTRY_LIMIT = 64;
 /**
  * Webview側のMermaid描画キャッシュに許容する合計バイト数。
  */

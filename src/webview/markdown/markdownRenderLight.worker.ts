@@ -1,5 +1,6 @@
 /**
- * @fileoverview Web Worker内で軽量なMarkdown解析を実行し、要求ID付きでプレビュー結果を返す。
+ * @fileoverview Web Worker内で軽量なMarkdown解析（highlight.jsを含まない）を実行し、要求ID付きでプレビュー結果を返す。
+ * 応答の preliminary は「rich Workerで描き直すと結果が変わり得る」場合だけtrueになる。falseの結果はrich Workerの結果とバイト一致するため、Webviewは最終結果として扱う。
  */
 import { collectDiagnostics, wordStats } from "../../shared/markdown";
 import {
@@ -37,11 +38,22 @@ self.addEventListener("message",
     (event: MessageEvent<RenderRequest>) => {
         const { id, markdown, options } = event.data;
         try {
-            const unsafeBlocks = renderMarkdownUnsafeBlocks(markdown, options);
+            // ハイライト関数がundefinedを返す描画は、関数なしの描画とバイト一致する（test/markdownStageParity.test.ts で固定）。
+            // 呼び出しの有無だけを記録し、一度も呼ばれなければrich Workerの結果も同一なので、この結果を最終結果として返す。
+            let highlightRequested = false;
+            const unsafeBlocks = renderMarkdownUnsafeBlocks(markdown, options,
+                /**
+                 * ハイライトが必要なコードの存在だけを記録するプローブ。常に「ハイライトしない」を返す。
+                 * @returns 常にundefined。
+                 */
+                () => {
+                    highlightRequested = true;
+                    return undefined;
+                });
             self.postMessage({
                 id,
                 markdown,
-                preliminary: true,
+                preliminary: highlightRequested,
                 unsafeBlocks,
                 outline: getOutlineForFormat(markdown, options.renderFormat ?? "markdown", unsafeBlocks),
                 diagnostics: collectDiagnostics(markdown, options.language),

@@ -41,7 +41,69 @@ export class PeleRendererUnavailableError extends Error {
     }
 }
 
-const CACHE_LIMIT = 12;
+/** 描画結果キャッシュの最大件数。図の多い文書やプレビューと出力の同時要求でも追い出しが起きにくい件数にし、メモリは CACHE_BYTE_LIMIT で制限する。 */
+const CACHE_LIMIT = 64;
+/** 描画開始後に取り消された要求について、後続の要求が無い間だけ描画ページを破棄せず完了を待つ猶予（ミリ秒）。 */
+const CANCELLED_RENDER_GRACE_MS = 1_000;
+/**
+ * 後続の要求が待っている場合に、取り消された描画の完了を待つ上限（描画開始からの経過ミリ秒）。
+ * 通常の図はこの時間内に終わるためページを保てる。これを超える重い図は即座に破棄し、後続の待ちを最大でもこの時間に抑える。
+ */
+const CANCELLED_RENDER_WAIT_WITH_FOLLOWER_MS = 250;
+/** 猶予中の、取り消された描画タスクとページ破棄タイマー。後続要求の到着・猶予切れ・終了処理のいずれかで消える。 */
+let pendingCancelledRenderReset: { task: RenderTask; timer: ReturnType<typeof setTimeout> } | undefined;
+
+/**
+ * 描画中に取り消されたタスクについて、猶予後も未完了ならページを破棄するタイマーを設定する。
+ * 通常の図は猶予内に終わるため、ページとWorkerの作り直しを省ける。
+ * @param task - 取り消された描画タスク。
+ */
+function scheduleCancelledRenderReset(task: RenderTask): void {
+    flushCancelledRenderReset();
+    armCancelledRenderReset(task, CANCELLED_RENDER_GRACE_MS);
+}
+
+/**
+ * 取り消されたタスクのページ破棄タイマーを設定し直す。
+ * @param task - 取り消された描画タスク。
+ * @param delay - 破棄判定までの待ち時間（ミリ秒）。
+ */
+function armCancelledRenderReset(task: RenderTask, delay: number): void {
+    if (pendingCancelledRenderReset) clearTimeout(pendingCancelledRenderReset.timer);
+    const timer = setTimeout(
+        /**
+         * 待ち時間が切れた時点で未完了ならページを破棄して後続を解放する。
+         */
+        () => {
+            if (pendingCancelledRenderReset?.task === task) pendingCancelledRenderReset = undefined;
+            if (!task.settled) void resetRendererPage();
+        },
+        delay
+    );
+    pendingCancelledRenderReset = { task, timer };
+}
+
+/**
+ * 後続の要求が来たときに、猶予中の取消タスクの待ちを短縮する。描画開始から CANCELLED_RENDER_WAIT_WITH_FOLLOWER_MS を
+ * 過ぎていれば即座にページを破棄し（変更前と同じ挙動）、過ぎていなければその時点まで完了を待つ。完了済みなら何もしない。
+ */
+function flushCancelledRenderReset(): void {
+    const pending = pendingCancelledRenderReset;
+    if (!pending) return;
+    if (pending.task.settled) {
+        clearTimeout(pending.timer);
+        pendingCancelledRenderReset = undefined;
+        return;
+    }
+    const remaining = pending.task.startedAt + CANCELLED_RENDER_WAIT_WITH_FOLLOWER_MS - Date.now();
+    if (remaining > 0) {
+        armCancelledRenderReset(pending.task, remaining);
+        return;
+    }
+    clearTimeout(pending.timer);
+    pendingCancelledRenderReset = undefined;
+    void resetRendererPage();
+}
 const CACHE_BYTE_LIMIT = 24 * 1024 * 1024;
 const RENDER_TIMEOUT_MS = 180_000;
 const LARGE_SVG_LIMIT = 80_000;
@@ -62,6 +124,8 @@ interface RenderTask {
     controller: AbortController;
     consumers: number;
     started: boolean;
+    /** 描画を開始した時刻（Date.now()）。取消後に完了を待つかどうかの判断に使う。未開始なら0。 */
+    startedAt: number;
     settled: boolean;
     cancelled: boolean;
 }
@@ -101,12 +165,14 @@ export function renderPeleMermaid(
             controller: new AbortController(),
             consumers: 0,
             started: false,
+            startedAt: 0,
             settled: false,
             cancelled: false
         };
         created.promise = enqueue(async () => {
             if (created.cancelled || created.controller.signal.aborted) throw new Error('Mermaid rendering was cancelled.');
             created.started = true;
+            created.startedAt = Date.now();
             const result = await withTimeout(
                 renderQueued(
                     source,
@@ -155,6 +221,8 @@ export async function preparePeleRenderer(
  * @returns 描画処理の結果。
  */
 function enqueue(operation: () => Promise<PeleMermaidResult>): Promise<PeleMermaidResult> {
+    // 取り消された描画の完了を待つ猶予中に後続の要求が来たら、待たせずに従来どおり即座にページを破棄して後続を解放する。
+    flushCancelledRenderReset();
     const result = queueTail.then(operation);
     queueTail = result.then(() => undefined, () => undefined);
     return result;
@@ -182,10 +250,8 @@ async function renderQueued(
     if (signal?.aborted) throw new Error('Mermaid rendering was cancelled.');
     if (source.length > 50_000) throw new Error('Mermaid source exceeds the 50000 character limit.');
     let page = await acquireRendererPage(workerPath, acquireBrowser);
-    if (signal?.aborted) {
-        await resetRendererPage();
-        throw new Error('Mermaid rendering was cancelled.');
-    }
+    // ページ取得直後の取消では、まだWorkerへ描画を依頼していないため、ページは健全なまま次の要求に使える。
+    if (signal?.aborted) throw new Error('Mermaid rendering was cancelled.');
     const requestId = `mve-pele-${++sequence}`;
     const renderWithWorker = (targetPage: Page) => targetPage.evaluate(async (payload) => {
         const workerState = window as typeof window & { __mvePeleWorker?: Worker; __mvePeleWorkerError?: string };
@@ -459,6 +525,8 @@ async function resetRendererPage(): Promise<void> {
  * Mermaid Worker、Page、SVGキャッシュを解放する。
  */
 export async function closePeleRenderer(): Promise<void> {
+    if (pendingCancelledRenderReset) clearTimeout(pendingCancelledRenderReset.timer);
+    pendingCancelledRenderReset = undefined;
     for (const task of inFlight.values()) {
         task.cancelled = true;
         task.controller.abort();
@@ -530,7 +598,9 @@ function consumeTask(task: RenderTask, signal?: AbortSignal): Promise<PeleMermai
         if (task.consumers === 0 && !task.settled) {
             task.cancelled = true;
             task.controller.abort();
-            if (task.started) void resetRendererPage();
+            // 描画中のPele処理は中断できない。通常の図はすぐ終わるため、猶予内に終われば描画ページを保ち、
+            // 次の図でページとWorkerを作り直す時間を省く。猶予を過ぎても終わらない重い図だけ、従来どおりページを破棄して後続を解放する。
+            if (task.started) scheduleCancelledRenderReset(task);
         }
     };
     return new Promise<PeleMermaidResult>((resolve, reject) => {
