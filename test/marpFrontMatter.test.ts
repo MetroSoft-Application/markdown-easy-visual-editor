@@ -8,7 +8,6 @@ import {
   isMarpMarkdown,
   stripMarpFrontMatter,
 } from "../src/shared/marpFrontMatter";
-import { stripMarpFrontMatter as stripCliMarpFrontMatter } from "../cli/src/shared/marpFrontMatter";
 
 /**
  * MarpのYAML判定関数を共有front matter判定へ渡す。
@@ -35,12 +34,10 @@ describe("Marp Markdown detection", () => {
   it("strips only valid Marp front matter for ordinary HTML output", () => {
     const marp = "\uFEFF---\r\nmarp: true\r\n---\r\n# Slide\r\n";
     const ordinary = "---\r\ntitle: ordinary\r\n---\r\n# Document\r\n";
-    for (const strip of [stripMarpFrontMatter, stripCliMarpFrontMatter]) {
-      expect(strip(marp, parseMarpFrontMatter)).toBe("\uFEFF# Slide\r\n");
-      expect(strip(ordinary, parseMarpFrontMatter)).toBe(ordinary);
-      const invalid = "---\nmarp: [true\n---\n# Document\n";
-      expect(strip(invalid, parseMarpFrontMatter)).toBe(invalid);
-    }
+    expect(stripMarpFrontMatter(marp, parseMarpFrontMatter)).toBe("\uFEFF# Slide\r\n");
+    expect(stripMarpFrontMatter(ordinary, parseMarpFrontMatter)).toBe(ordinary);
+    const invalid = "---\nmarp: [true\n---\n# Document\n";
+    expect(stripMarpFrontMatter(invalid, parseMarpFrontMatter)).toBe(invalid);
   });
 
   it.each([

@@ -216,19 +216,26 @@ async function copyAssets() {
   ]);
 }
 
+/** HTML/PDF出力に使う、npmで公開済みの変換CLIパッケージの導入先。 */
+const exportEnginePackage = 'node_modules/@metrosoft/markdown-easy-converter';
+
 /**
- * 保存要求時だけ読むCLI成果物を、プレビュー資産と別ディレクトリへ配置する。
- * CLIビルドはcli/内のソースと依存のみを入力にし、拡張側へ同期しない。
+ * 保存要求時だけ読むCLI成果物を、npmパッケージからプレビュー資産と別ディレクトリへ配置する。
+ * CLI内のPlaywrightは実行ファイルの1つ上の階層からpackage.jsonとbrowsers.jsonを読むため、両方をdist/へ置く。
+ * CLIがバンドルした依存のライセンス原文と、CLI本体のライセンスも同じ配布物に含める。
+ * 成果物が欠けている場合はcopyFile/cpが失敗し、出力できないVSIXやライセンス表示のないVSIXを作らない。
  */
 async function copyExportEngine() {
-  await import('../cli/build.mjs');
   await mkdir('dist/export-engine', { recursive: true });
   for (const asset of ['mve-convert.cjs', 'print-assets.css', 'pele-render-worker.js',
     'markdown-fallback.js', 'output-replacements.js']) {
-    await copyFile(`cli/dist/${asset}`, `dist/export-engine/${asset}`);
+    await copyFile(`${exportEnginePackage}/dist/${asset}`, `dist/export-engine/${asset}`);
   }
-  await copyFile('cli/browsers.json', 'dist/browsers.json');
-  await copyFile('cli/package.json', 'dist/package.json');
+  await cp(`${exportEnginePackage}/dist/third-party-licenses`, 'dist/export-engine/third-party-licenses',
+    { recursive: true, errorOnExist: false, force: true });
+  await copyFile(`${exportEnginePackage}/LICENSE.md`, 'dist/export-engine/LICENSE.md');
+  await copyFile(`${exportEnginePackage}/browsers.json`, 'dist/browsers.json');
+  await copyFile(`${exportEnginePackage}/package.json`, 'dist/package.json');
 }
 
 // dist は生成物専用である。過去ビルドの chunk や runtime を VSIX へ混入させない。

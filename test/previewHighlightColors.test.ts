@@ -1,5 +1,5 @@
 /**
- * @fileoverview プレビューのコードハイライト色が、CLIのHTML/PDF出力と同じ明るい背景用の配色になることを検証する。
+ * @fileoverview プレビューのコードハイライト色が、同梱する変換CLI(npmパッケージ)のHTML/PDF出力と同じ明るい背景用の配色になることを検証する。
  * ダークテーマでも白い用紙で描くPDFプレビューに暗い背景用の色が残ると、#f5f5f5上で読めなくなる回帰を防ぐ。
  * 同じ配色は5か所に定義されているため、値の食い違いをここで一括して検出する。
  */
@@ -13,10 +13,14 @@ const HLJS_CLASSES = ['keyword', 'selector-tag', 'literal', 'string', 'attr', 't
 const previewCss = readFileSync('src/webview/editor/editorThemePolish.css', 'utf8');
 /** PDFプレビュー描画用のPRINT_CSSを含むHostのソース。 */
 const pdfSource = readFileSync('src/extension/pdf.ts', 'utf8');
-/** CLIのHTML出力スタイルを含むソース。 */
-const htmlSource = readFileSync('cli/src/html.ts', 'utf8');
-/** CLIのPDF出力スタイル。 */
-const printCss = readFileSync('cli/src/styles/print-assets.css', 'utf8');
+/** 拡張が同梱する、npmで公開済みの変換CLIの成果物。 */
+const engineDist = 'node_modules/@metrosoft/markdown-easy-converter/dist';
+/** 変換CLIのバンドル。HTML出力スタイルは文字列として埋め込まれている。 */
+const engineBundle = readFileSync(`${engineDist}/mve-convert.cjs`, 'utf8');
+/** HTML出力のハイライト色定義の周辺。約14MBのバンドル全体を正規表現で走査しないよう前後だけを切り出す。 */
+const htmlSource = engineBundle.slice(Math.max(0, engineBundle.indexOf('.mve-html .hljs-') - 1000), engineBundle.indexOf('.mve-html .hljs-') + 1000);
+/** 変換CLIのPDF出力スタイル(最小化済み)。 */
+const printCss = readFileSync(`${engineDist}/print-assets.css`, 'utf8');
 
 /**
  * コメントを除いたCSSから、セレクターと宣言の組を列挙する。

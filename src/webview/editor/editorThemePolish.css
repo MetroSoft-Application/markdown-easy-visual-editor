@@ -165,7 +165,7 @@ body[data-editor-theme] .pdf-preview-live-content .rendered-markdown td {
 /*
  * @style body[data-editor-theme="light"] .rendered-markdown .hljs-*, body[data-editor-theme] .pdf-preview-live-content .rendered-markdown .hljs-*
  * 明るい背景のコードブロック用ハイライト色。ライトテーマのプレビューと、テーマに関係なく白い用紙で描くPDFプレビューに適用する。
- * HTML出力(cli/src/html.ts)、PDF出力(cli/src/styles/print-assets.css)、PDFプレビュー描画(src/extension/pdf.tsのPRINT_CSS)と同じ値に保ち、
+ * 変換CLI(@metrosoft/markdown-easy-converter)のHTML出力とPDF出力、PDFプレビュー描画(src/extension/pdf.tsのPRINT_CSS)と同じ値に保ち、
  * 背景#f5f5f5に対して読める濃さにする。値の一致はtest/previewHighlightColors.test.tsで検査する。
  */
 body[data-editor-theme="light"] .rendered-markdown .hljs-keyword,

@@ -505,6 +505,8 @@ try {
   }
 
   const delayedRenderMarkdown = `${performanceBase.markdown}\n\nDelayed render status probe.\n`;
+  const delayedRenderCountBefore = Number(await page.locator('.split-preview .mve-marp-preview')
+    .getAttribute('data-mve-marp-render-count'));
   await page.evaluate(() => { window.__mveDelayWorkerMessages = true; });
   await sendExternalChanges(page, delayedRenderMarkdown, lastMarkdown, lastVersion);
   lastMarkdown = delayedRenderMarkdown;
@@ -515,11 +517,17 @@ try {
     .evaluate((root) => ({
       status: root.getAttribute('data-mve-marp-status'),
       hasError: Boolean(root.querySelector('[role="alert"]')),
+      renderCount: Number(root.getAttribute('data-mve-marp-render-count')),
     }));
-  if (delayedRenderState.status !== 'loading' || delayedRenderState.hasError) {
+  // 再描画中は前回のスライドを表示し続ける仕様のため、statusはreadyのまま残り得る。
+  // 遅延中であること(描画回数が増えていないこと)と、エラーへ遷移していないことを確認する。
+  if (delayedRenderState.status === 'error' || delayedRenderState.hasError ||
+    delayedRenderState.renderCount !== delayedRenderCountBefore) {
     throw new Error(`15秒を超えて描画中のMarp文書がエラー扱いになりました: ${JSON.stringify(delayedRenderState)}`);
   }
   await page.evaluate(() => { window.__mveDelayWorkerMessages = false; });
+  // スライド数が同じため、描画回数の増加を待たないと旧デッキの表示で通過してしまう。
+  await waitForRenderTransition(page, '.split-preview .mve-marp-preview', delayedRenderCountBefore);
   await waitForRenderedDeck(page, '.split-preview .mve-marp-preview', performanceBase.slideCount);
   const delayedRenderText = await page.locator('.split-preview .mve-marp-preview iframe').contentFrame()
     .locator('.mve-marp-slide').last().textContent();

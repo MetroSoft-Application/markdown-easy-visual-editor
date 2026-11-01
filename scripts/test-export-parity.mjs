@@ -51,5 +51,7 @@ const comparison = await execute(process.execPath, [
   'scripts/render-parity.mjs', '--input', input,
   '--reference-html', referenceHtml, '--reference-pdf', referencePdf,
   '--browser', browser, '--out-dir', directory,
+  // 基準側のengine.convertと同じ言語・テーマ・リンク基準でCLIにも生成させる。
+  '--language', 'ja', '--theme', 'dark', '--mermaid-theme', 'auto', '--workspace-root', directory,
 ], { maxBuffer: 1024 * 1024 });
 console.log(comparison.stdout.trim());

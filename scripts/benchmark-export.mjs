@@ -79,7 +79,7 @@ for (const format of ['html', 'pdf']) {
       const output = path.join(directory, `${format}-${mode}-${index}.${format}`);
       const start = performance.now();
       if (mode === 'cold') {
-        await execute(process.execPath, ['cli/dist/mve-convert.cjs', input,
+        await execute(process.execPath, ['dist/export-engine/mve-convert.cjs', input,
           '--format', format, '--output', output, '--browser', browser, '--force'],
         { timeout: 180_000, maxBuffer: 1024 * 1024 });
       } else {

@@ -11,7 +11,9 @@ const limits = {
   'extension.js': 512 * 1024,
   'webview.js': 2 * 1024 * 1024,
   'webview.css': 256 * 1024,
-  'markdown-worker.js': 512 * 1024,
+  // katex(約268KB)と全7言語のUI文言(約155KB)を含み、2026-11-01時点で約525KiB。
+  // 利用者が「容量は問題ではない」と判断したため、512KiBから現状に余裕を持たせた640KiBへ見直した。
+  'markdown-worker.js': 640 * 1024,
   'marp-worker.js': 1024 * 1024,
   'marp-frame.js': 256 * 1024,
   'marp-yaml.cjs': 512 * 1024,

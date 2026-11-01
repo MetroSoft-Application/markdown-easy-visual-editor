@@ -6,7 +6,7 @@ import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
-const ROOTS = ['src/', 'scripts/', 'test/', 'cli/'];
+const ROOTS = ['src/', 'scripts/', 'test/'];
 const ADDITIONAL_FILES = new Set(['vitest.config.mts']);
 const SELF_CHECKED_FILES = ['scripts/check-documentation-comments.mjs'];
 const SOURCE_EXTENSIONS = new Set(['.ts', '.tsx', '.js', '.mjs', '.cjs', '.mts', '.css']);

@@ -4,11 +4,11 @@
  * 本番と同じdiv.markdown-source-blockで包んだ構造にするため、HTMLは実際のMarkdownレンダラーで生成する。
  * 2番目以降の見出しの区切りマージンは維持されることも合わせて確認する。
  */
-import { existsSync, readFileSync, readdirSync } from 'node:fs';
-import path from 'node:path';
+import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright-core';
 import { describe, expect, it } from 'vitest';
 import { renderMarkdownUnsafe } from '../src/webview/markdown/markdownRendererCore';
+import { findChromium } from './chromium';
 
 /**
  * プレビュー上端に置く内容ごとの検査用Markdown。
@@ -24,7 +24,7 @@ const LEADING_MARKDOWN = {
 const TOP_PADDING = 24;
 
 /** `npm run pdf:install-browser`で導入したChromium。未導入の環境ではテストを省略する。 */
-const executablePath = findChromium(path.resolve('.chromium'));
+const executablePath = findChromium();
 /** Chromiumの有無に応じた実行・省略の切り替え。 */
 const withBrowser = executablePath ? describe : describe.skip;
 
@@ -56,21 +56,3 @@ withBrowser('split preview top spacing', () => {
         }
     }, 30_000);
 });
-
-/**
- * 導入済みChromiumのヘッドレス実行ファイルを再帰的に探す。
- * @param root - Chromiumの導入先ディレクトリ。
- * @returns 実行ファイルの絶対パス。導入先がない、または見つからない場合はundefined。
- */
-function findChromium(root: string): string | undefined {
-    if (!existsSync(root)) return undefined;
-    for (const entry of readdirSync(root, { withFileTypes: true })) {
-        const file = path.join(root, entry.name);
-        if (entry.isFile() && entry.name === 'chrome-headless-shell.exe') return file;
-        if (entry.isDirectory()) {
-            const found = findChromium(file);
-            if (found) return found;
-        }
-    }
-    return undefined;
-}

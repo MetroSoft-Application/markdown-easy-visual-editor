@@ -187,6 +187,9 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
     const programmaticScrollRef = useRef(false);
     const [frameHeight, setFrameHeight] = useState(420);
     const [hasRenderedSlides, setHasRenderedSlides] = useState(false);
+    // metricsRefの更新だけでは再描画されないため、描画完了通知に出すスライド数はstateで保持する。
+    // 2回目以降のlayoutでは他のstateが変わらないことがあり、refから読むと旧デッキの枚数が残る。
+    const [renderedSlideCount, setRenderedSlideCount] = useState(0);
     const [renderDurationMs, setRenderDurationMs] = useState<number>();
     const [renderCount, setRenderCount] = useState(0);
     const [error, setError] = useState<string>();
@@ -668,6 +671,7 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
           }
           setFrameHeight(Math.max(320, Math.ceil(message.height ?? 0)));
           metricsRef.current = message.slides;
+          setRenderedSlideCount(message.slides.length);
           rangesRef.current = message.sourceRanges;
           layoutMarkdownRef.current = renderedMarkdownRef.current;
           onStartupStage?.("iframe-layout-received", `slides=${message.slides.length}`);
@@ -806,7 +810,7 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
         ref={rootRef}
         className={`mve-marp-preview ${className}`.trim()}
         data-mve-marp-status={error ? "error" : hasRenderedSlides ? "ready" : "loading"}
-        data-mve-marp-slide-count={hasRenderedSlides ? metricsRef.current.length : 0}
+        data-mve-marp-slide-count={hasRenderedSlides ? renderedSlideCount : 0}
         data-mve-marp-render-duration-ms={renderDurationMs}
         data-mve-marp-render-count={renderCount}
         aria-busy={!error && !hasRenderedSlides}

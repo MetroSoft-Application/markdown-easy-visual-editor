@@ -31,7 +31,8 @@ for (const [name, entry, platform] of entries) {
       logLevel: 'silent',
     });
     const inputs = Object.keys(result.metafile.inputs).map((item) => item.replaceAll('\\', '/'));
-    const cliInputs = inputs.filter((item) => item.startsWith('cli/') || item.includes('/cli/'));
+    // CLIはnpmパッケージとして導入するため、パッケージ配下の入力が1件でもあれば混入とみなす。
+    const cliInputs = inputs.filter((item) => item.includes('node_modules/@metrosoft/markdown-easy-converter/'));
     report.push({ name, entry, inputs: inputs.length, cliInputs });
     if (cliInputs.length) failed = true;
   } catch (error) {

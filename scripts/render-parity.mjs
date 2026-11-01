@@ -5,6 +5,7 @@
  * node scripts/render-parity.mjs --input sample.md
  *   --reference-html editor.html --reference-pdf editor.pdf
  *   [--browser /path/to/chromium] [--out-dir parity-results]
+ *   [--language ja] [--theme light|dark] [--mermaid-theme auto]
  *   [--html-linked true] [--html-outline true]
  *   [--html-embed-images true | --html-no-embed-images true]
  *
@@ -26,7 +27,7 @@ const run = promisify(execFile);
 const supportedFlags = new Set([
     '--input', '--reference-html', '--reference-pdf', '--out-dir', '--browser',
     '--max-different-ratio', '--candidate-html', '--candidate-pdf', '--config',
-    '--workspace-root', '--html-linked', '--html-outline',
+    '--workspace-root', '--language', '--theme', '--mermaid-theme', '--html-linked', '--html-outline',
     '--html-embed-images', '--html-no-embed-images'
 ]);
 const flags = new Map();
@@ -77,10 +78,11 @@ const fingerprint = async (file) => {
     const bytes = await fs.readFile(file);
     return { path: file, bytes: bytes.length, sha256: createHash('sha256').update(bytes).digest('hex') };
 };
+// CLIで生成する候補はこの時点でまだ存在しないため、候補の指紋は生成後に記録する。
 report.files = {
     input: await fingerprint(source),
     references: await Promise.all(references.map(fingerprint)),
-    candidates: await Promise.all(candidates.map(fingerprint)),
+    candidates: [],
     config: report.config ? await fingerprint(report.config) : null
 };
 let browser;
@@ -294,7 +296,7 @@ async function pixels(left, right, name) {
 
 try {
     if (!suppliedCandidates.some(Boolean)) {
-        await fs.stat('cli/dist/mve-convert.cjs').catch(() => {
+        await fs.stat('dist/export-engine/mve-convert.cjs').catch(() => {
             throw new Error('Build CLI first: npm run build');
         });
     }
@@ -304,10 +306,14 @@ try {
     report.browserVersion = browser.version();
     if (!suppliedCandidates.some(Boolean)) {
         for (const [index, ext] of ['html', 'pdf'].entries()) {
-            const args = ['cli/dist/mve-convert.cjs', source, '--format', ext, '--output', candidates[index]];
+            const args = ['dist/export-engine/mve-convert.cjs', source, '--format', ext, '--output', candidates[index]];
             if (executable) args.push('--browser', executable);
             if (flags.has('--config')) args.push('--config', flags.get('--config'));
             if (flags.has('--workspace-root')) args.push('--workspace-root', flags.get('--workspace-root'));
+            // 基準側と同じ言語・テーマで生成しないと、lang属性や見出し色の違いが差分として現れる。
+            for (const name of ['--language', '--theme', '--mermaid-theme']) {
+                if (flags.has(name)) args.push(name, flags.get(name));
+            }
             if (ext === 'html' && flags.get('--html-linked') === 'true') args.push('--html-linked');
             if (ext === 'html' && flags.get('--html-outline') === 'true') args.push('--html-outline');
             if (ext === 'html' && flags.get('--html-embed-images') === 'true') args.push('--html-embed-images');
@@ -315,6 +321,7 @@ try {
             await run(process.execPath, args, { timeout: 180000 });
         }
     }
+    report.files.candidates = await Promise.all(candidates.map(fingerprint));
     for (const width of [800, 1440]) {
         const htmlPage = await browser.newPage({ viewport: { width, height: 900 }, deviceScaleFactor: 1 });
         let reference;
