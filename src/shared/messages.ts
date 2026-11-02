@@ -395,6 +395,11 @@ export interface Messages {
             hardBreak: string;
 
             /**
+             * プレビュー用の空行として`<br>`ブロックを挿入する操作のラベル。
+             */
+            blankLine: string;
+
+            /**
              * 表示項目「language」の文言として表示するローカライズ済み文言。
              */
             language: string;

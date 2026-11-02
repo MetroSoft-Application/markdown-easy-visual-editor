@@ -98,7 +98,7 @@ Apply headings, quotes, bullet lists, numbered lists, task lists, indentation, a
 
 ### Insert
 
-Insert links, images, tables, horizontal rules, line breaks, code blocks, mathematical expressions, footnotes, tables of contents, page breaks, callouts, and emoji. When inserting a code block, choose its language to enable syntax highlighting.
+Insert links, images, tables, horizontal rules, line breaks, blank lines (`<br>`), code blocks, mathematical expressions, footnotes, tables of contents, page breaks, callouts, and emoji. When inserting a code block, choose its language to enable syntax highlighting.
 
 ![Insert ribbon with source and live preview](./resources/readme-insert.png)
 

@@ -60,6 +60,7 @@ export const RIBBON_LAYOUT: RibbonLayoutDefinition = {
                         "insertTable",
                         "horizontalRule",
                         "hardBreak",
+                        "blankLine",
                     ],
                 },
                 {

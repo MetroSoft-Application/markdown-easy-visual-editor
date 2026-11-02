@@ -256,6 +256,9 @@ export const RIBBON_DEFINITIONS: RibbonDefinitions = {
         hardBreak: {
             label: { kind: "message", path: "ribbon.labels.hardBreak" },
         },
+        blankLine: {
+            label: { kind: "message", path: "ribbon.labels.blankLine" },
+        },
         codeLanguage: {
             label: { kind: "message", path: "ribbon.labels.language" },
         },

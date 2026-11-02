@@ -23,6 +23,7 @@ import type {
   RibbonItemDefinition,
 } from "./ribbonDefinitionTypes";
 import type { RibbonItemId } from "./ribbonIds";
+import { BLANK_LINE_SNIPPET } from "./ribbonSnippets";
 import type {
   RibbonButtonState,
   RibbonButtonImplementation,
@@ -112,7 +113,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
           defaultValue="0"
           onChange={
             /**
-              * 選択された見出しレベルをheadingコマンドとして通知する。
+             * 選択された見出しレベルをheadingコマンドとして通知する。
              * @param event - 見出しレベルselectの変更値を数値化してheading commandへ渡すchange event。
              */
             (event) =>
@@ -254,12 +255,8 @@ export const RIBBON_IMPLEMENTATIONS: Record<
           className="mve-text-color-select"
           value={context.textColorChoice}
           disabled={context.readOnly}
-          onFocus={
-
-            () =>
-              context.setTextColorChoice(
-                readActiveSourceTextColor() ?? "default",
-              )
+          onFocus={() =>
+            context.setTextColorChoice(readActiveSourceTextColor() ?? "default")
           }
           onChange={
             /**
@@ -430,6 +427,13 @@ export const RIBBON_IMPLEMENTATIONS: Record<
      * クリック時にリボン操作「hardBreak」を編集面へ通知する。
      */
     ({ onCommand }) => onCommand({ type: "sourceAction", action: "hardBreak" }),
+    { disabled: editDisabled },
+  ),
+  blankLine: button(
+    /**
+     * プレビュー用の空行として、カーソル位置へ`<br>`と空行を挿入する。挿入内容と末尾空行の理由は`BLANK_LINE_SNIPPET`を参照。
+     */
+    ({ onCommand }) => onCommand({ type: "insert", value: BLANK_LINE_SNIPPET }),
     { disabled: editDisabled },
   ),
   codeLanguage: control(
@@ -809,10 +813,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
                    */
                   (event) => context.setImageDirectoryDraft(event.target.value)
                 }
-                onBlur={
-
-                  () => saveImageDirectory(context)
-                }
+                onBlur={() => saveImageDirectory(context)}
               />
             </label>
           </form>
@@ -869,14 +870,14 @@ export const RIBBON_IMPLEMENTATIONS: Record<
                 onChange={
                   /**
                    * change操作を表示または編集状態へ反映する。
-                    * @param value - 入力欄で選択または入力されたエディター用フォント名。
+                   * @param value - 入力欄で選択または入力されたエディター用フォント名。
                    */
                   (value) =>
                     context.setEditorFontFamilyDraft(normalizeFontFamily(value))
                 }
                 onCommit={
                   /**
-                    * @param value - 保存するエディター用フォント名。
+                   * @param value - 保存するエディター用フォント名。
                    */
                   (value) => saveFontFamily(context, "editor", value)
                 }
@@ -896,7 +897,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
                 onChange={
                   /**
                    * change操作を表示または編集状態へ反映する。
-                    * @param value - 入力欄で選択または入力されたプレビュー用フォント名。
+                   * @param value - 入力欄で選択または入力されたプレビュー用フォント名。
                    */
                   (value) =>
                     context.setPreviewFontFamilyDraft(
@@ -905,7 +906,7 @@ export const RIBBON_IMPLEMENTATIONS: Record<
                 }
                 onCommit={
                   /**
-                    * @param value - 保存するプレビュー用フォント名。
+                   * @param value - 保存するプレビュー用フォント名。
                    */
                   (value) => saveFontFamily(context, "preview", value)
                 }
@@ -1096,10 +1097,7 @@ function FontFamilyInput({
           }
         }
       }
-      onBlur={
-
-        () => onCommit(value)
-      }
+      onBlur={() => onCommit(value)}
     />
   );
 }

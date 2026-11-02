@@ -69,6 +69,7 @@ export type RibbonItemId =
     | "insertTable"
     | "horizontalRule"
     | "hardBreak"
+    | "blankLine"
     | "codeLanguage"
     | "codeBlock"
     | "mermaid"

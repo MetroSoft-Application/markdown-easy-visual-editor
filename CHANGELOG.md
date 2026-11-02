@@ -53,3 +53,7 @@
 
 - Changed HTML and PDF export to use `@metrosoft/markdown-easy-converter`.
 - Fixed preview spacing and highlight/table colors.
+
+## 2.0.1
+
+- Added a feature to insert blank lines.

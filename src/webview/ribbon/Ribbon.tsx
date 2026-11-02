@@ -69,6 +69,7 @@ const MARKDOWN_SYNTAX_RIBBON_ITEMS: ReadonlySet<RibbonItemId> = new Set([
   "insertTable",
   "horizontalRule",
   "hardBreak",
+  "blankLine",
   "codeLanguage",
   "codeBlock",
   "mermaid",
@@ -174,7 +175,7 @@ interface Props {
    */
   mermaidFontSize: number;
   /**
-    * HTML出力設定の変更をHostへ通知し、永続化とプレビュー反映を依頼する。
+   * HTML出力設定の変更をHostへ通知し、永続化とプレビュー反映を依頼する。
    * @param options - 呼び出し側が指定する処理設定。
    */
   onHtmlOptionsChange: (options: HtmlExportOptions) => void;
@@ -185,8 +186,8 @@ interface Props {
    */
   onPdfSaveWithoutDialogChange: (enabled: boolean) => void;
   /**
-    * リボン操作をHostへ送り、登録済みコマンドの実行を依頼する。
-    * @param command - Hostへ送信するリボンコマンド。
+   * リボン操作をHostへ送り、登録済みコマンドの実行を依頼する。
+   * @param command - Hostへ送信するリボンコマンド。
    */
   onCommand: (command: RibbonCommand) => void;
 }
@@ -307,7 +308,7 @@ export function Ribbon({
 
   useEffect(
     /**
-      * プレビュー画像のサイズ操作UIが表示されたことをstateへ反映する購読を登録する。
+     * プレビュー画像のサイズ操作UIが表示されたことをstateへ反映する購読を登録する。
      */
     () =>
       subscribePreviewImageResizeControlsVisible(setImageResizeControlsVisible),
@@ -316,21 +317,21 @@ export function Ribbon({
 
   useEffect(
     /**
-      * Hostから受け取った画像保存先を編集欄へ同期する。
+     * Hostから受け取った画像保存先を編集欄へ同期する。
      */
     () => setImageDirectoryDraft(imageDirectory),
     [imageDirectory],
   );
   useEffect(
     /**
-      * Hostから受け取ったエディターフォントを編集欄へ同期する。
+     * Hostから受け取ったエディターフォントを編集欄へ同期する。
      */
     () => setEditorFontFamilyDraft(editorFontFamily),
     [editorFontFamily],
   );
   useEffect(
     /**
-      * Hostから受け取ったプレビューフォントを編集欄へ同期する。
+     * Hostから受け取ったプレビューフォントを編集欄へ同期する。
      */
     () => setPreviewFontFamilyDraft(previewFontFamily),
     [previewFontFamily],
@@ -369,9 +370,7 @@ export function Ribbon({
           type="button"
           disabled={disabled}
           title={title ?? label}
-          onClick={
-            () => implementation.onClick(context)
-          }
+          onClick={() => implementation.onClick(context)}
         >
           {label}
         </button>
@@ -386,9 +385,7 @@ export function Ribbon({
           aria-pressed={active}
           disabled={disabled}
           title={title}
-          onClick={
-            () => implementation.onClick(context)
-          }
+          onClick={() => implementation.onClick(context)}
         >
           {label}
         </button>
@@ -402,9 +399,7 @@ export function Ribbon({
         active={active}
         disabled={disabled}
         title={title}
-        onClick={
-          () => implementation.onClick(context)
-        }
+        onClick={() => implementation.onClick(context)}
       />
     );
   }
@@ -455,7 +450,7 @@ export function Ribbon({
 
   /**
    * 指定したIDのリボン項目を、定義されたグループ単位で描画する。
-    * @param itemIds - 表示するグループ内リボン項目のID一覧。
+   * @param itemIds - 表示するグループ内リボン項目のID一覧。
    * @returns 各グループを含むリボン項目のReact node一覧。
    */
   function renderGroupItems(
@@ -497,7 +492,7 @@ export function Ribbon({
 
   /**
    * 指定したIDのヘッダー項目を、定義されたグループ単位で描画する。
-    * @param itemIds - 表示するリボンヘッダー項目のID一覧。
+   * @param itemIds - 表示するリボンヘッダー項目のID一覧。
    * @returns 各グループを含むヘッダー項目のReact node一覧。
    */
   function renderHeaderItems(
@@ -523,10 +518,7 @@ export function Ribbon({
             key={`${groupId}-${index}`}
             className={groupDefinition.className}
             role="group"
-            aria-label={resolveRibbonLabel(
-              groupDefinition.ariaLabel,
-              messages,
-            )}
+            aria-label={resolveRibbonLabel(groupDefinition.ariaLabel, messages)}
           >
             {groupItemIds.map(renderHeaderButton)}
           </div>,
@@ -711,12 +703,12 @@ function Group({
   label: string;
 
   /**
-    * グループ内に表示する操作要素。
+   * グループ内に表示する操作要素。
    */
   children: React.ReactNode;
 
   /**
-    * レイアウト調整に使う追加CSSクラス。
+   * レイアウト調整に使う追加CSSクラス。
    */
   className?: string;
 }): React.JSX.Element {
@@ -764,7 +756,7 @@ function Tool({
    */
   title?: string;
   /**
-    * ボタン押下時に実行する操作。
+   * ボタン押下時に実行する操作。
    */
   onClick: () => void;
 }): React.JSX.Element {
