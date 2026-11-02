@@ -23,6 +23,9 @@
     max-width: calc(100vw - 32px);
     max-height: calc(100vh - 32px);
     display: grid;
+    /* 列を本体幅に固定する。auto のままだとフッター（破棄確認バーなど）の最小幅の合計が
+       本体幅を超えたときに列ごと広がり、overflow: hidden で右端の × やボタンが切れる。 */
+    grid-template-columns: minmax(0, 1fr);
     grid-template-rows: 46px auto minmax(0, 1fr) 48px;
     box-sizing: border-box;
     overflow: hidden;
@@ -555,6 +558,61 @@
 }
 
 
+/**
+ * @style .mve-table-editor-discard-confirm
+ * 未適用の変更の破棄確認バー。Webview は window.confirm がブロックされるため、フッター内で
+ * 確認文と操作を並べる。通常幅のフッターは高さ固定（48px）で、折り返すと 2 段目のボタンが
+ * 切れるため折り返さない。確認中は選択範囲の案内より確認文を優先し、案内文を先に縮める
+ * （flex-shrink: 0）。フッター幅自体が足りない場合だけ max-width で収め、確認文を省略表示する。
+ */
+.mve-table-editor-discard-confirm {
+    align-items: center;
+    flex-wrap: nowrap;
+    flex-shrink: 0;
+    justify-content: flex-end;
+    min-width: 0;
+    max-width: 100%;
+}
+
+
+/**
+ * @style .mve-table-editor-discard-message
+ * 破棄確認文。ステータス表示の警告と同じテーマ警告色で、通常の操作ガイドと区別する。
+ * 幅不足時は省略表示し、全文は title で参照できる。
+ */
+.mve-table-editor-discard-message {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--vscode-editorWarning-foreground, var(--vscode-foreground));
+    font-size: 12px;
+}
+
+
+/**
+ * @style .mve-table-editor-discard-confirm button
+ * 確認バーの操作ボタンは縮めず、ラベル全体を表示する。
+ */
+.mve-table-editor-discard-confirm button {
+    flex-shrink: 0;
+    white-space: nowrap;
+}
+
+
+/**
+ * @style .mve-table-editor button.danger, .mve-table-editor button.danger:hover:not(:disabled)
+ * 破棄は取り消せない操作のため、テーマのエラー色で既定操作（適用）と区別する。
+ * 汎用ボタンの hover 規則より詳細度を上げ、ホバー中も危険色を保つ。
+ */
+.mve-table-editor button.danger,
+.mve-table-editor button.danger:hover:not(:disabled) {
+    background: var(--vscode-inputValidation-errorBackground, #5a1d1d);
+    border-color: var(--vscode-inputValidation-errorBorder, #be1100);
+    color: var(--vscode-foreground);
+}
+
+
 .mve-table-editor-toast {
     position: fixed;
     right: 18px;
@@ -602,6 +660,26 @@
         align-items: flex-start;
         gap: 8px;
         padding: 8px;
+    }
+
+
+    /**
+     * @style .mve-table-editor-discard-confirm（狭い画面）
+     * フッター行が自動の高さになるため、確認バーを折り返して全文を示す。案内文と幅を分け合い、
+     * 確認バーが横幅を独占して案内文を極端に細くしないよう縮小を許可する。
+     */
+    .mve-table-editor-discard-confirm {
+        flex-wrap: wrap;
+        flex-shrink: 1;
+    }
+
+
+    /**
+     * @style .mve-table-editor-discard-message（狭い画面）
+     * 省略表示をやめて確認文を折り返し、全文を読めるようにする。
+     */
+    .mve-table-editor-discard-message {
+        white-space: normal;
     }
 
 

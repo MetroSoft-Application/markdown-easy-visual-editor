@@ -11,7 +11,11 @@ import {
   markdownTableToTsv,
   type MarkdownTableAction,
 } from "../../shared/markdown";
-import { getMessages, resolveLanguage, type Messages } from "../../shared/messages";
+import {
+  getMessages,
+  resolveLanguage,
+  type Messages,
+} from "../../shared/messages";
 import {
   clearTableGridRange,
   duplicateTableGridColumns,
@@ -62,6 +66,11 @@ import {
  * 表編集オーバーレイを開く要求を通知するカスタムイベント名。
  */
 const OPEN_EVENT = "mve-open-table-editor";
+
+/**
+ * 破棄確認文の要素 ID。確認バーの group 名として参照する。表編集は同時に一つしか開かないため固定値で衝突しない。
+ */
+const DISCARD_MESSAGE_ID = "mve-table-editor-discard-message";
 
 /**
  * 表編集で許可する行数の上限。
@@ -165,7 +174,6 @@ type ColumnResizeState = {
    * 列幅変更を始めた時点の幅をCSSピクセル単位で記録します。
    */
   startWidth: number;
-
 };
 /**
  * 表編集オーバーレイの現在状態または履歴を保持するデータ形状。
@@ -186,7 +194,6 @@ type RowResizeState = {
    * 行高変更を始めた時点の高さをCSSピクセル単位で記録します。
    */
   startHeight: number;
-
 };
 /**
  * 表編集オーバーレイで扱う値の種類と境界を表す型。
@@ -445,40 +452,37 @@ function showOverlayToast(message: string): void {
  */
 function TableEditorOverlay(props: {
   /**
-    * 表編集開始元であり、編集結果の反映先となるCodeMirrorエディター。
+   * 表編集開始元であり、編集結果の反映先となるCodeMirrorエディター。
    */
   view: EditorView;
 
   /**
-    * 編集開始位置から読み取った表ドラフト。元本文の範囲と内容、セル値、配置、開始セルを含む。
+   * 編集開始位置から読み取った表ドラフト。元本文の範囲と内容、セル値、配置、開始セルを含む。
    */
   initial: TableEditorDraft;
 
   /**
-    * 表編集UIのラベル、説明、通知に表示する翻訳済みメッセージ。
+   * 表編集UIのラベル、説明、通知に表示する翻訳済みメッセージ。
    */
   messages: Messages;
   /**
-    * 表編集オーバーレイを閉じる親コンポーネントの処理。
+   * 表編集オーバーレイを閉じる親コンポーネントの処理。
    */
   onClose: () => void;
 }): React.JSX.Element {
   const { view, initial, messages, onClose } = props;
-  const [rows, setRows] = useState(
-
-    () =>
-      initial.rows.map(
-        /**
-         * 各行からsliceを取り出して一覧化する。
-         * @param row - 行のsliceを参照する走査対象。
-         * @returns sliceを取り出した変換結果の一覧。
-         */
-        (row) => row.slice(),
-      ),
+  const [rows, setRows] = useState(() =>
+    initial.rows.map(
+      /**
+       * 各行からsliceを取り出して一覧化する。
+       * @param row - 行のsliceを参照する走査対象。
+       * @returns sliceを取り出した変換結果の一覧。
+       */
+      (row) => row.slice(),
+    ),
   );
-  const [alignments, setAlignments] = useState<TableEditorAlignment[]>(
-
-    () => initial.alignments.slice(),
+  const [alignments, setAlignments] = useState<TableEditorAlignment[]>(() =>
+    initial.alignments.slice(),
   );
   const [activeRow, setActiveRow] = useState(initial.activeRow);
   const [activeColumn, setActiveColumn] = useState(initial.activeColumn);
@@ -498,6 +502,16 @@ function TableEditorOverlay(props: {
     useState<GridSelectionKind>("cells");
   const [dragTarget, setDragTarget] = useState<GridDropTarget>();
   const [status, setStatus] = useState("");
+  /**
+   * 未適用の変更を破棄するかの確認バーを表示中か。VS Code Webview は
+   * `window.confirm` をブロックして常に false を返すため、確認はオーバーレイ内で行う。
+   */
+  const [confirmingDiscard, setConfirmingDiscard] = useState(false);
+  /**
+   * 破棄確認バーの「編集を続ける」ボタン。押したキャンセル/×ボタンは確認バーへ置き換わって
+   * フォーカスが body へ落ちるため、確認バー表示後にこのボタンへフォーカスを移す。
+   */
+  const keepEditingButtonRef = useRef<HTMLButtonElement>(null);
   const [historyRevision, setHistoryRevision] = useState(0);
   const [editorSize, setEditorSize] = useState<EditorSize>({
     width: DEFAULT_EDITOR_WIDTH,
@@ -598,7 +612,6 @@ function TableEditorOverlay(props: {
       length: normalizedSelection.toColumn - normalizedSelection.fromColumn + 1,
     },
 
-
     (_, index) => normalizedSelection.fromColumn + index,
   );
   const selectedAlignmentValues = selectedColumns.map(
@@ -618,7 +631,6 @@ function TableEditorOverlay(props: {
     Array.from(
       { length: columnCount },
 
-
       (_, index) => columnWidths[index] ?? DEFAULT_COLUMN_WIDTH,
     ).reduce(
       /**
@@ -633,6 +645,8 @@ function TableEditorOverlay(props: {
   const cellCountLabel = `${rows.length} × ${columnCount}`;
   const currentRenderedText = renderTableEditorDraft(currentDraft()).text;
   const isDirty = currentRenderedText !== initialRenderedTextRef.current;
+  // Undo などで未適用の変更が無くなった場合は、確認バーを出し続けない。
+  const showDiscardConfirm = confirmingDiscard && isDirty;
   const canUndo = historyRef.current.undo.length > 0;
   const canRedo = historyRef.current.redo.length > 0;
   const selectionSummary = createSelectionSummary();
@@ -659,10 +673,41 @@ function TableEditorOverlay(props: {
          */
         () => focusCell(activeRow, activeColumn, false),
       );
-       /** フォーカス予約のアニメーションフレームを解除する。 */
-       return () => cancelAnimationFrame(frame);
+      /** フォーカス予約のアニメーションフレームを解除する。 */
+      return () => cancelAnimationFrame(frame);
     },
     [],
+  );
+
+  useEffect(
+    /**
+     * Undo などで未適用の変更が無くなった時点で破棄確認を解除する。残すと次の編集で
+     * 閉じる操作なしに確認バーが再表示され、消えたボタンのフォーカスもダイアログ外へ落ちる。
+     */
+    () => {
+      if (confirmingDiscard && !isDirty) keepEditing();
+    },
+    [confirmingDiscard, isDirty],
+  );
+
+  useEffect(
+    /**
+     * 破棄確認バーを表示したら、次の描画フレームで「編集を続ける」へフォーカスを移す。
+     * VS Code Webview 実機では React の autoFocus が効かず body にフォーカスが残ったため、
+     * ref からの明示的な focus に置き換えている。安全側の操作を既定にし、誤った Enter での破棄を防ぐ。
+     */
+    () => {
+      if (!showDiscardConfirm) return;
+      const frame = requestAnimationFrame(
+        /**
+         * 確認バーの描画後に「編集を続ける」ボタンへフォーカスする。
+         */
+        () => keepEditingButtonRef.current?.focus(),
+      );
+      /** 確認バーが先に閉じた場合に、予約したフォーカス移動を取り消す。 */
+      return () => cancelAnimationFrame(frame);
+    },
+    [showDiscardConfirm],
   );
 
   useEffect(
@@ -670,8 +715,8 @@ function TableEditorOverlay(props: {
      * 依存状態の変化に応じて表示または購読を更新する。
      */
     () => {
-       const onKeyDown = /**
-        * グリッド内のコピー、Undo/Redo、消去、適用、閉じる操作を処理する。
+      const onKeyDown = /**
+       * グリッド内のコピー、Undo/Redo、消去、適用、閉じる操作を処理する。
        * @param event - セルTSVコピー、undo/redo、消去、適用、閉じるショートカットを処理するkeydown event。
        */ (event: KeyboardEvent) => {
         const accelerator = event.ctrlKey || event.metaKey;
@@ -712,7 +757,9 @@ function TableEditorOverlay(props: {
         if (event.key === "Escape") {
           event.preventDefault();
           event.stopImmediatePropagation();
-          requestClose();
+          // 確認バー表示中の Escape は破棄せず編集へ戻す（誤操作での変更消失を防ぐ）。
+          if (showDiscardConfirm) keepEditing();
+          else requestClose();
         } else if (accelerator && event.key === "Enter") {
           event.preventDefault();
           event.stopImmediatePropagation();
@@ -732,9 +779,9 @@ function TableEditorOverlay(props: {
      * 依存状態の変化に応じて表示または購読を更新する。
      */
     () => {
-       const onMouseMove = /**
-        * 列リサイズ中のポインター位置から対象列の幅を更新する。
-        * @param event - 列リサイズ中のmousemove位置を列幅へ反映するevent。
+      const onMouseMove = /**
+       * 列リサイズ中のポインター位置から対象列の幅を更新する。
+       * @param event - 列リサイズ中のmousemove位置を列幅へ反映するevent。
        */ (event: MouseEvent) => {
         const resize = columnResizeRef.current;
         if (!resize) return;
@@ -757,8 +804,8 @@ function TableEditorOverlay(props: {
         );
       };
 
-       const onMouseUp = /**
-        * 列リサイズ状態とドラッグ中に変更したbodyスタイルを初期化する。
+      const onMouseUp = /**
+       * 列リサイズ状態とドラッグ中に変更したbodyスタイルを初期化する。
        */ () => {
         columnResizeRef.current = undefined;
         document.body.style.cursor = "";
@@ -782,9 +829,9 @@ function TableEditorOverlay(props: {
      * 依存状態の変化に応じて表示または購読を更新する。
      */
     () => {
-       const onPointerMove = /**
-        * ポインター操作に応じてオーバーレイの位置、寸法、行高を更新する。
-        * @param event - 表エディターの移動・サイズ変更または行リサイズ中のpointer位置を反映するevent。
+      const onPointerMove = /**
+       * ポインター操作に応じてオーバーレイの位置、寸法、行高を更新する。
+       * @param event - 表エディターの移動・サイズ変更または行リサイズ中のpointer位置を反映するevent。
        */ (event: PointerEvent) => {
         const editorResize = editorResizeRef.current;
         if (editorResize && event.pointerId === editorResize.pointerId) {
@@ -911,19 +958,15 @@ function TableEditorOverlay(props: {
     [],
   );
 
-  const tsv = useMemo(
-
-    () => {
-      const rendered = renderTableEditorDraft(currentDraft());
-      return (
-        markdownTableToTsv(rendered.text, {
-          from: rendered.caretOffset,
-          to: rendered.caretOffset,
-        }) ?? ""
-      );
-    },
-    [rows, alignments, activeRow, activeColumn],
-  );
+  const tsv = useMemo(() => {
+    const rendered = renderTableEditorDraft(currentDraft());
+    return (
+      markdownTableToTsv(rendered.text, {
+        from: rendered.caretOffset,
+        to: rendered.caretOffset,
+      }) ?? ""
+    );
+  }, [rows, alignments, activeRow, activeColumn]);
 
   /**
    * 現在のセル値、列幅、行高を履歴へ保存できるdraft形式にまとめる。
@@ -935,7 +978,6 @@ function TableEditorOverlay(props: {
       rows,
       alignments: Array.from(
         { length: columnCount },
-
 
         (_, index) => alignments[index] ?? "none",
       ),
@@ -961,7 +1003,6 @@ function TableEditorOverlay(props: {
       alignments: Array.from(
         { length: columnCount },
 
-
         (_, index) => alignments[index] ?? "none",
       ),
       activeRow,
@@ -970,7 +1011,6 @@ function TableEditorOverlay(props: {
       rowHeights: rowHeights.slice(),
       columnWidths: Array.from(
         { length: columnCount },
-
 
         (_, index) => columnWidths[index] ?? DEFAULT_COLUMN_WIDTH,
       ),
@@ -999,10 +1039,10 @@ function TableEditorOverlay(props: {
     );
     if (!previous) return;
     restoreHistorySnapshot(previous);
-      setHistoryRevision(
-        /**
-         * 表編集履歴の更新番号を加算する。
-         * @param value - 加算前の表編集履歴の更新番号。
+    setHistoryRevision(
+      /**
+       * 表編集履歴の更新番号を加算する。
+       * @param value - 加算前の表編集履歴の更新番号。
        */
       (value) => value + 1,
     );
@@ -1016,10 +1056,10 @@ function TableEditorOverlay(props: {
     );
     if (!next) return;
     restoreHistorySnapshot(next);
-      setHistoryRevision(
-        /**
-         * 表編集履歴の更新番号を加算する。
-         * @param value - 加算前の表編集履歴の更新番号。
+    setHistoryRevision(
+      /**
+       * 表編集履歴の更新番号を加算する。
+       * @param value - 加算前の表編集履歴の更新番号。
        */
       (value) => value + 1,
     );
@@ -1077,7 +1117,6 @@ function TableEditorOverlay(props: {
       Array.from(
         { length: nextColumns },
 
-
         (_, index) => snapshot.alignments[index] ?? "none",
       ),
     );
@@ -1085,14 +1124,12 @@ function TableEditorOverlay(props: {
       Array.from(
         { length: nextColumns },
 
-
         (_, index) => snapshot.columnWidths[index] ?? DEFAULT_COLUMN_WIDTH,
       ),
     );
     setRowHeights(
       Array.from(
         { length: nextRows.length },
-
 
         (_, index) => snapshot.rowHeights[index],
       ),
@@ -1202,7 +1239,6 @@ function TableEditorOverlay(props: {
       alignments: Array.from(
         { length: nextColumns },
 
-
         (_, index) => next.alignments[index] ?? "none",
       ),
     };
@@ -1221,7 +1257,6 @@ function TableEditorOverlay(props: {
       (previous) =>
         Array.from(
           { length: nextColumns },
-
 
           (_, index) => previous[index] ?? DEFAULT_COLUMN_WIDTH,
         ),
@@ -1252,9 +1287,9 @@ function TableEditorOverlay(props: {
 
   /**
    * 表編集オーバーレイの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-    * @param row - 編集するセルを含む表行のインデックス。
-    * @param column - 編集するセルの列インデックス。
-    * @param value - セル入力欄から受け取った表示文字列。
+   * @param row - 編集するセルを含む表行のインデックス。
+   * @param column - 編集するセルの列インデックス。
+   * @param value - セル入力欄から受け取った表示文字列。
    */
   function updateCell(row: number, column: number, value: string): void {
     const normalized = tableEditorCellStoredValue(
@@ -1279,7 +1314,6 @@ function TableEditorOverlay(props: {
             if (rowIndex !== row) return current;
             const next = Array.from(
               { length: columnCount },
-
 
               (_, index) => current[index] ?? "",
             );
@@ -1487,7 +1521,6 @@ function TableEditorOverlay(props: {
             const next = Array.from(
               { length: columnCount },
 
-
               (_, index) => current[index] ?? "",
             );
             next[column] = edit.value;
@@ -1558,7 +1591,6 @@ function TableEditorOverlay(props: {
             if (rowIndex !== row) return current;
             const next = Array.from(
               { length: columnCount },
-
 
               (_, index) => current[index] ?? "",
             );
@@ -1728,10 +1760,7 @@ function TableEditorOverlay(props: {
       (previous) => {
         const next = previous.slice();
         while (next.length <= column) next.push(DEFAULT_COLUMN_WIDTH);
-        next[column] = Math.max(
-          MIN_COLUMN_RESIZE_WIDTH,
-          next[column] + delta,
-        );
+        next[column] = Math.max(MIN_COLUMN_RESIZE_WIDTH, next[column] + delta);
         return next;
       },
     );
@@ -1783,29 +1812,27 @@ function TableEditorOverlay(props: {
     );
     if (!cells.length) return;
 
-    const heights = cells.map(
-       (cell) => {
-        const clone = cell.cloneNode(false) as HTMLTextAreaElement;
-        const parent = cell.parentElement;
-        if (!parent) return MIN_ROW_HEIGHT;
-        const width = Math.max(1, cell.getBoundingClientRect().width);
-        clone.value = cell.value;
-        clone.style.position = "fixed";
-        clone.style.left = "-10000px";
-        clone.style.top = "0";
-        clone.style.width = `${width}px`;
-        clone.style.height = "auto";
-        clone.style.minHeight = "0";
-        clone.style.maxHeight = "none";
-        clone.style.overflow = "hidden";
-        clone.style.visibility = "hidden";
-        clone.style.pointerEvents = "none";
-        parent.appendChild(clone);
-        const height = clone.scrollHeight;
-        clone.remove();
-        return height + AUTO_FIT_ROW_VERTICAL_BUFFER;
-      },
-    );
+    const heights = cells.map((cell) => {
+      const clone = cell.cloneNode(false) as HTMLTextAreaElement;
+      const parent = cell.parentElement;
+      if (!parent) return MIN_ROW_HEIGHT;
+      const width = Math.max(1, cell.getBoundingClientRect().width);
+      clone.value = cell.value;
+      clone.style.position = "fixed";
+      clone.style.left = "-10000px";
+      clone.style.top = "0";
+      clone.style.width = `${width}px`;
+      clone.style.height = "auto";
+      clone.style.minHeight = "0";
+      clone.style.maxHeight = "none";
+      clone.style.overflow = "hidden";
+      clone.style.visibility = "hidden";
+      clone.style.pointerEvents = "none";
+      parent.appendChild(clone);
+      const height = clone.scrollHeight;
+      clone.remove();
+      return height + AUTO_FIT_ROW_VERTICAL_BUFFER;
+    });
     const height = calculateAutoFitRowHeight(heights);
     setRowHeights(
       /**
@@ -2105,8 +2132,8 @@ function TableEditorOverlay(props: {
   }
 
   /**
-    * 現在のセルから上下の行へフォーカスを移す。
-    * @param direction - 下へ移動する場合は1、上へ移動する場合は-1。
+   * 現在のセルから上下の行へフォーカスを移す。
+   * @param direction - 下へ移動する場合は1、上へ移動する場合は-1。
    */
   function moveVertical(direction: 1 | -1): void {
     focusCell(
@@ -2116,7 +2143,7 @@ function TableEditorOverlay(props: {
   }
 
   /**
-    * 指定したデータ行を別の行位置へ移動する。
+   * 指定したデータ行を別の行位置へ移動する。
    * @param source - 移動元の行インデックス。
    * @param target - 移動先の行インデックス。
    */
@@ -2188,7 +2215,7 @@ function TableEditorOverlay(props: {
   }
 
   /**
-    * 指定した列を別の列位置へ移動する。
+   * 指定した列を別の列位置へ移動する。
    * @param source - 移動元の列インデックス。
    * @param target - 移動先の列インデックス。
    */
@@ -2281,7 +2308,6 @@ function TableEditorOverlay(props: {
     const insertAt = toColumn + 1;
     const nextWidths = Array.from(
       { length: columnCount },
-
 
       (_, index) => columnWidths[index] ?? DEFAULT_COLUMN_WIDTH,
     );
@@ -2626,11 +2652,36 @@ function TableEditorOverlay(props: {
   }
 
   /**
-   * 未保存変更を確認し、破棄が許可された場合に表編集を閉じる。
+   * 未適用の変更がなければ表編集を閉じ、あればオーバーレイ内の破棄確認バーを表示する。
+   * VS Code Webview ではモーダルがブロックされ `window.confirm` が常に false を返すため使用しない。
    */
   function requestClose(): void {
-    if (isDirty && !window.confirm(messages.app.tableEditor.discard)) return;
+    if (!isDirty) {
+      closeAndRestoreFocus();
+      return;
+    }
+    setConfirmingDiscard(true);
+  }
+
+  /**
+   * 破棄確認で承認された場合に、未適用の変更を捨てて表編集を閉じる。
+   */
+  function discardAndClose(): void {
+    setConfirmingDiscard(false);
     closeAndRestoreFocus();
+  }
+
+  /**
+   * 破棄確認を取り消し、確認バーのボタンから外れたフォーカスをアクティブセルへ戻す。
+   */
+  function keepEditing(): void {
+    setConfirmingDiscard(false);
+    requestAnimationFrame(
+      /**
+       * 確認バーが描画から外れた後のフレームでアクティブセルへフォーカスを戻す。
+       */
+      () => focusCell(activeRow, activeColumn, false),
+    );
   }
 
   /**
@@ -2724,20 +2775,14 @@ function TableEditorOverlay(props: {
         <ToolbarGroup label={messages.ribbon.groups.rows}>
           <button
             type="button"
-            onClick={
-
-              () => applySharedTableAction("rowAfter")
-            }
+            onClick={() => applySharedTableAction("rowAfter")}
             disabled={rows.length >= MAX_ROWS}
           >
             {messages.app.tableEditor.addRow}
           </button>
           <button
             type="button"
-            onClick={
-
-              () => applySharedTableAction("deleteRow")
-            }
+            onClick={() => applySharedTableAction("deleteRow")}
             disabled={activeRow === 0 || rows.length <= 1}
           >
             {messages.app.tableEditor.deleteRow}
@@ -2780,20 +2825,14 @@ function TableEditorOverlay(props: {
         <ToolbarGroup label={messages.ribbon.groups.columns}>
           <button
             type="button"
-            onClick={
-
-              () => applySharedTableAction("colAfter")
-            }
+            onClick={() => applySharedTableAction("colAfter")}
             disabled={columnCount >= MAX_COLUMNS}
           >
             {messages.app.tableEditor.addColumn}
           </button>
           <button
             type="button"
-            onClick={
-
-              () => applySharedTableAction("deleteColumn")
-            }
+            onClick={() => applySharedTableAction("deleteColumn")}
             disabled={columnCount <= 1}
           >
             {messages.app.tableEditor.deleteColumn}
@@ -2836,26 +2875,17 @@ function TableEditorOverlay(props: {
           <ToolbarToggle
             label={messages.app.tableEditor.alignLeft}
             active={currentAlignment === "left"}
-            onClick={
-
-              () => applySharedAlignmentAction("alignLeft")
-            }
+            onClick={() => applySharedAlignmentAction("alignLeft")}
           />
           <ToolbarToggle
             label={messages.app.tableEditor.alignCenter}
             active={currentAlignment === "center"}
-            onClick={
-
-              () => applySharedAlignmentAction("alignCenter")
-            }
+            onClick={() => applySharedAlignmentAction("alignCenter")}
           />
           <ToolbarToggle
             label={messages.app.tableEditor.alignRight}
             active={currentAlignment === "right"}
-            onClick={
-
-              () => applySharedAlignmentAction("alignRight")
-            }
+            onClick={() => applySharedAlignmentAction("alignRight")}
           />
           <ToolbarToggle
             label={messages.app.tableEditor.clearAlignment}
@@ -3023,8 +3053,8 @@ function TableEditorOverlay(props: {
                         (event) => event.stopPropagation()
                       }
                       onClick={
-                       /**
-                        * ドラッグ用ハンドルの操作で行・列選択を誤発火させない。
+                        /**
+                         * ドラッグ用ハンドルの操作で行・列選択を誤発火させない。
                          * @param event - 列drag handle上のmousedown伝播を止めるevent。
                          */
                         (event) => event.stopPropagation()
@@ -3365,14 +3395,43 @@ function TableEditorOverlay(props: {
           {status ||
             `${selectionSummary} · ${messages.app.tableEditor.navigationHint}`}
         </span>
-        <div className="mve-table-editor-actions">
-          <button type="button" onClick={requestClose}>
-            {messages.app.tableEditor.cancel}
-          </button>
-          <button type="button" className="primary" onClick={apply}>
-            {messages.app.tableEditor.apply}
-          </button>
-        </div>
+        {/* 分岐ごとに key を分け、確認バーと通常操作の DOM を再利用させない。再利用されると
+            フォーカス中の「編集を続ける」がそのまま「適用」へ書き換わり、直後の Enter で適用される。 */}
+        {showDiscardConfirm ? (
+          <div
+            key="discard-confirm"
+            className="mve-table-editor-actions mve-table-editor-discard-confirm"
+            role="group"
+            aria-labelledby={DISCARD_MESSAGE_ID}
+          >
+            <span
+              id={DISCARD_MESSAGE_ID}
+              className="mve-table-editor-discard-message"
+              title={messages.app.tableEditor.discard}
+            >
+              {messages.app.tableEditor.discard}
+            </span>
+            <button
+              type="button"
+              ref={keepEditingButtonRef}
+              onClick={keepEditing}
+            >
+              {messages.app.tableEditor.keepEditing}
+            </button>
+            <button type="button" className="danger" onClick={discardAndClose}>
+              {messages.app.tableEditor.discardAndClose}
+            </button>
+          </div>
+        ) : (
+          <div key="actions" className="mve-table-editor-actions">
+            <button type="button" onClick={requestClose}>
+              {messages.app.tableEditor.cancel}
+            </button>
+            <button type="button" className="primary" onClick={apply}>
+              {messages.app.tableEditor.apply}
+            </button>
+          </div>
+        )}
       </footer>
       <div
         className="mve-table-editor-resizer"

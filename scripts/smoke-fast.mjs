@@ -997,13 +997,67 @@ try {
   if (copiedColumnState.length !== 4 || JSON.stringify(copiedColumnState.slice(0, 2)) !== JSON.stringify(copiedColumnState.slice(2))) {
     throw new Error(`table editor column copy did not preserve column values: ${JSON.stringify(copiedColumnState)}`);
   }
-  page.once('dialog',
+  // VS Code Webview は window.confirm をブロックして常に false を返すため、ネイティブダイアログが
+  // 出た時点で失敗とし、未適用の変更の破棄確認がオーバーレイ内で完結することを検証する。
+  /** 表編集キャンセル中に開いたネイティブダイアログの文言。 */
+  const nativeDialogMessages = [];
   /**
-   * @param dialog - スモーク検証・高速へ渡す入力。
+   * 表編集のキャンセル操作でネイティブダイアログが開いたことを記録し、テストを継続できるよう閉じる。
+   * @param dialog - 表編集のキャンセル操作中に開いたネイティブダイアログ。
    */
-  (dialog) => dialog.accept());
+  const recordNativeDialog = (dialog) => {
+    nativeDialogMessages.push(dialog.message());
+    void dialog.dismiss();
+  };
+  page.on('dialog', recordNativeDialog);
   await page.getByRole('button', { name: 'キャンセル', exact: true }).click();
+  await page.getByRole('button', { name: '編集を続ける', exact: true }).waitFor();
+  if (await page.locator('.mve-table-editor').count() !== 1) throw new Error('table editor closed without discard confirmation');
+  // 押したキャンセルボタンは確認バーへ置き換わるため、フォーカスが body へ落ちず安全側の「編集を続ける」へ移ること。
+  await page.waitForFunction(() => document.activeElement?.textContent === '編集を続ける');
+  const discardConfirmClipped = await page.locator('.mve-table-editor').evaluate(
+  /**
+   * 確認バーで最小幅が増えても本体が広がらず、ヘッダーとフッターのボタンが本体内に収まるかを調べる。
+   * @param overlay - 破棄確認バーを表示中の表編集オーバーレイ要素。
+   * @returns 本体からはみ出した操作要素の文言一覧。
+   */
+  (overlay) => {
+    const bounds = overlay.getBoundingClientRect();
+    return [...overlay.querySelectorAll('.mve-table-editor-header button, .mve-table-editor-footer button')]
+      .filter((button) => button.getBoundingClientRect().right > bounds.right + 0.5)
+      .map((button) => button.textContent);
+  });
+  if (discardConfirmClipped.length > 0) throw new Error(`table editor discard confirmation clipped buttons: ${JSON.stringify(discardConfirmClipped)}`);
+  const keepEditingButton = await page.getByRole('button', { name: '編集を続ける', exact: true }).elementHandle();
+  await page.keyboard.press('Escape');
+  await page.getByRole('button', { name: '編集を続ける', exact: true }).waitFor({ state: 'detached' });
+  // フォーカス中の「編集を続ける」の DOM が「適用」として再利用されると、直後の Enter で適用されてしまう。
+  if (await keepEditingButton.evaluate(
+  /**
+   * @param button - Escape 前にフォーカスしていた「編集を続ける」ボタン要素。
+   * @returns 確認バーを閉じた後も同じ要素が文書内に残っているか。
+   */
+  (button) => button.isConnected)) throw new Error('discard confirmation button element was reused for footer actions');
+  await keepEditingButton.dispose();
+  await page.waitForFunction(() => document.activeElement?.hasAttribute('data-table-cell'));
+  if (await page.locator('.mve-table-editor-grid col').count() !== 5) throw new Error('Escape on discard confirmation dropped unapplied changes');
+  // 確認中に Undo で未適用の変更（行コピー・列コピー）が無くなったら確認バーを閉じ、フォーカスをセルへ戻す。
+  await page.locator('.mve-table-editor-close').click();
+  await page.getByRole('button', { name: '編集を続ける', exact: true }).waitFor();
+  await page.keyboard.press('Control+z');
+  await page.keyboard.press('Control+z');
+  await page.locator('.mve-table-editor-dirty').waitFor({ state: 'detached' });
+  await page.getByRole('button', { name: '編集を続ける', exact: true }).waitFor({ state: 'detached' });
+  await page.waitForFunction(() => document.activeElement?.hasAttribute('data-table-cell'));
+  // 確認状態が残っていると、再編集しただけで確認バーが再表示されてしまう。
+  await page.locator('[data-table-cell="1:0"]').fill('discard-check');
+  await page.locator('.mve-table-editor-dirty').waitFor();
+  if (await page.locator('.mve-table-editor-discard-confirm').count() !== 0) throw new Error('discard confirmation reappeared without a close request');
+  await page.locator('.mve-table-editor-close').click();
+  await page.getByRole('button', { name: '破棄して閉じる', exact: true }).click();
   await page.locator('.mve-table-editor').waitFor({ state: 'detached' });
+  page.off('dialog', recordNativeDialog);
+  if (nativeDialogMessages.length > 0) throw new Error(`table editor cancel opened a native dialog: ${JSON.stringify(nativeDialogMessages)}`);
   await page.getByRole('button', { name: '表を編集', exact: true }).click();
   await page.locator('.mve-table-editor').waitFor();
   if (await page.locator('.mve-table-editor-grid tbody tr').count() !== 2) throw new Error('table editor copy smoke setup was not reset');
@@ -1337,12 +1391,10 @@ try {
     || rowHeightsAfterDrag.some((height, index) => index !== 1 && height !== rowHeightsBeforeDrag[index])) {
     throw new Error(`table editor row drag changed other rows: before=${JSON.stringify(rowHeightsBeforeDrag)}, after=${JSON.stringify(rowHeightsAfterDrag)}`);
   }
-  page.once('dialog',
-  /**
-   * @param dialog - スモーク検証・高速へ渡す入力。
-   */
-  (dialog) => dialog.accept());
+  // 未適用の変更がある場合だけ、オーバーレイ内の破棄確認を経由して閉じる。
+  const rowDragLeftChanges = await page.locator('.mve-table-editor-dirty').count() > 0;
   await page.getByRole('button', { name: 'キャンセル', exact: true }).click();
+  if (rowDragLeftChanges) await page.getByRole('button', { name: '破棄して閉じる', exact: true }).click();
   await page.locator('.mve-table-editor').waitFor({ state: 'detached' });
   const noOpMessageStart = await page.evaluate(
   /**

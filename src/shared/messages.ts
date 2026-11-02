@@ -1585,6 +1585,14 @@ export interface Messages {
              */
             discard: string;
             /**
+             * 破棄確認で、未適用の変更を捨てて表編集を閉じるボタンのラベル。
+             */
+            discardAndClose: string;
+            /**
+             * 破棄確認を取り消し、表編集を開いたまま作業へ戻るボタンのラベル。
+             */
+            keepEditing: string;
+            /**
              * 現在の選択範囲を示すラベル。
              */
             selection: string;
@@ -2394,6 +2402,8 @@ function createMessages(language: SupportedLanguage): Messages {
                 resizeEditor: raw.app.tableEditor.resizeEditor,
                 modified: raw.app.tableEditor.modified,
                 discard: raw.app.tableEditor.discard,
+                discardAndClose: raw.app.tableEditor.discardAndClose,
+                keepEditing: raw.app.tableEditor.keepEditing,
                 selection: raw.app.tableEditor.selection,
                 cells: raw.app.tableEditor.cells,
                 selectAll: raw.app.tableEditor.selectAll,
