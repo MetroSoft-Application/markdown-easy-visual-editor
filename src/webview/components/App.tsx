@@ -982,6 +982,7 @@ export function App(): React.JSX.Element {
   const pendingHistoryCommandsRef = useRef<Array<"undo" | "redo">>([]);
   const selectionStateRef = useRef<TextSelection>({ from: 0, to: 0 });
   const imageRequestsRef = useRef(new Set<string>());
+  const drawioRequestsRef = useRef(new Set<string>());
   const pdfRequestsRef = useRef(new Set<string>());
   const pdfExportInProgressRef = useRef(false);
   const htmlRequestsRef = useRef(new Set<string>());
@@ -2280,6 +2281,11 @@ export function App(): React.JSX.Element {
       case "mermaidRenderProgress":
         acceptMermaidRenderProgress(message);
         return;
+      case "drawioSvgCreated":
+        if (!drawioRequestsRef.current.delete(message.requestId)) return;
+        getActiveEditor()?.insert(imageMarkdown(message.path, "draw.io"), true);
+        setToast(messages.app.toast.imagesSaved(1));
+        return;
       case "imagesSaved":
         imageRequestsRef.current.delete(message.requestId);
         if (message.paths.length) {
@@ -2394,6 +2400,9 @@ export function App(): React.JSX.Element {
             );
             return;
           }
+          const drawioFailed = message.requestId
+            ? drawioRequestsRef.current.delete(message.requestId)
+            : false;
           const imageFailed = message.requestId
             ? imageRequestsRef.current.delete(message.requestId)
             : false;
@@ -2410,7 +2419,7 @@ export function App(): React.JSX.Element {
             ? resourceCheckRequestsRef.current.delete(message.requestId)
             : false;
           setToast(
-            imageFailed
+            drawioFailed || imageFailed
               ? messages.app.toast.imageSaveFailed(message.message)
               : pdfFailed
                 ? messages.app.toast.pdfExportFailed(message.message)
@@ -2880,6 +2889,7 @@ export function App(): React.JSX.Element {
         case "codeBlock":
         case "link":
         case "image":
+        case "drawio":
         case "table":
           return;
         default:
@@ -2939,6 +2949,9 @@ export function App(): React.JSX.Element {
       }
       case "image":
         requestImagePicker();
+        return;
+      case "drawio":
+        requestDrawioSvg();
         return;
       case "table":
         if (command.action === "insert")
@@ -3365,6 +3378,17 @@ export function App(): React.JSX.Element {
   /**
    * Hostへ画像選択を要求し、応答を識別するIDを登録する。
    */
+  function requestDrawioSvg(): void {
+    if (isTextileDocument) return;
+    const requestId = createClientId();
+    drawioRequestsRef.current.add(requestId);
+    vscode.postMessage({
+      type: "createDrawioSvg",
+      requestId,
+      imageDirectory: settings.imageDirectory,
+    });
+  }
+
   function requestImagePicker(): void {
     if (isTextileDocument) return;
     const requestId = createClientId();
