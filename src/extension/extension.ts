@@ -2,7 +2,7 @@
  * @fileoverview Custom Editorの起動、文書保存、HostとWebviewの同期、編集コマンドを束ねる。VS Code APIが外部境界となる。
  */
 import * as vscode from 'vscode';
-import { open, realpath, stat, unlink } from 'node:fs/promises';
+import { open, realpath, stat } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { randomBytes, randomUUID } from 'node:crypto';
@@ -30,6 +30,7 @@ import {
 } from '../shared/fontFamily';
 import { resolveImageDirectoryRule } from '../shared/imageDirectory';
 import { createDrawioPlaceholderSvg, encodeDrawioRelativePath, DRAWIO_SVG_EXTENSION } from '../shared/drawioSvg';
+import { writeDrawioSvgExclusive } from './drawioFile';
 import { normalizeSvgClipboardText } from '../shared/svgClipboard';
 import {
     collectLocalResourceReferences,
@@ -2369,16 +2370,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
         const target = vscode.Uri.joinPath(directory, `diagram-${randomUUID()}${DRAWIO_SVG_EXTENSION}`);
         const contents = Buffer.from(createDrawioPlaceholderSvg(), 'utf8');
         if (target.scheme === 'file') {
-            // wx は既存ファイルやシンボリックリンクを上書きしない。
-            const file = await open(target.fsPath, 'wx');
-            let written = false;
-            try {
-                await file.writeFile(contents);
-                written = true;
-            } finally {
-                await file.close();
-                if (!written) await unlink(target.fsPath).catch(() => undefined);
-            }
+            await writeDrawioSvgExclusive(target.fsPath, contents.toString('utf8'));
         } else {
             // リモートファイルシステムではランダムIDを使い、作成前にも衝突を検査する。
             try {
