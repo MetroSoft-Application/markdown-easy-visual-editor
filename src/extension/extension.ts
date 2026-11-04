@@ -2368,9 +2368,9 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
         }
         const directory = await this.ensureAssetDirectory(document, imageDirectory);
         const target = vscode.Uri.joinPath(directory, `diagram-${randomUUID()}${DRAWIO_SVG_EXTENSION}`);
-        const contents = Buffer.from(createDrawioPlaceholderSvg(), 'utf8');
+        const contents = createDrawioPlaceholderSvg();
         if (target.scheme === 'file') {
-            await writeDrawioSvgExclusive(target.fsPath, contents.toString('utf8'));
+            await writeDrawioSvgExclusive(target.fsPath, contents);
         } else {
             // リモートファイルシステムではランダムIDを使い、作成前にも衝突を検査する。
             try {
@@ -2379,7 +2379,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
             } catch (error) {
                 if (!isMissingResourceError(error)) throw error;
             }
-            await vscode.workspace.fs.writeFile(target, contents);
+            await vscode.workspace.fs.writeFile(target, Buffer.from(contents, 'utf8'));
         }
         return encodeDrawioRelativePath(relativeUriPath(document.uri, target));
     }
