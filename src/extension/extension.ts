@@ -2,7 +2,7 @@
  * @fileoverview Custom Editorの起動、文書保存、HostとWebviewの同期、編集コマンドを束ねる。VS Code APIが外部境界となる。
  */
 import * as vscode from 'vscode';
-import { open, realpath, stat } from 'node:fs/promises';
+import { open, realpath, stat, unlink } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { randomBytes, randomUUID } from 'node:crypto';
@@ -29,6 +29,7 @@ import {
     type FontFamilySettings
 } from '../shared/fontFamily';
 import { resolveImageDirectoryRule } from '../shared/imageDirectory';
+import { createDrawioPlaceholderSvg, encodeDrawioRelativePath, DRAWIO_SVG_EXTENSION } from '../shared/drawioSvg';
 import { normalizeSvgClipboardText } from '../shared/svgClipboard';
 import {
     collectLocalResourceReferences,
@@ -1215,6 +1216,11 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                     this.post(panel, { type: 'imagesSaved', requestId: message.requestId, paths });
                     return;
                 }
+                case 'createDrawioSvg': {
+                    const relativePath = await this.createDrawioSvg(document, message.imageDirectory);
+                    this.post(panel, { type: 'drawioSvgCreated', requestId: message.requestId, path: relativePath });
+                    return;
+                }
                 case 'pickImage': {
                     const paths = await this.pickAndSaveImages(document, message.imageDirectory);
                     this.post(panel, { type: 'imagesSaved', requestId: message.requestId, paths });
@@ -2348,6 +2354,44 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
      * @param imageDirectory - 文書フォルダーを基準に展開する画像保存先ルール。
      * @returns 選択・保存した画像ファイルのMarkdown相対パス一覧。キャンセル時は空配列。
      */
+    /**
+     * draw.ioの編集モデルを埋め込んだ表示可能なSVGを作成し、Markdown相対URLを返す。
+     * 既存ファイルを上書きせず、書込み成功後にだけ呼出元がリンクを挿入する。
+     * @param document - 画像参照の基準となるMarkdown文書。
+     * @param imageDirectory - 現在の画像保存先設定。
+     * @returns URLエンコード済みの相対SVG参照。
+     */
+    private async createDrawioSvg(document: vscode.TextDocument, imageDirectory: string): Promise<string> {
+        if (document.uri.scheme === 'untitled') {
+            throw new Error(this.getMessages().host.imageDocumentMustBeSaved);
+        }
+        const directory = await this.ensureAssetDirectory(document, imageDirectory);
+        const target = vscode.Uri.joinPath(directory, `diagram-${randomUUID()}${DRAWIO_SVG_EXTENSION}`);
+        const contents = Buffer.from(createDrawioPlaceholderSvg(), 'utf8');
+        if (target.scheme === 'file') {
+            // wx は既存ファイルやシンボリックリンクを上書きしない。
+            const file = await open(target.fsPath, 'wx');
+            let written = false;
+            try {
+                await file.writeFile(contents);
+                written = true;
+            } finally {
+                await file.close();
+                if (!written) await unlink(target.fsPath).catch(() => undefined);
+            }
+        } else {
+            // リモートファイルシステムではランダムIDを使い、作成前にも衝突を検査する。
+            try {
+                await vscode.workspace.fs.stat(target);
+                throw new Error('draw.io SVG already exists.');
+            } catch (error) {
+                if (!isMissingResourceError(error)) throw error;
+            }
+            await vscode.workspace.fs.writeFile(target, contents);
+        }
+        return encodeDrawioRelativePath(relativeUriPath(document.uri, target));
+    }
+
     private async pickAndSaveImages(document: vscode.TextDocument, imageDirectory: string): Promise<string[]> {
         // ファイル選択ダイアログで画像を選び、保存処理が受け取れるペイロードへ変換する。
         const selected = await vscode.window.showOpenDialog({
