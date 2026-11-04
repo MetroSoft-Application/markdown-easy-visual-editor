@@ -14,6 +14,7 @@ export function resolveRibbonLabel(
     spec: RibbonLabelSpec,
     messages: Messages,
 ): string {
+    if (spec.kind === "literal") return spec.value;
     const value = spec.path.split(".").reduce<unknown>(
         /**
          * 途中の値がオブジェクトなら指定キーへ進み、異なる場合は解決を中断する。
