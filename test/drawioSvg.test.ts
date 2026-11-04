@@ -3,6 +3,10 @@
  */
 import { describe, expect, it } from "vitest";
 import { chromium } from "playwright-core";
+import { getMessages } from "../src/shared/messages";
+import { RIBBON_LAYOUT } from "../src/webview/ribbon/ribbonLayout";
+import { RIBBON_DEFINITIONS } from "../src/webview/ribbon/ribbonDefinitions";
+import { resolveRibbonLabel } from "../src/webview/ribbon/ribbonLabels";
 import { findChromium } from "./chromium";
 import { imageMarkdown } from "../src/shared/markdown";
 import { renderMarkdownUnsafeBlocks } from "../src/webview/markdown/markdownRendererCore";
@@ -15,6 +19,13 @@ import {
 const browserPath = process.env.MVE_BROWSER_PATH || findChromium();
 
 describe("draw.io SVG placeholder", () => {
+  it("places a branded draw.io button in the Insert tab", () => {
+    const insert = RIBBON_LAYOUT.tabs.find((tab) => tab.id === "insert");
+    expect(insert?.groups.find((group) => group.id === "basic")?.itemIds).toContain("drawio");
+    expect(resolveRibbonLabel(RIBBON_DEFINITIONS.items.drawio.label, getMessages("ja"))).toBe("draw.io");
+    expect(resolveRibbonLabel(RIBBON_DEFINITIONS.items.drawio.label, getMessages("en"))).toBe("draw.io");
+  });
+
   it("embeds an editable uncompressed mxfile and has an independent visible image", () => {
     const svg = createDrawioPlaceholderSvg();
     expect(svg).toMatch(/^<\?xml version="1.0" encoding="UTF-8"\?>/);
