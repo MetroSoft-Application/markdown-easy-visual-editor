@@ -3376,9 +3376,6 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * Hostへ画像選択を要求し、応答を識別するIDを登録する。
-   */
-  /**
    * draw.io図のテンプレートを保存して相対画像リンクを挿入するようHostに要求する。
    */
   function requestDrawioSvg(): void {
@@ -3392,6 +3389,9 @@ export function App(): React.JSX.Element {
     });
   }
 
+  /**
+   * Hostへ画像選択を要求し、応答を識別するIDを登録する。
+   */
   function requestImagePicker(): void {
     if (isTextileDocument) return;
     const requestId = createClientId();
