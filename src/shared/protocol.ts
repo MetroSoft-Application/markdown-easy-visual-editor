@@ -778,6 +778,22 @@ export type HostToWebviewMessage =
         paths: string[]
     }
     | {
+        /** draw.io SVGを作成したあと、相対画像パスをWebviewへ返す。 */
+        type: 'drawioSvgCreated';
+        requestId: string;
+        path: string
+    }
+    | {
+        /**
+         * プレビューが参照し得るローカル画像（draw.io SVG）の内容が保存・変更されたことを通知する。
+         * Webviewは同じURLのキャッシュを再利用するため、該当画像のURLに版番号を付けて読み直す。
+         * 本文は変わらないため、Markdownの書き換えや保存は発生しない。
+         */
+        type: 'localResourceChanged';
+        /** 受信パネル用に `asWebviewUri` で変換した、変更されたファイルのWebview URI。 */
+        resource: string
+    }
+    | {
         /**
          * ローカル参照検査の診断結果を返すメッセージです。
          */
@@ -1096,6 +1112,12 @@ export type WebviewToHostMessage =
         /**
          * 画像を保存するワークスペース内の相対ディレクトリ。
          */
+        imageDirectory: string
+    }
+    | {
+        /** draw.ioで再編集できるSVGダミーの作成を要求する。 */
+        type: 'createDrawioSvg';
+        requestId: string;
         imageDirectory: string
     }
     | {

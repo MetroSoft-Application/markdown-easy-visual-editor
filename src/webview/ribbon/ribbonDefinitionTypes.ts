@@ -15,6 +15,11 @@ import type {
  */
 export type RibbonLabelSpec =
     | {
+        /** 翻訳不要の製品・形式名をラベルとして表示する。 */
+        kind: "literal";
+        value: string;
+    }
+    | {
         /**
          * メッセージ、項目、または処理の種類を識別する値。
          */

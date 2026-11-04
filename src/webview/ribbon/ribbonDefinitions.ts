@@ -226,6 +226,9 @@ export const RIBBON_DEFINITIONS: RibbonDefinitions = {
             label: { kind: "message", path: "ribbon.labels.image" },
             options: { shortcut: "Ctrl+V" },
         },
+        drawio: {
+            label: { kind: "literal", value: "draw.io" },
+        },
         tableSize: {
             label: { kind: "message", path: "ribbon.labels.tableSize" },
             container: "tableInsertForm",

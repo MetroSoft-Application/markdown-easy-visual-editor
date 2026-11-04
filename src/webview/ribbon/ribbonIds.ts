@@ -65,6 +65,7 @@ export type RibbonItemId =
     | "clearBlock"
     | "link"
     | "image"
+    | "drawio"
     | "tableSize"
     | "insertTable"
     | "horizontalRule"

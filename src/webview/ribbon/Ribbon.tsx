@@ -65,6 +65,7 @@ const MARKDOWN_SYNTAX_RIBBON_ITEMS: ReadonlySet<RibbonItemId> = new Set([
   "clearBlock",
   "link",
   "image",
+  "drawio",
   "tableSize",
   "insertTable",
   "horizontalRule",

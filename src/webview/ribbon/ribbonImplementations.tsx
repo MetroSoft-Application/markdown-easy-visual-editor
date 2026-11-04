@@ -337,6 +337,11 @@ export const RIBBON_IMPLEMENTATIONS: Record<
     ({ onCommand }) => onCommand({ type: "image" }),
     { disabled: editDisabled },
   ),
+  drawio: button(
+    /** draw.io編集情報付きSVGの作成とリンク挿入を要求する。 */
+    ({ onCommand }) => onCommand({ type: "drawio" }),
+    { disabled: editDisabled },
+  ),
   tableSize: control(
     /**
      * リボンの設定値と文言から入力コントロールを生成する。

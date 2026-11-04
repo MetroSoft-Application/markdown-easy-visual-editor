@@ -22,6 +22,12 @@ import {
   type MermaidRenderResult,
 } from "../markdown/mermaidRenderer";
 import { mveDebug } from "../runtime/debug";
+import { isDrawioSvgReference } from "../../shared/drawioSvg";
+import {
+  applyLocalResourceVersions,
+  LOCAL_RESOURCE_CHANGED_EVENT,
+  LOCAL_RESOURCE_RELOADED_DATASET_KEY,
+} from "../preview/localResourceVersions";
 
 /**
  * Markdownプレビューで扱う値の種類と境界を表す型。
@@ -220,6 +226,8 @@ function RenderedMarkdownView({
         renderedBlocksRef.current,
         html,
       );
+      // 再描画で元のsrcへ戻った画像が、更新前のキャッシュを表示しないよう版番号を付け直す。
+      applyLocalResourceVersions(root);
       root.dataset.renderRevision = String(
         (Number(root.dataset.renderRevision) || 0) + 1,
       );
@@ -230,6 +238,26 @@ function RenderedMarkdownView({
       });
     },
     [html],
+  );
+
+  useEffect(
+    /**
+     * draw.io保存などでローカル画像が更新されたら、本文の再描画を待たずに該当画像だけ読み直す。
+     * アンマウント時に購読を解除する。
+     */
+    () => {
+      /** 更新通知を受けて、このプレビューの画像へ最新の版番号を適用する。 */
+      const refreshChangedImages = (): void => {
+        if (rootRef.current) applyLocalResourceVersions(rootRef.current);
+      };
+      window.addEventListener(LOCAL_RESOURCE_CHANGED_EVENT, refreshChangedImages);
+      return () =>
+        window.removeEventListener(
+          LOCAL_RESOURCE_CHANGED_EVENT,
+          refreshChangedImages,
+        );
+    },
+    [],
   );
 
   useEffect(
@@ -1035,9 +1063,24 @@ function RenderedMarkdownView({
     }
     const image = target.closest<HTMLImageElement>("img[data-original-src]");
     const imageLink = target.closest<HTMLAnchorElement>("a[href]");
+    // draw.io SVGの画像は編集対象として扱い、拡大表示せず通常クリックでdraw.io編集画面を開く。
+    // リンクで囲まれていない旧形式 `![draw.io](x.drawio.svg)` も対象にする。
+    // リンクで囲まれている場合は作者が指定したリンク先を優先し、下のリンク処理へ委ねる。
+    if (
+      image &&
+      !imageLink &&
+      isDrawioSvgReference(image.dataset.originalSrc ?? "")
+    ) {
+      event.preventDefault();
+      onNavigate?.(image.dataset.originalSrc ?? "");
+      return;
+    }
+    const drawioImage =
+      image !== null && isDrawioSvgReference(image.dataset.originalSrc ?? "");
     if (
       image &&
       imageZoom !== undefined &&
+      !drawioImage &&
       (!imageLink || (!event.ctrlKey && !event.metaKey))
     ) {
       event.preventDefault();
@@ -2430,11 +2473,19 @@ function enhanceResizableImages(
       frame.appendChild(badge);
 
       // ソースに保存されたwidthは、画像の自然幅や現在の未ロード状態より優先する。
-      const preferredWidth =
+      const measuredWidth =
         getExplicitImageWidth(image) ||
         getRenderedImageWidth(image, root) ||
-        image.naturalWidth ||
-        320;
+        image.naturalWidth;
+      const preferredWidth = measuredWidth || 320;
+      // 未ロードのdraw.io図は仮幅320pxの枠のまま読込後も拡大表示されるため、読込時に自然幅で決め直す。
+      // 他の画像は既存表示を変えないよう対象外とする。
+      if (
+        !measuredWidth &&
+        isDrawioSvgReference(image.dataset.originalSrc ?? "")
+      ) {
+        image.dataset[LOCAL_RESOURCE_RELOADED_DATASET_KEY] = "true";
+      }
       frame.style.width = `${Math.max(1, Math.min(preferredWidth, getAvailableImageWidth(root)))}px`;
       if (wrapperTarget !== image) {
         wrapperTarget.style.display = "block";
@@ -2544,11 +2595,15 @@ function enhanceResizableImages(
        * Markdownプレビューのイベントまたはメッセージを受け取り、状態を更新する。
        */ () => {
         // width属性を持つ画像は、loadイベント後も明示幅を維持する。
+        // ファイル更新で読み直した画像は図の大きさが変わり得るため、旧画像の表示幅を引き継がず自然幅を使う。
+        const reloadedResource =
+          image.dataset[LOCAL_RESOURCE_RELOADED_DATASET_KEY] === "true";
+        delete image.dataset[LOCAL_RESOURCE_RELOADED_DATASET_KEY];
         const nextWidth = Math.max(
           1,
           Math.min(
             getExplicitImageWidth(image) ||
-              getRenderedImageWidth(image, root) ||
+              (reloadedResource ? 0 : getRenderedImageWidth(image, root)) ||
               image.naturalWidth ||
               preferredWidth,
             getAvailableImageWidth(root),
