@@ -56,6 +56,7 @@ export const RIBBON_LAYOUT: RibbonLayoutDefinition = {
                     itemIds: [
                         "link",
                         "image",
+                        "drawio",
                         "tableSize",
                         "insertTable",
                         "horizontalRule",
