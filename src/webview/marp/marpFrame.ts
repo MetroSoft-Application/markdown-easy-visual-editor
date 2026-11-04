@@ -3,6 +3,14 @@
  */
 import { browser as applyMarpBrowserSupport } from "@marp-team/marp-core/browser";
 import type { MarpImageResizeTarget } from "../../shared/imageResize";
+import { isLocalDrawioSvgImageSource } from "../../shared/drawioSvg";
+import { applyResourceVersions } from "../preview/localResourceVersions";
+
+/**
+ * 親Webviewから受け取ったローカル画像の版番号（正規化キー→版番号）。
+ * スライドの再描画で元のsrcに戻った画像にも再適用するため、iframeの寿命の間保持する。
+ */
+let resourceVersions = new Map<string, number>();
 
 interface SourceRange {
   index: number;
@@ -67,6 +75,8 @@ function installMarpImageResizeStyles(): void {
     ".mve-marp-image-resize-frame:hover .mve-marp-image-resize-handle,.mve-marp-image-resize-frame.is-resizing .mve-marp-image-resize-handle{opacity:1}",
     ".mve-marp-image-resize-frame.is-resizing,.mve-marp-image-resize-frame.is-resizing *{user-select:none!important}",
     "html[data-mve-image-resize-controls=hidden] .mve-marp-image-resize-badge,html[data-mve-image-resize-controls=hidden] .mve-marp-image-resize-handle{display:none!important}",
+    // 文書相対のdraw.io SVGはクリックで編集画面を開くため、リンクのカーソルを示す（クリック判定と同じ条件）。
+    "img[data-original-src$=\".drawio.svg\" i]:not([data-original-src*=\":\"]):not([data-original-src^=\"/\"]),img[data-original-src$=\".dio.svg\" i]:not([data-original-src*=\":\"]):not([data-original-src^=\"/\"]){cursor:pointer}",
   ].join("");
   document.head.append(resizeStyles);
 }
@@ -125,6 +135,22 @@ function receiveRender(event: MessageEvent): void {
     }
     return;
   }
+  if (event.data?.type === "resource-versions") {
+    // draw.io保存などで更新された画像を、キャッシュではなく最新のファイルから読み直す。
+    const entries: unknown = event.data.entries;
+    if (!Array.isArray(entries)) return;
+    resourceVersions = new Map(
+      entries.filter(
+        (entry): entry is [string, number] =>
+          Array.isArray(entry) &&
+          typeof entry[0] === "string" &&
+          Number.isInteger(entry[1]) &&
+          entry[1] > 0,
+      ),
+    );
+    if (root) applyResourceVersions(root, resourceVersions);
+    return;
+  }
   if (event.data?.type !== "render") return;
   const message = event.data as RenderMessage;
   if (
@@ -172,6 +198,8 @@ function receiveRender(event: MessageEvent): void {
     }
     if (isInitialRender) postRenderStage("slides-created");
     root!.replaceChildren(fragment);
+    // 再描画で元のsrcへ戻った更新済み画像が、古いキャッシュを表示しないよう版番号を付け直す。
+    applyResourceVersions(root!, resourceVersions);
     if (isInitialRender) postRenderStage("dom-replaced");
     applyMarpBrowserSupport(root!);
     configureImageResizeControls(
@@ -294,6 +322,20 @@ function handleClick(event: MouseEvent): void {
     return;
   }
   const image = target.closest<HTMLImageElement>("img");
+  // 文書相対のdraw.io SVGは拡大表示せず、親経由でdraw.io編集画面を開く。
+  // リンクで囲まれていればリンク先を、なければ画像自身の参照を開く。ダブルクリックでは重ねて開かない。
+  const drawioSource = image?.getAttribute("data-original-src") ?? "";
+  if (image && isLocalDrawioSvgImageSource(drawioSource)) {
+    event.preventDefault();
+    if (event.detail > 1) return;
+    const imageLinkHref = image.closest<HTMLAnchorElement>("a[href]")?.getAttribute("href");
+    const href = imageLinkHref && !imageLinkHref.startsWith("#") ? imageLinkHref : drawioSource;
+    parent.postMessage(
+      { channel: "mve-marp", token, type: "navigate", href, workspaceRooted: href.startsWith("/") },
+      "*",
+    );
+    return;
+  }
   if (image && !event.ctrlKey && !event.metaKey) {
     event.preventDefault();
     parent.postMessage(

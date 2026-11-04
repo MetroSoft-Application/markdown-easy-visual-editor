@@ -83,6 +83,18 @@ const VIEW_TYPE = 'markdownEasyVisualEditor.editor';
  */
 const DRAWIO_NAME_ATTEMPTS = 100;
 
+/**
+ * 自分で作成したdraw.io SVGの作成通知を無視する期間（ミリ秒）。
+ * 作成直後の監視通知は数百ミリ秒以内に届くため余裕を持たせつつ、後の置換保存は通知できる長さにする。
+ */
+const DRAWIO_SELF_CREATED_IGNORE_MS = 5000;
+
+/**
+ * 同じdraw.io SVGへの再読込通知をまとめる期間（ミリ秒）。
+ * 1回の保存で届くファイル監視と文書保存の通知をまとめ、利用者の連続保存は取りこぼさない短さにする。
+ */
+const DRAWIO_NOTIFICATION_DEDUPE_MS = 500;
+
 /** Copilot Chatの選択範囲添付に使う、ワークスペース単位の一時ファイル状態キー。 */
 const COPILOT_SELECTION_ATTACHMENT_STATE_KEY = 'markdownEasyVisualEditor.copilotSelectionAttachmentUri';
 
@@ -545,6 +557,19 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
 
     /** draw.io SVGの変更監視を登録済みか。監視は全パネルで共有し、二重登録しない。 */
     private drawioChangeWatcherRegistered = false;
+
+    /**
+     * この拡張機能が新規作成したdraw.io SVGのURIと作成時刻。
+     * 作成直後の監視通知は内容の更新ではないため、プレビューへ再読込を通知しない。
+     * 通知を受けた時点、または DRAWIO_SELF_CREATED_IGNORE_MS を過ぎた時点で無効になる。
+     */
+    private readonly selfCreatedDrawioFiles = new Map<string, number>();
+
+    /**
+     * draw.io SVGごとに最後に再読込を通知した時刻。
+     * 1回の保存でファイル監視と文書保存の両方が発火するため、短時間の重複通知をまとめる。
+     */
+    private readonly lastDrawioNotificationTimes = new Map<string, number>();
 
     /**
      * 文書ごとに開いているWebviewパネルの対応表。
@@ -2386,6 +2411,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
             const name = `${baseName}${attempt === 1 ? '' : `-${attempt}`}${DRAWIO_SVG_EXTENSION}`;
             const target = vscode.Uri.joinPath(directory, name);
             if (await this.tryCreateDrawioSvg(target, contents)) {
+                this.selfCreatedDrawioFiles.set(target.toString(), Date.now());
                 return encodeDrawioRelativePath(relativeUriPath(document.uri, target));
             }
         }
@@ -3121,16 +3147,41 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
             watcher,
             watcher.onDidChange(
                 /** @param uri - 内容が変更されたdraw.io SVG。 */
-                (uri) => this.broadcastLocalResourceChanged(uri)),
+                (uri) => this.notifyDrawioChanged(uri)),
             watcher.onDidCreate(
-                /** @param uri - 削除後に作り直されたdraw.io SVG。参照中の画像は読込失敗から回復させる。 */
-                (uri) => this.broadcastLocalResourceChanged(uri)),
+                /**
+                 * 削除後に作り直されたdraw.io SVG（置換保存など）を通知し、参照中の画像を読込失敗から回復させる。
+                 * この拡張機能が作成した直後の通知は内容の更新ではないため無視する。
+                 * @param uri - 作成されたdraw.io SVG。
+                 */
+                (uri) => {
+                    const key = uri.toString();
+                    const createdAt = this.selfCreatedDrawioFiles.get(key);
+                    this.selfCreatedDrawioFiles.delete(key);
+                    if (createdAt !== undefined && Date.now() - createdAt < DRAWIO_SELF_CREATED_IGNORE_MS) return;
+                    this.notifyDrawioChanged(uri);
+                }),
             vscode.workspace.onDidSaveTextDocument(
                 /** @param saved - 保存された文書。draw.io SVG以外は無視する。 */
                 (saved) => {
-                    if (isDrawioSvgReference(saved.uri.path)) this.broadcastLocalResourceChanged(saved.uri);
+                    if (isDrawioSvgReference(saved.uri.path)) this.notifyDrawioChanged(saved.uri);
                 })
         );
+    }
+
+    /**
+     * draw.io SVGの更新を、短時間の重複をまとめたうえで全プレビューへ通知する。
+     * 同じ保存によるファイル監視と文書保存の通知は DRAWIO_NOTIFICATION_DEDUPE_MS 以内に届くため1回にする。
+     * 間隔を空けた別の保存は通知する。
+     * @param uri - 内容が変わったdraw.io SVGのURI。
+     */
+    private notifyDrawioChanged(uri: vscode.Uri): void {
+        const key = uri.toString();
+        const now = Date.now();
+        const last = this.lastDrawioNotificationTimes.get(key);
+        if (last !== undefined && now - last < DRAWIO_NOTIFICATION_DEDUPE_MS) return;
+        this.lastDrawioNotificationTimes.set(key, now);
+        this.broadcastLocalResourceChanged(uri);
     }
 
     /**

@@ -22,11 +22,12 @@ import {
   type MermaidRenderResult,
 } from "../markdown/mermaidRenderer";
 import { mveDebug } from "../runtime/debug";
-import { isDrawioSvgReference } from "../../shared/drawioSvg";
+import { isLocalDrawioSvgImageSource } from "../../shared/drawioSvg";
 import {
   applyLocalResourceVersions,
+  consumeNaturalWidthRequest,
   LOCAL_RESOURCE_CHANGED_EVENT,
-  LOCAL_RESOURCE_RELOADED_DATASET_KEY,
+  requestNaturalWidthOnLoad,
 } from "../preview/localResourceVersions";
 
 /**
@@ -226,8 +227,6 @@ function RenderedMarkdownView({
         renderedBlocksRef.current,
         html,
       );
-      // 再描画で元のsrcへ戻った画像が、更新前のキャッシュを表示しないよう版番号を付け直す。
-      applyLocalResourceVersions(root);
       root.dataset.renderRevision = String(
         (Number(root.dataset.renderRevision) || 0) + 1,
       );
@@ -236,6 +235,9 @@ function RenderedMarkdownView({
         start: startedAt,
         end: performance.now(),
       });
+      // 再描画で元のsrcへ戻った画像が、更新前のキャッシュを表示しないよう版番号を付け直す。
+      // 既存のDOM差分計測の意味を変えないよう計測区間の外で行い、描画前（同じlayout effect内）に済ませる。
+      applyLocalResourceVersions(root);
     },
     [html],
   );
@@ -1063,20 +1065,24 @@ function RenderedMarkdownView({
     }
     const image = target.closest<HTMLImageElement>("img[data-original-src]");
     const imageLink = target.closest<HTMLAnchorElement>("a[href]");
-    // draw.io SVGの画像は編集対象として扱い、拡大表示せず通常クリックでdraw.io編集画面を開く。
-    // リンクで囲まれていない旧形式 `![draw.io](x.drawio.svg)` も対象にする。
-    // リンクで囲まれている場合は作者が指定したリンク先を優先し、下のリンク処理へ委ねる。
-    if (
-      image &&
-      !imageLink &&
-      isDrawioSvgReference(image.dataset.originalSrc ?? "")
-    ) {
+    // 文書相対のdraw.io SVG画像は編集対象として扱い、拡大表示せず通常クリックでdraw.io編集画面を開く。
+    // リモートや絶対パスの画像は従来どおり拡大表示にする。遷移先を渡されない描画では拡大表示へ戻す。
+    const drawioImage =
+      image !== null &&
+      onNavigate !== undefined &&
+      isLocalDrawioSvgImageSource(image.dataset.originalSrc ?? "");
+    if (drawioImage && event.detail > 1) {
+      // ダブルクリックの2回目以降で同じ図を重ねて開かない。
       event.preventDefault();
-      onNavigate?.(image.dataset.originalSrc ?? "");
       return;
     }
-    const drawioImage =
-      image !== null && isDrawioSvgReference(image.dataset.originalSrc ?? "");
+    // リンクで囲まれていない旧形式 `![draw.io](x.drawio.svg)` は画像自身の参照を開く。
+    // リンクで囲まれている場合は作者が指定したリンク先を優先し、下のリンク処理へ委ねる。
+    if (drawioImage && !imageLink) {
+      event.preventDefault();
+      onNavigate(image.dataset.originalSrc ?? "");
+      return;
+    }
     if (
       image &&
       imageZoom !== undefined &&
@@ -2478,13 +2484,15 @@ function enhanceResizableImages(
         getRenderedImageWidth(image, root) ||
         image.naturalWidth;
       const preferredWidth = measuredWidth || 320;
-      // 未ロードのdraw.io図は仮幅320pxの枠のまま読込後も拡大表示されるため、読込時に自然幅で決め直す。
-      // 他の画像は既存表示を変えないよう対象外とする。
+      // 未ロードの画像は仮幅320pxの枠を作り、読込後も枠幅が表示幅として残るため拡大・縮小される。
+      // この挙動は画像の種類に依存しないが、既存文書の見た目を変えないよう、
+      // 控えめな大きさを保つ必要があるdraw.io図だけ読込時に自然幅で決め直す。
+      // 全画像へ広げる場合は、既存文書の表示幅が変わることを利用者に確認してから行う。
       if (
         !measuredWidth &&
-        isDrawioSvgReference(image.dataset.originalSrc ?? "")
+        isLocalDrawioSvgImageSource(image.dataset.originalSrc ?? "")
       ) {
-        image.dataset[LOCAL_RESOURCE_RELOADED_DATASET_KEY] = "true";
+        requestNaturalWidthOnLoad(image);
       }
       frame.style.width = `${Math.max(1, Math.min(preferredWidth, getAvailableImageWidth(root)))}px`;
       if (wrapperTarget !== image) {
@@ -2595,10 +2603,8 @@ function enhanceResizableImages(
        * Markdownプレビューのイベントまたはメッセージを受け取り、状態を更新する。
        */ () => {
         // width属性を持つ画像は、loadイベント後も明示幅を維持する。
-        // ファイル更新で読み直した画像は図の大きさが変わり得るため、旧画像の表示幅を引き継がず自然幅を使う。
-        const reloadedResource =
-          image.dataset[LOCAL_RESOURCE_RELOADED_DATASET_KEY] === "true";
-        delete image.dataset[LOCAL_RESOURCE_RELOADED_DATASET_KEY];
+        // ファイル更新で読み直した画像と未ロードだったdraw.io図は、旧画像や仮幅の表示幅を引き継がず自然幅を使う。
+        const reloadedResource = consumeNaturalWidthRequest(image);
         const nextWidth = Math.max(
           1,
           Math.min(

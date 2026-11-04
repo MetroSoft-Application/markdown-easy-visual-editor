@@ -57,3 +57,8 @@
 ## 2.0.1
 
 - Added a feature to insert blank lines.
+
+## 2.0.2
+
+- Added inserting draw.io diagrams and opening them in the draw.io editor from the preview.
+- Added a discard confirmation to the table editor.

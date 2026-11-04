@@ -161,6 +161,8 @@ When a preview is visible, select an image to inspect its alt text and reference
 
 PNG, APNG, JPEG, GIF, WebP, BMP, SVG, AVIF, ICO, HEIC, HEIF, JXL, and TIFF images are supported.
 
+Remote images can be displayed when **Markdown Easy Visual Editor: Remote Images Enabled** is enabled in VS Code settings.
+
 ### Insert and edit a draw.io diagram
 
 Create an editable [draw.io](https://www.drawio.com/) diagram without leaving the document. Editing requires the [Draw.io Integration](https://marketplace.visualstudio.com/items?itemName=hediet.vscode-drawio) extension (`hediet.vscode-drawio`).
@@ -169,7 +171,7 @@ Create an editable [draw.io](https://www.drawio.com/) diagram without leaving th
 
    ![The draw.io button on the Insert ribbon](./resources/readme-drawio-button.png)
 
-2. A small placeholder diagram is saved in the image folder (by default `assets/<document-name>/`) with a timestamped name such as `diagram-20261105-000337.drawio.svg`. Existing files are never overwritten. A linked image is inserted at the cursor, and the preview shows the diagram:
+2. A small placeholder diagram is saved in the image folder (by default `assets/<document-name>/`) with a timestamped name such as `diagram-20261105-000337.drawio.svg`. An existing file with the same name is not overwritten; a sequence number such as `-2` is added instead. A linked image is inserted at the cursor, and the preview shows the diagram:
 
    ```markdown
    [![draw.io](assets/architecture/diagram-20261105-000337.drawio.svg)](assets/architecture/diagram-20261105-000337.drawio.svg)
@@ -181,7 +183,7 @@ Create an editable [draw.io](https://www.drawio.com/) diagram without leaving th
 
    ![The diagram opened in the draw.io editor](./resources/readme-drawio-editor.png)
 
-Clicking any `.drawio.svg` or `.dio.svg` image in the preview opens the draw.io editor, including images inserted without a link. If the Draw.io Integration extension is not installed, the file opens in the default editor and a notification offers to show the extension.
+Clicking a local `.drawio.svg` or `.dio.svg` image in the preview, including Marp slide previews, opens the draw.io editor, even if the image was inserted without a link. Remote images keep the usual image preview. If the Draw.io Integration extension is not installed, the file opens in the default editor and a notification offers to show the extension.
 
 To jump from `.drawio.svg` to the DrawIO editor, you need to add the following settings to `settings.json`.
 
@@ -191,8 +193,6 @@ To jump from `.drawio.svg` to the DrawIO editor, you need to add the following s
   "*.dio.svg": "hediet.vscode-drawio-text"
 }
 ```
-
-Remote images can be displayed when **Markdown Easy Visual Editor: Remote Images Enabled** is enabled in VS Code settings.
 
 ## Supported Markdown
 

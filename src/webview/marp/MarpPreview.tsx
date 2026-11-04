@@ -18,6 +18,10 @@ import type { PreviewViewportAnchor } from "../preview/scrollAnchors";
 import { mermaidErrorMessage, renderMermaidSvg } from "../markdown/mermaidRenderer";
 import type { MermaidTheme } from "../markdown/mermaidRenderer";
 import { ImagePreviewDialog } from "../components/RenderedMarkdown";
+import {
+  getLocalResourceVersionEntries,
+  LOCAL_RESOURCE_CHANGED_EVENT,
+} from "../preview/localResourceVersions";
 import type { MarpRenderResult, MarpSlideSourceRange } from "./marpRenderer";
 import { findMarpSourceRangeAtOffset } from "./marpSourceRanges";
 import { isCurrentMarpWorkerResponse } from "./marpWorkerProtocol";
@@ -225,6 +229,34 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
         "*",
       );
     }, []);
+
+    /**
+     * Webviewで受信したローカル画像の版番号を、状態を共有しない隔離iframeへ転送する。
+     * iframeは受け取った一覧を保持し、表示中と以後に描画するスライド画像へ適用する。
+     * iframeの準備前は送らず、readyを受けた時点で改めて送る。
+     */
+    const postResourceVersions = useCallback(() => {
+      const frame = frameRef.current?.contentWindow;
+      if (!frameReadyRef.current || !frame) return;
+      const entries = getLocalResourceVersionEntries();
+      if (!entries.length) return;
+      frame.postMessage(
+        { channel: "mve-marp", token: tokenRef.current, type: "resource-versions", entries },
+        "*",
+      );
+    }, []);
+
+    useEffect(
+      /**
+       * draw.io保存などでローカル画像が更新されたらiframeへ版番号を送り直す。
+       * アンマウント時に購読を解除する。
+       */
+      () => {
+        window.addEventListener(LOCAL_RESOURCE_CHANGED_EVENT, postResourceVersions);
+        return () => window.removeEventListener(LOCAL_RESOURCE_CHANGED_EVENT, postResourceVersions);
+      },
+      [postResourceVersions],
+    );
 
     const postRenderToFrame = useCallback(() => {
       const result = latestResultRef.current;
@@ -540,6 +572,8 @@ export const MarpPreview = forwardRef<MarpPreviewHandle, MarpPreviewProps>(
           frameReadyRef.current = true;
           onStartupStage?.("iframe-ready");
           postImageResizeConfiguration();
+          // iframeの作り直し前に受けた更新も、最初の描画から反映させる。
+          postResourceVersions();
           postRenderToFrame();
           return;
         }

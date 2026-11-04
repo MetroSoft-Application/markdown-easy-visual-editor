@@ -422,4 +422,36 @@ describe('refreshing previews after a draw.io diagram is saved', () => {
             resource: 'https://panel-a.test/outside/diagram.dio.svg',
         });
     });
+    /** 1回の保存でファイル監視と文書保存の両方が届いても、再読込の通知は1回にまとめる。間隔を空けた次の保存は通知する。 */
+    it('coalesces duplicate notifications from one save and still notifies a later save', () => {
+        vi.useFakeTimers({ toFake: ['Date'] });
+        try {
+            vi.setSystemTime(new Date(2026, 10, 5, 10, 0, 0));
+            const { panels } = setUpPanels();
+            const uri = vscodeMock.createUri('file', '/workspace/images/a.drawio.svg');
+            vscodeMock.watcherListeners.change[0](uri);
+            vscodeMock.saveListeners[0]({ uri });
+            expect(panels[0].webview.postMessage).toHaveBeenCalledOnce();
+            vi.setSystemTime(new Date(2026, 10, 5, 10, 0, 2));
+            vscodeMock.saveListeners[0]({ uri });
+            expect(panels[0].webview.postMessage).toHaveBeenCalledTimes(2);
+        } finally {
+            vi.useRealTimers();
+        }
+    });
+
+    /** 拡張機能自身が作成した直後の作成通知は内容の更新ではないため通知しないが、後の置換保存（作成通知）は通知する。 */
+    it('ignores the creation event for a diagram the extension just created', async () => {
+        const { provider, panels } = setUpPanels();
+        const document = createDocument('file', '/workspace/docs/guide.md');
+        await provider.handleMessage(document, { webview: { postMessage: vi.fn() } }, {
+            type: 'createDrawioSvg', requestId: 'self-created', imageDirectory: 'images',
+        });
+        const [createdPath] = drawioFileMock.writeDrawioSvgExclusive.mock.calls[0];
+        const createdUri = vscodeMock.createUri('file', createdPath);
+        vscodeMock.watcherListeners.create[0](createdUri);
+        expect(panels[0].webview.postMessage).not.toHaveBeenCalled();
+        vscodeMock.watcherListeners.create[0](createdUri);
+        expect(panels[0].webview.postMessage).toHaveBeenCalledOnce();
+    });
 });

@@ -16,6 +16,7 @@ import {
   DRAWIO_SVG_EXTENSION,
   encodeDrawioRelativePath,
   isDrawioSvgReference,
+  isLocalDrawioSvgImageSource,
 } from "../src/shared/drawioSvg";
 
 /** SVG描画検証に使うChromium。見つからない環境では描画テストだけを省略する。 */
@@ -87,6 +88,22 @@ describe("draw.io SVG placeholder", () => {
   });
 
   /** プレビューのクリック判定とHostの振り分けで、draw.io SVGだけを編集リンクとして扱う。 */
+  /**
+   * プレビューの画像クリックでdraw.ioを開くのは文書相対のローカル参照だけにする。
+   * リモート画像のブラウザー遷移や、生HTML属性からワークスペース外の絶対パスを開く退行を検出する。
+   */
+  it("opens only document-relative draw.io images from the preview", () => {
+    expect(isLocalDrawioSvgImageSource("images/diagram.drawio.svg")).toBe(true);
+    expect(isLocalDrawioSvgImageSource("../shared/資料%201/a.dio.svg")).toBe(true);
+    expect(isLocalDrawioSvgImageSource("https://example.com/a.drawio.svg")).toBe(false);
+    expect(isLocalDrawioSvgImageSource("file:///C:/outside/a.drawio.svg")).toBe(false);
+    expect(isLocalDrawioSvgImageSource("C:/outside/a.drawio.svg")).toBe(false);
+    expect(isLocalDrawioSvgImageSource("/workspace-root/a.drawio.svg")).toBe(false);
+    expect(isLocalDrawioSvgImageSource("\\\\server\\share\\a.drawio.svg")).toBe(false);
+    expect(isLocalDrawioSvgImageSource("images/plain.svg")).toBe(false);
+    expect(isLocalDrawioSvgImageSource("")).toBe(false);
+  });
+
   it("recognizes draw.io SVG references regardless of escaping, query and fragment", () => {
     expect(isDrawioSvgReference("images/diagram.drawio.svg")).toBe(true);
     expect(isDrawioSvgReference("images/DIAGRAM.DRAWIO.SVG")).toBe(true);

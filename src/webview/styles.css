@@ -1081,10 +1081,12 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
 /*
  * draw.io SVGはクリックで拡大せずdraw.io編集画面を開くため、拡大カーソルではなくリンクのカーソルを示す。
  * 拡張子の大文字小文字を問わず、draw.io拡張機能の対象である .drawio.svg と .dio.svg に合わせる。
- * 直前の zoom-in 指定と同じ詳細度にして後勝ちで上書きするため、属性セレクターを2つ重ねる。
+ * 直前の zoom-in 指定より詳細度を高くして上書きする。
+ * クリック判定（isLocalDrawioSvgImageSource）と同じく、URLスキーム付き（`:` を含む）と
+ * ルート相対（`/` 始まり）の参照は拡大表示のままなので対象外にする。
  */
-.rendered-markdown img[data-original-src][data-original-src$=".drawio.svg" i],
-.rendered-markdown img[data-original-src][data-original-src$=".dio.svg" i] {
+.rendered-markdown img[data-original-src][data-original-src$=".drawio.svg" i]:not([data-original-src*=":"]):not([data-original-src^="/"]),
+.rendered-markdown img[data-original-src][data-original-src$=".dio.svg" i]:not([data-original-src*=":"]):not([data-original-src^="/"]) {
     cursor: pointer;
 }
 

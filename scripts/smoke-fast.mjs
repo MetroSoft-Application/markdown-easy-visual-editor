@@ -118,20 +118,33 @@ async function runDrawioClickSmoke(page) {
   await page.locator('.image-preview-dialog').waitFor({ state: 'detached' });
 
   // draw.io保存の通知を受けたら、該当画像だけを版番号付きURLで読み直し、本文と元参照は変えないことを確認する。
-  const refreshed = await page.evaluate(
+  await page.evaluate(
   /**
-   * HostのlocalResourceChanged通知を模擬し、各画像のsrcと本文を読み取る。
-   * @param text - 通知前のMarkdown本文。
-   * @returns 版番号付きになった画像、元参照、本文の変化有無。
+   * HostのlocalResourceChanged通知を模擬する。
    */
-  async (text) => {
+  () => {
     window.dispatchEvent(new MessageEvent('message', {
       data: {
         type: 'localResourceChanged',
         resource: new URL('images/old%20diagram.drawio.svg', document.baseURI).href,
       },
     }));
-    await new Promise((resolve) => setTimeout(resolve, 50));
+  });
+  // 固定時間ではなく、対象画像のsrcが版番号付きへ変わるまで待つ。変わらなければタイムアウトで失敗する。
+  await page.waitForFunction(
+  /**
+   * 通知対象の画像のsrcに版番号が付くまで待機する。
+   */
+  () => /mve-v=/.test(
+    document.querySelector('.split-preview img[data-original-src="images/old%20diagram.drawio.svg"]')?.getAttribute('src') ?? '',
+  ), undefined, { timeout: 5000 });
+  const refreshed = await page.evaluate(
+  /**
+   * 各画像のsrcと元参照、本文を読み取る。
+   * @param text - 通知前のMarkdown本文。
+   * @returns 版番号付きになった画像、元参照、本文の変化有無。
+   */
+  (text) => {
     const images = [...document.querySelectorAll('.split-preview img[data-original-src]')];
     return {
       sources: images.map((image) => image.getAttribute('src')),

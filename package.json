@@ -2,7 +2,7 @@
   "name": "markdown-easy-visual-editor",
   "displayName": "Markdown Easy Visual Editor",
   "description": "A visual Markdown and Textile editor for VS Code with live preview, source editing, formatting tools, image support, and PDF export.",
-  "version": "2.0.1",
+  "version": "2.0.2",
   "publisher": "MetroSoft-Application",
   "icon": "resources/icon.png",
   "repository": {
@@ -301,8 +301,16 @@
         },
         "markdownEasyVisualEditor.editor.viewMode": {
           "type": "string",
-          "enum": ["both", "preview", "text"],
-          "enumDescriptions": ["Show source and preview", "Show preview only", "Show source only"],
+          "enum": [
+            "both",
+            "preview",
+            "text"
+          ],
+          "enumDescriptions": [
+            "Show source and preview",
+            "Show preview only",
+            "Show source only"
+          ],
           "default": "both",
           "scope": "application",
           "description": "Default editor panes shown when opening a Markdown file."
@@ -339,14 +347,27 @@
         },
         "markdownEasyVisualEditor.pdf.format": {
           "type": "string",
-          "enum": ["A0", "A1", "A2", "A3", "A4", "A5", "A6", "B4", "B5"],
+          "enum": [
+            "A0",
+            "A1",
+            "A2",
+            "A3",
+            "A4",
+            "A5",
+            "A6",
+            "B4",
+            "B5"
+          ],
           "default": "A4",
           "scope": "application",
           "description": "Paper size used for PDF export."
         },
         "markdownEasyVisualEditor.pdf.orientation": {
           "type": "string",
-          "enum": ["portrait", "landscape"],
+          "enum": [
+            "portrait",
+            "landscape"
+          ],
           "default": "portrait",
           "scope": "application",
           "description": "Page orientation used for PDF export."
@@ -412,7 +433,10 @@
                 "description": "Literal text inserted for each match."
               }
             },
-            "required": ["pattern", "replacement"],
+            "required": [
+              "pattern",
+              "replacement"
+            ],
             "additionalProperties": false
           }
         },

@@ -15,7 +15,8 @@ export const DRAWIO_IMAGE_ALT = "draw.io";
 
 /**
  * 編集可能なdraw.ioモデル。content属性へ書き込む前のXML形式。
- * 本文中で目立たないよう、小さめの淡いグレーの角丸四角形1つだけを置く。
+ * 本文中で目立たないよう、塗りのない淡いグレー枠の小さな角丸四角形1つだけを置く。
+ * 塗りを持たないため、ライト・ダークどちらの背景でも白い箱として浮き上がらない。
  * 図形の寸法・色は下の表示用SVGと一致させる（初回保存前の見た目とdraw.io上の見た目をそろえる）。
  * 位置だけはdraw.ioの編集画面で用紙の端に貼り付かないよう (40, 40) に置く。
  * draw.ioは保存時に図形の範囲でSVGを切り出すため、この余白は保存後の画像には含まれない。
@@ -31,7 +32,7 @@ const DRAWIO_MODEL = [
   '<mxCell id="1" parent="0"/>',
   '<mxCell id="2" value="draw.io" ',
   'style="rounded=1;arcSize=10;whiteSpace=wrap;html=0;align=center;verticalAlign=middle;',
-  'fillColor=#fafafa;strokeColor=#c8c8c8;fontColor=#8a8a8a;fontSize=12;" ',
+  'fillColor=none;strokeColor=#c8c8c8;fontColor=#8a8a8a;fontSize=12;" ',
   'vertex="1" parent="1">',
   '<mxGeometry x="40" y="40" width="160" height="48" as="geometry"/>',
   '</mxCell>',
@@ -57,7 +58,7 @@ function escapeXmlAttribute(value: string): string {
 
 /**
  * 描画と編集用データを両方持つ、外部リソース不要のダミーSVGを生成する。
- * 本文の流れを妨げない控えめな見た目（161×49px、淡いグレーの枠と文字）にする。
+ * 本文の流れを妨げない控えめな見た目（161×49px、塗りなし、淡いグレーの枠と文字）にする。
  * 線幅1pxが画素境界でにじまないよう、図形を0.5pxずらして描く。
  * @returns XMLとして妥当で、draw.ioの図データを含むSVG文書。
  */
@@ -69,7 +70,7 @@ export function createDrawioPlaceholderSvg(): string {
     ` content="${escapeXmlAttribute(DRAWIO_MODEL)}">`,
     '<title>draw.io</title>',
     '<rect x="0" y="0" width="160" height="48" rx="4.8"',
-    ' fill="#fafafa" stroke="#c8c8c8" stroke-width="1"/>',
+    ' fill="none" stroke="#c8c8c8" stroke-width="1"/>',
     '<text x="80" y="28" text-anchor="middle" font-family="Arial, sans-serif"',
     ' font-size="12" fill="#8a8a8a">draw.io</text>',
     '</svg>',
@@ -135,6 +136,20 @@ export function isDrawioSvgReference(reference: string): boolean {
     // 不正な%エスケープを含む参照も、元の文字列のまま拡張子を判定する。
   }
   return DRAWIO_SVG_REFERENCE.test(decoded);
+}
+
+/**
+ * プレビューの画像クリックでdraw.io編集画面を開いてよい画像参照かを判定する。
+ * 文書からの相対パスの `.drawio.svg` / `.dio.svg` に限定し、URLスキーム付き（http(s)、file、data等）、
+ * ルート相対、UNCの参照は対象外にする。リモート画像を誤ってブラウザーで開いたり、
+ * 生HTMLの画像属性からワークスペース外の絶対パスを開いたりしないための制限。
+ * @param source - 画像の元参照（`data-original-src`）。
+ * @returns 文書相対のdraw.io SVGであればtrue。
+ */
+export function isLocalDrawioSvgImageSource(source: string): boolean {
+  const trimmed = source.trim();
+  if (!trimmed || /^[a-z][a-z0-9+.-]*:/i.test(trimmed) || /^[\\/]/.test(trimmed)) return false;
+  return isDrawioSvgReference(trimmed);
 }
 
 /**
