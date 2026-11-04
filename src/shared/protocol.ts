@@ -778,6 +778,12 @@ export type HostToWebviewMessage =
         paths: string[]
     }
     | {
+        /** draw.io SVGを作成したあと、相対画像パスをWebviewへ返す。 */
+        type: 'drawioSvgCreated';
+        requestId: string;
+        path: string
+    }
+    | {
         /**
          * ローカル参照検査の診断結果を返すメッセージです。
          */
@@ -1096,6 +1102,12 @@ export type WebviewToHostMessage =
         /**
          * 画像を保存するワークスペース内の相対ディレクトリ。
          */
+        imageDirectory: string
+    }
+    | {
+        /** draw.ioで再編集できるSVGダミーの作成を要求する。 */
+        type: 'createDrawioSvg';
+        requestId: string;
         imageDirectory: string
     }
     | {
