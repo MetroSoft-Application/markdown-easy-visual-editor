@@ -24,6 +24,134 @@ async function findFile(root, name) {
 }
 
 /**
+ * プレビューのdraw.io SVG画像が拡大表示ではなくdraw.io編集リンクとして動くことを検証する。
+ * リンクなしの旧形式とリンク付きの新形式はどちらもHostへopenResourceを送り、拡大ダイアログを開かない。
+ * 通常のSVG画像は従来どおり拡大ダイアログを開くことも確認し、既存の拡大操作の退行を検出する。
+ * 相対画像は検証サーバーに実体がなく描画サイズが0になるため、要素のclickでReactのクリック処理を直接起動する。
+ * @param page - 分割表示のWebviewを開いているPlaywrightページ。
+ * @throws 送信されたメッセージや拡大ダイアログの表示が期待と異なる場合。
+ */
+async function runDrawioClickSmoke(page) {
+  const errorCountBefore = errors.length;
+  const source = [
+    '# draw.io click smoke',
+    '',
+    '![draw.io](images/old%20diagram.drawio.svg)',
+    '',
+    '[![draw.io](images/資料%201/new.drawio.svg)](images/資料%201/new.drawio.svg)',
+    '',
+    '![plain](images/plain.svg)',
+    '',
+  ].join('\n');
+  await page.evaluate(
+  /**
+   * Host側の本文を差し替え、外部変更としてWebviewへ通知する。
+   * @param text - draw.io画像と通常画像を含むMarkdown本文。
+   */
+  (text) => {
+    const previousText = window.__mveHostText;
+    const baseVersion = window.__mveHostVersion;
+    window.__mveHostText = text;
+    window.__mvePhysicalText = text.replace(/\n/g, '\r\n');
+    window.__mveHostVersion += 1;
+    window.dispatchEvent(new MessageEvent('message', {
+      data: {
+        type: 'externalChanges',
+        baseVersion,
+        version: window.__mveHostVersion,
+        changes: [{ rangeOffset: 0, rangeLength: previousText.length, text }]
+      }
+    }));
+  }, source);
+  await page.waitForFunction(
+  /**
+   * 差し替えた本文がプレビューへ描画され、3つの画像がそろうまで待機する。
+   * @param length - プレビューのdata-document-lengthと照合する期待本文長。
+   */
+  (length) => Number(
+    document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-document-length'),
+  ) === length && document.querySelectorAll('.split-preview img[data-original-src]').length === 3, source.length);
+
+  /**
+   * 指定画像をクリックし、その間にHostへ送られたopenResourceのhrefと拡大ダイアログの有無を返す。
+   * @param originalSource - クリックする画像のdata-original-src。
+   * @returns 送信されたhref一覧と、クリック後に拡大ダイアログが表示されたか。
+   */
+  const clickImage = (originalSource) => page.evaluate(
+  /**
+   * ブラウザー内で画像をクリックし、送信メッセージとダイアログ表示を読み取る。
+   * @param value - クリックする画像のdata-original-src。
+   * @returns openResourceのhref一覧と拡大ダイアログの有無。
+   */
+  (value) => {
+    const before = window.__mveMessages.length;
+    const image = [...document.querySelectorAll('.split-preview img[data-original-src]')]
+      .find((element) => element.getAttribute('data-original-src') === value);
+    if (!image) return { missing: true, hrefs: [], dialog: false };
+    image.click();
+    return {
+      missing: false,
+      cursor: getComputedStyle(image).cursor,
+      hrefs: window.__mveMessages.slice(before)
+        .filter((message) => message.type === 'openResource')
+        .map((message) => message.href),
+      dialog: document.querySelector('.image-preview-dialog') !== null,
+    };
+  }, originalSource);
+
+  const legacy = await clickImage('images/old%20diagram.drawio.svg');
+  if (legacy.missing || legacy.dialog || legacy.cursor !== 'pointer'
+    || JSON.stringify(legacy.hrefs) !== JSON.stringify(['images/old%20diagram.drawio.svg'])) {
+    throw new Error(`unlinked draw.io image did not open the draw.io editor: ${JSON.stringify(legacy)}`);
+  }
+  const linked = await clickImage('images/資料%201/new.drawio.svg');
+  if (linked.missing || linked.dialog || linked.cursor !== 'pointer'
+    || JSON.stringify(linked.hrefs) !== JSON.stringify(['images/資料%201/new.drawio.svg'])) {
+    throw new Error(`linked draw.io image did not open the draw.io editor: ${JSON.stringify(linked)}`);
+  }
+  const plain = await clickImage('images/plain.svg');
+  if (plain.missing || plain.hrefs.length || plain.cursor !== 'zoom-in') {
+    throw new Error(`plain image click changed unexpectedly: ${JSON.stringify(plain)}`);
+  }
+  await page.locator('.image-preview-dialog').waitFor();
+  await page.keyboard.press('Escape');
+  await page.locator('.image-preview-dialog').waitFor({ state: 'detached' });
+
+  // draw.io保存の通知を受けたら、該当画像だけを版番号付きURLで読み直し、本文と元参照は変えないことを確認する。
+  const refreshed = await page.evaluate(
+  /**
+   * HostのlocalResourceChanged通知を模擬し、各画像のsrcと本文を読み取る。
+   * @param text - 通知前のMarkdown本文。
+   * @returns 版番号付きになった画像、元参照、本文の変化有無。
+   */
+  async (text) => {
+    window.dispatchEvent(new MessageEvent('message', {
+      data: {
+        type: 'localResourceChanged',
+        resource: new URL('images/old%20diagram.drawio.svg', document.baseURI).href,
+      },
+    }));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    const images = [...document.querySelectorAll('.split-preview img[data-original-src]')];
+    return {
+      sources: images.map((image) => image.getAttribute('src')),
+      originals: images.map((image) => image.getAttribute('data-original-src')),
+      textUnchanged: window.__mveHostText === text,
+    };
+  }, source);
+  if (!/old%20diagram\.drawio\.svg\?mve-v=1$/.test(refreshed.sources[0] ?? '')
+    || /mve-v=/.test(refreshed.sources[1] ?? '') || /mve-v=/.test(refreshed.sources[2] ?? '')
+    || refreshed.originals[0] !== 'images/old%20diagram.drawio.svg' || !refreshed.textUnchanged) {
+    throw new Error(`draw.io save did not refresh only the changed preview image: ${JSON.stringify(refreshed)}`);
+  }
+  // 相対画像は検証サーバーに存在しない前提のため、この検証で生じた404の読込エラーだけを除外する。
+  // それ以外のエラーは残し、スモーク全体の失敗として報告させる。
+  for (let index = errors.length - 1; index >= errorCountBefore; index--) {
+    if (/Failed to load resource: .*404/.test(errors[index])) errors.splice(index, 1);
+  }
+}
+
+/**
  * PDF用に導入したChromiumの実行ファイル。未導入なら検証を始める前に終了する。
  */
 const executablePath = await findFile(path.resolve('.chromium'), 'chrome-headless-shell.exe');
@@ -3276,6 +3404,7 @@ try {
     document.querySelector('.split-preview .rendered-markdown')?.getAttribute('data-document-length'),
   ) === length, imageSmokeSource.length);
   await runImageZoomSmoke();
+  await runDrawioClickSmoke(page);
   await context.close();
   if (errors.length) throw new Error(errors.join('\n'));
   console.log('高速スモーク: 空CRLF文書の単一改行同期、LFプロトコル、画像保存先設定、表編集、フォーカス非介入、スクロール同期設定、スクロール保持、分割表示、ズーム、空白可視化、ハイライトを確認しました。');

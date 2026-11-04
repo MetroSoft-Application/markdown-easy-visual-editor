@@ -2043,6 +2043,15 @@ export interface Messages {
 
         /** 既存タブを再利用せず添付用エディターを開けない場合の案内。 */
         copilotChatEditorUnavailable: string;
+
+        /** 新規draw.io SVGと同名のファイルが既にあり、上書きせず中止した場合のエラー。 */
+        drawioFileExists: string;
+
+        /** draw.io拡張機能が見つからず、既定のエディターで開いた場合の導入案内。 */
+        drawioExtensionMissing: string;
+
+        /** 導入案内から拡張機能ビューでdraw.io拡張機能を検索するボタンのラベル。 */
+        drawioShowExtension: string;
     };
 
     /** エディターと編集コマンドの表示文言をまとめる。 */
@@ -2626,7 +2635,10 @@ function createMessages(language: SupportedLanguage): Messages {
             copilotChatUnavailable: raw.host.copilotChatUnavailable,
             copilotSelectionChanged: raw.host.copilotSelectionChanged,
             clipboardSvgInvalid: raw.host.clipboardSvgInvalid,
-            copilotChatEditorUnavailable: raw.host.copilotChatEditorUnavailable
+            copilotChatEditorUnavailable: raw.host.copilotChatEditorUnavailable,
+            drawioFileExists: raw.host.drawioFileExists,
+            drawioExtensionMissing: raw.host.drawioExtensionMissing,
+            drawioShowExtension: raw.host.drawioShowExtension
         },
         editor: raw.editor,
         internal: raw.internal

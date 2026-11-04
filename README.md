@@ -14,6 +14,7 @@ Markdown Easy Visual Editor is a VS Code extension for writing Markdown and Text
 - Search and replace text with `Ctrl+F` on Windows/Linux or `Cmd+F` on macOS.
 - Paste or drop images into a document and save them as local assets.
 - Resize and align images directly in the preview.
+- Insert draw.io diagrams and open them in the draw.io editor with one click from the preview.
 - Copy tables as TSV and paste spreadsheet data into Markdown tables.
 - Edit Markdown tables in a spreadsheet-like table editor, including direct cell editing, row and column operations, column-width and row-height adjustment, and moving or resizing the editor.
 - Review local links and images before exporting.
@@ -159,6 +160,37 @@ When a preview is visible, select an image to inspect its alt text and reference
 ![Image resizing in the live preview](./resources/readme-image-resize.png)
 
 PNG, APNG, JPEG, GIF, WebP, BMP, SVG, AVIF, ICO, HEIC, HEIF, JXL, and TIFF images are supported.
+
+### Insert and edit a draw.io diagram
+
+Create an editable [draw.io](https://www.drawio.com/) diagram without leaving the document. Editing requires the [Draw.io Integration](https://marketplace.visualstudio.com/items?itemName=hediet.vscode-drawio) extension (`hediet.vscode-drawio`).
+
+1. Save the Markdown document, place the cursor where the diagram should appear, and choose **Insert > draw.io**.
+
+   ![The draw.io button on the Insert ribbon](./resources/readme-drawio-button.png)
+
+2. A small placeholder diagram is saved in the image folder (by default `assets/<document-name>/`) with a timestamped name such as `diagram-20261105-000337.drawio.svg`. Existing files are never overwritten. A linked image is inserted at the cursor, and the preview shows the diagram:
+
+   ```markdown
+   [![draw.io](assets/architecture/diagram-20261105-000337.drawio.svg)](assets/architecture/diagram-20261105-000337.drawio.svg)
+   ```
+
+   ![A placeholder diagram created and shown in the preview](./resources/readme-drawio-inserted.png)
+
+3. Click the diagram in the preview to open it in the draw.io editor. Edit and save it there; the preview updates automatically.
+
+   ![The diagram opened in the draw.io editor](./resources/readme-drawio-editor.png)
+
+Clicking any `.drawio.svg` or `.dio.svg` image in the preview opens the draw.io editor, including images inserted without a link. If the Draw.io Integration extension is not installed, the file opens in the default editor and a notification offers to show the extension.
+
+To jump from `.drawio.svg` to the DrawIO editor, you need to add the following settings to `settings.json`.
+
+```json
+"workbench.editorAssociations": {
+  "*.drawio.svg": "hediet.vscode-drawio-text", 
+  "*.dio.svg": "hediet.vscode-drawio-text"
+}
+```
 
 Remote images can be displayed when **Markdown Easy Visual Editor: Remote Images Enabled** is enabled in VS Code settings.
 

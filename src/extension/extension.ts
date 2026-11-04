@@ -29,8 +29,14 @@ import {
     type FontFamilySettings
 } from '../shared/fontFamily';
 import { resolveImageDirectoryRule } from '../shared/imageDirectory';
-import { createDrawioPlaceholderSvg, encodeDrawioRelativePath, DRAWIO_SVG_EXTENSION } from '../shared/drawioSvg';
+import {
+    createDrawioPlaceholderSvg,
+    encodeDrawioRelativePath,
+    isDrawioSvgReference,
+    DRAWIO_SVG_EXTENSION
+} from '../shared/drawioSvg';
 import { writeDrawioSvgExclusive } from './drawioFile';
+import { openDrawioSvgEditor } from './drawioEditor';
 import { normalizeSvgClipboardText } from '../shared/svgClipboard';
 import {
     collectLocalResourceReferences,
@@ -70,6 +76,12 @@ const MERMAID_RENDER_PROGRESS_INTERVAL_MS = 10_000;
  * VS CodeがCustom Editorを識別するビュー種別。
  */
 const VIEW_TYPE = 'markdownEasyVisualEditor.editor';
+
+/**
+ * draw.io SVGのタイムスタンプ名が同じ秒に重なったとき、連番を付けて試す最大回数。
+ * 1秒間に手動でこれを超えて作成することは想定せず、超えた場合は上書きせずエラーにする。
+ */
+const DRAWIO_NAME_ATTEMPTS = 100;
 
 /** Copilot Chatの選択範囲添付に使う、ワークスペース単位の一時ファイル状態キー。 */
 const COPILOT_SELECTION_ATTACHMENT_STATE_KEY = 'markdownEasyVisualEditor.copilotSelectionAttachmentUri';
@@ -531,6 +543,9 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
      */
     private marpFrontMatterParser: MarpFrontMatterParser | undefined;
 
+    /** draw.io SVGの変更監視を登録済みか。監視は全パネルで共有し、二重登録しない。 */
+    private drawioChangeWatcherRegistered = false;
+
     /**
      * 文書ごとに開いているWebviewパネルの対応表。
      */
@@ -733,6 +748,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
     ): Promise<void> {
         // 旧globalState設定の移行完了後に初期設定を送信し、新設定との競合を防ぐ。
         await this.globalSettingsMigration;
+        this.ensureDrawioChangeWatcher();
         const documentText = document.getText();
         // 文書とWebviewパネルを登録し、HTML・メッセージ受信・破棄時の後処理を設定する。
         const key = document.uri.toString();
@@ -2350,40 +2366,68 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
     }
 
     /**
+     * draw.ioの編集モデルを埋め込んだ表示可能なSVGを作成し、Markdown相対URLを返す。
+     * 既存ファイルを上書きせず、書込み成功後にだけ呼出元がリンクを挿入する。
+     * @param document - 画像参照の基準となるMarkdown文書。
+     * @param imageDirectory - 現在の画像保存先設定。
+     * @returns Markdownを壊す文字だけを%エスケープした相対SVG参照。
+     * @throws 未保存文書、不正な保存先、同名ファイルの存在、または書込み失敗の場合。
+     */
+    private async createDrawioSvg(document: vscode.TextDocument, imageDirectory: string): Promise<string> {
+        const messages = this.getMessages();
+        if (document.uri.scheme === 'untitled') {
+            throw new Error(messages.host.imageDocumentMustBeSaved);
+        }
+        const directory = await this.ensureAssetDirectory(document, imageDirectory);
+        const contents = createDrawioPlaceholderSvg();
+        // 貼付画像と同じ秒単位のタイムスタンプ名にする。同じ秒に複数作成した場合は -2, -3 … を付ける。
+        const baseName = `diagram-${compactTimestamp(new Date())}`;
+        for (let attempt = 1; attempt <= DRAWIO_NAME_ATTEMPTS; attempt++) {
+            const name = `${baseName}${attempt === 1 ? '' : `-${attempt}`}${DRAWIO_SVG_EXTENSION}`;
+            const target = vscode.Uri.joinPath(directory, name);
+            if (await this.tryCreateDrawioSvg(target, contents)) {
+                return encodeDrawioRelativePath(relativeUriPath(document.uri, target));
+            }
+        }
+        throw new Error(messages.host.drawioFileExists);
+    }
+
+    /**
+     * 指定URIにdraw.io SVGを新規作成する。既存ファイルがあれば何も変更せずfalseを返す。
+     * ローカルは `wx` による排他作成で上書きを防ぐ。仮想ファイルシステムのAPIには排他作成がないため
+     * 事前に存在を検査する。検査と書込みの間に同名ファイルが作られる余地は残るが、
+     * 同じ秒・同じ連番で別の作成が割り込む場合に限られるため許容する。
+     * @param target - 作成するファイルのURI。
+     * @param contents - 保存するUTF-8 SVG。
+     * @returns 作成した場合はtrue、同名ファイルがあった場合はfalse。
+     * @throws 存在確認や書込みが衝突以外の理由で失敗した場合。
+     */
+    private async tryCreateDrawioSvg(target: vscode.Uri, contents: string): Promise<boolean> {
+        if (target.scheme === 'file') {
+            try {
+                await writeDrawioSvgExclusive(target.fsPath, contents);
+                return true;
+            } catch (error) {
+                if ((error as NodeJS.ErrnoException | undefined)?.code === 'EEXIST') return false;
+                throw error;
+            }
+        }
+        try {
+            await vscode.workspace.fs.stat(target);
+            return false;
+        } catch (error) {
+            if (!isMissingResourceError(error)) throw error;
+        }
+        await vscode.workspace.fs.writeFile(target, Buffer.from(contents, 'utf8'));
+        return true;
+    }
+
+    /**
      * ファイル選択ダイアログの画像を読み込み、画像保存処理へ渡す。
      * @param document - 画像ファイルを保存する対象Markdown文書。
      * @param imageDirectory - 文書フォルダーを基準に展開する画像保存先ルール。
      * @returns 選択・保存した画像ファイルのMarkdown相対パス一覧。キャンセル時は空配列。
      */
-    /**
-     * draw.ioの編集モデルを埋め込んだ表示可能なSVGを作成し、Markdown相対URLを返す。
-     * 既存ファイルを上書きせず、書込み成功後にだけ呼出元がリンクを挿入する。
-     * @param document - 画像参照の基準となるMarkdown文書。
-     * @param imageDirectory - 現在の画像保存先設定。
-     * @returns URLエンコード済みの相対SVG参照。
-     */
-    private async createDrawioSvg(document: vscode.TextDocument, imageDirectory: string): Promise<string> {
-        if (document.uri.scheme === 'untitled') {
-            throw new Error(this.getMessages().host.imageDocumentMustBeSaved);
-        }
-        const directory = await this.ensureAssetDirectory(document, imageDirectory);
-        const target = vscode.Uri.joinPath(directory, `diagram-${randomUUID()}${DRAWIO_SVG_EXTENSION}`);
-        const contents = createDrawioPlaceholderSvg();
-        if (target.scheme === 'file') {
-            await writeDrawioSvgExclusive(target.fsPath, contents);
-        } else {
-            // リモートファイルシステムではランダムIDを使い、作成前にも衝突を検査する。
-            try {
-                await vscode.workspace.fs.stat(target);
-                throw new Error('draw.io SVG already exists.');
-            } catch (error) {
-                if (!isMissingResourceError(error)) throw error;
-            }
-            await vscode.workspace.fs.writeFile(target, Buffer.from(contents, 'utf8'));
-        }
-        return encodeDrawioRelativePath(relativeUriPath(document.uri, target));
-    }
-
     private async pickAndSaveImages(document: vscode.TextDocument, imageDirectory: string): Promise<string[]> {
         // ファイル選択ダイアログで画像を選び、保存処理が受け取れるペイロードへ変換する。
         const selected = await vscode.window.showOpenDialog({
@@ -2520,8 +2564,18 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
         if (uri) await this.openLocalResource(uri, target.href);
     }
 
-    /** ローカルMarkdownのフラグメントを見出し行へ解決して開く。 */
+    /**
+     * 解決済みのローカル参照を開く。
+     * draw.io SVGはdraw.io拡張機能の編集画面で開き、Markdownのフラグメントは見出し行へ移動する。
+     * それ以外は `vscode.open` で利用者のエディター関連付けに従って開く。
+     * @param uri - 呼出元が文書位置・ワークスペース基準で解決したリソースURI。
+     * @param href - Markdown上の元のリンク先。フラグメントの取得に使う。
+     */
     private async openLocalResource(uri: vscode.Uri, href: string): Promise<void> {
+        if (isDrawioSvgReference(uri.path)) {
+            await openDrawioSvgEditor(uri, this.getMessages());
+            return;
+        }
         const fragmentIndex = href.indexOf('#');
         if (fragmentIndex >= 0 && /\.(?:md|markdown|textile)$/i.test(uri.path)) {
             const rawFragment = href.slice(fragmentIndex + 1);
@@ -3050,6 +3104,49 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
      */
     private getMessages(): Messages {
         return getMessages(this.getLanguage());
+    }
+
+    /**
+     * draw.io SVGの保存・変更を監視し、開いているすべてのプレビューへ再読込を通知する。
+     * 最初のエディターを開いた時点で一度だけ登録し、拡張機能の終了時にcontext.subscriptionsで破棄する。
+     * ワークスペース内はFileSystemWatcherで外部保存も含めて検知し、ワークスペース外のファイルは
+     * VS Code上での保存（draw.io拡張機能はTextDocumentとして保存する）で検知する。
+     * 同じ保存で両方が発火することがあるが、Webview側は再読込を繰り返すだけで表示結果は変わらない。
+     */
+    private ensureDrawioChangeWatcher(): void {
+        if (this.drawioChangeWatcherRegistered) return;
+        this.drawioChangeWatcherRegistered = true;
+        const watcher = vscode.workspace.createFileSystemWatcher('**/*.{drawio.svg,dio.svg}');
+        this.context.subscriptions.push(
+            watcher,
+            watcher.onDidChange(
+                /** @param uri - 内容が変更されたdraw.io SVG。 */
+                (uri) => this.broadcastLocalResourceChanged(uri)),
+            watcher.onDidCreate(
+                /** @param uri - 削除後に作り直されたdraw.io SVG。参照中の画像は読込失敗から回復させる。 */
+                (uri) => this.broadcastLocalResourceChanged(uri)),
+            vscode.workspace.onDidSaveTextDocument(
+                /** @param saved - 保存された文書。draw.io SVG以外は無視する。 */
+                (saved) => {
+                    if (isDrawioSvgReference(saved.uri.path)) this.broadcastLocalResourceChanged(saved.uri);
+                })
+        );
+    }
+
+    /**
+     * ローカル画像の変更を、開いているすべてのパネルへそれぞれのWebview URIで通知する。
+     * どの文書が参照しているかは判定せず、参照していないパネルでは一致する画像がないため何も起きない。
+     * @param uri - 内容が変わったファイルのURI。
+     */
+    private broadcastLocalResourceChanged(uri: vscode.Uri): void {
+        for (const panels of this.panels.values()) {
+            for (const panel of panels) {
+                this.post(panel, {
+                    type: 'localResourceChanged',
+                    resource: panel.webview.asWebviewUri(uri).toString()
+                });
+            }
+        }
     }
 
     /**
