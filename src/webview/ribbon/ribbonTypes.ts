@@ -79,6 +79,10 @@ export type RibbonCommand =
         type: "image"
     }
     | {
+        /** draw.io編集情報付きSVGの生成と相対リンク挿入を要求する。 */
+        type: "drawio"
+    }
+    | {
         /**
          * 選択中の表範囲をTSVとしてコピーするコマンドです。
          */
