@@ -1594,13 +1594,18 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     object-fit: contain;
 }
 
+/*
+ * 画像の拡大ダイアログ。固定の上限幅を設けず、Webview（エディター領域）いっぱいに広げる。
+ * 広いエディターでも画像を最大限に表示するためで、ダイアログの縁と背景の区別が付くよう四方に8pxだけ残す。
+ * ブラウザー既定のdialogのmax-width/max-heightは余白が大きいため、同じ値で上書きする。
+ */
 .image-preview-dialog {
     display: flex;
     flex-direction: column;
-    width: min(96vw, 1280px);
-    height: min(94vh, 900px);
-    max-width: 96vw;
-    max-height: 94vh;
+    width: calc(100vw - 16px);
+    height: calc(100vh - 16px);
+    max-width: calc(100vw - 16px);
+    max-height: calc(100vh - 16px);
     margin: auto;
     padding: 0;
     overflow: hidden;

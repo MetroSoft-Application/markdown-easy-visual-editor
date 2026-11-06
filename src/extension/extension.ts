@@ -3137,7 +3137,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
      * 最初のエディターを開いた時点で一度だけ登録し、拡張機能の終了時にcontext.subscriptionsで破棄する。
      * ワークスペース内はFileSystemWatcherで外部保存も含めて検知し、ワークスペース外のファイルは
      * VS Code上での保存（draw.io拡張機能はTextDocumentとして保存する）で検知する。
-     * 同じ保存で両方が発火することがあるが、Webview側は再読込を繰り返すだけで表示結果は変わらない。
+     * 同じ保存で両方が発火することがあるため、重複はnotifyDrawioChangedがDRAWIO_NOTIFICATION_DEDUPE_MSの範囲でまとめる。
      */
     private ensureDrawioChangeWatcher(): void {
         if (this.drawioChangeWatcherRegistered) return;

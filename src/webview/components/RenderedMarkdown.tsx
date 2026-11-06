@@ -2483,17 +2483,12 @@ function enhanceResizableImages(
         getExplicitImageWidth(image) ||
         getRenderedImageWidth(image, root) ||
         image.naturalWidth;
+      // 未ロードで幅を測れない画像は、読込までの仮幅320pxの枠に入れる。
       const preferredWidth = measuredWidth || 320;
-      // 未ロードの画像は仮幅320pxの枠を作り、読込後も枠幅が表示幅として残るため拡大・縮小される。
-      // この挙動は画像の種類に依存しないが、既存文書の見た目を変えないよう、
-      // 控えめな大きさを保つ必要があるdraw.io図だけ読込時に自然幅で決め直す。
-      // 全画像へ広げる場合は、既存文書の表示幅が変わることを利用者に確認してから行う。
-      if (
-        !measuredWidth &&
-        isLocalDrawioSvgImageSource(image.dataset.originalSrc ?? "")
-      ) {
-        requestNaturalWidthOnLoad(image);
-      }
+      // 読込後に表示幅を測ると、仮幅の枠いっぱいに広がった320pxが返り、実寸より優先されて残ってしまう。
+      // 画像の種類を問わず、読込完了時は仮幅を引き継がず自然幅（表示可能幅が上限）で枠を決め直す。
+      // 明示幅のある画像はload処理で明示幅が優先されるため、この印の影響を受けない。
+      if (!measuredWidth) requestNaturalWidthOnLoad(image);
       frame.style.width = `${Math.max(1, Math.min(preferredWidth, getAvailableImageWidth(root)))}px`;
       if (wrapperTarget !== image) {
         wrapperTarget.style.display = "block";
@@ -2603,7 +2598,7 @@ function enhanceResizableImages(
        * Markdownプレビューのイベントまたはメッセージを受け取り、状態を更新する。
        */ () => {
         // width属性を持つ画像は、loadイベント後も明示幅を維持する。
-        // ファイル更新で読み直した画像と未ロードだったdraw.io図は、旧画像や仮幅の表示幅を引き継がず自然幅を使う。
+        // ファイル更新で読み直した画像と、枠の作成時に未ロードだった画像は、旧画像や仮幅の表示幅を引き継がず自然幅を使う。
         const reloadedResource = consumeNaturalWidthRequest(image);
         const nextWidth = Math.max(
           1,

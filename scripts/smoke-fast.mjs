@@ -27,12 +27,24 @@ async function findFile(root, name) {
  * プレビューのdraw.io SVG画像が拡大表示ではなくdraw.io編集リンクとして動くことを検証する。
  * リンクなしの旧形式とリンク付きの新形式はどちらもHostへopenResourceを送り、拡大ダイアログを開かない。
  * 通常のSVG画像は従来どおり拡大ダイアログを開くことも確認し、既存の拡大操作の退行を検出する。
- * 相対画像は検証サーバーに実体がなく描画サイズが0になるため、要素のclickでReactのクリック処理を直接起動する。
+ * 相対画像は検証サーバーに実体がないため、小さなSVGを返すルートで応答する。
+ * 404のまま残すと読込エラーが非同期に届き、除外処理の後に記録されてスモーク全体が不定期に失敗する。
+ * 版番号付きの再読込や遅れて始まる読込にも応答するよう、ルートはページを閉じるまで残す。
+ * 画像のクリックは要素のclickでReactのクリック処理を直接起動する。
  * @param page - 分割表示のWebviewを開いているPlaywrightページ。
  * @throws 送信されたメッセージや拡大ダイアログの表示が期待と異なる場合。
  */
 async function runDrawioClickSmoke(page) {
-  const errorCountBefore = errors.length;
+  await page.route('**/images/**',
+  /**
+   * 検証用の相対画像へ20px四方のSVGを返す。
+   * @param route - 横取りした画像リクエスト。
+   */
+  (route) => route.fulfill({
+    status: 200,
+    contentType: 'image/svg+xml',
+    body: '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"><rect width="20" height="20" fill="#999"/></svg>',
+  }));
   const source = [
     '# draw.io click smoke',
     '',
@@ -114,6 +126,20 @@ async function runDrawioClickSmoke(page) {
     throw new Error(`plain image click changed unexpectedly: ${JSON.stringify(plain)}`);
   }
   await page.locator('.image-preview-dialog').waitFor();
+  // 拡大ダイアログは固定の上限幅を持たず、Webview（エディター領域）から四方8pxを除いた大きさに広がる。
+  const dialogSize = await page.evaluate(
+  /**
+   * 拡大ダイアログの外寸とWebviewの大きさを読み取る。
+   * @returns ダイアログとWebviewの幅・高さ。
+   */
+  () => {
+    const rect = document.querySelector('.image-preview-dialog').getBoundingClientRect();
+    return { width: rect.width, height: rect.height, viewWidth: window.innerWidth, viewHeight: window.innerHeight };
+  });
+  if (Math.abs(dialogSize.width - (dialogSize.viewWidth - 16)) > 1
+    || Math.abs(dialogSize.height - (dialogSize.viewHeight - 16)) > 1) {
+    throw new Error(`image preview dialog does not fill the editor area: ${JSON.stringify(dialogSize)}`);
+  }
   await page.keyboard.press('Escape');
   await page.locator('.image-preview-dialog').waitFor({ state: 'detached' });
 
@@ -157,10 +183,104 @@ async function runDrawioClickSmoke(page) {
     || refreshed.originals[0] !== 'images/old%20diagram.drawio.svg' || !refreshed.textUnchanged) {
     throw new Error(`draw.io save did not refresh only the changed preview image: ${JSON.stringify(refreshed)}`);
   }
-  // 相対画像は検証サーバーに存在しない前提のため、この検証で生じた404の読込エラーだけを除外する。
-  // それ以外のエラーは残し、スモーク全体の失敗として報告させる。
-  for (let index = errors.length - 1; index >= errorCountBefore; index--) {
-    if (/Failed to load resource: .*404/.test(errors[index])) errors.splice(index, 1);
+}
+
+/**
+ * 幅指定のない画像が、読込前の仮幅320pxではなく実寸（表示可能幅が上限）で表示されることを検証する。
+ * 枠の作成時点で未ロードの状態を確実に再現するため、画像の応答を「2枚とも枠が作られるまで」保留する。
+ * 固定時間の遅延では、入力中や表示領域判定で枠の作成が遅れたときに先に読込が終わり、修正前の不具合を見逃す。
+ * @param page - 分割表示のWebviewを開いているPlaywrightページ。
+ * @throws 画像の枠幅が実寸または表示可能幅と一致しない場合。
+ */
+async function runUnsizedImageWidthSmoke(page) {
+  /** 保留後に返すSVG。320pxより小さい画像と、表示可能幅より大きい画像を用意する。 */
+  const svgs = {
+    'delayed-small.svg': '<svg xmlns="http://www.w3.org/2000/svg" width="200" height="40"><rect width="200" height="40" fill="#e66"/></svg>',
+    'delayed-large.svg': '<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="40"><rect width="1600" height="40" fill="#6a6"/></svg>',
+  };
+  /** 枠の作成を確認した時点で解決し、保留中の画像応答を一斉に返させる。 */
+  let releaseImages;
+  const imagesReleased = new Promise((resolve) => { releaseImages = resolve; });
+  /**
+   * 検証用SVGの応答を、枠の作成を確認するまで保留してから返す。
+   * @param route - 横取りした画像リクエスト。
+   */
+  const delayedImage = async (route) => {
+    const name = new URL(route.request().url()).pathname.split('/').pop();
+    await imagesReleased;
+    await route.fulfill({ status: 200, contentType: 'image/svg+xml', body: svgs[name] ?? '' });
+  };
+  await page.route('**/width-smoke/delayed-*.svg', delayedImage);
+  try {
+    const source = '# Unsized image width\n\n![small](width-smoke/delayed-small.svg)\n\n![large](width-smoke/delayed-large.svg)\n';
+    await page.evaluate(
+    /**
+     * Host側の本文を差し替え、外部変更としてWebviewへ通知する。
+     * @param text - 幅指定のない画像だけを含むMarkdown本文。
+     */
+    (text) => {
+      const previousText = window.__mveHostText;
+      const baseVersion = window.__mveHostVersion;
+      window.__mveHostText = text;
+      window.__mvePhysicalText = text.replace(/\n/g, '\r\n');
+      window.__mveHostVersion += 1;
+      window.dispatchEvent(new MessageEvent('message', {
+        data: {
+          type: 'externalChanges',
+          baseVersion,
+          version: window.__mveHostVersion,
+          changes: [{ rangeOffset: 0, rangeLength: previousText.length, text }]
+        }
+      }));
+    }, source);
+    await page.waitForFunction(
+    /**
+     * 2枚の画像が未ロードのまま枠に入るまで待機する（応答は保留中なので読込は終わらない）。
+     */
+    () => {
+      const images = [...document.querySelectorAll('.split-preview img[data-original-src]')];
+      return images.length === 2 && images.every((image) => image.naturalWidth === 0
+        && image.closest('.mve-image-frame'));
+    });
+    releaseImages();
+    await page.waitForFunction(
+    /**
+     * 保留を解いた2枚の画像の読込が終わるまで待機する。
+     */
+    () => [...document.querySelectorAll('.split-preview img[data-original-src]')]
+      .every((image) => image.complete && image.naturalWidth > 0));
+    // load処理による枠幅の決め直しが描画へ反映されるまで1フレーム待つ。
+    await page.evaluate(
+    /**
+     * 次の描画フレームまで待ち、load処理で決め直した枠幅を読み取れる状態にする。
+     * @returns 次のフレームで解決するPromise。
+     */
+    () => new Promise((resolve) => requestAnimationFrame(() => resolve(undefined))));
+    const widths = await page.evaluate(
+    /**
+     * 各画像の枠幅と、プレビューが画像に許す最大幅を読み取る。
+     * 最大幅はWebviewのgetAvailableImageWidthと同じく、内寸から左右余白とスクロールバーを除いた値。
+     * @returns 枠幅の一覧と最大幅。
+     */
+    () => {
+      const root = document.querySelector('.split-preview .rendered-markdown');
+      const styles = getComputedStyle(root);
+      const padding = parseFloat(styles.paddingLeft || '0') + parseFloat(styles.paddingRight || '0');
+      return {
+        frames: [...document.querySelectorAll('.split-preview .mve-image-frame')]
+          .map((frame) => Math.round(parseFloat(frame.style.width))),
+        available: Math.max(120, Math.floor(root.clientWidth - padding - (root.offsetWidth - root.clientWidth))),
+      };
+    });
+    const [small, large] = widths.frames;
+    // 小さい画像は実寸、大きい画像は表示可能幅ちょうど。どちらも仮幅320pxが残っていれば一致しない。
+    if (small !== 200 || large !== widths.available || widths.available === 320) {
+      throw new Error(`unsized images kept the provisional width instead of their natural size: ${JSON.stringify(widths)}`);
+    }
+  } finally {
+    // 途中で失敗しても保留中の応答を残さない。
+    releaseImages();
+    await page.unroute('**/width-smoke/delayed-*.svg', delayedImage);
   }
 }
 
@@ -3470,6 +3590,7 @@ try {
   ) === length, imageSmokeSource.length);
   await runImageZoomSmoke();
   await runDrawioClickSmoke(page);
+  await runUnsizedImageWidthSmoke(page);
   await context.close();
   if (errors.length) throw new Error(errors.join('\n'));
   console.log('高速スモーク: 空CRLF文書の単一改行同期、LFプロトコル、画像保存先設定、表編集、フォーカス非介入、スクロール同期設定、スクロール保持、分割表示、ズーム、空白可視化、ハイライトを確認しました。');
