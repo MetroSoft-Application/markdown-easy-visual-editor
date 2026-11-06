@@ -68,6 +68,10 @@ import type { Messages } from "../../shared/messages";
 import { isMveDebugEnabled, mveDebug } from "../runtime/debug";
 import { exactSelectionMatchExtension } from "./cmSelectionMatchHighlight";
 import { htmlUrlAttributeHighlightExtension } from "./cmHtmlUrlHighlight";
+import {
+  editorLinkNavigationExtension,
+  type EditorLinkTarget,
+} from "./cmLinkNavigation";
 import { textileListMarkerHighlightExtension } from "./cmTextileListHighlight";
 import type { MarkdownRenderFormat } from "../markdown/markdownRendererCore";
 
@@ -691,6 +695,12 @@ interface Props {
    * 本文編集面のイベントまたはメッセージを受け取り、状態を更新する。
    */
   onUserScrollIntent?: () => void;
+  /**
+   * 本文上のリンクがCtrl+クリック（macOSはCmd+クリック）されたときに、リンク先を開く。
+   * 未指定の場合、ツールチップは表示されるがクリックしても何も開かない。
+   * @param link - クリックされたリンクのリンク先と範囲。
+   */
+  onOpenLink?: (link: EditorLinkTarget) => void;
 }
 
 /**
@@ -713,6 +723,7 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
    * @param placeholder - 本文が空のときに表示する案内文。
    * @param onViewportChange - エディターの表示位置とユーザー操作状態を親へ通知する処理。
    * @param onUserScrollIntent - ユーザー起点のスクロールを親へ通知する処理。
+   * @param onOpenLink - 本文上のリンクのCtrl+クリックでリンク先を開く処理。
    * @param ref - 親からエディターの公開メソッドを呼び出すRef。
    * @returns CodeMirrorの本文編集領域と入力・選択・スクロール連携を含む要素。
    */
@@ -732,6 +743,7 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
       placeholder = messages.editor.placeholder,
       onViewportChange,
       onUserScrollIntent,
+      onOpenLink,
     },
     ref,
   ) {
@@ -744,6 +756,13 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
     const selectionRef = useRef(onSelectionChange);
     const viewportRef = useRef(onViewportChange);
     const viewportIntentRef = useRef(onUserScrollIntent);
+    // 拡張はエディター作成時に一度だけ組み込むため、最新の処理・表示言語・文書形式をrefで参照する。
+    const openLinkRef = useRef(onOpenLink);
+    openLinkRef.current = onOpenLink;
+    const messagesRef = useRef(messages);
+    messagesRef.current = messages;
+    const renderFormatRef = useRef(renderFormat);
+    renderFormatRef.current = renderFormat;
     const renderFormatCompartmentRef = useRef(new Compartment());
     const userScrollPendingRef = useRef(false);
     const pointerScrollActiveRef = useRef(false);
@@ -855,6 +874,28 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
             // 標準スタイルは濃い青を含むため使わず、明るいテーマ配色を1つだけ適用する。
             syntaxHighlighting(vscodeSyntaxHighlightStyle),
             htmlUrlAttributeHighlightExtension,
+            editorLinkNavigationExtension({
+              /**
+               * 最新の親の処理でリンクを開く。
+               * @param link - クリックされたリンク。
+               */
+              open: (link) => openLinkRef.current?.(link),
+              /**
+               * 現在の表示言語でツールチップの操作説明を返す。
+               * @param mac - macOSならtrue。
+               * @returns 操作説明の文言。
+               */
+              label: (mac) =>
+                mac
+                  ? messagesRef.current.editor.followLinkMac
+                  : messagesRef.current.editor.followLink,
+              /**
+               * 現在の文書形式からリンク判定の規則を返す。Textile単独の文書だけTextileの規則にする。
+               * @returns リンク判定の規則。
+               */
+              format: () =>
+                renderFormatRef.current === "textile" ? "textile" : "markdown",
+            }),
             visibleSpaces,
             exactSelectionMatchExtension,
             searchHighlightField,

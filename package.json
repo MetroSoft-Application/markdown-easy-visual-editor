@@ -2,7 +2,7 @@
   "name": "markdown-easy-visual-editor",
   "displayName": "Markdown Easy Visual Editor",
   "description": "A visual Markdown and Textile editor for VS Code with live preview, source editing, formatting tools, image support, and PDF export.",
-  "version": "2.0.2",
+  "version": "2.0.3",
   "publisher": "MetroSoft-Application",
   "icon": "resources/icon.png",
   "repository": {
@@ -556,8 +556,9 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "watch": "node scripts/build.mjs --watch",
-    "check": "npm run check:documentation-comments && tsc -p tsconfig.json --noEmit && tsc -p tsconfig.webview.json --noEmit",
+    "check": "npm run check:documentation-comments && npm run check:changelog && tsc -p tsconfig.json --noEmit && tsc -p tsconfig.webview.json --noEmit",
     "check:documentation-comments": "node scripts/check-documentation-comments.mjs",
+    "check:changelog": "node scripts/check-changelog.mjs",
     "test": "vitest run",
     "test:startup": "npm run build && node scripts/startup-regression.mjs",
     "benchmark:vscode-startup": "npm run build && node scripts/benchmark-vscode-startup.mjs",

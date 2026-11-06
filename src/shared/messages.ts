@@ -1696,6 +1696,11 @@ export interface Messages {
              */
             imagesSaved: (count: number) => string;
             /**
+             * 既存の画像ファイルをコピーせずに参照として挿入したことを伝える文言を組み立てる。
+             * @param count - 挿入した画像参照の数。
+             */
+            imagesInserted: (count: number) => string;
+            /**
              * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              * @param count - PDF出力前に検出したローカルリソース警告数。
              * @param detail - 警告の概要として通知に追加する文字列。
@@ -2083,7 +2088,11 @@ export interface Messages {
         /**
          * 表示項目「プレーンテキスト」の文言として表示するローカライズ済み文言。
          */
-        plainText: string
+        plainText: string;
+        /** 本文エディターのリンクに表示するツールチップの操作説明（Windows・Linux。Ctrl+クリック）。 */
+        followLink: string;
+        /** 本文エディターのリンクに表示するツールチップの操作説明（macOS。Cmd+クリック）。 */
+        followLinkMac: string
     };
 
     /** UIには表示しない内部通知の文言をまとめる。 */
@@ -2434,6 +2443,10 @@ function createMessages(language: SupportedLanguage): Messages {
                  * @param count - 保存した画像ファイル数。
                  * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
                  */ (count: number) => text('app.toast.imagesSaved', { count }),
+                imagesInserted: /**
+                 * 既存の画像ファイルをコピーせずに参照として挿入したことを伝える文言を組み立てる。
+                 * @param count - 挿入した画像参照の数。
+                 */ (count: number) => text('app.toast.imagesInserted', { count }),
 
 
                 pdfResourceWarnings: /**

@@ -775,7 +775,13 @@ export type HostToWebviewMessage =
         /**
          * 共有プロトコルで受け渡すpathsの文字列。
          */
-        paths: string[]
+        paths: string[];
+        /**
+         * pathsのうち画像保存先へ新しく保存した件数。ファイル選択でワークスペース内の既存画像を
+         * そのまま参照した場合は保存しないため、paths.lengthより少なくなる。
+         * 省略時（貼付・ドロップ）はすべて保存したものとして扱う。
+         */
+        savedCount?: number
     }
     | {
         /** draw.io SVGを作成したあと、相対画像パスをWebviewへ返す。 */

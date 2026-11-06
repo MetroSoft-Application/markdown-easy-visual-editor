@@ -145,7 +145,7 @@ Save the Markdown document first, then use any of these methods while the source
 - Drag an image file into the editor.
 - Choose **Insert > Image** and select an image file.
 
-The extension saves pasted and selected images locally and inserts a relative Markdown reference into the document. By default, images are stored in:
+The extension inserts a relative Markdown reference into the document. A selected image that is already in the document's folder or the workspace is referenced where it is, without making a copy. Pasted and dropped images, and selected images from outside those folders, are saved locally first. By default, images are stored in:
 
 ```text
 assets/<document-name>/
@@ -337,6 +337,7 @@ Open the editor's **Settings** tab for image save paths, separate editor/preview
 | `Ctrl+V` / `Cmd+V` | Paste text, or save and insert an image when the clipboard contains one. |
 | `Alt+Enter` | Insert a line break inside a table cell. |
 | `Ctrl+wheel` / `Cmd+wheel` | Zoom the editor and preview. |
+| `Ctrl+click` / `Cmd+click` on a link in the source editor | Open the link target, the same way as clicking it in the preview. Hover over the link to see the target. |
 
 ![Search and replace in the editor](./resources/readme-search-replace-clean.png)
 

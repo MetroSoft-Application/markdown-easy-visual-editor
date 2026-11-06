@@ -58,6 +58,7 @@ import {
   wordStats,
 } from "../../shared/markdown";
 import { drawioImageMarkdown } from "../../shared/drawioSvg";
+import type { EditorLinkTarget } from "../editor/cmLinkNavigation";
 import { markLocalResourceChanged } from "../preview/localResourceVersions";
 import {
   applyTextChanges,
@@ -2311,7 +2312,13 @@ export function App(): React.JSX.Element {
               .join("\n"),
             true,
           );
-          setToast(messages.app.toast.imagesSaved(message.paths.length));
+          // 既存画像を参照しただけの場合に「保存しました」と伝えないよう、保存件数で文言を分ける。
+          const savedCount = message.savedCount ?? message.paths.length;
+          setToast(
+            savedCount > 0
+              ? messages.app.toast.imagesSaved(savedCount)
+              : messages.app.toast.imagesInserted(message.paths.length),
+          );
         }
         return;
       case "localResourcesChecked":
@@ -5504,6 +5511,50 @@ export function App(): React.JSX.Element {
     pendingViewportRestoreRef.current = false;
   }, []);
 
+  /**
+   * 本文エディターでCtrl+クリックされたリンクを開く最新の処理。
+   * 表示モードやアウトラインに依存するため描画ごとに差し替え、SourceEditorへは下の安定した関数だけを渡す
+   * （React.memoのSourceEditorを再描画させないため）。
+   * `#見出し` だけのリンクは同じ文書の見出しへ移動し、それ以外はプレビューのリンクと同じopenResourceでHostへ委ねる。
+   * 見出しIDは、プレビューの描画結果に合わせたアウトライン（previewSnapshot由来）で照合する。
+   * プレビューはDOMの任意のidへ移動できるが、こちらはアウトラインに載る見出しだけが対象で、
+   * HTMLのid属性や脚注、アウトラインに載らない見出しへのリンクは何もしない。
+   * アウトラインはプレビューの描画後に更新されるため、入力直後は見出しの位置が描画前のままのことがある。
+   */
+  const openEditorLinkRef = useRef<(link: EditorLinkTarget) => void>(undefined);
+  openEditorLinkRef.current = (link: EditorLinkTarget) => {
+    if (link.href.startsWith("#")) {
+      let id = link.href.slice(1);
+      try {
+        id = decodeURIComponent(id);
+      } catch {
+        // 不正な%エスケープを含むIDも文字列のまま照合する。
+      }
+      const heading = outline.find(
+        /**
+         * @param item - 照合するアウトライン項目。
+         * @returns 見出しIDが一致すればtrue。
+         */
+        (item) => item.id === id,
+      );
+      if (heading) goToOutlineOffset(heading.offset);
+      return;
+    }
+    vscode.postMessage({
+      type: "openResource",
+      href: link.href,
+      workspaceRooted: link.workspaceRooted,
+    });
+  };
+  const sourceEditorOpenLink = useCallback(
+    /**
+     * 本文エディターのリンクを、その時点の最新の処理で開く。
+     * @param link - Ctrl+クリックされたリンク。
+     */
+    (link: EditorLinkTarget) => openEditorLinkRef.current?.(link),
+    [],
+  );
+
   if (!initialized)
     return <div className="startup">{messages.app.startup}</div>;
 
@@ -5801,6 +5852,7 @@ export function App(): React.JSX.Element {
                   onSelectionChange={sourceEditorSelectionChange}
                   onViewportChange={sourceEditorViewportChange}
                   onUserScrollIntent={sourceEditorUserScrollIntent}
+                  onOpenLink={sourceEditorOpenLink}
                 />
               </div>
               <div

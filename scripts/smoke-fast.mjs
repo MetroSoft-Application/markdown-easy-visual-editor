@@ -285,6 +285,163 @@ async function runUnsizedImageWidthSmoke(page) {
 }
 
 /**
+ * 本文エディターのリンクについて、ツールチップの表示、Ctrl+クリックでのopenResource送信、
+ * 修飾キーなしのクリックで何も送らないことを、実際のマウス操作で検証する。
+ * 検証用のChromiumはWindows以外でも動くため、修飾キーは実行環境に合わせる（macOSはMeta）。
+ * @param page - 分割表示のWebviewを開いているPlaywrightページ。
+ * @throws ツールチップ、送信メッセージが期待と異なる場合。
+ */
+async function runEditorLinkSmoke(page) {
+  const source = '# Editor links\n\nopen [the guide](guide.md#intro "MVE workspace-root link") now\n\njump [down](#target) plain words here\n\n## Target\n\nbody\n';
+  await page.evaluate(
+  /**
+   * Host側の本文を差し替え、外部変更としてWebviewへ通知する。
+   * @param text - リンクを含むMarkdown本文。
+   */
+  (text) => {
+    const previousText = window.__mveHostText;
+    const baseVersion = window.__mveHostVersion;
+    window.__mveHostText = text;
+    window.__mvePhysicalText = text.replace(/\n/g, '\r\n');
+    window.__mveHostVersion += 1;
+    window.dispatchEvent(new MessageEvent('message', {
+      data: {
+        type: 'externalChanges',
+        baseVersion,
+        version: window.__mveHostVersion,
+        changes: [{ rangeOffset: 0, rangeLength: previousText.length, text }]
+      }
+    }));
+  }, source);
+  const linkText = page.locator('.split-editor .cm-line', { hasText: 'the guide' }).first();
+  await linkText.waitFor();
+  const point = await linkText.evaluate(
+  /**
+   * 行の中のリンク文字列の「guide」（リンク先の guide.md ではない方）の中央座標を求める。
+   * CodeMirrorは角括弧とリンク文字列を、空白の可視化が有効なら空白も別々の要素に描画するため、
+   * 「guide」を含みリンク先ではない最初のテキストで探す。
+   * @param line - リンクを含む行要素。
+   * @returns 画面座標。
+   */
+  (line) => {
+    const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const index = node.textContent.indexOf('guide');
+      if (index < 0 || node.textContent.startsWith('guide.md', index)) continue;
+      const range = document.createRange();
+      range.setStart(node, index);
+      range.setEnd(node, index + 'guide'.length);
+      const rect = range.getBoundingClientRect();
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    }
+    return null;
+  });
+  if (!point) throw new Error('editor link text was not rendered');
+  const modifier = process.platform === 'darwin' ? 'Meta' : 'Control';
+  /** 直近に送られたopenResourceメッセージだけを読み取る。 */
+  const openMessages = () => page.evaluate(
+  /**
+   * テストHostに記録されたopenResourceメッセージを返す。
+   * @returns openResourceメッセージの一覧。
+   */
+  () => window.__mveMessages.filter((message) => message.type === 'openResource'));
+  const before = (await openMessages()).length;
+
+  await page.mouse.move(point.x - 3, point.y);
+  await page.mouse.move(point.x, point.y, { steps: 2 });
+  await page.locator('.cm-mve-link-tooltip').waitFor();
+  const tooltip = await page.locator('.cm-mve-link-tooltip').innerText();
+  if (!tooltip.includes('guide.md#intro')) throw new Error(`editor link tooltip is missing the target: ${tooltip}`);
+
+  await page.mouse.click(point.x, point.y);
+  if ((await openMessages()).length !== before) throw new Error('a plain click on an editor link opened it');
+
+  await page.keyboard.down(modifier);
+  await page.mouse.click(point.x, point.y);
+  await page.keyboard.up(modifier);
+  const opened = (await openMessages()).slice(before);
+  if (opened.length !== 1 || opened[0].href !== 'guide.md#intro' || opened[0].workspaceRooted !== true) {
+    throw new Error(`modifier click did not open the editor link once: ${JSON.stringify(opened)}`);
+  }
+
+  // 修飾キー付きのダブルクリックでも、リンクは1回だけ開く（外部URLや別タブを二重に開かない）。
+  await page.keyboard.down(modifier);
+  await page.mouse.dblclick(point.x, point.y);
+  await page.keyboard.up(modifier);
+  if ((await openMessages()).length !== before + 2) {
+    throw new Error(`modifier double click opened the link more than once: ${JSON.stringify((await openMessages()).slice(before))}`);
+  }
+
+  /**
+   * 指定行の中で、指定文字列の中央の画面座標を求める。
+   * @param lineText - 行を特定する文字列。
+   * @param word - 座標を求める文字列（その行で最初に現れるもの）。
+   * @returns 画面座標。
+   */
+  const pointOf = (lineText, word) => page.locator('.split-editor .cm-line', { hasText: lineText }).first().evaluate(
+  /**
+   * 行のテキストノードから文字列を探し、中央の座標を返す。
+   * @param line - 対象の行要素。
+   * @param target - 探す文字列。
+   * @returns 画面座標。見つからなければnull。
+   */
+  (line, target) => {
+    const walker = document.createTreeWalker(line, NodeFilter.SHOW_TEXT);
+    for (let node = walker.nextNode(); node; node = walker.nextNode()) {
+      const index = node.textContent.indexOf(target);
+      if (index < 0) continue;
+      const range = document.createRange();
+      range.setStart(node, index);
+      range.setEnd(node, index + target.length);
+      const rect = range.getBoundingClientRect();
+      return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    }
+    return null;
+  }, word);
+
+  /**
+   * ブラウザーのキャレット（このエディターは複数カーソルを使わず標準の選択を使う）がある行の本文を返す。
+   * @returns キャレットのある行の本文。エディター外ならnull。
+   */
+  const caretLine = () => page.evaluate(
+  /**
+   * 現在の選択の起点を含むCodeMirrorの行を読み取る。
+   * @returns 行の本文。
+   */
+  () => {
+    const anchor = document.getSelection()?.anchorNode;
+    const element = anchor instanceof Element ? anchor : anchor?.parentElement;
+    return element?.closest('.split-editor .cm-line')?.textContent ?? null;
+  });
+
+  // リンクの外での修飾キー付きクリックは、CodeMirror既定のクリック（キャレットの移動）のまま何も開かない。
+  const plainWord = await pointOf('plain words', 'words');
+  await page.keyboard.down(modifier);
+  await page.mouse.click(plainWord.x, plainWord.y);
+  await page.keyboard.up(modifier);
+  const outsideLine = await caretLine();
+  if (!outsideLine?.startsWith('jump')) throw new Error(`modifier click outside links did not move the caret: ${outsideLine}`);
+  if ((await openMessages()).length !== before + 2) throw new Error('modifier click outside links opened something');
+
+  // `#見出し` へのリンクは、同じ文書の見出しの行へキャレットを移す。
+  const down = await pointOf('jump', 'down');
+  await page.keyboard.down(modifier);
+  await page.mouse.click(down.x, down.y);
+  await page.keyboard.up(modifier);
+  await page.waitForFunction(
+  /**
+   * キャレットが「## Target」の行へ移るまで待つ。
+   * @returns キャレットのある行が見出し行ならtrue。
+   */
+  () => {
+    const anchor = document.getSelection()?.anchorNode;
+    const element = anchor instanceof Element ? anchor : anchor?.parentElement;
+    return element?.closest('.split-editor .cm-line')?.textContent === '## Target';
+  });
+  if ((await openMessages()).length !== before + 2) throw new Error('a heading link was sent to the host instead of moving within the document');
+}
+
+/**
  * PDF用に導入したChromiumの実行ファイル。未導入なら検証を始める前に終了する。
  */
 const executablePath = await findFile(path.resolve('.chromium'), 'chrome-headless-shell.exe');
@@ -3591,6 +3748,7 @@ try {
   await runImageZoomSmoke();
   await runDrawioClickSmoke(page);
   await runUnsizedImageWidthSmoke(page);
+  await runEditorLinkSmoke(page);
   await context.close();
   if (errors.length) throw new Error(errors.join('\n'));
   console.log('高速スモーク: 空CRLF文書の単一改行同期、LFプロトコル、画像保存先設定、表編集、フォーカス非介入、スクロール同期設定、スクロール保持、分割表示、ズーム、空白可視化、ハイライトを確認しました。');

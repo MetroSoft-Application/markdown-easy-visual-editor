@@ -1264,8 +1264,8 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                     return;
                 }
                 case 'pickImage': {
-                    const paths = await this.pickAndSaveImages(document, message.imageDirectory);
-                    this.post(panel, { type: 'imagesSaved', requestId: message.requestId, paths });
+                    const { paths, savedCount } = await this.pickAndSaveImages(document, message.imageDirectory);
+                    this.post(panel, { type: 'imagesSaved', requestId: message.requestId, paths, savedCount });
                     return;
                 }
                 case 'checkLocalResources': {
@@ -1480,8 +1480,10 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                     }
                     const snapshot = await this.verifyExportSnapshot(document, message);
                     const result = await vscode.window.withProgress(
-                        { location: vscode.ProgressLocation.Notification,
-                            title: this.getMessages().host.pdfProgress, cancellable: false },
+                        {
+                            location: vscode.ProgressLocation.Notification,
+                            title: this.getMessages().host.pdfProgress, cancellable: false
+                        },
                         () => exportWithEngine({
                             documentUri: document.uri,
                             markdown: snapshot.markdown,
@@ -1517,8 +1519,10 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                     }
                     const snapshot = await this.verifyExportSnapshot(document, message);
                     const result = await vscode.window.withProgress(
-                        { location: vscode.ProgressLocation.Notification,
-                            title: this.getMessages().host.htmlProgress, cancellable: false },
+                        {
+                            location: vscode.ProgressLocation.Notification,
+                            title: this.getMessages().host.htmlProgress, cancellable: false
+                        },
                         () => exportWithEngine({
                             documentUri: document.uri,
                             markdown: snapshot.markdown,
@@ -2449,13 +2453,19 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
     }
 
     /**
-     * ファイル選択ダイアログの画像を読み込み、画像保存処理へ渡す。
-     * @param document - 画像ファイルを保存する対象Markdown文書。
-     * @param imageDirectory - 文書フォルダーを基準に展開する画像保存先ルール。
-     * @returns 選択・保存した画像ファイルのMarkdown相対パス一覧。キャンセル時は空配列。
+     * ファイル選択ダイアログで選んだ画像を文書へ挿入できる相対パスにする。
+     * プレビューで表示できる場所（文書フォルダー配下またはワークスペースフォルダー配下）にある画像は
+     * コピーせず、そのファイルを直接参照する。それ以外の画像は相対参照してもプレビューに表示できないため、
+     * 貼付画像と同じく画像保存先へコピーする。
+     * @param document - 画像を挿入する対象Markdown文書。
+     * @param imageDirectory - コピーが必要な画像の保存先ルール。文書フォルダーを基準に展開する。
+     * @returns 選択順のMarkdown相対パス一覧と、そのうち保存先へコピーした件数。キャンセル時は空配列と0。
+     * @throws 未保存文書、保存先ルールの不正、コピー対象の読込・書込み失敗、サイズ超過、未対応形式の場合。
      */
-    private async pickAndSaveImages(document: vscode.TextDocument, imageDirectory: string): Promise<string[]> {
-        // ファイル選択ダイアログで画像を選び、保存処理が受け取れるペイロードへ変換する。
+    private async pickAndSaveImages(
+        document: vscode.TextDocument,
+        imageDirectory: string
+    ): Promise<{ paths: string[]; savedCount: number }> {
         const selected = await vscode.window.showOpenDialog({
             canSelectFiles: true,
             canSelectFolders: false,
@@ -2463,10 +2473,23 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
             filters: { Images: ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'avif', 'apng', 'ico', 'heic', 'heif', 'jxl', 'tif', 'tiff'] },
             openLabel: this.getMessages().ribbon.labels.image
         });
-        if (!selected?.length) return [];
+        if (!selected?.length) return { paths: [], savedCount: 0 };
+        // 未保存文書には相対パスの基準がないため、参照もコピーもしない。
+        if (document.uri.scheme === 'untitled') throw new Error(this.getMessages().host.imageDocumentMustBeSaved);
+        const workspaceFolders = (vscode.workspace.workspaceFolders ?? []).map(
+            /**
+             * ワークスペースフォルダーのURIだけを取り出す。
+             * @param folder - 参照可否の判定に使うワークスペースフォルダー。
+             * @returns フォルダーのURI。
+             */
+            (folder) => folder.uri);
+        const references: Array<string | undefined> = [];
         const payloads: ImagePayload[] = [];
         for (const uri of selected) {
-            // 選択ファイルを読み込み、ファイル名・MIMEタイプ・Base64本文をまとめる。
+            const reference = selectedImageReference(document.uri, uri, workspaceFolders);
+            references.push(reference);
+            if (reference !== undefined) continue;
+            // 参照できない画像だけを読み込み、貼付画像と同じ保存処理へ渡す。
             const bytes = await vscode.workspace.fs.readFile(uri);
             payloads.push({
                 name: path.basename(uri.fsPath),
@@ -2474,7 +2497,17 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                 base64: Buffer.from(bytes).toString('base64')
             });
         }
-        return this.saveImages(document, payloads, imageDirectory);
+        // 保存処理は入力順に相対パスを返すため、参照できなかった位置へ順に戻して選択順を保つ。
+        const saved = payloads.length ? await this.saveImages(document, payloads, imageDirectory) : [];
+        let savedIndex = 0;
+        const paths = references.map(
+            /**
+             * 直接参照できた画像はそのパスを、コピーした画像は保存先のパスを返す。
+             * @param reference - 直接参照するパス。コピーした画像ではundefined。
+             * @returns 挿入するMarkdown相対パス。
+             */
+            (reference) => reference ?? saved[savedIndex++]);
+        return { paths, savedCount: saved.length };
     }
 
     /**
@@ -3466,6 +3499,43 @@ function mimeForFile(filePath: string): string {
             '.tiff': 'image/tiff'
         } as Record<string, string>
     )[extension] ?? 'application/octet-stream';
+}
+
+/**
+ * ファイル選択で選ばれた画像を、コピーせずに文書から直接参照できる場合のMarkdown相対パスを返す。
+ * Webviewの `localResourceRoots`（文書フォルダーとワークスペースフォルダー）の外にある画像は、
+ * 相対参照してもプレビューで表示できないため対象外にする。ドライブが異なるなど相対パスで表せない場合も対象外。
+ * ファイルの読込みはせず、パスの位置関係だけで判定する。
+ * @param documentUri - 画像を挿入するMarkdown文書のURI。
+ * @param imageUri - ファイル選択ダイアログで選ばれた画像のURI。
+ * @param workspaceFolders - 開いているワークスペースフォルダーのURI一覧。
+ * @returns Markdownを壊す文字を%エスケープした相対パス。直接参照できない場合はundefined。
+ */
+function selectedImageReference(
+    documentUri: vscode.Uri,
+    imageUri: vscode.Uri,
+    workspaceFolders: readonly vscode.Uri[]
+): string | undefined {
+    if (imageUri.scheme !== documentUri.scheme || imageUri.authority !== documentUri.authority) return undefined;
+    const roots = [vscode.Uri.joinPath(documentUri, '..'), ...workspaceFolders];
+    const isInside = roots.some(
+        /**
+         * 画像がこのフォルダー配下にあるかを判定する。Windowsのローカルパスは大文字小文字を区別しない。
+         * @param root - プレビューが読込みを許可するフォルダー。
+         * @returns 配下にある場合はtrue。
+         */
+        (root) => {
+            if (root.scheme !== imageUri.scheme || root.authority !== imageUri.authority) return false;
+            const relative = imageUri.scheme === 'file'
+                ? path.relative(root.fsPath, imageUri.fsPath)
+                : path.posix.relative(root.path, imageUri.path);
+            return relative !== '' && relative !== '..' && !relative.startsWith('../')
+                && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
+        });
+    if (!isInside) return undefined;
+    const relative = relativeUriPath(documentUri, imageUri);
+    if (!relative || path.isAbsolute(relative) || relative.startsWith('/')) return undefined;
+    return encodeDrawioRelativePath(relative);
 }
 
 /**

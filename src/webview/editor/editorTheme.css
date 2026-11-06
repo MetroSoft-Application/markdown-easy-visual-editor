@@ -455,6 +455,37 @@ body[data-editor-theme] .cm-mve-textile-list-marker {
 }
 
 /*
+ * @style body[data-editor-theme] .cm-mve-link-active
+ * Ctrl（macOSはCmd）を押しながら指している本文のリンクに、クリックで開けることを示す下線とポインターを付ける。
+ * 文字色は構文の配色のまま変えず、どのテーマでも読みやすさを保つ。
+ */
+
+body[data-editor-theme] .cm-mve-link-active {
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+/*
+ * @style body[data-editor-theme] .cm-mve-link-tooltip
+ * 本文のリンクのツールチップ。1行目に操作方法、2行目にリンク先を示す。
+ * 背景・枠・影は既存の .cm-tooltip のテーマ指定を使う。長いリンク先は折り返さず、末尾を省略して1行に収める。
+ */
+
+body[data-editor-theme] .cm-mve-link-tooltip {
+    max-width: min(60ch, 80vw);
+    padding: 4px 8px;
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+body[data-editor-theme] .cm-mve-link-tooltip-target {
+    overflow: hidden;
+    color: var(--mve-theme-muted);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+
+/*
  * @style body[data-editor-theme] .cm-gutters, body[data-editor-theme] .cm-gutter, body[data-editor-theme] .cm-lineNumbers
  * 行番号欄を補助背景・控えめな文字色・境界色で本文と区別する。
  */

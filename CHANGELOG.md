@@ -62,3 +62,8 @@
 
 - Added inserting draw.io diagrams and opening them in the draw.io editor from the preview.
 - Added a discard confirmation to the table editor.
+
+## 2.0.3
+
+- Added Ctrl+click to open links in the source editor.
+- Changed image insertion to reference existing workspace images without copying.
