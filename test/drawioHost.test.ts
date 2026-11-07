@@ -51,9 +51,13 @@ const vscodeMock = vi.hoisted(
                 throw Object.assign(new Error('not found'), { code: 'FileNotFound' });
             }),
             writeFile: vi.fn(async (_uri: unknown, _bytes: Uint8Array) => undefined),
+            readFile: vi.fn(async (_uri: unknown): Promise<Uint8Array> => new Uint8Array()),
+            showOpenDialog: vi.fn(async (_options: unknown): Promise<unknown> => undefined),
             executeCommand: vi.fn(async (_command: string, ..._args: unknown[]) => undefined),
             showInformationMessage: vi.fn(async (..._args: unknown[]): Promise<unknown> => undefined),
             showErrorMessage: vi.fn(async (..._args: unknown[]) => undefined),
+            showWarningMessage: vi.fn(async (..._args: unknown[]) => undefined),
+            readClipboardText: vi.fn(async (): Promise<string> => ''),
             getExtension: vi.fn((_id: string): unknown => undefined),
             watcherListeners,
             saveListeners,
@@ -104,6 +108,7 @@ vi.mock('vscode',
                 createDirectory: vscodeMock.createDirectory,
                 stat: vscodeMock.stat,
                 writeFile: vscodeMock.writeFile,
+                readFile: vscodeMock.readFile,
             },
         },
         Uri: {
@@ -114,12 +119,14 @@ vi.mock('vscode',
         ConfigurationTarget: { Global: 'global' },
         window: {
             showErrorMessage: vscodeMock.showErrorMessage,
+            showWarningMessage: vscodeMock.showWarningMessage,
             showInformationMessage: vscodeMock.showInformationMessage,
+            showOpenDialog: vscodeMock.showOpenDialog,
             tabGroups: { activeTabGroup: { activeTab: undefined } },
         },
         commands: { executeCommand: vscodeMock.executeCommand },
         extensions: { getExtension: vscodeMock.getExtension },
-        env: { language: 'en' },
+        env: { language: 'en', clipboard: { readText: vscodeMock.readClipboardText } },
     }));
 
 /** 実ファイルへ書かずに、排他作成の成功・失敗を切り替える。 */
@@ -131,6 +138,7 @@ vi.mock('../src/extension/drawioFile', () => drawioFileMock);
 import { MarkdownEasyVisualEditorProvider } from '../src/extension/extension';
 import { DRAWIO_EXTENSION_ID, DRAWIO_SVG_EDITOR_VIEW_TYPE } from '../src/extension/drawioEditor';
 import { getMessages } from '../src/shared/messages';
+import { createDrawioPlaceholderSvg } from '../src/shared/drawioSvg';
 
 /** VS Codeの表示言語モックに対応する英語の文言。 */
 const messages = getMessages('en');
@@ -295,6 +303,254 @@ describe('draw.io SVG creation in the extension host', () => {
             requestId: 'drawio-request',
             path: 'images/diagram-20261104-090507-2.drawio.svg',
         });
+    });
+});
+
+describe('pasting SVG text from the clipboard', () => {
+    /**
+     * アクティブなパネルを持つProviderで「SVGとして貼り付け」を実行する。
+     * @param clipboardText - OSクリップボードの文字列。
+     * @param documentPath - 貼り付け先の文書パス。
+     * @returns Provider、応答を受けるpostMessage、書き込まれたファイルの一覧。
+     */
+    async function pasteSvg(clipboardText: string, documentPath = '/workspace/docs/guide.md'): Promise<{
+        provider: any;
+        postMessage: ReturnType<typeof vi.fn>;
+        written: Array<{ path: string; text: string; uri: any }>;
+    }> {
+        vscodeMock.readClipboardText.mockResolvedValue(clipboardText);
+        const provider = new MarkdownEasyVisualEditorProvider(createContext()) as any;
+        const postMessage = vi.fn();
+        provider.activePanel = { webview: { postMessage } };
+        provider.activeDocument = createDocument('file', documentPath);
+        await provider.pasteSvgFromClipboard();
+        const written = vscodeMock.writeFile.mock.calls.map(([uri, bytes]) => ({
+            path: (uri as any).path as string,
+            text: Buffer.from(bytes).toString('utf8'),
+            uri,
+        }));
+        return { provider, postMessage, written };
+    }
+
+    /** draw.io SVGはdraw.io拡張機能の対象拡張子で保存し、編集モデルを失わず、同じパスをリンクとして挿入する。 */
+    it('saves a draw.io SVG with the .drawio.svg extension and keeps its model', async () => {
+        const source = createDrawioPlaceholderSvg();
+        const { postMessage, written } = await pasteSvg(source);
+
+        expect(written).toHaveLength(1);
+        expect(written[0].path).toMatch(/^\/workspace\/docs\/assets\/guide\/pasted-\d{8}-\d{6}-[0-9a-f]{6}\.drawio\.svg$/);
+        expect(written[0].text).toBe(source.trim());
+        expect(postMessage).toHaveBeenCalledOnce();
+        expect(postMessage).toHaveBeenCalledWith({
+            type: 'imagesSaved',
+            requestId: expect.stringMatching(/^clipboard-svg-/),
+            paths: [written[0].path.replace('/workspace/docs/', '')],
+        });
+    });
+
+    /** draw.ioの編集モデルを持たないSVGは従来どおり.svgで保存する。 */
+    it('keeps the .svg extension for an ordinary SVG', async () => {
+        const { postMessage, written } = await pasteSvg('<svg xmlns="http://www.w3.org/2000/svg"><path d="M0 0"/></svg>');
+
+        expect(written).toHaveLength(1);
+        expect(written[0].path).toMatch(/\/pasted-\d{8}-\d{6}-[0-9a-f]{6}\.svg$/);
+        expect(written[0].path).not.toContain('.drawio.');
+        expect(postMessage).toHaveBeenCalledWith(expect.objectContaining({ type: 'imagesSaved' }));
+    });
+
+    /** draw.io SVGでも既存のSVGサニタイズを迂回しない。 */
+    it('still sanitizes a draw.io SVG', async () => {
+        const { written } = await pasteSvg(
+            '<svg content="&lt;mxfile&gt;&lt;/mxfile&gt;" onload="alert(1)"><script>alert(1)</script></svg>',
+        );
+
+        expect(written[0].path).toMatch(/\.drawio\.svg$/);
+        expect(written[0].text).toBe('<svg content="&lt;mxfile&gt;&lt;/mxfile&gt;"></svg>');
+    });
+
+    /** 既存サニタイズが壊す文字列を含むラベルやリンクでも、draw.ioの編集モデルは1文字も変えず、モデルの外だけをサニタイズする。 */
+    it('keeps the draw.io model byte-for-byte while sanitizing the rest', async () => {
+        const model = '&lt;mxfile&gt;&lt;mxCell value=&quot;JavaScript: frontend&quot; link=&quot;javascript:foo()&quot; '
+            + "online='yes' style='onclick=&quot;x()&quot;'/&gt;&lt;/mxfile&gt;";
+        const { written } = await pasteSvg(
+            `<svg content="${model}" onload="alert(1)"><script>alert(1)</script><a href="javascript:alert(1)"/></svg>`,
+        );
+
+        expect(written[0].path).toMatch(/\.drawio\.svg$/);
+        expect(written[0].text).toBe(`<svg content="${model}"><a href="alert(1)"/></svg>`);
+    });
+
+    /** サニタイズでモデルが失われる細工文書はdraw.io SVGとして扱わず、拡張子と内容を一致させる。 */
+    it('falls back to .svg when sanitizing removes the model', async () => {
+        const { written } = await pasteSvg('<svg a="<script>" content="&lt;mxfile&gt;" b="</script>"></svg>');
+
+        expect(written[0].path).toMatch(/\/pasted-\d{8}-\d{6}-[0-9a-f]{6}\.svg$/);
+        expect(written[0].text).not.toContain('mxfile');
+    });
+
+    /** 除去で引用符の対応が崩れる細工文書では、未サニタイズのモデルを属性値の外へ出さず、全体をサニタイズする。 */
+    it('never restores the model outside its attribute value', async () => {
+        const { written } = await pasteSvg(
+            `<svg a="<script>" b='</script>' content="<mxfile><script>alert(1)</script></mxfile>"></svg>`,
+        );
+
+        expect(written[0].path).not.toContain('.drawio.');
+        expect(written[0].text).not.toContain('<script');
+    });
+
+    /** XMLとHTMLで解釈が分かれる文書は、モデルを保護せず全体をサニタイズして.svgで保存する。 */
+    it.each([
+        ['an entity value with a fake root', `<!DOCTYPE svg [<!ENTITY e "><svg content='<mxfile ">]><svg xmlns="x"><script>alert(1)</script></svg>`],
+        ['an empty attribute name', '<svg =a="x content="<mxfile><script>alert(1)</script>"></svg>'],
+    ])('does not protect %s from sanitizing', async (_name, source) => {
+        const { written } = await pasteSvg(source);
+
+        expect(written[0].path).toMatch(/\/pasted-\d{8}-\d{6}-[0-9a-f]{6}\.svg$/);
+        expect(written[0].text).not.toContain('<script');
+    });
+
+    /** 保存先に空白があっても、draw.io SVGのリンクが画像として解釈されるようエンコードする。 */
+    it('encodes the inserted path of a draw.io SVG', async () => {
+        const { postMessage, written } = await pasteSvg(createDrawioPlaceholderSvg(), '/workspace/docs/my doc.md');
+
+        expect(written[0].path).toContain('/assets/my doc/');
+        const [message] = postMessage.mock.calls[0];
+        expect(message.paths[0]).toMatch(/^assets\/my%20doc\/pasted-[^ ]+\.drawio\.svg$/);
+    });
+
+    /** SVGでない文字列は保存も挿入もせず、警告だけを出す。 */
+    it('does not save invalid clipboard text', async () => {
+        const { postMessage, written } = await pasteSvg('plain text');
+
+        expect(written).toHaveLength(0);
+        expect(postMessage).not.toHaveBeenCalled();
+        expect(vscodeMock.showWarningMessage).toHaveBeenCalledWith(messages.host.clipboardSvgInvalid);
+    });
+
+    /** 保存失敗時はリンクを挿入せず、存在しないファイルへの参照を文書へ残さない。 */
+    it('does not insert a link when writing fails', async () => {
+        vscodeMock.writeFile.mockRejectedValueOnce(new Error('EACCES: permission denied'));
+        const { postMessage } = await pasteSvg(createDrawioPlaceholderSvg());
+
+        expect(postMessage).not.toHaveBeenCalled();
+        expect(vscodeMock.showErrorMessage).toHaveBeenCalledWith(
+            expect.stringContaining('EACCES: permission denied'),
+        );
+    });
+
+    /** 貼り付けで作成した直後の監視通知は内容の更新ではないため、プレビューへ再読込を通知しない。 */
+    it('ignores the creation event for a pasted draw.io SVG', async () => {
+        vscodeMock.watcherListeners.create.length = 0;
+        const { provider, written } = await pasteSvg(createDrawioPlaceholderSvg());
+        provider.ensureDrawioChangeWatcher();
+        const panel = { webview: { postMessage: vi.fn(), asWebviewUri: vi.fn((uri: any) => uri) } };
+        provider.panels.set('file:///workspace/docs/guide.md', new Set([panel]));
+
+        vscodeMock.watcherListeners.create[0](written[0].uri);
+
+        expect(panel.webview.postMessage).not.toHaveBeenCalled();
+    });
+});
+
+describe('saving SVG files through the other image routes', () => {
+    /**
+     * テキストをWebviewの画像ペイロードへ変換する。
+     * @param name - 元のファイル名。
+     * @param mime - MIME型。
+     * @param text - ファイルの内容。
+     * @returns saveImagesへ渡すペイロード。
+     */
+    const payload = (name: string, mime: string, text: string) => ({
+        name, mime, base64: Buffer.from(text, 'utf8').toString('base64'),
+    });
+
+    /**
+     * 書き込まれたファイルを取り出す。
+     * @returns 書込み順のパスと内容。
+     */
+    const writtenFiles = () => vscodeMock.writeFile.mock.calls.map(([uri, bytes]) => ({
+        path: (uri as any).path as string,
+        text: Buffer.from(bytes).toString('utf8'),
+        uri,
+    }));
+
+    /** Ctrl+Vとドロップが送るsaveImagesと同じ引数で、draw.io SVGのモデルと拡張子を保ち、リンクをエンコードする。 */
+    it('saves a pasted or dropped draw.io SVG file as .drawio.svg', async () => {
+        const source = createDrawioPlaceholderSvg();
+        const provider = new MarkdownEasyVisualEditorProvider(createContext()) as any;
+
+        const paths = await provider.saveImages(
+            createDocument('file', '/workspace/docs/my doc.md'),
+            [payload('diagram.drawio.svg', 'image/svg+xml', source)],
+            'my assets',
+        );
+
+        const [file] = writtenFiles();
+        expect(file.path).toMatch(/\/pasted-\d{8}-\d{6}-[0-9a-f]{6}\.drawio\.svg$/);
+        expect(file.text).toBe(source);
+        expect(paths[0]).toMatch(/^my%20assets\/pasted-[^ ]+\.drawio\.svg$/);
+        expect(provider.selfCreatedDrawioFiles.has((file.uri as any).toString())).toBe(true);
+    });
+
+    /** 判定は入力の名前でなく内容で行い、複数の画像を入力順に、それぞれの形式で保存する。 */
+    it('decides each extension from the content and keeps the order', async () => {
+        const provider = new MarkdownEasyVisualEditorProvider(createContext()) as any;
+
+        await provider.saveImages(createDocument('file', '/workspace/docs/guide.md'), [
+            payload('photo.png', 'image/png', 'png-bytes'),
+            payload('renamed.svg', 'image/svg+xml', createDrawioPlaceholderSvg()),
+            payload('plain.svg', 'image/svg+xml', '<svg xmlns="http://www.w3.org/2000/svg"></svg>'),
+            payload('no-model.drawio.svg', 'image/svg+xml', '<svg onload="alert(1)"></svg>'),
+        ]);
+
+        const files = writtenFiles();
+        expect(files.map(({ path: filePath }) => filePath.replace(/^.*pasted-[^.]+/, ''))).toEqual([
+            '.png', '.drawio.svg', '.svg', '.svg',
+        ]);
+        expect(files[3].text).toBe('<svg></svg>');
+    });
+
+    /** BOM付きファイルも右クリックの経路と同じくdraw.io SVGと判定し、モデルを変更せずBOMだけを除く。BOM付きの通常のSVGは従来どおりBOMを残す。 */
+    it('treats a draw.io SVG file with a BOM like the clipboard route', async () => {
+        const source = '<svg content="&lt;mxfile&gt;&lt;mxCell value=&quot;JavaScript: x&quot;/&gt;&lt;/mxfile&gt;"></svg>';
+        const provider = new MarkdownEasyVisualEditorProvider(createContext()) as any;
+
+        await provider.saveImages(createDocument('file', '/workspace/docs/guide.md'), [
+            payload('bom.drawio.svg', 'image/svg+xml', `\uFEFF${source}`),
+            payload('bom-plain.svg', 'image/svg+xml', '\uFEFF<svg></svg>'),
+        ]);
+
+        const [drawio, plain] = writtenFiles();
+        expect(drawio.path).toMatch(/\.drawio\.svg$/);
+        expect(drawio.text).toBe(source);
+        expect(plain.path).not.toContain('.drawio.');
+        expect(plain.text).toBe('\uFEFF<svg></svg>');
+    });
+
+    /** プレビューできない場所のdraw.io SVGは、選択したファイルのコピーでも.drawio.svgを保つ。 */
+    it('keeps .drawio.svg when a picked file must be copied', async () => {
+        const source = createDrawioPlaceholderSvg();
+        vscodeMock.showOpenDialog.mockResolvedValueOnce([vscodeMock.createUri('file', '/outside/diagram.drawio.svg')]);
+        vscodeMock.readFile.mockResolvedValueOnce(Buffer.from(source, 'utf8'));
+        const provider = new MarkdownEasyVisualEditorProvider(createContext()) as any;
+
+        const result = await provider.pickAndSaveImages(createDocument('file', '/workspace/docs/guide.md'), 'assets');
+
+        const [file] = writtenFiles();
+        expect(file.path).toMatch(/\/workspace\/docs\/assets\/pasted-[^/]+\.drawio\.svg$/);
+        expect(file.text).toBe(source);
+        expect(result).toEqual({ paths: [file.path.replace('/workspace/docs/', '')], savedCount: 1 });
+    });
+
+    /** プレビューできる場所のファイルは従来どおりコピーせず、そのファイルを直接参照する。 */
+    it('references a picked draw.io SVG directly when it is inside the document folder', async () => {
+        vscodeMock.showOpenDialog.mockResolvedValueOnce([vscodeMock.createUri('file', '/workspace/docs/diagram.drawio.svg')]);
+        const provider = new MarkdownEasyVisualEditorProvider(createContext()) as any;
+
+        const result = await provider.pickAndSaveImages(createDocument('file', '/workspace/docs/guide.md'), 'assets');
+
+        expect(vscodeMock.writeFile).not.toHaveBeenCalled();
+        expect(result).toEqual({ paths: ['diagram.drawio.svg'], savedCount: 0 });
     });
 });
 

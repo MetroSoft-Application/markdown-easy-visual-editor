@@ -185,6 +185,8 @@ Create an editable [draw.io](https://www.drawio.com/) diagram without leaving th
 
 Clicking a local `.drawio.svg` or `.dio.svg` image in the preview, including Marp slide previews, opens the draw.io editor, even if the image was inserted without a link. Remote images keep the usual image preview. If the Draw.io Integration extension is not installed, the file opens in the default editor and a notification offers to show the extension.
 
+When an SVG is saved to the image folder through **SVGとして貼り付け** (paste as SVG) in the source editor's context menu, by pasting or dropping a file, or by choosing a file that must be copied, an SVG containing draw.io diagram data is saved as `.drawio.svg`, keeping it editable in the draw.io editor. Other SVGs are saved as `.svg`. The decision uses the file content, not its name.
+
 To jump from `.drawio.svg` to the DrawIO editor, you need to add the following settings to `settings.json`.
 
 ```json

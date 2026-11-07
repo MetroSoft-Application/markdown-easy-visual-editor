@@ -37,7 +37,7 @@ import {
 } from '../shared/drawioSvg';
 import { writeDrawioSvgExclusive } from './drawioFile';
 import { openDrawioSvgEditor } from './drawioEditor';
-import { normalizeSvgClipboardText } from '../shared/svgClipboard';
+import { findDrawioModelRange, normalizeSvgClipboardText } from '../shared/svgClipboard';
 import {
     collectLocalResourceReferences,
     headingLineForAnchor,
@@ -901,8 +901,9 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
     }
 
     /**
-     * OSクリップボードのSVG文字列を既存の画像保存経路で.svgへ保存し、
+     * OSクリップボードのSVG文字列を既存の画像保存経路で保存し、
      * WebviewへMarkdown画像リンクの挿入を要求する。
+     * draw.ioの編集モデルを持つSVGは.drawio.svg、それ以外は.svgで保存する（判定はsaveImagesのサニタイズ時に行う）。
      * @returns 保存と挿入要求が完了したときに解決する。
      */
     async pasteSvgFromClipboard(): Promise<void> {
@@ -2356,6 +2357,8 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
 
     /**
      * 画像ペイロードを保存し、Markdownから参照する相対パスを返す。
+     * draw.ioの編集モデルを持つSVGは、貼り付け・ドロップ・ファイル選択のどの経路でもモデルを保って.drawio.svgで保存する。
+     * 判定は入力の名前でなく内容で行う。.drawio.svgという名前でもモデルがなければ.svgで保存し、拡張子と内容を一致させる。
      * @param document - 貼付画像の参照先となるMarkdown文書。
      * @param images - 文書へ保存する画像ペイロードの一覧。
      * @param imageDirectory - 文書フォルダーを基準に展開する画像保存先ルール。
@@ -2384,12 +2387,27 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
             }
             const extension = extensionForMime(image.mime) ?? imageExtensionFromName(image.name, image.mime);
             if (!extension) throw new Error(messages.host.unsupportedImage(image.mime));
-            if (extension === 'svg') bytes = Buffer.from(sanitizeSvg(bytes.toString('utf8')), 'utf8');
+            let isDrawioSvg = false;
+            if (extension === 'svg') {
+                const source = bytes.toString('utf8');
+                const drawioSvg = sanitizeDrawioSvg(source);
+                isDrawioSvg = drawioSvg !== undefined;
+                bytes = Buffer.from(drawioSvg ?? sanitizeSvg(source), 'utf8');
+            }
             const timestamp = compactTimestamp(new Date());
-            const name = `pasted-${timestamp}-${randomBytes(3).toString('hex')}.${extension}`;
+            const fileExtension = isDrawioSvg ? DRAWIO_SVG_EXTENSION : `.${extension}`;
+            const name = `pasted-${timestamp}-${randomBytes(3).toString('hex')}${fileExtension}`;
             const target = vscode.Uri.joinPath(assetDirectory, name);
             await vscode.workspace.fs.writeFile(target, bytes);
-            results.push(relativeUriPath(document.uri, target));
+            const relativePath = relativeUriPath(document.uri, target);
+            if (isDrawioSvg) {
+                // 監視対象の拡張子で作成した直後の通知は内容の更新ではないため、再読込を通知しない。
+                this.selfCreatedDrawioFiles.set(target.toString(), Date.now());
+                // リンクを画像として解釈させ、プレビューからdraw.io編集を開けるよう、新規作成の経路と同じくエンコードする。
+                results.push(encodeDrawioRelativePath(relativePath));
+            } else {
+                results.push(relativePath);
+            }
         }
         return results;
     }
@@ -3614,4 +3632,32 @@ function sanitizeSvg(value: string): string {
         .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
         .replace(/\son\w+\s*=\s*(?:"[^"]*"|'[^']*')/gi, '')
         .replace(/(?:javascript|data:text\/html):/gi, '');
+}
+
+/**
+ * draw.io SVGの編集モデルを変更せずにサニタイズする。
+ * sanitizeSvgは属性値の内外を区別しないため、モデルへ適用すると「JavaScript: 概要」のようなラベルや
+ * 図形のリンクが壊れ、draw.ioでの再保存で欠落が確定する。findDrawioModelRangeはXMLとHTMLのどちらでも引用された属性値になる範囲だけを返し、
+ * その範囲はSVGとして実行されないので、仮の文字列へ置き換えた文書だけをサニタイズし、最後に元の値へ戻す。
+ * 除去によって引用符の対応が崩れるとモデルが属性値の外へ出るため、戻した結果を再度読み、同じ位置の属性値である場合だけ採用する。
+ * モデルの外は従来どおりサニタイズするため、表示用の文字列は変わることがある。draw.ioで再保存するとモデルから再生成される。
+ * 先頭のBOMは除く。クリップボードの経路はnormalizeSvgClipboardTextが除くため、ファイルの経路でも同じ判定結果にする。
+ * @param value - SVG文字列。
+ * @returns サニタイズ済みのdraw.io SVG。draw.io SVGでない場合やモデルを安全に保持できない場合はundefined。
+ */
+function sanitizeDrawioSvg(value: string): string | undefined {
+    const source = value.replace(/^\uFEFF/, '');
+    const range = findDrawioModelRange(source);
+    if (!range) return undefined;
+    const model = source.slice(range.start, range.end);
+    // 文書内の文字列と衝突させないため、実行ごとの乱数を使う。
+    const placeholder = `mve-drawio-model-${randomBytes(16).toString('hex')}`;
+    const sanitized = sanitizeSvg(source.slice(0, range.start) + placeholder + source.slice(range.end));
+    const parts = sanitized.split(placeholder);
+    if (parts.length !== 2) return undefined;
+    const restored = parts[0] + model + parts[1];
+    const restoredRange = findDrawioModelRange(restored);
+    const unchangedPosition = restoredRange?.start === parts[0].length
+        && restoredRange.end === parts[0].length + model.length;
+    return unchangedPosition ? restored : undefined;
 }
