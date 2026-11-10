@@ -6,11 +6,11 @@ import { createRoot } from "react-dom/client";
 import { EditorSelection } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
 import "katex/dist/katex.min.css";
+import { App } from "./components/App";
 import {
-  App,
   preloadMarkdownWorker,
   startSpeculativeFirstPreviewRender,
-} from "./components/App";
+} from "./markdown/markdownPreviewSnapshot";
 import "./editor/cmMarkdownAutocomplete";
 import "./editor/editorTheme.css";
 import "./editor/editorThemePolish.css";

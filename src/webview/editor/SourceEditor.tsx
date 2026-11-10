@@ -72,6 +72,8 @@ import {
   editorLinkNavigationExtension,
   type EditorLinkTarget,
 } from "./cmLinkNavigation";
+import { linkCompletionHostFacet } from "./cmLinkCompletion";
+import type { LinkCompletionFile, LinkCompletionHeading } from "../../shared/protocol";
 import { textileListMarkerHighlightExtension } from "./cmTextileListHighlight";
 import type { MarkdownRenderFormat } from "../markdown/markdownRendererCore";
 
@@ -701,6 +703,17 @@ interface Props {
    * @param link - クリックされたリンクのリンク先と範囲。
    */
   onOpenLink?: (link: EditorLinkTarget) => void;
+  /**
+   * リンク先補完のファイル候補を Host へ要求する。未指定の場合、パスの補完は表示しない。
+   * @returns 候補一覧。取得できない場合はundefined。
+   */
+  onRequestLinkFiles?: () => Promise<LinkCompletionFile[] | undefined>;
+  /**
+   * リンク先補完で、他の文書の見出し候補を Host へ要求する。未指定の場合、他文書のアンカー補完は表示しない。
+   * @param path - 本文に書かれたとおりのリンク先パス（`#` より前）。
+   * @returns 見出し一覧。取得できない場合はundefined。
+   */
+  onRequestLinkHeadings?: (path: string) => Promise<LinkCompletionHeading[] | undefined>;
 }
 
 /**
@@ -724,6 +737,8 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
    * @param onViewportChange - エディターの表示位置とユーザー操作状態を親へ通知する処理。
    * @param onUserScrollIntent - ユーザー起点のスクロールを親へ通知する処理。
    * @param onOpenLink - 本文上のリンクのCtrl+クリックでリンク先を開く処理。
+   * @param onRequestLinkFiles - リンク先補完のファイル候補を Host へ要求する処理。
+   * @param onRequestLinkHeadings - リンク先補完で他文書の見出し候補を Host へ要求する処理。
    * @param ref - 親からエディターの公開メソッドを呼び出すRef。
    * @returns CodeMirrorの本文編集領域と入力・選択・スクロール連携を含む要素。
    */
@@ -744,6 +759,8 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
       onViewportChange,
       onUserScrollIntent,
       onOpenLink,
+      onRequestLinkFiles,
+      onRequestLinkHeadings,
     },
     ref,
   ) {
@@ -759,6 +776,10 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
     // 拡張はエディター作成時に一度だけ組み込むため、最新の処理・表示言語・文書形式をrefで参照する。
     const openLinkRef = useRef(onOpenLink);
     openLinkRef.current = onOpenLink;
+    const requestLinkFilesRef = useRef(onRequestLinkFiles);
+    requestLinkFilesRef.current = onRequestLinkFiles;
+    const requestLinkHeadingsRef = useRef(onRequestLinkHeadings);
+    requestLinkHeadingsRef.current = onRequestLinkHeadings;
     const messagesRef = useRef(messages);
     messagesRef.current = messages;
     const renderFormatRef = useRef(renderFormat);
@@ -895,6 +916,24 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
                */
               format: () =>
                 renderFormatRef.current === "textile" ? "textile" : "markdown",
+            }),
+            linkCompletionHostFacet.of({
+              /**
+               * 最新の親の処理でファイル候補を要求する。
+               * @returns 候補一覧。親が処理を渡していない場合はundefined。
+               */
+              requestFiles: async () => requestLinkFilesRef.current?.(),
+              /**
+               * 最新の親の処理で他文書の見出し候補を要求する。
+               * @param path - 本文に書かれたとおりのリンク先パス。
+               * @returns 見出し一覧。親が処理を渡していない場合はundefined。
+               */
+              requestHeadings: async (path) => requestLinkHeadingsRef.current?.(path),
+              /**
+               * 現在の文書の描画形式を返す。
+               * @returns 描画形式。
+               */
+              format: () => renderFormatRef.current,
             }),
             visibleSpaces,
             exactSelectionMatchExtension,

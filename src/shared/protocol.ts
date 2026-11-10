@@ -620,6 +620,30 @@ export interface MermaidInteraction {
 }
 
 /**
+ * リンク先補完で候補にするファイル1件。
+ */
+export interface LinkCompletionFile {
+    /**
+     * 補完元の文書からの相対パス。Markdownリンク先としてそのまま挿入できるよう、構文を壊す文字はエンコード済み。
+     */
+    path: string;
+    /** 候補の並び順と表示に使うファイルの種類。 */
+    kind: 'markdown' | 'image' | 'other';
+}
+
+/**
+ * リンク先補完で候補にする見出し1件。
+ */
+export interface LinkCompletionHeading {
+    /** プレビューの描画と同じ規則で割り当てた見出しアンカーID（エンコード前）。 */
+    id: string;
+    /** 装飾記号を除いた見出し本文。 */
+    text: string;
+    /** 1から6までの見出しレベル。 */
+    level: number;
+}
+
+/**
  * 共有プロトコルで送受信するメッセージまたは要求のデータ形状。
  */
 export type HostToWebviewMessage =
@@ -935,6 +959,19 @@ export type HostToWebviewMessage =
         type: 'hostCommand';
         command: 'navigateToOffset';
         offset: number;
+    }
+    | {
+        /**
+         * requestLinkCompletionsへの応答。要求の種類に応じて paths または headings のどちらかを持つ。
+         * 候補を取得できなかった場合（文書が未保存、対象がワークスペース外・Markdown以外など）は空配列を返す。
+         */
+        type: 'linkCompletions';
+        /** 要求と応答を対応付けるID。 */
+        requestId: string;
+        /** ワークスペース内のファイル候補。 */
+        paths?: LinkCompletionFile[];
+        /** 指定文書の見出し候補。 */
+        headings?: LinkCompletionHeading[];
     };
 
 /**
@@ -1454,6 +1491,19 @@ export type WebviewToHostMessage =
          * 共有プロトコルで受け渡すreasonの文字列。
          */
         reason: string
+    }
+    | {
+        /**
+         * 本文エディターのリンク先補完に使う候補をHostへ要求する。
+         * Hostは文書のワークスペースフォルダー（ない場合は文書のフォルダー）の範囲だけを対象にする。
+         */
+        type: 'requestLinkCompletions';
+        /** 要求と応答を対応付けるID。 */
+        requestId: string;
+        /** paths はファイル一覧、headings は path が指すMarkdown文書の見出し一覧を要求する。 */
+        kind: 'paths' | 'headings';
+        /** headings の対象文書。本文に書かれたとおりの文書相対パス（百分率エンコードを含み得る）。 */
+        path?: string;
     };
 
 /**

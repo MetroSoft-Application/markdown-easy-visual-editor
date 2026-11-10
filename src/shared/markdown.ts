@@ -180,6 +180,25 @@ export interface LocalResourceReference {
 }
 
 /**
+ * 本文中に直接書かれたローカル参照先1件の位置と内容。
+ * ファイル移動に伴うリンク書き換えなど、参照先文字列だけを置き換える処理に使う。
+ */
+export interface LocalLinkDestination {
+    /** 画像参照ならimage、それ以外のリンクならlink。 */
+    kind: 'image' | 'link';
+    /** 参照先文字列（山括弧・引用符を除く）の、元の本文における開始UTF-16オフセット。 */
+    start: number;
+    /** 参照先文字列の終了UTF-16オフセット（この位置の文字は含まない）。 */
+    end: number;
+    /** 本文に書かれたとおりの参照先（エスケープ・百分率エンコードを含み、山括弧は除く）。 */
+    destination: string;
+    /** 参照先が `<...>` で囲まれている場合はtrue。 */
+    angleBracketed: boolean;
+    /** 専用title印を持つワークスペース基準リンク（`/` 始まりをワークスペースフォルダー基準で解決する）ならtrue。 */
+    workspaceRooted: boolean;
+}
+
+/**
  * リソース参照の種別、記法、参照行、ワークスペース基準指定です。
  */
 interface LocalResourceDefinition {
@@ -230,6 +249,18 @@ interface ScannedResourceLink {
      * リンク記法の開始位置を示す文書内UTF-16オフセットです。
      */
     offset: number;
+
+    /**
+     * インラインリンクまたはHTML属性で、参照先文字列（山括弧・引用符を除く）が始まる走査本文内オフセット。
+     * 参照リンクのように本文内に参照先を持たない場合はundefined。
+     */
+    destinationStart?: number;
+
+    /** destinationStartに対応する参照先文字列の終了オフセット（この位置の文字は含まない）。 */
+    destinationEnd?: number;
+
+    /** 参照先が `<...>` で囲まれている場合はtrue。 */
+    angleBracketed?: boolean;
 }
 
 
@@ -1839,12 +1870,12 @@ export function collectDiagnostics(markdown: string, language: SupportedLanguage
 }
 
 /**
- * Markdown内で参照されるローカル画像・リンク先を収集する。
- * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
- * @returns 文書内位置と参照先を含むローカルリソース一覧。
+ * リソース参照の走査用に、フェンス・インデントコード・Textileコードブロック・インラインコード・HTMLコメントを
+ * 同じ長さの空白へ置き換えた行一覧を作る。各行の長さを保つため、走査結果の列位置は元の行へそのまま対応する。
+ * @param lines - 改行コードを除いて分割したMarkdown本文の行。
+ * @returns 入力と同じ行数・各行同じ長さのマスク済み行。
  */
-export function collectLocalResourceReferences(markdown: string): LocalResourceReference[] {
-    const lines = markdown.split(/\r\n|\r|\n/);
+function maskResourceScanLines(lines: readonly string[]): string[] {
     const fencedLines = new Set<number>();
     let openFence: {
         /**
@@ -1880,7 +1911,7 @@ export function collectLocalResourceReferences(markdown: string): LocalResourceR
 
     const commentState = { open: false };
     let inTextileCodeBlock = false;
-    const scanLines = lines.map(
+    return lines.map(
         /**
          * 各lineからlengthを取り出して一覧化する。
          * @param line - lineのlengthを参照する走査対象。
@@ -1899,6 +1930,16 @@ export function collectLocalResourceReferences(markdown: string): LocalResourceR
             }
             return maskHtmlComments(maskInlineCode(line), commentState);
         });
+}
+
+/**
+ * Markdown内で参照されるローカル画像・リンク先を収集する。
+ * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
+ * @returns 文書内位置と参照先を含むローカルリソース一覧。
+ */
+export function collectLocalResourceReferences(markdown: string): LocalResourceReference[] {
+    const lines = markdown.split(/\r\n|\r|\n/);
+    const scanLines = maskResourceScanLines(lines);
     const scanSource = scanLines.join('\n');
     const definitions = new Map<string, LocalResourceDefinition>();
     const definitionLines = new Set<number>();
@@ -1969,6 +2010,104 @@ export function collectLocalResourceReferences(markdown: string): LocalResourceR
 }
 
 /**
+ * 本文中に直接書かれたローカル参照先（インラインリンク・画像、参照定義、HTMLのsrc/href）の位置を集める。
+ * プレビューの出力前チェックと同じ走査規則を使い、コード・HTMLコメント内とTextile記法は対象外にする。
+ * 参照リンク `[a][id]` のように参照先を本文内に持たない記法は、対応する参照定義の側で1件として返す。
+ * @param markdown - 走査するMarkdown本文。改行コードはCRLF・CR・LFのいずれでもよい。
+ * @returns 元の本文に対するUTF-16オフセット範囲と参照先文字列の一覧（本文順）。
+ */
+export function collectLocalLinkDestinations(markdown: string): LocalLinkDestination[] {
+    const lines = markdown.split(/\r\n|\r|\n/);
+    const scanLines = maskResourceScanLines(lines);
+    const originalLineStarts: number[] = [];
+    for (const match of markdown.matchAll(/[^\r\n]*(?:\r\n|\r|\n|$)/g)) {
+        if (originalLineStarts.length >= lines.length) break;
+        originalLineStarts.push(match.index ?? 0);
+    }
+    const scanLineStarts: number[] = [];
+    let scanOffset = 0;
+    for (const line of scanLines) {
+        scanLineStarts.push(scanOffset);
+        scanOffset += line.length + 1;
+    }
+    /**
+     * 走査本文のオフセットを、改行コードを保った元の本文のオフセットへ変換する。
+     * マスク処理は各行の長さを変えないため、行番号と列位置だけで対応付けられる。
+     * @param offset - 走査本文（LF連結）内のオフセット。
+     * @returns 元の本文内のオフセットと行番号（0始まり）。
+     */
+    const toOriginal = (offset: number): { offset: number; line: number } => {
+        let low = 0;
+        let high = scanLineStarts.length - 1;
+        while (low < high) {
+            const middle = (low + high + 1) >> 1;
+            if (scanLineStarts[middle] <= offset) low = middle;
+            else high = middle - 1;
+        }
+        return { offset: originalLineStarts[low] + offset - scanLineStarts[low], line: low };
+    };
+
+    const destinations: LocalLinkDestination[] = [];
+    const definitionLines = new Set<number>();
+    scanLines.forEach(
+        /**
+         * 参照定義行から参照先の範囲を取り出す。
+         * @param line - マスク済みの1行。
+         * @param index - 0始まりの行番号。
+         */
+        (line, index) => {
+            const definition = parseLocalResourceDefinition(line, lines[index + 1]);
+            if (!definition) return;
+            definitionLines.add(index);
+            if (!isLocalResourceSource(definition.source)) return;
+            const candidate = stripResourceContainerPrefix(line);
+            const prefixLength = line.length - candidate.length;
+            const labelEnd = candidate.indexOf(']:');
+            const rawDestination = /^\s*(<[^>\r\n]+>|[^\s]+)/u.exec(candidate.slice(labelEnd + 2));
+            if (labelEnd < 0 || !rawDestination) return;
+            const angleBracketed = rawDestination[1].startsWith('<');
+            const destinationOffset = labelEnd + 2 + rawDestination[0].length - rawDestination[1].length
+                + (angleBracketed ? 1 : 0);
+            const destination = angleBracketed ? rawDestination[1].slice(1, -1) : rawDestination[1];
+            const start = originalLineStarts[index] + prefixLength + destinationOffset;
+            destinations.push({
+                kind: definition.kind,
+                start,
+                end: start + destination.length,
+                destination,
+                angleBracketed,
+                workspaceRooted: definition.workspaceRooted
+            });
+        });
+
+    for (const scanned of scanMarkdownResourceLinks(scanLines.join('\n'))) {
+        if (scanned.destinationStart === undefined || scanned.destinationEnd === undefined || !scanned.source) continue;
+        if (!isLocalResourceSource(scanned.source)) continue;
+        const start = toOriginal(scanned.destinationStart);
+        if (definitionLines.has(start.line)) continue;
+        const end = toOriginal(scanned.destinationEnd);
+        // 参照先は1行に収まる記法だけを書き換え対象にし、行をまたぐ不正な範囲は除く。
+        if (end.line !== start.line) continue;
+        destinations.push({
+            kind: scanned.kind,
+            start: start.offset,
+            end: end.offset,
+            destination: markdown.slice(start.offset, end.offset),
+            angleBracketed: scanned.angleBracketed === true,
+            workspaceRooted: scanned.workspaceRooted === true
+        });
+    }
+    return destinations.sort(
+        /**
+         * 本文順へ並べる。
+         * @param left - 比較対象の左側の参照先。
+         * @param right - 比較対象の右側の参照先。
+         * @returns 開始オフセットの昇順を示す比較値。
+         */
+        (left, right) => left.start - right.start);
+}
+
+/**
  * Masked source linesからTextile形式のローカル画像・リンクを抽出する。
  * Markdownフェンス、インラインコード、HTMLコメント、Textileコードブロックは呼び出し元でマスク済み。
  * @param lines - 各行番号を保った参照解析用ソース行。
@@ -2024,7 +2163,10 @@ function scanMarkdownResourceLinks(source: string): ScannedResourceLink[] {
                     kind,
                     source: destination.source,
                     ...(destination.workspaceRooted ? { workspaceRooted: true } : {}),
-                    offset: index
+                    offset: index,
+                    destinationStart: destination.destinationStart,
+                    destinationEnd: destination.destinationEnd,
+                    ...(destination.angleBracketed ? { angleBracketed: true } : {})
                 });
                 index = destination.end;
                 continue;
@@ -2050,10 +2192,14 @@ function scanMarkdownResourceLinks(source: string): ScannedResourceLink[] {
     let htmlMatch: RegExpExecArray | null;
     while ((htmlMatch = htmlPattern.exec(source))) {
         const htmlSource = htmlMatch[3] ?? htmlMatch[4] ?? htmlMatch[5] ?? '';
+        // 一致全体の末尾は、引用符付きなら閉じ引用符、引用符なしなら値の末尾になる。
+        const valueEnd = htmlMatch.index + htmlMatch[0].length - (htmlMatch[5] === undefined ? 1 : 0);
         links.push({
             kind: htmlMatch[1].toLowerCase() === 'img' ? 'image' : 'link',
             source: htmlSource,
-            offset: htmlMatch.index
+            offset: htmlMatch.index,
+            destinationStart: valueEnd - htmlSource.length,
+            destinationEnd: valueEnd
         });
     }
     return links.sort(
@@ -2083,15 +2229,24 @@ function readInlineResourceDestination(source: string, open: number): {
     /**
      * リソース参照記法の終了位置を示す本文内UTF-16オフセットです。
      */
-    end: number
+    end: number;
+    /** 山括弧を除いた参照先文字列の開始オフセット。 */
+    destinationStart: number;
+    /** 山括弧を除いた参照先文字列の終了オフセット（この位置の文字は含まない）。 */
+    destinationEnd: number;
+    /** 参照先が `<...>` で囲まれている場合はtrue。 */
+    angleBracketed: boolean;
 } | undefined {
     let index = open + 1;
     while (/\s/u.test(source[index] ?? '')) index += 1;
     if (index >= source.length) return undefined;
 
     let destination: string;
-    if (source[index] === '<') {
+    let destinationStart: number;
+    const angleBracketed = source[index] === '<';
+    if (angleBracketed) {
         const start = ++index;
+        destinationStart = start;
         while (index < source.length) {
             if (source[index] === '\\') {
                 index += 2;
@@ -2105,6 +2260,7 @@ function readInlineResourceDestination(source: string, open: number): {
         index += 1;
     } else {
         const start = index;
+        destinationStart = start;
         let nestedParentheses = 0;
         while (index < source.length) {
             const character = source[index];
@@ -2134,7 +2290,10 @@ function readInlineResourceDestination(source: string, open: number): {
     return {
         source: destination.replace(/\\([\\()])/g, '$1'),
         workspaceRooted: isWorkspaceSectionLinkTitle(source.slice(index, close)),
-        end: close
+        end: close,
+        destinationStart,
+        destinationEnd: destinationStart + destination.length,
+        angleBracketed
     };
 }
 
@@ -2748,18 +2907,32 @@ function sectionMarkdownLinkToPath(text: string, id: string, destinationPath: st
     const label = (text.trim() || id)
         .replace(/[\r\n]+/g, ' ')
         .replace(/[\\`*_\[\]~^+=$<>&!|]/gu, '\\$&');
-    const fragment = id.replace(/[%#&|()[\]<>\\"'\s]/gu, (character) => {
+    const fragment = encodeMarkdownLinkFragment(id);
+    const titleSuffix = title === undefined ? '' : ` "${title}"`;
+    return `[${label}](${destinationPath}#${fragment}${titleSuffix})`;
+}
+
+/**
+ * 見出しアンカーIDを、Markdownリンクのフラグメントとして安全な形へエスケープする。
+ * 空白や括弧などリンク構文を壊す文字だけを百分率エスケープし、日本語などはそのまま残す。
+ * @param id - 描画時に割り当てられた見出しアンカーID。
+ * @returns `#` を含まないフラグメント文字列。
+ */
+export function encodeMarkdownLinkFragment(id: string): string {
+    return id.replace(/[%#&|()[\]<>\\"'\s]/gu, (character) => {
         const encoded = encodeURIComponent(character);
         return encoded === character
             ? `%${character.charCodeAt(0).toString(16).toUpperCase()}`
             : encoded;
     });
-    const titleSuffix = title === undefined ? '' : ` "${title}"`;
-    return `[${label}](${destinationPath}#${fragment}${titleSuffix})`;
 }
 
-/** Markdownリンク先で構文区切りになる文字だけをパスの各要素内でエスケープする。 */
-function encodeMarkdownPathSegment(segment: string): string {
+/**
+ * Markdownリンク先で構文区切りになる文字だけをパスの各要素内でエスケープする。
+ * @param segment - `/` を含まないパス要素。
+ * @returns `%`・`#`・`?`・角括弧・山括弧・`|`・`&`・空白を百分率エスケープしたパス要素。丸括弧は encodeURIComponent が変換しないため残る（対応の取れた丸括弧はリンク先として有効）。
+ */
+export function encodeMarkdownPathSegment(segment: string): string {
     return segment.replace(/[%#?()[\]<>|&\s]/gu, (character) => encodeURIComponent(character));
 }
 

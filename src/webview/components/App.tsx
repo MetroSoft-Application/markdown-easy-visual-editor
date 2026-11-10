@@ -1,6 +1,7 @@
 /**
  * @fileoverview Webviewのルートコンポーネントとして、編集状態、Hostメッセージ、プレビュー、設定、保存操作を統合する。
  */
+import { errorMessage } from "../../shared/errorMessage";
 import React, {
   useCallback,
   useEffect,
@@ -17,7 +18,6 @@ import {
   DEFAULT_HTML_EXPORT_OPTIONS,
   DEFAULT_PDF_OPTIONS,
   DEFAULT_MERMAID_FONT_SIZE,
-  PDF_PAPER_FORMATS,
   normalizeMermaidFontSize,
   mergeHtmlExportOptions,
   normalizeHtmlExportSettings,
@@ -33,7 +33,6 @@ import type {
   NormalizedPdfOptions,
   PdfOptions,
   TextReplacementRule,
-  VsCodeApi,
   ViewMode,
   WebviewSettings,
   WebviewToHostMessage,
@@ -41,21 +40,17 @@ import type {
 import {
   applyMarkdownTableAction,
   applyMarkdownTableTsv,
-  canMoveOutlineSection,
   collectDiagnostics,
   createTableMarkdown,
   getOutline,
   imageMarkdown,
   isMarkdownCodeFencePosition,
-  isOutlineEmptyParentTarget,
   markdownTableToTsv,
-  moveOutlineSection,
   sortDiagnostics,
   summarizeDiagnostics,
   type Diagnostic,
   type OutlineItem,
   type TextSelection,
-  wordStats,
 } from "../../shared/markdown";
 import { drawioImageMarkdown } from "../../shared/drawioSvg";
 import type { EditorLinkTarget } from "../editor/cmLinkNavigation";
@@ -76,7 +71,7 @@ import {
   type ImageAlignment,
   type MarpImageResizeTarget,
 } from "../../shared/imageResize";
-import { getMessages, type Messages } from "../../shared/messages";
+import { getMessages } from "../../shared/messages";
 import { hasMarpFrontMatterCandidate } from "../../shared/marpFrontMatter";
 import {
   DEFAULT_FONT_FAMILY_STACK,
@@ -84,27 +79,18 @@ import {
   fontFamilyForCss,
   normalizeFontFamily,
 } from "../../shared/fontFamily";
-import { prepareExportHtml } from "../../shared/exportHtml";
-import { printContentCss } from "../../shared/printContentCss";
 import { createClientId } from "../runtime/id";
-import { webviewAssetUrl } from "../runtime/assets";
 import { isMveDebugEnabled, mveDebug } from "../runtime/debug";
 import { reuseIfStructurallyEqual } from "../runtime/structuralEqual";
-import { escapeHtml } from "../../shared/escapeHtml";
-import { sanitizeRenderedMarkdown } from "../markdown/markdownSanitizer";
-import { renderMarkdownFallback } from "../markdown/markdownFallback";
 // アウトライン抽出はKaTeX・textile-js・描画コアに依存しないモジュールから読み込み、Webview本体のバンドルを軽く保つ。
-import { getOutlineForFormat } from "../markdown/markdownOutline";
 import type {
   MarkdownRenderFormat,
-  UnsafeMarkdownBlock,
 } from "../markdown/markdownRendererCore";
 import {
   acceptMermaidRenderProgress,
   acceptMermaidRenderResult,
 } from "../markdown/mermaidRenderer";
 import { RenderedMarkdown, type InspectorTarget } from "./RenderedMarkdown";
-import { PdfDocumentPreview } from "./PdfDocumentPreview";
 import { MarpPreview } from "../marp/MarpPreview";
 import type { MarpPreviewHandle } from "../marp/MarpPreview";
 import type { MarpSlideSourceRange } from "../marp/marpRenderer";
@@ -120,60 +106,51 @@ import {
   restorePreviewViewport,
   type PreviewViewportAnchor,
 } from "../preview/scrollAnchors";
-
-/**
- * WebviewがExtension Hostと状態を保存・送信するためのVS Code API取得関数。
- */
-declare const acquireVsCodeApi: <State = unknown>() => VsCodeApi<State>;
-
-/**
- * Webviewルートの現在状態または履歴を保持するデータ形状。
- */
-interface PersistedState {
-  /**
-   * 編集面とプレビューの表示構成。
-   */
-  mode: EditorMode;
-
-  /**
-   * 本文ペインとプレビューペインの分割比率。
-   */
-  splitRatio?: number;
-
-  /**
-   * 目次ペインの表示幅。
-   */
-  outlineWidth?: number;
-
-  /**
-   * プレビューに適用する表示倍率。
-   */
-  zoom?: number;
-  /**
-   * 再読み込み後に復元する編集面とプレビューの表示状態。
-   */
-  viewMode?: ViewMode;
-
-  /**
-   * 分割表示で表示する本文面とプレビュー面の組み合わせ。
-   */
-  splitView?: "both" | "text" | "preview";
-
-  /**
-   * 編集面のスクロール復元に使う表示位置アンカー。
-   */
-  sourceViewport?: EditorViewportAnchor;
-
-  /**
-   * 分割表示プレビューのスクロール復元に使う表示位置アンカー。
-   */
-  splitPreviewViewport?: PreviewViewportAnchor;
-
-  /**
-   * プレビュー単独表示のスクロール復元に使う表示位置アンカー。
-   */
-  previewOnlyViewport?: PreviewViewportAnchor;
-}
+import {
+  cancelAnimationFrameRef,
+  clearTimeoutRef,
+  clampOutlineWidth,
+  clampSplitRatio,
+  clampZoom,
+  escapeRegExp,
+  fileToPayload,
+  findSearchHits,
+  inferMarks,
+  isEditingEnabled,
+  isImageFile,
+  mapChangesPreferLocal,
+  modeLabel,
+  replaceDelimitedBlock,
+  restoreViewMode,
+} from "./appHelpers";
+import {
+  useInterruptibleDebouncedValue,
+} from "../runtime/useInterruptibleDebouncedValue";
+import { useMarkdownPreviewSnapshot } from "../markdown/markdownPreviewSnapshot";
+import {
+  collectStartupMetrics,
+  countVisibleMermaidNodes,
+} from "../runtime/performanceMetrics";
+import {
+  TextReplacementCancelledError,
+  TextReplacementTimeoutError,
+  serializePdfExport,
+} from "../export/outputSerialization";
+import { collectPrintableCss } from "../export/printableCss";
+import { PdfPreview } from "./PdfPreview";
+import { Inspector } from "./Inspector";
+import { HelpDialog, type HelpTopic } from "./HelpDialog";
+import { LinkDialog } from "./LinkDialog";
+import { OutlinePanel, buildOutlineTree } from "./OutlinePanel";
+import { useOutlineReorder } from "./useOutlineReorder";
+import { PrintSettingsPanel } from "./PrintSettingsPanel";
+import { DiagnosticsPanel, SearchPanel, SectionLinkMenu, type SectionLinkMenuState } from "./AppPanels";
+import {
+  getRenderFormatForUri,
+  readWebviewBootstrap,
+  vscode,
+} from "../runtime/webviewState";
+import { useLinkCompletionClient } from "../editor/linkCompletionClient";
 
 /**
  * Webview内で開始し、拡張機能からの応答を待つ操作です。
@@ -205,68 +182,6 @@ interface PendingLocalOperation {
   changes: TextChange[];
 }
 
-/**
- * 右ドラッグで見出しを並べ替える間のポインターと配置状態を保持する。
- */
-interface OutlineDragState {
-  /**
-   * ドラッグを開始した見出しのアウトライン配列内の位置。
-   */
-  sourceIndex: number;
-
-  /**
-   * 操作中のポインターを識別するID。
-   */
-  pointerId: number;
-
-  /**
-   * 右ドラッグを開始した画面上のX座標。
-   */
-  startX: number;
-
-  /**
-   * 右ドラッグを開始した画面上のY座標。
-   */
-  startY: number;
-
-  /**
-   * ドラッグ開始時点のMarkdown本文。
-   */
-  markdown: string;
-
-  /**
-   * ドラッグ開始時点のアウトライン項目。
-   */
-  outline: OutlineItem[];
-
-  /**
-   * 移動距離がしきい値を超えて並べ替え操作になったかどうか。
-   */
-  dragging: boolean;
-
-  /**
-   * 現在のドロップ先見出しのアウトライン配列内の位置。
-   */
-  targetIndex?: number;
-
-  /**
-   * ドロップ先見出しの前後どちらへ配置するか。
-   */
-  position?: "before" | "after";
-}
-
-/** アウトライン項目の階層と元の一覧位置を保持するツリーノード。 */
-interface OutlineTreeNode {
-  /** 対応する平坦なアウトライン項目。 */
-  item: OutlineItem;
-
-  /** 元のアウトライン配列における0始まりの位置。 */
-  index: number;
-
-  /** 見出しレベルから導出した子見出し。 */
-  children: OutlineTreeNode[];
-}
-
 /** 現在の見出し構成に対応する折りたたみ状態。 */
 interface OutlineCollapseState {
   /** 開閉状態が有効な見出し構成の署名。 */
@@ -274,34 +189,6 @@ interface OutlineCollapseState {
 
   /** 折りたたまれている見出しID。 */
   collapsedIds: Set<string>;
-}
-
-/**
- * 平坦な見出し一覧から、レベル順のツリーを線形時間で構築する。
- * @param outline 文書順のアウトライン項目。
- * @returns 元の配列位置を保持したツリーのルート項目。
- */
-function buildOutlineTree(outline: readonly OutlineItem[]): OutlineTreeNode[] {
-  const roots: OutlineTreeNode[] = [];
-  const ancestors: OutlineTreeNode[] = [];
-
-  for (let index = 0; index < outline.length; index += 1) {
-    const item = outline[index];
-    while (
-      ancestors.length > 0 &&
-      ancestors[ancestors.length - 1].item.level >= item.level
-    ) {
-      ancestors.pop();
-    }
-
-    const node: OutlineTreeNode = { item, index, children: [] };
-    const parent = ancestors[ancestors.length - 1];
-    if (parent) parent.children.push(node);
-    else roots.push(node);
-    ancestors.push(node);
-  }
-
-  return roots;
 }
 
 /**
@@ -375,10 +262,6 @@ interface PdfPreviewState {
   error?: string;
 }
 
-/**
- * Hostとの通信とWebview状態の永続化に使うVS Code API。
- */
-const vscode = acquireVsCodeApi<PersistedState>();
 
 /**
  * 本文ペインとプレビューペインのスクロール同期を再実行する間隔（ミリ秒）。
@@ -415,16 +298,6 @@ const PREVIEW_UPDATE_DELAY_MS = 120;
 const PDF_OPTIONS_PERSIST_DELAY_MS = 250;
 
 /**
- * アウトライン項目をドラッグと判定する最小移動距離（CSS px）。
- */
-const OUTLINE_DRAG_THRESHOLD_PX = 6;
-
-/**
- * Webviewルートで扱う値の種類と境界を表す型。
- */
-type HelpTopic = "shortcuts" | "features";
-
-/**
  * 静的検査とローカルリソース検査の診断をまとめ、言語に合わせて表示する。
  * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
  * @param localResourceDiagnostics ローカルリソース検査で得た診断一覧。
@@ -440,165 +313,6 @@ function mergeDiagnostics(
     collectDiagnostics(markdown, language),
     localResourceDiagnostics,
   );
-}
-
-/**
- * Webviewルートの現在状態または履歴を保持するデータ形状。
- */
-interface MarkdownPreviewSnapshot {
-  /**
-   * 解析・編集・変換の対象となるMarkdown本文。
-   */
-  markdown: string;
-
-  /**
-   * 表示または出力するHTML本文。
-   */
-  html: string;
-
-  /**
-   * 解析済みMarkdownから抽出した目次項目の一覧。
-   */
-  outline: OutlineItem[];
-
-  /**
-   * 本文検査とローカルリソース検査で得た診断一覧。
-   */
-  diagnostics: Diagnostic[];
-
-  /**
-   * Markdown本文、本文文字列、行数の集計結果。
-   */
-  stats: {
-    /**
-     * 集計対象Markdown本文の文字数。
-     */
-    markdown: number;
-    /**
-     * Markdown構文を除去した本文の文字数。
-     */
-    text: number;
-    /**
-     * Markdown本文の行数。
-     */
-    lines: number;
-  };
-
-  /**
-   * 軽量Workerによる簡易描画の結果ならtrue。最終描画（rich Worker・フォールバック）ならfalse。
-   * 初期値の空スナップショットでは未設定。起動計測で最終描画の反映時刻を判定するために使う。
-   */
-  preliminary?: boolean;
-}
-
-/**
- * Webviewルートで送受信するメッセージまたは要求のデータ形状。
- */
-interface MarkdownWorkerResponse {
-  /**
-   * Workerへ送った描画要求を対応付けるIDです。
-   */
-  id: number;
-
-  /**
-   * Webviewルートのpreliminaryを切り替えるフラグ。
-   */
-  preliminary?: boolean;
-
-  /**
-   * Markdown Workerが先行描画した本文。
-   */
-  markdown?: string;
-
-  /**
-   * サニタイズ前のMarkdownブロック。描画直前のサニタイズ入力に使う。
-   */
-  unsafeBlocks?: UnsafeMarkdownBlock[];
-
-  /**
-   * Markdown本文から抽出した目次項目の一覧。
-   */
-  outline?: OutlineItem[];
-
-  /**
-   * 本文検査とローカルリソース検査で得た診断一覧。
-   */
-  diagnostics?: Diagnostic[];
-
-  /**
-   * Markdown本文、構文を除いた本文、行数の集計値。
-   */
-  stats?: {
-    /**
-     * 集計対象Markdown本文の文字数。
-     */
-    markdown: number;
-    /**
-     * Markdown構文を除去した本文の文字数。
-     */
-    text: number;
-    /**
-     * Markdown本文の行数。
-     */
-    lines: number;
-  };
-
-  /**
-   * 処理に失敗した理由または例外。
-   */
-  error?: string;
-}
-
-/**
- * 拡張機能からWebview初期化時に渡される設定と文書状態です。
- */
-interface WebviewBootstrap {
-  /**
-   * 表示・解析・変換の対象となる本文。
-   */
-  text: string;
-
-  /**
-   * 起動時に受け取るホスト連携プロトコルのバージョンです。
-   */
-  version: number;
-
-  /**
-   * VS Codeまたはブラウザーが扱うリソースURI。
-   */
-  uri: string;
-
-  /**
-   * Webviewルートへ渡す設定または境界値。
-   */
-  settings: WebviewSettings;
-}
-
-/**
- * 文書URIの拡張子からプレビュー形式を選び、未知の形式はMarkdownへ戻す。
- * @param uri - 初期化時のVS Code文書URIまたはリンク先のファイルパス。
- * @returns Textile専用、Markdown/Textile混在、またはMarkdown描画形式。
- */
-function getRenderFormatForUri(uri?: string): MarkdownRenderFormat {
-  const path = (uri ?? "").split(/[?#]/, 1)[0].toLowerCase();
-  if (/\.textile$/.test(path)) return "textile";
-  if (/\.(?:md|markdown)$/.test(path)) return "mixed";
-  return "markdown";
-}
-
-/**
- * windowに埋め込まれた初期化データを読み、必須フィールドの有無を確認する。
- * @returns 有効なWebview初期化データ。埋め込み値がない、または必須フィールドが不足する場合はundefined。
- */
-function readWebviewBootstrap(): WebviewBootstrap | undefined {
-  return (
-    globalThis as typeof globalThis & {
-      /**
-       * HTMLから注入されるWebview初期化データ。
-       */
-      __mveBootstrap?: WebviewBootstrap;
-    }
-  ).__mveBootstrap;
 }
 
 /**
@@ -907,18 +621,18 @@ export function App(): React.JSX.Element {
     loading: false,
   });
   const [toast, setToast] = useState("");
-  const [sectionLinkMenu, setSectionLinkMenu] = useState<{
-    id: string;
-    text: string;
-    x: number;
-    y: number;
-  }>();
+  const [sectionLinkMenu, setSectionLinkMenu] = useState<SectionLinkMenuState>();
   const sectionLinkMenuRef = useRef<HTMLDivElement>(null);
-  const skipOutlineContextMenuRef = useRef(false);
-  /** 三角形上から始まった右ポインター操作を見出し名の右クリックと区別する。 */
-  const outlineDisclosureRightPointerRef = useRef(false);
 
   const clientIdRef = useRef(createClientId());
+  // リンク先補完の要求と応答を対応付ける。アンマウント時に待機中の要求を打ち切る。
+  const linkCompletionClient = useLinkCompletionClient(
+    /**
+     * Host へ補完要求を送る。
+     * @param message - requestLinkCompletions メッセージ。
+     */
+    (message) => vscode.postMessage(message),
+  );
   const sourceRef = useRef<TextEditorHandle>(null);
   const splitPreviewRef = useRef<HTMLDivElement>(null);
   const marpPreviewRef = useRef<MarpPreviewHandle>(null);
@@ -1025,10 +739,6 @@ export function App(): React.JSX.Element {
   const previewPointerScrollActiveRef = useRef(new WeakSet<HTMLElement>());
   const previewTouchScrollActiveRef = useRef(new WeakSet<HTMLElement>());
   /** Pointer Events の各段階で参照する最新の見出し並べ替え状態。 */
-  const outlineDragRef = useRef<OutlineDragState | undefined>(undefined);
-  const [outlineDrag, setOutlineDrag] = useState<OutlineDragState | undefined>(
-    undefined,
-  );
   // 復元が複数・遅延scrollイベントを発生させても、明示入力まで逆同期させない。
   const programmaticPreviewScrollsRef = useRef(new WeakSet<HTMLElement>());
   const pendingPreviewScrollsRef = useRef(
@@ -1124,6 +834,33 @@ export function App(): React.JSX.Element {
     () => getOutlineStructureSignature(outline),
     [outline],
   );
+  const {
+    outlineDrag,
+    outlineDragRef,
+    skipOutlineContextMenuRef,
+    outlineDisclosureRightPointerRef,
+    beginOutlineDrag,
+    updateOutlineDrag,
+    finishOutlineDrag,
+    trackOutlineDisclosurePointer,
+  } = useOutlineReorder({
+    editingEnabled: isEditingEnabled(mode, splitView),
+    markdown,
+    previewMarkdown: previewSnapshot.markdown,
+    outline,
+    /**
+     * 並べ替えの確定直前に、ドラッグ開始時の本文と比べるための最新本文を返す。
+     * @returns 現在の本文。
+     */
+    getText: () => localTextRef.current,
+    prepareLayoutRestore,
+    /**
+     * 並べ替え後の本文を反映する。
+     * @param text - 並べ替え後の本文。
+     */
+    applyMarkdown: (text) => updateMarkdownRef.current(text),
+    openSectionLinkMenu: setSectionLinkMenu,
+  });
   const outlineTree = useMemo(
     /**
      * 見出し一覧から表示用のツリーを構築する。
@@ -1192,141 +929,6 @@ export function App(): React.JSX.Element {
     );
   }
 
-  /**
-   * ツリー項目とその子孫を階層順に描画する。
-   * @param nodes 元の配列位置を持つツリー項目。
-   * @param depth ツリー内の階層。行のホバー範囲を親列まで戻すために使う。
-   * @returns アウトライン項目のリスト要素。
-   */
-  function renderOutlineNodes(
-    nodes: readonly OutlineTreeNode[],
-    depth = 0,
-  ): React.JSX.Element[] {
-    return nodes.map(
-      /**
-       * 見出し行、開閉三角形、子見出しを描画する。
-       * @param node 現在描画する見出しツリー項目。
-       * @returns 見出し行と子見出しのリスト要素。
-       */
-      (node) => {
-        const { item, index, children } = node;
-        const hasChildren = children.length > 0;
-        const collapsed = collapsedOutlineIds.has(item.id);
-        const childListId = `outline-children-${index}`;
-        const isDragSource =
-          outlineDrag?.dragging && outlineDrag.sourceIndex === index;
-        const isDropTarget =
-          outlineDrag?.targetIndex === index && outlineDrag.position;
-
-        return (
-          <li
-            className={
-              hasChildren ? "outline-node outline-node-parent" : "outline-node"
-            }
-            data-outline-level={item.level}
-            key={`${item.offset}-${item.id}`}
-          >
-            <div
-              className="outline-row"
-              style={
-                {
-                  "--outline-row-inset":
-                    depth === 0 && !hasChildren
-                      ? "0px"
-                      : `${18 + depth * 22}px`,
-                } as React.CSSProperties
-              }
-            >
-              {hasChildren ? (
-                <button
-                  type="button"
-                  className="outline-disclosure"
-                  aria-label={item.text}
-                  aria-expanded={!collapsed}
-                  aria-controls={childListId}
-                  onClick={
-                    /**
-                     * 開閉三角形の操作を処理し、見出し移動を起動しない。
-                     * @param event 開閉三角形のクリックイベント。
-                     */
-                    (event) => {
-                      event.stopPropagation();
-                      if (event.button !== 0) return;
-                      toggleOutlineSection(item.id);
-                    }
-                  }
-                  onContextMenu={
-                    /**
-                     * 開閉三角形上の右クリックを既定処理と親のメニュー処理へ伝えない。
-                     * @param event 開閉三角形のコンテキストメニューイベント。
-                     * @returns 既定メニューと親への伝播を抑止する副作用。
-                     */
-                    (event) => {
-                      outlineDisclosureRightPointerRef.current = false;
-                      event.preventDefault();
-                      event.stopPropagation();
-                    }
-                  }
-                >
-                  <span
-                    className="outline-disclosure-icon"
-                    aria-hidden="true"
-                  />
-                </button>
-              ) : null}
-              <button
-                type="button"
-                className={
-                  `outline-item${isDragSource ? " outline-drag-source" : ""}` +
-                  `${isDropTarget ? ` outline-drop-${outlineDrag?.position}` : ""}`
-                }
-                data-outline-index={index}
-                data-section-id={item.id}
-                data-dragging={isDragSource ? "true" : undefined}
-                onClick={
-                  /**
-                   * 見出し名をクリックした場合に対応する本文位置へ移動する。
-                   * @param event 見出し名のクリックイベント。
-                   */
-                  (event) => {
-                    if (event.button === 0) goToOutlineOffset(item.offset);
-                  }
-                }
-                onPointerDown={
-                  /**
-                   * 見出し名の右ドラッグによる節移動を開始する。
-                   * @param event 見出し名のポインターイベント。
-                   */
-                  (event) => beginOutlineDrag(event, index)
-                }
-                onPointerMove={updateOutlineDrag}
-                onPointerUp={finishOutlineDrag}
-                onPointerCancel={
-                  /**
-                   * キャンセルされた節ドラッグを終了する。
-                   * @param event 見出し名のポインターキャンセルイベント。
-                   */
-                  (event) => finishOutlineDrag(event, true)
-                }
-              >
-                {item.text}
-              </button>
-            </div>
-            {hasChildren ? (
-              <ul
-                className="outline-children"
-                id={childListId}
-                hidden={collapsed}
-              >
-                {renderOutlineNodes(children, depth + 1)}
-              </ul>
-            ) : null}
-          </li>
-        );
-      },
-    );
-  }
-
   const diagnostics = useMemo(
     () =>
       mergeCollectedDiagnostics(
@@ -1367,33 +969,15 @@ export function App(): React.JSX.Element {
        */
       return () => {
         window.removeEventListener("message", onMessage);
-        if (persistViewStateTimerRef.current !== undefined) {
-          window.clearTimeout(persistViewStateTimerRef.current);
-          persistViewStateTimerRef.current = undefined;
-        }
+        clearTimeoutRef(persistViewStateTimerRef);
         if (pdfOptionsPersistTimerRef.current !== undefined) {
           flushPdfOptionsPersistence();
         }
-        if (previewScrollFrameRef.current !== undefined) {
-          window.cancelAnimationFrame(previewScrollFrameRef.current);
-          previewScrollFrameRef.current = undefined;
-        }
-        if (previewToSourceSyncTimerRef.current !== undefined) {
-          window.clearTimeout(previewToSourceSyncTimerRef.current);
-          previewToSourceSyncTimerRef.current = undefined;
-        }
-        if (sourceToPreviewSyncTimerRef.current !== undefined) {
-          window.clearTimeout(sourceToPreviewSyncTimerRef.current);
-          sourceToPreviewSyncTimerRef.current = undefined;
-        }
-        if (renderedPreviewRestoreFrameRef.current !== undefined) {
-          window.cancelAnimationFrame(renderedPreviewRestoreFrameRef.current);
-          renderedPreviewRestoreFrameRef.current = undefined;
-        }
-        if (renderedPreviewRestoreTimerRef.current !== undefined) {
-          window.clearTimeout(renderedPreviewRestoreTimerRef.current);
-          renderedPreviewRestoreTimerRef.current = undefined;
-        }
+        cancelAnimationFrameRef(previewScrollFrameRef);
+        clearTimeoutRef(previewToSourceSyncTimerRef);
+        clearTimeoutRef(sourceToPreviewSyncTimerRef);
+        cancelAnimationFrameRef(renderedPreviewRestoreFrameRef);
+        clearTimeoutRef(renderedPreviewRestoreTimerRef);
         pendingPreviewScrollsRef.current.clear();
         pendingPreviewToSourceAnchorRef.current = undefined;
         pendingSourceToPreviewAnchorRef.current = undefined;
@@ -1522,10 +1106,7 @@ export function App(): React.JSX.Element {
        * effectの再実行前に保留中のPDFプレビュー要求を取り消す。
        */
       return () => {
-        if (pdfPreviewTimerRef.current !== undefined) {
-          window.clearTimeout(pdfPreviewTimerRef.current);
-          pdfPreviewTimerRef.current = undefined;
-        }
+        clearTimeoutRef(pdfPreviewTimerRef);
       };
     },
     [
@@ -2320,6 +1901,9 @@ export function App(): React.JSX.Element {
               : messages.app.toast.imagesInserted(message.paths.length),
           );
         }
+        return;
+      case "linkCompletions":
+        linkCompletionClient.accept(message);
         return;
       case "localResourcesChecked":
         {
@@ -3402,7 +2986,7 @@ export function App(): React.JSX.Element {
         imageDirectory: settings.imageDirectory,
       });
     } catch (error) {
-      setToast(error instanceof Error ? error.message : String(error));
+      setToast(errorMessage(error));
     }
   }
 
@@ -3517,101 +3101,56 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * 指定位置の出力置換ルールの正規表現または置換文字列を更新する。
-   * PDF設定を更新し、既存のデバウンス保存経路へ渡す。
-   * @param index 更新する置換ルールの0始まりの位置。
-   * @param field 更新するルールのフィールド名。
-   * @param value 入力欄から受け取った文字列。
+   * 出力を始められるか確認し、始められない理由があれば通知する。
+   * ワークスペースが信頼されていない場合と、無効な正規表現の置換ルールがある場合は出力しない。
+   * @param rules - 出力に適用する置換ルール。
+   * @returns 出力を始めてよければtrue。
    */
-  function updateOutputTextReplacement(
-    index: number,
-    field: keyof TextReplacementRule,
-    value: string,
-  ): void {
-    updatePdfOptions(
+  function canStartOutput(rules: readonly TextReplacementRule[]): boolean {
+    if (!settings.workspaceTrusted) {
+      setToast(messages.app.toast.workspaceTrustRequired);
+      return false;
+    }
+    if (rules.some(
       /**
-       * 現在のPDF設定から対象ルールだけを差し替える。
-       * @param current 現在の正規化済みPDF設定。
-       * @returns 置換ルールを更新したPDF設定。
+       * 空でなく、正規表現として解釈できないルールか判定する。
+       * @param rule - 置換ルール。
+       * @returns 無効なルールならtrue。
        */
-      (current) => {
-        const textReplacements = [...current.textReplacements];
-        if (!textReplacements[index]) return current;
-        textReplacements[index] = {
-          ...textReplacements[index],
-          [field]: value,
-        };
-        return { ...current, textReplacements };
-      },
-    );
+      (rule) => rule.pattern.length > 0 && !isTextReplacementPatternValid(rule.pattern))) {
+      setToast(messages.app.invalidOutputReplacementPattern);
+      return false;
+    }
+    return true;
   }
 
   /**
-   * 空の出力置換ルールを末尾へ追加し、設定パネルで編集できるようにする。
-   * PDF設定を更新し、既存のデバウンス保存経路へ渡す。
+   * 出力要求に添える描画条件を、プレビューと同じ設定から作る。
+   * @returns Host がプレビューと同じ描画を再現するための条件。
    */
-  function addOutputTextReplacement(): void {
-    updatePdfOptions(
-      /**
-       * 空の正規表現・置換文字列をリストの末尾に追加する。
-       * @param current 現在の正規化済みPDF設定。
-       * @returns 新しい置換ルールを含むPDF設定。
-       */
-      (current) => ({
-        ...current,
-        textReplacements: [
-          ...current.textReplacements,
-          { pattern: "", replacement: "" },
-        ],
-      }),
-    );
+  function exportRendering() {
+    return {
+      renderFormat,
+      mermaidTheme: settings.mermaidTheme,
+      mermaidFontSize: normalizeMermaidFontSize(settings.mermaidFontSize),
+      fontFamily: settings.previewFontFamily,
+      remoteImagesEnabled: settings.remoteImagesEnabled,
+      language: settings.language,
+    };
   }
 
   /**
-   * 指定位置の出力置換ルールを削除する。
-   * PDF設定を更新し、既存のデバウンス保存経路へ渡す。
-   * @param index 削除する置換ルールの0始まりの位置。
+   * 出力要求の準備中に起きた失敗を通知する。
+   * @param error - 発生した例外。
    */
-  function removeOutputTextReplacement(index: number): void {
-    updatePdfOptions(
-      /**
-       * 指定位置以外の置換ルールを順序を保って残す。
-       * @param current 現在の正規化済みPDF設定。
-       * @returns 指定位置を除いたPDF設定。
-       */
-      (current) => {
-        const textReplacements: TextReplacementRule[] = [];
-        for (
-          let currentIndex = 0;
-          currentIndex < current.textReplacements.length;
-          currentIndex++
-        ) {
-          if (currentIndex !== index) {
-            textReplacements.push(current.textReplacements[currentIndex]);
-          }
-        }
-        return { ...current, textReplacements };
-      },
-    );
+  function notifyOutputFailure(error: unknown): void {
+    setToast(messages.app.toast.operationFailed(errorMessage(error)));
   }
 
   /** HostのACKと文書版を固定した原文から、CLIと同じPDF出力を要求する。 */
   async function requestPdfExport(): Promise<void> {
-    if (!settings.workspaceTrusted) {
-      setToast(messages.app.toast.workspaceTrustRequired);
-      return;
-    }
     const options = pdfOptionsRef.current;
-    if (
-      options.textReplacements.some(
-        (rule) =>
-          rule.pattern.length > 0 &&
-          !isTextReplacementPatternValid(rule.pattern),
-      )
-    ) {
-      setToast(messages.app.invalidOutputReplacementPattern);
-      return;
-    }
+    if (!canStartOutput(options.textReplacements)) return;
     if (pdfExportInProgressRef.current || pdfRequestsRef.current.size > 0)
       return;
     pdfExportInProgressRef.current = true;
@@ -3628,7 +3167,11 @@ export function App(): React.JSX.Element {
       );
       const diagnosticNotice = diagnostics.errors
         .map(
-          /** 出力を継続する場合も、既存の行番号付き診断を利用者へ伝える。 */
+          /**
+           * エラー診断を通知用の1行へ整える。
+           * @param item - エラー診断。
+           * @returns 行番号付きの説明。
+           */
           (item) => `${item.line ? `行${item.line}: ` : ""}${item.message}`,
         )
         .join(" / ");
@@ -3647,23 +3190,12 @@ export function App(): React.JSX.Element {
         requestId,
         markdown: snapshot.markdown,
         documentVersion: snapshot.version,
-        rendering: {
-          renderFormat,
-          mermaidTheme: settings.mermaidTheme,
-          mermaidFontSize: normalizeMermaidFontSize(settings.mermaidFontSize),
-          fontFamily: settings.previewFontFamily,
-          remoteImagesEnabled: settings.remoteImagesEnabled,
-          language: settings.language,
-        },
+        rendering: exportRendering(),
         options,
         editorTheme: settings.editorTheme ?? "dark",
       } satisfies WebviewToHostMessage);
     } catch (error) {
-      setToast(
-        messages.app.toast.operationFailed(
-          error instanceof Error ? error.message : String(error),
-        ),
-      );
+      notifyOutputFailure(error);
     } finally {
       pdfExportInProgressRef.current = false;
     }
@@ -3672,23 +3204,11 @@ export function App(): React.JSX.Element {
   /**
    * 最新編集のACK後に固定した原文と全設定をHTML出力へ送る。
    * リンク先文書も出力エンジンが同じ描画経路で処理する。
+   * @param options - 画像の埋め込み、リンク先Markdownの変換などのHTML出力オプション。
    */
   async function requestHtmlExport(options: HtmlExportOptions): Promise<void> {
-    if (!settings.workspaceTrusted) {
-      setToast(messages.app.toast.workspaceTrustRequired);
-      return;
-    }
     const textReplacements = pdfOptionsRef.current.textReplacements;
-    if (
-      textReplacements.some(
-        (rule) =>
-          rule.pattern.length > 0 &&
-          !isTextReplacementPatternValid(rule.pattern),
-      )
-    ) {
-      setToast(messages.app.invalidOutputReplacementPattern);
-      return;
-    }
+    if (!canStartOutput(textReplacements)) return;
     try {
       setToast(messages.host.htmlProgress);
       const snapshot = await waitForHostExportSnapshot();
@@ -3699,24 +3219,13 @@ export function App(): React.JSX.Element {
         requestId,
         markdown: snapshot.markdown,
         documentVersion: snapshot.version,
-        rendering: {
-          renderFormat,
-          mermaidTheme: settings.mermaidTheme,
-          mermaidFontSize: normalizeMermaidFontSize(settings.mermaidFontSize),
-          fontFamily: settings.previewFontFamily,
-          remoteImagesEnabled: settings.remoteImagesEnabled,
-          language: settings.language,
-        },
+        rendering: exportRendering(),
         editorTheme: settings.editorTheme ?? "dark",
         options,
         textReplacements,
       } satisfies WebviewToHostMessage);
     } catch (error) {
-      setToast(
-        messages.app.toast.operationFailed(
-          error instanceof Error ? error.message : String(error),
-        ),
-      );
+      notifyOutputFailure(error);
     }
   }
 
@@ -4637,14 +4146,8 @@ export function App(): React.JSX.Element {
    * @returns 条件が成立したかを示す真偽値。
    */
   function cancelPendingCrossPaneScrollSync(): void {
-    if (previewToSourceSyncTimerRef.current !== undefined) {
-      window.clearTimeout(previewToSourceSyncTimerRef.current);
-      previewToSourceSyncTimerRef.current = undefined;
-    }
-    if (sourceToPreviewSyncTimerRef.current !== undefined) {
-      window.clearTimeout(sourceToPreviewSyncTimerRef.current);
-      sourceToPreviewSyncTimerRef.current = undefined;
-    }
+    clearTimeoutRef(previewToSourceSyncTimerRef);
+    clearTimeoutRef(sourceToPreviewSyncTimerRef);
     pendingPreviewToSourceAnchorRef.current = undefined;
     pendingSourceToPreviewAnchorRef.current = undefined;
   }
@@ -4905,14 +4408,8 @@ export function App(): React.JSX.Element {
    * @returns 条件が成立したかを示す真偽値。
    */
   function cancelPendingRenderedPreviewRestore(): void {
-    if (renderedPreviewRestoreFrameRef.current !== undefined) {
-      window.cancelAnimationFrame(renderedPreviewRestoreFrameRef.current);
-      renderedPreviewRestoreFrameRef.current = undefined;
-    }
-    if (renderedPreviewRestoreTimerRef.current !== undefined) {
-      window.clearTimeout(renderedPreviewRestoreTimerRef.current);
-      renderedPreviewRestoreTimerRef.current = undefined;
-    }
+    cancelAnimationFrameRef(renderedPreviewRestoreFrameRef);
+    clearTimeoutRef(renderedPreviewRestoreTimerRef);
     pendingRenderedPreviewKindsRef.current.clear();
   }
 
@@ -4978,161 +4475,6 @@ export function App(): React.JSX.Element {
     document.body.classList.add("mve-resizing-split");
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", end, { once: true });
-  }
-
-  /**
-   * UIイベントを受け取り、必要な処理を実行する。
-   * @param event - ドラッグ中の目次項目の移動先を更新するpointer event。
-   */
-  function updateOutlineDrag(
-    event: React.PointerEvent<HTMLButtonElement>,
-  ): void {
-    const current = outlineDragRef.current;
-    if (!current || current.pointerId !== event.pointerId) return;
-    const distance = Math.hypot(
-      event.clientX - current.startX,
-      event.clientY - current.startY,
-    );
-    if (!current.dragging && distance < OUTLINE_DRAG_THRESHOLD_PX) return;
-
-    if (!current.dragging) document.body.classList.add("mve-dragging-outline");
-    const element = document
-      .elementFromPoint(event.clientX, event.clientY)
-      ?.closest<HTMLButtonElement>("button[data-outline-index]");
-    const targetIndex = element
-      ? Number(element.dataset.outlineIndex)
-      : Number.NaN;
-    let nextTargetIndex: number | undefined;
-    let position: "before" | "after" | undefined;
-    if (
-      element &&
-      Number.isInteger(targetIndex) &&
-      canMoveOutlineSection(current.outline, current.sourceIndex, targetIndex)
-    ) {
-      nextTargetIndex = targetIndex;
-      if (
-        isOutlineEmptyParentTarget(
-          current.outline,
-          current.sourceIndex,
-          targetIndex,
-        )
-      ) {
-        position = "after";
-      } else {
-        const bounds = element.getBoundingClientRect();
-        position =
-          event.clientY < bounds.top + bounds.height / 2 ? "before" : "after";
-      }
-    }
-    const next: OutlineDragState = {
-      ...current,
-      dragging: true,
-      targetIndex: nextTargetIndex,
-      position,
-    };
-    outlineDragRef.current = next;
-    if (
-      current.dragging !== next.dragging ||
-      current.targetIndex !== next.targetIndex ||
-      current.position !== next.position
-    ) {
-      setOutlineDrag(next);
-    }
-    event.preventDefault();
-  }
-
-  /** 同じ文書上で開始された有効な目次ドラッグを確定し、見出し順を更新する。
-   * @param event - 目次項目のdragを確定またはcancelするpointer event。
-   * @param cancelled - キャンセル済みで後続処理を開始できない状態。
-   */
-  function finishOutlineDrag(
-    event: React.PointerEvent<HTMLButtonElement>,
-    cancelled = false,
-  ): void {
-    const current = outlineDragRef.current;
-    if (!current || current.pointerId !== event.pointerId) return;
-    if (current.dragging) event.preventDefault();
-    skipOutlineContextMenuRef.current = true;
-    if (
-      !cancelled &&
-      isEditingEnabled(mode, splitView) &&
-      current.dragging &&
-      current.targetIndex !== undefined &&
-      current.position &&
-      localTextRef.current === current.markdown
-    ) {
-      const nextText = moveOutlineSection(
-        current.markdown,
-        current.outline,
-        current.sourceIndex,
-        current.targetIndex,
-        current.position,
-      );
-      if (nextText && nextText !== current.markdown) {
-        prepareLayoutRestore();
-        updateMarkdownRef.current(nextText);
-      }
-    }
-    outlineDragRef.current = undefined;
-    setOutlineDrag(undefined);
-    document.body.classList.remove("mve-dragging-outline");
-    if (event.currentTarget.hasPointerCapture(event.pointerId)) {
-      event.currentTarget.releasePointerCapture(event.pointerId);
-    }
-    if (!cancelled && !current.dragging) {
-      const item = current.outline[current.sourceIndex];
-      if (item)
-        setSectionLinkMenu({
-          id: item.id,
-          text: item.text,
-          x: event.clientX,
-          y: event.clientY,
-        });
-    }
-  }
-
-  /**
-   * アウトライン項目の右ドラッグを開始する。
-   * @param event - 指定した目次項目のdragを開始するpointer event。
-   * @param sourceIndex ドラッグ元となるアウトライン項目の0始まりインデックス。
-   */
-  function beginOutlineDrag(
-    event: React.PointerEvent<HTMLButtonElement>,
-    sourceIndex: number,
-  ): void {
-    if (event.button === 2) skipOutlineContextMenuRef.current = false;
-    if (event.button !== 2 || !isEditingEnabled(mode, splitView)) return;
-    // プレビューが遅延中の古いオフセットで本文を壊さないよう、最新描画済みのときだけ開始する。
-    if (previewSnapshot.markdown !== markdown) return;
-    const next: OutlineDragState = {
-      sourceIndex,
-      pointerId: event.pointerId,
-      startX: event.clientX,
-      startY: event.clientY,
-      markdown,
-      outline: [...outline],
-      dragging: false,
-    };
-    outlineDragRef.current = next;
-    setOutlineDrag(next);
-    // 右ボタン押下ではブラウザが通常フォーカスを移さないため、ドラッグ後のUndo/RedoをWebviewへ届ける。
-    event.currentTarget.focus({ preventScroll: true });
-    event.currentTarget.setPointerCapture(event.pointerId);
-    event.preventDefault();
-  }
-
-  /**
-   * 開閉三角形から始まった右ポインター操作を識別する。
-   * @param event アプリ領域に届いたポインター押下イベント。
-   * @returns 右ポインター操作の開始位置を記録する副作用。
-   */
-  function trackOutlineDisclosurePointer(
-    event: React.PointerEvent<HTMLDivElement>,
-  ): void {
-    outlineDisclosureRightPointerRef.current =
-      event.button === 2 &&
-      event.target instanceof Element &&
-      event.target.closest(".outline-disclosure") !== null;
   }
 
   /**
@@ -5601,73 +4943,45 @@ export function App(): React.JSX.Element {
       />
       <div className="workspace">
         {outlineVisible ? (
-          <>
-            <aside
-              className="outline-panel"
-              style={{ flexBasis: `${outlineWidth}px` }}
-              aria-label={messages.app.outline}
-            >
-              <div className="outline-header">
-                <h2>{messages.app.outline}</h2>
-                <button
-                  type="button"
-                  className="panel-close-button"
-                  title={messages.app.hideOutline}
-                  aria-label={messages.app.hideOutline}
-                  onClick={
-                    /**
-                     * click操作を表示または編集状態へ反映する。
-                     */
-                    () => {
-                      prepareLayoutRestore();
-                      setOutlineVisibility(false);
-                    }
-                  }
-                >
-                  ×
-                </button>
-              </div>
-              {outline.length ? (
-                <nav aria-label={messages.app.outline}>
-                  <ul className="outline-tree">
-                    {renderOutlineNodes(outlineTree)}
-                  </ul>
-                </nav>
-              ) : (
-                <p>{messages.app.noHeadings}</p>
-              )}
-            </aside>
-            <div
-              className="outline-resizer"
-              role="separator"
-              aria-orientation="vertical"
-              aria-label={messages.app.outlineWidth}
-              aria-valuemin={160}
-              aria-valuemax={420}
-              aria-valuenow={outlineWidth}
-              tabIndex={0}
-              onPointerDown={beginOutlineResize}
-              onKeyDown={
-                /**
-                 * keydown操作を表示または編集状態へ反映する。
-                 * @param event - アウトライン幅を矢印キーで変更するkeydown event。
-                 */
-                (event) => {
-                  if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
-                    setOutlineWidth(
-                      /**
-                       * @param value - キー操作前のアウトライン幅（px）。
-                       */
-                      (value) =>
-                        clampOutlineWidth(
-                          value + (event.key === "ArrowLeft" ? -10 : 10),
-                        ),
-                    );
-                  }
-                }
+          <OutlinePanel
+            messages={messages}
+            width={outlineWidth}
+            tree={outlineTree}
+            collapsedIds={collapsedOutlineIds}
+            drag={outlineDrag}
+            onClose={
+              /** レイアウト復元の準備をしてからアウトラインを閉じる。 */
+              () => {
+                prepareLayoutRestore();
+                setOutlineVisibility(false);
               }
-            />
-          </>
+            }
+            onToggle={toggleOutlineSection}
+            onDisclosureContextMenu={
+              /** 開閉ボタン上の右クリックを、並べ替えの開始として扱わない。 */
+              () => {
+                outlineDisclosureRightPointerRef.current = false;
+              }
+            }
+            onNavigate={goToOutlineOffset}
+            onDragStart={beginOutlineDrag}
+            onDragMove={updateOutlineDrag}
+            onDragEnd={finishOutlineDrag}
+            onResizeStart={beginOutlineResize}
+            onResizeBy={
+              /**
+               * アウトラインの幅を変える。
+               * @param delta - 変化量（ピクセル）。
+               */
+              (delta) => setOutlineWidth(
+                /**
+                 * 現在の幅に変化量を加えて範囲内へ収める。
+                 * @param value - 現在の幅。
+                 * @returns 新しい幅。
+                 */
+                (value) => clampOutlineWidth(value + delta))
+            }
+          />
         ) : (
           <button
             className="outline-reopen"
@@ -5718,113 +5032,28 @@ export function App(): React.JSX.Element {
           }
         >
           {searchVisible && (
-            <section
-              className="search-panel"
-              aria-label={messages.app.searchAndReplace}
-            >
-              <input
-                ref={searchInputRef}
-                aria-label={messages.app.searchText}
-                placeholder={messages.ribbon.search}
-                value={searchQuery}
-                onChange={
-                  /**
-                   * change操作を表示または編集状態へ反映する。
-                   * @param event - 検索入力の更新を処理するchange event。
-                   */
-                  (event) => {
-                    setSearchQuery(event.target.value);
-                    setSearchIndex(0);
-                  }
+            <SearchPanel
+              messages={messages}
+              inputRef={searchInputRef}
+              query={searchQuery}
+              replacement={searchReplacement}
+              hitCount={searchHits.length}
+              hitIndex={searchIndex}
+              onQueryChange={
+                /**
+                 * 検索語を更新し、一致位置を先頭へ戻す。
+                 * @param value - 新しい検索語。
+                 */
+                (value) => {
+                  setSearchQuery(value);
+                  setSearchIndex(0);
                 }
-                onKeyDown={
-                  /**
-                   * keydownイベントでifを実行する。
-                   * @param event - Escapeで検索を閉じ、Enter系キーで一致箇所を移動するkeydown event。
-                   */
-                  (event) => {
-                    if (event.key === "Escape") closeSearch();
-                    if (event.key === "Enter")
-                      jumpToSearch(event.shiftKey ? -1 : 1);
-                  }
-                }
-              />
-              <input
-                aria-label={messages.app.replacementText}
-                placeholder={messages.app.replacement}
-                value={searchReplacement}
-                onChange={
-                  /**
-                   * change操作を表示または編集状態へ反映する。
-                   * @param event - 置換文字列入力の更新を処理するchange event。
-                   */
-                  (event) => setSearchReplacement(event.target.value)
-                }
-              />
-              <span className="search-count">
-                {searchHits.length
-                  ? `${searchIndex + 1}/${searchHits.length}`
-                  : "0/0"}
-              </span>
-              <button
-                type="button"
-                onClick={
-                  /**
-                   * 前の検索ヒットを選び、本文とプレビューを移動する。
-                   */
-                  () => jumpToSearch(-1)
-                }
-                disabled={!searchHits.length}
-                title={messages.app.previousMatch}
-              >
-                {messages.app.previousMatch}
-              </button>
-              <button
-                type="button"
-                onClick={
-                  /**
-                   * 次の検索ヒットを選び、本文とプレビューを移動する。
-                   */
-                  () => jumpToSearch(1)
-                }
-                disabled={!searchHits.length}
-                title={messages.app.nextMatch}
-              >
-                {messages.app.nextMatch}
-              </button>
-              <button
-                type="button"
-                onClick={
-                  /**
-                   * 現在の検索ヒットを置換し、次のヒットへ進む。
-                   */
-                  () => replaceSearch(false)
-                }
-                disabled={!searchQuery}
-              >
-                {messages.app.replacement}
-              </button>
-              <button
-                type="button"
-                onClick={
-                  /**
-                   * 検索文字列に一致する全箇所を置換する。
-                   */
-                  () => replaceSearch(true)
-                }
-                disabled={!searchQuery}
-              >
-                {messages.app.replaceAll}
-              </button>
-              <button
-                type="button"
-                title={messages.app.close}
-                aria-label={messages.app.close}
-                onClick={closeSearch}
-              >
-                ×
-              </button>
-            </section>
+              }
+              onReplacementChange={setSearchReplacement}
+              onJump={jumpToSearch}
+              onReplace={replaceSearch}
+              onClose={closeSearch}
+            />
           )}
           {mode === "split" && (
             <div
@@ -5853,6 +5082,8 @@ export function App(): React.JSX.Element {
                   onViewportChange={sourceEditorViewportChange}
                   onUserScrollIntent={sourceEditorUserScrollIntent}
                   onOpenLink={sourceEditorOpenLink}
+                  onRequestLinkFiles={linkCompletionClient.requestFiles}
+                  onRequestLinkHeadings={linkCompletionClient.requestHeadings}
                 />
               </div>
               <div
@@ -6064,538 +5295,34 @@ export function App(): React.JSX.Element {
           />
         )}
         {diagnosticsVisible && (
-          <aside className="diagnostics-panel">
-            <div className="panel-title">
-              <h2>{messages.app.diagnosticsTitle}</h2>
-              <button
-                type="button"
-                className="panel-close-button"
-                title={messages.app.close}
-                aria-label={messages.app.close}
-                onClick={() => {
-                  prepareLayoutRestore();
-                  setDiagnosticsVisible(false);
-                }}
-              >
-                ×
-              </button>
-            </div>
-            <p className="diagnostic-summary">
-              {messages.app.severity.error} {diagnosticSummary.errors.length} /{" "}
-              {messages.app.severity.warning}{" "}
-              {diagnosticSummary.warnings.length} / {messages.app.severity.info}{" "}
-              {diagnosticSummary.infos.length}
-            </p>
-            <p className="diagnostic-help">{messages.app.diagnosticHelp}</p>
-            {diagnostics.length ? (
-              diagnostics.map(
-                /**
-                 * 診断項目を種別と一覧内位置を用いたキーで表示する。
-                 * @param item - 画面に詳細を表示する診断。
-                 * @param index - 診断一覧内の項目位置。
-                 * @returns 診断内容を表示するReact要素。
-                 */
-                (item, index) => (
-                  <div
-                    key={`${item.code}-${index}`}
-                    className={`diagnostic ${item.severity}`}
-                  >
-                    <strong>{messages.app.severity[item.severity]}</strong>
-                    {item.line ? (
-                      <button
-                        type="button"
-                        className="diagnostic-location"
-                        onClick={
-                          /**
-                           * click操作を表示または編集状態へ反映する。
-                           */
-                          () => goToDiagnosticLine(item.line as number)
-                        }
-                      >
-                        {messages.app.line(item.line as number)}
-                      </button>
-                    ) : null}
-                    <span>{item.message}</span>
-                  </div>
-                ),
-              )
-            ) : (
-              <p>{messages.app.noProblems}</p>
-            )}
-          </aside>
+          <DiagnosticsPanel
+            messages={messages}
+            diagnostics={diagnostics}
+            summary={diagnosticSummary}
+            onGoToLine={goToDiagnosticLine}
+            onClose={
+              /** レイアウト復元の準備をしてから閉じる。 */
+              () => {
+                prepareLayoutRestore();
+                setDiagnosticsVisible(false);
+              }
+            }
+          />
         )}
         {printSettingsVisible && (
-          <aside className="pdf-settings-panel">
-            <div className="panel-title">
-              <h2>{messages.app.printSettings}</h2>
-              <button
-                type="button"
-                className="panel-close-button"
-                title={messages.app.close}
-                aria-label={messages.app.close}
-                onClick={
-                  /**
-                   * click操作を表示または編集状態へ反映する。
-                   */
-                  () => {
-                    flushPdfOptionsPersistence();
-                    setPrintSettingsVisible(false);
-                  }
-                }
-              >
-                ×
-              </button>
-            </div>
-            <p>{messages.app.printSettingsHelp}</p>
-            <label>
-              {messages.app.paper}
-              <select
-                value={pdfOptions.format}
-                onChange={
-                  /**
-                   * 選択された用紙サイズをPDF設定へ反映する。
-                   * @param event - PDF出力形式の選択を処理するchange event。
-                   */
-                  (event) =>
-                    updatePdfOptions(
-                      /**
-
-                       * @param current - 現在の正規化済みPDF設定。用紙サイズを変更し、他の設定を維持する基準値。
-                       */
-                      (current) => ({
-                        ...current,
-                        format: event.target.value as PdfOptions["format"],
-                      }),
-                    )
-                }
-              >
-                {PDF_PAPER_FORMATS.map(
-                  /**
-                   * @param format - 本文または出力を解釈する形式。
-
-                   */
-                  (format) => (
-                    <option key={format}>{format}</option>
-                  ),
-                )}
-              </select>
-            </label>
-            <label>
-              {messages.app.orientation}
-              <select
-                value={pdfOptions.orientation}
-                onChange={
-                  /**
-                   * 選択されたページ方向をPDF設定へ反映する。
-                   * @param event - PDFページ方向の選択を処理するchange event。
-                   */
-                  (event) =>
-                    updatePdfOptions(
-                      /**
-
-                       * @param current - 現在の正規化済みPDF設定。用紙方向を変更し、他の設定を維持する基準値。
-                       */
-                      (current) => ({
-                        ...current,
-                        orientation: event.target
-                          .value as PdfOptions["orientation"],
-                      }),
-                    )
-                }
-              >
-                <option value="portrait">{messages.app.portrait}</option>
-                <option value="landscape">{messages.app.landscape}</option>
-              </select>
-            </label>
-            <label>
-              {messages.app.header}
-              <input
-                value={pdfOptions.header}
-                onChange={
-                  /**
-                   * PDFヘッダー出力の有効状態を更新する。
-                   * @param event - PDFヘッダー出力設定の変更を処理するchange event。
-                   */
-                  (event) =>
-                    updatePdfOptions(
-                      /**
-
-                       * @param current - 現在の正規化済みPDF設定。ヘッダー文字列を変更し、他の設定を維持する基準値。
-                       */
-                      (current) => ({
-                        ...current,
-                        header: event.target.value,
-                      }),
-                    )
-                }
-              />
-            </label>
-            <label>
-              {messages.app.footer}
-              <input
-                value={pdfOptions.footer}
-                onChange={
-                  /**
-                   * PDFフッター出力の有効状態を更新する。
-                   * @param event - PDFフッター出力設定の変更を処理するchange event。
-                   */
-                  (event) =>
-                    updatePdfOptions(
-                      /**
-
-                       * @param current - 現在の正規化済みPDF設定。フッター文字列を変更し、他の設定を維持する基準値。
-                       */
-                      (current) => ({
-                        ...current,
-                        footer: event.target.value,
-                      }),
-                    )
-                }
-              />
-            </label>
-            <fieldset className="output-text-replacement-fields">
-              <legend>{messages.app.outputReplacementRules}</legend>
-              <p
-                className="output-replacement-help"
-                id="output-replacement-help"
-              >
-                {messages.app.outputReplacementHelp}
-              </p>
-              {pdfOptions.textReplacements.map(
-                /**
-                 * 正規表現と置換文字列を編集できる出力置換ルール欄を作る。
-                 * @param rule 保存済みの出力置換ルール。
-                 * @param index ルールの0始まりの位置。
-                 * @returns ルールの正規表現・置換文字列・削除操作を含む欄。
-                 */
-                (rule, index) => {
-                  const patternValid =
-                    rule.pattern.length === 0 ||
-                    isTextReplacementPatternValid(rule.pattern);
-                  const patternInvalid = !patternValid;
-                  const errorId = `output-replacement-pattern-error-${index}`;
-                  return (
-                    <div className="output-text-replacement-rule" key={index}>
-                      <label>
-                        {messages.app.outputReplacementPattern}
-                        <span className="output-text-replacement-input">
-                          <input
-                            type="text"
-                            spellCheck={false}
-                            value={rule.pattern}
-                            aria-invalid={patternInvalid}
-                            aria-describedby={
-                              patternInvalid
-                                ? `output-replacement-help ${errorId}`
-                                : "output-replacement-help"
-                            }
-                            onChange={
-                              /**
-                               * 検索文字列欄の編集内容を対象ルールへ保存する。
-                               * @param event 検索文字列入力欄のchange event。
-                               * @returns 状態の更新と保存を行う。
-                               */
-                              (event) =>
-                                updateOutputTextReplacement(
-                                  index,
-                                  "pattern",
-                                  event.currentTarget.value,
-                                )
-                            }
-                            onScroll={syncReplacementInputVisualizationScroll}
-                          />
-                          <span
-                            className="output-text-replacement-visualization"
-                            aria-hidden="true"
-                          >
-                            {renderTextWithVisibleSpaces(rule.pattern)}
-                          </span>
-                        </span>
-                      </label>
-                      <label>
-                        {messages.app.outputReplacementText}
-                        <span className="output-text-replacement-input">
-                          <input
-                            type="text"
-                            value={rule.replacement}
-                            onChange={
-                              /**
-                               * 置換文字列欄の編集内容を対象ルールへ保存する。
-                               * @param event 置換文字列入力欄のchange event。
-                               * @returns 状態の更新と保存を行う。
-                               */
-                              (event) =>
-                                updateOutputTextReplacement(
-                                  index,
-                                  "replacement",
-                                  event.currentTarget.value,
-                                )
-                            }
-                            onScroll={syncReplacementInputVisualizationScroll}
-                          />
-                          <span
-                            className="output-text-replacement-visualization"
-                            aria-hidden="true"
-                          >
-                            {renderTextWithVisibleSpaces(rule.replacement)}
-                          </span>
-                        </span>
-                      </label>
-                      <button
-                        type="button"
-                        className="output-text-replacement-remove"
-                        title={messages.app.removeOutputReplacementRule}
-                        aria-label={messages.app.removeOutputReplacementRule}
-                        onClick={
-                          /**
-                           * 対象の出力置換ルールをリストから削除する。
-                           * @returns 状態の更新と保存を行う。
-                           */
-                          () => removeOutputTextReplacement(index)
-                        }
-                      >
-                        {messages.app.removeOutputReplacementRuleShort}
-                      </button>
-                      {patternInvalid && (
-                        <p
-                          className="output-replacement-error"
-                          id={errorId}
-                          role="alert"
-                        >
-                          {messages.app.invalidOutputReplacementPattern}
-                        </p>
-                      )}
-                    </div>
-                  );
-                },
-              )}
-              <button
-                type="button"
-                className="output-text-replacement-add"
-                onClick={
-                  /**
-                   * 新しい出力置換ルール欄を追加する。
-                   * @returns 状態の更新と保存を行う。
-                   */
-                  addOutputTextReplacement
-                }
-              >
-                {messages.app.addOutputReplacementRule}
-              </button>
-            </fieldset>
-            <fieldset className="pdf-margin-fields">
-              <legend>{messages.app.margins}</legend>
-              {(["top", "right", "bottom", "left"] as const).map(
-                /**
-                 * 4方向のPDF余白入力欄を作る。
-                 * @param side - 編集する余白の位置（top、right、bottom、left）。
-
-                 */
-                (side) => (
-                  <label key={side}>
-                    {
-                      (
-                        {
-                          top: messages.app.top,
-                          right: messages.app.right,
-                          bottom: messages.app.bottom,
-                          left: messages.app.left,
-                        } as const
-                      )[side]
-                    }
-                    <input
-                      key={`${side}-${pdfOptions.margins[side]}`}
-                      type="number"
-                      min={0}
-                      max={50}
-                      defaultValue={pdfOptions.margins[side]}
-                      onBlur={
-                        /**
-                         * @param event - PDF余白入力をblur時に確定するfocus event。
-                         */
-                        (event) =>
-                          updatePdfOptions(
-                            /**
-                             * @param current - 現在の正規化済みPDF設定。指定した辺の余白を変更し、他の余白と設定を維持する基準値。
-                             */
-                            (current) => ({
-                              ...current,
-                              margins: {
-                                ...current.margins,
-                                [side]: clampPdfMargin(
-                                  event.currentTarget.value,
-                                ),
-                              },
-                            }),
-                          )
-                      }
-                    />
-                  </label>
-                ),
-              )}
-            </fieldset>
-            <fieldset className="pdf-typography-fields">
-              <legend>{messages.app.typography}</legend>
-              {/* 数値欄は入力途中の値を保持し、フォーカス離脱時にだけ範囲正規化して確定する。 */}
-              <label>
-                {messages.app.bodyFontSize} (pt)
-                <input
-                  key={`body-${pdfOptions.bodyFontSize}`}
-                  type="number"
-                  min={6}
-                  max={48}
-                  step={0.5}
-                  defaultValue={pdfOptions.bodyFontSize}
-                  onBlur={
-                    /**
-                     * @param event - PDF本文フォントサイズ入力をblur時に確定するfocus event。
-                     */
-                    (event) =>
-                      updatePdfOptions(
-                        /**
-                         * @param current - 現在の正規化済みPDF設定。本文文字サイズを変更し、他の設定を維持する基準値。
-                         */
-                        (current) => ({
-                          ...current,
-                          bodyFontSize: Number(event.currentTarget.value),
-                        }),
-                      )
-                  }
-                />
-              </label>
-              <fieldset className="pdf-heading-fields">
-                <legend>{messages.app.headingFontSizes} (pt)</legend>
-                {(["h1", "h2", "h3", "h4", "h5", "h6"] as const).map(
-                  /**
-                   * h1からh6のPDF見出し文字サイズ入力欄を作る。
-                   * @param heading - 編集する見出しレベル（h1〜h6）。
-                   * @returns 見出しレベルと対応する文字サイズ入力欄。
-                   */
-                  (heading) => (
-                    <label key={heading}>
-                      {heading.toUpperCase()}
-                      <input
-                        key={`${heading}-${pdfOptions.headingFontSizes[heading]}`}
-                        type="number"
-                        min={6}
-                        max={72}
-                        step={0.5}
-                        defaultValue={pdfOptions.headingFontSizes[heading]}
-                        onBlur={
-                          /**
-                           * @param event - PDF見出しレベル別フォントサイズ入力をblur時に確定するfocus event。
-                           */
-                          (event) =>
-                            updatePdfOptions(
-                              /**
-                               * @param current - 現在の正規化済みPDF設定。対象見出しの文字サイズを変更し、他の見出しと設定を維持する基準値。
-                               */
-                              (current) => ({
-                                ...current,
-                                headingFontSizes: {
-                                  ...current.headingFontSizes,
-                                  [heading]: Number(event.currentTarget.value),
-                                },
-                              }),
-                            )
-                        }
-                      />
-                    </label>
-                  ),
-                )}
-              </fieldset>
-              <label>
-                {messages.app.codeFontSize} (pt)
-                <input
-                  key={`code-${pdfOptions.codeFontSize}`}
-                  type="number"
-                  min={6}
-                  max={36}
-                  step={0.5}
-                  defaultValue={pdfOptions.codeFontSize}
-                  onBlur={
-                    /**
-                     * @param event - PDFコードフォントサイズ入力をblur時に確定するfocus event。
-                     */
-                    (event) =>
-                      updatePdfOptions(
-                        /**
-                         * @param current - 現在の正規化済みPDF設定。コード文字サイズを変更し、他の設定を維持する基準値。
-                         */
-                        (current) => ({
-                          ...current,
-                          codeFontSize: Number(event.currentTarget.value),
-                        }),
-                      )
-                  }
-                />
-              </label>
-              <label>
-                {messages.app.lineHeight}
-                <input
-                  key={`line-height-${pdfOptions.lineHeight}`}
-                  type="number"
-                  min={0.8}
-                  max={3}
-                  step={0.05}
-                  defaultValue={pdfOptions.lineHeight}
-                  onBlur={
-                    /**
-                     * @param event - PDF行間設定入力をblur時に確定するfocus event。
-                     */
-                    (event) =>
-                      updatePdfOptions(
-                        /**
-                         * @param current - 現在の正規化済みPDF設定。行高を変更し、他の設定を維持する基準値。
-                         */
-                        (current) => ({
-                          ...current,
-                          lineHeight: Number(event.currentTarget.value),
-                        }),
-                      )
-                  }
-                />
-              </label>
-              <label>
-                {messages.app.paragraphSpacing} (pt)
-                <input
-                  key={`paragraph-spacing-${pdfOptions.paragraphSpacing}`}
-                  type="number"
-                  min={0}
-                  max={48}
-                  step={0.5}
-                  defaultValue={pdfOptions.paragraphSpacing}
-                  onBlur={
-                    /**
-                     * @param event - PDF段落間隔入力をblur時に確定するfocus event。
-                     */
-                    (event) =>
-                      updatePdfOptions(
-                        /**
-                         * @param current - 現在の正規化済みPDF設定。段落間隔を変更し、他の設定を維持する基準値。
-                         */
-                        (current) => ({
-                          ...current,
-                          paragraphSpacing: Number(event.currentTarget.value),
-                        }),
-                      )
-                  }
-                />
-              </label>
-            </fieldset>
-            <button
-              type="button"
-              className="primary"
-              onClick={
-                /**
-                 * 設定済み内容のPDF出力をHostへ要求する。
-                 */
-                () => void requestPdfExport()
+          <PrintSettingsPanel
+            messages={messages}
+            pdfOptions={pdfOptions}
+            updatePdfOptions={updatePdfOptions}
+            onClose={
+              /** 保留中の設定保存を確定してから閉じる。 */
+              () => {
+                flushPdfOptionsPersistence();
+                setPrintSettingsVisible(false);
               }
-            >
-              {messages.ribbon.labels.exportPdf}
-            </button>
-          </aside>
+            }
+            onExportPdf={/** PDF を出力する。 */ () => void requestPdfExport()}
+          />
         )}
       </div>
       <footer className="status-bar">
@@ -6646,2983 +5373,27 @@ export function App(): React.JSX.Element {
         </div>
       )}
       {sectionLinkMenu && (
-        <div
-          ref={sectionLinkMenuRef}
-          className="section-link-context-menu"
-          role="menu"
-          aria-label={messages.app.sectionLinkMenu}
-          style={{ left: sectionLinkMenu.x, top: sectionLinkMenu.y }}
-        >
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
+        <SectionLinkMenu
+          messages={messages}
+          menu={sectionLinkMenu}
+          menuRef={sectionLinkMenuRef}
+          onCopy={
+            /**
+             * 見出しのリンクのコピーを Host へ依頼し、メニューを閉じる。
+             * @param scope - 同じ文書内のリンクか、ワークスペース基準のリンクか。
+             */
+            (scope) => {
               vscode.postMessage({
                 type: "copySectionLink",
-                scope: "document",
+                scope,
                 id: sectionLinkMenu.id,
                 text: sectionLinkMenu.text,
               });
               setSectionLinkMenu(undefined);
-            }}
-          >
-            {messages.app.copySectionLink}
-          </button>
-          <button
-            type="button"
-            role="menuitem"
-            onClick={() => {
-              vscode.postMessage({
-                type: "copySectionLink",
-                scope: "workspace",
-                id: sectionLinkMenu.id,
-                text: sectionLinkMenu.text,
-              });
-              setSectionLinkMenu(undefined);
-            }}
-          >
-            {messages.app.copyWorkspaceSectionLink}
-          </button>
-        </div>
+            }
+          }
+        />
       )}
     </div>
   );
-}
-
-/**
- * 選択した画像・図・数式の参照元を確認し、編集可能な属性を更新するパネル。
- * @param target 詳細を表示するプレビュー要素とその参照元。
- * @param settings 画像表示に使うWebview設定。
- * @param messages ラベルと操作案内を表示するローカライズ辞書。
- * @param onChange 変更した参照元や画像altを親の文書状態へ反映する処理。
- * @param onClose パネルを閉じる処理。
- * @param onOpenResource 画像の参照先をエディターで開く処理。
- * @returns 対象種別に応じたプレビュー要素または参照元編集欄を含むパネル。
- */
-function Inspector({
-  target,
-  settings,
-  messages,
-  onChange,
-  onClose,
-  onOpenResource,
-}: {
-  /** 詳細を表示する画像・図・数式と、Markdown上の参照元。 */
-  target: InspectorTarget;
-
-  /**
-   * Webviewルートへ渡す設定または境界値。
-   */
-  settings: WebviewSettings;
-
-  /**
-   * Webview用の型付きローカライズ済みメッセージカタログ。
-   */
-  messages: Messages;
-  /** Inspectorで編集した参照元と画像altを親の状態へ反映する。
-   * @param source - Inspectorで編集している画像・数式・図の参照元文字列。
-   * @param alt - Inspectorで編集している画像の代替テキスト。画像以外では省略する。
-   */
-  onChange: (source: string, alt?: string) => void;
-  /** Inspectorを閉じるよう親へ通知する。 */
-  onClose: () => void;
-  /**
-   * Inspectorで選択したローカルリソースをエディターで開くよう親へ通知する。
-   * @param href - Inspectorから開くMarkdownリソースのhref文字列。
-   */
-  onOpenResource: (href: string) => void;
-}): React.JSX.Element {
-  const [source, setSource] = useState(target.source);
-  const [alt, setAlt] = useState(target.type === "image" ? target.alt : "");
-  useEffect(
-    /**
-     * 依存状態の変化に応じて表示または購読を更新する。
-     */
-    () => {
-      setSource(target.source);
-      if (target.type === "image") setAlt(target.alt);
-    },
-    [target],
-  );
-  return (
-    <aside className="inspector-panel">
-      <div className="panel-title">
-        <h2>
-          {target.type === "mermaid"
-            ? messages.app.inspector.mermaid
-            : target.type === "math"
-              ? messages.app.inspector.math
-              : messages.app.inspector.image}
-        </h2>
-        <button
-          type="button"
-          className="panel-close-button"
-          title={messages.app.close}
-          aria-label={messages.app.close}
-          onClick={onClose}
-        >
-          ×
-        </button>
-      </div>
-      {target.type === "image" ? (
-        <>
-          <img src={source} alt={alt} />
-          <label>
-            {messages.app.inspector.alt}
-            <input
-              value={alt}
-              onChange={
-                /**
-                 * change操作を表示または編集状態へ反映する。
-                 * @param event - 画像altテキスト入力の更新を処理するchange event。
-                 */
-                (event) => setAlt(event.target.value)
-              }
-            />
-          </label>
-          <label>
-            {messages.app.inspector.reference}
-            <input value={source} readOnly />
-          </label>
-          <button
-            onClick={
-              /**
-               * click操作を表示または編集状態へ反映する。
-               */
-              () => onOpenResource(source)
-            }
-          >
-            {messages.app.inspector.openFile}
-          </button>
-          <button
-            className="primary"
-            onClick={
-              /**
-               * click操作を表示または編集状態へ反映する。
-               */
-              () => onChange(source, alt)
-            }
-          >
-            {messages.app.inspector.apply}
-          </button>
-        </>
-      ) : (
-        <>
-          <textarea
-            value={source}
-            spellCheck={false}
-            onChange={
-              /**
-               * change操作を表示または編集状態へ反映する。
-               * @param event - Inspectorの画像Markdown本文入力を処理するchange event。
-               */
-              (event) => setSource(event.target.value)
-            }
-          />
-          <div className="inspector-preview">
-            <RenderedMarkdown
-              markdown={
-                target.type === "mermaid"
-                  ? `\`\`\`mermaid\n${source}\n\`\`\``
-                  : `$$\n${source}\n$$`
-              }
-              settings={settings}
-            />
-          </div>
-          <button
-            className="primary"
-            onClick={
-              /**
-               * click操作を表示または編集状態へ反映する。
-               */
-              () => onChange(source)
-            }
-          >
-            {messages.app.inspector.apply}
-          </button>
-        </>
-      )}
-    </aside>
-  );
-}
-
-/**
- * Web WorkerでMarkdownプレビューを更新し、古い世代の結果を破棄しながら最新のスナップショットを返す。
- * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
- * @param remoteImagesEnabled - リモート画像を出力へ含める場合はtrue。
- * @param language - プレビュー内のコードブロックに適用する表示言語コード。
- * @param enabled - 現在の表示モードでWorker描画が必要な場合はtrue。
- * @param onBeforeRefinement - Worker描画の精緻化結果を反映する直前に、プレビュー位置などを退避する処理。
- * @returns 最新の描画スナップショットと、保留中の描画を中断する関数。
- */
-function useMarkdownPreviewSnapshot(
-  markdown: string,
-  remoteImagesEnabled: boolean,
-  language: WebviewSettings["language"],
-  renderFormat: MarkdownRenderFormat,
-  enabled: boolean,
-  onBeforeRefinement: () => void,
-): [MarkdownPreviewSnapshot, () => void] {
-  const [snapshot, setSnapshot] = useState<MarkdownPreviewSnapshot>({
-    markdown: "",
-    html: "",
-    outline: [],
-    diagnostics: [],
-    stats: { markdown: 0, text: 0, lines: 1 },
-  });
-  const workerRef = useRef<Worker | undefined>(undefined);
-  const workerBusyRef = useRef(false);
-  const cancelSanitizationRef = useRef<() => void>(() => undefined);
-  const generationRef = useRef(0);
-  const onBeforeRefinementRef = useRef(onBeforeRefinement);
-  onBeforeRefinementRef.current = onBeforeRefinement;
-  /** workerRef が highlight.js を含む rich Worker なら true。 */
-  const workerIsRichRef = useRef(false);
-  /** rich Worker への差し替えを準備中なら true。二重起動を防ぐ。 */
-  const promotingRef = useRef(false);
-  /** hook のアンマウント後に届いた非同期結果で Worker を残さないための印。 */
-  const disposedRef = useRef(false);
-
-  /**
-   * 軽量Workerの結果を最終結果として使った後、以降の編集を従来どおりrich Workerの1回描画で処理できるよう、
-   * バックグラウンドでrich Workerを起動して差し替える。描画中・世代変更・アンマウント時は差し替えず、起動したWorkerを破棄する。
-   * 取得や起動に失敗した場合は軽量Workerを使い続け、ハイライトが必要な描画では従来どおりrich Workerの起動とフォールバックを行う。
-   * @param lightWorker - 現在workerRefに入っている軽量Worker。差し替え時点でも同じ個体である場合だけ差し替える。
-   */
-  const promoteToRichWorker = useCallback((lightWorker: Worker) => {
-    if (promotingRef.current || richWorkerPromotionUnavailable) return;
-    promotingRef.current = true;
-    // 本文の予測で先行起動したrich Workerがあれば、先行描画の完了とエラー有無を確認してから再利用する。
-    // エラー済みなら破棄して新しく起動し、停止したWorkerを描画に使わない。
-    const speculativeRich = takeSpeculativeRichRender();
-    const richWorkerPromise = speculativeRich
-      ? settleSpeculativeRender(speculativeRich).then(
-          /**
-           * 先行rich描画が成功していればそのWorkerを、失敗していれば新しいWorkerを返す。
-           * @param outcome - 先行rich描画の確定結果。
-           * @returns 差し替えに使うrich Worker。
-           */
-          (outcome) => {
-            if (!("error" in outcome)) return speculativeRich.worker;
-            void speculativeRich.worker.then(
-              /**
-               * 失敗した先行rich Workerを終了する。
-               * @param worker - 先行rich Worker。
-               */
-              (worker) => worker.terminate(),
-              () => undefined,
-            );
-            return acquireMarkdownWorker(true);
-          },
-        )
-      : acquireMarkdownWorker(true);
-    void richWorkerPromise.then(
-      /**
-       * 起動したrich Workerを、軽量Workerが待機中の場合だけ採用する。
-       * @param richWorker - 差し替えに使うrich Worker。
-       */
-      (richWorker) => {
-        promotingRef.current = false;
-        if (
-          disposedRef.current ||
-          workerRef.current !== lightWorker ||
-          workerBusyRef.current
-        ) {
-          richWorker.terminate();
-          return;
-        }
-        // スクリプト評価の失敗は描画要求より前に起こり得る。待機中なら破棄し、次の描画で軽量Workerから取り直す。
-        richWorker.addEventListener(
-          "error",
-          /**
-           * 待機中に失敗したrich Workerを外す。描画中ならonerrorがフォールバックを担う。
-           */
-          () => {
-            if (workerRef.current !== richWorker || workerBusyRef.current)
-              return;
-            richWorker.terminate();
-            workerRef.current = undefined;
-            workerIsRichRef.current = false;
-          },
-        );
-        lightWorker.terminate();
-        workerRef.current = richWorker;
-        workerIsRichRef.current = true;
-      },
-      () => {
-        promotingRef.current = false;
-        // 取得できない環境で編集のたびに再取得しないよう、このセッションでは差し替えを諦める。
-        // ハイライトが必要な描画では、従来どおりrich Workerの起動とフォールバックが行われる。
-        richWorkerPromotionUnavailable = true;
-      },
-    );
-  }, []);
-
-  const cancelActiveRender = useCallback(() => {
-    generationRef.current += 1;
-    if (workerBusyRef.current) {
-      workerRef.current?.terminate();
-      workerRef.current = undefined;
-      workerBusyRef.current = false;
-    }
-    cancelSanitizationRef.current();
-    cancelSanitizationRef.current = () => undefined;
-  }, []);
-
-  useEffect(
-    /**
-     * 依存状態の変化に応じて表示または購読を更新する。
-     */
-    () => {
-      cancelActiveRender();
-      if (!enabled) return;
-      const id = generationRef.current;
-      const startedAt = performance.now();
-
-      const applySynchronousFallback = /**
-       * Webviewルートの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-       * @param error - 処理に失敗した理由または例外。
-       */ async (error: unknown) => {
-        if (generationRef.current !== id) return;
-        document.body.dataset.mveMarkdownWorkerStatus = "fallback";
-        console.error(
-          "[Markdown Easy Visual Editor] Markdown Workerを利用できないため同期描画へ切り替えます。",
-          error,
-        );
-        const fallbackStartedAt = performance.now();
-        let html: string;
-        try {
-          html = await renderMarkdownFallback(markdown, {
-            remoteImagesEnabled,
-            language,
-            renderFormat,
-          });
-        } catch (fallbackError) {
-          if (generationRef.current !== id) return;
-          console.error(
-            "[Markdown Easy Visual Editor] Markdown フォールバックを読み込めませんでした。",
-            fallbackError,
-          );
-          html = `<pre>${escapeHtml(markdown)}</pre>`;
-        }
-        if (generationRef.current !== id) return;
-        const rendered = document.createElement("template");
-        rendered.innerHTML = html;
-        const headingIds = new Map<number, string>();
-        for (const heading of rendered.content.querySelectorAll<HTMLElement>(
-          ".markdown-source-block > [data-mve-heading][id]",
-        )) {
-          const offset = Number(heading.parentElement?.dataset.sourceFrom);
-          if (Number.isInteger(offset)) headingIds.set(offset, heading.id);
-        }
-        setSnapshot({
-          markdown,
-          html,
-          outline: getOutlineForFormat(
-            markdown,
-            renderFormat,
-            [...headingIds].map(([offset, headingId]) => ({
-              html: "",
-              headingOffset: offset,
-              headingId,
-              requiresSanitization: false,
-            })),
-          ),
-          diagnostics: collectDiagnostics(markdown, language),
-          stats: wordStats(markdown),
-          preliminary: false,
-        });
-        recordLatestPerformanceMeasure(
-          "mve-preview-markdown",
-          fallbackStartedAt,
-        );
-      };
-
-      const startWorker = /**
-       * Webviewルートの表示または操作を開始する。
-       * @param rich - リッチMarkdown用Workerを選ぶ場合はtrue。
-       * @param refinement - 完成HTMLの反映として描画する場合はtrue。初回の簡易描画はfalse。
-       * @returns 戻り値はなく、Workerの生成または再利用を開始する。
-       */ async (rich = false, refinement = false) => {
-        try {
-          let worker = workerRef.current;
-          let adopted: SpeculativeFirstRender | undefined;
-          if (!worker) {
-            document.body.dataset.mveMarkdownWorkerStatus = "loading";
-            // マウント前に同じ入力で始めた先行描画があれば、そのWorkerと結果を引き継ぐ。
-            adopted = takeSpeculativeFirstRender(
-              rich ? "rich" : "light",
-              /**
-               * 先行描画が残っている場合だけ照合キーを作る。本文全体の文字列化を通常の編集で繰り返さないため。
-               * @returns この描画要求の照合キー。
-               */
-              () =>
-                markdownRenderKey(markdown, {
-                  remoteImagesEnabled,
-                  language,
-                  renderFormat,
-                }),
-            );
-            worker = adopted
-              ? await adopted.worker
-              : await acquireMarkdownWorker(rich);
-            if (generationRef.current !== id) {
-              worker.terminate();
-              return;
-            }
-            workerRef.current = worker;
-            workerIsRichRef.current = rich;
-          }
-          if (generationRef.current !== id) return;
-          workerBusyRef.current = true;
-          document.body.dataset.mveMarkdownWorkerStatus = "running";
-          worker.onmessage =
-            /**
-             * @param event - Markdown rendering workerから応答を受信するmessage event。
-             * @returns Webviewルートのonmessageが生成する結果。
-             */
-            (event: MessageEvent<MarkdownWorkerResponse>) => {
-              const response = event.data;
-              if (
-                response.id !== id ||
-                generationRef.current !== id ||
-                workerRef.current !== worker
-              )
-                return;
-              // 古い世代や先行描画IDの応答で計測値を上書きしないよう、受理した応答だけを記録する。
-              // 先行描画を引き継いだ場合は、hookが結果を受理した時刻になる。
-              recordLatestPerformanceMark("mve-preview-worker-response");
-              workerBusyRef.current = false;
-              if (
-                response.error ||
-                !response.unsafeBlocks ||
-                response.markdown === undefined ||
-                !response.outline ||
-                !response.diagnostics ||
-                !response.stats
-              ) {
-                void applySynchronousFallback(response.error);
-                return;
-              }
-              const preliminary = response.preliminary === true;
-              document.body.dataset.mveMarkdownWorkerStatus = preliminary
-                ? "preliminary"
-                : "ready";
-              // rich Workerのスクリプト取得を簡易結果のサニタイズと並行して始め、精緻化までの待ちを縮める。
-              // 取得失敗はキャッシュに残らず、後続の起動時に従来どおり再取得・フォールバックされる。
-              if (preliminary)
-                void resolveMarkdownWorkerLaunchUrl(true).catch(
-                  () => undefined,
-                );
-              recordLatestPerformanceMeasure(
-                "mve-preview-markdown-worker",
-                startedAt,
-              );
-              if (preliminary && workerRef.current === worker) {
-                worker.terminate();
-                workerRef.current = undefined;
-              }
-              cancelSanitizationRef.current = sanitizeMarkdownBlocks(
-                response.unsafeBlocks,
-
-                /**
-                 * 応答を受け付ける前に描画要求IDが現在の世代かを確認する。
-                 */
-                () => generationRef.current === id,
-
-                /**
-                 * @param html - 表示または出力するHTML本文。
-                 * @param maximumChunkDuration - 1回のHTMLサニタイズ処理にかかった最長チャンク時間（ミリ秒）。
-                 */
-                (html, maximumChunkDuration) => {
-                  recordLatestPerformanceMark("mve-preview-sanitize-complete");
-                  cancelSanitizationRef.current = () => undefined;
-                  recordPerformanceDuration(
-                    "mve-preview-markdown",
-                    maximumChunkDuration,
-                  );
-                  if (generationRef.current !== id) return;
-                  if (refinement) onBeforeRefinementRef.current();
-                  setSnapshot({
-                    markdown: response.markdown as string,
-                    html,
-                    outline: response.outline as OutlineItem[],
-                    diagnostics: response.diagnostics as Diagnostic[],
-                    stats: response.stats as {
-                      /**
-                       * 集計対象Markdown本文の文字数。
-                       */
-                      markdown: number;
-
-                      /**
-                       * Markdown構文を除去した本文の文字数。
-                       */
-                      text: number;
-
-                      /**
-                       * Markdown本文の行数。
-                       */
-                      lines: number;
-                    },
-                    preliminary,
-                  });
-                  if (preliminary) void startWorker(true, true);
-                  else if (
-                    !workerIsRichRef.current &&
-                    workerRef.current === worker
-                  )
-                    promoteToRichWorker(worker);
-                },
-              );
-            };
-          worker.onerror =
-            /**
-             * @param event - Markdown rendering workerで処理失敗を受信するerror event。
-             * @returns Webviewルートのonerrorが生成する結果。
-             */
-            (event) => {
-              if (generationRef.current !== id || workerRef.current !== worker)
-                return;
-              workerBusyRef.current = false;
-              worker.terminate();
-              workerRef.current = undefined;
-              void applySynchronousFallback(event.message);
-            };
-          if (adopted) {
-            const adoptedWorker = worker;
-            const handleMessage = worker.onmessage;
-            void settleSpeculativeRender(adopted).then(
-              /**
-               * 先行描画の結果を、この世代の要求IDの応答として通常の受信処理へ渡す。エラーなら通常のWorker障害と同じくフォールバックする。
-               * @param outcome - 先行描画の応答またはエラー。
-               */
-              (outcome) => {
-                if (
-                  generationRef.current !== id ||
-                  workerRef.current !== adoptedWorker
-                )
-                  return;
-                if ("error" in outcome) {
-                  workerBusyRef.current = false;
-                  adoptedWorker.terminate();
-                  workerRef.current = undefined;
-                  void applySynchronousFallback(outcome.error);
-                  return;
-                }
-                handleMessage?.call(
-                  adoptedWorker,
-                  new MessageEvent("message", {
-                    data: { ...outcome.response, id },
-                  }),
-                );
-              },
-            );
-          } else {
-            worker.postMessage({
-              id,
-              markdown,
-              options: { remoteImagesEnabled, language, renderFormat },
-            });
-          }
-        } catch (error) {
-          void applySynchronousFallback(error);
-        }
-      };
-      void startWorker();
-      return cancelActiveRender;
-    },
-    [
-      markdown,
-      remoteImagesEnabled,
-      language,
-      renderFormat,
-      enabled,
-      cancelActiveRender,
-    ],
-  );
-
-  useEffect(
-    /**
-     * マウント中であることを記録し、アンマウント時にWorkerと未使用の先行描画を破棄する後始末を登録する。
-     * 開発時のStrictModeによる再マウントでも、マウント時に破棄済みの印を戻す。
-     */
-    () => {
-      disposedRef.current = false;
-      return (
-        /**
-         * アンマウント時にWorkerを終了し、準備中のrich Workerも結果到着時に破棄させる。
-         */
-        () => {
-          disposedRef.current = true;
-          discardSpeculativeFirstRenders();
-          workerRef.current?.terminate();
-          workerRef.current = undefined;
-          workerBusyRef.current = false;
-          workerIsRichRef.current = false;
-        }
-      );
-    },
-    [],
-  );
-
-  return [snapshot, cancelActiveRender];
-}
-
-/**
- * Webviewルートの非同期処理を共有するPromise。
- */
-const markdownWorkerBlobUrlPromises = new Map<string, Promise<string>>();
-/**
- * 先行生成した描画Worker、失敗情報、エラー通知リスナーを保持します。
- */
-interface PreloadedMarkdownWorker {
-  /**
-   * プレビュー描画用に先行生成したWorkerインスタンス。
-   */
-  worker: Worker;
-
-  /**
-   * 処理に失敗した理由または例外。
-   */
-  error?: unknown;
-  /**
-   * preload中に起きたエラーをstate.errorへ保存するリスナー。
-   * @param event - Markdown worker preload失敗のmessageまたはerrorを保持するErrorEvent。
-   */
-  errorListener: (event: ErrorEvent) => void;
-}
-/**
- * Webviewルートの非同期処理を共有するPromise。
- */
-let preloadedMarkdownWorkerPromise:
-  | Promise<PreloadedMarkdownWorker>
-  | undefined;
-
-/**
- * 設定済みURL、またはWebview本体の位置を基準にWorkerスクリプトURLを解決する。
- * @param rich - リッチMarkdown用WorkerスクリプトのURLを解決する場合はtrue。
- * @returns 選択したWorkerスクリプトのURL。
- */
-function resolveMarkdownWorkerResourceUrl(rich = false): string {
-  const configured = rich
-    ? document.body.dataset.mveMarkdownRichWorkerUri
-    : document.body.dataset.mveMarkdownWorkerUri;
-  if (configured) return configured;
-  const script = Array.from(document.scripts).find(
-    /**
-     * Webviewのバンドルスクリプトを探す。
-     * @param candidate - 読み込まれたWebviewスクリプト要素。
-     * @returns 条件に一致した最初の要素。未検出時はundefined。
-     */
-    (candidate) => /(?:^|\/)webview\.js(?:[?#]|$)/.test(candidate.src),
-  );
-  return new URL(
-    rich ? "markdown-rich-worker.js" : "markdown-worker.js",
-    script?.src || document.baseURI,
-  ).toString();
-}
-
-/**
- * WorkerスクリプトをBlob URLへ変換し、同じURLの変換Promiseを共有する。
- * @param rich - リッチMarkdown用Workerスクリプトの起動URLを解決する場合はtrue。
- * @returns new Workerへ渡せるURL。すでにblob/data URLならそのまま返す。
- */
-async function resolveMarkdownWorkerLaunchUrl(rich = false): Promise<string> {
-  const resourceUrl = resolveMarkdownWorkerResourceUrl(rich);
-  if (/^(?:blob:|data:)/i.test(resourceUrl)) return resourceUrl;
-  let pending = markdownWorkerBlobUrlPromises.get(resourceUrl);
-  pending ??= fetch(resourceUrl)
-    .then(
-      /**
-       * @param response - Markdown Worker取得要求のHTTP応答。成功状態を確認して本文Blobを読み取る。
-       */
-      (response) => {
-        if (!response.ok)
-          throw new Error(
-            `Markdown Workerの取得に失敗しました (${response.status})`,
-          );
-        return response.blob();
-      },
-    )
-    .then(
-      /**
-       * @param blob - 取得したMarkdown Workerスクリプト本文のBlob。Worker起動用Object URLを作る元データ。
-       */
-      (blob) => URL.createObjectURL(blob),
-    )
-    .catch(
-      /**
-       * @param error - 処理に失敗した理由または例外。
-       */
-      (error) => {
-        markdownWorkerBlobUrlPromises.delete(resourceUrl);
-        throw error;
-      },
-    );
-  markdownWorkerBlobUrlPromises.set(resourceUrl, pending);
-  return pending;
-}
-
-/**
- * 既定のMarkdown Workerをバックグラウンドで一度だけ起動し、利用可能にしておく。
- */
-export function preloadMarkdownWorker(): void {
-  preloadedMarkdownWorkerPromise ??= resolveMarkdownWorkerLaunchUrl().then(
-    /**
-     * @param url - 起動するMarkdown WorkerのスクリプトURL。
-     * @returns 起動したWorkerとerror listenerを保持する状態。
-     */
-    (url) => {
-      const state = {} as PreloadedMarkdownWorker;
-      const worker = new Worker(url);
-      state.worker = worker;
-      state.errorListener =
-        /**
-         * @param event - preload中に発生したworker errorの詳細を記録するErrorEvent。
-         */
-        (event: ErrorEvent) => {
-          state.error =
-            event.message || event.error || "Markdown Worker preload failed";
-        };
-      worker.addEventListener("error", state.errorListener);
-      return state;
-    },
-  );
-  void preloadedMarkdownWorkerPromise.catch(
-    /**
-     * 失敗はstate.errorに記録済みのため、未処理Promise拒否を防ぐ。
-     */
-    () => undefined,
-  );
-}
-
-/**
- * 描画要求に使うWorkerを返す。リッチWorkerは個別に起動し、既定Workerはpreload済みの個体を再利用する。
- * @param rich - リッチMarkdown用Workerを取得する場合はtrue。
- * @returns 要求を処理するWorker。preloadが失敗した場合は例外を送出する。
- */
-async function acquireMarkdownWorker(rich = false): Promise<Worker> {
-  if (rich) return new Worker(await resolveMarkdownWorkerLaunchUrl(true));
-  preloadMarkdownWorker();
-  const pending =
-    preloadedMarkdownWorkerPromise as Promise<PreloadedMarkdownWorker>;
-  preloadedMarkdownWorkerPromise = undefined;
-  const state = await pending;
-  state.worker.removeEventListener("error", state.errorListener);
-  if (state.error !== undefined) {
-    state.worker.terminate();
-    throw state.error;
-  }
-
-  return state.worker;
-}
-
-/**
- * Reactの初回マウント前に開始した、初回プレビューのWorker描画。
- * マウントには数百ミリ秒かかるため、その間にWorker側の解析を進めておき、プレビューのhookが同じ入力で描画を始めるときに結果を引き継ぐ。
- */
-interface SpeculativeFirstRender {
-  /** 描画入力（本文と描画設定）を一意に表すキー。hookの要求と完全一致した場合だけ結果を引き継ぐ。 */
-  key: string;
-  /** 描画を依頼したWorker。引き継ぎ後はhookが所有し、不一致時は破棄する。 */
-  worker: Promise<Worker>;
-  /** Workerの最初の応答、またはWorkerのエラー。応答後に起きたエラーは含まないため、利用時は settleSpeculativeRender を通す。 */
-  outcome: Promise<{ response: MarkdownWorkerResponse } | { error: unknown }>;
-  /**
-   * 応答の後も含め、Workerで最初に起きたエラー。引き継ぎ前（onerror未設定の間）のエラーを取りこぼさないため、常設リスナーで記録する。
-   */
-  failure: { error?: unknown };
-}
-
-/**
- * 先行描画の結果を確定させる。応答が届いていても、その後にWorkerがエラーになっていればエラーとして返し、停止したWorkerを使わせない。
- * @param speculative - 確認する先行描画。
- * @returns 応答、またはエラー。
- */
-function settleSpeculativeRender(
-  speculative: SpeculativeFirstRender,
-): Promise<{ response: MarkdownWorkerResponse } | { error: unknown }> {
-  return speculative.outcome.then(
-    /**
-     * 応答後に記録されたエラーがあればエラーへ置き換える。
-     * @param outcome - 最初の応答またはエラー。
-     * @returns 確定した結果。
-     */
-    (outcome) =>
-      "error" in outcome || speculative.failure.error === undefined
-        ? outcome
-        : { error: speculative.failure.error },
-  );
-}
-
-/**
- * 先行描画の要求ID。hookの世代IDは0以上なので重ならない。応答はhookへ渡す前に現在の世代IDへ置き換える。
- */
-const SPECULATIVE_RENDER_ID = -1;
-/**
- * まだhookに引き継がれていない先行描画。軽量Worker（light）と、ハイライト付きのrich Workerを別々に保持する。
- * 引き継ぎ時、または入力不一致で破棄した時点で取り除く。
- */
-const speculativeFirstRenders = new Map<
-  "light" | "rich",
-  SpeculativeFirstRender
->();
-
-/**
- * 描画入力から先行描画との照合キーを作る。
- * @param markdown - 描画する本文。
- * @param options - Workerへ渡す描画設定。
- * @returns 照合キー。
- */
-function markdownRenderKey(
-  markdown: string,
-  options: {
-    remoteImagesEnabled: boolean;
-    language: WebviewSettings["language"];
-    renderFormat: MarkdownRenderFormat;
-  },
-): string {
-  return JSON.stringify([
-    markdown,
-    options.remoteImagesEnabled,
-    options.language,
-    options.renderFormat,
-  ]);
-}
-
-/**
- * rich Workerによる精緻化が必要になりそうかを、本文の簡易走査で予測する。mermaid以外のフェンス、またはHTMLのpre/code要素があればtrue。
- * 予測は先行起動の判断にだけ使う。外れても表示結果は変わらず（軽量Workerの判定が正）、無駄な先行描画か従来どおりの直列描画になるだけ。
- * @param text - 初期本文。
- * @returns 精緻化が必要になりそうならtrue。
- */
-function mayNeedCodeHighlight(text: string): boolean {
-  for (const match of text.matchAll(
-    /^ {0,3}(?:`{3,}|~{3,})[ \t]*([^\s`{]*)/gm,
-  )) {
-    if (match[1].toLowerCase() !== "mermaid") return true;
-  }
-  return /<(?:pre|code)\b/i.test(text);
-}
-
-/**
- * 指定したWorkerへ先行描画を依頼し、最初の応答またはエラーを待つ。
- * @param worker - 描画を依頼するWorkerの取得Promise。
- * @param markdown - 描画する本文。
- * @param options - Workerへ渡す描画設定。
- * @returns 応答またはエラー。Worker取得の失敗もエラーとして返す。
- */
-function requestSpeculativeRender(
-  worker: Promise<Worker>,
-  markdown: string,
-  options: {
-    remoteImagesEnabled: boolean;
-    language: WebviewSettings["language"];
-    renderFormat: MarkdownRenderFormat;
-  },
-): Promise<{ response: MarkdownWorkerResponse } | { error: unknown }> {
-  return worker.then(
-    /**
-     * 取得したWorkerへ描画を依頼する。
-     * @param target - 描画を依頼するWorker。
-     * @returns 応答またはエラー。
-     */
-    (target) =>
-      new Promise<{ response: MarkdownWorkerResponse } | { error: unknown }>(
-        /**
-         * 一時リスナーを付けて描画を依頼する。リスナーは最初の応答かエラーで外し、引き継ぎ後のonmessage/onerrorと重複させない。
-         * @param resolve - 応答またはエラーを通知する関数。
-         */
-        (resolve) => {
-          /**
-           * 先行描画IDの応答だけを受け取る。
-           * @param event - Workerからの応答。
-           */
-          const onMessage = (event: MessageEvent<MarkdownWorkerResponse>) => {
-            if (event.data.id !== SPECULATIVE_RENDER_ID) return;
-            cleanup();
-            recordLatestPerformanceMark("mve-preview-worker-response");
-            // 精緻化が必要な場合はrich Workerの取得をここで始め、hookへの引き継ぎを待たない。
-            if (event.data.preliminary === true)
-              void resolveMarkdownWorkerLaunchUrl(true).catch(() => undefined);
-            resolve({ response: event.data });
-          };
-          /**
-           * スクリプト評価や描画中の例外をエラー結果として記録する。
-           * @param event - Workerのエラー。
-           */
-          const onError = (event: ErrorEvent) => {
-            cleanup();
-            resolve({
-              error: event.message || event.error || "Markdown Worker failed",
-            });
-          };
-          /**
-           * 一時リスナーを外す。
-           */
-          const cleanup = () => {
-            target.removeEventListener("message", onMessage);
-            target.removeEventListener("error", onError);
-          };
-          target.addEventListener("message", onMessage);
-          target.addEventListener("error", onError);
-          target.postMessage({ id: SPECULATIVE_RENDER_ID, markdown, options });
-        },
-      ),
-    (error: unknown) => ({ error }),
-  );
-}
-
-/**
- * HTMLに埋め込まれた初期本文で、初回プレビューのWorker描画をReactのマウント前に開始する。
- * Appが初回描画で同じ要求を出すと確定できる条件（初期データあり・プレビュー表示・Marp判定不要）でだけ開始する。
- * 軽量描画に加え、コードハイライトが必要になりそうな本文ではrich描画も並行して始め、簡易表示から精緻化までの直列待ちを縮める。
- * 条件外や失敗時は何もせず、hookが従来どおり描画を開始する。結果はhookが入力の完全一致を確認してから使う。
- */
-export function startSpeculativeFirstPreviewRender(): void {
-  if (speculativeFirstRenders.size) return;
-  const bootstrap = readWebviewBootstrap();
-  if (!bootstrap) return;
-  const restored = vscode.getState();
-  const viewMode = restoreViewMode(
-    restored?.viewMode ?? restored?.splitView ?? bootstrap.settings.viewMode,
-  );
-  if (viewMode === "text") return;
-  const renderFormat = getRenderFormatForUri(bootstrap.uri);
-  // Marp候補はHost判定の結果でプレビュー経路が変わるため、先行描画しない。
-  if (renderFormat !== "textile" && hasMarpFrontMatterCandidate(bootstrap.text))
-    return;
-  const options = {
-    remoteImagesEnabled: bootstrap.settings.remoteImagesEnabled,
-    language: bootstrap.settings.language,
-    renderFormat,
-  };
-  const markdown = bootstrap.text;
-  const key = markdownRenderKey(markdown, options);
-  const kinds: Array<"light" | "rich"> = mayNeedCodeHighlight(markdown)
-    ? ["light", "rich"]
-    : ["light"];
-  for (const kind of kinds) {
-    const worker = acquireMarkdownWorker(kind === "rich");
-    const failure: { error?: unknown } = {};
-    // 取得失敗は outcome に変換する。引き継がれなかった場合の未処理拒否も防ぐ。
-    void worker.then(
-      /**
-       * 応答後のエラーも記録する常設リスナーを付ける。Workerのエラーは非同期タスクで届くため、ここで付ければ取りこぼさない。
-       * @param target - 先行描画のWorker。
-       */
-      (target) =>
-        target.addEventListener(
-          "error",
-          /**
-           * 最初のエラーだけを記録する。
-           * @param event - Workerのエラー。
-           */
-          (event: ErrorEvent) => {
-            failure.error ??=
-              event.message || event.error || "Markdown Worker failed";
-          },
-        ),
-      () => undefined,
-    );
-    speculativeFirstRenders.set(kind, {
-      key,
-      worker,
-      outcome: requestSpeculativeRender(worker, markdown, options),
-      failure,
-    });
-  }
-}
-
-/**
- * 先行描画を取り出す。入力が一致すれば呼び出し側へ所有権を渡し、一致しなければWorkerを破棄する。
- * いずれの場合も先行描画は一度しか使われない。
- * @param kind - 取り出すWorkerの種類。
- * @param createKey - hookが今から依頼しようとしている描画入力のキーを作る関数。先行描画が残っている場合だけ呼ぶ。
- * @returns 一致した先行描画。無い、または不一致ならundefined。
- */
-function takeSpeculativeFirstRender(
-  kind: "light" | "rich",
-  createKey: () => string,
-): SpeculativeFirstRender | undefined {
-  const pending = speculativeFirstRenders.get(kind);
-  if (!pending) return undefined;
-  speculativeFirstRenders.delete(kind);
-  if (pending.key === createKey()) return pending;
-  void pending.worker.then(
-    /**
-     * 使われなかった先行描画のWorkerを終了する。
-     * @param worker - 先行描画のWorker。
-     */
-    (worker) => worker.terminate(),
-    () => undefined,
-  );
-  return undefined;
-}
-
-/**
- * 結果を使わない先行rich描画を取り出す（軽量描画が最終結果になった後の差し替え用）。
- * Workerは先行描画を処理し終えてから次の要求を処理するため、結果を引き継がなくても再利用できる。利用側は settleSpeculativeRender でエラー有無を確認する。
- * @returns 先行rich描画。無ければundefined。
- */
-function takeSpeculativeRichRender(): SpeculativeFirstRender | undefined {
-  const pending = speculativeFirstRenders.get("rich");
-  speculativeFirstRenders.delete("rich");
-  return pending;
-}
-
-/**
- * 軽量描画の最終化後に行うrich Workerへの差し替えが、取得失敗のためこのWebviewセッションでは行えないことを示す。
- * trueの間は差し替えを試みない（ハイライトが必要な描画では従来の起動・フォールバック経路が別途働く）。
- */
-let richWorkerPromotionUnavailable = false;
-
-/**
- * 引き継がれずに残った先行描画をすべて破棄し、Workerを終了する。プレビューのhookが破棄されるときに呼び、Workerを残さない。
- */
-function discardSpeculativeFirstRenders(): void {
-  for (const kind of ["light", "rich"] as const) {
-    void speculativeFirstRenders.get(kind)?.worker.then(
-      /**
-       * 使われなかった先行描画のWorkerを終了する。
-       * @param worker - 先行描画のWorker。
-       */
-      (worker) => worker.terminate(),
-      () => undefined,
-    );
-    speculativeFirstRenders.delete(kind);
-  }
-}
-
-/**
- * 危険な要素を除いたMarkdownブロックを順に作る。
- * @param unsafeBlocks サニタイズして出力するMarkdownブロック一覧。
- * @param shouldContinue 次のチャンクの処理を続けるかを判定する関数。
- * @param onComplete サニタイズ済みHTMLと最長チャンク時間を受け取る完了処理。
- * @returns 残りのチャンク処理を中止する関数。
- */
-function sanitizeMarkdownBlocks(
-  unsafeBlocks: UnsafeMarkdownBlock[],
-  shouldContinue: () => boolean,
-  onComplete: (html: string, maximumChunkDuration: number) => void,
-): () => void {
-  if (!unsafeBlocks.length) {
-    onComplete("", 0);
-    /** 空入力の完了後も同じ型で呼び出し元へ中断関数を返す。 */
-    return () => undefined;
-  }
-  const sanitized: string[] = [];
-  let index = 0;
-  let cancelled = false;
-  let timer: number | undefined;
-  let maximumChunkDuration = 0;
-  let slowestBlock = { duration: 0, length: 0, prefix: "" };
-
-  const close = /**
-   * Webviewルートの処理またはリソースを終了し、後続利用可能な状態へ戻す。
-   */ () => {
-    cancelled = true;
-    if (timer !== undefined) window.clearTimeout(timer);
-    timer = undefined;
-  };
-
-  const runChunk =
-    /** 一度に最大4msだけ処理し、残りは次のタイマーへ分割する。 */ () => {
-      timer = undefined;
-      if (cancelled || !shouldContinue()) {
-        close();
-        return;
-      }
-      const startedAt = performance.now();
-      do {
-        const block = unsafeBlocks[index++];
-        const blockStartedAt = performance.now();
-        sanitized.push(
-          block.requiresSanitization
-            ? sanitizeRenderedMarkdown(block.html)
-            : block.html,
-        );
-        const blockDuration = performance.now() - blockStartedAt;
-        if (blockDuration > slowestBlock.duration) {
-          slowestBlock = {
-            duration: blockDuration,
-            length: block.html.length,
-            prefix: block.html.slice(0, 100),
-          };
-        }
-      } while (
-        index < unsafeBlocks.length &&
-        performance.now() - startedAt < 4
-      );
-      maximumChunkDuration = Math.max(
-        maximumChunkDuration,
-        performance.now() - startedAt,
-      );
-      if (index < unsafeBlocks.length) {
-        timer = window.setTimeout(runChunk, 0);
-        return;
-      }
-      close();
-      performance.clearMarks("mve-preview-sanitize-slowest");
-      performance.mark("mve-preview-sanitize-slowest", {
-        detail: slowestBlock,
-      });
-      (
-        globalThis as typeof globalThis & {
-          /** 最も時間のかかったサニタイズ対象ブロックの計測結果。 */
-          __mveSlowestSanitizeBlock?: typeof slowestBlock;
-        }
-      ).__mveSlowestSanitizeBlock = slowestBlock;
-      onComplete(sanitized.join(""), maximumChunkDuration);
-    };
-  timer = window.setTimeout(runChunk, 0);
-  return close;
-}
-
-/**
- * 同じ名前の古い計測を置き換え、直近1回分の処理時間を記録する。
- * @param name - 計測するPerformance Measureの名前。
- * @param startedAt - 計測開始時のperformance.now()値。
- */
-function recordLatestPerformanceMeasure(name: string, startedAt: number): void {
-  performance.clearMeasures(name);
-  performance.measure(name, { start: startedAt, end: performance.now() });
-}
-
-/**
- * 同じ名前の古いマークを置き換え、直近イベント時刻を記録する。
- * @param name - 記録するPerformance Markの名前。
- */
-function recordLatestPerformanceMark(name: string): void {
-  performance.clearMarks(name);
-  performance.mark(name);
-}
-
-/**
- * 既知の経過時間からPerformance Measureを記録し、同名の前回値を置き換える。
- * @param name - 計測するPerformance Measureの名前。
- * @param duration - 処理にかかった時間（ミリ秒）。
- */
-function recordPerformanceDuration(name: string, duration: number): void {
-  performance.clearMeasures(name);
-  performance.measure(name, { start: 0, duration });
-}
-
-/**
- * 起動計測専用。プレビューのスクロール領域に現在重なっているMermaid図の数と、そのうち未完了の数を数える。
- * 余白（先読み範囲）を含めず、利用者に見えている範囲だけを対象にする。
- * @param container - 分割プレビューのスクロール領域。未マウントならundefinedを返す。
- * @returns 表示範囲内の図の総数と未完了数。表示範囲に図が無い場合もundefinedを返す。
- */
-function countVisibleMermaidNodes(
-  container: HTMLElement | null,
-): { total: number; pending: number } | undefined {
-  if (!container) return undefined;
-  const viewport = container.getBoundingClientRect();
-  let total = 0;
-  let pending = 0;
-  for (const node of container.querySelectorAll<HTMLElement>(".mermaid")) {
-    const rect = node.getBoundingClientRect();
-    if (rect.bottom <= viewport.top || rect.top >= viewport.bottom) continue;
-    total += 1;
-    const status = node.dataset.mermaidStatus;
-    if (status !== "ready" && status !== "error") pending += 1;
-  }
-  return total ? { total, pending } : undefined;
-}
-
-/**
- * 初期化受信からプレビュー描画までに記録された起動時刻をまとめる。
- * @param initReceivedAt - 初期化メッセージ受信時のperformance.now()値。未計測ならundefined。
- * @returns 起動計測名からperformance.now()の時刻値へのMap。
- */
-function collectStartupMetrics(
-  initReceivedAt: number | undefined,
-): Record<string, number> {
-  const metrics: Record<string, number> = {
-    previewReportedAt: performance.now(),
-  };
-  const bundleExecutedAt = (
-    globalThis as typeof globalThis & {
-      /**
-       * Webviewスクリプトの実行開始時刻。起動遅延の診断に使う。
-       */
-      __mveBundleExecutedAt?: number;
-    }
-  ).__mveBundleExecutedAt;
-  if (bundleExecutedAt !== undefined)
-    metrics.bundleExecutedAt = bundleExecutedAt;
-  if (initReceivedAt !== undefined) metrics.initReceivedAt = initReceivedAt;
-  const workerResponse = performance
-    .getEntriesByName("mve-preview-worker-response", "mark")
-    .at(-1);
-  if (workerResponse) metrics.workerResponseAt = workerResponse.startTime;
-  for (const [name, key] of [
-    ["mve-preview-markdown-worker", "markdownWorkerDuration"],
-    ["mve-preview-markdown", "sanitizeChunkDuration"],
-    ["mve-preview-dom-reconcile", "domReconcileDuration"],
-  ] as const) {
-    const entry = performance.getEntriesByName(name, "measure").at(-1);
-    if (entry) metrics[key] = entry.duration;
-  }
-  for (const entry of performance.getEntriesByType("resource")) {
-    if (entry.name.includes("markdown-worker.js")) {
-      metrics.markdownWorkerFetchStartedAt = entry.startTime;
-      metrics.markdownWorkerFetchDuration = entry.duration;
-      metrics.markdownWorkerResourceCount =
-        (metrics.markdownWorkerResourceCount ?? 0) + 1;
-    } else if (entry.name.includes("webview.js")) {
-      metrics.webviewFetchStartedAt = entry.startTime;
-      metrics.webviewFetchDuration = entry.duration;
-    }
-  }
-  return metrics;
-}
-
-/**
- * 値の更新を待ち時間後に反映し、必要なら保留中の反映を取り消せる状態を管理する。
- * @param value - 遅延反映する入力値。
- * @param delay - 確定値を反映するまで待つ時間（ミリ秒）。
- * @returns 遅延反映後の値と、未確定タイマーを取り消す関数。
- */
-function useInterruptibleDebouncedValue<T>(
-  value: T,
-  delay: number,
-): [T, () => void] {
-  const [debounced, setDebounced] = useState(value);
-  const initialValueRef = useRef(value);
-  const firstNonInitialValueRef = useRef(false);
-  const timerRef = useRef<number | undefined>(undefined);
-  const idleHandleRef = useRef<number | undefined>(undefined);
-  const idleUsesTimeoutRef = useRef(false);
-  const generationRef = useRef(0);
-
-  const cancelPending = useCallback(() => {
-    generationRef.current += 1;
-    if (timerRef.current !== undefined) {
-      window.clearTimeout(timerRef.current);
-      timerRef.current = undefined;
-    }
-    if (idleHandleRef.current !== undefined) {
-      const idleWindow = window as Window & {
-        /**
-         * Webviewルートの条件を判定する。
-         * @param handle - requestIdleCallbackが返した、取り消すアイドルコールバックID。
-         * @returns 戻り値はなく、指定したidle callbackを取り消す。
-         */
-        cancelIdleCallback?: (handle: number) => void;
-      };
-      if (idleUsesTimeoutRef.current || !idleWindow.cancelIdleCallback) {
-        window.clearTimeout(idleHandleRef.current);
-      } else {
-        idleWindow.cancelIdleCallback(idleHandleRef.current);
-      }
-      idleHandleRef.current = undefined;
-    }
-  }, []);
-
-  useEffect(
-    /**
-     * 依存状態の変化に応じて表示または購読を更新する。
-     */
-    () => {
-      if (!firstNonInitialValueRef.current && value === initialValueRef.current)
-        return;
-      // 初回のホスト文書だけは起動時の表示を遅らせない。
-      if (!firstNonInitialValueRef.current) {
-        firstNonInitialValueRef.current = true;
-        setDebounced(value);
-        return;
-      }
-      cancelPending();
-      const generation = generationRef.current;
-      timerRef.current = window.setTimeout(
-        /**
-         * 指定時間の経過後に後続処理を実行する。
-         */
-        () => {
-          timerRef.current = undefined;
-
-          const commit = /**
-           * 世代番号が一致する場合に遅延本文を確定する。
-
-           */ () => {
-            idleHandleRef.current = undefined;
-            if (generation !== generationRef.current) return;
-            setDebounced(value);
-          };
-          const idleWindow = window as Window & {
-            /**
-             * アイドル時または上限時間の経過後にコールバックを実行するブラウザーAPI。
-             * @param callback - 実行を予約するアイドル処理。
-             * @param options - 強制実行までの最大待機時間を指定する設定。
-             * @returns 予約した処理の識別番号。
-             */
-            requestIdleCallback?: (
-              callback: () => void,
-              options?: {
-                /** アイドル処理を強制実行するまでの最大待機時間（ミリ秒）。 */
-                timeout: number;
-              },
-            ) => number;
-          };
-          if (idleWindow.requestIdleCallback) {
-            idleUsesTimeoutRef.current = false;
-            idleHandleRef.current = idleWindow.requestIdleCallback(commit, {
-              timeout: 750,
-            });
-          } else {
-            idleUsesTimeoutRef.current = true;
-            idleHandleRef.current = window.setTimeout(commit, 0);
-          }
-        },
-        delay,
-      );
-      return cancelPending;
-    },
-    [value, delay, cancelPending],
-  );
-
-  return [debounced, cancelPending];
-}
-
-/**
- * Webviewルートを出力または保存できる文字列へ整える。
- * @param element - 出力対象HTMLを含む非表示レンダリング領域のルート要素。
-
- */
-function serializeExportHtml(element: HTMLElement): string {
-  return prepareExportHtml(element.innerHTML);
-}
-
-/**
- * 置換文字列の各半角スペースを既存の空白記号付きで描画する。
- * @param value 入力欄に保存される置換文字列。
- * @returns 空白表示用の装飾を含むReactノード。
- */
-function renderTextWithVisibleSpaces(value: string): React.ReactNode[] {
-  const segments = value.split(" ");
-  return segments.map((segment, index) => (
-    <React.Fragment key={index}>
-      {segment}
-      {index < segments.length - 1 && (
-        <span className="cm-visible-space"> </span>
-      )}
-    </React.Fragment>
-  ));
-}
-
-/**
- * 置換文字列入力欄を重ねた空白表示レイヤーの横スクロールを同期する。
- * @param event 置換文字列入力欄のscroll event。
- */
-function syncReplacementInputVisualizationScroll(
-  event: React.UIEvent<HTMLInputElement>,
-): void {
-  const visualization = event.currentTarget.nextElementSibling;
-  if (visualization instanceof HTMLElement) {
-    visualization.scrollLeft = event.currentTarget.scrollLeft;
-  }
-}
-
-/** 空欄以外の正規表現ルールがあるかを確認する。 */
-function hasActiveTextReplacementRules(
-  rules: readonly TextReplacementRule[],
-): boolean {
-  return rules.some((rule) => rule.pattern.length > 0);
-}
-
-/**
- * PDF出力用のDOMとヘッダー・フッターへ置換を適用し、完成したHTMLと設定を返す。
- * @param element 出力用DOMのルート要素。
- * @param options 置換ルールを含むPDF出力設定。検索文字列がすべて空なら変更せず返す。
- * @param isCurrent 出力要求が最新かを判定する関数。省略時は常に最新として扱う。
- * @returns 置換済みHTMLと、置換後のヘッダー・フッターを含むPDF出力設定。
- */
-async function serializePdfExport(
-  element: HTMLElement,
-  options: PdfOptions,
-  isCurrent: () => boolean = () => true,
-): Promise<{ html: string; options: PdfOptions }> {
-  if (!isCurrent()) throw new TextReplacementCancelledError();
-  if (!hasActiveTextReplacementRules(options.textReplacements)) {
-    return { html: serializeExportHtml(element), options };
-  }
-  const exportCopy = element.cloneNode(true) as HTMLElement;
-  exportCopy.innerHTML = prepareExportHtml(exportCopy.innerHTML);
-  const headerFooter = [options.header, options.footer];
-  await applyTextReplacements(
-    exportCopy,
-    options.textReplacements,
-    headerFooter,
-    isCurrent,
-  );
-  if (!isCurrent()) throw new TextReplacementCancelledError();
-  return {
-    html: prepareExportHtml(exportCopy.innerHTML),
-    options: {
-      ...options,
-      header: headerFooter[0],
-      footer: headerFooter[1],
-    },
-  };
-}
-
-/** 正規表現の処理が上限時間内に終わらなかった場合に使うエラー。 */
-class TextReplacementTimeoutError extends Error {
-  constructor() {
-    super("Text replacement timed out.");
-    this.name = "TextReplacementTimeoutError";
-  }
-}
-
-/** Web Workerで正規表現置換を完了できなかった場合に使うエラー。 */
-class TextReplacementWorkerError extends Error {
-  constructor() {
-    super("Text replacement failed.");
-    this.name = "TextReplacementWorkerError";
-  }
-}
-
-/** 古い出力要求が置換を中断した場合に使うエラー。 */
-class TextReplacementCancelledError extends Error {
-  constructor() {
-    super("Text replacement was cancelled.");
-    this.name = "TextReplacementCancelledError";
-  }
-}
-
-/** 任意の正規表現による処理をWebviewのUIスレッドから分離するWorker本体。 */
-const TEXT_REPLACEMENT_WORKER_SOURCE = `
-self.onmessage = (event) => {
-  try {
-    const { values, pattern, replacement, preservePageTokensFromIndex } = event.data;
-    const results = values.map((value, index) => {
-      const matchOffsets = [];
-      let replacedValue;
-      if (index >= preservePageTokensFromIndex) {
-        replacedValue = value
-          .split(/(\{page\}|\{pages\})/g)
-          .map((part) =>
-            part === "{page}" || part === "{pages}"
-              ? part
-              : part.replace(new RegExp(pattern, "g"), () => replacement),
-          )
-          .join("");
-      } else {
-        const expression = new RegExp(pattern, "g");
-        for (const match of value.matchAll(expression)) {
-          matchOffsets.push(match.index, match.index + match[0].length);
-        }
-        replacedValue = value.replace(
-          new RegExp(pattern, "g"),
-          () => replacement,
-        );
-      }
-      return { matches: new Uint32Array(matchOffsets), value: replacedValue };
-    });
-    self.postMessage(
-      { results },
-      results.map((result) => result.matches.buffer),
-    );
-  } catch {
-    self.postMessage({ error: true });
-  }
-};
-`;
-
-/** Workerが返すテキスト区間ごとの置換結果。 */
-interface TextReplacementResult {
-  /** 各入力値内の一致範囲を、開始・終了の半開オフセットで交互に格納する。ページ番号保護領域では空配列。 */
-  matches: Uint32Array;
-  /** 正規表現を適用した後の値。ページ番号保護領域ではページ番号トークンを維持する。 */
-  value: string;
-}
-
-/** 連結した表示テキスト内でのDOMテキストノード位置。 */
-interface TextNodeSpan {
-  /** 表示順のDOMテキストノード。 */
-  node: Text;
-  /** DOMテキストノード内で対象範囲が始まる位置。 */
-  nodeStart: number;
-  /** 連結テキスト上でノードが始まる位置。 */
-  start: number;
-  /** 連結テキスト上でノードが終わる位置。 */
-  end: number;
-}
-
-/** 改行区切りで分けた、DOMテキストノード内の対象範囲。 */
-interface TextNodeSlice {
-  /** 対象範囲を含むDOMテキストノード。 */
-  node: Text;
-  /** DOMテキストノード内で対象範囲が始まる位置。 */
-  startOffset: number;
-  /** DOMテキストノード内で対象範囲が終わる位置。 */
-  endOffset: number;
-}
-
-/** 正規表現ルール1件あたりの最大処理時間（ミリ秒）。 */
-const TEXT_REPLACEMENT_TIMEOUT_MS = 2000;
-
-/**
- * 1ルール分の正規表現処理を制限時間付きWorkerで実行する。
- * @param values 正規表現を適用する本文区間または属性値。
- * @param rule 適用する正規表現と置換文字列。
- * @param preservePageTokensFromIndex ページ番号用トークンを保護し始めるvalues内の位置。
- * @param isCurrent 要求が現在も有効かを判定する関数。falseになった場合は処理を中止する。
- * @returns 元文字列上の一致位置と置換後の文字列。キャンセル・時間超過・Worker失敗・不正応答時はPromiseを拒否する。
- */
-function replaceStringsWithWorker(
-  values: readonly string[],
-  rule: TextReplacementRule,
-  preservePageTokensFromIndex: number,
-  isCurrent: () => boolean,
-): Promise<TextReplacementResult[]> {
-  return new Promise((resolve, reject) => {
-    let worker: Worker | undefined;
-    let workerUrl: string | undefined;
-    let timeoutHandle: number | undefined;
-    let cancellationCheckHandle: number | undefined;
-    let settled = false;
-    /**
-     * Worker、タイマー、Object URLを一度だけ解放し、Promiseの結果を確定する。
-     * @param error 省略時はPromiseを解決し、指定時はその理由で拒否する。
-     * @param results Workerが返した置換結果。
-     */
-    const finish = (error?: Error, results?: TextReplacementResult[]): void => {
-      if (settled) return;
-      settled = true;
-      if (timeoutHandle !== undefined) window.clearTimeout(timeoutHandle);
-      if (cancellationCheckHandle !== undefined) {
-        window.clearInterval(cancellationCheckHandle);
-      }
-      worker?.terminate();
-      if (workerUrl) URL.revokeObjectURL(workerUrl);
-      if (error) reject(error);
-      else resolve(results ?? []);
-    };
-
-    try {
-      workerUrl = URL.createObjectURL(
-        new Blob([TEXT_REPLACEMENT_WORKER_SOURCE], {
-          type: "text/javascript",
-        }),
-      );
-      worker = new Worker(workerUrl);
-      cancellationCheckHandle = window.setInterval(() => {
-        if (!isCurrent()) finish(new TextReplacementCancelledError());
-      }, 50);
-      if (!isCurrent()) {
-        finish(new TextReplacementCancelledError());
-        return;
-      }
-      timeoutHandle = window.setTimeout(
-        () => finish(new TextReplacementTimeoutError()),
-        TEXT_REPLACEMENT_TIMEOUT_MS,
-      );
-      worker.addEventListener(
-        "message",
-
-        (event: MessageEvent<unknown>) => {
-          const data = event.data as
-            | { results?: TextReplacementResult[]; error?: boolean }
-            | undefined;
-          if (
-            !data ||
-            !Array.isArray(data.results) ||
-            data.results.length !== values.length
-          ) {
-            finish(new TextReplacementWorkerError());
-            return;
-          }
-          finish(undefined, data.results);
-        },
-        { once: true },
-      );
-      worker.addEventListener(
-        "error",
-
-        (event: ErrorEvent) => {
-          event.preventDefault();
-          finish(new TextReplacementWorkerError());
-        },
-        { once: true },
-      );
-      worker.postMessage({
-        values,
-        pattern: rule.pattern,
-        replacement: rule.replacement,
-        preservePageTokensFromIndex,
-      });
-    } catch {
-      finish(new TextReplacementWorkerError());
-    }
-  });
-}
-
-/**
- * 置換対象のテキスト連結を分断するブロック要素名。別ブロック間の一致を防ぐ。
- */
-const OUTPUT_TEXT_BLOCK_ELEMENTS = new Set([
-  "ADDRESS",
-  "ARTICLE",
-  "ASIDE",
-  "BLOCKQUOTE",
-  "CAPTION",
-  "DD",
-  "DETAILS",
-  "DIV",
-  "DL",
-  "DT",
-  "FIELDSET",
-  "FIGCAPTION",
-  "FIGURE",
-  "FOOTER",
-  "FORM",
-  "H1",
-  "H2",
-  "H3",
-  "H4",
-  "H5",
-  "H6",
-  "HEADER",
-  "LI",
-  "MAIN",
-  "NAV",
-  "OL",
-  "P",
-  "PRE",
-  "SECTION",
-  "TABLE",
-  "TBODY",
-  "TD",
-  "TFOOT",
-  "TH",
-  "THEAD",
-  "TR",
-  "UL",
-]);
-
-/**
- * 正規表現が隣接する別段落や別の視覚要素をまたがないように区切る要素。
- */
-const OUTPUT_TEXT_BOUNDARY_ELEMENTS = new Set([
-  "A",
-  "BR",
-  "CANVAS",
-  "EMBED",
-  "HR",
-  "IFRAME",
-  "IMG",
-  "OBJECT",
-  "VIDEO",
-  "AUDIO",
-]);
-
-/**
- * 出力本文の文字列走査から除外する実行・スタイル要素。
- */
-const OUTPUT_TEXT_IGNORED_ELEMENTS = new Set([
-  "NOSCRIPT",
-  "SCRIPT",
-  "STYLE",
-  "TEMPLATE",
-]);
-
-/**
- * 本文、説明属性、ヘッダー・フッターをWorkerで順に置換する。
- * @param root シリアライズ前に複製した出力本文のDOMルート。
- * @param rules 上から順に適用する出力置換ルール。
- * @param externalValues PDFのヘッダー・フッターなど本文外の文字列。呼び出し元の配列を更新する。
- * @param isCurrent 出力要求が最新のままかを確認する関数。
- * @returns すべての置換が完了すると解決するPromise。無効な正規表現や要求のキャンセル時は拒否する。
- */
-async function applyTextReplacements(
-  root: HTMLElement,
-  rules: readonly TextReplacementRule[],
-  externalValues: string[],
-  isCurrent: () => boolean,
-): Promise<void> {
-  for (const rule of rules) {
-    if (!isCurrent()) throw new TextReplacementCancelledError();
-    if (rule.pattern.length === 0) continue;
-    if (!isTextReplacementPatternValid(rule.pattern)) {
-      throw new Error("Text replacement pattern is invalid.");
-    }
-    const textRuns = collectOutputTextRuns(root);
-    const attributes: Array<{
-      element: Element;
-      name: "alt" | "title" | "aria-label" | "value" | "placeholder";
-      value: string;
-    }> = [];
-    for (const element of root.querySelectorAll(
-      "[alt], [title], [aria-label], [value], [placeholder]",
-    )) {
-      for (const attribute of [
-        "alt",
-        "title",
-        "aria-label",
-        "value",
-        "placeholder",
-      ] as const) {
-        const value = element.getAttribute(attribute);
-        if (value !== null)
-          attributes.push({ element, name: attribute, value });
-      }
-    }
-    const values = [
-      ...textRuns.map((slices) =>
-        slices
-          .map((slice) =>
-            slice.node.data.slice(slice.startOffset, slice.endOffset),
-          )
-          .join(""),
-      ),
-      ...attributes.map((attribute) => attribute.value),
-      ...externalValues,
-    ];
-    const externalOffset = textRuns.length + attributes.length;
-    const results = await replaceStringsWithWorker(
-      values,
-      rule,
-      externalOffset,
-      isCurrent,
-    );
-    if (!isCurrent()) throw new TextReplacementCancelledError();
-    for (let index = textRuns.length - 1; index >= 0; index--) {
-      if (!isCurrent()) throw new TextReplacementCancelledError();
-      await replaceTextRun(
-        createTextNodeSpans(textRuns[index]),
-        results[index].matches,
-        rule.replacement,
-        root.ownerDocument,
-        isCurrent,
-      );
-    }
-    if (!isCurrent()) throw new TextReplacementCancelledError();
-    for (let index = 0; index < attributes.length; index++) {
-      const attribute = attributes[index];
-      attribute.element.setAttribute(
-        attribute.name,
-        results[textRuns.length + index].value,
-      );
-      if (
-        attribute.name === "value" &&
-        attribute.element instanceof HTMLInputElement
-      ) {
-        attribute.element.value = results[textRuns.length + index].value;
-      }
-    }
-    for (let index = 0; index < externalValues.length; index++) {
-      externalValues[index] = results[externalOffset + index].value;
-    }
-  }
-}
-
-/**
- * インライン要素をまたいで照合できるよう、同じ表示ブロックのテキストノードを集める。
- * @param root 出力本文のDOMルート。
- * @returns 段落・改行・画像・リンク境界で分けたテキスト範囲群。インライン装飾はまたいで連結する。
- */
-function collectOutputTextRuns(root: HTMLElement): TextNodeSlice[][] {
-  const runs: TextNodeSlice[][] = [];
-  let currentRun: TextNodeSlice[] = [];
-  /** 収集中の範囲を結果へ追加し、次の表示区間を空にする。 */
-  const flushRun = (): void => {
-    if (currentRun.length > 0) {
-      runs.push(currentRun);
-      currentRun = [];
-    }
-  };
-  /** DOM順に子ノードをたどり、改行や要素境界で置換用のテキスト区間を分割する。 */
-  const visit = (node: Node, isRoot = false): void => {
-    if (node.nodeType === Node.TEXT_NODE) {
-      const textNode = node as Text;
-      let sliceStart = 0;
-      for (let index = 0; index < textNode.data.length; index++) {
-        const character = textNode.data[index];
-        if (character !== "\r" && character !== "\n") continue;
-        if (index > sliceStart) {
-          currentRun.push({
-            node: textNode,
-            startOffset: sliceStart,
-            endOffset: index,
-          });
-        }
-        flushRun();
-        if (character === "\r" && textNode.data[index + 1] === "\n") {
-          index++;
-        }
-        sliceStart = index + 1;
-      }
-      if (sliceStart < textNode.data.length) {
-        currentRun.push({
-          node: textNode,
-          startOffset: sliceStart,
-          endOffset: textNode.data.length,
-        });
-      }
-      return;
-    }
-    if (node.nodeType !== Node.ELEMENT_NODE) {
-      for (const child of Array.from(node.childNodes)) visit(child);
-      return;
-    }
-    const element = node as Element;
-    const tagName = element.tagName.toUpperCase();
-    if (
-      OUTPUT_TEXT_IGNORED_ELEMENTS.has(tagName) ||
-      OUTPUT_TEXT_BOUNDARY_ELEMENTS.has(tagName)
-    ) {
-      flushRun();
-      if (tagName === "A") {
-        for (const child of Array.from(element.childNodes)) visit(child);
-        flushRun();
-      }
-      return;
-    }
-    const isBlock = !isRoot && OUTPUT_TEXT_BLOCK_ELEMENTS.has(tagName);
-    if (isBlock) flushRun();
-    for (const child of Array.from(element.childNodes)) visit(child);
-    if (isBlock) flushRun();
-  };
-  visit(root, true);
-  flushRun();
-  return runs;
-}
-
-/**
- * テキスト範囲の連結位置を一度だけ計算する。
- * @param slices 表示順に並ぶテキスト範囲。
- * @returns ノードと連結テキスト上の開始・終了位置。
- */
-function createTextNodeSpans(slices: TextNodeSlice[]): TextNodeSpan[] {
-  let position = 0;
-  return slices.map((slice) => {
-    const start = position;
-    position += slice.endOffset - slice.startOffset;
-    return {
-      node: slice.node,
-      nodeStart: slice.startOffset,
-      start,
-      end: position,
-    };
-  });
-}
-
-/**
- * 一つの表示テキスト区間の一致を後ろからRangeで置換する。replacementが空なら一致部分を削除する。
- * @param spans 表示順に並ぶ、同じ本文ブロック内のノード位置。
- * @param matches Workerから受け取った一致範囲の開始・終了位置配列。
- * @param replacement 一致範囲へ挿入する文字列。
- * @param ownerDocument 対象DOMのRangeとテキストノードを生成するDocument。
- * @param isCurrent 出力要求が最新かを判定する関数。途中で無効になれば処理を中止する。
- * @returns 一致範囲を後ろから置換し、範囲外の装飾要素を保つPromise。200件ごとにUIスレッドへ制御を返す。
- */
-async function replaceTextRun(
-  spans: readonly TextNodeSpan[],
-  matches: Uint32Array,
-  replacement: string,
-  ownerDocument: Document,
-  isCurrent: () => boolean,
-): Promise<void> {
-  let applied = 0;
-  for (let index = matches.length - 2; index >= 0; index -= 2) {
-    if (!isCurrent()) throw new TextReplacementCancelledError();
-    const matchStart = matches[index];
-    const matchEnd = matches[index + 1];
-    const start = locateTextPosition(spans, matchStart, "start");
-    const end =
-      matchStart === matchEnd
-        ? start
-        : locateTextPosition(spans, matchEnd, "end");
-    const range = ownerDocument.createRange();
-    range.setStart(start.node, start.offset);
-    range.setEnd(end.node, end.offset);
-    range.deleteContents();
-    if (replacement.length > 0) {
-      range.insertNode(ownerDocument.createTextNode(replacement));
-    }
-    applied++;
-    if (applied % 200 === 0 && index > 0) {
-      await new Promise<void>((resolve) => {
-        window.setTimeout(() => resolve(), 0);
-      });
-      if (!isCurrent()) throw new TextReplacementCancelledError();
-    }
-  }
-}
-
-/**
- * 連結テキスト内の文字位置を元のDOMテキストノードとオフセットへ戻す。
- * @param spans 表示順に並ぶテキストノードと、連結テキスト上の各範囲。
- * @param position 連結テキスト上の0始まりのUTF-16オフセット。
- * @param bias 開始位置は後続ノード、終了位置は直前ノードを優先する指定。
- * @returns 対応するテキストノードとその中のオフセット。
- */
-function locateTextPosition(
-  spans: readonly TextNodeSpan[],
-  position: number,
-  bias: "start" | "end",
-): { node: Text; offset: number } {
-  let low = 0;
-  let high = spans.length;
-  while (low < high) {
-    const middle = Math.floor((low + high) / 2);
-    const span = spans[middle];
-    const matchesPosition =
-      bias === "start" ? span.end > position : span.end >= position;
-    if (matchesPosition) {
-      high = middle;
-    } else {
-      low = middle + 1;
-    }
-  }
-  const span = spans[Math.min(low, spans.length - 1)];
-  const offset = span.nodeStart + Math.max(0, position - span.start);
-  return { node: span.node, offset };
-}
-
-/**
- * PDFページ、ツールバー、読み込み・エラー状態を表示するReact要素を構築する。
- * @param markdown - PDFプレビューへ表示するMarkdown本文。
- * @param renderFormat - Markdown/Textile形式のプレビュー描画モード。
- * @param html - PDFプレビューで描画する変換済みHTML。
- * @param settings - プレビュー内のMarkdown描画へ渡すWebview設定。
- * @param options - PDFの用紙、余白、文字組版、ヘッダー、フッター設定。
- * @param zoom - PDFプレビューの表示倍率。
- * @param messages - PDFプレビューとツールバーに表示するローカライズ済み文言。
- * @param pdfBase64 - 描画するPDFデータのBase64文字列。生成前はundefined。
- * @param pdfLoading - PDFの生成または読み込み中かを示すフラグ。
- * @param pdfError - PDF生成に失敗した場合に表示するエラー文。
- * @param onInspect - PDFプレビューから選択された診断対象を親へ通知する処理。
- * @param onNavigate - PDF本文内で選択されたリンク先を親へ通知する処理。
- * @param onZoom - 表示倍率の増減値を親へ通知する処理。
- * @param onRendered - PDFキャンバスの描画完了を親へ通知する処理。
- * @returns PDFページ、操作ツールバー、読み込み・エラー表示を含むプレビュー要素。
- */
-function PdfPreview({
-  markdown,
-  renderFormat,
-  html,
-  settings,
-  options,
-  zoom,
-  messages,
-  pdfBase64,
-  pdfLoading,
-  pdfError,
-  onInspect,
-  onNavigate,
-  onZoom,
-  onRendered,
-}: {
-  /**
-   * 解析・編集・変換の対象となるMarkdown本文。
-   */
-  markdown: string;
-
-  /** PDFライブ表示がHTML未確定時に使う文書形式。 */
-  renderFormat: MarkdownRenderFormat;
-
-  /**
-   * 表示または出力するHTML本文。
-   */
-  html: string;
-
-  /** PDFプレビュー内のMarkdown描画へ渡すWebview設定。 */
-  settings: WebviewSettings;
-
-  /** PDF本文・用紙・余白・文字組版・ヘッダー/フッターを正規化した設定。 */
-  options: NormalizedPdfOptions;
-
-  /**
-   * プレビューに適用する表示倍率。
-   */
-  zoom: number;
-
-  /**
-   * Webview用の型付きローカライズ済みメッセージカタログ。
-   */
-  messages: Messages;
-
-  /**
-   * PDF.jsへ渡すBase64形式の文書データ。
-   */
-  pdfBase64?: string;
-
-  /**
-   * PDF文書の読み込み中かどうか。
-   */
-  pdfLoading: boolean;
-
-  /**
-   * PDF文書の読み込みに失敗した場合に表示する理由。
-   */
-  pdfError?: string;
-  /** Inspectorを開く対象を親へ通知する。
-   * @param target - Inspectorで開く数式・画像などの対象。
-   */
-  onInspect: (target: InspectorTarget) => void;
-  /** プレビューで選択したリンク先を親へ通知し、必要ならワークスペース基準で開く。
-   * @param href - プレビュー内で開くリンクのhref文字列。
-   */
-  onNavigate: (href: string, workspaceRooted?: boolean) => void;
-  /** PDFページの表示倍率変更量を親へ通知する。
-   * @param delta - ズーム倍率の変更量。正数は拡大、負数は縮小。
-   */
-  onZoom: (delta: number) => void;
-  /** PDF.jsの初回ページ描画完了を親へ通知する。 */
-  onRendered: () => void;
-}): React.JSX.Element {
-  const [pdfCanvasReady, setPdfCanvasReady] = useState(false);
-  const dimensions = pdfPageDimensions(options);
-  const showPdfLayer = Boolean(pdfBase64 && pdfCanvasReady);
-
-  useEffect(
-    /**
-     * 依存状態の変化に応じて表示または購読を更新する。
-     */
-    () => {
-      setPdfCanvasReady(false);
-    },
-    [pdfBase64, zoom],
-  );
-
-  return (
-    <div
-      className={`pdf-preview-shell ${pdfBase64 ? "pdf-preview-shell-ready" : ""}`}
-      data-pdf-format={options.format}
-      data-pdf-orientation={options.orientation}
-      data-pdf-zoom={zoom}
-    >
-      <div
-        className="pdf-preview-toolbar"
-        role="toolbar"
-        aria-label={messages.app.status.zoom(Math.round(zoom * 100))}
-      >
-        <button
-          type="button"
-          aria-label={messages.app.pdfPreview.zoomOut}
-          onClick={
-            /**
-             * PDFプレビューの倍率を0.1段階下げる。
-             */
-            () => {
-              mveDebug("pdf.zoom-button", { delta: -0.1, zoom });
-              onZoom(-0.1);
-            }
-          }
-        >
-          −
-        </button>
-        <span className="pdf-preview-zoom-value">
-          {Math.round(zoom * 100)}%
-        </span>
-        <button
-          type="button"
-          aria-label={messages.app.pdfPreview.zoomIn}
-          onClick={
-            /**
-             * PDFプレビューの倍率を0.1段階上げる。
-             */
-            () => {
-              mveDebug("pdf.zoom-button", { delta: 0.1, zoom });
-              onZoom(0.1);
-            }
-          }
-        >
-          ＋
-        </button>
-      </div>
-      {!showPdfLayer && (
-        <p className="pdf-preview-status" aria-live="polite">
-          {pdfError
-            ? messages.app.pdfPreview.unavailable
-            : pdfLoading
-              ? messages.app.pdfPreview.generating
-              : pdfBase64
-                ? messages.app.pdfPreview.drawing
-                : messages.app.pdfPreview.preparing}
-        </p>
-      )}
-      {!showPdfLayer && (
-        <div className="pdf-preview-live-layer">
-          <div
-            className="pdf-preview-live-content"
-            style={
-              {
-                zoom,
-                fontFamily: options.fontFamily,
-                fontSize: `${options.bodyFontSize}pt`,
-                lineHeight: options.lineHeight,
-                "--mve-pdf-h1-size": `${options.headingFontSizes.h1}pt`,
-                "--mve-pdf-h2-size": `${options.headingFontSizes.h2}pt`,
-                "--mve-pdf-h3-size": `${options.headingFontSizes.h3}pt`,
-                "--mve-pdf-h4-size": `${options.headingFontSizes.h4}pt`,
-                "--mve-pdf-h5-size": `${options.headingFontSizes.h5}pt`,
-                "--mve-pdf-h6-size": `${options.headingFontSizes.h6}pt`,
-                "--mve-pdf-code-size": `${options.codeFontSize}pt`,
-                "--mve-pdf-paragraph-spacing": `${options.paragraphSpacing}pt`,
-              } as React.CSSProperties
-            }
-          >
-            {options.header && (
-              <div className="pdf-preview-header">
-                {formatPdfTemplate(options.header)}
-              </div>
-            )}
-            <RenderedMarkdown
-              markdown={markdown}
-              renderFormat={renderFormat}
-              html={html}
-              settings={settings}
-              className="pdf-preview-content"
-              onInspect={onInspect}
-              onNavigate={onNavigate}
-              onRendered={() => onRendered()}
-              deferMermaid
-            />
-            {options.footer && (
-              <div className="pdf-preview-footer">
-                {formatPdfTemplate(options.footer)}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-      {pdfBase64 && (
-        <div
-          className={`pdf-preview-pdf-layer ${showPdfLayer ? "" : "is-preparing"}`}
-        >
-          <PdfDocumentPreview
-            data={pdfBase64}
-            messages={messages.app.pdfPreview}
-            pageRatio={dimensions.width / dimensions.height}
-            zoom={zoom}
-            onRendered={() => {
-              mveDebug("pdf.preview-layer-ready", {
-                zoom,
-                format: options.format,
-                orientation: options.orientation,
-              });
-              setPdfCanvasReady(true);
-              onRendered();
-            }}
-          />
-        </div>
-      )}
-      {pdfError && <p className="pdf-preview-error">{pdfError}</p>}
-      <p className="pdf-preview-note">
-        {options.format} ·{" "}
-        {options.orientation === "portrait"
-          ? messages.app.portrait
-          : messages.app.landscape}{" "}
-        / {messages.app.margins} {messages.app.top}
-        {options.margins.top} · {messages.app.right}
-        {options.margins.right} · {messages.app.bottom}
-        {options.margins.bottom} · {messages.app.left}
-        {options.margins.left} mm
-      </p>
-    </div>
-  );
-}
-
-/**
- * 入力中のURLとリンク文字列を親へ反映し、確定またはキャンセル時に閉じるモーダル。
- * @param href 編集中のリンクURL。
- * @param label 編集中のリンク文字列。
- * @param messages ラベルと検証案内を表示するローカライズ辞書。
- * @param onHrefChange 入力URLを親状態へ反映する処理。
- * @param onLabelChange 入力文字列を親状態へ反映する処理。
- * @param onApply 入力値からリンクを文書へ挿入する処理。
- * @param onClose ダイアログを閉じる処理。
- * @returns リンク作成フォームと閉じる操作を備えたダイアログ。
- */
-function LinkDialog({
-  href,
-  label,
-  messages,
-  onHrefChange,
-  onLabelChange,
-  onApply,
-  onClose,
-}: {
-  /**
-   * リンク操作領域の遷移先URI。
-   */
-  href: string;
-
-  /**
-   * 画面または検証結果に表示する説明文。
-   */
-  label: string;
-
-  /**
-   * Webview用の型付きローカライズ済みメッセージカタログ。
-   */
-  messages: Messages;
-  /**
-   * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
-   * @param value - リンク先URLの新しい入力値。
-   * @returns 親コンポーネントへ新しいリンク先を通知する。
-   */
-  onHrefChange: (value: string) => void;
-  /**
-   * Webviewルートのイベントまたはメッセージを受け取り、状態を更新する。
-   * @param value - リンク表示テキストの新しい入力値。
-   * @returns 親コンポーネントへ新しいリンク表示テキストを通知する。
-   */
-  onLabelChange: (value: string) => void;
-  /**
-   * 適用操作後に設定ダイアログを閉じるコールバック。
-   */
-  onApply: () => void;
-  /**
-   * 閉じる操作を処理するコールバック。
-   */
-  onClose: () => void;
-}): React.JSX.Element {
-  return (
-    <div
-      className="modal-backdrop"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="link-dialog-title"
-    >
-      <form
-        className="help-dialog link-dialog"
-        onSubmit={
-          /**
-           * @param event - リンク設定を確定するform submit event。
-           */
-          (event) => {
-            event.preventDefault();
-            onApply();
-          }
-        }
-      >
-        <div className="panel-title">
-          <h2 id="link-dialog-title">{messages.app.link.title}</h2>
-          <button
-            type="button"
-            className="panel-close-button"
-            title={messages.app.close}
-            aria-label={messages.app.close}
-            onClick={onClose}
-          >
-            ×
-          </button>
-        </div>
-        <label>
-          {messages.app.link.url}
-          <input
-            autoFocus
-            type="url"
-            value={href}
-            onChange={
-              /**
-               * リンク先の編集値を親へ通知する。
-               * @param event - リンク先URL入力の更新を処理するchange event。
-               */
-              (event) => onHrefChange(event.target.value)
-            }
-            placeholder={messages.app.link.urlPlaceholder}
-          />
-        </label>
-        <label>
-          {messages.app.link.text} {messages.app.link.textHint}
-          <input
-            value={label}
-            onChange={
-              /**
-               * リンクラベルの編集値を親へ通知する。
-               * @param event - リンク表示文字列入力の更新を処理するchange event。
-               */
-              (event) => onLabelChange(event.target.value)
-            }
-          />
-        </label>
-        <div className="dialog-actions">
-          <button type="button" onClick={onClose}>
-            {messages.app.link.cancel}
-          </button>
-          <button className="primary" type="submit">
-            {messages.app.link.insert}
-          </button>
-        </div>
-      </form>
-    </div>
-  );
-}
-
-/**
- * キーボード操作または機能説明を表示し、閉じる操作を呼び出し元へ通知するモーダル。
- * @param topic 表示する説明の種類。
- * @param messages ラベル・ショートカット・機能説明を表示するローカライズ辞書。
- * @param onClose ダイアログを閉じる処理。
- * @returns 選択された話題の説明と閉じる操作を含むダイアログ。
- */
-function HelpDialog({
-  topic,
-  messages,
-  onClose,
-}: {
-  /** 表示するヘルプ区分。 */
-  topic: HelpTopic;
-
-  /**
-   * Webview用の型付きローカライズ済みメッセージカタログ。
-   */
-  messages: Messages;
-  /** ヘルプダイアログを閉じるよう親へ通知する。 */
-  onClose: () => void;
-}): React.JSX.Element {
-  const title =
-    topic === "shortcuts"
-      ? messages.app.help.shortcuts
-      : messages.ribbon.labels.features;
-  const featureSections = [
-    {
-      title: messages.ribbon.tabs.home,
-      items: [
-        [messages.ribbon.labels.undo, messages.ribbon.featureDescriptions.undo],
-        [messages.ribbon.labels.redo, messages.ribbon.featureDescriptions.redo],
-        [messages.ribbon.labels.bold, messages.ribbon.featureDescriptions.bold],
-        [
-          messages.ribbon.labels.italic,
-          messages.ribbon.featureDescriptions.italic,
-        ],
-        [
-          messages.ribbon.labels.clearInline,
-          messages.ribbon.featureDescriptions.clearInline,
-        ],
-        [
-          messages.ribbon.labels.clearBlock,
-          messages.ribbon.featureDescriptions.clearBlock,
-        ],
-      ],
-    },
-    {
-      title: messages.ribbon.tabs.insert,
-      items: [
-        [messages.ribbon.labels.link, messages.ribbon.featureDescriptions.link],
-        [
-          messages.ribbon.labels.image,
-          messages.ribbon.featureDescriptions.image,
-        ],
-        [
-          messages.ribbon.labels.insertTable,
-          messages.ribbon.featureDescriptions.insertTable,
-        ],
-        [
-          messages.ribbon.labels.codeBlock,
-          messages.ribbon.featureDescriptions.codeBlock,
-        ],
-        [messages.ribbon.labels.math, messages.ribbon.featureDescriptions.math],
-        [
-          messages.ribbon.labels.footnote,
-          messages.ribbon.featureDescriptions.footnote,
-        ],
-        [messages.ribbon.labels.toc, messages.ribbon.featureDescriptions.toc],
-      ],
-    },
-    {
-      title: messages.ribbon.tabs.table,
-      items: [
-        [
-          messages.app.tableEditor.title,
-          messages.ribbon.featureDescriptions.tableEditor,
-        ],
-        [
-          messages.app.tableEditor.resizeColumn,
-          messages.ribbon.featureDescriptions.tableEditorColumnResize,
-        ],
-        [
-          messages.app.tableEditor.resizeRow,
-          messages.ribbon.featureDescriptions.tableEditorRowResize,
-        ],
-        [
-          messages.app.tableEditor.resizeEditor,
-          messages.ribbon.featureDescriptions.tableEditorLayout,
-        ],
-        [
-          messages.ribbon.labels.addBefore,
-          messages.ribbon.featureDescriptions.addBefore,
-        ],
-        [
-          messages.ribbon.labels.deleteRow,
-          messages.ribbon.featureDescriptions.deleteRow,
-        ],
-        [
-          messages.ribbon.labels.deleteColumn,
-          messages.ribbon.featureDescriptions.deleteColumn,
-        ],
-        [
-          messages.ribbon.labels.alignLeft,
-          messages.ribbon.featureDescriptions.alignLeft,
-        ],
-        [
-          messages.ribbon.labels.alignCenter,
-          messages.ribbon.featureDescriptions.alignCenter,
-        ],
-        [
-          messages.ribbon.labels.alignRight,
-          messages.ribbon.featureDescriptions.alignRight,
-        ],
-        [
-          messages.ribbon.labels.copyTsv,
-          messages.ribbon.featureDescriptions.copyTsv,
-        ],
-      ],
-    },
-    {
-      title: messages.ribbon.tabs.view,
-      items: [
-        [messages.ribbon.outline, messages.ribbon.featureDescriptions.outline],
-        [messages.ribbon.search, messages.ribbon.featureDescriptions.search],
-        [messages.ribbon.split, messages.ribbon.featureDescriptions.split],
-        [
-          messages.ribbon.textOnly,
-          messages.ribbon.featureDescriptions.textOnly,
-        ],
-        [
-          messages.ribbon.previewOnly,
-          messages.ribbon.featureDescriptions.previewOnly,
-        ],
-      ],
-    },
-    {
-      title: messages.ribbon.tabs.export,
-      items: [
-        [
-          messages.ribbon.labels.printPreview,
-          messages.ribbon.featureDescriptions.printPreview,
-        ],
-        [
-          messages.ribbon.labels.exportPdf,
-          messages.ribbon.featureDescriptions.exportPdf,
-        ],
-        [
-          messages.ribbon.labels.preflight,
-          messages.ribbon.featureDescriptions.preflight,
-        ],
-      ],
-    },
-  ];
-  return (
-    <div
-      className="modal-backdrop"
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="help-dialog-title"
-    >
-      <section className="help-dialog">
-        <div className="panel-title">
-          <h2 id="help-dialog-title">{title}</h2>
-          <button
-            type="button"
-            className="panel-close-button"
-            title={messages.app.close}
-            aria-label={messages.app.close}
-            onClick={onClose}
-          >
-            ×
-          </button>
-        </div>
-        {topic === "shortcuts" && (
-          <table>
-            <tbody>
-              <tr>
-                <th>Ctrl+V</th>
-                <td>{messages.app.help.shortcutImage}</td>
-              </tr>
-              <tr>
-                <th>Alt+Enter</th>
-                <td>{messages.app.help.shortcutTableBreak}</td>
-              </tr>
-            </tbody>
-          </table>
-        )}
-        {topic === "features" && (
-          <div className="feature-list">
-            {featureSections.map(
-              /**
-               * 各機能カテゴリの見出しと説明を表示する。
-               * @param section - 機能セクションの見出しと項目一覧。
-               * @returns 見出しと機能一覧を表示するReact要素。
-               */
-              (section) => (
-                <section key={section.title}>
-                  <h3>{section.title}</h3>
-                  <ul>
-                    {section.items.map(
-                      /**
-                       * section.itemsの各要素を変換して一覧化する。
-                       * @param label - 機能項目の表示名。
-                       * @param description - 機能項目の説明文。
-                       * @returns 表示名と説明文を含むリスト項目。
-                       */
-                      ([label, description]) => (
-                        <li key={label}>
-                          <strong>{label}</strong>
-                          <span>{description}</span>
-                        </li>
-                      ),
-                    )}
-                  </ul>
-                </section>
-              ),
-            )}
-          </div>
-        )}
-      </section>
-    </div>
-  );
-}
-
-/**
- * 画像ファイルをサイズ上限内で読み込み、必要ならBMPをPNGへ変換してペイロードを作る。
- * @param file 読み込む画像ファイル。
- * @param maxSizeMb アップロードを許可するファイルサイズ上限（MiB）。
- * @param messages ファイルエラーに表示する翻訳済みメッセージ。
- * @returns Webviewから送信できる画像データの非同期結果。
- * @throws Error ファイルがサイズ上限を超える場合、またはBMPのPNG変換に失敗した場合。
- */
-async function fileToPayload(
-  file: File,
-  maxSizeMb: number,
-  messages: Messages,
-): Promise<ImagePayload> {
-  if (file.size > maxSizeMb * 1024 * 1024)
-    throw new Error(messages.app.errors.imageSize(maxSizeMb));
-  if (file.type === "image/bmp") {
-    const bitmap = await createImageBitmap(file);
-    const canvas = document.createElement("canvas");
-    canvas.width = bitmap.width;
-    canvas.height = bitmap.height;
-    canvas.getContext("2d")?.drawImage(bitmap, 0, 0);
-    const blob = await new Promise<Blob>(
-      /**
-       * 非同期処理の成功結果と失敗理由を待機側へ通知する。
-       * @param resolve - Promiseの成功を通知する関数。
-       * @param reject - Promiseの失敗を通知する関数。
-       */
-      (resolve, reject) =>
-        canvas.toBlob(
-          /**
-           * @param value - canvasから受け取る画像変換結果。nullなら変換に失敗している。
-           */
-          (value) =>
-            value
-              ? resolve(value)
-              : reject(new Error(messages.app.errors.bmpConversion)),
-          "image/png",
-        ),
-    );
-    return {
-      name: file.name.replace(/\.bmp$/i, ".png"),
-      mime: "image/png",
-      base64: await blobBase64(blob),
-    };
-  }
-  return {
-    name: file.name,
-    mime: file.type || "image/png",
-    base64: await blobBase64(file),
-  };
-}
-
-/**
- * Webviewルートの条件を判定する。
- * @param file - Webviewルートで読み書きするリソースの場所。
- * @returns 条件が成立したかを示す真偽値。
- */
-function isImageFile(file: File): boolean {
-  return (
-    file.type.startsWith("image/") ||
-    /\.(?:png|jpe?g|gif|webp|bmp|svg)$/i.test(file.name)
-  );
-}
-
-/**
- * 画像BlobをBase64文字列へ変換し、巨大なUint8Arrayも小分けに処理する。
- * @param blob - Base64へ変換する画像ファイルのBlob。
- * @returns data URLのprefixを含まないBase64文字列。
- */
-async function blobBase64(blob: Blob): Promise<string> {
-  const buffer = await blob.arrayBuffer();
-  const bytes = new Uint8Array(buffer);
-  let binary = "";
-  for (let offset = 0; offset < bytes.length; offset += 0x8000)
-    binary += String.fromCharCode(...bytes.subarray(offset, offset + 0x8000));
-  return btoa(binary);
-}
-
-/**
- * Markdown本文から編集ツールバーに表示する書式状態を推定する。
- * @param value - Markdown装飾の有無を推定する本文。
- * @returns 太字、斜体、取消線、下線、ハイライト、コード、リンクの有無。
- */
-function inferMarks(value: string): Record<string, boolean> {
-  return {
-    bold: /\*\*[^*]+\*\*/.test(value),
-    italic: /(?:^|[^*])\*[^*]+\*/.test(value),
-    strike: /~~.+~~/.test(value),
-    underline: /\+\+.+\+\+/.test(value),
-    highlight: /==.+==/.test(value),
-    inlineCode: /`[^`]+`/.test(value),
-    link: /\[[^\]]+]\([^)]+\)/.test(value),
-  };
-}
-
-/**
- * 本文から指定した検索語の一致位置を抽出する。
- * @param value 検索対象となるMarkdown本文。
- * @param query 本文内で検索する語句。
- * @returns 本文内でqueryに一致した範囲の一覧。
- */
-function findSearchHits(
-  value: string,
-  query: string,
-): Array<{
-  /**
-   * 検索一致範囲の開始位置を示す本文内UTF-16オフセットです。
-   */
-  from: number;
-  /**
-   * 検索一致範囲の終了位置を示す本文内UTF-16オフセットです。
-   */
-  to: number;
-}> {
-  if (!query) return [];
-  const hits: Array<{
-    /**
-     * 検索一致範囲の開始位置を示す本文内UTF-16オフセットです。
-     */
-    from: number;
-    /**
-     * 検索一致範囲の終了位置を示す本文内UTF-16オフセットです。
-     */
-    to: number;
-  }> = [];
-  let offset = 0;
-  while (offset <= value.length) {
-    const index = value.indexOf(query, offset);
-    if (index < 0) break;
-    hits.push({ from: index, to: index + query.length });
-    offset = index + query.length;
-  }
-  return hits;
-}
-
-/**
- * 左右ペインの分割比を表示可能な範囲へ制限する。
- * @param value - 左右ペイン分割比として要求された値。
-
- */
-function clampSplitRatio(value: number): number {
-  return Math.max(0.2, Math.min(0.8, Number.isFinite(value) ? value : 0.5));
-}
-
-/**
- * PDF用紙サイズ表から寸法を取り出し、横向きなら幅と高さを入れ替える。
- * @param options 正規化済みの用紙サイズと向き。
- * @returns PDF用紙の幅と高さ（mm）。
- */
-function pdfPageDimensions(options: NormalizedPdfOptions): {
-  /**
-   * 表示領域または列の幅。
-   */
-  width: number;
-
-  /**
-   * 表示領域または行の高さ。
-   */
-  height: number;
-} {
-  const dimensions: {
-    /**
-     * 表示領域または列の幅。
-     */
-    width: number;
-    /**
-     * 表示領域または行の高さ。
-     */
-    height: number;
-  } = {
-    A0: { width: 841, height: 1189 },
-    A1: { width: 594, height: 841 },
-    A2: { width: 420, height: 594 },
-    A3: { width: 297, height: 420 },
-    A4: { width: 210, height: 297 },
-    A5: { width: 148, height: 210 },
-    A6: { width: 105, height: 148 },
-    B4: { width: 257, height: 364 },
-    B5: { width: 182, height: 257 },
-  }[options.format];
-  return options.orientation === "landscape"
-    ? { width: dimensions.height, height: dimensions.width }
-    : dimensions;
-}
-
-/**
- * Webviewルートを出力または保存できる文字列へ整える。
- * @param value - {page}と{pages}を置換するPDFヘッダーまたはフッターのテンプレート。
- * @returns ページ番号プレースホルダーを1へ置き換えたテンプレート。
- */
-function formatPdfTemplate(value: string): string {
-  return value.replace(/\{page\}/g, "1").replace(/\{pages\}/g, "1");
-}
-
-/**
- * Webviewルートの寸法、容量、位置、または計測値を求める。
- * @param value - PDF余白欄に入力された文字列。
-
- */
-function clampPdfMargin(value: string): number {
-  const parsed = Number(value);
-  return Number.isFinite(parsed)
-    ? Math.max(0, Math.min(50, Math.round(parsed)))
-    : 0;
-}
-
-/**
- * Webviewルートの寸法、容量、位置、または計測値を求める。
- * @param value - アウトライン幅として保存する数値（ピクセル）。
-
- */
-function clampOutlineWidth(value: number): number {
-  return Math.max(
-    160,
-    Math.min(420, Number.isFinite(value) ? Math.round(value) : 220),
-  );
-}
-
-/**
- * Webviewルートの寸法、容量、位置、または計測値を求める。
- * @param value - 現在の表示倍率。
-
- */
-function clampZoom(value: number): number {
-  return Math.max(0.1, Math.min(3.0, Math.round(value * 10) / 10));
-}
-
-/**
- * 他方の変更範囲を考慮してローカル変更の位置を移動し、挿入位置ではローカル側を優先する。
- * @param changes - 本文へ適用する変更範囲の一覧。
- * @param over - 同じ変更前本文に対して計算した、競合を確認する他方の変更範囲。
- * @param baseLength - 変更範囲を計算した元本文のUTF-16文字数。
- * @returns 位置を写像したローカル変更範囲の一覧。
- */
-function mapChangesPreferLocal(
-  changes: readonly TextChange[],
-  over: readonly TextChange[],
-  baseLength: number,
-): TextChange[] {
-  return [...changes]
-    .sort(
-      /**
-       * 2つの値を比較して並び順を決める。
-       * @param left - 比較対象の左側の値。
-       * @param right - 比較対象の右側の値。
-       * @returns 2つの要素の順序を示す数値。
-       */
-      (left, right) => left.rangeOffset - right.rangeOffset,
-    )
-    .map(
-      /**
-       * 各ローカル変更範囲の位置を他方の変更範囲に合わせて移動する。
-       * @param change - 変更前本文に対して計算した、位置を移動するローカル変更。
-       * @returns 対応する本文上の位置へ写像した変更範囲。
-       */
-      (change) => {
-        const start = change.rangeOffset;
-        if (change.rangeLength === 0) {
-          return {
-            ...change,
-            rangeOffset: mapTextOffset(start, over, baseLength, 1),
-          };
-        }
-        const mappedStart = mapTextOffset(start, over, baseLength, -1);
-        const mappedEnd = mapTextOffset(
-          start + change.rangeLength,
-          over,
-          baseLength,
-          1,
-        );
-        return {
-          ...change,
-          rangeOffset: mappedStart,
-          rangeLength: Math.max(0, mappedEnd - mappedStart),
-        };
-      },
-    );
-}
-
-/**
- * Webviewルートの条件を判定する。
- * @param mode - 編集面とプレビューの表示構成。
- * @param splitView - 分割表示で見せるペイン。本文エディターを有効にするか判定する。
- * @returns 条件が成立したかを示す真偽値。
- */
-function isEditingEnabled(
-  mode: EditorMode,
-  splitView: "both" | "text" | "preview",
-): boolean {
-  return mode !== "preview" && !(mode === "split" && splitView === "preview");
-}
-
-/**
- * 保存状態から読み取った候補を、対応する表示モードへ正規化する。
- * @param value - 永続化状態から読み取った表示モード候補。textまたはpreviewならその値を返し、それ以外はbothにする。
- * @returns 有効な表示モード。未対応の候補はbothへ戻す。
- */
-function restoreViewMode(value: unknown): ViewMode {
-  return value === "text" || value === "preview" ? value : "both";
-}
-
-/**
- * 編集・プレビュー表示モードに対応するステータスラベルを返す。
- * @param mode 編集面とプレビューの表示構成。
- * @param messages 表示用に選択された翻訳済みメッセージ。
-
- */
-function modeLabel(mode: EditorMode, messages: Messages): string {
-  return mode === "split"
-    ? messages.app.status.modeSplit
-    : messages.app.status.modePreview;
-}
-
-/**
- * Webviewルートの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
- * @param markdown - 解析・編集・変換の対象となるMarkdown本文。
- * @param opening 置換対象ブロックの開始区切り。
- * @param closing 置換対象ブロックの終了区切り。
- * @param previous 置換対象として一致する既存ブロック本文。
- * @param next 区切りブロック内へ挿入する置換後の内容。
-
- */
-function replaceDelimitedBlock(
-  markdown: string,
-  opening: string,
-  closing: string,
-  previous: string,
-  next: string,
-): string {
-  const pattern = new RegExp(
-    `(${escapeRegExp(opening)}[^\\r\\n]*(\\r\\n|\\r|\\n))([\\s\\S]*?)(\\r\\n|\\r|\\n)${escapeRegExp(closing)}`,
-    "g",
-  );
-  const normalizedPrevious = previous.replace(/\r\n?|\n/g, "\n");
-  return markdown.replace(
-    pattern,
-
-    /**
-     * 区切りブロックの一致部分を調べ、内容が一致する場合に置換後の文字列を返す。
-     * @param whole - 区切りブロック全体に一致した文字列。
-     * @param prefix 一致した開始区切り行とその行末文字。
-     * @param openingEol 開始区切り行の後にある改行文字。
-     * @param body 一致した開始行と終了行の間にある既存内容。
-     * @param closingEol 終了区切り行の前にある改行文字。
-
-     */
-    (
-      whole,
-      prefix: string,
-      openingEol: string,
-      body: string,
-      closingEol: string,
-    ) => {
-      if (body.replace(/\r\n?|\n/g, "\n") !== normalizedPrevious) return whole;
-      const replacement = next
-        .replace(/\r\n?|\n/g, "\n")
-        .replace(/\n/g, openingEol);
-      return `${prefix}${replacement}${closingEol}${closing}`;
-    },
-  );
-}
-
-/**
- * 正規表現内で特別な意味を持つ文字をエスケープする。
- * @param value - 正規表現内で文字どおり照合する文字列。
-
- */
-function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
-}
-
-/**
- * 印刷文書で使うスタイルシート規則を集める。
- * @param fontFamily 印刷CSSへ設定するフォントファミリー。
- * @param includeEmbeddedFonts Webview内の@font-face規則も含める場合はtrue。
-
- */
-function collectPrintableCss(
-  fontFamily: string,
-  includeEmbeddedFonts = true,
-): string {
-  const rules: string[] = [printContentCss(fontFamily)];
-  for (const sheet of Array.from(document.styleSheets)) {
-    try {
-      for (const rule of Array.from(sheet.cssRules)) {
-        if (!includeEmbeddedFonts && rule.type === CSSRule.FONT_FACE_RULE)
-          continue;
-        const css = rule.cssText;
-        if (
-          (includeEmbeddedFonts && css.startsWith("@font-face")) ||
-          css.includes(".katex") ||
-          css.includes(".hljs")
-        ) {
-          rules.push(css);
-        }
-      }
-    } catch {
-      // 読み取りが禁止されたスタイルシートは印刷本文の生成を妨げないよう除外する。
-    }
-  }
-  return rules.join("\n");
-}
-
-/**
- * Webviewルートの非同期処理を共有するPromise。
- */
-let exportFontCssPromise: Promise<string> | undefined;
-
-/**
- * 印刷CSSからフォント関連の規則を収集し、キャッシュ済みのCSSを返す。
- * @param fontFamily 印刷CSSへ設定するフォントファミリー。
-
- */
-async function collectEmbeddedPrintableCss(
-  fontFamily: string,
-): Promise<string> {
-  exportFontCssPromise ??= fetch(
-    webviewAssetUrl(
-      "export-fonts.css",
-      document.body.dataset.mveExportFontsUri,
-    ),
-  )
-    .then(
-      /**
-       * @param response - 埋め込みフォントCSS取得要求のHTTP応答。成功状態を確認してCSS本文を読み取る。
-       */
-      (response) => {
-        if (!response.ok) {
-          throw new Error(`Unable to load export fonts (${response.status})`);
-        }
-        return response.text();
-      },
-    )
-    .catch(
-      /**
-
-       * @param error - 処理に失敗した理由または例外。
-       */
-      (error) => {
-        exportFontCssPromise = undefined;
-        throw error;
-      },
-    );
-  return `${collectPrintableCss(fontFamily, false)}\n${await exportFontCssPromise}`;
 }

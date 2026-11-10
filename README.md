@@ -12,6 +12,8 @@ Markdown Easy Visual Editor is a VS Code extension for writing Markdown and Text
 - Use the ribbon to format text, create lists, insert links, images, tables, code blocks, math, Mermaid diagrams, footnotes, alerts, and more.
 - Navigate long documents with an outline generated from headings.
 - Search and replace text with `Ctrl+F` on Windows/Linux or `Cmd+F` on macOS.
+- Complete link paths and heading anchors while typing Markdown links.
+- Update relative links automatically when files or folders are moved or renamed in VS Code.
 - Paste or drop images into a document and save them as local assets.
 - Resize and align images directly in the preview.
 - Insert draw.io diagrams and open them in the draw.io editor with one click from the preview.
@@ -132,6 +134,27 @@ Open the same Markdown document as a regular text editor beside the visual edito
 Open **Shortcuts** for the built-in keyboard shortcut list, or open **Features** for a quick overview of the available editing tools.
 
 ![Help ribbon and built-in keyboard shortcuts](./resources/readme-help-shortcuts.png)
+
+## Links
+
+### Complete link paths and headings
+
+While typing a link destination in the source editor, suggestions appear automatically. Press `Ctrl+Space` to show them again.
+
+- After `](`, `[id]: `, or an HTML `src="` / `href="`, choose a file from the document's workspace folder. The path is inserted relative to the current document, with spaces and parentheses encoded.
+- After `#`, choose a heading. `[text](#` lists headings in the current document, and `[text](guide.md#` lists headings in `guide.md`. Anchors use the same IDs as the preview and **Copy link to section**.
+
+Suggestions are not shown inside code or in `.textile` documents.
+
+### Update links when files move
+
+When you move or rename a file or folder in VS Code (for example, in the Explorer), the extension finds Markdown files with relative links to it and asks whether to update them. Choose **Update** for this move, **Always update** to stop asking, or **Don't update** to turn the feature off. You can change this later with **Markdown Easy Visual Editor: Links: Update On File Move**.
+
+- Links in the moved Markdown file itself are also updated so they keep pointing to the same targets.
+- Moves made while the question is still open are included when you answer, so the number of files in the question is an estimate. Until you answer (or dismiss) it, later moves wait.
+- `#heading` and `?query` parts, `./` prefixes, and link titles are kept. Links inside code, URLs, and absolute paths are not changed.
+- The changes are applied as a refactoring, so they can be undone with **Undo**. Whether the changed files are saved follows VS Code's **Files: Refactoring Auto Save** setting.
+- This works after VS Code finishes starting, even if no file is open in the visual editor. It is skipped when VS Code's built-in **Markdown: Update Links On File Move** setting is enabled, so links are not edited twice.
 
 ## Images
 
@@ -327,6 +350,7 @@ Open the editor's **Settings** tab for image save paths, separate editor/preview
 | **Images: Directory** | Choose where locally saved images are stored. `${documentBasename}` uses the current Markdown file name. | `assets/${documentBasename}` |
 | **Images: Maximum Paste Size (MB)** | Set the maximum size of each pasted image. | `100` |
 | **Remote Images: Enabled** | Allow images referenced by remote URLs to appear in the preview. | Enabled |
+| **Links: Update On File Move** | Ask, always, or never update relative Markdown links when files or folders are moved or renamed. | Ask |
 | **Mermaid: Theme** | Choose the Mermaid preview theme. | Auto |
 | **Mermaid: Font Size** | Set one font size for Mermaid diagrams in the preview and HTML/PDF output. | `16` px |
 | **PDF: Browser Path** | Specify an Edge or Chrome executable when automatic detection does not work. | Automatic detection |

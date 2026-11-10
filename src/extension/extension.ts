@@ -1,6 +1,7 @@
 /**
  * @fileoverview Custom Editorの起動、文書保存、HostとWebviewの同期、編集コマンドを束ねる。VS Code APIが外部境界となる。
  */
+import { errorMessage } from '../shared/errorMessage';
 import * as vscode from 'vscode';
 import { open, realpath, stat } from 'node:fs/promises';
 import { createRequire } from 'node:module';
@@ -37,7 +38,7 @@ import {
 } from '../shared/drawioSvg';
 import { writeDrawioSvgExclusive } from './drawioFile';
 import { openDrawioSvgEditor } from './drawioEditor';
-import { findDrawioModelRange, normalizeSvgClipboardText } from '../shared/svgClipboard';
+import { normalizeSvgClipboardText } from '../shared/svgClipboard';
 import {
     collectLocalResourceReferences,
     headingLineForAnchor,
@@ -47,7 +48,13 @@ import {
     type Diagnostic,
     type TextSelection
 } from '../shared/markdown';
-import { applyTextChanges, computeTextChanges, mapTextChanges, validateTextChanges, type TextChange } from '../shared/textChanges';
+import {
+    applyTextChanges,
+    computeTextChanges,
+    mapTextChanges,
+    validateTextChanges,
+    type TextChange
+} from '../shared/textChanges';
 import {
     canonicalizeContentChanges,
     canonicalOffsetAt,
@@ -66,8 +73,33 @@ import { closePeleRenderer, PeleRendererUnavailableError, preparePeleRenderer, r
 import { MAX_MERMAID_IMAGE_BYTES, resolveMermaidImageSources } from './mermaidImages';
 import { namespaceMermaidSvg } from '../shared/mermaidSvg';
 import { decodeLocalResourceSource, isMissingResourceError } from './resourceCheck';
-import { classifyResourceLink, isDocumentRelativeResourcePath, workspaceRootPathSegments } from './resourceLink';
+import { classifyResourceLink, isDocumentRelativeResourcePath } from './resourceLink';
 import { openHtmlPreview } from './htmlPreview';
+import {
+    FONT_FAMILY_STATE_KEY,
+    GLOBAL_CONFIGURATION_KEYS,
+    GLOBAL_SETTINGS_MIGRATION_STATE_KEY,
+    HTML_OPTIONS_STATE_KEY,
+    OUTLINE_VISIBLE_STATE_KEY,
+    PDF_OPTIONS_STATE_KEY,
+    PREVIEW_IMAGE_RESIZE_CONTROLS_STATE_KEY,
+    SCROLL_SYNC_STATE_KEY,
+    VIEW_MODE_STATE_KEY
+} from './globalSettingsKeys';
+import {
+    compactTimestamp,
+    extensionForMime,
+    imageExtensionFromName,
+    mimeForFile,
+    relativeUriPath,
+    resolveLocalResourceUri,
+    sanitizeDrawioSvg,
+    sanitizeSvg,
+    selectedImageReference
+} from './imageAssets';
+import { getEditorAssociation, sameUriResource } from './editorAssociation';
+import { LinkCompletionProvider } from './linkCompletion';
+import { MarkdownLinkUpdater } from './linkUpdater';
 
 const MERMAID_RENDER_PROGRESS_INTERVAL_MS = 10_000;
 
@@ -97,171 +129,6 @@ const DRAWIO_NOTIFICATION_DEDUPE_MS = 500;
 
 /** Copilot Chatの選択範囲添付に使う、ワークスペース単位の一時ファイル状態キー。 */
 const COPILOT_SELECTION_ATTACHMENT_STATE_KEY = 'markdownEasyVisualEditor.copilotSelectionAttachmentUri';
-
-/** resourceに対して最も優先される明示的なeditor associationを取得する。 */
-function getEditorAssociation(uri: vscode.Uri): string | undefined {
-    const associations = vscode.workspace.getConfiguration('workbench')
-        .get<Record<string, unknown>>('editorAssociations', {});
-    const matchingAssociations = Object.entries(associations ?? {})
-        .filter(([pattern, viewType]) => typeof viewType === 'string'
-            && editorAssociationPatternMatches(pattern, uri))
-        .sort(([leftPattern], [rightPattern]) => rightPattern.length - leftPattern.length);
-    const viewType = matchingAssociations[0]?.[1];
-    return typeof viewType === 'string' ? viewType : undefined;
-}
-
-/** VS Codeのeditor association globを、URIのpathまたはbasenameと比較する。 */
-function editorAssociationPatternMatches(pattern: string, uri: vscode.Uri): boolean {
-    const normalizedPattern = pattern.replace(/\\/g, '/');
-    const hasPathSeparator = normalizedPattern.includes('/');
-    const regexSource = globPatternToRegex(normalizedPattern);
-    const regex = new RegExp('^' + regexSource + '$', 'i');
-    const target = hasPathSeparator
-        ? (uri.scheme + ':' + uri.path).replace(/\\/g, '/')
-        : path.posix.basename(uri.path.replace(/\\/g, '/'));
-    return regex.test(target);
-}
-
-/** fragmentを除いたURIのresource部分が一致するかを判定する。 */
-function sameUriResource(left: vscode.Uri | undefined, right: vscode.Uri): boolean {
-    return left !== undefined
-        && left.scheme === right.scheme
-        && left.authority === right.authority
-        && left.path === right.path
-        && left.query === right.query;
-}
-
-/** editor association globのワイルドカードをRegExp本文へ変換する。 */
-function globPatternToRegex(pattern: string): string {
-    let result = '';
-    for (let index = 0; index < pattern.length; index += 1) {
-        const character = pattern[index];
-        if (character === '*') {
-            if (pattern[index + 1] === '*') {
-                const isWholePathSegment = (index === 0 || pattern[index - 1] === '/')
-                    && (index + 2 === pattern.length || pattern[index + 2] === '/');
-                if (!isWholePathSegment) {
-                    result += '[^/]*';
-                    index += 1;
-                    continue;
-                }
-                index += 1;
-                if (pattern[index + 1] === '/') {
-                    result += '(?:.*/)?';
-                    index += 1;
-                } else {
-                    result += '.*';
-                }
-            } else {
-                result += '[^/]*';
-            }
-            continue;
-        }
-        if (character === '?') {
-            result += '[^/]';
-            continue;
-        }
-        if (character === '[') {
-            const close = pattern.indexOf(']', index + 1);
-            if (close > index + 1) {
-                const range = pattern.slice(index + 1, close);
-                result += `[${range.startsWith('!') ? `^${range.slice(1)}` : range}]`;
-                index = close;
-                continue;
-            }
-        }
-        if (character === '{') {
-            const close = pattern.indexOf('}', index + 1);
-            if (close > index + 1) {
-                const alternatives = pattern.slice(index + 1, close).split(',');
-                result += `(?:${alternatives.map(globPatternToRegex).join('|')})`;
-                index = close;
-                continue;
-            }
-        }
-        result += /[.+^$()|{}\\]/.test(character) ? `\\${character}` : character;
-    }
-    return result;
-}
-
-/**
- * globalStateで表示モードを保存するキー。
- */
-const VIEW_MODE_STATE_KEY = 'markdownEasyVisualEditor.viewMode';
-
-/**
- * globalStateで目次表示状態を保存するキー。
- */
-const OUTLINE_VISIBLE_STATE_KEY = 'markdownEasyVisualEditor.outlineVisible';
-
-/**
- * スクロール同期設定を保存するキー。
- */
-const SCROLL_SYNC_STATE_KEY = 'markdownEasyVisualEditor.scrollSyncEnabled';
-
-/**
- * 画像リサイズUIの状態を保存するキー。
- */
-const PREVIEW_IMAGE_RESIZE_CONTROLS_STATE_KEY = 'markdownEasyVisualEditor.previewImageResizeControlsVisible';
-
-/**
- * globalStateでPDF設定を保存するキー。
- */
-const PDF_OPTIONS_STATE_KEY = 'markdownEasyVisualEditor.pdfOptions';
-
-/**
- * globalStateでフォント設定を保存するキー。
- */
-const FONT_FAMILY_STATE_KEY = 'markdownEasyVisualEditor.fontFamilies';
-
-/**
- * globalStateでHTML出力設定を保存するキー。
- */
-const HTML_OPTIONS_STATE_KEY = 'markdownEasyVisualEditor.htmlOptions';
-
-/** 旧globalState形式の設定移行を一度だけ実行したか記録するキー。 */
-const GLOBAL_SETTINGS_MIGRATION_STATE_KEY = 'markdownEasyVisualEditor.globalSettingsMigrated';
-
-/** VS CodeのmarkdownEasyVisualEditor設定へ保存するキーを一元管理する。 */
-const GLOBAL_CONFIGURATION_KEYS = {
-    viewMode: 'editor.viewMode',
-    outlineVisible: 'editor.outlineVisible',
-    scrollSyncEnabled: 'editor.scrollSyncEnabled',
-    previewImageResizeControlsVisible: 'preview.imageResizeControlsVisible',
-    editorFontFamily: 'fonts.editorFamily',
-    previewFontFamily: 'fonts.previewFamily',
-    mermaidFontSize: 'mermaid.fontSize',
-    pdf: {
-        format: 'pdf.format',
-        orientation: 'pdf.orientation',
-        marginTop: 'pdf.margins.top',
-        marginRight: 'pdf.margins.right',
-        marginBottom: 'pdf.margins.bottom',
-        marginLeft: 'pdf.margins.left',
-        header: 'pdf.header',
-        footer: 'pdf.footer',
-        bodyFontSize: 'pdf.bodyFontSize',
-        headingFontSizeH1: 'pdf.headingFontSizes.h1',
-        headingFontSizeH2: 'pdf.headingFontSizes.h2',
-        headingFontSizeH3: 'pdf.headingFontSizes.h3',
-        headingFontSizeH4: 'pdf.headingFontSizes.h4',
-        headingFontSizeH5: 'pdf.headingFontSizes.h5',
-        headingFontSizeH6: 'pdf.headingFontSizes.h6',
-        codeFontSize: 'pdf.codeFontSize',
-        lineHeight: 'pdf.lineHeight',
-        paragraphSpacing: 'pdf.paragraphSpacing',
-        saveWithoutDialog: 'pdf.saveWithoutDialog'
-    },
-    output: {
-        textReplacements: 'output.textReplacements'
-    },
-    html: {
-        embedImages: 'html.embedImages',
-        convertLinkedMarkdown: 'html.convertLinkedMarkdown',
-        showOutlineSidebar: 'html.showOutlineSidebar',
-        saveWithoutDialog: 'html.saveWithoutDialog'
-    }
-} as const;
 
 /**
  * Webviewの初期化値をscript要素へ安全に埋め込めるJSON文字列にする。
@@ -521,6 +388,15 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand('markdownEasyVisualEditor.redo',
 
             () => provider.executeHistoryCommand('redo')),
+        // ファイル・フォルダーの移動に合わせてMarkdownのリンクを書き換える。activationEvents の onStartupFinished により、ビジュアルエディターを開く前から動作する。
+        new MarkdownLinkUpdater(
+            /**
+             * 通知の表示時点の言語設定で文言を返す。
+             * @returns 現在の言語設定に対応するローカライズ済み文言。
+             */
+            () => getMessages(resolveLanguage(
+                vscode.workspace.getConfiguration('markdownEasyVisualEditor').get<string>('language', 'auto'),
+                vscode.env.language))),
     );
     if (startupBenchmarkEnabled) {
         // バンドル評価開始時刻はビルド時のbannerが定義する。テスト等でbannerが無い場合はactivate()本体だけを測る。
@@ -715,6 +591,9 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
 
     /** 選択範囲添付の作成・前回添付の置換を直列化する。 */
     private copilotAttachmentQueue: Promise<void> = Promise.resolve();
+
+    /** 本文エディターのリンク先補完に使うファイル・見出し候補の提供元。最初の補完要求で作り、拡張機能の終了時に破棄する。 */
+    private linkCompletionProvider: LinkCompletionProvider | undefined;
 
     /** このワークスペースのChat Viewで前回添付し、拡張機能の再読込後も置き換え対象にする選択範囲ファイル。 */
     private lastCopilotSelectionAttachment?: vscode.Uri;
@@ -938,8 +817,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                 paths
             });
         } catch (error) {
-            const detail = error instanceof Error ? error.message : String(error);
-            void vscode.window.showErrorMessage(`${messages.host.errorPrefix}: ${detail}`);
+            this.showHostError(error);
         }
     }
 
@@ -970,8 +848,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
             // ここでは変換処理を実行しない。UIと同じhostCommandを同じWebviewへ渡す。
             this.post(panel, { type: 'hostCommand', command });
         } catch (error) {
-            const detail = error instanceof Error ? error.message : String(error);
-            void vscode.window.showErrorMessage(`${this.getMessages().host.errorPrefix}: ${detail}`);
+            this.showHostError(error);
         }
     }
 
@@ -1274,6 +1151,29 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                     this.post(panel, { type: 'localResourcesChecked', requestId: message.requestId, diagnostics });
                     return;
                 }
+                case 'requestLinkCompletions': {
+                    // 補完は入力中の補助なので、失敗しても通知せず空の候補を返し、Webviewの待機を終わらせる。
+                    try {
+                        const linkCompletion = this.getLinkCompletionProvider();
+                        if (message.kind === 'headings') {
+                            const headings = await linkCompletion.listHeadings(
+                                document.uri,
+                                typeof message.path === 'string' ? message.path : '');
+                            this.post(panel, { type: 'linkCompletions', requestId: message.requestId, headings });
+                        } else {
+                            const paths = await linkCompletion.listFiles(document.uri);
+                            this.post(panel, { type: 'linkCompletions', requestId: message.requestId, paths });
+                        }
+                    } catch (error) {
+                        hostDebug('link completion failed', { error: errorMessage(error) });
+                        this.post(panel, {
+                            type: 'linkCompletions',
+                            requestId: message.requestId,
+                            ...(message.kind === 'headings' ? { headings: [] } : { paths: [] })
+                        });
+                    }
+                    return;
+                }
                 case 'renderMermaid': {
                     this.markStartup(panel, 'firstMermaidRequestedMs');
                     const previous = this.mermaidRenderControllers.get(message.requestId);
@@ -1323,7 +1223,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                         this.post(panel, {
                             type: 'mermaidRendered',
                             requestId: message.requestId,
-                            error: error instanceof Error ? error.message : String(error),
+                            error: errorMessage(error),
                             rendererUnavailable: error instanceof PeleRendererUnavailableError
                         });
                     } finally {
@@ -1630,7 +1530,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                 if (this.activeOperationKeysByDocument.get(documentKey) === operationKey) {
                     this.activeOperationKeysByDocument.delete(documentKey);
                 }
-                this.sendResync(panel, document, message.clientId, message.opId, error instanceof Error ? error.message : String(error));
+                this.sendResync(panel, document, message.clientId, message.opId, errorMessage(error));
                 return;
             }
             if (message.type === 'historyCommand') {
@@ -1638,7 +1538,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                 return;
             }
             const requestId = 'requestId' in message ? message.requestId : undefined;
-            const text = error instanceof Error ? error.message : String(error);
+            const text = errorMessage(error);
             if (message.type === 'detectMarpMarkdown') {
                 hostDebug('[MVE host] Marp detection failed', { error: text });
                 this.post(panel, { type: 'operationFailed', requestId, message: text });
@@ -2275,7 +2175,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                     // 添付失敗時の一時ファイル削除エラーは元文書やChat入力へ波及させない。
                 }
             }
-            const detail = error instanceof Error ? error.message : String(error);
+            const detail = errorMessage(error);
             void vscode.window.showErrorMessage(`${messages.host.errorPrefix}: ${detail}`);
             return;
         }
@@ -2302,7 +2202,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                 } catch {
                     // 前回添付の削除失敗後に新しい添付を戻せない場合は、通知で状況を伝える。
                 }
-                const detail = error instanceof Error ? error.message : String(error);
+                const detail = errorMessage(error);
                 void vscode.window.showErrorMessage(`${messages.host.errorPrefix}: ${detail}`);
                 return;
             }
@@ -3179,8 +3079,28 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
      * 現在のlocaleで表示する拡張機能の文言を取得する。
      * @returns 現在の言語設定に対応するローカライズ済み文言。
      */
+    /**
+     * 拡張機能名を付けたエラー通知を表示する。
+     * @param error - catch で受け取った値。
+     */
+    private showHostError(error: unknown): void {
+        void vscode.window.showErrorMessage(`${this.getMessages().host.errorPrefix}: ${errorMessage(error)}`);
+    }
+
     private getMessages(): Messages {
         return getMessages(this.getLanguage());
+    }
+
+    /**
+     * リンク先補完の候補提供元を返す。補完を使わないセッションでファイル操作の購読を増やさないよう、最初の要求時に作る。
+     * @returns 拡張機能の終了時に破棄される候補提供元。
+     */
+    private getLinkCompletionProvider(): LinkCompletionProvider {
+        if (!this.linkCompletionProvider) {
+            this.linkCompletionProvider = new LinkCompletionProvider();
+            this.context.subscriptions.push(this.linkCompletionProvider);
+        }
+        return this.linkCompletionProvider;
     }
 
     /**
@@ -3438,226 +3358,4 @@ function pdfConfigurationEntries(options: NormalizedPdfOptions): Array<[string, 
         [GLOBAL_CONFIGURATION_KEYS.pdf.paragraphSpacing, options.paragraphSpacing],
         [GLOBAL_CONFIGURATION_KEYS.pdf.saveWithoutDialog, options.saveWithoutDialog]
     ];
-}
-
-/**
- * 対応する画像MIMEタイプをファイル拡張子へ変換する。
- * @param mime - 画像または出力データのMIMEタイプ。
- * @returns MIMEタイプに対応する安全なファイル拡張子。未対応タイプではundefined。
- */
-function extensionForMime(mime: string): string | undefined {
-    // MIMEタイプを画像ファイルの拡張子へ変換し、未対応形式はundefinedを返す。
-    return (
-        {
-            'image/png': 'png',
-            'image/apng': 'apng',
-            'image/jpeg': 'jpg',
-            'image/jpg': 'jpg',
-            'image/gif': 'gif',
-            'image/webp': 'webp',
-            'image/svg+xml': 'svg',
-            'image/bmp': 'bmp',
-            'image/x-ms-bmp': 'bmp',
-            'image/avif': 'avif',
-            'image/x-icon': 'ico',
-            'image/vnd.microsoft.icon': 'ico',
-            'image/heic': 'heic',
-            'image/heif': 'heif',
-            'image/jxl': 'jxl',
-            'image/tiff': 'tiff'
-        } as Record<string, string>
-    )[mime.toLowerCase()];
-}
-
-
-/**
- * 保存を許可する画像拡張子の集合。
- */
-const SAFE_IMAGE_EXTENSIONS = new Set([
-    'png', 'apng', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'bmp', 'avif',
-    'ico', 'heic', 'heif', 'jxl', 'tif', 'tiff'
-]);
-
-/**
- * 拡張機能の入力を検証し、表示または保存に使う形式へ変換する。
- * @param name - 画像ペイロードの元ファイル名。
- * @param mime - 画像または出力データのMIMEタイプ。
- * @returns MIMEタイプが画像で、ファイル名の拡張子が許可される場合はその拡張子。それ以外はundefined。
- */
-function imageExtensionFromName(name: string | undefined, mime: string): string | undefined {
-    if (!mime.toLowerCase().startsWith('image/') || !name) return undefined;
-    const extension = path.extname(name).slice(1).toLowerCase();
-    return SAFE_IMAGE_EXTENSIONS.has(extension) ? extension : undefined;
-}
-
-/**
- * ファイル拡張子から画像MIMEタイプを判定する。
- * @param filePath - 拡張子から画像MIMEタイプを判定するファイルパス。
- * @returns 対応する画像MIMEタイプ。未対応拡張子はapplication/octet-stream。
- */
-function mimeForFile(filePath: string): string {
-    // ファイル拡張子を画像MIMEタイプへ変換し、未対応形式は汎用タイプにする。
-    const extension = path.extname(filePath).toLowerCase();
-    return (
-        {
-            '.png': 'image/png',
-            '.apng': 'image/apng',
-            '.jpg': 'image/jpeg',
-            '.jpeg': 'image/jpeg',
-            '.gif': 'image/gif',
-            '.webp': 'image/webp',
-            '.svg': 'image/svg+xml',
-            '.bmp': 'image/bmp',
-            '.avif': 'image/avif',
-            '.ico': 'image/x-icon',
-            '.heic': 'image/heic',
-            '.heif': 'image/heif',
-            '.jxl': 'image/jxl',
-            '.tif': 'image/tiff',
-            '.tiff': 'image/tiff'
-        } as Record<string, string>
-    )[extension] ?? 'application/octet-stream';
-}
-
-/**
- * ファイル選択で選ばれた画像を、コピーせずに文書から直接参照できる場合のMarkdown相対パスを返す。
- * Webviewの `localResourceRoots`（文書フォルダーとワークスペースフォルダー）の外にある画像は、
- * 相対参照してもプレビューで表示できないため対象外にする。ドライブが異なるなど相対パスで表せない場合も対象外。
- * ファイルの読込みはせず、パスの位置関係だけで判定する。
- * @param documentUri - 画像を挿入するMarkdown文書のURI。
- * @param imageUri - ファイル選択ダイアログで選ばれた画像のURI。
- * @param workspaceFolders - 開いているワークスペースフォルダーのURI一覧。
- * @returns Markdownを壊す文字を%エスケープした相対パス。直接参照できない場合はundefined。
- */
-function selectedImageReference(
-    documentUri: vscode.Uri,
-    imageUri: vscode.Uri,
-    workspaceFolders: readonly vscode.Uri[]
-): string | undefined {
-    if (imageUri.scheme !== documentUri.scheme || imageUri.authority !== documentUri.authority) return undefined;
-    const roots = [vscode.Uri.joinPath(documentUri, '..'), ...workspaceFolders];
-    const isInside = roots.some(
-        /**
-         * 画像がこのフォルダー配下にあるかを判定する。Windowsのローカルパスは大文字小文字を区別しない。
-         * @param root - プレビューが読込みを許可するフォルダー。
-         * @returns 配下にある場合はtrue。
-         */
-        (root) => {
-            if (root.scheme !== imageUri.scheme || root.authority !== imageUri.authority) return false;
-            const relative = imageUri.scheme === 'file'
-                ? path.relative(root.fsPath, imageUri.fsPath)
-                : path.posix.relative(root.path, imageUri.path);
-            return relative !== '' && relative !== '..' && !relative.startsWith('../')
-                && !relative.startsWith(`..${path.sep}`) && !path.isAbsolute(relative);
-        });
-    if (!isInside) return undefined;
-    const relative = relativeUriPath(documentUri, imageUri);
-    if (!relative || path.isAbsolute(relative) || relative.startsWith('/')) return undefined;
-    return encodeDrawioRelativePath(relative);
-}
-
-/**
- * 保存先URIをMarkdown文書の場所からの相対パスへ変換する。
- * @param documentUri - 相対パスの基準となるMarkdown文書URI。
- * @param target - Markdown文書からの相対パスを作る保存先URI。
- * @returns Markdown文書の親フォルダーから保存先URIへの相対パス。
- */
-function relativeUriPath(documentUri: vscode.Uri, target: vscode.Uri): string {
-    // 保存先URIをMarkdown文書からの相対パスへ変換し、仮想URIにも対応する。
-    if (documentUri.scheme === 'file' && target.scheme === 'file') {
-        return path.relative(path.dirname(documentUri.fsPath), target.fsPath).replace(/\\/g, '/');
-    }
-    const base = documentUri.path.slice(0, documentUri.path.lastIndexOf('/') + 1);
-    return target.path.startsWith(base) ? target.path.slice(base.length) : target.path;
-}
-
-/**
- * Markdown内のローカルリソース参照を、文書位置に基づくVS Code URIへ解決する。
- * @param documentUri - 相対参照の基準となるMarkdown文書のURI。
- * @param source - Markdownから取り出した画像などのローカルURIまたはファイルパス。
- * @returns 条件に一致する値。未検出時はundefinedまたはnull。
- */
-function resolveLocalResourceUri(documentUri: vscode.Uri, source: string, workspaceRooted = false): vscode.Uri | undefined {
-    const clean = decodeLocalResourceSource(source);
-    if (workspaceRooted && clean.startsWith('/')) {
-        const workspaceSegments = workspaceRootPathSegments(clean);
-        const workspaceFolder = vscode.workspace.getWorkspaceFolder(documentUri);
-        return workspaceSegments && workspaceFolder
-            ? vscode.Uri.joinPath(workspaceFolder.uri, ...workspaceSegments)
-            : undefined;
-    }
-    if (workspaceRooted && !isDocumentRelativeResourcePath(clean)) return undefined;
-    if (/^file:/i.test(clean)) return vscode.Uri.parse(clean);
-    if (/^[A-Za-z]:[\\/]/.test(clean) && documentUri.scheme === 'file') {
-        return vscode.Uri.file(clean.replace(/\\/g, path.sep));
-    }
-    if (/^\//.test(clean) && !/^\/\//.test(clean) && documentUri.scheme === 'file') {
-        return vscode.Uri.file(clean);
-    }
-    if (/^(?:\\\\|\/\/)/.test(clean) && documentUri.scheme === 'file') {
-        return vscode.Uri.file(clean.replace(/[\\/]/g, path.sep));
-    }
-    if (!clean || /^(?:[a-z][a-z0-9+.-]*:|#)/i.test(clean)) return undefined;
-    const segments = clean.replace(/\\/g, '/').split('/').filter(Boolean);
-    return segments.length ? vscode.Uri.joinPath(documentUri, '..', ...segments) : undefined;
-}
-
-/**
- * 日時を画像ファイル名に使える形へ整える。
- * @param date - 画像ファイル名へ含める日時。
- * @returns YYYYMMDD-HHMMSS形式の日時文字列。
- */
-function compactTimestamp(date: Date): string {
-    // 日付と時刻をファイル名に使える連続した文字列へ変換する。
-    const parts = [
-        date.getFullYear(),
-        String(date.getMonth() + 1).padStart(2, '0'),
-        String(date.getDate()).padStart(2, '0'),
-        '-',
-        String(date.getHours()).padStart(2, '0'),
-        String(date.getMinutes()).padStart(2, '0'),
-        String(date.getSeconds()).padStart(2, '0')
-    ];
-    return parts.join('');
-}
-
-/**
- * SVGから実行可能な内容と危険な参照を取り除く。
- * @param value - 危険な要素や属性を除去するSVGマークアップ文字列。
- * @returns script要素、イベント属性、危険なURL参照を除いたSVGマークアップ。
- */
-function sanitizeSvg(value: string): string {
-    // SVGからスクリプト・イベント属性・危険なURLスキームを除去する。
-    return value
-        .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
-        .replace(/\son\w+\s*=\s*(?:"[^"]*"|'[^']*')/gi, '')
-        .replace(/(?:javascript|data:text\/html):/gi, '');
-}
-
-/**
- * draw.io SVGの編集モデルを変更せずにサニタイズする。
- * sanitizeSvgは属性値の内外を区別しないため、モデルへ適用すると「JavaScript: 概要」のようなラベルや
- * 図形のリンクが壊れ、draw.ioでの再保存で欠落が確定する。findDrawioModelRangeはXMLとHTMLのどちらでも引用された属性値になる範囲だけを返し、
- * その範囲はSVGとして実行されないので、仮の文字列へ置き換えた文書だけをサニタイズし、最後に元の値へ戻す。
- * 除去によって引用符の対応が崩れるとモデルが属性値の外へ出るため、戻した結果を再度読み、同じ位置の属性値である場合だけ採用する。
- * モデルの外は従来どおりサニタイズするため、表示用の文字列は変わることがある。draw.ioで再保存するとモデルから再生成される。
- * 先頭のBOMは除く。クリップボードの経路はnormalizeSvgClipboardTextが除くため、ファイルの経路でも同じ判定結果にする。
- * @param value - SVG文字列。
- * @returns サニタイズ済みのdraw.io SVG。draw.io SVGでない場合やモデルを安全に保持できない場合はundefined。
- */
-function sanitizeDrawioSvg(value: string): string | undefined {
-    const source = value.replace(/^\uFEFF/, '');
-    const range = findDrawioModelRange(source);
-    if (!range) return undefined;
-    const model = source.slice(range.start, range.end);
-    // 文書内の文字列と衝突させないため、実行ごとの乱数を使う。
-    const placeholder = `mve-drawio-model-${randomBytes(16).toString('hex')}`;
-    const sanitized = sanitizeSvg(source.slice(0, range.start) + placeholder + source.slice(range.end));
-    const parts = sanitized.split(placeholder);
-    if (parts.length !== 2) return undefined;
-    const restored = parts[0] + model + parts[1];
-    const restoredRange = findDrawioModelRange(restored);
-    const unchangedPosition = restoredRange?.start === parts[0].length
-        && restoredRange.end === parts[0].length + model.length;
-    return unchangedPosition ? restored : undefined;
 }

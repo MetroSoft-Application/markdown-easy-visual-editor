@@ -4,6 +4,7 @@
 import { autocompletion, type Completion, type CompletionContext, type CompletionResult } from '@codemirror/autocomplete';
 import { StateEffect, type Extension } from '@codemirror/state';
 import { EditorView } from '@codemirror/view';
+import { linkCompletionSource } from './cmLinkCompletion';
 
 /**
  * cmmarkdownautocompleteで解析・表示・保存する本文。
@@ -91,8 +92,10 @@ function attachExtension(extension: Extension): void {
     else queueMicrotask(start);
 }
 
+// autocompletionは1つのエディターに1つだけ設定でき、overrideを2か所で指定すると設定の結合が衝突するため、
+// リンク先の補完ソースもここで同じoverrideへ並べる。リンク先の文脈でなければリンク補完ソースはnullを返す。
 attachExtension(autocompletion({
-    override: [markdownCompletionSource],
+    override: [linkCompletionSource, markdownCompletionSource],
     activateOnTyping: true,
     selectOnOpen: true
 }));

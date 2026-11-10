@@ -67,3 +67,8 @@
 
 - Added Ctrl+click to open links in the source editor.
 - Changed image insertion to reference existing workspace images without copying.
+
+## 2.0.4
+
+- Added path and heading-anchor completion for Markdown link destinations.
+- Added link updates in Markdown files when files or folders are moved or renamed.

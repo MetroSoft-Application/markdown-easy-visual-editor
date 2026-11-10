@@ -2065,6 +2065,29 @@ export interface Messages {
 
         /** 導入案内から拡張機能ビューでdraw.io拡張機能を検索するボタンのラベル。 */
         drawioShowExtension: string;
+
+        /**
+         * ファイル移動後に、リンクを書き換える文書数を示して更新するか確認する文言。
+         * @param count - リンクを書き換える文書の数。
+         * @returns 確認通知の本文。
+         */
+        linkUpdatePrompt: (count: number) => string;
+
+        /** 今回の移動についてリンクを更新するボタンのラベル。 */
+        linkUpdateApply: string;
+
+        /** 今回を含め、以後は確認せずに更新するボタンのラベル。 */
+        linkUpdateAlways: string;
+
+        /** 今回を含め、以後はリンクを更新しないボタンのラベル。 */
+        linkUpdateNever: string;
+
+        /**
+         * リンクの書き換えに失敗した場合の通知。
+         * @param detail - 失敗理由。
+         * @returns エラー通知の本文。
+         */
+        linkUpdateFailed: (detail: string) => string;
     };
 
     /** エディターと編集コマンドの表示文言をまとめる。 */
@@ -2661,7 +2684,24 @@ function createMessages(language: SupportedLanguage): Messages {
             copilotChatEditorUnavailable: raw.host.copilotChatEditorUnavailable,
             drawioFileExists: raw.host.drawioFileExists,
             drawioExtensionMissing: raw.host.drawioExtensionMissing,
-            drawioShowExtension: raw.host.drawioShowExtension
+            drawioShowExtension: raw.host.drawioShowExtension,
+
+
+            linkUpdatePrompt: /**
+             * 引数を補間し、リンク更新の確認文言を組み立てる。
+             * @param count - リンクを書き換える文書の数。
+             * @returns 確認通知の本文。
+             */ (count: number) => text('host.linkUpdatePrompt', { count }),
+            linkUpdateApply: raw.host.linkUpdateApply,
+            linkUpdateAlways: raw.host.linkUpdateAlways,
+            linkUpdateNever: raw.host.linkUpdateNever,
+
+
+            linkUpdateFailed: /**
+             * 引数を補間し、リンク更新の失敗通知を組み立てる。
+             * @param detail - 失敗理由。
+             * @returns エラー通知の本文。
+             */ (detail: string) => text('host.linkUpdateFailed', { detail })
         },
         editor: raw.editor,
         internal: raw.internal

@@ -2,7 +2,7 @@
   "name": "markdown-easy-visual-editor",
   "displayName": "Markdown Easy Visual Editor",
   "description": "A visual Markdown and Textile editor for VS Code with live preview, source editing, formatting tools, image support, and PDF export.",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "publisher": "MetroSoft-Application",
   "icon": "resources/icon.png",
   "repository": {
@@ -27,7 +27,8 @@
   ],
   "main": "./dist/extension.js",
   "activationEvents": [
-    "onCustomEditor:markdownEasyVisualEditor.editor"
+    "onCustomEditor:markdownEasyVisualEditor.editor",
+    "onStartupFinished"
   ],
   "extensionKind": [
     "ui"
@@ -273,6 +274,22 @@
           "type": "boolean",
           "default": true,
           "description": "Allow remote images to be displayed."
+        },
+        "markdownEasyVisualEditor.links.updateOnFileMove": {
+          "type": "string",
+          "enum": [
+            "prompt",
+            "always",
+            "never"
+          ],
+          "enumDescriptions": [
+            "Ask before updating links",
+            "Update links without asking",
+            "Do not update links"
+          ],
+          "default": "prompt",
+          "scope": "application",
+          "description": "Update relative links in Markdown files when files or folders are moved or renamed in VS Code. Skipped while markdown.updateLinksOnFileMove.enabled is not \"never\", to avoid editing twice."
         },
         "markdownEasyVisualEditor.mermaid.theme": {
           "type": "string",
