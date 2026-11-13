@@ -1351,6 +1351,20 @@ export function convertTextileToMarkdown(source: string): string {
     }
 
     /**
+     * `bq..`の引用の中の空行のあとに、引用の続き（次の段落）があるかを調べる。
+     * 次の空でない行がブロックの先頭で署名（`p.`・`h2.`・`bq.`など）または脚注の定義になる場合と、文書の終わりの場合は、
+     * 引用はこの空行の前で終わっている（Textileの`bq..`は次の署名まで続く）。
+     * @param blankIndex - 空行の行番号。
+     * @returns 引用の段落が続く場合はtrue。
+     */
+    function continuesExtendedQuote(blankIndex: number): boolean {
+        let next = blankIndex + 1;
+        while (next < lines.length && !lines[next].trim()) next += 1;
+        if (next >= lines.length) return false;
+        return !parseTextileSignature(lines[next]) && !TEXTILE_FOOTNOTE_DEFINITION.test(lines[next]);
+    }
+
+    /**
      * 同じブロック内の前の行にMarkdownの強制改行を付ける。Textileの単一改行は`<br>`になるため。
      * 逆変換モードでは、Markdownで最も一般的な行末の空白2つで書く（Markdown→Textileの順変換はどちらの書き方も同じ改行にする）。
      */
@@ -1484,11 +1498,14 @@ export function convertTextileToMarkdown(source: string): string {
         }
 
         if (!line.trim()) {
-            if (state.extendedQuote) {
+            if (state.extendedQuote && continuesExtendedQuote(index)) {
                 writer.push('>', eol);
                 index += 1;
                 continue;
             }
+            // 次の本文がブロックの署名（`p.`・`h2.`など）か文書の終わりなら、`bq..`の引用はこの空行の前で終わっている。
+            // 引用の中の空行（`>`）にすると、Markdownでは引用の末尾に空の行が残るため、通常の空行として書く。
+            state.extendedQuote = false;
             endBlock();
             writer.push(line, eol);
             index += 1;
@@ -1712,7 +1729,10 @@ export function convertTextileToMarkdown(source: string): string {
         }
 
         if (state.extendedQuote) {
-            markHardBreak();
+            // 逆変換モード: Markdown→Textileの順変換は、引用の中のリストの項目を1行ずつ`bq..`の段落の行にする
+            // （Textileは引用の中にリストを書けない）。その逆として、リストの印で始まる行の前には強制改行を付けず、
+            // Markdownのリストの項目へ戻す（項目の行末の空白2つは表示を変えないため、付けない書き方が標準）。
+            if (!(restoreMode && MARKDOWN_LIST_ITEM_START.test(line))) markHardBreak();
             writer.push(`> ${convertTextileInline(line, footnoteIds)}`, eol);
             state.inParagraph = true;
             index += 1;
@@ -1820,6 +1840,12 @@ const MARKDOWN_ATX_HEADING = /^ {0,3}(#{1,6})(?:\s+(.*?))?\s*(?:(?<=\s)#+\s*)?$/
 
 /** Markdownのリスト項目。グループ: 1=字下げ、2=マーカー、3=本文。 */
 const MARKDOWN_LIST_ITEM = /^(\s*)([-*+]|\d{1,9}[.)])(?:\s+(.*)|\s*$)/;
+
+/**
+ * 本文のあるMarkdownのリスト項目の行の始まり（`- 項目`・`1. 項目`）。Textile→Markdownの逆変換で、`bq..`の段落の行が
+ * 順変換で引用の中のリストの項目から書かれたものかを見分けるのに使う（空の項目の`-`だけの行は含めない）。
+ */
+const MARKDOWN_LIST_ITEM_START = /^\s*(?:[-*+]|\d{1,9}[.)])\s+\S/;
 
 /** Markdownの水平線。 */
 const MARKDOWN_THEMATIC_BREAK = /^ {0,3}(?:(?:\*\s*){3,}|(?:-\s*){3,}|(?:_\s*){3,})$/;

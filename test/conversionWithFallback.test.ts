@@ -38,7 +38,6 @@ describe('convertPreservingPreview',
     () => {
         it.each([
             'CHANGELOG.md',
-            'sample/01-commonmark-gfm.md',
             'sample/02-extended-syntax.md',
             'sample/03-images.md',
             'sample/04-tables.md',
@@ -211,7 +210,6 @@ function countHtmlTags(text: string): number {
 describe('round trip without recording the original (reverse conversion rules)',
     () => {
         it.each([
-            'sample/01-commonmark-gfm.md',
             'sample/02-extended-syntax.md',
             'sample/03-images.md',
             'sample/05-code-mermaid.md',
@@ -232,8 +230,39 @@ describe('round trip without recording the original (reverse conversion rules)',
             expect(countHtmlTags(back.text)).toBeLessThanOrEqual(countHtmlTags(source));
         });
 
+        /**
+         * 引用の中のリストはTextileで表せない（textile-jsは引用の中にリストを描かない）。HTMLへは変換せず、変換は止めずに適用し、
+         * プレビューが変わる行を通知する。逆変換では順変換の規則を逆にたどって原文へ戻ること。
+         */
+        it('converts a list inside a quote without HTML, reports the line, and restores it',
+            async () => {
+                const source = '# T\n\n> 引用です。\n>\n> - 引用内のリスト\n> - 2項目目\n\n本文\n';
+                const { forward, back } = await roundTrip(source, 'markdown');
+                expect(forward.cancelled).toBe(false);
+                expect(forward.equal).toBe(false);
+                expect(forward.firstDifferenceOffset).toBeDefined();
+                expect(forward.text).not.toMatch(/<[a-z]/i);
+                expect(back.text).toBe(source);
+            });
+
+        /**
+         * 同梱サンプル（利用者が書き換えることがある）のうち、Textileで表せない構造（引用の中のリストなど）を含むものも、
+         * 変換を止めず、原文にないHTMLを書き出さないこと。
+         */
         it.each([
-            ['Mermaid', '# T\n\n```mermaid\ngraph TD\n  A-->B\n```\n'],
+            'sample/01-commonmark-gfm.md',
+        ])('converts %s without stopping or adding HTML', async (file) => {
+            const source = readFileSync(path.resolve(file), 'utf8');
+            const { forward, back } = await roundTrip(source, 'markdown');
+            expect(forward.cancelled).toBe(false);
+            expect(back.cancelled).toBe(false);
+            expect(forward.text).not.toBe(source);
+            expect(countHtmlTags(forward.text)).toBeLessThanOrEqual(countHtmlTags(source));
+            expect(countHtmlTags(back.text)).toBeLessThanOrEqual(countHtmlTags(source));
+        });
+
+        it.each([
+            ['Mermaid','# T\n\n```mermaid\ngraph TD\n  A-->B\n```\n'],
             ['code fence with language', '```js\nlet a = 1;\n```\n'],
             ['task list', '- [ ] todo\n- [x] done\n'],
             ['display math', '$$\nx^2\n$$\n'],

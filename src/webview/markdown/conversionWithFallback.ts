@@ -16,7 +16,8 @@
  */
 import { htmlToMarkdown, htmlToTextile } from '../../shared/embeddedHtml';
 import { collectLinkReferences, convertDocumentSyntax, type DocumentConversionOptions, type DocumentSyntax } from '../../shared/formatConversion';
-import { hasMixedTextileSyntaxCandidate, type MarkdownRenderFormat } from './markdownRendererCore';
+import type { MarkdownRenderFormat } from './markdownRendererCore';
+import { hasMixedTextileSyntaxCandidate } from './mixedTextileSyntax';
 import { comparePreviewBlocks } from './previewEquivalence';
 
 /**
