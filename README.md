@@ -10,7 +10,7 @@ Markdown Easy Visual Editor is a VS Code extension for writing Markdown and Text
 - Open `.textile` documents in the visual editor, and use Textile syntax alongside Markdown in Markdown documents.
 - Switch between split view, text-only view, and preview-only view.
 - Use the ribbon to format text, create lists, insert links, images, tables, code blocks, math, Mermaid diagrams, footnotes, alerts, and more.
-- Convert the whole document between Textile and Markdown from the **Convert** tab, and convert it back with the same preview.
+- Convert the whole document between Textile and Markdown from the **Convert** tab, and convert it back; the preview stays the same.
 - Navigate long documents with an outline generated from headings.
 - Search and replace text with `Ctrl+F` on Windows/Linux or `Cmd+F` on macOS.
 - Complete link paths and heading anchors while typing Markdown links.
