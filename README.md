@@ -10,6 +10,7 @@ Markdown Easy Visual Editor is a VS Code extension for writing Markdown and Text
 - Open `.textile` documents in the visual editor, and use Textile syntax alongside Markdown in Markdown documents.
 - Switch between split view, text-only view, and preview-only view.
 - Use the ribbon to format text, create lists, insert links, images, tables, code blocks, math, Mermaid diagrams, footnotes, alerts, and more.
+- Convert the whole document between Textile and Markdown from the **Convert** tab, and convert it back with the same preview.
 - Navigate long documents with an outline generated from headings.
 - Search and replace text with `Ctrl+F` on Windows/Linux or `Cmd+F` on macOS.
 - Complete link paths and heading anchors while typing Markdown links.
@@ -133,9 +134,13 @@ Open the same Markdown document as a regular text editor beside the visual edito
 
 Rewrite the whole document between Textile and Markdown with **To Markdown** or **To Textile**. The editor switches its rendering to the target syntax at the same time, so the preview shows the same content. The change is a single edit, so **Undo** restores both the text and the previous rendering.
 
+![Convert ribbon with a Markdown document and its preview](./resources/readme-convert-markdown.png)
+
+![The same document after To Textile, with the same preview](./resources/readme-convert-textile.png)
+
 Headings, paragraphs, line breaks, quotes, code blocks, lists, tables, links, images, footnotes, and inline formatting are converted to the target syntax with the same meaning. The conversion never writes HTML. Elements that the target syntax cannot draw keep their meaning in plain syntax: Mermaid diagrams and display math become code blocks with the language `mermaid` or `math`, inline math and task-list marks stay as text, and front matter becomes a Textile comment (`###.`). Textile-only syntax, such as classes, alignment, abbreviations, and definition lists, stays as Textile in the Markdown document, because the Markdown preview also renders it. HTML that was already in the document stays as it is. The two previews can differ in small ways, such as the language label and **Copy** button on Markdown code blocks, the position of footnotes, and checkboxes or rendered diagrams that appear only in the Markdown preview.
 
-The editor renders the document before and after the conversion and compares the content to catch conversion mistakes, and always applies the conversion. Some structures have no equivalent in Textile, such as nested quotes or a code block inside a list item; these are written in the closest form and a message shows the line where the preview may change. Marp slide decks are converted too, and the regular preview is shown instead of slides.
+The editor renders the document before and after the conversion and compares the content to catch conversion mistakes, and always applies the conversion. Some structures have no equivalent in Textile, such as nested quotes, a list inside a quote, or a code block inside a list item; these are written in the closest form and a message shows the line where the preview may change. Marp slide decks are converted too, and the regular preview is shown instead of slides.
 
 Converting back applies the reverse of the conversion rules, so a round trip keeps the same preview and returns documents written in the standard form unchanged. Equivalent spellings are written in one standard form: for example, `__bold__` becomes `**bold**`, reference links become inline links, footnote labels become numbers, line breaks inside a paragraph are joined, and a hard line break is written with two trailing spaces.
 
