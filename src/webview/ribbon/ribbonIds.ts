@@ -10,6 +10,7 @@ export type RibbonTabId =
     | "table"
     | "view"
     | "export"
+    | "convert"
     | "settings"
     | "help";
 
@@ -34,6 +35,7 @@ export type RibbonGroupId =
     | "pdf"
     | "html"
     | "inspection"
+    | "formatConversion"
     | "images"
     | "fonts"
     | "mermaidSettings"
@@ -110,6 +112,8 @@ export type RibbonItemId =
     | "saveWithoutDialog"
     | "exportHtml"
     | "preflight"
+    | "convertToMarkdown"
+    | "convertToTextile"
     | "imageDirectory"
     | "fontSettings"
     | "mermaidFontSize"

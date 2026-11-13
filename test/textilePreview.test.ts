@@ -902,6 +902,39 @@ function verifyReviewSample(sample: TextileReviewSample): void {
     expect(source).toBe(originalSource);
 }
 
+/**
+ * Textileの言語名mermaidのコードブロック（変換タブがMarkdownの図を写す書き方）が、Markdownの図と同じ描画用の要素
+ * （ソースを属性に持つ`.mermaid`）になり、ソースのない`.mermaid`の要素が残らないこと（描画に失敗する要素を作らない）を検証する。
+ */
+function verifyTextileMermaidBlocks(): void {
+    const html = renderHtml('bc(mermaid). graph TD\n  A-->B\n\nbc(ruby). puts 1\n', 'textile');
+    expect(html).toContain('<div class="diagram-block mermaid" data-mermaid-source="graph%20TD%0A%20%20A--%3EB"></div>');
+    expect(html).not.toMatch(/class="mermaid"/);
+    expect(html).toContain('<code class="ruby">');
+}
+
+/**
+ * 脚注を含むTextile文書のプレビューは、定義リストの直後で区切った大きなまとまりで描画し（初回の描画を速く保つ）、
+ * 定義リストの後ろの表を表として描画すること（textile-jsは1回の変換で定義リストの後ろを文字にする）。
+ * 変換タブ用の指定（splitTextileBlocks）では、空行で区切った描画単位ごとに描画すること。
+ */
+function verifyTextileFootnoteDocumentChunks(): void {
+    const source = 'h1. T\n\n- 用語 := 定義\n\n|a|b|\n\n本文[1]\n\nfn1. 脚注\n';
+    const preview = renderMarkdownUnsafeBlocks(source, { ...textilePreviewOptions, renderFormat: 'textile' });
+    expect(preview.length).toBe(2);
+    expect(preview.map(getBlockHtml).join('')).toMatch(/<table>[\s\S]*<td>a<\/td>/);
+    const split = renderMarkdownUnsafeBlocks(source, { ...textilePreviewOptions, renderFormat: 'textile', splitTextileBlocks: true });
+    expect(split.length).toBe(5);
+    expect(split.map(getBlockHtml).join('')).toMatch(/<table>[\s\S]*<td>a<\/td>/);
+    // 箇条書きの記号で始まる定義リスト（`* 用語 := 定義`）の後ろも区切り、div. を div として描画すること。
+    const bulletSource = '* コーヒー := ホット\n* 紅茶 := ホット&アイス\n\ndiv. 段落\n\n本文[1]\n\nfn1. 脚注\n';
+    const bulletPreview = renderMarkdownUnsafeBlocks(bulletSource, { ...textilePreviewOptions, renderFormat: 'textile' });
+    expect(bulletPreview.length).toBe(2);
+    const bulletHtml = bulletPreview.map(getBlockHtml).join('');
+    expect(bulletHtml).toContain('<div>段落</div>');
+    expect(bulletHtml).not.toContain('div. 段落');
+}
+
 /** Textileサンプルを一記法ずつ独立したVitestケースとして登録する。 */
 function registerReviewSampleMatrix(): void {
     for (const sample of textileReviewSamples) {
@@ -918,6 +951,8 @@ function registerTextilePreviewTests(): void {
     it('prioritizes Markdown and excludes fenced or inline code from Textile tokenization', verifyMixedMarkdownPriorityAndCodeBoundaries);
     it('does not detect Textile syntax inside Markdown HTML, inline code, or fenced code', verifyMixedModeIgnoresMarkdownProtectedRegions);
     it('handles empty, Unicode, malformed, source-preserving, and sanitization-boundary inputs', verifyEmptyUnicodeMalformedAndSanitizationCases);
+    it('renders Textile mermaid code blocks as diagrams with their source', verifyTextileMermaidBlocks);
+    it('renders Textile documents with footnotes in chunks split after definition lists', verifyTextileFootnoteDocumentChunks);
 }
 
 describe('Textile preview', registerTextilePreviewTests);

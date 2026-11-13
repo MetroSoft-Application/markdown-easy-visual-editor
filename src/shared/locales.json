@@ -7,6 +7,7 @@
         "table": "表",
         "view": "表示",
         "export": "出力",
+        "convert": "変換",
         "settings": "設定",
         "help": "ヘルプ"
       },
@@ -41,6 +42,7 @@
         "pdf": "PDF",
         "html": "HTML",
         "inspection": "検査",
+        "formatConversion": "文書形式",
         "help": "ヘルプ",
         "preview": "プレビュー",
         "theme": "テーマ"
@@ -107,6 +109,10 @@
         "showOutlineSidebar": "アウトラインを表示　 ",
         "saveWithoutDialog": "同じフォルダへ直接出力",
         "preflight": "出力前チェック",
+        "convertToMarkdown": "Markdownへ変換",
+        "convertToMarkdownTitle": "文書全体をTextileからMarkdownへ、同じ意味の記法で書き換えます。",
+        "convertToTextile": "Textileへ変換",
+        "convertToTextileTitle": "文書全体をMarkdownからTextileへ、同じ意味の記法で書き換えます。",
         "shortcuts": "ショートカット",
         "features": "機能一覧",
         "textColor": "テキスト色",
@@ -147,7 +153,8 @@
           "previewOnly": "プレビューだけを表示します。",
           "printPreview": "印刷時の見た目を確認します。",
           "exportPdf": "MarkdownをPDFとして出力します。",
-          "preflight": "出力前にリンクや画像などを検査します。"
+          "preflight": "出力前にリンクや画像などを検査します。",
+          "convertDocument": "文書全体をTextileとMarkdownの間で、同じ意味の記法へ変換します。"
         },
         "markdownSupport": "対応Markdown",
         "about": "Markdown Easy Visual Editorについて",
@@ -478,7 +485,14 @@
         "cannotCopyTsvEmpty": "TSVをコピーできませんでした。",
         "workspaceTrustRequired": "PDF出力にはワークスペースの信頼が必要です。",
         "pdfStartedWithDiagnostics": "診断エラー{count}件を検出しましたが、PDF出力を開始します。{detail}",
-        "pdfFallbackToMarkdown": "{prefix}プレビューHTMLが準備できないため、Markdown原文でPDF出力を開始します。"
+        "pdfFallbackToMarkdown": "{prefix}プレビューHTMLが準備できないため、Markdown原文でPDF出力を開始します。",
+        "documentConversionUnchanged": "変換が必要な記法はありませんでした。",
+        "documentConvertedMayDiffer": "文書を変換しました。プレビューが変わる可能性がある箇所があります（行: {lines}）。",
+        "documentConversionRunning": "変換しています…",
+        "documentConversionCancelled": "変換中に文書が変更されたため、変換を中止しました。",
+        "documentConverted": "文書を変換しました。",
+        "documentConvertedUnverified": "文書を変換しました。描画で確かめられなかったため、プレビューが変わる可能性があります（{detail}）。",
+        "documentConvertedMarp": "文書を変換しました。変換後の記法ではMarpのスライド表示を使えないため、通常のプレビューで表示します。"
       },
       "errors": {
         "ackMismatch": "ACK適用結果が保留操作の結果と一致しません。",
@@ -577,6 +591,7 @@
         "table": "Table",
         "view": "View",
         "export": "Export",
+        "convert": "Convert",
         "settings": "Settings",
         "help": "Help"
       },
@@ -611,6 +626,7 @@
         "pdf": "PDF",
         "html": "HTML",
         "inspection": "Inspection",
+        "formatConversion": "Document format",
         "help": "Help",
         "preview": "Preview",
         "theme": "Theme"
@@ -677,6 +693,10 @@
         "showOutlineSidebar": "Show outline",
         "saveWithoutDialog": "Export directly to same folder",
         "preflight": "Preflight check",
+        "convertToMarkdown": "To Markdown",
+        "convertToMarkdownTitle": "Rewrites the whole document from Textile to Markdown using syntax with the same meaning.",
+        "convertToTextile": "To Textile",
+        "convertToTextileTitle": "Rewrites the whole document from Markdown to Textile using syntax with the same meaning.",
         "shortcuts": "Shortcuts",
         "features": "Features",
         "textColor": "Text color",
@@ -717,7 +737,8 @@
           "previewOnly": "Show only the preview.",
           "printPreview": "Preview the printed document.",
           "exportPdf": "Export the Markdown document as a PDF.",
-          "preflight": "Check links, images, and other resources before export."
+          "preflight": "Check links, images, and other resources before export.",
+          "convertDocument": "Converts the whole document between Textile and Markdown using syntax with the same meaning."
         },
         "markdownSupport": "Supported Markdown",
         "about": "About Markdown Easy Visual Editor",
@@ -1048,7 +1069,14 @@
         "cannotCopyTsvEmpty": "Could not copy TSV.",
         "workspaceTrustRequired": "Workspace trust is required to export PDF.",
         "pdfStartedWithDiagnostics": "Found {count} diagnostic error(s), but starting PDF export. {detail}",
-        "pdfFallbackToMarkdown": "{prefix}Preview HTML is not ready, so PDF export is starting from the Markdown source."
+        "pdfFallbackToMarkdown": "{prefix}Preview HTML is not ready, so PDF export is starting from the Markdown source.",
+        "documentConversionUnchanged": "Nothing needed to be converted.",
+        "documentConvertedMayDiffer": "The document was converted. The preview may change in some places (lines: {lines}).",
+        "documentConversionRunning": "Converting…",
+        "documentConversionCancelled": "The conversion was cancelled because the document changed.",
+        "documentConverted": "The document was converted.",
+        "documentConvertedUnverified": "The document was converted. The preview may change because it could not be verified by rendering ({detail}).",
+        "documentConvertedMarp": "The document was converted. Marp slides are not available in the target syntax, so the normal preview is shown."
       },
       "errors": {
         "ackMismatch": "The ACK result does not match the pending operation result.",
@@ -1147,6 +1175,7 @@
         "table": "表格",
         "view": "视图",
         "export": "导出",
+        "convert": "转换",
         "settings": "设置",
         "help": "帮助"
       },
@@ -1181,6 +1210,7 @@
         "pdf": "PDF",
         "html": "HTML",
         "inspection": "检查",
+        "formatConversion": "文档格式",
         "help": "帮助",
         "preview": "预览",
         "theme": "主题"
@@ -1247,6 +1277,10 @@
         "showOutlineSidebar": "显示大纲",
         "saveWithoutDialog": "直接导出到同一文件夹",
         "preflight": "导出前检查",
+        "convertToMarkdown": "转换为Markdown",
+        "convertToMarkdownTitle": "将整个文档从 Textile 改写为含义相同的 Markdown 语法。",
+        "convertToTextile": "转换为Textile",
+        "convertToTextileTitle": "将整个文档从 Markdown 改写为含义相同的 Textile 语法。",
         "shortcuts": "快捷键",
         "features": "功能列表",
         "textColor": "文字颜色",
@@ -1287,7 +1321,8 @@
           "previewOnly": "仅显示预览。",
           "printPreview": "预览打印效果。",
           "exportPdf": "将Markdown导出为PDF。",
-          "preflight": "导出前检查链接、图片等资源。"
+          "preflight": "导出前检查链接、图片等资源。",
+          "convertDocument": "在 Textile 和 Markdown 之间以含义相同的语法转换整个文档。"
         },
         "markdownSupport": "支持的Markdown",
         "about": "关于Markdown Easy Visual Editor",
@@ -1618,7 +1653,14 @@
         "cannotCopyTsvEmpty": "无法复制TSV。",
         "workspaceTrustRequired": "导出PDF需要信任工作区。",
         "pdfStartedWithDiagnostics": "发现{count}个诊断错误，但将开始导出PDF。{detail}",
-        "pdfFallbackToMarkdown": "{prefix}预览HTML尚未准备好，将从Markdown源文件开始导出PDF。"
+        "pdfFallbackToMarkdown": "{prefix}预览HTML尚未准备好，将从Markdown源文件开始导出PDF。",
+        "documentConversionUnchanged": "没有需要转换的语法。",
+        "documentConvertedMayDiffer": "文档已转换。部分位置的预览可能发生变化（行：{lines}）。",
+        "documentConversionRunning": "正在转换…",
+        "documentConversionCancelled": "转换期间文档已更改，已取消转换。",
+        "documentConverted": "文档已转换。",
+        "documentConvertedUnverified": "文档已转换。由于无法通过渲染进行验证，预览可能发生变化（{detail}）。",
+        "documentConvertedMarp": "文档已转换。转换后的语法无法使用 Marp 幻灯片显示，因此改用普通预览。"
       },
       "errors": {
         "ackMismatch": "ACK结果与待处理操作结果不一致。",
@@ -1717,6 +1759,7 @@
         "table": "표",
         "view": "보기",
         "export": "내보내기",
+        "convert": "변환",
         "settings": "설정",
         "help": "도움말"
       },
@@ -1751,6 +1794,7 @@
         "pdf": "PDF",
         "html": "HTML",
         "inspection": "검사",
+        "formatConversion": "문서 형식",
         "help": "도움말",
         "preview": "미리 보기",
         "theme": "테마"
@@ -1817,6 +1861,10 @@
         "showOutlineSidebar": "개요 표시",
         "saveWithoutDialog": "같은 폴더에 바로 내보내기",
         "preflight": "내보내기 전 검사",
+        "convertToMarkdown": "Markdown으로 변환",
+        "convertToMarkdownTitle": "문서 전체를 Textile에서 같은 의미의 Markdown 구문으로 바꿉니다.",
+        "convertToTextile": "Textile로 변환",
+        "convertToTextileTitle": "문서 전체를 Markdown에서 같은 의미의 Textile 구문으로 바꿉니다.",
         "shortcuts": "바로 가기",
         "features": "기능 목록",
         "textColor": "텍스트 색상",
@@ -1857,7 +1905,8 @@
           "previewOnly": "미리보기만 표시합니다.",
           "printPreview": "인쇄 결과를 미리 확인합니다.",
           "exportPdf": "Markdown 문서를 PDF로 내보냅니다.",
-          "preflight": "내보내기 전에 링크와 이미지 등의 리소스를 검사합니다."
+          "preflight": "내보내기 전에 링크와 이미지 등의 리소스를 검사합니다.",
+          "convertDocument": "문서 전체를 Textile과 Markdown 사이에서 같은 의미의 구문으로 변환합니다."
         },
         "markdownSupport": "지원되는 Markdown",
         "about": "Markdown Easy Visual Editor 정보",
@@ -2188,7 +2237,14 @@
         "cannotCopyTsvEmpty": "TSV를 복사할 수 없습니다.",
         "workspaceTrustRequired": "PDF를 내보내려면 작업 영역을 신뢰해야 합니다.",
         "pdfStartedWithDiagnostics": "진단 오류 {count}개를 발견했지만 PDF 내보내기를 시작합니다. {detail}",
-        "pdfFallbackToMarkdown": "{prefix}미리보기 HTML이 준비되지 않아 Markdown 원본으로 PDF 내보내기를 시작합니다."
+        "pdfFallbackToMarkdown": "{prefix}미리보기 HTML이 준비되지 않아 Markdown 원본으로 PDF 내보내기를 시작합니다.",
+        "documentConversionUnchanged": "변환할 구문이 없습니다.",
+        "documentConvertedMayDiffer": "문서를 변환했습니다. 일부 위치에서 미리보기가 바뀔 수 있습니다(줄: {lines}).",
+        "documentConversionRunning": "변환 중…",
+        "documentConversionCancelled": "변환 중에 문서가 변경되어 변환을 취소했습니다.",
+        "documentConverted": "문서를 변환했습니다.",
+        "documentConvertedUnverified": "문서를 변환했습니다. 렌더링으로 확인하지 못해 미리보기가 바뀔 수 있습니다({detail}).",
+        "documentConvertedMarp": "문서를 변환했습니다. 변환 후 구문에서는 Marp 슬라이드 표시를 사용할 수 없어 일반 미리보기로 표시합니다."
       },
       "errors": {
         "ackMismatch": "ACK 결과가 보류 작업 결과와 일치하지 않습니다.",
@@ -2287,6 +2343,7 @@
         "table": "Tableau",
         "view": "Affichage",
         "export": "Exporter",
+        "convert": "Convertir",
         "settings": "Paramètres",
         "help": "Aide"
       },
@@ -2321,6 +2378,7 @@
         "pdf": "PDF",
         "html": "HTML",
         "inspection": "Inspection",
+        "formatConversion": "Format du document",
         "help": "Aide",
         "preview": "Aperçu",
         "theme": "Thème"
@@ -2387,6 +2445,10 @@
         "showOutlineSidebar": "Afficher la barre latérale du plan",
         "saveWithoutDialog": "Exporter directement dans le même dossier",
         "preflight": "Vérification avant export",
+        "convertToMarkdown": "Vers Markdown",
+        "convertToMarkdownTitle": "Réécrit tout le document de Textile vers Markdown avec une syntaxe de même sens.",
+        "convertToTextile": "Vers Textile",
+        "convertToTextileTitle": "Réécrit tout le document de Markdown vers Textile avec une syntaxe de même sens.",
         "shortcuts": "Raccourcis",
         "features": "Fonctionnalités",
         "textColor": "Couleur du texte",
@@ -2427,7 +2489,8 @@
           "previewOnly": "Affiche uniquement l’aperçu.",
           "printPreview": "Prévisualise le document à l’impression.",
           "exportPdf": "Exporte le document Markdown au format PDF.",
-          "preflight": "Vérifie les liens, les images et les autres ressources avant l’export."
+          "preflight": "Vérifie les liens, les images et les autres ressources avant l’export.",
+          "convertDocument": "Convertit tout le document entre Textile et Markdown avec une syntaxe de même sens."
         },
         "markdownSupport": "Prise en charge de Markdown",
         "about": "À propos de Markdown Easy Visual Editor",
@@ -2758,7 +2821,14 @@
         "cannotCopyTsvEmpty": "Impossible de copier le TSV.",
         "workspaceTrustRequired": "L'export PDF nécessite un espace de travail approuvé.",
         "pdfStartedWithDiagnostics": "Export PDF démarré avec {count} erreur(s) de diagnostic : {detail}",
-        "pdfFallbackToMarkdown": "{prefix}Export PDF indisponible ; export Markdown démarré à la place."
+        "pdfFallbackToMarkdown": "{prefix}Export PDF indisponible ; export Markdown démarré à la place.",
+        "documentConversionUnchanged": "Aucune syntaxe à convertir.",
+        "documentConvertedMayDiffer": "Le document a été converti. L’aperçu peut changer à certains endroits (lignes : {lines}).",
+        "documentConversionRunning": "Conversion…",
+        "documentConversionCancelled": "La conversion a été annulée, car le document a changé.",
+        "documentConverted": "Le document a été converti.",
+        "documentConvertedUnverified": "Le document a été converti. L’aperçu peut changer, car le rendu n’a pas pu être vérifié ({detail}).",
+        "documentConvertedMarp": "Le document a été converti. Les diapositives Marp ne sont pas disponibles dans la syntaxe cible ; l’aperçu normal est affiché."
       },
       "errors": {
         "ackMismatch": "L'accusé de réception ne correspond pas à l'opération en attente.",
@@ -2857,6 +2927,7 @@
         "table": "Tabelle",
         "view": "Ansicht",
         "export": "Export",
+        "convert": "Konvertieren",
         "settings": "Einstellungen",
         "help": "Hilfe"
       },
@@ -2891,6 +2962,7 @@
         "pdf": "PDF",
         "html": "HTML",
         "inspection": "Prüfung",
+        "formatConversion": "Dokumentformat",
         "help": "Hilfe",
         "preview": "Vorschau",
         "theme": "Design"
@@ -2957,6 +3029,10 @@
         "showOutlineSidebar": "Gliederung anzeigen",
         "saveWithoutDialog": "Direkt im gleichen Ordner exportieren",
         "preflight": "Exportprüfung",
+        "convertToMarkdown": "Zu Markdown",
+        "convertToMarkdownTitle": "Schreibt das gesamte Dokument von Textile in Markdown mit gleichbedeutender Syntax um.",
+        "convertToTextile": "Zu Textile",
+        "convertToTextileTitle": "Schreibt das gesamte Dokument von Markdown in Textile mit gleichbedeutender Syntax um.",
         "shortcuts": "Tastenkürzel",
         "features": "Funktionen",
         "textColor": "Textfarbe",
@@ -2997,7 +3073,8 @@
           "previewOnly": "Zeigt nur die Vorschau an.",
           "printPreview": "Zeigt eine Druckvorschau des Dokuments an.",
           "exportPdf": "Exportiert das Markdown-Dokument als PDF.",
-          "preflight": "Prüft vor dem Export Links, Bilder und andere Ressourcen."
+          "preflight": "Prüft vor dem Export Links, Bilder und andere Ressourcen.",
+          "convertDocument": "Konvertiert das gesamte Dokument zwischen Textile und Markdown mit gleichbedeutender Syntax."
         },
         "markdownSupport": "Markdown-Unterstützung",
         "about": "Über Markdown Easy Visual Editor",
@@ -3328,7 +3405,14 @@
         "cannotCopyTsvEmpty": "TSV konnte nicht kopiert werden.",
         "workspaceTrustRequired": "Für den PDF-Export ist ein vertrauenswürdiger Arbeitsbereich erforderlich.",
         "pdfStartedWithDiagnostics": "PDF-Export mit {count} Diagnosefehler(n) gestartet: {detail}",
-        "pdfFallbackToMarkdown": "{prefix}PDF-Export nicht verfügbar; stattdessen wird Markdown exportiert."
+        "pdfFallbackToMarkdown": "{prefix}PDF-Export nicht verfügbar; stattdessen wird Markdown exportiert.",
+        "documentConversionUnchanged": "Es gab nichts zu konvertieren.",
+        "documentConvertedMayDiffer": "Das Dokument wurde konvertiert. Die Vorschau kann sich an einigen Stellen ändern (Zeilen: {lines}).",
+        "documentConversionRunning": "Wird konvertiert…",
+        "documentConversionCancelled": "Die Konvertierung wurde abgebrochen, weil sich das Dokument geändert hat.",
+        "documentConverted": "Das Dokument wurde konvertiert.",
+        "documentConvertedUnverified": "Das Dokument wurde konvertiert. Die Vorschau kann sich ändern, weil sie nicht per Rendering geprüft werden konnte ({detail}).",
+        "documentConvertedMarp": "Das Dokument wurde konvertiert. Marp-Folien sind in der Zielsyntax nicht verfügbar, daher wird die normale Vorschau angezeigt."
       },
       "errors": {
         "ackMismatch": "Die Bestätigung stimmt nicht mit dem ausstehenden Vorgang überein.",
@@ -3427,6 +3511,7 @@
         "table": "Tabla",
         "view": "Vista",
         "export": "Exportar",
+        "convert": "Convertir",
         "settings": "Configuración",
         "help": "Ayuda"
       },
@@ -3461,6 +3546,7 @@
         "pdf": "PDF",
         "html": "HTML",
         "inspection": "Inspección",
+        "formatConversion": "Formato del documento",
         "help": "Ayuda",
         "preview": "Vista previa",
         "theme": "Tema"
@@ -3527,6 +3613,10 @@
         "showOutlineSidebar": "Mostrar barra lateral del esquema",
         "saveWithoutDialog": "Exportar directamente a la misma carpeta",
         "preflight": "Comprobación de exportación",
+        "convertToMarkdown": "A Markdown",
+        "convertToMarkdownTitle": "Reescribe todo el documento de Textile a Markdown con una sintaxis del mismo significado.",
+        "convertToTextile": "A Textile",
+        "convertToTextileTitle": "Reescribe todo el documento de Markdown a Textile con una sintaxis del mismo significado.",
         "shortcuts": "Atajos",
         "features": "Funciones",
         "textColor": "Color del texto",
@@ -3567,7 +3657,8 @@
           "previewOnly": "Muestra solo la vista previa.",
           "printPreview": "Previsualiza el documento para imprimirlo.",
           "exportPdf": "Exporta el documento Markdown como PDF.",
-          "preflight": "Comprueba enlaces, imágenes y otros recursos antes de exportar."
+          "preflight": "Comprueba enlaces, imágenes y otros recursos antes de exportar.",
+          "convertDocument": "Convierte todo el documento entre Textile y Markdown con una sintaxis del mismo significado."
         },
         "markdownSupport": "Compatibilidad con Markdown",
         "about": "Acerca de Markdown Easy Visual Editor",
@@ -3898,7 +3989,14 @@
         "cannotCopyTsvEmpty": "No se pudo copiar TSV.",
         "workspaceTrustRequired": "La exportación PDF requiere un espacio de trabajo de confianza.",
         "pdfStartedWithDiagnostics": "Exportación PDF iniciada con {count} error(es) de diagnóstico: {detail}",
-        "pdfFallbackToMarkdown": "{prefix}La exportación PDF no está disponible; se exportará Markdown en su lugar."
+        "pdfFallbackToMarkdown": "{prefix}La exportación PDF no está disponible; se exportará Markdown en su lugar.",
+        "documentConversionUnchanged": "No había nada que convertir.",
+        "documentConvertedMayDiffer": "El documento se convirtió. La vista previa puede cambiar en algunos lugares (líneas: {lines}).",
+        "documentConversionRunning": "Convirtiendo…",
+        "documentConversionCancelled": "La conversión se canceló porque el documento cambió.",
+        "documentConverted": "El documento se convirtió.",
+        "documentConvertedUnverified": "El documento se convirtió. La vista previa puede cambiar porque no se pudo verificar mediante el renderizado ({detail}).",
+        "documentConvertedMarp": "El documento se convirtió. Las diapositivas de Marp no están disponibles en la sintaxis de destino, por lo que se muestra la vista previa normal."
       },
       "errors": {
         "ackMismatch": "La confirmación no coincide con la operación pendiente.",

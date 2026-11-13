@@ -124,7 +124,8 @@ interface Props {
   readOnly: boolean;
 
   /**
-   * Textile文書かどうか。Markdown記法を挿入または編集するリボン項目を無効にする。
+   * Textile文書かどうか。Markdown記法を挿入または編集するリボン項目を無効にし、
+   * 変換タブでは現在と同じ記法への変換ボタンを無効にする。
    */
   textileDocument?: boolean;
 
@@ -271,6 +272,7 @@ export function Ribbon({
     textColorText: messages.app.textColor,
     mode,
     readOnly,
+    textileDocument,
     activeMarks,
     outlineVisible,
     scrollSyncEnabled,

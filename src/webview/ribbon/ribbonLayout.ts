@@ -160,6 +160,15 @@ export const RIBBON_LAYOUT: RibbonLayoutDefinition = {
             ],
         },
         {
+            id: "convert",
+            groups: [
+                {
+                    id: "formatConversion",
+                    itemIds: ["convertToMarkdown", "convertToTextile"],
+                },
+            ],
+        },
+        {
             id: "settings",
             groups: [
                 {

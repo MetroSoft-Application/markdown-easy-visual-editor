@@ -51,6 +51,13 @@ export interface RenderOptions {
      * メッセージとKaTeXエラー表示に使う言語。省略時は日本語。
      */
     language?: SupportedLanguage;
+
+    /**
+     * trueなら、脚注を含むTextile文書も空行で区切った描画単位ごとに描画する。変換タブが原文の位置と描画を単位ごとに
+     * 対応付けるときに指定する。省略時（プレビュー）は、脚注を含むTextile文書を、定義リストの直後で区切った大きなまとまりで
+     * 描画する（textile-jsの呼び出し回数を減らし、初回の描画を速く保つ）。
+     */
+    splitTextileBlocks?: boolean;
 }
 
 /**
@@ -482,7 +489,11 @@ function renderTextileDocumentBlocks(
         return imageIndex++;
     }
 
-    for (const range of getTextileSourceRanges(source)) {
+    const sourceRanges = getTextileSourceRanges(source);
+    const ranges = !options.splitTextileBlocks && TEXTILE_FOOTNOTE_DEFINITION_LINE.test(source)
+        ? mergeTextileRangesAfterDefinitionLists(source, sourceRanges)
+        : sourceRanges;
+    for (const range of ranges) {
         const headingsInRange = headings.filter((heading) => heading.offset >= range.from && heading.offset < range.to);
         appendTextileSourceBlock(
             blocks,
@@ -499,14 +510,50 @@ function renderTextileDocumentBlocks(
 }
 
 /**
+ * 定義リストとして描画され得る行（`- 用語 := 定義`、および `* 用語 := 定義` のように箇条書きの記号で始まる同じ形）。
+ * どちらもtextile-jsの1回の変換で後ろのブロックを文字にするため、この行を含む描画単位の直後で区切る。
+ */
+const TEXTILE_DEFINITION_LIST_LINE = /(?:^|\r?\n)[-*#]+ \S[^\r\n]*?:=/;
+
+/** Textileの脚注の定義行（`fn1.`）。脚注を含む文書かの判定に使う。 */
+const TEXTILE_FOOTNOTE_DEFINITION_LINE = /(?:^|\r?\n)\s*fn\d+\./i;
+
+/**
+ * 描画単位を、定義リストとして描画され得る行（{@link TEXTILE_DEFINITION_LIST_LINE}）を含む単位の直後で区切った大きなまとまりへまとめる。
+ * textile-jsは1回の変換で定義リストの後ろに続くブロックを文字として出力するため、定義リストの直後では必ず区切る。
+ * それ以外は文書の先頭から続けてまとめ、textile-jsの呼び出し回数を減らす（脚注を含む文書を1度に描画していた従来の速さを保つ）。
+ * @param source - Textile原文。
+ * @param ranges - 空行で区切った描画単位（{@link getTextileSourceRanges}）。
+ * @returns まとめた描画単位。
+ */
+function mergeTextileRangesAfterDefinitionLists(
+    source: string,
+    ranges: ReadonlyArray<{ from: number; to: number }>
+): Array<{ from: number; to: number }> {
+    const merged: Array<{ from: number; to: number }> = [];
+    let start: number | undefined;
+    ranges.forEach((range, index) => {
+        start ??= range.from;
+        const definitionList = TEXTILE_DEFINITION_LIST_LINE.test(source.slice(range.from, range.to));
+        if (definitionList || index === ranges.length - 1) {
+            merged.push({ from: start, to: range.to });
+            start = undefined;
+        }
+    });
+    return merged;
+}
+
+/**
  * Textile文書を通常ブロックと複数行ブロックに分け、文書スコープの記法は一括変換へ渡す。
  * bc..、pre..、notextile..は次の明示ブロックまで空行を含めて保持する。
+ * 脚注（`fn1.`）を含む文書もブロックごとに分ける。textile-jsは脚注参照`[1]`を定義のないブロックでも脚注の上付きとして
+ * 描画するため、分けても脚注は同じに表示される。プレビューでは呼び出し側が、定義リストの直後で区切ったまとまりへまとめる
+ * （{@link mergeTextileRangesAfterDefinitionLists}）。
  * @param source - 分割せず保持しているTextile原文。
- * @returns ソース位置を保った描画単位。脚注を含む場合は文書全体を一単位で返す。
+ * @returns ソース位置を保った描画単位。
  */
 function getTextileSourceRanges(source: string): Array<{ from: number; to: number }> {
     if (!source.trim()) return [];
-    if (/(?:^|\r?\n)\s*fn\d+\./i.test(source)) return [{ from: 0, to: source.length }];
 
     let sourceOffset = 0;
     const lines = source.split(/(?<=\n)|(?<=\r)(?!\n)/).map(
@@ -620,7 +667,8 @@ function renderTextileOutput(
 ): { html: string; headingId?: string; headingIds: Array<{ offset: number; id: string }> } {
     let headingIndex = 0;
     const headingIds: Array<{ offset: number; id: string }> = [];
-    let html = renderTextile(source);
+    let html = renderTextileCached(source);
+    html = renderTextileMermaidBlocks(html);
     html = highlightTextileCodeBlocks(html, highlightCode);
     html = html.replace(
         /<h([1-6])\b([^>]*)>([\s\S]*?)<\/h\1>/gi,
@@ -649,14 +697,20 @@ function renderTextileOutput(
         /<a\b[^>]*>/gi,
         /**
          * TextileのローカルリンクをHost経由で解決する属性へ変換する。
+         * Markdownと同じく、特別なtitle（{@link WORKSPACE_SECTION_LINK_TITLE}）を持つリンクはワークスペース基準のリンクとし、
+         * titleを表示しない（変換タブがMarkdownのワークスペース基準リンクを同じ意味のTextileのリンクへ写すため）。
          * @param tag - Textile.jsが生成したリンク開始タグ。
          * @returns ローカルリンク用data属性を付けた開始タグ。
          */
         (tag) => {
-            const href = readHtmlAttribute(tag, 'href');
-            if (!href || href.startsWith('#') || !isLocalMarkdownLink(href)) return tag;
+            let anchor = tag;
+            if (readHtmlAttribute(anchor, 'title') === WORKSPACE_SECTION_LINK_TITLE) {
+                anchor = upsertHtmlAttribute(anchor.replace(/\s+title\s*=\s*(?:"[^"]*"|'[^']*'|[^\s>]+)/i, ''), 'data-mve-workspace-rooted', 'true');
+            }
+            const href = readHtmlAttribute(anchor, 'href');
+            if (!href || href.startsWith('#') || !isLocalMarkdownLink(href)) return anchor;
             return upsertHtmlAttribute(
-                upsertHtmlAttribute(tag, 'href', '#'),
+                upsertHtmlAttribute(anchor, 'href', '#'),
                 'data-mve-link',
                 href
             );
@@ -691,6 +745,90 @@ function renderTextileOutput(
         )
         : decoratedHtml;
     return { html: renderHtml, headingId: headingIds[0]?.id, headingIds };
+}
+
+/**
+ * Textileの言語名mermaidのコードブロック（`bc(mermaid).`）を、Markdownの図と同じ描画用の要素（ソースを属性に持つ
+ * `div.diagram-block.mermaid`）へ置き換える。プレビューは`.mermaid`の要素を図のソースの属性から描画するため、
+ * そのままの`<pre class="mermaid"><code class="mermaid">`ではソースのない要素が描画に失敗する（変換タブも図をこの書き方で写す）。
+ * @param html - Textile変換後のHTML。
+ * @returns 図のコードブロックを描画用の要素へ置き換えたHTML。
+ */
+function renderTextileMermaidBlocks(html: string): string {
+    return replaceTextileMermaidBlocks(html);
+}
+
+/**
+ * Textileの描画単位ごとのtextile-jsの変換結果（原文→HTML）を、新しく使ったものから順に保持する表。
+ * プレビューは本文を編集するたびに文書全体の描画単位を描画し直すため、変わっていない単位の変換を省く。
+ * textile-jsの変換は原文だけで決まる（設定・文書の他の部分に依存しない）ため、原文をキーにできる。
+ */
+const textileRenderCache = new Map<string, string>();
+
+/** {@link textileRenderCache}に保持する描画単位の上限。超えた場合は最も長く使われていないものから捨てる。 */
+const TEXTILE_RENDER_CACHE_LIMIT = 2000;
+
+/** {@link textileRenderCache}に保持する原文の長さの上限（UTF-16）。大きな単位は保持せず、メモリの増加を抑える。 */
+const TEXTILE_RENDER_CACHE_MAX_SOURCE_LENGTH = 20000;
+
+/**
+ * {@link textileRenderCache}に保持する原文と変換結果の長さの合計の上限（UTF-16）。
+ * 件数の上限だけでは、長い単位が多い文書でメモリが増え続けるため、合計でも抑える。超えた場合は最も長く使われていないものから捨てる。
+ * 値はUTF-16の文字数で、文字列の保持はおよそ8MBまでになる。同梱の最大のTextile文書（約4,400文字、変換結果を含めて約1万文字）の
+ * 数百倍にあたり、通常の文書の編集では捨てずに済む大きさにしている。
+ */
+const TEXTILE_RENDER_CACHE_MAX_TOTAL_LENGTH = 4_000_000;
+
+/** {@link textileRenderCache}が保持している原文と変換結果の長さの合計（UTF-16）。追加・削除のたびに更新する。 */
+let textileRenderCacheTotalLength = 0;
+
+/**
+ * Textileの描画単位をtextile-jsで変換する。直近に変換した同じ原文は、保持している結果を返す。
+ * 保持は件数（{@link TEXTILE_RENDER_CACHE_LIMIT}）と長さの合計（{@link TEXTILE_RENDER_CACHE_MAX_TOTAL_LENGTH}）の両方で抑える。
+ * @param source - 描画単位の原文。
+ * @returns サニタイズ前のHTML。
+ */
+function renderTextileCached(source: string): string {
+    const cached = textileRenderCache.get(source);
+    if (cached !== undefined) {
+        // 使った順を保つため、末尾へ入れ直す。
+        textileRenderCache.delete(source);
+        textileRenderCache.set(source, cached);
+        return cached;
+    }
+    const html = renderTextile(source);
+    if (source.length <= TEXTILE_RENDER_CACHE_MAX_SOURCE_LENGTH) {
+        textileRenderCache.set(source, html);
+        textileRenderCacheTotalLength += source.length + html.length;
+        while (
+            textileRenderCache.size > TEXTILE_RENDER_CACHE_LIMIT ||
+            (textileRenderCacheTotalLength > TEXTILE_RENDER_CACHE_MAX_TOTAL_LENGTH && textileRenderCache.size > 1)
+        ) {
+            const oldest = textileRenderCache.entries().next().value;
+            if (oldest === undefined) break;
+            textileRenderCache.delete(oldest[0]);
+            textileRenderCacheTotalLength -= oldest[0].length + oldest[1].length;
+        }
+    }
+    return html;
+}
+
+/**
+ * {@link renderTextileMermaidBlocks}の本体。言語名mermaidのコードブロックを図の描画用の要素へ置き換える。
+ * @param html - Textile変換後のHTML。
+ * @returns 置き換えたHTML。
+ */
+function replaceTextileMermaidBlocks(html: string): string {
+    return html.replace(
+        /<pre\b[^>]*\bclass="mermaid"[^>]*>\s*<code\b[^>]*\bclass="mermaid"[^>]*>([\s\S]*?)<\/code\s*>\s*<\/pre\s*>/gi,
+        /**
+         * 言語名mermaidのコードブロックを、Markdownの図と同じ描画用の要素へ置き換える。
+         * @param _block - 置換対象のpre要素全体。
+         * @param body - エスケープ済みの図のソース。
+         * @returns 図のソースを属性に持つ描画用の要素。
+         */
+        (_block, body: string) => `<div class="diagram-block mermaid" data-mermaid-source="${escapeAttribute(encodeURIComponent(decodeTextileCodeEntities(body).replace(/^(?:\r\n|\r|\n)/, '').replace(/(?:\r\n|\r|\n)+$/, '')))}"></div>`
+    );
 }
 
 /**
@@ -837,10 +975,12 @@ function hasMixedTextileHeadingCandidate(source: string): boolean {
 
 /**
  * Textileブロックと記号を含む行だけ詳しく調べ、Markdownコード内の候補を除外する。
+ * 混在形式（`mixed`）の描画は、この判定がfalseの文書をMarkdownだけとして描画する。変換タブも同じ判定で、
+ * Markdown文書の中のTextileに見える書き方をTextileとして扱うかを決める。
  * @param source - 構文候補を調べるMarkdown本文。
  * @returns 表示可能な範囲にTextile構文候補が見つかった場合はtrue。
  */
-function hasMixedTextileSyntaxCandidate(source: string): boolean {
+export function hasMixedTextileSyntaxCandidate(source: string): boolean {
     if (!MIXED_TEXTILE_SYNTAX_HINT.test(source)) return source.includes('|') && hasNonMarkdownTextileTable(source);
     let fenceCharacter: string | undefined;
     let fenceLength = 0;

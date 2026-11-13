@@ -56,6 +56,18 @@ export interface PersistedState {
    * プレビュー単独表示のスクロール復元に使う表示位置アンカー。
    */
   previewOnlyViewport?: PreviewViewportAnchor;
+
+  /**
+   * 変換タブで文書全体を別の記法へ書き換えた後の表示形式。
+   * 拡張子から決まる既定の形式を上書きし、Webviewの再生成後も同じ文書（`uri`が一致）に限って復元する。
+   * 別の文書を開いた場合は無視する。
+   */
+  renderFormatOverride?: {
+    /** 上書きが有効な文書のURI。 */
+    uri: string;
+    /** 変換後に使う描画形式。 */
+    format: MarkdownRenderFormat;
+  };
 }
 
 /**
@@ -98,6 +110,24 @@ export function getRenderFormatForUri(uri?: string): MarkdownRenderFormat {
   if (/\.textile$/.test(path)) return "textile";
   if (/\.(?:md|markdown)$/.test(path)) return "mixed";
   return "markdown";
+}
+
+/**
+ * 永続化状態から、指定した文書に対する表示形式の上書きを読む。
+ * 保存値は旧版や破損で不正な形になり得るため、URIの一致と形式名を検証し、不正なら上書きなしとして扱う。
+ * @param state - Webviewの永続化状態。未保存ならundefined。
+ * @param uri - 現在の文書URI。
+ * @returns 有効な上書き。該当しない、または不正ならundefined。
+ */
+export function readRenderFormatOverride(
+  state: PersistedState | undefined,
+  uri: string,
+): PersistedState["renderFormatOverride"] {
+  const override = state?.renderFormatOverride;
+  if (!override || typeof override !== "object" || override.uri !== uri) return undefined;
+  return override.format === "markdown" || override.format === "mixed" || override.format === "textile"
+    ? { uri, format: override.format }
+    : undefined;
 }
 
 /**

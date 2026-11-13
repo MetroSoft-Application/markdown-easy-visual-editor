@@ -33,6 +33,7 @@ import type {
   RibbonHeaderImplementationId,
   TableAction,
 } from "./ribbonTypes";
+import { isConvertButtonDisabled } from "./ribbonConvert";
 
 const button = /**
  * リボンボタンのコマンド処理と表示状態を定義する。
@@ -776,6 +777,36 @@ export const RIBBON_IMPLEMENTATIONS: Record<
      * リボンボタンのクリック時に編集コマンドを通知する。
      */
     ({ onCommand }) => onCommand({ type: "runPreflightCheck" }),
+  ),
+  convertToMarkdown: button(
+    /**
+     * 文書全体をTextileからMarkdownへ書き換えるコマンドを通知する。
+     */
+    ({ onCommand }) =>
+      onCommand({ type: "convertDocument", target: "markdown" }),
+    {
+      /**
+       * 読み取り専用、または既にMarkdownとして表示している文書では無効にする。
+       * @param state - 現在の編集・表示状態。
+       * @returns 無効にする場合はtrue。
+       */
+      disabled: (state) => isConvertButtonDisabled("markdown", state),
+    },
+  ),
+  convertToTextile: button(
+    /**
+     * 文書全体をMarkdownからTextileへ書き換えるコマンドを通知する。
+     */
+    ({ onCommand }) =>
+      onCommand({ type: "convertDocument", target: "textile" }),
+    {
+      /**
+       * 読み取り専用、または既にTextileとして表示している文書では無効にする。
+       * @param state - 現在の編集・表示状態。
+       * @returns 無効にする場合はtrue。
+       */
+      disabled: (state) => isConvertButtonDisabled("textile", state),
+    },
   ),
   imageDirectory: control(
     /**

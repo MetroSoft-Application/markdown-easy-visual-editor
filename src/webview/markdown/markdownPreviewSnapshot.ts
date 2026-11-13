@@ -536,6 +536,121 @@ async function resolveMarkdownWorkerLaunchUrl(rich = false): Promise<string> {
 }
 
 /**
+ * 変換タブの描画1回を待つ上限（ミリ秒）。巨大文書でも通常は数秒で終わるため、応答のないWorkerを放置しないよう打ち切る。
+ */
+const ONE_SHOT_RENDER_TIMEOUT_MS = 60000;
+
+/**
+ * 変換タブの1回の変換のあいだ、1つの軽量Workerを使い回して描画する。
+ * 描画のたびにWorkerを起動すると、描画を繰り返す変換で起動時間が積み重なるため、要求を順に同じWorkerへ送る。
+ * 使い終えたら必ず`dispose`でWorkerを終了する。
+ * @returns 描画関数と終了関数。描画関数はWorkerの起動・描画の失敗、時間切れで例外を投げる。
+ */
+export function createPreviewRenderSession(): {
+  /** 文書を1回描画し、サニタイズ前のブロックを返す。 */
+  render: (
+    markdown: string,
+    options: {
+      /** リモート画像を描画する場合はtrue。 */
+      remoteImagesEnabled: boolean;
+      /** 表示言語。 */
+      language: WebviewSettings["language"];
+      /** 描画形式。 */
+      renderFormat: MarkdownRenderFormat;
+      /** trueなら脚注を含むTextile文書も描画単位ごとに描画する（変換タブの比較用。markdownRendererCoreのRenderOptions）。 */
+      splitTextileBlocks?: boolean;
+    },
+  ) => Promise<UnsafeMarkdownBlock[]>;
+  /** Workerを終了する。以後の描画要求は失敗する。 */
+  dispose: () => void;
+} {
+  let workerPromise: Promise<Worker> | undefined;
+  let nextId = 1;
+  let queue: Promise<unknown> = Promise.resolve();
+  let disposed = false;
+  /** 応答待ちの要求を終わらせる関数。終了時に残った要求を失敗として終わらせ、タイマーとリスナーを残さないために持つ。 */
+  const pending = new Set<(error: Error) => void>();
+  /**
+   * 1件の描画要求を送り、同じIDの応答・エラー・時間切れのいずれかで待機を終える。
+   * 時間切れの場合、Workerは前の描画を続けている可能性があり後続の要求が詰まるため、Workerを終了して次の要求で作り直す。
+   * @param worker - 使い回すWorker。
+   * @param markdown - 描画する文書。
+   * @param options - 描画設定。
+   * @returns 描画ブロック。
+   */
+  const request = (worker: Worker, markdown: string, options: object): Promise<UnsafeMarkdownBlock[]> =>
+    new Promise<UnsafeMarkdownBlock[]>((resolve, reject) => {
+      const id = nextId++;
+      const timer = window.setTimeout(
+        /** 応答のない描画を待ち続けないよう打ち切る。 */
+        () => {
+          cleanup();
+          worker.terminate();
+          workerPromise = undefined;
+          reject(new Error("Preview render timed out"));
+        },
+        ONE_SHOT_RENDER_TIMEOUT_MS,
+      );
+      /**
+       * 終了処理から呼ばれ、この要求を失敗として終わらせる。
+       * @param error - 失敗の理由。
+       */
+      const abort = (error: Error): void => {
+        cleanup();
+        reject(error);
+      };
+      pending.add(abort);
+      /**
+       * この要求への応答だけを受け取る。
+       * @param event - Workerの応答。
+       */
+      const onMessage = (event: MessageEvent<MarkdownWorkerResponse & { error?: string }>): void => {
+        if (event.data.id !== id) return;
+        cleanup();
+        if (event.data.error !== undefined || !event.data.unsafeBlocks) reject(new Error(event.data.error ?? "Preview render failed"));
+        else resolve(event.data.unsafeBlocks);
+      };
+      /**
+       * Workerの読み込み・実行エラーで待機を終える。
+       * @param event - Workerのエラー。
+       */
+      const onError = (event: ErrorEvent): void => {
+        cleanup();
+        reject(new Error(event.message || "Preview render failed"));
+      };
+      /** タイマーとリスナーを外す。 */
+      const cleanup = (): void => {
+        pending.delete(abort);
+        window.clearTimeout(timer);
+        worker.removeEventListener("message", onMessage as EventListener);
+        worker.removeEventListener("error", onError);
+      };
+      worker.addEventListener("message", onMessage as EventListener);
+      worker.addEventListener("error", onError);
+      worker.postMessage({ id, markdown, options });
+    });
+  return {
+    render: (markdown, options) => {
+      if (disposed) return Promise.reject(new Error("Preview render session is closed"));
+      // キューの順番が来た時点で終了済みかを確かめ、Workerもその時点で用意する。
+      // 先に入った要求が時間切れでWorkerを終了していても、後続の要求は新しいWorkerで描画する。
+      const result = queue.then(async () => {
+        if (disposed) throw new Error("Preview render session is closed");
+        workerPromise ??= resolveMarkdownWorkerLaunchUrl(false).then((url) => new Worker(url));
+        return request(await workerPromise, markdown, options);
+      });
+      queue = result.catch(() => undefined);
+      return result;
+    },
+    dispose: () => {
+      disposed = true;
+      for (const abort of [...pending]) abort(new Error("Preview render session is closed"));
+      void workerPromise?.then((worker) => worker.terminate()).catch(() => undefined);
+    },
+  };
+}
+
+/**
  * 既定のMarkdown Workerをバックグラウンドで一度だけ起動し、利用可能にしておく。
  */
 export function preloadMarkdownWorker(): void {

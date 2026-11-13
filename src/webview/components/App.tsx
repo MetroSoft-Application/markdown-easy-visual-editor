@@ -62,6 +62,7 @@ import {
   mapTextOffset,
   type TextChange,
 } from "../../shared/textChanges";
+import { convertDocumentSyntax, type DocumentSyntax } from "../../shared/formatConversion";
 import { fingerprintText } from "../../shared/canonicalText";
 import {
   alignImageInMarkdown,
@@ -126,7 +127,12 @@ import {
 import {
   useInterruptibleDebouncedValue,
 } from "../runtime/useInterruptibleDebouncedValue";
-import { useMarkdownPreviewSnapshot } from "../markdown/markdownPreviewSnapshot";
+import { createPreviewRenderSession, useMarkdownPreviewSnapshot } from "../markdown/markdownPreviewSnapshot";
+import {
+  comparePreviewBlocks,
+  lineNumberAtOffset,
+} from "../markdown/previewEquivalence";
+import { convertPreservingPreview } from "../markdown/conversionWithFallback";
 import {
   collectStartupMetrics,
   countVisibleMermaidNodes,
@@ -147,6 +153,7 @@ import { PrintSettingsPanel } from "./PrintSettingsPanel";
 import { DiagnosticsPanel, SearchPanel, SectionLinkMenu, type SectionLinkMenuState } from "./AppPanels";
 import {
   getRenderFormatForUri,
+  readRenderFormatOverride,
   readWebviewBootstrap,
   vscode,
 } from "../runtime/webviewState";
@@ -262,7 +269,6 @@ interface PdfPreviewState {
   error?: string;
 }
 
-
 /**
  * 本文ペインとプレビューペインのスクロール同期を再実行する間隔（ミリ秒）。
  */
@@ -291,6 +297,18 @@ const DEFAULT_SETTINGS: WebviewSettings = {
  * Markdown preview再描画をまとめる遅延時間（ミリ秒）。
  */
 const PREVIEW_UPDATE_DELAY_MS = 120;
+
+/**
+ * 文書変換の履歴として保持する最大件数。Undoで表示形式を戻すために、変換前後の本文の指紋（長さとハッシュ）を持つ。
+ * 上限を超えた古い変換をUndoで戻した場合、表示形式は追従しない。
+ */
+const MAX_FORMAT_CONVERSION_HISTORY = 10;
+
+/**
+ * 変換の後に本文を編集したとき、拡張機能が保持する表示形式を最新の本文の指紋で保持し直すまでの待ち時間（ミリ秒）。
+ * 入力のたびにワークスペースの状態へ書き込まないよう、編集が止まってから送る。
+ */
+const RENDER_FORMAT_FINGERPRINT_DELAY_MS = 1500;
 
 /**
  * Webviewルートへ渡す設定または境界値。
@@ -391,8 +409,11 @@ export function App(): React.JSX.Element {
   );
   const [initialized, setInitialized] = useState(Boolean(bootstrap));
   const [markdown, setMarkdown] = useState(bootstrap?.text ?? "");
-  const [renderFormat, setRenderFormat] = useState<MarkdownRenderFormat>(() =>
-    getRenderFormatForUri(bootstrap?.uri),
+  const [renderFormat, setRenderFormat] = useState<MarkdownRenderFormat>(
+    () =>
+      // 変換タブで切り替えた表示形式は、同じ文書を再生成したWebviewでも引き継ぐ。
+      readRenderFormatOverride(restored, bootstrap?.uri ?? "")?.format ??
+      getRenderFormatForUri(bootstrap?.uri),
   );
   const isTextileDocument = renderFormat === "textile";
   // 入力経路と、解析・HTML化が重い表示経路を分離する。入力が再開した場合は
@@ -734,6 +755,56 @@ export function App(): React.JSX.Element {
   }>({});
   const pendingNavigationRef = useRef<TextSelection | undefined>(undefined);
   const recentRibbonCommandsRef = useRef(new Map<string, number>());
+  /** 現在Webviewが表示している文書のURI。表示形式の上書きを同じ文書に限定するために保持する。 */
+  const documentUriRef = useRef(bootstrap?.uri ?? "");
+  /**
+   * 変換タブで切り替えた表示形式。拡張子由来の既定形式より優先し、Webview再生成後は
+   * 同じURIの文書に限って復元する。undefinedなら拡張子由来の形式を使う。
+   */
+  const renderFormatOverrideRef = useRef(
+    readRenderFormatOverride(restored, bootstrap?.uri ?? ""),
+  );
+  /** 変換の適用前検査（変換前後の描画比較）を実行中ならtrue。重複した変換操作を受け付けない。 */
+  const formatConversionPendingRef = useRef(false);
+  useEffect(
+    /**
+     * 変換の後に本文を編集した場合も、拡張機能が保持する表示形式を最新の本文の指紋で保持し直す（開き直したときに、
+     * 本文が変換後の続きのものか確かめるため）。入力のたびに書き込まないよう、編集が止まってから送る。
+     * @returns 待機中の送信を取り消す関数。
+     */
+    () => {
+      const override = renderFormatOverrideRef.current;
+      if (!override || override.uri !== documentUriRef.current) return undefined;
+      const timer = window.setTimeout(
+        /** 編集が止まった時点の本文の指紋で、表示形式を保持し直す。 */
+        () => persistRenderFormatOverride(override.format, localTextRef.current),
+        RENDER_FORMAT_FINGERPRINT_DELAY_MS,
+      );
+      return () => window.clearTimeout(timer);
+    },
+    [markdown],
+  );
+  /**
+   * 文書変換の前後本文の指紋と表示形式の履歴（古い順）。Undo/Redoで本文がいずれかの変換の前（後）と一致したとき、
+   * 表示形式も一緒に戻す（進める）ために使う。本文そのものは保持せず、指紋（{@link fingerprintText}）だけを持つ。
+   * 連続して変換してもUndoを重ねた分だけ戻せるよう複数件を保持し、件数を制限する。
+   */
+  const formatConversionHistoryRef = useRef<
+    Array<{
+      /** 変換前の本文の指紋。 */
+      before: string;
+      /** 変換前の表示形式。 */
+      beforeFormat: MarkdownRenderFormat;
+      /** 変換後の本文の指紋。 */
+      after: string;
+      /** 変換後の表示形式。 */
+      afterFormat: MarkdownRenderFormat;
+    }>
+  >([]);
+  /**
+   * 最新の描画状態で文書変換を始める関数。変換の検査中に本文が編集された場合、検査の終了後に最新の本文で変換し直すために使う。
+   */
+  const convertDocumentRef = useRef<(target: DocumentSyntax) => void>(() => undefined);
   const previousModeBeforePrintRef = useRef<EditorMode>("split");
   const previewUserScrollPendingRef = useRef(new WeakSet<HTMLElement>());
   const previewPointerScrollActiveRef = useRef(new WeakSet<HTMLElement>());
@@ -1758,8 +1829,22 @@ export function App(): React.JSX.Element {
         setMarpDetectionFailedMarkdown(undefined);
         return;
       }
-      case "init":
-        setRenderFormat(getRenderFormatForUri(message.uri));
+      case "init": {
+        // 変換タブで切り替えた表示形式は同じ文書の再初期化でだけ維持し、別文書へ移ったら拡張子由来へ戻す。
+        documentUriRef.current = message.uri;
+        const override = renderFormatOverrideRef.current;
+        if (override && override.uri !== message.uri) {
+          formatConversionHistoryRef.current = [];
+        }
+        // 表示形式は、拡張機能が保持する値（保持した本文の指紋が現在の本文と一致する場合だけ届く）に従う。
+        // Webviewの状態から復元した上書きは本文の指紋を持たず、外部の変更などで古くなり得るため、ここで置き換える。
+        renderFormatOverrideRef.current = message.renderFormat
+          ? { uri: message.uri, format: message.renderFormat }
+          : undefined;
+        setRenderFormat(
+          renderFormatOverrideRef.current?.format ??
+            getRenderFormatForUri(message.uri),
+        );
         if (initializedRef.current) {
           applyHostSettings(message.settings);
           if (
@@ -1790,6 +1875,7 @@ export function App(): React.JSX.Element {
           setMarkdown(message.text);
         }
         return;
+      }
       case "editAck": {
         if (message.clientId !== clientIdRef.current) return;
         const pending = inFlightOperationRef.current;
@@ -2408,6 +2494,7 @@ export function App(): React.JSX.Element {
       sourceViewport: viewportStateRef.current.source,
       splitPreviewViewport: viewportStateRef.current.splitPreview,
       previewOnlyViewport: viewportStateRef.current.previewOnly,
+      renderFormatOverride: renderFormatOverrideRef.current,
     });
   }
 
@@ -2717,7 +2804,262 @@ export function App(): React.JSX.Element {
       case "showFeatures":
         setHelpTopic("features");
         return;
+      case "convertDocument":
+        convertDocument(command.target);
+        return;
     }
+  }
+
+  convertDocumentRef.current = convertDocument;
+
+  /**
+   * 文書全体を指定した記法へ書き換え、プレビューの表示形式を変換先へ切り替える。変換は止めずに必ず適用する。
+   * ブロックごとに同じ意味の変換先の記法へ書き換え（HTMLへは変換しない）、変換前後の描画を比べて変換の誤りを直す
+   * （{@link convertPreservingPreview}）。一致させきれなかった場合や、描画Workerが使えず比べられなかった場合も
+   * 変換を適用し、プレビューが変わる可能性があることを通知する。Marp文書も変換し、スライド表示が使えなくなることを通知する。
+   * 検査中に本文が編集された場合は、検査の終了後に最新の本文で変換し直す。別の文書へ切り替わった場合だけ中止する。
+   * 本文の置換はCodeMirrorの1トランザクション（編集面が非表示ならHost同期の1操作）として適用し、
+   * Undoで本文が変換前へ戻ったときは表示形式も戻す。書き換える記法がなければ通知を出し、表示形式だけを変換先へ切り替える。
+   * @param target - 変換先の記法。現在の表示形式と同じなら何もしない。変換の検査中は受け付けない（実行中の変換が適用される）。
+   */
+  function convertDocument(target: DocumentSyntax): void {
+    const current: DocumentSyntax = isTextileDocument ? "textile" : "markdown";
+    if (current === target || formatConversionPendingRef.current) return;
+    const source = localTextRef.current;
+    const uri = documentUriRef.current;
+    const currentFormat = renderFormat;
+    const marpDocument = isMarpDocument;
+    // Markdown文書は拡張子由来と同じ「Textile混在」形式で表示し、未変換で残したTextile記法も同じ見た目に保つ。
+    const nextFormat: MarkdownRenderFormat =
+      target === "textile" ? "textile" : "mixed";
+    formatConversionPendingRef.current = true;
+    setToast(messages.app.toast.documentConversionRunning);
+    // リモート画像を無効にした設定で描画すると画像が「表示できない」表示に置き換わり、埋め込むHTMLから画像のURLが失われる。
+    // 変換のための描画では常にリモート画像を有効にし、URLを保ったまま比べる（表示設定は変換後のプレビューにそのまま適用される）。
+    const renderOptions = {
+      remoteImagesEnabled: true,
+      language: settings.language,
+    };
+    const userRemoteImagesEnabled = settings.remoteImagesEnabled;
+    /**
+     * 本文が変わったか判定する。文書が切り替わった場合は含めない（別途中止する）。
+     * @returns 同じ文書で本文が変わっていればtrue。
+     */
+    const edited = (): boolean =>
+      documentUriRef.current === uri && localTextRef.current !== source;
+    let rerun = false;
+    // 変換のあいだ1つのWorkerを使い回し、終わったら必ず終了する。
+    const session = createPreviewRenderSession();
+    void convertPreservingPreview(
+      source,
+      current,
+      currentFormat,
+      target,
+      nextFormat,
+      /**
+       * 変換用のWorkerで描画する。
+       * @param text - 描画する文書。
+       * @param format - 描画形式。
+       * @returns 描画ブロック。
+       */
+      (text, format) =>
+        session.render(text, {
+          ...renderOptions,
+          renderFormat: format,
+          // 変換は原文の位置と描画を単位ごとに対応付けるため、脚注を含むTextile文書も描画単位ごとに描画する。
+          splitTextileBlocks: true,
+        }),
+      /**
+       * 本文や文書が変わったら、描画の繰り返しを打ち切る。
+       * @returns 打ち切る場合はtrue。
+       */
+      () => localTextRef.current !== source || documentUriRef.current !== uri,
+    )
+      .then(
+        /**
+         * 変換結果を適用する。プレビューが同じにならなかった場合も適用し、変わり得る行を通知する。
+         * @param result - 変換結果。
+         */
+        async (result) => {
+          if (documentUriRef.current !== uri) {
+            setToast(messages.app.toast.documentConversionCancelled);
+            return;
+          }
+          if (result.cancelled || edited()) {
+            rerun = true;
+            return;
+          }
+          let offset = result.firstDifferenceOffset;
+          let equal = result.equal;
+          // 変換用の描画はリモート画像を有効にして行うため、リモート画像を無効にしている場合は、
+          // 実際のプレビューと同じ設定でも変換前後を比べ、違いが出る場合はその行を通知する（変換は適用する）。
+          if (equal && !userRemoteImagesEnabled) {
+            const userOptions = { remoteImagesEnabled: false, language: settings.language };
+            // 追加の比較が描画の失敗で行えなくても、検査済みの変換結果は捨てずに適用する（見た目が変わり得ると通知する）。
+            try {
+              const comparison = comparePreviewBlocks(
+                await session.render(source, { ...userOptions, renderFormat: currentFormat }),
+                await session.render(result.text, { ...userOptions, renderFormat: nextFormat }),
+              );
+              equal = comparison.equal;
+              offset = comparison.firstDifferenceOffset;
+            } catch {
+              equal = false;
+              offset = undefined;
+            }
+            if (documentUriRef.current !== uri) {
+              setToast(messages.app.toast.documentConversionCancelled);
+              return;
+            }
+            if (edited()) {
+              rerun = true;
+              return;
+            }
+          }
+          applyDocumentConversion(source, result.text, currentFormat, nextFormat);
+          if (result.text === source) return;
+          // 本文の見た目が変わり得る場合は、その行の通知を優先する。Marp文書の比較はfront matterを除いた本文で行われるため、
+          // 本文に違いがなければ、スライド表示が通常のプレビューになったことを通知する。
+          if (marpDocument && equal) {
+            setToast(messages.app.toast.documentConvertedMarp);
+          } else if (!equal) {
+            setToast(messages.app.toast.documentConvertedMayDiffer(
+              offset === undefined ? "?" : String(lineNumberAtOffset(source, offset)),
+            ));
+          } else {
+            setToast(messages.app.toast.documentConverted);
+          }
+        },
+      )
+      .catch(
+        /**
+         * 描画Workerの起動・描画に失敗した場合も変換は止めず、記法の変換だけを適用して、確かめられなかったことを知らせる。
+         * @param error - 失敗の理由。
+         */
+        (error: unknown) => {
+          if (documentUriRef.current !== uri) {
+            setToast(messages.app.toast.documentConversionCancelled);
+            return;
+          }
+          if (edited()) {
+            rerun = true;
+            return;
+          }
+          const converted = convertDocumentSyntax(source, current, target).text;
+          applyDocumentConversion(source, converted, currentFormat, nextFormat);
+          if (converted !== source) {
+            setToast(messages.app.toast.documentConvertedUnverified(errorMessage(error)));
+          }
+        },
+      )
+      .finally(
+        /** 変換用のWorkerを終了して次の変換操作を受け付け、検査中に本文が編集されていれば最新の本文で変換し直す。 */
+        () => {
+          session.dispose();
+          formatConversionPendingRef.current = false;
+          if (rerun) convertDocumentRef.current(target);
+        },
+      );
+  }
+
+  /**
+   * 検査を通った変換を適用する。本文はCodeMirrorの1トランザクション（編集面が非表示ならHost同期の1操作）として置き換え、
+   * Undoで戻せるよう前後の本文と表示形式を履歴へ記録してから、表示形式を変換先へ切り替える。
+   * 書き換える記法がなかった場合は本文を変えず、表示形式だけを切り替えて通知する。
+   * @param source - 変換前の本文。
+   * @param converted - 変換後の本文。
+   * @param currentFormat - 変換前の表示形式。
+   * @param nextFormat - 変換後の表示形式。
+   */
+  function applyDocumentConversion(
+    source: string,
+    converted: string,
+    currentFormat: MarkdownRenderFormat,
+    nextFormat: MarkdownRenderFormat,
+  ): void {
+    if (converted !== source) {
+      const history = formatConversionHistoryRef.current;
+      history.push({
+        before: fingerprintText(source),
+        beforeFormat: currentFormat,
+        after: fingerprintText(converted),
+        afterFormat: nextFormat,
+      });
+      if (history.length > MAX_FORMAT_CONVERSION_HISTORY) history.shift();
+    }
+    renderFormatOverrideRef.current = {
+      uri: documentUriRef.current,
+      format: nextFormat,
+    };
+    setRenderFormat(nextFormat);
+    schedulePersistViewState();
+    persistRenderFormatOverride(nextFormat, converted);
+    if (converted === source) {
+      setToast(messages.app.toast.documentConversionUnchanged);
+      return;
+    }
+    const editor = getActiveEditor();
+    if (editor) {
+      const selection = editor.getSelection();
+      editor.applyEdit({
+        text: converted,
+        selection: {
+          from: Math.min(selection.from, converted.length),
+          to: Math.min(selection.to, converted.length),
+        },
+      });
+    } else {
+      updateMarkdown(converted);
+    }
+  }
+
+  /**
+   * Undo/Redoで本文がいずれかの文書変換の前後と一致したとき、表示形式も対応する形式へ戻す。
+   * 新しい変換から順に照合するため、連続して変換した後もUndoを重ねるたびに対応する形式へ戻る。
+   * 本文の比較は指紋（{@link fingerprintText}）の一致で判定し、それ以外の編集では何もしない。
+   * @param nextText - 更新後の本文。
+   */
+  function restoreRenderFormatForConversion(nextText: string): void {
+    const history = formatConversionHistoryRef.current;
+    if (history.length === 0) return;
+    // 指紋は長さで終わるため、長さが履歴のどれとも合わない編集では全文のハッシュを計算しない（入力のたびの全文走査を避ける）。
+    const length = `:${nextText.length}`;
+    if (!history.some((record) => record.before.endsWith(length) || record.after.endsWith(length))) return;
+    const fingerprint = fingerprintText(nextText);
+    let format: MarkdownRenderFormat | undefined;
+    for (
+      let index = history.length - 1;
+      index >= 0 && format === undefined;
+      index -= 1
+    ) {
+      const record = history[index];
+      if (fingerprint === record.after) format = record.afterFormat;
+      else if (fingerprint === record.before) format = record.beforeFormat;
+    }
+    if (format === undefined) return;
+    renderFormatOverrideRef.current = {
+      uri: documentUriRef.current,
+      format,
+    };
+    setRenderFormat(format);
+    schedulePersistViewState();
+    persistRenderFormatOverride(format, nextText);
+  }
+
+  /**
+   * 変換タブで切り替えた表示形式を、その表示形式で表示する本文の指紋と一緒に拡張機能へ保持させる。拡張子から決まる既定の形式と
+   * 同じなら保持を解除する（文書を閉じて開き直しても、本文が変わっていなければ変換後の記法で表示するため）。
+   * @param format - 現在の表示形式。
+   * @param text - その表示形式で表示する本文。
+   */
+  function persistRenderFormatOverride(format: MarkdownRenderFormat, text: string): void {
+    const uri = documentUriRef.current;
+    const keep = format !== getRenderFormatForUri(uri);
+    vscode.postMessage({
+      type: "renderFormatOverride",
+      format: keep ? format : undefined,
+      fingerprint: keep ? fingerprintText(text) : undefined,
+    });
   }
 
   /**
@@ -3636,6 +3978,7 @@ export function App(): React.JSX.Element {
       selectionStateRef.current = mappedSelection;
     }
     localTextRef.current = nextText;
+    restoreRenderFormatForConversion(nextText);
     if (updateRenderedState) {
       stagePreviewViewportRestore();
       setMarkdown(nextText);

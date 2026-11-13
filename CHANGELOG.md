@@ -72,3 +72,8 @@
 
 - Added path and heading-anchor completion for Markdown link destinations.
 - Added link updates in Markdown files when files or folders are moved or renamed.
+
+## 2.0.5
+
+- Added a Convert tab that rewrites the whole document between Textile and Markdown.
+- Conversion uses only same-meaning syntax, never HTML, and converting back restores it.

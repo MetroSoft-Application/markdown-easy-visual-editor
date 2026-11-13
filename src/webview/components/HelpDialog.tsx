@@ -163,6 +163,15 @@ export function HelpDialog({
         ],
       ],
     },
+    {
+      title: messages.ribbon.tabs.convert,
+      items: [
+        [
+          messages.ribbon.groups.formatConversion,
+          messages.ribbon.featureDescriptions.convertDocument,
+        ],
+      ],
+    },
   ];
   return (
     <div

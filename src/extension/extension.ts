@@ -21,7 +21,9 @@ import {
     type NormalizedPdfOptions,
     type ViewMode,
     type WebviewSettings,
-    type WebviewToHostMessage
+    type WebviewToHostMessage,
+    type DocumentRenderFormat,
+    isDocumentRenderFormat
 } from '../shared/protocol';
 import {
     DEFAULT_FONT_FAMILY_SETTINGS,
@@ -75,6 +77,7 @@ import { namespaceMermaidSvg } from '../shared/mermaidSvg';
 import { decodeLocalResourceSource, isMissingResourceError } from './resourceCheck';
 import { classifyResourceLink, isDocumentRelativeResourcePath } from './resourceLink';
 import { openHtmlPreview } from './htmlPreview';
+import { readStoredRenderFormat, updateStoredRenderFormats } from './renderFormatOverrides';
 import {
     FONT_FAMILY_STATE_KEY,
     GLOBAL_CONFIGURATION_KEYS,
@@ -325,6 +328,12 @@ interface StartupTiming {
  * CommonJSのモジュールスコープ変数なのでグローバルを汚さない。bannerを通らない実行（単体テスト等）では未定義。
  */
 declare const __mveBundleStartedAt: number | undefined;
+
+/** 変換タブで切り替えた文書ごとの表示形式（URI→表示形式）を保持するワークスペースの状態のキー。 */
+const RENDER_FORMAT_OVERRIDES_STATE_KEY = 'markdownEasyVisualEditor.renderFormatOverrides';
+
+/** 表示形式を保持する文書の上限。ワークスペースの状態が際限なく大きくならないよう、古いものから捨てる。 */
+const MAX_RENDER_FORMAT_OVERRIDES = 500;
 
 /**
  * カスタムエディターと拡張機能コマンドをVS Codeへ登録する。
@@ -1048,7 +1057,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                     return;
                 }
                 case 'ready':
-                    // 初期接続したWebviewへクライアントID・本文・バージョン・設定を返す。
+                    // 初期接続したWebviewへクライアントID・本文・バージョン・設定と、変換タブで切り替えた表示形式を返す。
                     this.panelClientIds.set(panel, message.clientId);
                     this.markStartup(panel, 'webviewReadyMs');
                     this.panelInitialized.delete(panel);
@@ -1057,8 +1066,13 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                         text: this.canonicalText(document),
                         version: document.version,
                         uri: document.uri.toString(),
-                        settings: this.getSettings(document)
+                        settings: this.getSettings(document),
+                        renderFormat: this.readRenderFormatOverride(document.uri, this.canonicalText(document))
                     });
+                    return;
+                case 'renderFormatOverride':
+                    if (message.format !== undefined && (!isDocumentRenderFormat(message.format) || typeof message.fingerprint !== 'string')) return;
+                    await this.storeRenderFormatOverride(document.uri, message.format, message.fingerprint);
                     return;
                 case 'initialized':
                     if (this.panelClientIds.get(panel) !== message.clientId) return;
@@ -2674,6 +2688,35 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
             throw new Error('Export source changed before the Host confirmed it. Please retry.');
         }
         return { markdown: message.markdown, rendering: message.rendering };
+    }
+
+    /**
+     * 変換タブで切り替えた文書の表示形式を、ワークスペースの状態から読む。保持した本文の指紋が現在の本文と一致する場合だけ返す
+     * （外部の変更やテキストエディターでの編集で本文が変わった場合は、古い表示形式で誤って描画しないよう使わない）。
+     * @param uri - 文書のURI。
+     * @param text - 現在の本文（LF正規化済み）。
+     * @returns 保持している表示形式。保持していない、不正な値、または本文が変わった場合はundefined（拡張子から決まる既定の形式）。
+     */
+    private readRenderFormatOverride(uri: vscode.Uri, text: string): DocumentRenderFormat | undefined {
+        return readStoredRenderFormat(this.context.workspaceState.get<unknown>(RENDER_FORMAT_OVERRIDES_STATE_KEY), uri.toString(), text);
+    }
+
+    /**
+     * 変換タブで切り替えた文書の表示形式を、ワークスペースの状態へ保持する（文書を閉じて開き直しても変換後の記法で表示するため）。
+     * 保持する文書の数は{@link MAX_RENDER_FORMAT_OVERRIDES}件までとし、超えた場合は古いものから捨てる。
+     * @param uri - 文書のURI。
+     * @param format - 保持する表示形式。undefinedなら保持を解除する。
+     * @param fingerprint - この表示形式で表示する本文の指紋。`format`を指定する場合に使う。
+     */
+    private async storeRenderFormatOverride(uri: vscode.Uri, format: DocumentRenderFormat | undefined, fingerprint: string | undefined): Promise<void> {
+        const next = updateStoredRenderFormats(
+            this.context.workspaceState.get<unknown>(RENDER_FORMAT_OVERRIDES_STATE_KEY),
+            uri.toString(),
+            format,
+            fingerprint,
+            MAX_RENDER_FORMAT_OVERRIDES
+        );
+        await this.context.workspaceState.update(RENDER_FORMAT_OVERRIDES_STATE_KEY, next);
     }
 
     /**

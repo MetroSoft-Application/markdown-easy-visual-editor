@@ -53,6 +53,10 @@ export interface Messages {
              */
             export: string;
             /**
+             * 変換タブ（文書全体のTextile↔Markdown変換）として表示するローカライズ済み文言。
+             */
+            convert: string;
+            /**
              * 設定タブとして表示するローカライズ済み文言。
              */
             settings: string;
@@ -216,6 +220,11 @@ export interface Messages {
              * 表示項目「inspection」の文言として表示するローカライズ済み文言。
              */
             inspection: string;
+
+            /**
+             * 変換タブの文書形式グループ名。
+             */
+            formatConversion: string;
 
             /**
              * プレビュー操作のグループ名。
@@ -575,6 +584,26 @@ export interface Messages {
             preflight: string;
 
             /**
+             * 文書全体をMarkdownへ変換するボタンのラベル。
+             */
+            convertToMarkdown: string;
+
+            /**
+             * Markdownへの変換ボタンのツールチップ。プレビューの見た目が変わらないことを伝える。
+             */
+            convertToMarkdownTitle: string;
+
+            /**
+             * 文書全体をTextileへ変換するボタンのラベル。
+             */
+            convertToTextile: string;
+
+            /**
+             * Textileへの変換ボタンのツールチップ。プレビューの見た目が変わらないことを伝える。
+             */
+            convertToTextileTitle: string;
+
+            /**
              * 表示項目「shortcuts」の文言として表示するローカライズ済み文言。
              */
             shortcuts: string;
@@ -767,6 +796,11 @@ export interface Messages {
              * 表示項目「preflight」の文言として表示するローカライズ済み文言。
              */
             preflight: string;
+
+            /**
+             * 変換タブの機能説明。文書全体をTextileとMarkdownの間で変換し、プレビューは変わらないことを伝える。
+             */
+            convertDocument: string;
         };
 
         /** コード挿入UIで選べる言語名をまとめる。 */
@@ -1798,6 +1832,37 @@ export interface Messages {
 
              */
             pdfFallbackToMarkdown: (detail?: string) => string;
+
+            /**
+             * 変換タブの操作で書き換える記法が1つも見つからず、本文が変わらなかったことを伝える文言。
+             */
+            documentConversionUnchanged: string;
+
+            /**
+             * 文書を変換したが、変換前後の描画を一致させきれず、プレビューが変わる可能性がある箇所が残ったことを伝える文言を組み立てる。
+             * @param lines - 該当する行番号を読点やカンマで区切った文字列。位置を特定できない場合は「?」。
+             * @returns 行番号を含むローカライズ済み文言。
+             */
+            documentConvertedMayDiffer: (lines: string) => string;
+
+            /** 変換の検査（変換前後の描画比較）を実行中であることを伝える文言。 */
+            documentConversionRunning: string;
+
+            /** 検査中に文書が変更されたため変換を中止したことを伝える文言。 */
+            documentConversionCancelled: string;
+
+            /** 文書をすべて変換先の記法へ書き換えたことを伝える文言。 */
+            documentConverted: string;
+
+            /**
+             * 描画Workerの失敗などで変換前後の描画を比べられないまま、記法の変換だけで文書を変換したことを伝える文言を組み立てる。
+             * @param detail - 描画で確かめられなかった理由。
+             * @returns 理由を含むローカライズ済み文言。
+             */
+            documentConvertedUnverified: (detail: string) => string;
+
+            /** Marp文書を変換し、変換後の記法ではスライド表示を使えないため通常のプレビューになったことを伝える文言。 */
+            documentConvertedMarp: string;
         };
 
         /** 利用者へエラー原因を伝える文言をまとめる。 */
@@ -2563,7 +2628,22 @@ function createMessages(language: SupportedLanguage): Messages {
                  * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
                  * @param detail - Markdownへのフォールバック理由。指定時は進捗文言の前へ付ける。
                  * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
-                 */ (detail?: string) => text('app.toast.pdfFallbackToMarkdown', { prefix: detail ? `${detail} ` : '' })
+                 */ (detail?: string) => text('app.toast.pdfFallbackToMarkdown', { prefix: detail ? `${detail} ` : '' }),
+                documentConversionUnchanged: raw.app.toast.documentConversionUnchanged,
+                documentConvertedMayDiffer: /**
+                 * プレビューが変わる可能性が残った行番号を補間する。
+                 * @param lines - 該当する行番号を区切った文字列。
+                 * @returns 行番号を含むローカライズ済み文言。
+                 */ (lines: string) => text('app.toast.documentConvertedMayDiffer', { lines }),
+                documentConversionRunning: raw.app.toast.documentConversionRunning,
+                documentConversionCancelled: raw.app.toast.documentConversionCancelled,
+                documentConverted: raw.app.toast.documentConverted,
+                documentConvertedUnverified: /**
+                 * 描画で確かめられなかった理由を補間する。
+                 * @param detail - 理由。
+                 * @returns 理由を含むローカライズ済み文言。
+                 */ (detail: string) => text('app.toast.documentConvertedUnverified', { detail }),
+                documentConvertedMarp: raw.app.toast.documentConvertedMarp
             },
             errors: {
                 ackMismatch: raw.app.errors.ackMismatch,

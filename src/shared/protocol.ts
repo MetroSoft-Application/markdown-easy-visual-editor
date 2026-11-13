@@ -644,6 +644,21 @@ export interface LinkCompletionHeading {
 }
 
 /**
+ * 文書の表示形式（Webviewのプレビューの描画形式と同じ値）。`markdown`はMarkdownだけ、`mixed`はMarkdownとTextileの混在、
+ * `textile`はTextileとして描画する。
+ */
+export type DocumentRenderFormat = 'markdown' | 'mixed' | 'textile';
+
+/**
+ * 表示形式として受け付ける値か判定する。Webviewから受け取った値を保持する前の検証に使う。
+ * @param value - 判定する値。
+ * @returns 表示形式の値ならtrue。
+ */
+export function isDocumentRenderFormat(value: unknown): value is DocumentRenderFormat {
+    return value === 'markdown' || value === 'mixed' || value === 'textile';
+}
+
+/**
  * 共有プロトコルで送受信するメッセージまたは要求のデータ形状。
  */
 export type HostToWebviewMessage =
@@ -672,6 +687,14 @@ export type HostToWebviewMessage =
          * 共有プロトコルへ渡す設定または境界値。
          */
         settings: WebviewSettings;
+
+        /**
+         * 変換タブで文書全体を別の記法へ書き換えた後の表示形式。拡張機能が文書（URI）ごとにワークスペースの状態へ保持し、
+         * 文書を閉じて開き直しても、変換後の記法で表示する。保持した本文の指紋と現在の本文の指紋が一致する場合だけ送る
+         * （外部の変更やテキストエディターでの編集で本文が変わった場合は、古い表示形式を使わない）。
+         * 未指定なら拡張子から決まる既定の形式を使う。旧版の拡張機能は送らないため、受け取る側は未指定を既定の形式として扱う。
+         */
+        renderFormat?: DocumentRenderFormat;
     }
     | {
         /**
@@ -978,6 +1001,18 @@ export type HostToWebviewMessage =
  * 共有プロトコルで送受信するメッセージまたは要求のデータ形状。
  */
 export type WebviewToHostMessage =
+    | {
+        /**
+         * 変換タブで切り替えた文書の表示形式を、拡張機能へ保持させるメッセージです（initの`renderFormat`で返る）。
+         * `format`が未指定なら保持を解除し、拡張子から決まる既定の形式に戻す。対象はこのWebviewの文書。
+         * 変換の後に本文を編集した場合も、Webviewは編集が止まってから最新の本文の指紋で送り直す。
+         */
+        type: 'renderFormatOverride';
+        /** 保持する表示形式。未指定なら解除する。 */
+        format?: DocumentRenderFormat;
+        /** この表示形式で表示する本文の指紋（shared/canonicalTextのfingerprintText）。`format`を指定する場合は必須。 */
+        fingerprint?: string;
+    }
     | {
         /**
          * Webviewのクライアント登録完了を通知するメッセージです。

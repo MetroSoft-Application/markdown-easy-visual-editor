@@ -3,6 +3,7 @@
  */
 import type React from "react";
 import type { EditorMode, HtmlExportOptions } from "../../shared/protocol";
+import type { DocumentSyntax } from "../../shared/formatConversion";
 import type { MarkdownTableAction } from "../../shared/markdown";
 import type { Messages } from "../../shared/messages";
 import type { TextColorId } from "../../shared/textColor";
@@ -212,6 +213,17 @@ export type RibbonCommand =
          * 呼び出し側が指定する処理設定。
          */
         options: HtmlExportOptions
+    }
+    | {
+        /**
+         * 文書全体を別の記法へ書き換え、プレビューの表示形式も変換先へ切り替えるコマンドです。
+         * 本文は1回の編集として適用され、Undoで本文と表示形式の両方が戻る。
+         */
+        type: "convertDocument";
+        /**
+         * 変換先の記法。現在の文書と同じ記法を指定した場合は何もしない。
+         */
+        target: DocumentSyntax;
     };
 
 /**
@@ -238,6 +250,12 @@ export interface RibbonButtonState {
      * 編集操作を許可しない状態。
      */
     readOnly: boolean;
+
+    /**
+     * 現在の文書をTextileとして表示・編集している場合にtrue。
+     * Markdown記法の項目を無効にし、変換タブでは変換先と同じ記法のボタンを無効にする判定に使う。
+     */
+    textileDocument: boolean;
 
     /**
      * 選択範囲で有効なMarkdown書式の対応表。

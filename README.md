@@ -129,6 +129,18 @@ Press `Alt+Enter` inside a table cell to insert a line break in that cell.
 
 Open the same Markdown document as a regular text editor beside the visual editor, toggle the outline, and adjust the viewing layout.
 
+### Convert
+
+Rewrite the whole document between Textile and Markdown with **To Markdown** or **To Textile**. The editor switches its rendering to the target syntax at the same time, so the preview shows the same content. The change is a single edit, so **Undo** restores both the text and the previous rendering.
+
+Headings, paragraphs, line breaks, quotes, code blocks, lists, tables, links, images, footnotes, and inline formatting are converted to the target syntax with the same meaning. The conversion never writes HTML. Elements that the target syntax cannot draw keep their meaning in plain syntax: Mermaid diagrams and display math become code blocks with the language `mermaid` or `math`, inline math and task-list marks stay as text, and front matter becomes a Textile comment (`###.`). Textile-only syntax, such as classes, alignment, abbreviations, and definition lists, stays as Textile in the Markdown document, because the Markdown preview also renders it. HTML that was already in the document stays as it is. The two previews can differ in small ways, such as the language label and **Copy** button on Markdown code blocks, the position of footnotes, and checkboxes or rendered diagrams that appear only in the Markdown preview.
+
+The editor renders the document before and after the conversion and compares the content to catch conversion mistakes, and always applies the conversion. Some structures have no equivalent in Textile, such as nested quotes or a code block inside a list item; these are written in the closest form and a message shows the line where the preview may change. Marp slide decks are converted too, and the regular preview is shown instead of slides.
+
+Converting back applies the reverse of the conversion rules, so a round trip keeps the same preview and returns documents written in the standard form unchanged. Equivalent spellings are written in one standard form: for example, `__bold__` becomes `**bold**`, reference links become inline links, footnote labels become numbers, line breaks inside a paragraph are joined, and a hard line break is written with two trailing spaces.
+
+The file name and extension are not changed. The editor remembers the converted format for each file in the workspace, so the file is shown in that format when it is opened again. In another workspace, the file is shown in the format of its extension.
+
 ### Help
 
 Open **Shortcuts** for the built-in keyboard shortcut list, or open **Features** for a quick overview of the available editing tools.
@@ -273,8 +285,10 @@ marp: true
 ## Supported Textile
 
 - Open `.textile` documents in the visual editor to preview Textile formatting, lists, tables, links, images, and code. 
-- Textile headings appear in the outline, nested list markers are highlighted while editing, and rendered content is included in HTML/PDF exports. 
+- Textile headings appear in the outline, nested list markers are highlighted while editing, and rendered content is included in HTML/PDF exports.
+- A Textile code block with the language `mermaid` (`bc(mermaid).`) is drawn as a Mermaid diagram, as in Markdown.
 - Markdown files can mix recognized Textile syntax. Markdown takes precedence where the syntaxes overlap.
+- The **Convert** ribbon tab rewrites the whole document between Textile and Markdown using syntax with the same meaning.
 
 ```text
 h1. Textile heading

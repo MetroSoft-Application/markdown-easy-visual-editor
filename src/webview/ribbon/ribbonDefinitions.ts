@@ -107,6 +107,7 @@ export const RIBBON_DEFINITIONS: RibbonDefinitions = {
         table: { kind: "message", path: "ribbon.tabs.table" },
         view: { kind: "message", path: "ribbon.tabs.view" },
         export: { kind: "message", path: "ribbon.tabs.export" },
+        convert: { kind: "message", path: "ribbon.tabs.convert" },
         settings: { kind: "message", path: "ribbon.tabs.settings" },
         help: { kind: "message", path: "ribbon.tabs.help" },
     },
@@ -136,6 +137,9 @@ export const RIBBON_DEFINITIONS: RibbonDefinitions = {
         html: { label: { kind: "message", path: "ribbon.groups.html" } },
         inspection: {
             label: { kind: "message", path: "ribbon.groups.inspection" },
+        },
+        formatConversion: {
+            label: { kind: "message", path: "ribbon.groups.formatConversion" },
         },
         images: {
             label: { kind: "message", path: "ribbon.settings.images" },
@@ -425,6 +429,18 @@ export const RIBBON_DEFINITIONS: RibbonDefinitions = {
         },
         preflight: {
             label: { kind: "message", path: "ribbon.labels.preflight" },
+        },
+        convertToMarkdown: {
+            label: { kind: "message", path: "ribbon.labels.convertToMarkdown" },
+            options: {
+                title: { kind: "message", path: "ribbon.labels.convertToMarkdownTitle" },
+            },
+        },
+        convertToTextile: {
+            label: { kind: "message", path: "ribbon.labels.convertToTextile" },
+            options: {
+                title: { kind: "message", path: "ribbon.labels.convertToTextileTitle" },
+            },
         },
         imageDirectory: {
             label: { kind: "message", path: "ribbon.settings.imageDirectory" },
