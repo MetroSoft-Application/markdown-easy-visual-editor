@@ -772,6 +772,14 @@ export const RIBBON_IMPLEMENTATIONS: Record<
     ({ onCommand, htmlOptions }) =>
       onCommand({ type: "exportHtml", options: htmlOptions }),
   ),
+  docxSaveWithoutDialog: docxOption(),
+  exportDocx: button(
+    /**
+     * リボンボタンのクリック時に、現在のDOCX出力設定を添えて出力コマンドを通知する。
+     */
+    ({ onCommand, docxOptions }) =>
+      onCommand({ type: "exportDocx", options: docxOptions }),
+  ),
   preflight: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。
@@ -1279,6 +1287,33 @@ function pdfOption(): RibbonControlImplementation {
              */
             (event) =>
               context.onPdfSaveWithoutDialogChange(event.currentTarget.checked)
+          }
+        />
+        <span>{resolveLabel(definition.label)}</span>
+      </label>
+    ),
+  );
+}
+
+/** ExportタブのDOCXグループに、保存ダイアログ省略を切り替えるチェック項目を作る。 */
+function docxOption(): RibbonControlImplementation {
+  return control(
+    /** コンテキストのDOCX保存値と定義ラベルから、ラベル付きのチェックボックスを組み立てる。
+     * @param context - 現在のDOCX出力設定と変更通知処理を持つリボンコンテキスト。
+     * @param definition - この設定チェック項目のリボン定義。
+     * @param resolveLabel - ラベル定義を表示文字列へ解決する関数。
+     */
+    (context, definition, resolveLabel) => (
+      <label className="ribbon-checkbox">
+        <input
+          type="checkbox"
+          checked={context.docxOptions.saveWithoutDialog}
+          onChange={
+            /** 入力状態を親のDOCX出力設定へ渡す。
+             * @param event - チェックボックスの値が変わったReact入力イベント。
+             */
+            (event) =>
+              context.onDocxSaveWithoutDialogChange(event.currentTarget.checked)
           }
         />
         <span>{resolveLabel(definition.label)}</span>

@@ -72,3 +72,7 @@
 
 - Added link completion and link updates when files or folders are moved or renamed.
 - Added a Convert tab that rewrites the whole document between Textile and Markdown.
+
+## 2.1.0
+
+- Added DOCX (Word) export to the Export tab, the command palette, and the Explorer.

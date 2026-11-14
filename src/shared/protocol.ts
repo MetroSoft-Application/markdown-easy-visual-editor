@@ -462,6 +462,42 @@ export function mergeHtmlExportOptions(
 }
 
 /**
+ * DOCX（Word文書）出力の永続設定。用紙・余白・文字組み・ヘッダー/フッター・置換はPDF設定を共用するため、
+ * ここにはDOCX出力だけで切り替える項目だけを置く。
+ */
+export interface DocxExportSettings {
+
+    /**
+     * trueのときは保存ダイアログを出さず、原文と同じフォルダーの同名.docxへ上書き保存する。
+     */
+    saveWithoutDialog: boolean;
+}
+
+/**
+ * DOCX出力の永続設定がないときに使う既定値。PDF・HTML出力と同じく保存ダイアログを省略する。
+ */
+export const DEFAULT_DOCX_EXPORT_SETTINGS: DocxExportSettings = {
+    saveWithoutDialog: true
+};
+
+/**
+ * DOCX出力設定を許可値へ正規化し、未指定項目へ既定値を補う。
+ * 旧Hostの設定通知（docxOptionsなし）や型の異なる値は例外にせず既定値へ戻す。
+ * @param value - DOCX出力設定の候補。
+ * @returns 不正値を除き、既定値を補ったDOCX出力設定。
+ */
+export function normalizeDocxExportSettings(value: unknown): DocxExportSettings {
+    const candidate = value && typeof value === 'object'
+        ? value as Partial<DocxExportSettings>
+        : {};
+    return {
+        saveWithoutDialog: typeof candidate.saveWithoutDialog === 'boolean'
+            ? candidate.saveWithoutDialog
+            : DEFAULT_DOCX_EXPORT_SETTINGS.saveWithoutDialog
+    };
+}
+
+/**
  * 共有プロトコルへ渡す設定項目と既定値のデータ形状。
  */
 export interface WebviewSettings extends FontFamilySettings {
@@ -489,14 +525,14 @@ export interface WebviewSettings extends FontFamilySettings {
     /** Mermaidプレビューと出力に適用する配色テーマ。 */
     mermaidTheme: 'auto' | 'default' | 'dark' | 'neutral';
     /**
-     * プレビューとHTML/PDF出力に共通して使うMermaid文字サイズ。旧Webview設定で未指定なら16pxを使う。
+     * プレビューとHTML/PDF/DOCX出力に共通して使うMermaid文字サイズ。旧Webview設定で未指定なら16pxを使う。
      */
     mermaidFontSize?: number;
     /** Mermaid SVGをExtension HostのPele Workerで描画する設定。 */
     mermaidHostRendering?: boolean;
 
     /**
-     * ライト・ダークのプレビュー表示とHTML/PDF出力に反映するエディタテーマ。未設定時はダークテーマ。
+     * ライト・ダークのプレビュー表示とHTML/PDF/DOCX出力に反映するエディタテーマ。未設定時はダークテーマ。
      */
     editorTheme?: EditorTheme;
 
@@ -521,9 +557,13 @@ export interface WebviewSettings extends FontFamilySettings {
      */
     pdfOptions?: PdfOptions;
     /**
-     * PDF見出しtmlOptionsの文字サイズ。
+     * HTML出力設定（画像の埋め込み、リンク先Markdownの変換、アウトライン、保存ダイアログの省略）。
      */
     htmlOptions: HtmlExportSettings;
+    /**
+     * DOCX出力設定。旧Hostからの通知では未指定のため、受信側でnormalizeDocxExportSettingsにより既定値へ補う。
+     */
+    docxOptions?: DocxExportSettings;
 
     /**
  * Webviewでワークスペース内リソースを許可するかを示す信頼状態。
@@ -904,6 +944,20 @@ export type HostToWebviewMessage =
     }
     | {
         /**
+         * DOCX出力の完了を返すメッセージです。失敗とキャンセルはoperationFailedで返す。
+         */
+        type: 'docxExported';
+        /**
+         * 対応するexportDocx要求のID。
+         */
+        requestId: string;
+        /**
+         * 書き込んだDOCXファイルの絶対パス。
+         */
+        path: string
+    }
+    | {
+        /**
          * PDFプレビューの読み込み完了を通知するメッセージです。
          */
         type: 'pdfPreviewReady';
@@ -976,7 +1030,7 @@ export type HostToWebviewMessage =
         /**
  * Hostで実行する挿入、出力、Undo/Redo操作の種別。
         */
-        command: 'insertImage' | 'exportPdf' | 'exportHtml' | 'undo' | 'redo'
+        command: 'insertImage' | 'exportPdf' | 'exportHtml' | 'exportDocx' | 'undo' | 'redo'
     }
     | {
         type: 'hostCommand';
@@ -1252,7 +1306,7 @@ export type WebviewToHostMessage =
          */
         type: 'setMermaidFontSize';
         /**
-         * MermaidプレビューとHTML/PDF出力に適用する文字サイズ候補（px）。Host側で範囲を正規化する。
+         * MermaidプレビューとHTML/PDF/DOCX出力に適用する文字サイズ候補（px）。Host側で範囲を正規化する。
          */
         fontSize: number;
     }
@@ -1331,6 +1385,16 @@ export type WebviewToHostMessage =
          * 呼び出し側が指定する処理設定。
          */
         options: HtmlExportSettings
+    }
+    | {
+        /**
+         * DOCX出力設定の変更をホストへ送るメッセージです。Hostは正規化してグローバル設定へ保存する。
+         */
+        type: 'setDocxOptions';
+        /**
+         * 保存するDOCX出力設定。
+         */
+        options: DocxExportSettings
     }
     | {
 
@@ -1415,6 +1479,40 @@ export type WebviewToHostMessage =
          * HTML出力対象の本文へ上から順に適用する置換ルール。
          */
         textReplacements: TextReplacementRule[];
+    }
+    | {
+
+        /**
+         * 現在の本文のDOCX（Word文書）出力をホストへ要求するメッセージです。
+         * 用紙・余白・文字組み・ヘッダー/フッター・置換は、PDF出力と同じく要求時点の印刷設定（pdfOptions）を使う。
+         */
+        type: 'exportDocx';
+
+        /**
+         * 非同期要求と対応する応答を照合するID。
+         */
+        requestId: string;
+        /** ACK確認後の正本文書。Hostは編集キューを待ってVS Code文書と一致することを検証する。 */
+        markdown: string;
+        /** markdownに対応するVS Code文書バージョン。 */
+        documentVersion: number;
+        /** 本文と同時に固定した出力描画設定。 */
+        rendering: ExportRenderSnapshot;
+
+        /**
+         * 見出し色を選ぶ編集テーマ。省略時はダークテーマとして扱う。
+         */
+        editorTheme?: EditorTheme;
+
+        /**
+         * DOCX出力設定（保存ダイアログの省略）。
+         */
+        options: DocxExportSettings;
+
+        /**
+         * 要求時点の印刷設定。保存の遅延中でも画面に表示中の値で出力するため、Hostの保存値ではなくこの値を使う。
+         */
+        pdfOptions: PdfOptions;
     }
     | {
 

@@ -14,17 +14,20 @@ import DOMPurify from "dompurify";
 import TurndownService from "turndown";
 import { gfm as turndownGfm } from "turndown-plugin-gfm";
 import {
+  DEFAULT_DOCX_EXPORT_SETTINGS,
   DEFAULT_HTML_EXPORT_SETTINGS,
   DEFAULT_HTML_EXPORT_OPTIONS,
   DEFAULT_PDF_OPTIONS,
   DEFAULT_MERMAID_FONT_SIZE,
   normalizeMermaidFontSize,
   mergeHtmlExportOptions,
+  normalizeDocxExportSettings,
   normalizeHtmlExportSettings,
   normalizePdfOptions,
   isTextReplacementPatternValid,
 } from "../../shared/protocol";
 import type {
+  DocxExportSettings,
   EditorMode,
   HostToWebviewMessage,
   HtmlExportSettings,
@@ -290,6 +293,7 @@ const DEFAULT_SETTINGS: WebviewSettings = {
   scrollSyncEnabled: true,
   pdfOptions: DEFAULT_PDF_OPTIONS,
   htmlOptions: DEFAULT_HTML_EXPORT_SETTINGS,
+  docxOptions: DEFAULT_DOCX_EXPORT_SETTINGS,
   workspaceTrusted: false,
 };
 
@@ -637,6 +641,24 @@ export function App(): React.JSX.Element {
     undefined,
   );
   htmlOptionsRef.current = htmlOptions;
+  /**
+   * リボンのDOCXグループに表示するDOCX出力設定。初期値はHostのbootstrap設定で、旧Host（未指定）では既定値。
+   */
+  const [docxOptions, setDocxOptions] = useState<DocxExportSettings>(() =>
+    normalizeDocxExportSettings(bootstrap?.settings.docxOptions),
+  );
+  /**
+   * DOCX出力処理と設定比較が参照する最新のDOCX出力設定。
+   */
+  const docxOptionsRef = useRef(docxOptions);
+  /**
+   * Hostへ保存を依頼し、まだ同じ値のsettingsChangedが届いていないDOCX設定。
+   * 届くまでは古い通知で画面のチェック状態を戻さない。
+   */
+  const pendingDocxOptionsRef = useRef<DocxExportSettings | undefined>(
+    undefined,
+  );
+  docxOptionsRef.current = docxOptions;
   const [pdfPreview, setPdfPreview] = useState<PdfPreviewState>({
     requestId: "",
     loading: false,
@@ -724,6 +746,10 @@ export function App(): React.JSX.Element {
   const pdfRequestsRef = useRef(new Set<string>());
   const pdfExportInProgressRef = useRef(false);
   const htmlRequestsRef = useRef(new Set<string>());
+  /** 応答待ちのDOCX出力要求ID。失敗通知の文言の選択と、応答待ち中の重複要求の抑止に使う。 */
+  const docxRequestsRef = useRef(new Set<string>());
+  /** 原文のACK待ちから要求送信までの間、DOCX出力の重複開始を抑止する。 */
+  const docxExportInProgressRef = useRef(false);
   const pdfPreviewRequestRef = useRef("");
   const pdfPreviewSignatureRef = useRef<string | undefined>(undefined);
   const pdfPreviewTimerRef = useRef<number | undefined>(undefined);
@@ -2098,6 +2124,9 @@ export function App(): React.JSX.Element {
           const htmlFailed = message.requestId
             ? htmlRequestsRef.current.delete(message.requestId)
             : false;
+          const docxFailed = message.requestId
+            ? docxRequestsRef.current.delete(message.requestId)
+            : false;
           const resourceCheckRequest = message.requestId
             ? resourceCheckRequestsRef.current.get(message.requestId)
             : undefined;
@@ -2111,6 +2140,8 @@ export function App(): React.JSX.Element {
                 ? messages.app.toast.pdfExportFailed(message.message)
                 : htmlFailed
                   ? messages.app.toast.htmlExportFailed(message.message)
+                  : docxFailed
+                    ? messages.app.toast.docxExportFailed(message.message)
                   : resourceCheckFailed
                     ? messages.app.toast.resourceCheckFailed(
                         message.message,
@@ -2137,6 +2168,10 @@ export function App(): React.JSX.Element {
           ),
         );
         return;
+      case "docxExported":
+        docxRequestsRef.current.delete(message.requestId);
+        setToast(messages.app.toast.docxExported(message.path));
+        return;
       case "pdfPreviewReady":
         if (isMarpDocument) return;
         if (message.requestId !== pdfPreviewRequestRef.current) return;
@@ -2157,6 +2192,8 @@ export function App(): React.JSX.Element {
         if (message.command === "exportPdf") void requestPdfExport();
         if (message.command === "exportHtml")
           void requestHtmlExport(htmlOptions);
+        if (message.command === "exportDocx")
+          void requestDocxExport(docxOptionsRef.current);
         if (message.command === "undo" || message.command === "redo")
           requestHistoryCommand(message.command);
         return;
@@ -2731,6 +2768,9 @@ export function App(): React.JSX.Element {
         return;
       case "exportHtml":
         void requestHtmlExport(command.options);
+        return;
+      case "exportDocx":
+        void requestDocxExport(command.options);
         return;
       case "setImageDirectory":
         setSettings(
@@ -3568,6 +3608,43 @@ export function App(): React.JSX.Element {
       } satisfies WebviewToHostMessage);
     } catch (error) {
       notifyOutputFailure(error);
+    }
+  }
+
+  /**
+   * 最新編集のACK後に固定した原文と印刷設定をDOCX出力へ送る。
+   * 用紙・余白・文字組みは画面に表示中の印刷設定を使い、未保存の印刷設定もHostへ保存を依頼する。
+   * DOCXはブラウザー描画を伴い時間がかかるため、PDF出力と同じく応答待ちの要求がある間は新しい要求を受け付けない
+   * （連打で同じファイルへの重複出力や保存ダイアログの連続表示を起こさないため）。
+   * リンク切れ画像の事前確認はHTML出力と同じく行わず、出力エンジンの警告に任せる。
+   * @param options - 保存ダイアログを省略するかなどのDOCX出力設定。
+   */
+  async function requestDocxExport(options: DocxExportSettings): Promise<void> {
+    const pdfOptions = pdfOptionsRef.current;
+    if (!canStartOutput(pdfOptions.textReplacements)) return;
+    if (docxExportInProgressRef.current || docxRequestsRef.current.size > 0)
+      return;
+    docxExportInProgressRef.current = true;
+    try {
+      setToast(messages.host.docxProgress);
+      flushPdfOptionsPersistence();
+      const snapshot = await waitForHostExportSnapshot();
+      const requestId = createClientId();
+      docxRequestsRef.current.add(requestId);
+      vscode.postMessage({
+        type: "exportDocx",
+        requestId,
+        markdown: snapshot.markdown,
+        documentVersion: snapshot.version,
+        rendering: exportRendering(),
+        editorTheme: settings.editorTheme ?? "dark",
+        options: normalizeDocxExportSettings(options),
+        pdfOptions,
+      } satisfies WebviewToHostMessage);
+    } catch (error) {
+      notifyOutputFailure(error);
+    } finally {
+      docxExportInProgressRef.current = false;
     }
   }
 
@@ -4533,6 +4610,24 @@ export function App(): React.JSX.Element {
     );
     htmlOptionsRef.current = effectiveHtmlOptions;
     setHtmlOptions(effectiveHtmlOptions);
+    // HTML設定と同じく、保存待ちの値と一致する通知が届くまでは画面の値を優先する。
+    const nextDocxSettings = normalizeDocxExportSettings(
+      nextSettings.docxOptions,
+    );
+    const pendingDocxSettings = pendingDocxOptionsRef.current;
+    const effectiveDocxSettings = reuseIfStructurallyEqual(
+      docxOptionsRef.current,
+      pendingDocxSettings ?? nextDocxSettings,
+    );
+    if (
+      pendingDocxSettings &&
+      pendingDocxSettings.saveWithoutDialog ===
+        nextDocxSettings.saveWithoutDialog
+    ) {
+      pendingDocxOptionsRef.current = undefined;
+    }
+    docxOptionsRef.current = effectiveDocxSettings;
+    setDocxOptions(effectiveDocxSettings);
     // 自分の入力を保存するまでの間に届いた古いsettingsChangedで、画面の最新値を戻さない。
     const hasPendingPdfOptions =
       pdfOptionsPersistTimerRef.current !== undefined;
@@ -4549,6 +4644,7 @@ export function App(): React.JSX.Element {
     const mergedSettings = {
       ...nextSettings,
       htmlOptions: effectiveHtmlSettings,
+      docxOptions: effectiveDocxSettings,
       pdfOptions: effectivePdfOptions,
     };
     setSettings(
@@ -4584,6 +4680,19 @@ export function App(): React.JSX.Element {
       pendingHtmlOptionsRef.current = nextSettings;
       vscode.postMessage({ type: "setHtmlOptions", options: nextSettings });
     }
+  }
+
+  /**
+   * リボンのDOCX「保存ダイアログなし」の切替を画面へ即時反映し、値が変わった場合だけHostへ保存を依頼する。
+   * @param enabled - 保存ダイアログを省略するかどうか。
+   */
+  function handleDocxSaveWithoutDialogChange(enabled: boolean): void {
+    if (docxOptionsRef.current.saveWithoutDialog === enabled) return;
+    const nextSettings: DocxExportSettings = { saveWithoutDialog: enabled };
+    docxOptionsRef.current = nextSettings;
+    setDocxOptions(nextSettings);
+    pendingDocxOptionsRef.current = nextSettings;
+    vscode.postMessage({ type: "setDocxOptions", options: nextSettings });
   }
 
   /**
@@ -5265,6 +5374,8 @@ export function App(): React.JSX.Element {
         splitView={splitView}
         htmlOptions={htmlOptions}
         pdfSaveWithoutDialog={pdfOptions.saveWithoutDialog}
+        docxOptions={docxOptions}
+        onDocxSaveWithoutDialogChange={handleDocxSaveWithoutDialogChange}
         imageDirectory={settings.imageDirectory}
         editorFontFamily={settings.editorFontFamily}
         previewFontFamily={settings.previewFontFamily}

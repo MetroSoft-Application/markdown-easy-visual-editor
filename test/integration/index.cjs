@@ -21,6 +21,57 @@ const path = require('node:path');
  * Extension Host内のVS Code APIを読み込む。
  */
 const vscode = require('vscode');
+/**
+ * DOCX出力（ZIP）の本文XMLを展開して検査するため、Deflateの展開に使う。
+ */
+const zlib = require('node:zlib');
+
+/**
+ * DOCX（ZIP）が書き終わったかを判定する。書き込み途中のファイルを読んで誤判定しないよう、
+ * ファイル末尾付近にZIPの終端レコードがある場合だけ完了とみなす。
+ * @param {string} file - 出力されるDOCXのパス。
+ * @returns {Promise<boolean>} 終端レコードまで書き込まれていればtrue。ファイルがない場合はfalse。
+ */
+async function docxIsComplete(file) {
+  const data = await fs.readFile(file).catch(() => undefined);
+  if (!data || data.length < 22) return false;
+  const eocd = data.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+  // 終端レコードは末尾22バイトと最大65535バイトのコメントの範囲にある。
+  return eocd >= 0 && eocd >= data.length - 22 - 0xffff;
+}
+
+/**
+ * ZIPの中央ディレクトリから指定名のエントリを探し、展開した内容を返す。
+ * DOCXはデータディスクリプター付きで書かれることがあり、ローカルヘッダーのサイズが0になり得るため中央ディレクトリを使う。
+ * @param {Buffer} zip - ZIP（DOCX）ファイルの内容。
+ * @param {string} name - 取り出すエントリ名（例: word/document.xml）。
+ * @returns {Buffer | undefined} 展開した内容。エントリがない場合はundefined。
+ * @throws ZIPの終端レコードがない、または未対応の圧縮方式の場合。
+ */
+function readZipEntry(zip, name) {
+  const eocd = zip.lastIndexOf(Buffer.from([0x50, 0x4b, 0x05, 0x06]));
+  assert.ok(eocd >= 0, 'DOCX出力にZIPの終端レコードがありません。');
+  const count = zip.readUInt16LE(eocd + 10);
+  let offset = zip.readUInt32LE(eocd + 16);
+  for (let index = 0; index < count; index += 1) {
+    const method = zip.readUInt16LE(offset + 10);
+    const compressedSize = zip.readUInt32LE(offset + 20);
+    const nameLength = zip.readUInt16LE(offset + 28);
+    const extraLength = zip.readUInt16LE(offset + 30);
+    const commentLength = zip.readUInt16LE(offset + 32);
+    const localOffset = zip.readUInt32LE(offset + 42);
+    const entryName = zip.subarray(offset + 46, offset + 46 + nameLength).toString('utf8');
+    if (entryName === name) {
+      const dataStart = localOffset + 30 + zip.readUInt16LE(localOffset + 26) + zip.readUInt16LE(localOffset + 28);
+      const data = zip.subarray(dataStart, dataStart + compressedSize);
+      if (method === 0) return data;
+      if (method === 8) return zlib.inflateRawSync(data);
+      throw new Error(`未対応のZIP圧縮方式です: ${method}`);
+    }
+    offset += 46 + nameLength + extraLength + commentLength;
+  }
+  return undefined;
+}
 
 /**
  * indexの回帰の処理順序と完了状態を管理する。
@@ -261,6 +312,17 @@ async function run() {
     const pdfHeader = (await fs.readFile(pdfPath)).subarray(0, 5).toString('ascii');
     assert.equal(pdfHeader, '%PDF-', 'PDF出力が正しいPDFファイルではありません。');
 
+    // DOCX出力: 同梱した出力エンジン（docx-extract.jsを含む）で、最新の本文を持つWord文書を書くこと。
+    const docxPath = markdownPath.replace(/\.md$/i, '.docx');
+    await vscode.commands.executeCommand('markdownEasyVisualEditor.exportDocx', uri);
+    await waitFor(
+    async () => docxIsComplete(docxPath), 'DOCX出力が完了しませんでした。', 60_000);
+    const docx = await fs.readFile(docxPath);
+    assert.equal(docx.readUInt32LE(0), 0x04034b50, 'DOCX出力がZIP形式（PK\x03\x04）ではありません。');
+    const documentXml = readZipEntry(docx, 'word/document.xml');
+    assert.ok(documentXml, 'DOCX出力にword/document.xmlがありません。');
+    assert.match(documentXml.toString('utf8'), /保存確認/, 'DOCX出力へ最新の本文が反映されませんでした。');
+
     await new Promise(
     /**
      * 遅延処理の完了または失敗を待機側へ通知する。
@@ -339,6 +401,68 @@ async function run() {
     );
     const marpPdf = await fs.readFile(marpPdfPath);
     assert.equal(marpPdf.subarray(0, 5).toString('ascii'), '%PDF-', 'Marp文書のPDF出力形式が変わりました。');
+
+    // Marp文書のDOCXは、出力エンジンの仕様どおりスライドではなく通常の文書として書かれること。
+    const marpDocxPath = marpExportPath.replace(/\.md$/i, '.docx');
+    await vscode.commands.executeCommand('markdownEasyVisualEditor.exportDocx', marpExportUri);
+    await waitFor(
+      async () => docxIsComplete(marpDocxPath),
+      'Marpマーカー付きMarkdownのDOCX出力が完了しませんでした。',
+      60_000,
+    );
+    const marpDocumentXml = readZipEntry(await fs.readFile(marpDocxPath), 'word/document.xml');
+    assert.ok(marpDocumentXml, 'Marp文書のDOCX出力にword/document.xmlがありません。');
+    assert.match(marpDocumentXml.toString('utf8'), /Marp export regression/, 'Marp文書のDOCX出力から見出しが欠落しました。');
+    assert.doesNotMatch(marpDocumentXml.toString('utf8'), /marp:\s*true/i, 'Marp設定用front matterがDOCX本文に表示されました。');
+
+    // Marp以外のYAML front matterは、プレビューと同じく本文として出力に残ること（エンジン0.1.3以降の既定autoでは消える）。
+    const frontMatterPath = path.join(temporaryDirectory, 'front-matter-export.md');
+    await fs.writeFile(frontMatterPath, '---\ntitle: Front matter title\nversion: 1.0\n---\n\n# Front matter body\n', 'utf8');
+    const frontMatterUri = vscode.Uri.file(frontMatterPath);
+    // ヘッダーの{title}・{date}は印刷プレビューと同じく文字どおり出力されること（エンジンに展開させない）。
+    // 新しく開くパネルの初期設定へ載せるため、文書を開く前にグローバル設定へ書き、検査後に元へ戻す。
+    const editorConfig = vscode.workspace.getConfiguration('markdownEasyVisualEditor');
+    const previousHeader = editorConfig.inspect('pdf.header')?.globalValue;
+    await editorConfig.update('pdf.header', 'H {title} {date}', vscode.ConfigurationTarget.Global);
+    let frontMatterPdf;
+    try {
+      const frontMatterHtmlPath = frontMatterPath.replace(/\.md$/i, '.html');
+      await vscode.commands.executeCommand('markdownEasyVisualEditor.exportHtml', frontMatterUri);
+      await waitFor(
+        async () => fileHasBytes(frontMatterHtmlPath),
+        'front matter付き文書のHTML出力が完了しませんでした。',
+        30_000,
+      );
+      assert.match(await fs.readFile(frontMatterHtmlPath, 'utf8'), /version: 1\.0/,
+        'front matterがHTML出力から消え、プレビューと一致しません。');
+      const frontMatterDocxPath = frontMatterPath.replace(/\.md$/i, '.docx');
+      await vscode.commands.executeCommand('markdownEasyVisualEditor.exportDocx', frontMatterUri);
+      await waitFor(
+        async () => docxIsComplete(frontMatterDocxPath),
+        'front matter付き文書のDOCX出力が完了しませんでした。',
+        60_000,
+      );
+      const frontMatterXml = readZipEntry(await fs.readFile(frontMatterDocxPath), 'word/document.xml');
+      assert.ok(frontMatterXml, 'front matter付き文書のDOCX出力にword/document.xmlがありません。');
+      assert.match(frontMatterXml.toString('utf8'), /version: 1\.0/,
+        'front matterがDOCX出力から消え、プレビューと一致しません。');
+      const frontMatterHeaderXml = readZipEntry(await fs.readFile(frontMatterDocxPath), 'word/header1.xml');
+      assert.ok(frontMatterHeaderXml, 'ヘッダーを設定したDOCX出力にword/header1.xmlがありません。');
+      assert.match(frontMatterHeaderXml.toString('utf8'), /H \{title\} \{date\}/,
+        'ヘッダーの{title}・{date}が展開され、印刷プレビューと一致しません。');
+      // PDFも同じ共通経路でfront matterを本文として描画すること（本文の検査は下でpdfjsを読み込んでから行う）。
+      const frontMatterPdfPath = frontMatterPath.replace(/\.md$/i, '.pdf');
+      await vscode.commands.executeCommand('markdownEasyVisualEditor.exportPdf', frontMatterUri);
+      await waitFor(
+        async () => fileHasBytes(frontMatterPdfPath),
+        'front matter付き文書のPDF出力が完了しませんでした。',
+        60_000,
+      );
+      frontMatterPdf = await fs.readFile(frontMatterPdfPath);
+    } finally {
+      // 失敗時も、後続の検査や次回の実行へヘッダー設定を残さない。
+      await editorConfig.update('pdf.header', previousHeader, vscode.ConfigurationTarget.Global);
+    }
     const marpPdfStructure = marpPdf.toString('latin1');
     assert.equal(
       (marpPdfStructure.match(/\/Type\s*\/Page\b/g) ?? []).length,
@@ -379,6 +503,22 @@ async function run() {
       assert.match(pdfText, /existing Markdown export path/, 'Marp文書の既存PDF出力から本文が欠落しました。');
     } finally {
       await pdfLoadingTask.destroy();
+    }
+    const frontMatterPdfTask = pdfjs.getDocument({
+      data: new Uint8Array(frontMatterPdf),
+      disableAutoFetch: true,
+      useWorkerFetch: false,
+      isEvalSupported: false,
+    });
+    try {
+      const frontMatterPage = await (await frontMatterPdfTask.promise).getPage(1);
+      const frontMatterText = (await frontMatterPage.getTextContent()).items
+        .map((item) => 'str' in item ? item.str : '')
+        .join(' ');
+      assert.match(frontMatterText, /version: 1\.0/, 'front matterがPDF出力から消え、プレビューと一致しません。');
+      assert.match(frontMatterText, /H \{title\} \{date\}/, 'PDFヘッダーの{title}・{date}が展開され、印刷プレビューと一致しません。');
+    } finally {
+      await frontMatterPdfTask.destroy();
     }
   } finally {
     await vscode.commands.executeCommand('workbench.action.closeAllEditors');

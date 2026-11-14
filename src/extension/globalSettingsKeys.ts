@@ -80,5 +80,9 @@ export const GLOBAL_CONFIGURATION_KEYS = {
         convertLinkedMarkdown: 'html.convertLinkedMarkdown',
         showOutlineSidebar: 'html.showOutlineSidebar',
         saveWithoutDialog: 'html.saveWithoutDialog'
+    },
+    /** DOCX出力だけで切り替える設定。用紙・余白・文字組みはpdf.*を共用する。 */
+    docx: {
+        saveWithoutDialog: 'docx.saveWithoutDialog'
     }
 } as const;

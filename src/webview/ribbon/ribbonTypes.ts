@@ -2,7 +2,11 @@
  * @fileoverview リボンの項目、表示状態、コマンド通知に共有する型を定義する。
  */
 import type React from "react";
-import type { EditorMode, HtmlExportOptions } from "../../shared/protocol";
+import type {
+  DocxExportSettings,
+  EditorMode,
+  HtmlExportOptions,
+} from "../../shared/protocol";
 import type { DocumentSyntax } from "../../shared/formatConversion";
 import type { MarkdownTableAction } from "../../shared/markdown";
 import type { Messages } from "../../shared/messages";
@@ -216,6 +220,16 @@ export type RibbonCommand =
     }
     | {
         /**
+         * DOCX（Word文書）出力を開始するコマンドです。
+         */
+        type: "exportDocx";
+        /**
+         * 保存ダイアログの省略などのDOCX出力設定。
+         */
+        options: DocxExportSettings
+    }
+    | {
+        /**
          * 文書全体を別の記法へ書き換え、プレビューの表示形式も変換先へ切り替えるコマンドです。
          * 本文は1回の編集として適用され、Undoで本文と表示形式の両方が戻る。
          */
@@ -316,6 +330,9 @@ export interface RibbonImplementationContext extends RibbonButtonState {
     /** PDF出力時に保存先ダイアログを省略する設定。 */
     pdfSaveWithoutDialog: boolean;
 
+    /** DOCX出力グループのチェック状態と、DOCX出力ボタンが送る設定。 */
+    docxOptions: DocxExportSettings;
+
     /**
      * リボン型で読み書きするリソースの場所。
      */
@@ -345,6 +362,12 @@ export interface RibbonImplementationContext extends RibbonButtonState {
      * @param enabled 保存時にダイアログを省略するかどうか。
      */
     onPdfSaveWithoutDialogChange: (enabled: boolean) => void;
+
+    /**
+     * DOCXの保存先ダイアログ設定を変更し、設定を保持する所有者へ通知する。
+     * @param enabled 保存時にダイアログを省略するかどうか。
+     */
+    onDocxSaveWithoutDialogChange: (enabled: boolean) => void;
     /**
      * リボン型のイベントまたはメッセージを受け取り、状態を更新する。
      * @param command - 実行するリボンコマンドとその引数。

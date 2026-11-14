@@ -135,6 +135,7 @@ export const RIBBON_DEFINITIONS: RibbonDefinitions = {
         },
         pdf: { label: { kind: "message", path: "ribbon.groups.pdf" } },
         html: { label: { kind: "message", path: "ribbon.groups.html" } },
+        docx: { label: { kind: "message", path: "ribbon.groups.docx" } },
         inspection: {
             label: { kind: "message", path: "ribbon.groups.inspection" },
         },
@@ -426,6 +427,12 @@ export const RIBBON_DEFINITIONS: RibbonDefinitions = {
         },
         exportHtml: {
             label: { kind: "message", path: "ribbon.labels.exportHtml" },
+        },
+        docxSaveWithoutDialog: {
+            label: { kind: "message", path: "ribbon.labels.saveWithoutDialog" },
+        },
+        exportDocx: {
+            label: { kind: "message", path: "ribbon.labels.exportDocx" },
         },
         preflight: {
             label: { kind: "message", path: "ribbon.labels.preflight" },

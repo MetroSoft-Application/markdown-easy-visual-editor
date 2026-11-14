@@ -217,6 +217,11 @@ export interface Messages {
             html: string;
 
             /**
+             * 出力タブのDOCX（Word文書）出力グループの見出しとして表示するローカライズ済み文言。
+             */
+            docx: string;
+
+            /**
              * 表示項目「inspection」の文言として表示するローカライズ済み文言。
              */
             inspection: string;
@@ -559,6 +564,11 @@ export interface Messages {
             exportHtml: string;
 
             /**
+             * DOCX（Word文書）出力ボタンと保存ダイアログの確定ボタンに表示するローカライズ済み文言。
+             */
+            exportDocx: string;
+
+            /**
              * 画像を埋め込む書式コマンドのラベルとして表示するローカライズ済み文言。
              */
             embedImages: string;
@@ -791,6 +801,11 @@ export interface Messages {
              * 表示項目「PDF出力」の文言として表示するローカライズ済み文言。
              */
             exportPdf: string;
+
+            /**
+             * ヘルプに表示する、DOCX（Word文書）出力の機能説明。
+             */
+            exportDocx: string;
 
             /**
              * 表示項目「preflight」の文言として表示するローカライズ済み文言。
@@ -1793,6 +1808,16 @@ export interface Messages {
 
              */
             htmlExportFailed: (detail: string) => string;
+            /**
+             * DOCX出力の完了をトーストで伝える文言を組み立てる。
+             * @param path - 書き込んだDOCXファイルの絶対パス。
+             */
+            docxExported: (path: string) => string;
+            /**
+             * DOCX出力の失敗をトーストで伝える文言を組み立てる。
+             * @param detail - 失敗の理由として通知に追加する詳細。
+             */
+            docxExportFailed: (detail: string) => string;
 
             /**
              * 表示項目「表セル・required」の文言として表示するローカライズ済み文言。
@@ -2070,6 +2095,22 @@ export interface Messages {
         htmlExported: (path: string) => string;
 
         /**
+         * 信頼されていないワークスペースでDOCX出力を拒否するときの文言。
+         */
+        docxTrustRequired: string;
+
+        /**
+         * DOCX出力中の進捗通知の文言。
+         */
+        docxProgress: string;
+
+        /**
+         * DOCX出力の完了通知の文言を組み立てる。
+         * @param path - 書き込んだDOCXファイルの絶対パス。
+         */
+        docxExported: (path: string) => string;
+
+        /**
          * 開く操作のラベルとして表示するローカライズ済み文言。
          */
         open: string;
@@ -2336,6 +2377,7 @@ function createMessages(language: SupportedLanguage): Messages {
                  * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
                  */ (level: number) => text('ribbon.labels.heading', { level }),
                 exportHtml: raw.ribbon.labels.exportHtml,
+                exportDocx: raw.ribbon.labels.exportDocx,
                 embedImages: raw.ribbon.labels.embedImages,
                 convertLinkedMarkdown: raw.ribbon.labels.convertLinkedMarkdown,
                 showOutlineSidebar: raw.ribbon.labels.showOutlineSidebar,
@@ -2603,6 +2645,14 @@ function createMessages(language: SupportedLanguage): Messages {
                  * @param detail - HTML出力失敗の理由として通知に追加する詳細。
 
                  */ (detail: string) => text('app.toast.htmlExportFailed', { detail }),
+                docxExported: /**
+                 * DOCX出力の完了をトーストで伝える文言を組み立てる。
+                 * @param path - 書き込んだDOCXファイルの絶対パス。
+                 */ (path: string) => text('app.toast.docxExported', { path }),
+                docxExportFailed: /**
+                 * DOCX出力の失敗をトーストで伝える文言を組み立てる。
+                 * @param detail - 失敗の理由。
+                 */ (detail: string) => text('app.toast.docxExportFailed', { detail }),
                 tableCellRequired: raw.app.toast.tableCellRequired,
                 cannotPasteTsv: raw.app.toast.cannotPasteTsv,
                 tableCopied: raw.app.toast.tableCopied,
@@ -2744,6 +2794,12 @@ function createMessages(language: SupportedLanguage): Messages {
              * @param path - 読み書きするファイルまたはリソースの場所。
              * 引数を補間し、利用者へ状態や結果を伝えるローカライズ済み文言を組み立てる。
              */ (path: string) => text('host.htmlExported', { path }),
+            docxTrustRequired: raw.host.docxTrustRequired,
+            docxProgress: raw.host.docxProgress,
+            docxExported: /**
+             * DOCX出力の完了通知の文言を組み立てる。
+             * @param path - 書き込んだDOCXファイルの絶対パス。
+             */ (path: string) => text('host.docxExported', { path }),
             open: raw.host.open,
             saveCanceled: raw.host.saveCanceled,
             imageDocumentMustBeSaved: raw.host.imageDocumentMustBeSaved,

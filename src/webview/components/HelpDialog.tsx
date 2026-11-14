@@ -158,6 +158,10 @@ export function HelpDialog({
           messages.ribbon.featureDescriptions.exportPdf,
         ],
         [
+          messages.ribbon.labels.exportDocx,
+          messages.ribbon.featureDescriptions.exportDocx,
+        ],
+        [
           messages.ribbon.labels.preflight,
           messages.ribbon.featureDescriptions.preflight,
         ],

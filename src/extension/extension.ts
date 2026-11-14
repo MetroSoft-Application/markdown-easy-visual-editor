@@ -8,12 +8,15 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { randomBytes, randomUUID } from 'node:crypto';
 import {
+    DEFAULT_DOCX_EXPORT_SETTINGS,
     DEFAULT_HTML_EXPORT_SETTINGS,
     DEFAULT_PDF_OPTIONS,
     DEFAULT_MERMAID_FONT_SIZE,
     normalizeMermaidFontSize,
+    normalizeDocxExportSettings,
     normalizeHtmlExportSettings,
     normalizePdfOptions,
+    type DocxExportSettings,
     type HostToWebviewMessage,
     type ImagePayload,
     type HtmlExportSettings,
@@ -221,7 +224,7 @@ interface ChangeHistoryEntry {
 /**
  * 拡張機能で扱う値の種類と境界を表す型。
  */
-type ExportCommand = 'exportPdf' | 'exportHtml';
+type ExportCommand = 'exportPdf' | 'exportHtml' | 'exportDocx';
 
 /**
  * Webviewのready完了または失敗を通知するコールバックを保持する。
@@ -386,6 +389,11 @@ export function activate(context: vscode.ExtensionContext): void {
              * @param uri - 出力対象Markdown文書のURI。未指定時はアクティブWebviewへ転送する。
              */
             (uri?: vscode.Uri) => provider.exportFromUri('exportHtml', uri)),
+        vscode.commands.registerCommand('markdownEasyVisualEditor.exportDocx',
+            /**
+             * @param uri - 出力対象Markdown文書のURI。未指定時はアクティブWebviewへ転送する。
+             */
+            (uri?: vscode.Uri) => provider.exportFromUri('exportDocx', uri)),
         vscode.commands.registerCommand('markdownEasyVisualEditor.previewHtml',
             async (uri?: vscode.Uri) => {
                 const target = uri ?? vscode.window.activeTextEditor?.document.uri;
@@ -841,8 +849,8 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
     }
 
     /**
-     * 指定文書またはアクティブWebviewへPDF/HTML出力コマンドを転送する。
-     * @param command - Webviewへ転送するPDFまたはHTMLの出力コマンド。
+     * 指定文書またはアクティブWebviewへPDF/HTML/DOCX出力コマンドを転送する。
+     * @param command - Webviewへ転送するPDF・HTML・DOCXのいずれかの出力コマンド。
      * @param uri - 出力対象のMarkdownまたはTextile文書URI。未指定時はアクティブWebviewへ転送する。
      */
     async exportFromUri(command: ExportCommand, uri?: vscode.Uri): Promise<void> {
@@ -1337,6 +1345,15 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                         this.broadcastSettings();
                     }
                     return;
+                case 'setDocxOptions':
+                    {
+                        const options = normalizeDocxExportSettings(message.options);
+                        await this.updateGlobalConfiguration([
+                            [GLOBAL_CONFIGURATION_KEYS.docx.saveWithoutDialog, options.saveWithoutDialog]
+                        ]);
+                        this.broadcastSettings();
+                    }
+                    return;
                 case 'openSource':
                     this.activeDocument = document;
                     await this.openSource();
@@ -1469,6 +1486,49 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                              */
                             (choice) => {
                                 if (choice === messages.host.open) void openHtmlPreview(result.target);
+                            });
+                    } else {
+                        this.post(panel, {
+                            type: 'operationFailed',
+                            requestId: message.requestId,
+                            message: this.getMessages().host.saveCanceled
+                        });
+                    }
+                    return;
+                }
+                case 'exportDocx': {
+                    // ローカル画像の読込とブラウザー起動を伴うため、PDF/HTMLと同じく信頼済みワークスペースに限る。
+                    if (!vscode.workspace.isTrusted) {
+                        throw new Error(this.getMessages().host.docxTrustRequired);
+                    }
+                    const snapshot = await this.verifyExportSnapshot(document, message);
+                    const result = await vscode.window.withProgress(
+                        {
+                            location: vscode.ProgressLocation.Notification,
+                            title: this.getMessages().host.docxProgress, cancellable: false
+                        },
+                        () => exportWithEngine({
+                            documentUri: document.uri,
+                            markdown: snapshot.markdown,
+                            format: 'docx',
+                            rendering: snapshot.rendering,
+                            editorTheme: message.editorTheme ?? 'dark',
+                            // PDF出力と同じく、Webviewが要求時点で固定した印刷設定で組版する。
+                            pdfOptions: message.pdfOptions,
+                            docxOptions: normalizeDocxExportSettings(message.options)
+                        })
+                    );
+                    if (result) {
+                        const target = result.target;
+                        this.post(panel, { type: 'docxExported', requestId: message.requestId, path: target.fsPath });
+                        const messages = this.getMessages();
+                        void vscode.window.showInformationMessage(messages.host.docxExported(target.fsPath), messages.host.open).then(
+                            /**
+                             * DOCX出力後に「開く」が選ばれたら、OSの関連付けアプリ（Word等）で開く。
+                             * @param choice - 選択された操作。通知を閉じた場合はundefined。
+                             */
+                            (choice) => {
+                                if (choice === messages.host.open) void vscode.env.openExternal(target);
                             });
                     } else {
                         this.post(panel, {
@@ -2676,7 +2736,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
      */
     private async verifyExportSnapshot(
         document: vscode.TextDocument,
-        message: Extract<WebviewToHostMessage, { type: 'exportPdf' | 'exportHtml' }>
+        message: Extract<WebviewToHostMessage, { type: 'exportPdf' | 'exportHtml' | 'exportDocx' }>
     ): Promise<{ markdown: string; rendering: ExportRenderSnapshot }> {
         if (typeof message.markdown !== 'string' ||
             !Number.isInteger(message.documentVersion) || !message.rendering) {
@@ -2769,6 +2829,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
             ),
             pdfOptions: this.getPdfOptions(config),
             htmlOptions: this.getHtmlOptions(config),
+            docxOptions: this.getDocxOptions(config),
             workspaceTrusted: vscode.workspace.isTrusted,
             startupProbe: this.startupBenchmarkEnabled || undefined
         };
@@ -2864,6 +2925,24 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                 DEFAULT_HTML_EXPORT_SETTINGS.saveWithoutDialog
             )
         };
+    }
+
+    /**
+     * global設定と既定値からDOCX出力設定を組み立てる。DOCXは新設の設定のため、旧globalStateからの移行値はない。
+     * @param config DOCX出力設定を読むmarkdownEasyVisualEditor構成。省略時はglobal構成を使う。
+     * @returns 保存ダイアログを省略するかを含むDOCX出力設定。settings.jsonへ手で書かれた型違いの値は既定値へ戻す。
+     */
+    private getDocxOptions(
+        config = vscode.workspace.getConfiguration('markdownEasyVisualEditor')
+    ): DocxExportSettings {
+        return normalizeDocxExportSettings({
+            saveWithoutDialog: this.getGlobalSetting<unknown>(
+                config,
+                GLOBAL_CONFIGURATION_KEYS.docx.saveWithoutDialog,
+                undefined,
+                DEFAULT_DOCX_EXPORT_SETTINGS.saveWithoutDialog
+            )
+        });
     }
 
     /**

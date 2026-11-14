@@ -36,7 +36,7 @@
   "capabilities": {
     "untrustedWorkspaces": {
       "supported": "limited",
-      "description": "PDF export is disabled until the workspace is trusted."
+      "description": "PDF, HTML, and DOCX export are disabled until the workspace is trusted."
     },
     "virtualWorkspaces": {
       "supported": false,
@@ -83,6 +83,10 @@
       {
         "command": "markdownEasyVisualEditor.exportHtml",
         "title": "Markdown Easy Visual Editor: Export HTML"
+      },
+      {
+        "command": "markdownEasyVisualEditor.exportDocx",
+        "title": "Markdown Easy Visual Editor: Export DOCX"
       },
       {
         "command": "markdownEasyVisualEditor.previewHtml",
@@ -133,6 +137,11 @@
           "command": "markdownEasyVisualEditor.exportHtml",
           "when": "resourceExtname == .md || resourceExtname == .markdown || resourceExtname == .textile",
           "group": "navigation@3"
+        },
+        {
+          "command": "markdownEasyVisualEditor.exportDocx",
+          "when": "resourceExtname == .md || resourceExtname == .markdown || resourceExtname == .textile",
+          "group": "navigation@4"
         },
         {
           "command": "markdownEasyVisualEditor.previewHtml",
@@ -308,7 +317,7 @@
           "maximum": 48,
           "default": 16,
           "scope": "application",
-          "description": "Font size in pixels for Mermaid diagrams in the preview and HTML/PDF output."
+          "description": "Font size in pixels for Mermaid diagrams in the preview and HTML/PDF/DOCX output."
         },
         "markdownEasyVisualEditor.pdf.browserPath": {
           "type": "string",
@@ -566,6 +575,12 @@
           "default": true,
           "scope": "application",
           "description": "Save HTML output beside the Markdown file without showing a save dialog."
+        },
+        "markdownEasyVisualEditor.docx.saveWithoutDialog": {
+          "type": "boolean",
+          "default": true,
+          "scope": "application",
+          "description": "Save DOCX (Word) output beside the Markdown file without showing a save dialog. Page size, margins, and fonts follow the PDF settings."
         }
       }
     }
@@ -638,7 +653,7 @@
     "yaml": "^2.8.1"
   },
   "devDependencies": {
-    "@metrosoft/markdown-easy-converter": "0.1.1",
+    "@metrosoft/markdown-easy-converter": "0.2.0",
     "@types/node": "^24.3.0",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",

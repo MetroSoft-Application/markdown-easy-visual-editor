@@ -1,5 +1,5 @@
 /**
- * @fileoverview Extension HostがHTML出力設定を読み込み、Webviewへ通知し、更新値を保存する経路を検証する。
+ * @fileoverview Extension HostがHTML/DOCX出力設定を読み込み、Webviewへ通知し、更新値を保存する経路と、出力要求の完了・キャンセル処理を検証する。
  */
 import path from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
@@ -871,3 +871,116 @@ describe('HTML export global settings in the extension host',
                 }
             });
     });
+
+/**
+ * DOCX出力のHost経路を検証する。
+ * 仕様: 出力エンジンへdocx形式・要求時点の印刷設定・正規化したDOCX設定を渡し、完了をWebviewへ返す。
+ * 「開く」はOSの関連付けアプリで開き、キャンセルは保存キャンセルとして返す。
+ * 回帰リスク: 古い文書版での出力成功、PDF/HTML用の完了メッセージ・プレビューの誤用、設定の保存漏れ。
+ */
+describe('DOCX export in the extension host', () => {
+    /** exportDocx要求の共通部分。印刷設定はWebviewが要求時点で固定した値を送る。 */
+    const docxRequest = (requestId: string, markdown: string, extra: Record<string, unknown> = {}) => ({
+        type: 'exportDocx',
+        requestId,
+        markdown,
+        documentVersion: 1,
+        rendering: { renderFormat: 'mixed', mermaidTheme: 'auto', mermaidFontSize: 16,
+            fontFamily: 'sans-serif', remoteImagesEnabled: false, language: 'en' },
+        editorTheme: 'light',
+        options: { saveWithoutDialog: false },
+        pdfOptions: { format: 'B5', orientation: 'landscape', margins: { top: 5, right: 6, bottom: 7, left: 8 },
+            header: 'H', footer: 'F', textReplacements: [{ pattern: 'a', replacement: 'b' }], saveWithoutDialog: true },
+        ...extra,
+    });
+
+    it('passes the docx format, request print settings, and DOCX options to the engine and opens the file externally',
+        async () => {
+            const provider = new MarkdownEasyVisualEditorProvider(createContext());
+            const document = createDocument('file:///workspace/root/source.md');
+            document.getText = () => '# Section';
+            const panel = addPanel(provider, document);
+            const target = vscodeMock.file('/workspace/root/source.docx');
+            exportEngineMock.exportWithEngine.mockResolvedValue({ target, paths: [target] });
+            vscodeMock.showInformationMessage.mockImplementation(async (_message, openAction) => openAction);
+
+            await (provider as any).handleMessage(document, panel, docxRequest('docx-open', '# Section'));
+
+            expect(exportEngineMock.exportWithEngine).toHaveBeenCalledOnce();
+            const request = exportEngineMock.exportWithEngine.mock.calls[0][0];
+            expect(request.format).toBe('docx');
+            expect(request.markdown).toBe('# Section');
+            expect(request.editorTheme).toBe('light');
+            expect(request.docxOptions).toEqual({ saveWithoutDialog: false });
+            expect(request.pdfOptions.format).toBe('B5');
+            expect(request.pdfOptions.orientation).toBe('landscape');
+            expect(request.pdfOptions.textReplacements).toEqual([{ pattern: 'a', replacement: 'b' }]);
+            expect(panel.webview.postMessage).toHaveBeenCalledWith({
+                type: 'docxExported', requestId: 'docx-open', path: '/workspace/root/source.docx'
+            });
+            await vi.waitFor(() => expect(vscodeMock.openExternal).toHaveBeenCalledWith(target));
+            expect(htmlPreviewMock.openHtmlPreview).not.toHaveBeenCalled();
+        });
+
+    it('reports a canceled save dialog as a failed request without a completion message',
+        async () => {
+            const provider = new MarkdownEasyVisualEditorProvider(createContext());
+            const document = createDocument('file:///workspace/root/source.md');
+            document.getText = () => '# Section';
+            const panel = addPanel(provider, document);
+            exportEngineMock.exportWithEngine.mockResolvedValue(undefined);
+
+            await (provider as any).handleMessage(document, panel, docxRequest('docx-cancel', '# Section'));
+
+            expect(panel.webview.postMessage).toHaveBeenCalledWith(expect.objectContaining({
+                type: 'operationFailed', requestId: 'docx-cancel'
+            }));
+            expect(panel.webview.postMessage).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'docxExported' }));
+            expect(vscodeMock.showInformationMessage).not.toHaveBeenCalled();
+        });
+
+    it('rejects a snapshot that no longer matches the Host document',
+        async () => {
+            const provider = new MarkdownEasyVisualEditorProvider(createContext());
+            const document = createDocument('file:///workspace/root/source.md');
+            document.getText = () => '# Newer';
+            const panel = addPanel(provider, document);
+
+            await (provider as any).handleMessage(document, panel, docxRequest('docx-stale', '# Older'));
+
+            expect(exportEngineMock.exportWithEngine).not.toHaveBeenCalled();
+            expect(panel.webview.postMessage).toHaveBeenCalledWith(expect.objectContaining({
+                type: 'operationFailed', requestId: 'docx-stale'
+            }));
+        });
+
+    it('persists, broadcasts, and reloads the global DOCX save-dialog choice',
+        async () => {
+            const provider = new MarkdownEasyVisualEditorProvider(createContext());
+            await (provider as any).globalSettingsMigration;
+            const document = createDocument();
+            const panel = addPanel(provider, document);
+            expect((provider as any).getSettings(document).docxOptions).toEqual({ saveWithoutDialog: true });
+
+            await (provider as any).handleMessage(document, panel, {
+                type: 'setDocxOptions', options: { saveWithoutDialog: false }
+            });
+
+            expect(vscodeMock.configurationValues.get('docx.saveWithoutDialog')).toBe(false);
+            const notification = panel.webview.postMessage.mock.calls.at(-1)?.[0];
+            expect(notification.settings.docxOptions).toEqual({ saveWithoutDialog: false });
+            const nextProvider = new MarkdownEasyVisualEditorProvider(createContext());
+            expect((nextProvider as any).getSettings(createDocument('file:///workspace/other.md')).docxOptions)
+                .toEqual({ saveWithoutDialog: false });
+            // 他の出力形式の保存ダイアログ設定は変えない。
+            expect(vscodeMock.configurationValues.has('html.saveWithoutDialog')).toBe(false);
+            expect(vscodeMock.configurationValues.has('pdf.saveWithoutDialog')).toBe(false);
+        });
+
+    it('falls back to the default when settings.json holds a non-boolean DOCX value',
+        async () => {
+            vscodeMock.configurationValues.set('docx.saveWithoutDialog', 'no');
+            const provider = new MarkdownEasyVisualEditorProvider(createContext());
+            expect((provider as any).getSettings(createDocument()).docxOptions).toEqual({ saveWithoutDialog: true });
+        });
+});

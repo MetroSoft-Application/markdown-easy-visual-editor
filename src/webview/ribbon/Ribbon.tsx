@@ -2,7 +2,11 @@
  * @fileoverview 編集画面のリボンを表示し、コマンド・設定・表示状態の変更をHostへ委譲する。
  */
 import React, { useEffect, useState } from "react";
-import type { EditorMode, HtmlExportOptions } from "../../shared/protocol";
+import type {
+  DocxExportSettings,
+  EditorMode,
+  HtmlExportOptions,
+} from "../../shared/protocol";
 import type { Messages } from "../../shared/messages";
 import { mveDebug } from "../runtime/debug";
 import {
@@ -157,6 +161,9 @@ interface Props {
   /** PDF出力時に保存先ダイアログを省略する設定。 */
   pdfSaveWithoutDialog: boolean;
 
+  /** DOCX出力グループのチェック状態と、DOCX出力ボタンが送る設定。 */
+  docxOptions: DocxExportSettings;
+
   /**
    * リボンで読み書きするリソースの場所。
    */
@@ -187,6 +194,12 @@ interface Props {
    * @param enabled 保存時にダイアログを省略するかどうか。
    */
   onPdfSaveWithoutDialogChange: (enabled: boolean) => void;
+
+  /**
+   * DOCXの保存先ダイアログ設定を変更し、親コンポーネントへ反映する。
+   * @param enabled 保存時にダイアログを省略するかどうか。
+   */
+  onDocxSaveWithoutDialogChange: (enabled: boolean) => void;
   /**
    * リボン操作をHostへ送り、登録済みコマンドの実行を依頼する。
    * @param command - Hostへ送信するリボンコマンド。
@@ -207,12 +220,14 @@ interface Props {
  * @param splitView 本文とプレビューを並べて表示する状態。
  * @param htmlOptions HTML出力で使うフォントと余白の設定。
  * @param pdfSaveWithoutDialog PDF保存先ダイアログを省略する設定。
+ * @param docxOptions DOCX出力の保存設定。
  * @param imageDirectory ローカル画像を保存するディレクトリ。
  * @param editorFontFamily 本文編集面に使うフォント名。
  * @param previewFontFamily プレビューに使うフォント名。
  * @param mermaidFontSize MermaidプレビューとHTML/PDF出力に使う文字サイズ。
  * @param onHtmlOptionsChange HTML出力設定の変更を親へ通知する処理。
  * @param onPdfSaveWithoutDialogChange PDF保存ダイアログ設定の変更を親へ通知する処理。
+ * @param onDocxSaveWithoutDialogChange DOCX保存ダイアログ設定の変更を親へ通知する処理。
  * @param onCommand 選択された編集または出力コマンドを親へ通知する処理。
  * @returns タブ・設定欄・コマンドボタンを含むリボン。
  */
@@ -227,12 +242,14 @@ export function Ribbon({
   splitView,
   htmlOptions,
   pdfSaveWithoutDialog,
+  docxOptions,
   imageDirectory,
   editorFontFamily,
   previewFontFamily,
   mermaidFontSize,
   onHtmlOptionsChange,
   onPdfSaveWithoutDialogChange,
+  onDocxSaveWithoutDialogChange,
   onCommand,
 }: Props): React.JSX.Element {
   const [tab, setTab] = useState<RibbonTabId>(RIBBON_LAYOUT.tabs[0].id);
@@ -280,12 +297,14 @@ export function Ribbon({
     imageResizeControlsVisible,
     htmlOptions,
     pdfSaveWithoutDialog,
+    docxOptions,
     imageDirectory,
     editorFontFamily,
     previewFontFamily,
     mermaidFontSize,
     onHtmlOptionsChange,
     onPdfSaveWithoutDialogChange,
+    onDocxSaveWithoutDialogChange,
     onCommand,
     tableRows,
     setTableRows,

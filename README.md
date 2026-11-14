@@ -23,13 +23,14 @@ Markdown Easy Visual Editor is a VS Code extension for writing Markdown and Text
 - Review local links and images before exporting.
 - Preview and export your document as a PDF.
 - Export your document as HTML, with options for images and linked Markdown files.
+- Export your document as an editable Word document (DOCX) with native equations.
 - Right-click selected source text to attach its file range to the Copilot Chat view.
 
 ## Requirements
 
 - Visual Studio Code 1.106 or later.
 - A local, saved Markdown document for image insertion.
-- A trusted VS Code workspace for PDF and HTML export.
+- A trusted VS Code workspace for PDF, HTML, and DOCX export.
 
 ## Get started
 
@@ -313,7 +314,7 @@ p. A paragraph with *strong*, +inserted+, and @inline code@.
 2. Choose **Print settings** and configure the paper (A0–A6, B4, or B5), orientation, margins, header/footer, and typography.
    - Body, H1–H6, and code font sizes can be set independently.
    - Font family, line height, and paragraph spacing can also be adjusted.
-   - Add any number of regular-expression rules and replacement strings to change text in PDF previews, PDF output, and HTML output without modifying the Markdown source.
+   - Add any number of regular-expression rules and replacement strings to change text in PDF previews, PDF output, and HTML output without modifying the Markdown source. The same rules also apply to DOCX output.
    - Body matches can span inline formatting, but do not cross paragraph, line-break, or link boundaries.
 3. Choose **Print preview** to review the result.
 4. Choose **Export PDF**.
@@ -345,20 +346,36 @@ When linked Markdown conversion is enabled, each linked Markdown file is also wr
 
 ![Generated HTML in the editor preview](./resources/readme-html-preview.png)
 
+## Export to DOCX
+
+The **DOCX** group on the **Export** tab saves the current document as an editable Word document.
+
+1. Open the **Export** tab.
+2. Set the page size, margins, fonts, header, footer, and replacement rules in **Print settings**. DOCX export uses the same print settings as PDF export.
+3. Leave **Export directly to same folder** in the **DOCX** group enabled to save the DOCX beside the source Markdown file, or disable it to select the destination.
+4. Choose **Export DOCX**.
+5. Choose **Open** in the completion notification to open the file in the app associated with `.docx`.
+
+![DOCX export options](./resources/readme-docx-export-options.png)
+
+Equations become native Word equations. Marp documents are exported as regular documents, not slides. DOCX export requires a trusted workspace and Microsoft Edge or Google Chrome, like PDF export.
+
+![Page 1 of the generated DOCX, rendered by LibreOffice Writer](./resources/readme-docx-output.png)
+
 ## Export from the VS Code Explorer
 
 You can export a `.md` or `.markdown` file directly from the VS Code Explorer:
 
 1. Right-click the Markdown file in the Explorer.
-2. Select **Markdown Easy Visual Editor: Export PDF** or **Markdown Easy Visual Editor: Export HTML**.
+2. Select **Markdown Easy Visual Editor: Export PDF**, **Markdown Easy Visual Editor: Export HTML**, or **Markdown Easy Visual Editor: Export DOCX**.
 
-If the file is not already open in Markdown Easy Visual Editor, the extension opens it automatically, waits for the editor and preview to initialize, and then starts the export. Explorer exports use exactly the same Markdown conversion, preview rendering, Mermaid rendering, CSS, and export pipeline as the buttons in the **Export** tab. The entry point therefore does not change the generated PDF or HTML output.
+If the file is not already open in Markdown Easy Visual Editor, the extension opens it automatically, waits for the editor and preview to initialize, and then starts the export. Explorer exports use exactly the same Markdown conversion, preview rendering, Mermaid rendering, CSS, and export pipeline as the buttons in the **Export** tab. The entry point therefore does not change the generated PDF, HTML, or DOCX output.
 
-By default, the exported file is saved beside the source Markdown file as `<name>.pdf` or `<name>.html`, using the same default export options as the editor UI.
+By default, the exported file is saved beside the source Markdown file as `<name>.pdf`, `<name>.html`, or `<name>.docx`, using the same default export options as the editor UI.
 
 ## Settings
 
-Open the editor's **Settings** tab for image save paths, separate editor/preview fonts, and Mermaid font size. Mermaid font size is shared by the preview and HTML/PDF exports. For all settings, open VS Code Settings and search for **Markdown Easy Visual Editor**.
+Open the editor's **Settings** tab for image save paths, separate editor/preview fonts, and Mermaid font size. Mermaid font size is shared by the preview and HTML/PDF/DOCX exports. For all settings, open VS Code Settings and search for **Markdown Easy Visual Editor**.
 
 ![Editor settings](./resources/readme-settings.png)
 
@@ -371,7 +388,7 @@ Open the editor's **Settings** tab for image save paths, separate editor/preview
 | **Remote Images: Enabled** | Allow images referenced by remote URLs to appear in the preview. | Enabled |
 | **Links: Update On File Move** | Ask, always, or never update relative Markdown links when files or folders are moved or renamed. | Ask |
 | **Mermaid: Theme** | Choose the Mermaid preview theme. | Auto |
-| **Mermaid: Font Size** | Set one font size for Mermaid diagrams in the preview and HTML/PDF output. | `16` px |
+| **Mermaid: Font Size** | Set one font size for Mermaid diagrams in the preview and HTML/PDF/DOCX output. | `16` px |
 | **PDF: Browser Path** | Specify an Edge or Chrome executable when automatic detection does not work. | Automatic detection |
 
 ## Keyboard shortcuts

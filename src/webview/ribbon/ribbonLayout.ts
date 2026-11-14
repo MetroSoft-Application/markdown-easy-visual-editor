@@ -154,6 +154,10 @@ export const RIBBON_LAYOUT: RibbonLayoutDefinition = {
                     ],
                 },
                 {
+                    id: "docx",
+                    itemIds: ["docxSaveWithoutDialog", "exportDocx"],
+                },
+                {
                     id: "inspection",
                     itemIds: ["preflight"],
                 },

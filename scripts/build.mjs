@@ -227,12 +227,13 @@ const exportEnginePackage = 'node_modules/@metrosoft/markdown-easy-converter';
  * 保存要求時だけ読むCLI成果物を、npmパッケージからプレビュー資産と別ディレクトリへ配置する。
  * CLI内のPlaywrightは実行ファイルの1つ上の階層からpackage.jsonとbrowsers.jsonを読むため、両方をdist/へ置く。
  * CLIがバンドルした依存のライセンス原文と、CLI本体のライセンスも同じ配布物に含める。
+ * docx-extract.jsはDOCX出力時にCLIが自身と同じディレクトリから読むため、他の資産と同じ場所へ置く。
  * 成果物が欠けている場合はcopyFile/cpが失敗し、出力できないVSIXやライセンス表示のないVSIXを作らない。
  */
 async function copyExportEngine() {
   await mkdir('dist/export-engine', { recursive: true });
   for (const asset of ['mve-convert.cjs', 'print-assets.css', 'pele-render-worker.js',
-    'markdown-fallback.js', 'output-replacements.js']) {
+    'markdown-fallback.js', 'output-replacements.js', 'docx-extract.js']) {
     await copyFile(`${exportEnginePackage}/dist/${asset}`, `dist/export-engine/${asset}`);
   }
   await cp(`${exportEnginePackage}/dist/third-party-licenses`, 'dist/export-engine/third-party-licenses',
