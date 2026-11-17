@@ -742,6 +742,30 @@ export const RIBBON_IMPLEMENTATIONS: Record<
       </label>
     ),
   ),
+  outputPresetSelect: control(
+    /** 表示中のプリセット名を選び、PDF・HTML・DOCX設定を一括適用する。 */
+    (context, definition, resolveLabel) => (
+      <label className="ribbon-select-label ribbon-output-preset-select">
+        {resolveLabel(definition.label)}
+        <select
+          aria-label={resolveLabel(definition.label)}
+          value={context.activeOutputPresetId}
+          onChange={(event) => {
+            if (event.target.value) context.onOutputPresetSelect(event.target.value);
+          }}
+        >
+          <option value="">{context.messages.ribbon.labels.customPreset}</option>
+          {context.outputPresets.map((preset) => (
+            <option key={preset.id} value={preset.id}>{preset.name}</option>
+          ))}
+        </select>
+      </label>
+    ),
+  ),
+  manageOutputPresets: button(
+    /** プリセットの保存・名前変更・複製・削除・共有画面を開く。 */
+    ({ onCommand }) => onCommand({ type: "openPrintSettings" }),
+  ),
   openPrintSettings: button(
     /**
      * リボンボタンのクリック時に編集コマンドを通知する。

@@ -2,6 +2,7 @@
  * @fileoverview HostとWebviewが送受信するメッセージ、設定、ペイロードの型・既定値・正規化規則を定義する。
  */
 import type { Diagnostic } from './markdown';
+import type { OutputPreset, OutputPresetValues } from './outputPresets';
 import { DEFAULT_FONT_FAMILY_STACK, type FontFamilySettings } from './fontFamily';
 import type { SupportedLanguage } from './messages';
 
@@ -564,6 +565,10 @@ export interface WebviewSettings extends FontFamilySettings {
      * DOCX出力設定。旧Hostからの通知では未指定のため、受信側でnormalizeDocxExportSettingsにより既定値へ補う。
      */
     docxOptions?: DocxExportSettings;
+    /** ユーザー保存分と組込分の出力プリセット。 */
+    outputPresets?: OutputPreset[];
+    /** 現在の出力設定が一致するプリセット。変更した場合は空文字列。 */
+    activeOutputPresetId?: string;
 
     /**
  * Webviewでワークスペース内リソースを許可するかを示す信頼状態。
@@ -1395,6 +1400,42 @@ export type WebviewToHostMessage =
          * 保存するDOCX出力設定。
          */
         options: DocxExportSettings
+    }
+    | {
+        /** 現在のHTML/PDF/DOCX設定を名前付きプリセットとして保存・上書きする。 */
+        type: 'saveOutputPreset';
+        name: string;
+        presetId?: string;
+        values: OutputPresetValues
+    }
+    | {
+        /** 既存ユーザープリセットの名前だけ変更する。 */
+        type: 'renameOutputPreset';
+        presetId: string;
+        name: string
+    }
+    | {
+        /** ユーザープリセットのコピーを新しい識別子で保存する。 */
+        type: 'duplicateOutputPreset';
+        presetId: string
+    }
+    | {
+        /** ユーザープリセットを削除する。組込プリセットは変更しない。 */
+        type: 'deleteOutputPreset';
+        presetId: string
+    }
+    | {
+        /** 設定全体を選択プリセットへ切り替える。 */
+        type: 'applyOutputPreset';
+        presetId: string
+    }
+    | {
+        /** 保存済みユーザープリセットをJSONファイルから取り込む。 */
+        type: 'importOutputPresets'
+    }
+    | {
+        /** 保存済みユーザープリセットをJSONファイルへ書き出す。 */
+        type: 'exportOutputPresets'
     }
     | {
 

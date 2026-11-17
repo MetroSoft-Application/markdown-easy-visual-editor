@@ -5,11 +5,15 @@
  * 数値欄は入力途中の値を保持するため非制御（defaultValue）にし、フォーカス離脱時にだけ確定する。
  * 確定後に正規化で値が変わった場合も表示を合わせるため、key に現在値を含めて再生成する。
  */
-import React from "react";
+import React, { useState } from "react";
+import type { OutputPreset } from "../../shared/outputPresets";
+import type { DocxExportSettings, HtmlExportOptions } from "../../shared/protocol";
+import { OutputPresetManager } from "./OutputPresetManager";
 import {
   PDF_PAPER_FORMATS,
   isTextReplacementPatternValid,
   type NormalizedPdfOptions,
+  type EditorTheme,
   type PdfOptions,
   type TextReplacementRule,
 } from "../../shared/protocol";
@@ -26,6 +30,24 @@ interface PrintSettingsPanelProps {
   messages: Messages;
   /** 現在の正規化済みPDF設定。 */
   pdfOptions: NormalizedPdfOptions;
+  language: string;
+  previewFontFamily: string;
+  editorTheme: EditorTheme;
+  onPreviewFontFamilyChange: (value: string) => void;
+  onEditorThemeChange: (value: EditorTheme) => void;
+  outputPresets: readonly OutputPreset[];
+  activeOutputPresetId: string;
+  htmlOptions: HtmlExportOptions;
+  docxOptions: DocxExportSettings;
+  onHtmlOptionsChange: (options: HtmlExportOptions) => void;
+  onDocxSaveWithoutDialogChange: (enabled: boolean) => void;
+  onPresetApply: (id: string) => void;
+  onPresetSave: (name: string, presetId?: string) => void;
+  onPresetRename: (id: string, name: string) => void;
+  onPresetDuplicate: (id: string) => void;
+  onPresetDelete: (id: string) => void;
+  onPresetImport: () => void;
+  onPresetExport: () => void;
   /**
    * PDF設定を更新する。
    * @param update - 現在の設定を受け取り、次の設定を返す関数。
@@ -185,6 +207,24 @@ function ReplacementRuleFields({
  * 印刷設定パネル。
  * @param messages - 表示文言。
  * @param pdfOptions - 現在の正規化済みPDF設定。
+ * @param language - 出力設定の表示言語。
+ * @param previewFontFamily - プレビューと出力で共通して使うフォント。
+ * @param editorTheme - HTMLとプレビューに適用するテーマ。
+ * @param onPreviewFontFamilyChange - 共通フォントの変更処理。
+ * @param onEditorThemeChange - テーマの変更処理。
+ * @param outputPresets - 利用可能な出力プリセット。
+ * @param activeOutputPresetId - 現在の設定に一致するプリセットID。
+ * @param htmlOptions - HTML出力設定。
+ * @param docxOptions - DOCX出力設定。
+ * @param onHtmlOptionsChange - HTML出力設定の変更処理。
+ * @param onDocxSaveWithoutDialogChange - DOCX保存設定の変更処理。
+ * @param onPresetApply - プリセットの適用処理。
+ * @param onPresetSave - 現在値の保存処理。
+ * @param onPresetRename - プリセット名の変更処理。
+ * @param onPresetDuplicate - プリセットの複製処理。
+ * @param onPresetDelete - プリセットの削除処理。
+ * @param onPresetImport - JSONプリセットの読み込み処理。
+ * @param onPresetExport - JSONプリセットの書き出し処理。
  * @param updatePdfOptions - 現在の設定から次の設定を作る関数を受け取り、正規化と保存を行う処理。
  * @param onClose - 閉じるボタンの処理。
  * @param onExportPdf - PDF出力ボタンの処理。
@@ -193,10 +233,29 @@ function ReplacementRuleFields({
 export function PrintSettingsPanel({
   messages,
   pdfOptions,
+  language,
+  previewFontFamily,
+  editorTheme,
+  onPreviewFontFamilyChange,
+  onEditorThemeChange,
+  outputPresets,
+  activeOutputPresetId,
+  htmlOptions,
+  docxOptions,
+  onHtmlOptionsChange,
+  onDocxSaveWithoutDialogChange,
+  onPresetApply,
+  onPresetSave,
+  onPresetRename,
+  onPresetDuplicate,
+  onPresetDelete,
+  onPresetImport,
+  onPresetExport,
   updatePdfOptions,
   onClose,
   onExportPdf,
 }: PrintSettingsPanelProps): React.JSX.Element {
+  const [settingsTab, setSettingsTab] = useState<"pdf" | "html" | "docx">("pdf");
   /**
    * 設定の1項目だけを差し替える。
    * @param key - 差し替える項目。
@@ -230,7 +289,7 @@ export function PrintSettingsPanel({
   } as const;
 
   return (
-    <aside className="pdf-settings-panel">
+    <aside className="pdf-settings-panel output-presets-settings-panel">
       <div className="panel-title">
         <h2>{messages.app.printSettings}</h2>
         <button
@@ -243,7 +302,77 @@ export function PrintSettingsPanel({
           ×
         </button>
       </div>
+      <div className="output-presets-layout">
+        <OutputPresetManager
+          language={language}
+          presets={outputPresets}
+          activePresetId={activeOutputPresetId}
+          onApply={onPresetApply}
+          onSave={onPresetSave}
+          onRename={onPresetRename}
+          onDuplicate={onPresetDuplicate}
+          onDelete={onPresetDelete}
+          onImport={onPresetImport}
+          onExport={onPresetExport}
+        />
+        <div className="output-presets-settings-content">
+          <div className="output-presets-tabs" role="tablist" aria-label={messages.app.printSettings}>
+            <button type="button" role="tab" aria-selected={settingsTab === "pdf"}
+              onClick={() => setSettingsTab("pdf")}>{language === "ja" ? "共通・PDF" : "Common / PDF"}</button>
+            <button type="button" role="tab" aria-selected={settingsTab === "html"}
+              onClick={() => setSettingsTab("html")}>HTML</button>
+            <button type="button" role="tab" aria-selected={settingsTab === "docx"}
+              onClick={() => setSettingsTab("docx")}>DOCX</button>
+          </div>
+          <div role="tabpanel" hidden={settingsTab !== "html"}>
+            <h3>HTML</h3>
+            {([
+              ["embedImages", messages.ribbon.labels.embedImages],
+              ["convertLinkedMarkdown", messages.ribbon.labels.convertLinkedMarkdown],
+              ["showOutlineSidebar", messages.ribbon.labels.showOutlineSidebar],
+              ["saveWithoutDialog", messages.ribbon.labels.saveWithoutDialog],
+            ] as const).map(([key, label]) => (
+              <label key={key} className="output-preset-checkbox">
+                <input type="checkbox" checked={htmlOptions[key]}
+                  onChange={(event) => onHtmlOptionsChange({
+                    ...htmlOptions, [key]: event.currentTarget.checked,
+                  })} />
+                {label}
+              </label>
+            ))}
+          </div>
+          <div role="tabpanel" hidden={settingsTab !== "docx"}>
+            <h3>DOCX</h3>
+            <p>{language === "ja" ? "用紙・余白・フォントは共通・PDFの設定を使用します。" : "Paper, margins and typography use the Common / PDF settings."}</p>
+            <label className="output-preset-checkbox">
+              <input type="checkbox" checked={docxOptions.saveWithoutDialog}
+                onChange={(event) => onDocxSaveWithoutDialogChange(event.currentTarget.checked)} />
+              {messages.ribbon.labels.saveWithoutDialog}
+            </label>
+          </div>
+          <div role="tabpanel" hidden={settingsTab !== "pdf"}>
       <p>{messages.app.printSettingsHelp}</p>
+      <label>
+        {language === "ja" ? "共通フォント" : "Shared font"}
+        <select value={previewFontFamily} onChange={(event) => onPreviewFontFamilyChange(event.currentTarget.value)}>
+          <option value="">{language === "ja" ? "既定のフォント" : "Default font"}</option>
+          <option value="Noto Sans JP">Noto Sans JP</option>
+          <option value="Yu Gothic UI">Yu Gothic UI</option>
+          <option value="Meiryo">Meiryo</option>
+          <option value="Arial">Arial</option>
+          <option value="Georgia">Georgia</option>
+          {previewFontFamily && !["Noto Sans JP", "Yu Gothic UI", "Meiryo", "Arial", "Georgia"].includes(previewFontFamily) && (
+            <option value={previewFontFamily}>{previewFontFamily}</option>
+          )}
+        </select>
+      </label>
+      <label>
+        {language === "ja" ? "出力・プレビューテーマ" : "Output / preview theme"}
+        <select value={editorTheme} onChange={(event) => onEditorThemeChange(event.currentTarget.value as EditorTheme)}>
+          <option value="light">{language === "ja" ? "ライト" : "Light"}</option>
+          <option value="dark">{language === "ja" ? "ダーク" : "Dark"}</option>
+        </select>
+      </label>
       <label>
         {messages.app.paper}
         <select
@@ -511,6 +640,9 @@ export function PrintSettingsPanel({
       <button type="button" className="primary" onClick={onExportPdf}>
         {messages.ribbon.labels.exportPdf}
       </button>
+          </div>
+        </div>
+      </div>
     </aside>
   );
 }

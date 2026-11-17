@@ -568,6 +568,13 @@ export interface Messages {
              */
             exportDocx: string;
 
+            /** 出力設定プリセットの選択欄。 */
+            outputPreset: string;
+            /** プリセットの管理画面を開くボタン。 */
+            managePresets: string;
+            /** 現在の設定が保存済みプリセットと一致しない場合。 */
+            customPreset: string;
+
             /**
              * 画像を埋め込む書式コマンドのラベルとして表示するローカライズ済み文言。
              */

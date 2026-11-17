@@ -135,6 +135,10 @@ export const RIBBON_LAYOUT: RibbonLayoutDefinition = {
             id: "export",
             groups: [
                 {
+                    id: "presets",
+                    itemIds: ["outputPresetSelect", "manageOutputPresets"],
+                },
+                {
                     id: "pdf",
                     itemIds: [
                         "openPrintSettings",

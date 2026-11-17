@@ -56,6 +56,11 @@ import {
   type TextSelection,
 } from "../../shared/markdown";
 import { drawioImageMarkdown } from "../../shared/drawioSvg";
+import {
+  normalizeOutputPresetValues,
+  selectedOutputPresetId,
+  type OutputPresetValues,
+} from "../../shared/outputPresets";
 import type { EditorLinkTarget } from "../editor/cmLinkNavigation";
 import { markLocalResourceChanged } from "../preview/localResourceVersions";
 import {
@@ -651,6 +656,30 @@ export function App(): React.JSX.Element {
    * DOCX出力処理と設定比較が参照する最新のDOCX出力設定。
    */
   const docxOptionsRef = useRef(docxOptions);
+  const outputPresets = settings.outputPresets ?? [];
+  // 入力・スクロール時の再レンダーでは全プリセットの深い照合を繰り返さない。
+  const activeOutputPresetId = useMemo(
+    () => selectedOutputPresetId(
+      outputPresets,
+      normalizeOutputPresetValues({
+        pdfOptions,
+        htmlOptions,
+        docxOptions,
+        previewFontFamily: settings.previewFontFamily,
+        editorTheme: settings.editorTheme ?? "dark",
+      }),
+      settings.activeOutputPresetId,
+    ),
+    [
+      settings.outputPresets,
+      settings.activeOutputPresetId,
+      settings.previewFontFamily,
+      settings.editorTheme,
+      pdfOptions,
+      htmlOptions,
+      docxOptions,
+    ],
+  );
   /**
    * Hostへ保存を依頼し、まだ同じ値のsettingsChangedが届いていないDOCX設定。
    * 届くまでは古い通知で画面のチェック状態を戻さない。
@@ -3443,9 +3472,43 @@ export function App(): React.JSX.Element {
     );
   }
 
+  /** 現在のPDF・HTML・DOCXとプレビュー共通設定をプリセットとして取得する。 */
+  function currentOutputPresetValues(): OutputPresetValues {
+    return normalizeOutputPresetValues({
+      pdfOptions: pdfOptionsRef.current,
+      htmlOptions: htmlOptionsRef.current,
+      docxOptions: docxOptionsRef.current,
+      previewFontFamily: settings.previewFontFamily,
+      editorTheme: settings.editorTheme ?? "dark",
+    });
+  }
+
+  /** Hostの設定更新を受けて出力形式すべてを切り替える。 */
+  function applyOutputPreset(presetId: string): void {
+    if (!(settings.outputPresets ?? []).some((preset) => preset.id === presetId)) return;
+    if (pdfOptionsPersistTimerRef.current !== undefined) {
+      window.clearTimeout(pdfOptionsPersistTimerRef.current);
+      pdfOptionsPersistTimerRef.current = undefined;
+    }
+    pendingHtmlOptionsRef.current = undefined;
+    pendingDocxOptionsRef.current = undefined;
+    vscode.postMessage({ type: "applyOutputPreset", presetId });
+  }
+
+  /** プリセットの保存前に現在のPDF設定をHostへ確定する。 */
+  function saveOutputPreset(name: string, presetId?: string): void {
+    flushPdfOptionsPersistence();
+    vscode.postMessage({
+      type: "saveOutputPreset",
+      name,
+      presetId,
+      values: currentOutputPresetValues(),
+    });
+  }
+
   /**
-   * Webviewルートの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-   * @param update - 現在の正規化済みPDF設定を受け取り、次に保存するPDF設定を返す更新関数。
+   * 現在のPDF設定を更新し、Hostへの遅延保存を予約する。
+   * @param update - 正規化済みPDF設定を受け取り次の設定を返す更新関数。
    */
   function updatePdfOptions(
     update: (current: NormalizedPdfOptions) => PdfOptions,
@@ -5374,6 +5437,9 @@ export function App(): React.JSX.Element {
         splitView={splitView}
         htmlOptions={htmlOptions}
         pdfSaveWithoutDialog={pdfOptions.saveWithoutDialog}
+        outputPresets={outputPresets}
+        activeOutputPresetId={activeOutputPresetId}
+        onOutputPresetSelect={applyOutputPreset}
         docxOptions={docxOptions}
         onDocxSaveWithoutDialogChange={handleDocxSaveWithoutDialogChange}
         imageDirectory={settings.imageDirectory}
@@ -5767,6 +5833,31 @@ export function App(): React.JSX.Element {
           <PrintSettingsPanel
             messages={messages}
             pdfOptions={pdfOptions}
+            language={settings.language}
+            previewFontFamily={settings.previewFontFamily}
+            editorTheme={settings.editorTheme ?? "dark"}
+            onPreviewFontFamilyChange={(previewFontFamily) => handleRibbon({
+              type: "setFontFamilies",
+              editorFontFamily: settings.editorFontFamily,
+              previewFontFamily,
+            })}
+            onEditorThemeChange={(theme) => {
+              setSettings((current) => ({ ...current, editorTheme: theme }));
+              vscode.postMessage({ type: "setEditorTheme", theme });
+            }}
+            outputPresets={outputPresets}
+            activeOutputPresetId={activeOutputPresetId}
+            htmlOptions={htmlOptions}
+            docxOptions={docxOptions}
+            onHtmlOptionsChange={handleHtmlOptionsChange}
+            onDocxSaveWithoutDialogChange={handleDocxSaveWithoutDialogChange}
+            onPresetApply={applyOutputPreset}
+            onPresetSave={saveOutputPreset}
+            onPresetRename={(presetId, name) => vscode.postMessage({ type: "renameOutputPreset", presetId, name })}
+            onPresetDuplicate={(presetId) => vscode.postMessage({ type: "duplicateOutputPreset", presetId })}
+            onPresetDelete={(presetId) => vscode.postMessage({ type: "deleteOutputPreset", presetId })}
+            onPresetImport={() => vscode.postMessage({ type: "importOutputPresets" })}
+            onPresetExport={() => vscode.postMessage({ type: "exportOutputPresets" })}
             updatePdfOptions={updatePdfOptions}
             onClose={
               /** 保留中の設定保存を確定してから閉じる。 */

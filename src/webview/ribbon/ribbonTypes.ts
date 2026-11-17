@@ -2,6 +2,7 @@
  * @fileoverview リボンの項目、表示状態、コマンド通知に共有する型を定義する。
  */
 import type React from "react";
+import type { OutputPreset } from "../../shared/outputPresets";
 import type {
   DocxExportSettings,
   EditorMode,
@@ -329,6 +330,12 @@ export interface RibbonImplementationContext extends RibbonButtonState {
 
     /** PDF出力時に保存先ダイアログを省略する設定。 */
     pdfSaveWithoutDialog: boolean;
+
+    /** 出力プリセット一覧と、適用中のプリセット。 */
+    outputPresets: readonly OutputPreset[];
+    activeOutputPresetId: string;
+    /** 選択したプリセットへ出力設定全体を切り替える。 */
+    onOutputPresetSelect: (presetId: string) => void;
 
     /** DOCX出力グループのチェック状態と、DOCX出力ボタンが送る設定。 */
     docxOptions: DocxExportSettings;

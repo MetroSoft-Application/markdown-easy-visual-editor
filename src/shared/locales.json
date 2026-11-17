@@ -162,7 +162,10 @@
         "markdownSupport": "対応Markdown",
         "about": "Markdown Easy Visual Editorについて",
         "header": "ヘッダー",
-        "headerPlaceholder": "例: 合計"
+        "headerPlaceholder": "例: 合計",
+        "outputPreset": "出力プリセット",
+        "managePresets": "プリセット管理",
+        "customPreset": "カスタム（未保存）"
       },
       "settings": {
         "images": "画像",
@@ -754,7 +757,10 @@
         "markdownSupport": "Supported Markdown",
         "about": "About Markdown Easy Visual Editor",
         "header": "Header",
-        "headerPlaceholder": "e.g. Total"
+        "headerPlaceholder": "e.g. Total",
+        "outputPreset": "Output preset",
+        "managePresets": "Manage presets",
+        "customPreset": "Custom (unsaved)"
       },
       "settings": {
         "images": "Images",
@@ -1346,7 +1352,10 @@
         "markdownSupport": "支持的Markdown",
         "about": "关于Markdown Easy Visual Editor",
         "header": "表头",
-        "headerPlaceholder": "例如：合计"
+        "headerPlaceholder": "例如：合计",
+        "outputPreset": "输出预设",
+        "managePresets": "管理预设",
+        "customPreset": "自定义（未保存）"
       },
       "settings": {
         "images": "图像",
@@ -1938,7 +1947,10 @@
         "markdownSupport": "지원되는 Markdown",
         "about": "Markdown Easy Visual Editor 정보",
         "header": "헤더",
-        "headerPlaceholder": "예: 합계"
+        "headerPlaceholder": "예: 합계",
+        "outputPreset": "출력 사전 설정",
+        "managePresets": "사전 설정 관리",
+        "customPreset": "사용자 지정 (저장되지 않음)"
       },
       "settings": {
         "images": "이미지",
@@ -2530,7 +2542,10 @@
         "markdownSupport": "Prise en charge de Markdown",
         "about": "À propos de Markdown Easy Visual Editor",
         "header": "En-tête",
-        "headerPlaceholder": "Saisissez un en-tête"
+        "headerPlaceholder": "Saisissez un en-tête",
+        "outputPreset": "Préréglage de sortie",
+        "managePresets": "Gérer les préréglages",
+        "customPreset": "Personnalisé (non enregistré)"
       },
       "settings": {
         "images": "Images",
@@ -3122,7 +3137,10 @@
         "markdownSupport": "Markdown-Unterstützung",
         "about": "Über Markdown Easy Visual Editor",
         "header": "Kopfzeile",
-        "headerPlaceholder": "Kopfzeile eingeben"
+        "headerPlaceholder": "Kopfzeile eingeben",
+        "outputPreset": "Ausgabevorlage",
+        "managePresets": "Vorlagen verwalten",
+        "customPreset": "Benutzerdefiniert (ungespeichert)"
       },
       "settings": {
         "images": "Bilder",
@@ -3714,7 +3732,10 @@
         "markdownSupport": "Compatibilidad con Markdown",
         "about": "Acerca de Markdown Easy Visual Editor",
         "header": "Encabezado",
-        "headerPlaceholder": "Escribe un encabezado"
+        "headerPlaceholder": "Escribe un encabezado",
+        "outputPreset": "Preajuste de exportación",
+        "managePresets": "Administrar preajustes",
+        "customPreset": "Personalizado (sin guardar)"
       },
       "settings": {
         "images": "Imágenes",

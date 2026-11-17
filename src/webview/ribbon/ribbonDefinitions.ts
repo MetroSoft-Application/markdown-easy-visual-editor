@@ -133,6 +133,7 @@ export const RIBBON_DEFINITIONS: RibbonDefinitions = {
         theme: {
             label: { kind: "message", path: "ribbon.groups.theme" },
         },
+        presets: { label: { kind: "message", path: "ribbon.labels.outputPreset" } },
         pdf: { label: { kind: "message", path: "ribbon.groups.pdf" } },
         html: { label: { kind: "message", path: "ribbon.groups.html" } },
         docx: { label: { kind: "message", path: "ribbon.groups.docx" } },
@@ -394,6 +395,12 @@ export const RIBBON_DEFINITIONS: RibbonDefinitions = {
                     },
                 ],
             },
+        },
+        outputPresetSelect: {
+            label: { kind: "message", path: "ribbon.labels.outputPreset" },
+        },
+        manageOutputPresets: {
+            label: { kind: "message", path: "ribbon.labels.managePresets" },
         },
         openPrintSettings: {
             label: { kind: "message", path: "app.printSettings" },

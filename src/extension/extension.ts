@@ -36,6 +36,22 @@ import {
 } from '../shared/fontFamily';
 import { resolveImageDirectoryRule } from '../shared/imageDirectory';
 import {
+    ACTIVE_OUTPUT_PRESET_STATE_KEY,
+    MAX_OUTPUT_PRESETS,
+    OUTPUT_PRESETS_STATE_KEY,
+    builtInOutputPresets,
+    exportOutputPresets,
+    importOutputPresets,
+    makeOutputPreset,
+    normalizeOutputPresetName,
+    normalizeOutputPresetValues,
+    normalizeStoredOutputPresets,
+    selectedOutputPresetId,
+    type OutputPreset,
+    type OutputPresetValues
+} from '../shared/outputPresets';
+
+import {
     createDrawioPlaceholderSvg,
     encodeDrawioRelativePath,
     isDrawioSvgReference,
@@ -576,6 +592,9 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
 
     /** 移行・設定画面・HTML/PDF出力からのglobal設定書き込みを順序どおり実行するPromise。 */
     private globalSettingsUpdateChain: Promise<void> = Promise.resolve();
+
+    /** 複数Webviewからのプリセット保存・更新が互いに上書きしないようにするキュー。 */
+    private outputPresetMutationChain: Promise<void> = Promise.resolve();
 
     /**
      * 旧globalState設定からVS Code設定への移行処理を共有するPromise。
@@ -1353,6 +1372,32 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                         ]);
                         this.broadcastSettings();
                     }
+                    return;
+                case 'saveOutputPreset':
+                    await this.queueOutputPresetMutation(() => this.saveOutputPreset(message.name, message.values, message.presetId));
+                    this.broadcastSettings();
+                    return;
+                case 'renameOutputPreset':
+                    await this.queueOutputPresetMutation(() => this.renameOutputPreset(message.presetId, message.name));
+                    this.broadcastSettings();
+                    return;
+                case 'duplicateOutputPreset':
+                    await this.queueOutputPresetMutation(() => this.duplicateOutputPreset(message.presetId));
+                    this.broadcastSettings();
+                    return;
+                case 'deleteOutputPreset':
+                    await this.queueOutputPresetMutation(() => this.deleteOutputPreset(message.presetId));
+                    this.broadcastSettings();
+                    return;
+                case 'applyOutputPreset':
+                    await this.queueOutputPresetMutation(() => this.applyOutputPreset(message.presetId));
+                    this.broadcastSettings();
+                    return;
+                case 'importOutputPresets':
+                    if (await this.queueOutputPresetMutation(() => this.importOutputPresetFile())) this.broadcastSettings();
+                    return;
+                case 'exportOutputPresets':
+                    await this.queueOutputPresetMutation(() => this.exportOutputPresetFile());
                     return;
                 case 'openSource':
                     this.activeDocument = document;
@@ -2780,6 +2825,159 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
     }
 
     /**
+     * プリセット操作を直列化し、失敗した要求の後も次の操作を受け付ける。
+     * @param operation - 保存・削除・適用などの永続化処理。
+     * @returns 実行処理の戻り値。
+     */
+    private queueOutputPresetMutation<T>(operation: () => Promise<T>): Promise<T> {
+        const pending = this.outputPresetMutationChain.then(operation);
+        this.outputPresetMutationChain = pending.then(
+            /** 成功後は次の操作を続ける。 */ () => undefined,
+            /** 失敗後もキューは中断させない。 */ () => undefined
+        );
+        return pending;
+    }
+
+    /** 永続保存したユーザープリセットを不正値・重複IDを除いて返す。 */
+    private getUserOutputPresets(): OutputPreset[] {
+        return normalizeStoredOutputPresets(this.context.globalState.get<unknown>(OUTPUT_PRESETS_STATE_KEY));
+    }
+
+    /** 組込プリセットとユーザープリセットをまとめる。 */
+    private getOutputPresets(): OutputPreset[] {
+        return [...builtInOutputPresets(this.getLanguage()), ...this.getUserOutputPresets()];
+    }
+
+    /** 既存名と重ならないプリセット名か検査する。 */
+    private ensureUniqueOutputPresetName(name: string, excludingId?: string): string {
+        const valid = normalizeOutputPresetName(name);
+        if (!valid) throw new Error('Preset name must contain 1–64 characters.');
+        if (this.getOutputPresets().some((item) =>
+            item.id !== excludingId && item.name.toLocaleLowerCase() === valid.toLocaleLowerCase())) {
+            throw new Error('An output preset with this name already exists.');
+        }
+        return valid;
+    }
+
+    /**
+     * Webviewから受け取った現在の設定全体をスナップショットとして保存する。
+     * presetId付きはユーザープリセットだけ上書きする。
+     */
+    private async saveOutputPreset(name: string, values: OutputPresetValues, presetId?: string): Promise<void> {
+        const saved = this.getUserOutputPresets();
+        if (presetId && !saved.some((preset) => preset.id === presetId)) {
+            throw new Error('The output preset cannot be overwritten.');
+        }
+        if (!presetId && saved.length >= MAX_OUTPUT_PRESETS) throw new Error('Output preset limit reached.');
+        const safeName = this.ensureUniqueOutputPresetName(name, presetId);
+        const id = presetId ?? `user-${randomUUID()}`;
+        const preset = makeOutputPreset(id, safeName, normalizeOutputPresetValues(values));
+        const updated = presetId
+            ? saved.map((item) => item.id === presetId ? preset : item)
+            : [...saved, preset];
+        await this.context.globalState.update(OUTPUT_PRESETS_STATE_KEY, updated);
+        await this.context.globalState.update(ACTIVE_OUTPUT_PRESET_STATE_KEY, id);
+    }
+
+    /** 対象プリセットの名前を変更し、保存内容は変更しない。 */
+    private async renameOutputPreset(id: string, name: string): Promise<void> {
+        const saved = this.getUserOutputPresets();
+        const existing = saved.find((preset) => preset.id === id);
+        if (!existing) throw new Error('Built-in presets cannot be renamed.');
+        const safeName = this.ensureUniqueOutputPresetName(name, id);
+        await this.context.globalState.update(OUTPUT_PRESETS_STATE_KEY,
+            saved.map((item) => item.id === id ? { ...item, name: safeName } : item));
+    }
+
+    /** 対象プリセットの内容を複製し、新しいユーザープリセットとして保存する。 */
+    private async duplicateOutputPreset(id: string): Promise<void> {
+        const item = this.getOutputPresets().find((preset) => preset.id === id);
+        if (!item) throw new Error('The output preset was not found.');
+        const saved = this.getUserOutputPresets();
+        if (saved.length >= MAX_OUTPUT_PRESETS) throw new Error('Output preset limit reached.');
+        const prefix = item.name.slice(0, 53);
+        let index = 1;
+        let name = '';
+        do {
+            name = this.getLanguage() === 'ja'
+                ? `${prefix}のコピー${index === 1 ? '' : index}`
+                : `${prefix} copy${index === 1 ? '' : index}`;
+            index += 1;
+        } while (this.getOutputPresets().some((candidate) => candidate.name.toLocaleLowerCase() === name.toLocaleLowerCase()));
+        const copy = makeOutputPreset(`user-${randomUUID()}`, name, item);
+        await this.context.globalState.update(OUTPUT_PRESETS_STATE_KEY, [...saved, copy]);
+    }
+
+    /** ユーザープリセットだけ削除する。適用済み設定値自体は消さない。 */
+    private async deleteOutputPreset(id: string): Promise<void> {
+        const saved = this.getUserOutputPresets();
+        if (!saved.some((item) => item.id === id)) throw new Error('Built-in presets cannot be deleted.');
+        await this.context.globalState.update(OUTPUT_PRESETS_STATE_KEY, saved.filter((item) => item.id !== id));
+        if (this.context.globalState.get<string>(ACTIVE_OUTPUT_PRESET_STATE_KEY) === id) {
+            await this.context.globalState.update(ACTIVE_OUTPUT_PRESET_STATE_KEY, undefined);
+        }
+    }
+
+    /** 1つの操作でHTML・PDF・DOCXとプレビューテーマ・フォントを切り替える。 */
+    private async applyOutputPreset(id: string): Promise<void> {
+        const preset = this.getOutputPresets().find((item) => item.id === id);
+        if (!preset) throw new Error('The output preset was not found.');
+        await this.updateGlobalConfiguration([
+            [GLOBAL_CONFIGURATION_KEYS.previewFontFamily, preset.previewFontFamily],
+            ['editor.theme', preset.editorTheme],
+            ...pdfConfigurationEntries(preset.pdfOptions),
+            [GLOBAL_CONFIGURATION_KEYS.html.embedImages, preset.htmlOptions.embedImages],
+            [GLOBAL_CONFIGURATION_KEYS.html.convertLinkedMarkdown, preset.htmlOptions.convertLinkedMarkdown],
+            [GLOBAL_CONFIGURATION_KEYS.html.showOutlineSidebar, preset.htmlOptions.showOutlineSidebar],
+            [GLOBAL_CONFIGURATION_KEYS.html.saveWithoutDialog, preset.htmlOptions.saveWithoutDialog],
+            [GLOBAL_CONFIGURATION_KEYS.docx.saveWithoutDialog, preset.docxOptions.saveWithoutDialog]
+        ]);
+        await this.context.globalState.update(ACTIVE_OUTPUT_PRESET_STATE_KEY, id);
+    }
+
+    /** 既存の保存名を変更せず、インポート元の項目を追加する。 */
+    private async importOutputPresetFile(): Promise<boolean> {
+        const selected = await vscode.window.showOpenDialog({
+            filters: { JSON: ['json'] },
+            canSelectMany: false,
+            canSelectFiles: true,
+            canSelectFolders: false,
+            openLabel: this.getLanguage() === 'ja' ? 'プリセットを読み込む' : 'Import presets'
+        });
+        if (!selected?.length) return false;
+        const info = await vscode.workspace.fs.stat(selected[0]);
+        if (info.size > 1024 * 1024) throw new Error('Output preset file is too large.');
+        const incoming = importOutputPresets(Buffer.from(await vscode.workspace.fs.readFile(selected[0])).toString('utf8'));
+        const saved = this.getUserOutputPresets();
+        if (saved.length + incoming.length > MAX_OUTPUT_PRESETS) throw new Error('Output preset limit reached.');
+        const allNames = new Set(this.getOutputPresets().map((item) => item.name.toLocaleLowerCase()));
+        const next = [...saved];
+        for (const preset of incoming) {
+            const prefix = preset.name.slice(0, 54);
+            let name = preset.name;
+            let suffix = 2;
+            while (allNames.has(name.toLocaleLowerCase())) name = `${prefix} (${suffix++})`;
+            allNames.add(name.toLocaleLowerCase());
+            next.push(makeOutputPreset(`user-${randomUUID()}`, name, preset));
+        }
+        await this.context.globalState.update(OUTPUT_PRESETS_STATE_KEY, next);
+        return true;
+    }
+
+    /** カスタムプリセットを、バージョン付きJSONとして共有できるようにする。 */
+    private async exportOutputPresetFile(): Promise<void> {
+        const destination = await vscode.window.showSaveDialog({
+            filters: { JSON: ['json'] },
+            saveLabel: this.getLanguage() === 'ja' ? 'プリセットを書き出す' : 'Export presets'
+        });
+        if (!destination) return;
+        const target = destination.path.toLowerCase().endsWith('.json')
+            ? destination : destination.with({ path: destination.path + '.json' });
+        await vscode.workspace.fs.writeFile(
+            target, Buffer.from(exportOutputPresets(this.getUserOutputPresets()), 'utf8'));
+    }
+
+    /**
      * VS Code設定とワークスペース信頼状態をWebviewへ渡す設定にまとめる。
      * 文書URIは文書スコープの設定参照に使い、アプリ全体の表示・出力設定はglobal値を使う。
      * @param document 設定の文書スコープを決める文書。省略時はglobalの値を参照する。
@@ -2788,7 +2986,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
     private getSettings(document?: vscode.TextDocument): WebviewSettings {
         // VS Code設定とワークスペース信頼状態をWebview用の設定オブジェクトへまとめる。
         const config = vscode.workspace.getConfiguration('markdownEasyVisualEditor', document?.uri);
-        return {
+        const settings: WebviewSettings = {
             ...this.getFontSettings(config),
             language: this.getLanguage(),
             imageDirectory: config.get('images.directory', 'assets/${documentBasename}'),
@@ -2830,9 +3028,22 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
             pdfOptions: this.getPdfOptions(config),
             htmlOptions: this.getHtmlOptions(config),
             docxOptions: this.getDocxOptions(config),
+            outputPresets: this.getOutputPresets(),
             workspaceTrusted: vscode.workspace.isTrusted,
             startupProbe: this.startupBenchmarkEnabled || undefined
         };
+        settings.activeOutputPresetId = selectedOutputPresetId(
+            settings.outputPresets ?? [],
+            normalizeOutputPresetValues({
+                pdfOptions: settings.pdfOptions,
+                htmlOptions: settings.htmlOptions,
+                docxOptions: settings.docxOptions,
+                previewFontFamily: settings.previewFontFamily,
+                editorTheme: settings.editorTheme ?? 'dark'
+            }),
+            this.context.globalState.get<string>(ACTIVE_OUTPUT_PRESET_STATE_KEY)
+        );
+        return settings;
     }
 
     /**

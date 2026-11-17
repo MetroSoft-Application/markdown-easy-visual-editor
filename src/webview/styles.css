@@ -2398,6 +2398,222 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     }
 }
 
+/*
+ * 出力プリセット: 既存の印刷設定ペインを広い2列UIへ拡張する。
+ * 左で名前付きプリセットを管理し、右の既存設定エディターはそのまま使用する。
+ */
+.ribbon-output-preset-select select {
+    min-width: 174px;
+    max-width: 218px;
+}
+
+.pdf-settings-panel.output-presets-settings-panel {
+    display: flex;
+    flex-direction: column;
+    flex: 0 0 min(780px, 87vw);
+    min-width: 0;
+    overflow: hidden;
+    padding-bottom: 0;
+}
+
+.output-presets-layout {
+    display: grid;
+    grid-template-columns: minmax(205px, 240px) minmax(0, 1fr);
+    flex: 1 1 auto;
+    gap: 0;
+    min-height: 0;
+    margin: 0 -12px;
+}
+
+.output-preset-manager,
+.output-presets-settings-content {
+    min-height: 0;
+    overflow: auto;
+    padding: 10px 14px 24px;
+    scrollbar-gutter: stable;
+}
+
+.output-preset-manager {
+    border-right: 1px solid var(--mve-border);
+    background: var(--vscode-sideBar-background, var(--mve-panel));
+}
+
+.output-preset-manager-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 5px;
+}
+
+.output-preset-manager-heading h3 {
+    margin: 0;
+    font-size: 13px;
+}
+
+.output-preset-manager button,
+.output-presets-tabs button {
+    border: 1px solid var(--mve-border);
+    border-radius: 4px;
+    padding: 6px 8px;
+    color: var(--vscode-foreground);
+    background: var(--vscode-button-secondaryBackground, var(--mve-panel));
+}
+
+.output-preset-manager button:hover:not(:disabled),
+.output-presets-tabs button:hover {
+    background: var(--mve-hover);
+}
+
+.output-preset-help {
+    margin: 8px 0 12px;
+    line-height: 1.5;
+    font-size: 11px;
+    color: var(--vscode-descriptionForeground);
+}
+
+.output-preset-list {
+    display: grid;
+    gap: 4px;
+    margin: 10px 0;
+}
+
+.output-preset-manager .output-preset-list-item {
+    display: grid;
+    gap: 3px;
+    width: 100%;
+    min-width: 0;
+    text-align: left;
+    background: transparent;
+}
+
+.output-preset-manager .output-preset-list-item.selected {
+    background: var(--vscode-list-activeSelectionBackground, var(--mve-active));
+    color: var(--vscode-list-activeSelectionForeground, var(--vscode-foreground));
+    border-color: var(--vscode-focusBorder);
+}
+
+.output-preset-list-name {
+    overflow-wrap: anywhere;
+    font-weight: 600;
+}
+
+.output-preset-list-meta,
+.output-preset-active {
+    font-size: 11px;
+    opacity: .8;
+}
+
+.output-preset-active {
+    color: var(--vscode-textLink-foreground, #2682cf);
+}
+
+.output-preset-buttons,
+.output-preset-share {
+    display: grid;
+    gap: 6px;
+    margin: 8px 0;
+}
+
+.output-preset-share {
+    grid-template-columns: 1fr 1fr;
+}
+
+.output-preset-confirmation {
+    margin: 10px 0;
+    padding: 8px;
+    border: 1px solid var(--vscode-inputValidation-warningBorder, var(--mve-border));
+    border-radius: 4px;
+    background: var(--vscode-inputValidation-warningBackground, var(--mve-panel));
+}
+
+.output-preset-confirmation p {
+    margin: 0 0 8px;
+}
+
+.output-preset-confirmation > div {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.output-preset-buttons button.primary {
+    color: var(--vscode-button-foreground, #fff);
+    background: var(--vscode-button-background, #0e639c);
+}
+
+.output-preset-manager .output-preset-delete {
+    color: var(--vscode-errorForeground, #f48771);
+}
+
+.output-presets-tabs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 5px;
+    position: sticky;
+    z-index: 1;
+    top: -10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--mve-border);
+    background: var(--mve-panel);
+}
+
+.output-presets-tabs button[aria-selected="true"] {
+    background: var(--mve-active);
+    border-color: var(--vscode-focusBorder);
+}
+
+.output-presets-settings-content [role="tabpanel"][hidden] {
+    display: none;
+}
+
+.pdf-settings-panel label.output-preset-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 12px 0;
+}
+
+.pdf-settings-panel .output-preset-checkbox input {
+    width: auto;
+    flex: 0 0 auto;
+}
+
+@media (max-width: 1100px) {
+    .workspace {
+        position: relative;
+    }
+
+    .pdf-settings-panel.output-presets-settings-panel {
+        position: absolute;
+        z-index: 35;
+        top: 0;
+        bottom: 0;
+        right: 0;
+        width: min(780px, 98vw);
+        flex-basis: auto;
+        border: 1px solid var(--mve-border);
+        box-shadow: 0 4px 22px rgb(0 0 0 / 22%);
+    }
+}
+
+@media (max-width: 540px) {
+    .output-presets-layout {
+        grid-template-columns: minmax(0, 1fr);
+        grid-template-rows: minmax(0, 46%) minmax(0, 54%);
+    }
+
+    .output-preset-manager {
+        border-right: 0;
+        border-bottom: 1px solid var(--mve-border);
+    }
+
+    .ribbon-output-preset-select select {
+        min-width: 115px;
+        max-width: 165px;
+    }
+}
+
+
 @media print {
 
     .ribbon,
