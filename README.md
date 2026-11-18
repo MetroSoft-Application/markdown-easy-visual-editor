@@ -313,7 +313,8 @@ p. A paragraph with *strong*, +inserted+, and @inline code@.
 1. Open the **Export** tab.
 2. Choose **Print settings** and configure the paper (A0–A6, B4, or B5), orientation, margins, header/footer, and typography.
    - Body, H1–H6, and code font sizes can be set independently.
-   - Font family, line height, and paragraph spacing can also be adjusted.
+   - Line height and paragraph spacing can also be adjusted. The font family follows **Preview font** on the **Settings** tab.
+   - Choose **Save new** to save the current print settings under a name, then switch between saved settings from the list in the panel or on the **Export** tab. Use **⋯** to overwrite, rename, delete, import, or export saved settings as JSON.
    - Add any number of regular-expression rules and replacement strings to change text in PDF previews, PDF output, and HTML output without modifying the Markdown source. The same rules also apply to DOCX output.
    - Body matches can span inline formatting, but do not cross paragraph, line-break, or link boundaries.
 3. Choose **Print preview** to review the result.
@@ -351,7 +352,7 @@ When linked Markdown conversion is enabled, each linked Markdown file is also wr
 The **DOCX** group on the **Export** tab saves the current document as an editable Word document.
 
 1. Open the **Export** tab.
-2. Set the page size, margins, fonts, header, footer, and replacement rules in **Print settings**. DOCX export uses the same print settings as PDF export.
+2. Set the page size, margins, font sizes, header, footer, and replacement rules in **Print settings**. DOCX export uses the same print settings as PDF export.
 3. Leave **Export directly to same folder** in the **DOCX** group enabled to save the DOCX beside the source Markdown file, or disable it to select the destination.
 4. Choose **Export DOCX**.
 5. Choose **Open** in the completion notification to open the file in the app associated with `.docx`.

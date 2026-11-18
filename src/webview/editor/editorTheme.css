@@ -433,6 +433,57 @@ body[data-editor-theme] .primary {
 }
 
 /*
+ * @style body[data-editor-theme] .pdf-settings-panel button.primary, 押されている向きボタン
+ * 印刷設定パネル内のボタン共通の塗り（上の指定）は詳細度が高く、主操作（PDF出力）と
+ * 選択中の向き（縦・横）まで同じ灰色にしてしまう。ホバー中も含めてアクセント色で区別する。
+ * 文字色は背景色トークンにし、ダークテーマの明るいアクセント上でもコントラストを保つ。
+ */
+body[data-editor-theme] .pdf-settings-panel button.primary,
+body[data-editor-theme] .pdf-settings-panel button.primary:hover:not(:disabled),
+body[data-editor-theme] .pdf-settings-panel .pdf-orientation-toggle button[aria-pressed="true"],
+body[data-editor-theme] .pdf-settings-panel .pdf-orientation-toggle button[aria-pressed="true"]:hover:not(:disabled) {
+    color: var(--mve-theme-bg) !important;
+    background: var(--mve-theme-accent) !important;
+    border-color: var(--mve-theme-accent) !important;
+}
+
+/*
+ * @style 印刷設定パネルの保存した設定のリンクとメニュー項目
+ * リンク型の操作（名前を付けて保存・元に戻す）とメニュー項目は、パネル内ボタン共通の灰色の箱にしない。
+ * リンクはホバー中も透明のままリンク色で示し、メニュー項目のホバーは共通指定のアクティブ色を使う。
+ */
+body[data-editor-theme] .pdf-settings-panel .output-preset-link,
+body[data-editor-theme] .pdf-settings-panel .output-preset-link:hover:not(:disabled) {
+    color: var(--mve-link) !important;
+    background: transparent !important;
+    border-color: transparent !important;
+}
+
+body[data-editor-theme] .pdf-settings-panel .output-preset-menu {
+    color: var(--mve-theme-text);
+    background: var(--mve-theme-surface-raised);
+    border-color: var(--mve-theme-border);
+}
+
+body[data-editor-theme] .pdf-settings-panel .output-preset-menu button {
+    background: transparent !important;
+    border-color: transparent !important;
+}
+
+/* キーボードでの移動先が見えるよう、フォーカス中の項目はホバーと同じアクティブ色にする。 */
+body[data-editor-theme] .pdf-settings-panel .output-preset-menu button:focus-visible {
+    background: var(--mve-theme-active) !important;
+}
+
+body[data-editor-theme] .pdf-settings-panel .output-preset-modified {
+    color: var(--vscode-notificationsWarningIcon-foreground);
+}
+
+body[data-editor-theme] .pdf-settings-panel .output-preset-menu .output-preset-menu-danger:not(:disabled) {
+    color: var(--vscode-errorForeground) !important;
+}
+
+/*
  * @style body[data-editor-theme] .cm-editor, body[data-editor-theme] .cm-scroller, body[data-editor-theme] .cm-content
  * CodeMirror本文領域にテーマの本文色とエディター背景を適用する。
  */

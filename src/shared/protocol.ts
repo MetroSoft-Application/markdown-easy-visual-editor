@@ -565,9 +565,12 @@ export interface WebviewSettings extends FontFamilySettings {
      * DOCX出力設定。旧Hostからの通知では未指定のため、受信側でnormalizeDocxExportSettingsにより既定値へ補う。
      */
     docxOptions?: DocxExportSettings;
-    /** ユーザー保存分と組込分の出力プリセット。 */
+    /** ユーザーが保存した出力設定の一覧。旧Hostでは未指定のため空一覧として扱う。 */
     outputPresets?: OutputPreset[];
-    /** 現在の出力設定が一致するプリセット。変更した場合は空文字列。 */
+    /**
+     * 最後に適用・保存したプリセットのID。現在の設定がその保存内容と一致するとは限らない。
+     * 削除済み・未設定の場合は空文字列。Webviewは resolveOutputPresetState で表示と変更有無を決める。
+     */
     activeOutputPresetId?: string;
 
     /**
@@ -854,6 +857,25 @@ export type HostToWebviewMessage =
          * 共有プロトコルへ渡す設定または境界値。
          */
         settings: WebviewSettings
+    }
+    | {
+        /**
+         * applyOutputPreset の処理が終わったことを要求元のWebviewだけへ知らせる。
+         * Hostは成否にかかわらず、書き込み後の settingsChanged を送ってからこの通知を送る。
+         * Webviewは選んだ時点で画面へ反映した値を、この通知を受けるまで古い settingsChanged で戻さない。
+         */
+        type: 'outputPresetApplied';
+        /** 要求された保存した設定のID。 */
+        presetId: string;
+        /**
+         * applyOutputPreset で受け取った要求番号をそのまま返す。同じ設定を続けて選んだときも、どの要求への応答かを区別する。
+         */
+        applyId: number;
+        /**
+         * 設定をすべて書き込めた場合はtrue。どちらの場合も直前の settingsChanged が実際の値なので、
+         * Webview は成否で処理を分けず、その値へ合わせる（記録・将来の通知表示用）。
+         */
+        succeeded: boolean
     }
     | {
         /**
@@ -1402,7 +1424,7 @@ export type WebviewToHostMessage =
         options: DocxExportSettings
     }
     | {
-        /** 現在のHTML/PDF/DOCX設定を名前付きプリセットとして保存・上書きする。 */
+        /** 現在の印刷設定（印刷設定パネルの項目: PDF設定。フォントは含めない）を名前を付けて保存・上書きする。 */
         type: 'saveOutputPreset';
         name: string;
         presetId?: string;
@@ -1415,19 +1437,31 @@ export type WebviewToHostMessage =
         name: string
     }
     | {
-        /** ユーザープリセットのコピーを新しい識別子で保存する。 */
-        type: 'duplicateOutputPreset';
-        presetId: string
-    }
-    | {
-        /** ユーザープリセットを削除する。組込プリセットは変更しない。 */
+        /** ユーザーが保存した設定を削除する（確認はしない）。現在の出力設定の値は変えない。 */
         type: 'deleteOutputPreset';
         presetId: string
     }
     | {
-        /** 設定全体を選択プリセットへ切り替える。 */
+        /**
+         * 削除した保存した設定を、削除前の位置・IDのまま戻し、最後に適用した設定として記録する（削除の「元に戻す」）。
+         * 削除できるのは選択中の設定だけなので、戻した設定は常に選択中に戻す。
+         * Hostは形式を検査し、同じIDや同じ名前が既にある場合は戻さずに失敗を通知する。
+         */
+        type: 'restoreOutputPreset';
+        /** 削除前の設定。Hostは未検証の値として扱う。 */
+        preset: OutputPreset;
+        /** 削除前の一覧での位置（0始まり）。整数でなければ末尾へ戻す。 */
+        index: number
+    }
+    | {
+        /**
+         * 印刷設定（PDF設定）を、選んだ保存した設定へ切り替える。フォント・テーマ・HTML・DOCX と「同じフォルダへ直接出力」は変えない。
+         * Hostは処理の成否にかかわらず settingsChanged の後に outputPresetApplied を返す。
+         */
         type: 'applyOutputPreset';
-        presetId: string
+        presetId: string;
+        /** Webview が要求ごとに増やす番号。Host は outputPresetApplied でそのまま返す。 */
+        applyId: number
     }
     | {
         /** 保存済みユーザープリセットをJSONファイルから取り込む。 */

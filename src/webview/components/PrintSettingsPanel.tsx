@@ -1,19 +1,20 @@
 /**
- * @fileoverview 印刷設定パネル（用紙、方向、ヘッダー・フッター、出力用の正規表現置換、余白、文字サイズ・行間）の React コンポーネント。
+ * @fileoverview 印刷設定パネル（保存した印刷設定、用紙と向き、余白、文字、ヘッダー・フッター、折りたたみの詳細設定）の React コンポーネント。
  * 実行境界は Webview。設定値は親から受け取り、変更は updatePdfOptions へ「現在値から次の値を作る関数」として渡す。
- * 正規化・Host への保存（デバウンス）は親が担当し、このコンポーネントは状態を持たない。
+ * 正規化・Host への保存（デバウンス）は親が担当し、このコンポーネントは詳細設定の開閉以外の状態を持たない。
+ * パネルは従来幅の1列とし、よく使う項目を上に、見出しサイズ・置換ルールなどは詳細設定へ折りたたむ。
+ * PDF出力ボタンはスクロールに関係なく常に見えるよう、パネル下端に固定する。
+ * HTML・DOCXの出力設定とテーマはリボンの既存項目で変更し、このパネルには置かない（二重管理を避けるため）。
  * 数値欄は入力途中の値を保持するため非制御（defaultValue）にし、フォーカス離脱時にだけ確定する。
  * 確定後に正規化で値が変わった場合も表示を合わせるため、key に現在値を含めて再生成する。
  */
-import React, { useState } from "react";
+import React from "react";
 import type { OutputPreset } from "../../shared/outputPresets";
-import type { DocxExportSettings, HtmlExportOptions } from "../../shared/protocol";
 import { OutputPresetManager } from "./OutputPresetManager";
 import {
   PDF_PAPER_FORMATS,
   isTextReplacementPatternValid,
   type NormalizedPdfOptions,
-  type EditorTheme,
   type PdfOptions,
   type TextReplacementRule,
 } from "../../shared/protocol";
@@ -30,23 +31,48 @@ interface PrintSettingsPanelProps {
   messages: Messages;
   /** 現在の正規化済みPDF設定。 */
   pdfOptions: NormalizedPdfOptions;
-  language: string;
-  previewFontFamily: string;
-  editorTheme: EditorTheme;
-  onPreviewFontFamilyChange: (value: string) => void;
-  onEditorThemeChange: (value: EditorTheme) => void;
+  /** ユーザーが保存した出力設定の一覧。 */
   outputPresets: readonly OutputPreset[];
-  activeOutputPresetId: string;
-  htmlOptions: HtmlExportOptions;
-  docxOptions: DocxExportSettings;
-  onHtmlOptionsChange: (options: HtmlExportOptions) => void;
-  onDocxSaveWithoutDialogChange: (enabled: boolean) => void;
+  /** 表示するプリセットID。空文字列はどのプリセットにも属さない設定。 */
+  outputPresetId: string;
+  /** 表示中のプリセットから設定を変えている場合はtrue。 */
+  outputPresetModified: boolean;
+  /**
+   * プリセットを適用する。変更の破棄にも使う。
+   * @param id - 適用するプリセットID。
+   */
   onPresetApply: (id: string) => void;
+  /**
+   * 現在の設定を保存する。
+   * @param name - 正規化済みの名前。
+   * @param presetId - 上書きする保存済みプリセットのID。新規保存では省略。
+   */
   onPresetSave: (name: string, presetId?: string) => void;
+  /**
+   * 保存済みプリセットの名前を変更する。
+   * @param id - 対象ID。
+   * @param name - 正規化済みの新しい名前。
+   */
   onPresetRename: (id: string, name: string) => void;
-  onPresetDuplicate: (id: string) => void;
+  /**
+   * 保存済みプリセットを削除する。
+   * @param id - 対象ID。
+   */
   onPresetDelete: (id: string) => void;
+  /**
+   * 削除した設定を削除前の位置のまま戻し、選択中にする。
+   * @param preset - 削除前の設定。
+   * @param index - 削除前の位置。
+   */
+  onPresetRestore: (preset: OutputPreset, index: number) => void;
+  /**
+   * 上書きした設定の中身を上書き前の内容へ戻す。
+   * @param preset - 上書き前の設定。
+   */
+  onPresetRevertOverwrite: (preset: OutputPreset) => void;
+  /** JSONからプリセットを読み込む。 */
   onPresetImport: () => void;
+  /** JSONへプリセットを書き出す。 */
   onPresetExport: () => void;
   /**
    * PDF設定を更新する。
@@ -55,12 +81,16 @@ interface PrintSettingsPanelProps {
   updatePdfOptions: (update: (current: NormalizedPdfOptions) => PdfOptions) => void;
   /** 閉じるボタンの処理。保留中の保存の確定とパネルの非表示は親が行う。 */
   onClose: () => void;
+  /** 印刷プレビューを開く。印刷プレビュー表示中はボタン自体を出さないため呼ばれない。 */
+  onPrintPreview: () => void;
+  /** 印刷プレビューを表示中ならtrue。 */
+  printPreviewActive: boolean;
   /** PDF出力ボタンの処理。 */
   onExportPdf: () => void;
 }
 
-/** 余白欄の並びと表示文言の対応。 */
-const MARGIN_SIDES = ["top", "right", "bottom", "left"] as const;
+/** 余白欄の並び。画面では上・下・左・右の順に1行で並べる。 */
+const MARGIN_SIDES = ["top", "bottom", "left", "right"] as const;
 
 /** 見出し文字サイズ欄の並び。 */
 const HEADINGS = ["h1", "h2", "h3", "h4", "h5", "h6"] as const;
@@ -207,55 +237,45 @@ function ReplacementRuleFields({
  * 印刷設定パネル。
  * @param messages - 表示文言。
  * @param pdfOptions - 現在の正規化済みPDF設定。
- * @param language - 出力設定の表示言語。
- * @param previewFontFamily - プレビューと出力で共通して使うフォント。
- * @param editorTheme - HTMLとプレビューに適用するテーマ。
- * @param onPreviewFontFamilyChange - 共通フォントの変更処理。
- * @param onEditorThemeChange - テーマの変更処理。
- * @param outputPresets - 利用可能な出力プリセット。
- * @param activeOutputPresetId - 現在の設定に一致するプリセットID。
- * @param htmlOptions - HTML出力設定。
- * @param docxOptions - DOCX出力設定。
- * @param onHtmlOptionsChange - HTML出力設定の変更処理。
- * @param onDocxSaveWithoutDialogChange - DOCX保存設定の変更処理。
+ * @param outputPresets - 保存した印刷設定の一覧。
+ * @param outputPresetId - 表示するプリセットID。
+ * @param outputPresetModified - 表示中のプリセットから変更されているか。
  * @param onPresetApply - プリセットの適用処理。
  * @param onPresetSave - 現在値の保存処理。
  * @param onPresetRename - プリセット名の変更処理。
- * @param onPresetDuplicate - プリセットの複製処理。
  * @param onPresetDelete - プリセットの削除処理。
+ * @param onPresetRestore - 削除した設定を戻す処理。
+ * @param onPresetRevertOverwrite - 上書きした設定を上書き前の内容へ戻す処理。
  * @param onPresetImport - JSONプリセットの読み込み処理。
  * @param onPresetExport - JSONプリセットの書き出し処理。
  * @param updatePdfOptions - 現在の設定から次の設定を作る関数を受け取り、正規化と保存を行う処理。
  * @param onClose - 閉じるボタンの処理。
+ * @param onPrintPreview - 印刷プレビューを開く処理。
+ * @param printPreviewActive - 印刷プレビュー表示中か。
  * @param onExportPdf - PDF出力ボタンの処理。
  * @returns 印刷設定パネルの要素。
  */
 export function PrintSettingsPanel({
   messages,
   pdfOptions,
-  language,
-  previewFontFamily,
-  editorTheme,
-  onPreviewFontFamilyChange,
-  onEditorThemeChange,
   outputPresets,
-  activeOutputPresetId,
-  htmlOptions,
-  docxOptions,
-  onHtmlOptionsChange,
-  onDocxSaveWithoutDialogChange,
+  outputPresetId,
+  outputPresetModified,
   onPresetApply,
   onPresetSave,
   onPresetRename,
-  onPresetDuplicate,
   onPresetDelete,
+  onPresetRestore,
+  onPresetRevertOverwrite,
   onPresetImport,
   onPresetExport,
   updatePdfOptions,
   onClose,
+  onPrintPreview,
+  printPreviewActive,
   onExportPdf,
 }: PrintSettingsPanelProps): React.JSX.Element {
-  const [settingsTab, setSettingsTab] = useState<"pdf" | "html" | "docx">("pdf");
+  const labels = messages.ribbon.labels;
   /**
    * 設定の1項目だけを差し替える。
    * @param key - 差し替える項目。
@@ -289,9 +309,9 @@ export function PrintSettingsPanel({
   } as const;
 
   return (
-    <aside className="pdf-settings-panel output-presets-settings-panel">
+    <aside className="pdf-settings-panel">
       <div className="panel-title">
-        <h2>{messages.app.printSettings}</h2>
+        <h2 title={messages.app.printSettingsHelp}>{messages.app.printSettings}</h2>
         <button
           type="button"
           className="panel-close-button"
@@ -302,346 +322,308 @@ export function PrintSettingsPanel({
           ×
         </button>
       </div>
-      <div className="output-presets-layout">
+      <div className="pdf-settings-body">
         <OutputPresetManager
-          language={language}
+          messages={messages}
           presets={outputPresets}
-          activePresetId={activeOutputPresetId}
+          presetId={outputPresetId}
+          modified={outputPresetModified}
           onApply={onPresetApply}
           onSave={onPresetSave}
           onRename={onPresetRename}
-          onDuplicate={onPresetDuplicate}
           onDelete={onPresetDelete}
+          onRestore={onPresetRestore}
+          onRevertOverwrite={onPresetRevertOverwrite}
           onImport={onPresetImport}
           onExport={onPresetExport}
         />
-        <div className="output-presets-settings-content">
-          <div className="output-presets-tabs" role="tablist" aria-label={messages.app.printSettings}>
-            <button type="button" role="tab" aria-selected={settingsTab === "pdf"}
-              onClick={() => setSettingsTab("pdf")}>{language === "ja" ? "共通・PDF" : "Common / PDF"}</button>
-            <button type="button" role="tab" aria-selected={settingsTab === "html"}
-              onClick={() => setSettingsTab("html")}>HTML</button>
-            <button type="button" role="tab" aria-selected={settingsTab === "docx"}
-              onClick={() => setSettingsTab("docx")}>DOCX</button>
-          </div>
-          <div role="tabpanel" hidden={settingsTab !== "html"}>
-            <h3>HTML</h3>
-            {([
-              ["embedImages", messages.ribbon.labels.embedImages],
-              ["convertLinkedMarkdown", messages.ribbon.labels.convertLinkedMarkdown],
-              ["showOutlineSidebar", messages.ribbon.labels.showOutlineSidebar],
-              ["saveWithoutDialog", messages.ribbon.labels.saveWithoutDialog],
-            ] as const).map(([key, label]) => (
-              <label key={key} className="output-preset-checkbox">
-                <input type="checkbox" checked={htmlOptions[key]}
-                  onChange={(event) => onHtmlOptionsChange({
-                    ...htmlOptions, [key]: event.currentTarget.checked,
-                  })} />
-                {label}
-              </label>
-            ))}
-          </div>
-          <div role="tabpanel" hidden={settingsTab !== "docx"}>
-            <h3>DOCX</h3>
-            <p>{language === "ja" ? "用紙・余白・フォントは共通・PDFの設定を使用します。" : "Paper, margins and typography use the Common / PDF settings."}</p>
-            <label className="output-preset-checkbox">
-              <input type="checkbox" checked={docxOptions.saveWithoutDialog}
-                onChange={(event) => onDocxSaveWithoutDialogChange(event.currentTarget.checked)} />
-              {messages.ribbon.labels.saveWithoutDialog}
-            </label>
-          </div>
-          <div role="tabpanel" hidden={settingsTab !== "pdf"}>
-      <p>{messages.app.printSettingsHelp}</p>
-      <label>
-        {language === "ja" ? "共通フォント" : "Shared font"}
-        <select value={previewFontFamily} onChange={(event) => onPreviewFontFamilyChange(event.currentTarget.value)}>
-          <option value="">{language === "ja" ? "既定のフォント" : "Default font"}</option>
-          <option value="Noto Sans JP">Noto Sans JP</option>
-          <option value="Yu Gothic UI">Yu Gothic UI</option>
-          <option value="Meiryo">Meiryo</option>
-          <option value="Arial">Arial</option>
-          <option value="Georgia">Georgia</option>
-          {previewFontFamily && !["Noto Sans JP", "Yu Gothic UI", "Meiryo", "Arial", "Georgia"].includes(previewFontFamily) && (
-            <option value={previewFontFamily}>{previewFontFamily}</option>
-          )}
-        </select>
-      </label>
-      <label>
-        {language === "ja" ? "出力・プレビューテーマ" : "Output / preview theme"}
-        <select value={editorTheme} onChange={(event) => onEditorThemeChange(event.currentTarget.value as EditorTheme)}>
-          <option value="light">{language === "ja" ? "ライト" : "Light"}</option>
-          <option value="dark">{language === "ja" ? "ダーク" : "Dark"}</option>
-        </select>
-      </label>
-      <label>
-        {messages.app.paper}
-        <select
-          value={pdfOptions.format}
-          onChange={
-            /**
-             * 選択された用紙サイズを反映する。
-             * @param event - 用紙サイズの選択イベント。
-             */
-            (event) => setOption("format", event.target.value as PdfOptions["format"])
-          }
-        >
-          {PDF_PAPER_FORMATS.map(
-            /**
-             * 用紙サイズの選択肢を作る。
-             * @param format - 用紙サイズ。
-             * @returns 選択肢の要素。
-             */
-            (format) => <option key={format}>{format}</option>)}
-        </select>
-      </label>
-      <label>
-        {messages.app.orientation}
-        <select
-          value={pdfOptions.orientation}
-          onChange={
-            /**
-             * 選択されたページ方向を反映する。
-             * @param event - ページ方向の選択イベント。
-             */
-            (event) => setOption("orientation", event.target.value as PdfOptions["orientation"])
-          }
-        >
-          <option value="portrait">{messages.app.portrait}</option>
-          <option value="landscape">{messages.app.landscape}</option>
-        </select>
-      </label>
-      {(["header", "footer"] as const).map(
-        /**
-         * ヘッダー・フッターの文字列欄を作る。
-         * @param field - 編集する項目。
-         * @returns ラベル付きの入力欄。
-         */
-        (field) => (
-          <label key={field}>
-            {messages.app[field]}
-            <input
-              value={pdfOptions[field]}
+        <div className="pdf-paper-row">
+          <label>
+            {messages.app.paper}
+            <select
+              className="pdf-paper-format"
+              value={pdfOptions.format}
               onChange={
                 /**
-                 * 入力された文字列を反映する。
-                 * @param event - 入力欄の変更イベント。
+                 * 選択された用紙サイズを反映する。
+                 * @param event - 用紙サイズの選択イベント。
                  */
-                (event) => setOption(field, event.target.value)
+                (event) => setOption("format", event.target.value as PdfOptions["format"])
               }
-            />
+            >
+              {PDF_PAPER_FORMATS.map(
+                /**
+                 * 用紙サイズの選択肢を作る。
+                 * @param format - 用紙サイズ。
+                 * @returns 選択肢の要素。
+                 */
+                (format) => <option key={format}>{format}</option>)}
+            </select>
           </label>
-        ))}
-      <fieldset className="output-text-replacement-fields">
-        <legend>{messages.app.outputReplacementRules}</legend>
-        <p className="output-replacement-help" id="output-replacement-help">
-          {messages.app.outputReplacementHelp}
-        </p>
-        {pdfOptions.textReplacements.map(
-          /**
-           * 置換ルール1件の編集欄を作る。
-           * @param rule - 置換ルール。
-           * @param index - ルールの位置。
-           * @returns 編集欄の要素。
-           */
-          (rule, index) => (
-            <ReplacementRuleFields
-              key={index}
-              messages={messages}
-              rule={rule}
-              index={index}
-              onChange={
-                /**
-                 * 対象ルールの1項目を更新する。存在しない位置なら何もしない。
-                 * @param field - 更新する項目。
-                 * @param value - 入力値。
-                 */
-                (field, value) => updateRules(
-                  /**
-                   * 対象ルールだけを差し替える。
-                   * @param rules - 現在のルール一覧の複製。
-                   * @returns 更新後の一覧。
-                   */
-                  (rules) => rules.map(
-                    /**
-                     * 対象位置のルールだけ項目を差し替える。
-                     * @param current - ルール。
-                     * @param currentIndex - ルールの位置。
-                     * @returns 更新後のルール。
-                     */
-                    (current, currentIndex) => currentIndex === index ? { ...current, [field]: value } : current))
-              }
-              onRemove={
-                /** 対象ルールを削除する。 */
-                () => updateRules(
-                  /**
-                   * 対象位置以外のルールを順序を保って残す。
-                   * @param rules - 現在のルール一覧の複製。
-                   * @returns 削除後の一覧。
-                   */
-                  (rules) => rules.filter(
-                    /**
-                     * 対象位置以外を残す。
-                     * @param _rule - ルール。
-                     * @param currentIndex - ルールの位置。
-                     * @returns 残すならtrue。
-                     */
-                    (_rule, currentIndex) => currentIndex !== index))
-              }
-            />
-          ))}
-        <button
-          type="button"
-          className="output-text-replacement-add"
-          onClick={
-            /** 空のルールを末尾へ追加する。 */
-            () => updateRules(
+          <div className="pdf-orientation-toggle" role="group" aria-label={messages.app.orientation}>
+            {(["portrait", "landscape"] as const).map(
               /**
-               * 空のルールを末尾へ追加する。
-               * @param rules - 現在のルール一覧の複製。
-               * @returns 追加後の一覧。
+               * 向きの切り替えボタンを作る。押されている側を aria-pressed で示す。
+               * @param orientation - ページの向き。
+               * @returns 切り替えボタン。
                */
-              (rules) => [...rules, { pattern: "", replacement: "" }])
-          }
-        >
-          {messages.app.addOutputReplacementRule}
-        </button>
-      </fieldset>
-      <fieldset className="pdf-margin-fields">
-        <legend>{messages.app.margins}</legend>
-        {MARGIN_SIDES.map(
-          /**
-           * 余白欄を作る。
-           * @param side - 余白の位置。
-           * @returns 数値欄の要素。
-           */
-          (side) => (
-            <NumberField
-              key={side}
-              label={marginLabels[side]}
-              keyPrefix={side}
-              value={pdfOptions.margins[side]}
-              min={0}
-              max={50}
-              onCommit={
-                /**
-                 * 余白を0〜50mmの整数へ丸めて確定する。
-                 * @param value - 入力値。
-                 */
-                (value) => updatePdfOptions(
-                  /**
-                   * 最新の設定の余白だけを差し替える。
-                   * @param current - 現在の正規化済みPDF設定。
-                   * @returns 余白を差し替えた設定。
-                   */
-                  (current) => ({ ...current, margins: { ...current.margins, [side]: clampPdfMargin(value) } }))
-              }
-            />
-          ))}
-      </fieldset>
-      <fieldset className="pdf-typography-fields">
-        <legend>{messages.app.typography}</legend>
-        <NumberField
-          label={<>{messages.app.bodyFontSize} (pt)</>}
-          keyPrefix="body"
-          value={pdfOptions.bodyFontSize}
-          min={6}
-          max={48}
-          step={0.5}
-          onCommit={
+              (orientation) => (
+                <button
+                  key={orientation}
+                  type="button"
+                  aria-pressed={pdfOptions.orientation === orientation}
+                  onClick={/** 押した側の向きに切り替える。 */ () => setOption("orientation", orientation)}
+                >
+                  {messages.app[orientation]}
+                </button>
+              ))}
+          </div>
+        </div>
+        <fieldset className="pdf-margin-fields">
+          <legend>{messages.app.margins}</legend>
+          {MARGIN_SIDES.map(
             /**
-             * 本文の文字サイズを確定する。範囲外の値は親の正規化で補正する。
-             * @param value - 入力値。
-             */
-            (value) => setOption("bodyFontSize", Number(value))
-          }
-        />
-        <fieldset className="pdf-heading-fields">
-          <legend>{messages.app.headingFontSizes} (pt)</legend>
-          {HEADINGS.map(
-            /**
-             * 見出しレベルごとの文字サイズ欄を作る。
-             * @param heading - 見出しレベル。
+             * 余白欄を作る。
+             * @param side - 余白の位置。
              * @returns 数値欄の要素。
              */
-            (heading) => (
+            (side) => (
               <NumberField
-                key={heading}
-                label={heading.toUpperCase()}
-                keyPrefix={heading}
-                value={pdfOptions.headingFontSizes[heading]}
-                min={6}
-                max={72}
-                step={0.5}
+                key={side}
+                label={marginLabels[side]}
+                keyPrefix={side}
+                value={pdfOptions.margins[side]}
+                min={0}
+                max={50}
                 onCommit={
                   /**
-                   * 見出しの文字サイズを確定する。
+                   * 余白を0〜50mmの整数へ丸めて確定する。
                    * @param value - 入力値。
                    */
                   (value) => updatePdfOptions(
                     /**
-                     * 最新の設定の見出しサイズだけを差し替える。
+                     * 最新の設定の余白だけを差し替える。
                      * @param current - 現在の正規化済みPDF設定。
-                     * @returns 見出しサイズを差し替えた設定。
+                     * @returns 余白を差し替えた設定。
                      */
-                    (current) => ({
-                      ...current,
-                      headingFontSizes: { ...current.headingFontSizes, [heading]: Number(value) },
-                    }))
+                    (current) => ({ ...current, margins: { ...current.margins, [side]: clampPdfMargin(value) } }))
                 }
               />
             ))}
         </fieldset>
-        <NumberField
-          label={<>{messages.app.codeFontSize} (pt)</>}
-          keyPrefix="code"
-          value={pdfOptions.codeFontSize}
-          min={6}
-          max={36}
-          step={0.5}
-          onCommit={
-            /**
-             * コードの文字サイズを確定する。
-             * @param value - 入力値。
-             */
-            (value) => setOption("codeFontSize", Number(value))
-          }
-        />
-        <NumberField
-          label={messages.app.lineHeight}
-          keyPrefix="line-height"
-          value={pdfOptions.lineHeight}
-          min={0.8}
-          max={3}
-          step={0.05}
-          onCommit={
-            /**
-             * 行間を確定する。
-             * @param value - 入力値。
-             */
-            (value) => setOption("lineHeight", Number(value))
-          }
-        />
-        <NumberField
-          label={<>{messages.app.paragraphSpacing} (pt)</>}
-          keyPrefix="paragraph-spacing"
-          value={pdfOptions.paragraphSpacing}
-          min={0}
-          max={48}
-          step={0.5}
-          onCommit={
-            /**
-             * 段落間隔を確定する。
-             * @param value - 入力値。
-             */
-            (value) => setOption("paragraphSpacing", Number(value))
-          }
-        />
-      </fieldset>
-      <button type="button" className="primary" onClick={onExportPdf}>
-        {messages.ribbon.labels.exportPdf}
-      </button>
+        <fieldset className="pdf-typography-fields">
+          <legend>{messages.app.typography}</legend>
+          <div className="pdf-field-pair">
+            <NumberField
+              label={<>{messages.app.bodyFontSize} (pt)</>}
+              keyPrefix="body"
+              value={pdfOptions.bodyFontSize}
+              min={6}
+              max={48}
+              step={0.5}
+              onCommit={
+                /**
+                 * 本文の文字サイズを確定する。範囲外の値は親の正規化で補正する。
+                 * @param value - 入力値。
+                 */
+                (value) => setOption("bodyFontSize", Number(value))
+              }
+            />
+            <NumberField
+              label={messages.app.lineHeight}
+              keyPrefix="line-height"
+              value={pdfOptions.lineHeight}
+              min={0.8}
+              max={3}
+              step={0.05}
+              onCommit={
+                /**
+                 * 行間を確定する。
+                 * @param value - 入力値。
+                 */
+                (value) => setOption("lineHeight", Number(value))
+              }
+            />
           </div>
+        </fieldset>
+        <div className="pdf-header-footer-fields">
+          {(["header", "footer"] as const).map(
+            /**
+             * ヘッダー・フッターの文字列欄を作る。
+             * @param field - 編集する項目。
+             * @returns ラベル付きの入力欄。
+             */
+            (field) => (
+              <label key={field}>
+                {messages.app[field]}
+                <input
+                  value={pdfOptions[field]}
+                  onChange={
+                    /**
+                     * 入力された文字列を反映する。
+                     * @param event - 入力欄の変更イベント。
+                     */
+                    (event) => setOption(field, event.target.value)
+                  }
+                />
+              </label>
+            ))}
         </div>
+        <details className="pdf-advanced-settings">
+          <summary>{labels.advancedPrintSettings}</summary>
+          <fieldset className="pdf-heading-fields">
+            <legend>{messages.app.headingFontSizes} (pt)</legend>
+            {HEADINGS.map(
+              /**
+               * 見出しレベルごとの文字サイズ欄を作る。
+               * @param heading - 見出しレベル。
+               * @returns 数値欄の要素。
+               */
+              (heading) => (
+                <NumberField
+                  key={heading}
+                  label={heading.toUpperCase()}
+                  keyPrefix={heading}
+                  value={pdfOptions.headingFontSizes[heading]}
+                  min={6}
+                  max={72}
+                  step={0.5}
+                  onCommit={
+                    /**
+                     * 見出しの文字サイズを確定する。
+                     * @param value - 入力値。
+                     */
+                    (value) => updatePdfOptions(
+                      /**
+                       * 最新の設定の見出しサイズだけを差し替える。
+                       * @param current - 現在の正規化済みPDF設定。
+                       * @returns 見出しサイズを差し替えた設定。
+                       */
+                      (current) => ({
+                        ...current,
+                        headingFontSizes: { ...current.headingFontSizes, [heading]: Number(value) },
+                      }))
+                  }
+                />
+              ))}
+          </fieldset>
+          <div className="pdf-field-pair">
+            <NumberField
+              label={<>{messages.app.codeFontSize} (pt)</>}
+              keyPrefix="code"
+              value={pdfOptions.codeFontSize}
+              min={6}
+              max={36}
+              step={0.5}
+              onCommit={
+                /**
+                 * コードの文字サイズを確定する。
+                 * @param value - 入力値。
+                 */
+                (value) => setOption("codeFontSize", Number(value))
+              }
+            />
+            <NumberField
+              label={<>{messages.app.paragraphSpacing} (pt)</>}
+              keyPrefix="paragraph-spacing"
+              value={pdfOptions.paragraphSpacing}
+              min={0}
+              max={48}
+              step={0.5}
+              onCommit={
+                /**
+                 * 段落間隔を確定する。
+                 * @param value - 入力値。
+                 */
+                (value) => setOption("paragraphSpacing", Number(value))
+              }
+            />
+          </div>
+          <fieldset className="output-text-replacement-fields">
+            <legend title={messages.app.outputReplacementHelp}>{messages.app.outputReplacementRules}</legend>
+            {/* 入力欄の aria-describedby が参照する説明。画面には出さず、支援技術にだけ読ませる。 */}
+            <span className="output-replacement-help mve-visually-hidden" id="output-replacement-help">
+              {messages.app.outputReplacementHelp}
+            </span>
+            {pdfOptions.textReplacements.map(
+              /**
+               * 置換ルール1件の編集欄を作る。
+               * @param rule - 置換ルール。
+               * @param index - ルールの位置。
+               * @returns 編集欄の要素。
+               */
+              (rule, index) => (
+                <ReplacementRuleFields
+                  key={index}
+                  messages={messages}
+                  rule={rule}
+                  index={index}
+                  onChange={
+                    /**
+                     * 対象ルールの1項目を更新する。存在しない位置なら何もしない。
+                     * @param field - 更新する項目。
+                     * @param value - 入力値。
+                     */
+                    (field, value) => updateRules(
+                      /**
+                       * 対象ルールだけを差し替える。
+                       * @param rules - 現在のルール一覧の複製。
+                       * @returns 更新後の一覧。
+                       */
+                      (rules) => rules.map(
+                        /**
+                         * 対象位置のルールだけ項目を差し替える。
+                         * @param current - ルール。
+                         * @param currentIndex - ルールの位置。
+                         * @returns 更新後のルール。
+                         */
+                        (current, currentIndex) => currentIndex === index ? { ...current, [field]: value } : current))
+                  }
+                  onRemove={
+                    /** 対象ルールを削除する。 */
+                    () => updateRules(
+                      /**
+                       * 対象位置以外のルールを順序を保って残す。
+                       * @param rules - 現在のルール一覧の複製。
+                       * @returns 削除後の一覧。
+                       */
+                      (rules) => rules.filter(
+                        /**
+                         * 対象位置以外を残す。
+                         * @param _rule - ルール。
+                         * @param currentIndex - ルールの位置。
+                         * @returns 残すならtrue。
+                         */
+                        (_rule, currentIndex) => currentIndex !== index))
+                  }
+                />
+              ))}
+            <button
+              type="button"
+              className="output-text-replacement-add"
+              onClick={
+                /** 空のルールを末尾へ追加する。 */
+                () => updateRules(
+                  /**
+                   * 空のルールを末尾へ追加する。
+                   * @param rules - 現在のルール一覧の複製。
+                   * @returns 追加後の一覧。
+                   */
+                  (rules) => [...rules, { pattern: "", replacement: "" }])
+              }
+            >
+              {messages.app.addOutputReplacementRule}
+            </button>
+          </fieldset>
+        </details>
+      </div>
+      <div className="pdf-settings-footer">
+        {!printPreviewActive && (
+          <button type="button" onClick={onPrintPreview}>{labels.printPreview}</button>
+        )}
+        <button type="button" className="primary" onClick={onExportPdf}>
+          {labels.exportPdf}
+        </button>
       </div>
     </aside>
   );

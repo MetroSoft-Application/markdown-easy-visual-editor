@@ -58,7 +58,8 @@ import {
 import { drawioImageMarkdown } from "../../shared/drawioSvg";
 import {
   normalizeOutputPresetValues,
-  selectedOutputPresetId,
+  resolveOutputPresetState,
+  type OutputPreset,
   type OutputPresetValues,
 } from "../../shared/outputPresets";
 import type { EditorLinkTarget } from "../editor/cmLinkNavigation";
@@ -632,6 +633,27 @@ export function App(): React.JSX.Element {
    * 変更したPDF設定をHostへまとめて送信するための遅延保存タイマーID。
    */
   const pdfOptionsPersistTimerRef = useRef<number | undefined>(undefined);
+  /**
+   * 選んだ直後に画面へ出した保存した設定。Hostが書き込みを終えた通知（outputPresetApplied）を受けるまで保持し、
+   * その間に届く settingsChanged の印刷設定（PDF設定。フォントと「同じフォルダへ直接出力」を除く）をこの値で置き換える。連続で選んだ場合は最後の要求だけを持つ。
+   * 同じ設定を続けて選ぶ（A→B→A、「変更を破棄」での再適用）と設定IDだけでは古い完了通知と区別できないため、要求番号で照合する。
+   */
+  const pendingOutputPresetRef = useRef<
+    { preset: OutputPreset; applyId: number } | undefined
+  >(undefined);
+  /**
+   * 保存した設定の適用要求に付ける番号の最後の値。Webview の寿命の間だけ単調に増やす。
+   * 再読み込み前の要求への完了通知が遅れて届いても新しい要求と番号が重ならないよう、起動時刻（ミリ秒）から始める。
+   */
+  const outputPresetRequestIdRef = useRef(Date.now());
+  /**
+   * applyHostSettings へ最後に渡した置き換え前の設定。保存した設定の適用を終えたときや失敗したときに、実際の値へ戻すために使う。
+   * 選んだ直後だけは画面の設定が入るが、Hostは完了通知の前に settingsChanged を送るため、完了時には実際の値になっている。
+   * 例外: Host の設定通知自体が失敗した場合は完了通知だけが届き、画面は選ぶ前の値へ戻る（固まるよりは安全な側に倒す）。
+   */
+  const lastHostSettingsRef = useRef<WebviewSettings | undefined>(
+    bootstrap?.settings,
+  );
   const [htmlOptions, setHtmlOptions] = useState<HtmlExportOptions>(() => ({
     ...mergeHtmlExportOptions(
       DEFAULT_HTML_EXPORT_OPTIONS,
@@ -658,26 +680,17 @@ export function App(): React.JSX.Element {
   const docxOptionsRef = useRef(docxOptions);
   const outputPresets = settings.outputPresets ?? [];
   // 入力・スクロール時の再レンダーでは全プリセットの深い照合を繰り返さない。
-  const activeOutputPresetId = useMemo(
-    () => selectedOutputPresetId(
+  // リボンとパネルは同じ結果を表示し、「選択中なのに未保存」のような食い違いを作らない。
+  const outputPresetState = useMemo(
+    () => resolveOutputPresetState(
       outputPresets,
-      normalizeOutputPresetValues({
-        pdfOptions,
-        htmlOptions,
-        docxOptions,
-        previewFontFamily: settings.previewFontFamily,
-        editorTheme: settings.editorTheme ?? "dark",
-      }),
+      normalizeOutputPresetValues({ pdfOptions }),
       settings.activeOutputPresetId,
     ),
     [
       settings.outputPresets,
       settings.activeOutputPresetId,
-      settings.previewFontFamily,
-      settings.editorTheme,
       pdfOptions,
-      htmlOptions,
-      docxOptions,
     ],
   );
   /**
@@ -2001,6 +2014,9 @@ export function App(): React.JSX.Element {
         applyHostSettings(message.settings);
         if (message.settings.viewMode)
           setSplitView(restoreViewMode(message.settings.viewMode));
+        return;
+      case "outputPresetApplied":
+        finishOutputPresetApply(message.applyId);
         return;
       case "mermaidRendered":
         acceptMermaidRenderResult(message);
@@ -3472,27 +3488,47 @@ export function App(): React.JSX.Element {
     );
   }
 
-  /** 現在のPDF・HTML・DOCXとプレビュー共通設定をプリセットとして取得する。 */
+  /**
+   * 保存・比較に使う現在の印刷設定（印刷設定パネルの項目: PDF設定）を取得する。
+   * @returns フォントと「同じフォルダへ直接出力」を除いた、正規化済みの印刷設定。
+   */
   function currentOutputPresetValues(): OutputPresetValues {
-    return normalizeOutputPresetValues({
-      pdfOptions: pdfOptionsRef.current,
-      htmlOptions: htmlOptionsRef.current,
-      docxOptions: docxOptionsRef.current,
-      previewFontFamily: settings.previewFontFamily,
-      editorTheme: settings.editorTheme ?? "dark",
-    });
+    return normalizeOutputPresetValues({ pdfOptions: pdfOptionsRef.current });
   }
 
-  /** Hostの設定更新を受けて出力形式すべてを切り替える。 */
+  /**
+   * 保存した設定を選んだ時点で画面へ反映し、Hostへ書き込みを依頼する。
+   * Hostは出力設定の構成キーを1件ずつ書くため、書き込み完了を待つと選択欄と各項目の表示が遅れる（利用者の環境では数秒）。
+   * 書き込み中に届く古い settingsChanged は applyHostSettings で選んだ値に置き換え、完了通知で実際の値へ戻す。
+   * @param presetId - 適用する保存した設定のID。一覧に無いIDは無視する。
+   */
   function applyOutputPreset(presetId: string): void {
-    if (!(settings.outputPresets ?? []).some((preset) => preset.id === presetId)) return;
-    if (pdfOptionsPersistTimerRef.current !== undefined) {
-      window.clearTimeout(pdfOptionsPersistTimerRef.current);
-      pdfOptionsPersistTimerRef.current = undefined;
-    }
-    pendingHtmlOptionsRef.current = undefined;
-    pendingDocxOptionsRef.current = undefined;
-    vscode.postMessage({ type: "applyOutputPreset", presetId });
+    const preset = (settings.outputPresets ?? []).find((item) => item.id === presetId);
+    if (!preset) return;
+    // 直前の PDF 設定の変更（「同じフォルダへ直接出力」を含む）は捨てずに先に送る。Host は送った順に処理するので、
+    // 印刷設定の項目は続く適用で上書きされ、保存した設定に含まれない項目は直前の変更のまま残る。
+    // HTML・DOCX の保存待ちは印刷設定と関係ないので触らない。
+    flushPdfOptionsPersistence();
+    outputPresetRequestIdRef.current += 1;
+    const applyId = outputPresetRequestIdRef.current;
+    pendingOutputPresetRef.current = { preset, applyId };
+    // 現在の画面の設定を土台にする。Hostは成否にかかわらず完了通知の前に最新の設定を送るため、
+    // ここで lastHostSettingsRef が画面の値になっても、完了時には実際の値で置き換わっている。
+    // PDF 設定は保存待ちの最新値（直前に切り替えた「同じフォルダへ直接出力」など）を使い、一瞬でも前の値に戻さない。
+    applyHostSettings({ ...settings, pdfOptions: pdfOptionsRef.current });
+    vscode.postMessage({ type: "applyOutputPreset", presetId, applyId });
+  }
+
+  /**
+   * Hostが保存した設定の適用を終えたら、画面の値を最後に受け取った実際の設定へ合わせる。
+   * 後から別の要求を送っている場合は、その書き込みが終わるまで選んだ値を保つ。成否で処理は分けない
+   * （Hostは完了通知の直前に実際の設定を送るため、どちらの場合もその値へ合わせればよい）。
+   * @param applyId - 処理を終えた適用要求の番号。
+   */
+  function finishOutputPresetApply(applyId: number): void {
+    if (pendingOutputPresetRef.current?.applyId !== applyId) return;
+    pendingOutputPresetRef.current = undefined;
+    if (lastHostSettingsRef.current) applyHostSettings(lastHostSettingsRef.current);
   }
 
   /** プリセットの保存前に現在のPDF設定をHostへ確定する。 */
@@ -4636,10 +4672,29 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * Webviewルートの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-   * @param nextSettings - Webviewルートへ渡す設定または境界値。
+   * Hostから受け取った設定を画面の状態へ反映する。保存待ちのPDF・HTML・DOCX設定と、
+   * 書き込み中の保存した設定（pendingOutputPresetRef）は画面の値を優先する。
+   * @param hostSettings - Hostが送った設定。置き換え前の値として lastHostSettingsRef に記録する。
    */
-  function applyHostSettings(nextSettings: WebviewSettings): void {
+  function applyHostSettings(hostSettings: WebviewSettings): void {
+    lastHostSettingsRef.current = hostSettings;
+    // 保存した設定の書き込み中は、選んだ値を画面に保つ（書き込み前の値で一瞬戻さない）。
+    const pendingPreset = pendingOutputPresetRef.current?.preset;
+    const hostPdfOptions = pendingPreset
+      ? normalizePdfOptions(hostSettings.pdfOptions ?? DEFAULT_PDF_OPTIONS)
+      : undefined;
+    const nextSettings: WebviewSettings = pendingPreset && hostPdfOptions
+      ? {
+          ...hostSettings,
+          // 保存した設定に含まれないフォントと「同じフォルダへ直接出力」は、Host の今の値のまま保つ。
+          pdfOptions: {
+            ...pendingPreset.pdfOptions,
+            fontFamily: hostPdfOptions.fontFamily,
+            saveWithoutDialog: hostPdfOptions.saveWithoutDialog,
+          },
+          activeOutputPresetId: pendingPreset.id,
+        }
+      : hostSettings;
     const enabled = nextSettings.scrollSyncEnabled !== false;
     scrollSyncEnabledRef.current = enabled;
     if (!enabled) cancelPendingCrossPaneScrollSync();
@@ -5438,7 +5493,8 @@ export function App(): React.JSX.Element {
         htmlOptions={htmlOptions}
         pdfSaveWithoutDialog={pdfOptions.saveWithoutDialog}
         outputPresets={outputPresets}
-        activeOutputPresetId={activeOutputPresetId}
+        outputPresetId={outputPresetState.presetId}
+        outputPresetModified={outputPresetState.modified}
         onOutputPresetSelect={applyOutputPreset}
         docxOptions={docxOptions}
         onDocxSaveWithoutDialogChange={handleDocxSaveWithoutDialogChange}
@@ -5833,29 +5889,33 @@ export function App(): React.JSX.Element {
           <PrintSettingsPanel
             messages={messages}
             pdfOptions={pdfOptions}
-            language={settings.language}
-            previewFontFamily={settings.previewFontFamily}
-            editorTheme={settings.editorTheme ?? "dark"}
-            onPreviewFontFamilyChange={(previewFontFamily) => handleRibbon({
-              type: "setFontFamilies",
-              editorFontFamily: settings.editorFontFamily,
-              previewFontFamily,
-            })}
-            onEditorThemeChange={(theme) => {
-              setSettings((current) => ({ ...current, editorTheme: theme }));
-              vscode.postMessage({ type: "setEditorTheme", theme });
-            }}
             outputPresets={outputPresets}
-            activeOutputPresetId={activeOutputPresetId}
-            htmlOptions={htmlOptions}
-            docxOptions={docxOptions}
-            onHtmlOptionsChange={handleHtmlOptionsChange}
-            onDocxSaveWithoutDialogChange={handleDocxSaveWithoutDialogChange}
+            outputPresetId={outputPresetState.presetId}
+            outputPresetModified={outputPresetState.modified}
             onPresetApply={applyOutputPreset}
             onPresetSave={saveOutputPreset}
             onPresetRename={(presetId, name) => vscode.postMessage({ type: "renameOutputPreset", presetId, name })}
-            onPresetDuplicate={(presetId) => vscode.postMessage({ type: "duplicateOutputPreset", presetId })}
             onPresetDelete={(presetId) => vscode.postMessage({ type: "deleteOutputPreset", presetId })}
+            onPresetRestore={
+              /**
+               * 削除した設定を削除前の位置のまま戻すよう Host へ依頼する。
+               * @param preset - 削除前の設定。
+               * @param index - 削除前の位置。
+               */
+              (preset, index) => vscode.postMessage({ type: "restoreOutputPreset", preset, index })
+            }
+            onPresetRevertOverwrite={
+              /**
+               * 上書きした設定を上書き前の内容で保存し直すよう Host へ依頼する。今の出力設定の値は変えない。
+               * @param preset - 上書き前の設定。
+               */
+              (preset) => vscode.postMessage({
+                type: "saveOutputPreset",
+                name: preset.name,
+                presetId: preset.id,
+                values: normalizeOutputPresetValues(preset),
+              })
+            }
             onPresetImport={() => vscode.postMessage({ type: "importOutputPresets" })}
             onPresetExport={() => vscode.postMessage({ type: "exportOutputPresets" })}
             updatePdfOptions={updatePdfOptions}
@@ -5866,6 +5926,11 @@ export function App(): React.JSX.Element {
                 setPrintSettingsVisible(false);
               }
             }
+            onPrintPreview={
+              /** リボンの印刷プレビューと同じ経路で開く（設定の確定とパネルの閉じ方を揃える）。 */
+              () => handleRibbon({ type: "togglePrintPreview" })
+            }
+            printPreviewActive={printPreview}
             onExportPdf={/** PDF を出力する。 */ () => void requestPdfExport()}
           />
         )}

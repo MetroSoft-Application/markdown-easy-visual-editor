@@ -76,3 +76,7 @@
 ## 2.1.0
 
 - Added DOCX (Word) export to the Export tab, the command palette, and the Explorer.
+
+## 2.1.1
+
+- Added saved print settings that can be named, switched, and shared as JSON.

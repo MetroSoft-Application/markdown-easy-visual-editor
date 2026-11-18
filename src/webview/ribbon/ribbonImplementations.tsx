@@ -34,6 +34,7 @@ import type {
   TableAction,
 } from "./ribbonTypes";
 import { isConvertButtonDisabled } from "./ribbonConvert";
+import { OutputPresetSelect } from "../components/OutputPresetManager";
 
 const button = /**
  * リボンボタンのコマンド処理と表示状態を定義する。
@@ -743,28 +744,27 @@ export const RIBBON_IMPLEMENTATIONS: Record<
     ),
   ),
   outputPresetSelect: control(
-    /** 表示中のプリセット名を選び、PDF・HTML・DOCX設定を一括適用する。 */
-    (context, definition, resolveLabel) => (
-      <label className="ribbon-select-label ribbon-output-preset-select">
-        {resolveLabel(definition.label)}
-        <select
-          aria-label={resolveLabel(definition.label)}
-          value={context.activeOutputPresetId}
-          onChange={(event) => {
-            if (event.target.value) context.onOutputPresetSelect(event.target.value);
-          }}
-        >
-          <option value="">{context.messages.ribbon.labels.customPreset}</option>
-          {context.outputPresets.map((preset) => (
-            <option key={preset.id} value={preset.id}>{preset.name}</option>
-          ))}
-        </select>
-      </label>
+    /**
+     * 保存した印刷設定を選んだ時点で、印刷設定（PDF設定）を適用する。フォントは変えない。
+     * 印刷設定パネルと同じ選択欄・同じ変更有無を表示し、保存などの操作はパネル側のメニューに置く。
+     * 項目名はグループ名と同じ文言なので選択欄の上には出さない（読み上げ名は選択欄の aria-label が持つ）。
+     * 上段は「変更あり」専用で、表示の有無で選択欄の位置が動かないよう高さを確保する（CSS 側）。
+     */
+    (context) => (
+      <div className="ribbon-select-label ribbon-output-preset-select">
+        <span className="ribbon-output-preset-caption">
+          {context.outputPresetModified && (
+            <span className="output-preset-modified">{context.messages.ribbon.labels.presetModified}</span>
+          )}
+        </span>
+        <OutputPresetSelect
+          messages={context.messages}
+          presets={context.outputPresets}
+          presetId={context.outputPresetId}
+          onApply={context.onOutputPresetSelect}
+        />
+      </div>
     ),
-  ),
-  manageOutputPresets: button(
-    /** プリセットの保存・名前変更・複製・削除・共有画面を開く。 */
-    ({ onCommand }) => onCommand({ type: "openPrintSettings" }),
   ),
   openPrintSettings: button(
     /**

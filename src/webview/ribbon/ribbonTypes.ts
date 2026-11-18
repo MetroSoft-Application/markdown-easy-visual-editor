@@ -331,10 +331,13 @@ export interface RibbonImplementationContext extends RibbonButtonState {
     /** PDF出力時に保存先ダイアログを省略する設定。 */
     pdfSaveWithoutDialog: boolean;
 
-    /** 出力プリセット一覧と、適用中のプリセット。 */
+    /** ユーザーが保存した出力設定の一覧。 */
     outputPresets: readonly OutputPreset[];
-    activeOutputPresetId: string;
-    /** 選択したプリセットへ出力設定全体を切り替える。 */
+    /** 表示するプリセットID。空文字列はどのプリセットにも属さない設定。 */
+    outputPresetId: string;
+    /** 表示中のプリセットから設定を変えている場合はtrue。印刷設定パネルと同じ値を使う。 */
+    outputPresetModified: boolean;
+    /** 選んだ保存した印刷設定へ印刷設定（PDF設定）を切り替える。フォントは変えない。 */
     onOutputPresetSelect: (presetId: string) => void;
 
     /** DOCX出力グループのチェック状態と、DOCX出力ボタンが送る設定。 */

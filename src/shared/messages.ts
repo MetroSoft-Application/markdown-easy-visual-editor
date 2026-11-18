@@ -568,12 +568,54 @@ export interface Messages {
              */
             exportDocx: string;
 
-            /** 出力設定プリセットの選択欄。 */
+            /**
+             * 保存した印刷設定の選択欄の名前。リボン（出力タブ）と印刷設定パネルで共有する。
+             * リボンでは PDF・HTML・DOCX と並ぶため、印刷設定だけを保存していることが分かる語にする。
+             */
             outputPreset: string;
-            /** プリセットの管理画面を開くボタン。 */
-            managePresets: string;
-            /** 現在の設定が保存済みプリセットと一致しない場合。 */
+            /** 基準にするプリセットがなく、現在の設定がどのプリセットとも一致しない場合の選択肢。 */
             customPreset: string;
+            /** 印刷設定パネルのプリセット操作メニューを開くボタンの名前とツールチップ。 */
+            outputPresetActions: string;
+            /**
+             * 保存した設定を今の値で上書きする操作の名前。メニュー項目、状態行のリンク、同じ名前で新規保存するときの確定ボタンに使う。
+             * 「保存」(savePreset) と区別できる語にする（同じ語だと、新規保存が上書きになることが伝わらない）。
+             */
+            overwritePreset: string;
+            /** 現在の設定を新しい名前で保存するメニュー項目。 */
+            savePresetAs: string;
+            /** 印刷設定パネルで常に表示する、今の設定を新しい名前で保存するボタン（2件目以降の追加の入口）。 */
+            addSavedSettings: string;
+            /** 名前変更で既存と同じ名前を入れたとき、変更できない理由として名前欄の下に表示する文（新規保存では上書きになるため出さない）。 */
+            duplicateSavedSettingsName: string;
+            /** 保存済みプリセットの名前を変更するメニュー項目。 */
+            renamePreset: string;
+            /** 適用中のプリセットの保存内容へ設定を戻すメニュー項目。 */
+            discardPresetChanges: string;
+            /** 保存済みプリセットを削除するメニュー項目と確認ボタン。 */
+            deletePreset: string;
+            /** 保存済みプリセットをJSONから読み込むメニュー項目。 */
+            importPresets: string;
+            /** 保存済みプリセットをJSONへ書き出すメニュー項目。 */
+            exportPresets: string;
+            /** 適用中のプリセットから設定を変えたことを示す表示。 */
+            presetModified: string;
+            /** 変更を破棄してプリセットの保存内容へ戻すリンク。 */
+            revertPreset: string;
+            /** 名前を付けて保存・名前変更で使う名前入力欄のラベル。 */
+            presetName: string;
+            /** 名前入力欄の内容で保存を確定するボタン。 */
+            savePreset: string;
+            /** 名前入力を取り消すボタン。 */
+            cancelPresetEdit: string;
+            /** 削除した直後に状態行へ出す文言。{name} に削除した設定の名前を入れる。 */
+            presetDeleted: string;
+            /** 上書きした直後に状態行へ出す文言。{name} に上書きした設定の名前を入れる。 */
+            presetOverwritten: string;
+            /** 直前の削除・上書きを取り消すリンクの文言。 */
+            undoSavedSettingsChange: string;
+            /** 印刷設定パネルで折りたたむ詳細設定の見出し。 */
+            advancedPrintSettings: string;
 
             /**
              * 画像を埋め込む書式コマンドのラベルとして表示するローカライズ済み文言。

@@ -162,10 +162,13 @@ interface Props {
   /** PDF出力時に保存先ダイアログを省略する設定。 */
   pdfSaveWithoutDialog: boolean;
 
-  /** 利用可能な出力プリセットと現在の選択。 */
+  /** 保存した印刷設定の一覧。 */
   outputPresets: readonly OutputPreset[];
-  activeOutputPresetId: string;
-  /** 選択した出力プリセットをすべての出力設定へ適用する。 */
+  /** 表示するプリセットID。空文字列はどのプリセットにも属さない設定。 */
+  outputPresetId: string;
+  /** 表示中のプリセットから設定を変えている場合はtrue。 */
+  outputPresetModified: boolean;
+  /** 選んだ保存した印刷設定を適用する（印刷設定パネルの項目だけ）。 */
   onOutputPresetSelect: (presetId: string) => void;
 
   /** DOCX出力グループのチェック状態と、DOCX出力ボタンが送る設定。 */
@@ -227,9 +230,10 @@ interface Props {
  * @param splitView 本文とプレビューを並べて表示する状態。
  * @param htmlOptions HTML出力で使うフォントと余白の設定。
  * @param pdfSaveWithoutDialog PDF保存先ダイアログを省略する設定。
- * @param outputPresets 利用可能な出力プリセット。
- * @param activeOutputPresetId 現在の設定に一致するプリセットID。
- * @param onOutputPresetSelect 出力プリセットを選択した場合の操作。
+ * @param outputPresets 保存した印刷設定の一覧。
+ * @param outputPresetId 表示するプリセットID。
+ * @param outputPresetModified 表示中のプリセットから設定を変えているか。
+ * @param onOutputPresetSelect 保存した印刷設定を選んだ場合の操作。
  * @param docxOptions DOCX出力の保存設定。
  * @param imageDirectory ローカル画像を保存するディレクトリ。
  * @param editorFontFamily 本文編集面に使うフォント名。
@@ -253,7 +257,8 @@ export function Ribbon({
   htmlOptions,
   pdfSaveWithoutDialog,
   outputPresets,
-  activeOutputPresetId,
+  outputPresetId,
+  outputPresetModified,
   onOutputPresetSelect,
   docxOptions,
   imageDirectory,
@@ -311,7 +316,8 @@ export function Ribbon({
     htmlOptions,
     pdfSaveWithoutDialog,
     outputPresets,
-    activeOutputPresetId,
+    outputPresetId,
+    outputPresetModified,
     onOutputPresetSelect,
     docxOptions,
     imageDirectory,

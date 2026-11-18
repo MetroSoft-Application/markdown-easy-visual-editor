@@ -136,7 +136,7 @@ export const RIBBON_LAYOUT: RibbonLayoutDefinition = {
             groups: [
                 {
                     id: "presets",
-                    itemIds: ["outputPresetSelect", "manageOutputPresets"],
+                    itemIds: ["outputPresetSelect"],
                 },
                 {
                     id: "pdf",

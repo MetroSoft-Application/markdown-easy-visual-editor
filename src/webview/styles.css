@@ -2399,214 +2399,364 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
 }
 
 /*
- * 出力プリセット: 既存の印刷設定ペインを広い2列UIへ拡張する。
- * 左で名前付きプリセットを管理し、右の既存設定エディターはそのまま使用する。
+ * @style 印刷設定パネル（1列）と出力プリセット
+ * 従来幅（330px）の1列パネルに、プリセット行、用紙・向き、余白、文字、ヘッダー・フッター、
+ * 折りたたみの詳細設定を上から並べる。本文だけをスクロールし、印刷プレビュー・PDF出力は下端に固定する。
+ * 枠線は詳細設定の中の入れ子（見出しサイズ・置換ルール）だけに残し、主要項目は見出しと余白で区切る。
+ * 色はすべてVS Codeのテーマ変数から取り、ライト・ダーク・ハイコントラストに追従する。
  */
-.ribbon-output-preset-select select {
-    min-width: 174px;
-    max-width: 218px;
-}
-
-.pdf-settings-panel.output-presets-settings-panel {
+.pdf-settings-panel {
     display: flex;
     flex-direction: column;
-    flex: 0 0 min(780px, 87vw);
-    min-width: 0;
-    overflow: hidden;
     padding-bottom: 0;
+    overflow: hidden;
 }
 
-.output-presets-layout {
-    display: grid;
-    grid-template-columns: minmax(205px, 240px) minmax(0, 1fr);
+.pdf-settings-body {
     flex: 1 1 auto;
-    gap: 0;
-    min-height: 0;
-    margin: 0 -12px;
-}
-
-.output-preset-manager,
-.output-presets-settings-content {
     min-height: 0;
     overflow: auto;
-    padding: 10px 14px 24px;
-    scrollbar-gutter: stable;
+    margin: 0 -12px;
+    padding: 0 12px 16px;
 }
 
-.output-preset-manager {
-    border-right: 1px solid var(--mve-border);
-    background: var(--vscode-sideBar-background, var(--mve-panel));
-}
-
-.output-preset-manager-heading {
+.pdf-settings-footer {
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 5px;
-}
-
-.output-preset-manager-heading h3 {
-    margin: 0;
-    font-size: 13px;
-}
-
-.output-preset-manager button,
-.output-presets-tabs button {
-    border: 1px solid var(--mve-border);
-    border-radius: 4px;
-    padding: 6px 8px;
-    color: var(--vscode-foreground);
-    background: var(--vscode-button-secondaryBackground, var(--mve-panel));
-}
-
-.output-preset-manager button:hover:not(:disabled),
-.output-presets-tabs button:hover {
-    background: var(--mve-hover);
-}
-
-.output-preset-help {
-    margin: 8px 0 12px;
-    line-height: 1.5;
-    font-size: 11px;
-    color: var(--vscode-descriptionForeground);
-}
-
-.output-preset-list {
-    display: grid;
-    gap: 4px;
-    margin: 10px 0;
-}
-
-.output-preset-manager .output-preset-list-item {
-    display: grid;
-    gap: 3px;
-    width: 100%;
-    min-width: 0;
-    text-align: left;
-    background: transparent;
-}
-
-.output-preset-manager .output-preset-list-item.selected {
-    background: var(--vscode-list-activeSelectionBackground, var(--mve-active));
-    color: var(--vscode-list-activeSelectionForeground, var(--vscode-foreground));
-    border-color: var(--vscode-focusBorder);
-}
-
-.output-preset-list-name {
-    overflow-wrap: anywhere;
-    font-weight: 600;
-}
-
-.output-preset-list-meta,
-.output-preset-active {
-    font-size: 11px;
-    opacity: .8;
-}
-
-.output-preset-active {
-    color: var(--vscode-textLink-foreground, #2682cf);
-}
-
-.output-preset-buttons,
-.output-preset-share {
-    display: grid;
-    gap: 6px;
-    margin: 8px 0;
-}
-
-.output-preset-share {
-    grid-template-columns: 1fr 1fr;
-}
-
-.output-preset-confirmation {
-    margin: 10px 0;
-    padding: 8px;
-    border: 1px solid var(--vscode-inputValidation-warningBorder, var(--mve-border));
-    border-radius: 4px;
-    background: var(--vscode-inputValidation-warningBackground, var(--mve-panel));
-}
-
-.output-preset-confirmation p {
-    margin: 0 0 8px;
-}
-
-.output-preset-confirmation > div {
-    display: flex;
-    flex-wrap: wrap;
+    flex: 0 0 auto;
+    justify-content: flex-end;
     gap: 8px;
-}
-
-.output-preset-buttons button.primary {
-    color: var(--vscode-button-foreground, #fff);
-    background: var(--vscode-button-background, #0e639c);
-}
-
-.output-preset-manager .output-preset-delete {
-    color: var(--vscode-errorForeground, #f48771);
-}
-
-.output-presets-tabs {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 5px;
-    position: sticky;
-    z-index: 1;
-    top: -10px;
-    padding: 8px 0;
-    border-bottom: 1px solid var(--mve-border);
+    margin: 0 -12px;
+    padding: 10px 12px;
+    border-top: 1px solid var(--mve-border);
     background: var(--mve-panel);
 }
 
-.output-presets-tabs button[aria-selected="true"] {
-    background: var(--mve-active);
-    border-color: var(--vscode-focusBorder);
+.pdf-settings-footer button {
+    padding: 5px 12px;
+    border: 1px solid var(--vscode-button-border, var(--mve-border));
+    color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+    background: var(--vscode-button-secondaryBackground, transparent);
 }
 
-.output-presets-settings-content [role="tabpanel"][hidden] {
-    display: none;
+.pdf-settings-footer button.primary {
+    color: var(--vscode-button-foreground);
+    background: var(--vscode-button-background);
 }
 
-.pdf-settings-panel label.output-preset-checkbox {
+.pdf-settings-footer button:hover {
+    background: var(--vscode-button-secondaryHoverBackground, var(--mve-hover));
+}
+
+.pdf-settings-footer button.primary:hover {
+    background: var(--vscode-button-hoverBackground, var(--vscode-button-background));
+}
+
+/* 主要項目の区切りは枠ではなく見出しにする。詳細設定内の入れ子の枠は既存の指定を使う。 */
+.pdf-settings-body > .pdf-margin-fields,
+.pdf-settings-body > .pdf-typography-fields {
+    margin: 14px 0 0;
+    padding: 0;
+    border: 0;
+}
+
+.pdf-settings-body > .pdf-margin-fields legend,
+.pdf-settings-body > .pdf-typography-fields legend {
+    padding: 0;
+    margin-bottom: 2px;
+}
+
+.pdf-settings-body > .pdf-margin-fields {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0 6px;
+}
+
+.pdf-settings-body > .pdf-margin-fields label {
+    margin: 2px 0;
+    color: var(--vscode-descriptionForeground);
+    font-size: 11px;
+}
+
+.pdf-settings-panel input[type="number"] {
+    font-variant-numeric: tabular-nums;
+}
+
+.pdf-field-pair {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 8px;
+}
+
+.pdf-paper-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.pdf-paper-row label {
+    margin: 0;
+}
+
+/* 向きは2択のため、選択欄ではなく押されている側が分かる切り替えボタンにする。 */
+.pdf-orientation-toggle {
+    display: inline-flex;
+    border: 1px solid var(--vscode-input-border, var(--mve-border));
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.pdf-orientation-toggle button {
+    min-width: 40px;
+    padding: 5px 10px;
+    border: 0;
+    color: var(--vscode-foreground);
+    background: var(--vscode-input-background);
+}
+
+.pdf-orientation-toggle button + button {
+    border-left: 1px solid var(--vscode-input-border, var(--mve-border));
+}
+
+.pdf-orientation-toggle button[aria-pressed="true"] {
+    color: var(--vscode-button-foreground);
+    background: var(--vscode-button-background);
+}
+
+.pdf-orientation-toggle button:focus-visible {
+    outline: 1px solid var(--vscode-focusBorder);
+    outline-offset: -1px;
+}
+
+.pdf-header-footer-fields {
+    margin-top: 6px;
+}
+
+.pdf-advanced-settings {
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px solid var(--mve-border);
+}
+
+.pdf-advanced-settings summary {
+    cursor: pointer;
+    color: var(--vscode-descriptionForeground);
+}
+
+.pdf-advanced-settings summary:hover,
+.pdf-advanced-settings[open] summary {
+    color: var(--vscode-foreground);
+}
+
+/* 画面には出さず、支援技術にだけ読ませる説明文。 */
+.mve-visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* プリセット行: 選択欄と操作メニュー。管理操作はメニューに入れ、常時表示しない。 */
+.output-preset-manager {
+    display: grid;
+    gap: 6px;
+}
+
+.output-preset-row {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin: 12px 0;
+    gap: 6px;
 }
 
-.pdf-settings-panel .output-preset-checkbox input {
-    width: auto;
+.output-preset-row .output-preset-select {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.output-preset-add-button {
+    flex: 0 0 auto;
+    height: 28px;
+    padding: 0 8px;
+    border: 1px solid var(--vscode-input-border, var(--mve-border));
+    white-space: nowrap;
+    color: var(--vscode-foreground);
+    background: var(--vscode-input-background);
+}
+
+.output-preset-menu-anchor {
+    position: relative;
     flex: 0 0 auto;
 }
 
-@media (max-width: 1100px) {
-    .workspace {
-        position: relative;
-    }
+.output-preset-menu-button {
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--vscode-input-border, var(--mve-border));
+    color: var(--vscode-foreground);
+    background: var(--vscode-input-background);
+}
 
-    .pdf-settings-panel.output-presets-settings-panel {
-        position: absolute;
-        z-index: 35;
-        top: 0;
-        bottom: 0;
-        right: 0;
-        width: min(780px, 98vw);
-        flex-basis: auto;
-        border: 1px solid var(--mve-border);
-        box-shadow: 0 4px 22px rgb(0 0 0 / 22%);
-    }
+.output-preset-menu-button:hover,
+.output-preset-menu-button[aria-expanded="true"] {
+    background: var(--mve-hover);
+}
+
+.output-preset-menu {
+    position: absolute;
+    z-index: 40;
+    top: calc(100% + 4px);
+    right: 0;
+    min-width: 200px;
+    padding: 4px;
+    border: 1px solid var(--vscode-menu-border, var(--mve-border));
+    border-radius: 4px;
+    color: var(--vscode-menu-foreground, var(--vscode-foreground));
+    background: var(--vscode-menu-background, var(--mve-panel));
+    box-shadow: 0 4px 16px rgb(0 0 0 / 30%);
+}
+
+.output-preset-menu button {
+    display: block;
+    width: 100%;
+    padding: 5px 10px;
+    border: 0;
+    border-radius: 3px;
+    text-align: left;
+    color: inherit;
+    background: transparent;
+}
+
+.output-preset-menu button:hover:not(:disabled),
+.output-preset-menu button:focus-visible {
+    outline: none;
+    color: var(--vscode-menu-selectionForeground, var(--vscode-foreground));
+    background: var(--vscode-menu-selectionBackground, var(--mve-active));
+}
+
+.output-preset-menu button:disabled {
+    opacity: .45;
+}
+
+.output-preset-menu hr {
+    margin: 4px 0;
+    border: 0;
+    border-top: 1px solid var(--vscode-menu-separatorBackground, var(--mve-border));
+}
+
+.output-preset-menu .output-preset-menu-danger:not(:disabled) {
+    color: var(--vscode-errorForeground, #f48771);
+}
+
+/* 「変更あり」は保存の要否を示す状態なので、警告色の点と文字で示す。 */
+.output-preset-modified {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--vscode-editorWarning-foreground, #cca700);
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.output-preset-modified::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+/* 状態の領域は読み上げのため常に置く。空のときは行間の余白も打ち消して高さを持たせない。 */
+.output-preset-status:empty {
+    margin-top: -6px;
+}
+
+.output-preset-status {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 10px;
+}
+
+.pdf-settings-panel .output-preset-link {
+    padding: 0;
+    border: 0;
+    color: var(--vscode-textLink-foreground);
+    background: transparent;
+    font-size: 12px;
+}
+
+.pdf-settings-panel .output-preset-link:hover {
+    color: var(--vscode-textLink-activeForeground, var(--vscode-textLink-foreground));
+    text-decoration: underline;
+}
+
+.output-preset-name-edit {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.output-preset-name-edit input {
+    flex: 1 1 140px;
+    width: auto;
+    min-width: 0;
+}
+
+/* 名前が既存と重なるとき、保存できない理由を名前欄の下に1行で示す。 */
+.output-preset-name-error {
+    flex: 1 1 100%;
+    margin: 0;
+    color: var(--vscode-errorForeground, #f48771);
+    font-size: 11px;
+}
+
+.output-preset-name-edit input[aria-invalid="true"] {
+    border-color: var(--vscode-inputValidation-errorBorder, #be1100);
+}
+
+.output-preset-name-edit button {
+    padding: 4px 10px;
+    border: 1px solid var(--vscode-button-border, var(--mve-border));
+    color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+    background: var(--vscode-button-secondaryBackground, transparent);
+}
+
+.output-preset-name-edit button.primary {
+    color: var(--vscode-button-foreground);
+    background: var(--vscode-button-background);
+}
+
+.output-preset-name-edit button:disabled {
+    opacity: .5;
+}
+
+/* 削除と上書きは確認なしで行うため、何をしたかを状態行に控えめな文字で示し、隣に「元に戻す」を置く。 */
+.output-preset-change {
+    color: var(--vscode-descriptionForeground);
+    font-size: 11px;
+}
+
+/* リボンの保存した印刷設定欄: 項目名はグループ名と重複するので出さず、上段は「変更あり」だけを置く。
+   「変更あり」の有無で選択欄が上下に動かないよう、上段は空でも1行分（11px の文字）の高さを確保する。 */
+.ribbon-output-preset-caption {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 15px;
+}
+
+.ribbon-output-preset-select select {
+    min-width: 170px;
+    max-width: 220px;
 }
 
 @media (max-width: 540px) {
-    .output-presets-layout {
-        grid-template-columns: minmax(0, 1fr);
-        grid-template-rows: minmax(0, 46%) minmax(0, 54%);
-    }
-
-    .output-preset-manager {
-        border-right: 0;
-        border-bottom: 1px solid var(--mve-border);
-    }
-
     .ribbon-output-preset-select select {
         min-width: 115px;
         max-width: 165px;

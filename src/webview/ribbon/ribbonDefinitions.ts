@@ -399,9 +399,6 @@ export const RIBBON_DEFINITIONS: RibbonDefinitions = {
         outputPresetSelect: {
             label: { kind: "message", path: "ribbon.labels.outputPreset" },
         },
-        manageOutputPresets: {
-            label: { kind: "message", path: "ribbon.labels.managePresets" },
-        },
         openPrintSettings: {
             label: { kind: "message", path: "app.printSettings" },
         },

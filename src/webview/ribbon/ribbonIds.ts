@@ -109,7 +109,6 @@ export type RibbonItemId =
     | "savePdfWithoutDialog"
     | "exportPdf"
     | "outputPresetSelect"
-    | "manageOutputPresets"
     | "embedImages"
     | "convertLinkedMarkdown"
     | "showOutlineSidebar"
