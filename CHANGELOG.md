@@ -80,3 +80,8 @@
 ## 2.1.1
 
 - Added saved print settings that can be named, switched, and shared as JSON.
+
+## 2.1.2
+
+- Table editor fits sizes to content, widens columns while typing, and adds Auto-fit.
+- Table editor applies changes on close and keeps the caret in place on line-break edits.

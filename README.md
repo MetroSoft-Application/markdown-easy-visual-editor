@@ -111,7 +111,9 @@ Insert links, images, tables, horizontal rules, line breaks, blank lines (`<br>`
 
 Place the cursor inside a Markdown table to:
 
-- Open the table editor and edit cells directly.
+- Open the table editor and edit cells directly. Column widths and row heights fit the cell contents when it opens, and a column widens while you type so the text does not wrap.
+- Click **Auto-fit** to fit column widths and row heights to the contents of the selected range, or of the whole table.
+- Close the table editor with ×, Esc, or Ctrl+Enter to apply the changes; press Ctrl+Z in the editor to undo them.
 - Add or delete rows and columns.
 - Copy rows and columns, and drag row and column headers to reorder them.
 - Toggle the header row.

@@ -1912,6 +1912,10 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
           return;
         case "cellBreak":
           replaceSelection("<br>");
+          // リボンの「セル内改行」ボタンを押すとフォーカスがボタンへ移り、ソースのカーソルが消えて
+          // 続けて入力できなかった。挿入した<br>の直後にカーソルを置いたまま編集面へフォーカスを戻す。
+          // Alt+Enterから呼ばれた場合は既にフォーカスがあり、focus()は何もしない。
+          viewRef.current?.focus();
           return;
         case "clearInline":
           edit = clearInlineFormatting(

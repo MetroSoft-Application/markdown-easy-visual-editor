@@ -1553,7 +1553,7 @@ export interface Messages {
             title: string;
 
             /**
-             * 閉じる操作のラベルとして表示するローカライズ済み文言。
+             * 表編集の×ボタンのラベル（ツールチップと読み上げ）。閉じると変更が反映されることを示す。
              */
             close: string;
 
@@ -1613,17 +1613,7 @@ export interface Messages {
             copyRow: string;
 
             /**
-             * キャンセル操作のラベルとして表示するローカライズ済み文言。
-             */
-            cancel: string;
-
-            /**
-             * 表示項目「apply」の文言として表示するローカライズ済み文言。
-             */
-            apply: string;
-
-            /**
-             * 操作部品のツールチップとして表示するローカライズ済み文言。
+             * 表編集のフッターに出す操作ヒント。セル内改行、セル移動と、閉じると反映されること（Esc / Ctrl+Enter）を示す。
              */
             navigationHint: string;
 
@@ -1650,12 +1640,13 @@ export interface Messages {
             copied: string;
 
             /**
-             * 本文編集面・closed操作のラベルとして表示するローカライズ済み文言。
+             * 表編集を閉じて反映しようとしたときに、ソースエディターが閉じられていて反映できないことを伝える文言。
              */
             sourceEditorClosed: string;
 
             /**
-             * 表示項目「文書の変更」の文言として表示するローカライズ済み文言。
+             * 表編集を閉じて反映しようとしたときに、編集中に本文が外部で変更されていて反映できないことを伝え、
+             * 「破棄して閉じる」から開き直すよう促す文言。
              */
             documentChanged: string;
 
@@ -1675,21 +1666,22 @@ export interface Messages {
             resizeEditor: string;
 
             /**
-             * 適用前の変更がある状態を示すラベル。
-             */
-            modified: string;
-            /**
-             * 適用前の変更を破棄する確認文。
-             */
-            discard: string;
-            /**
-             * 破棄確認で、未適用の変更を捨てて表編集を閉じるボタンのラベル。
+             * 閉じる操作での反映に失敗したとき（本文の外部変更など）に表示する、未反映の変更を捨てて
+             * 表編集を閉じるボタンのラベル。
              */
             discardAndClose: string;
             /**
-             * 破棄確認を取り消し、表編集を開いたまま作業へ戻るボタンのラベル。
+             * 表編集ツールバーの「自動調整」ボタンを入れるグループの見出し。
              */
-            keepEditing: string;
+            sizeGroup: string;
+            /**
+             * 列幅・行高をセルの内容に合わせるボタンのラベル。
+             */
+            autoFit: string;
+            /**
+             * 「自動調整」ボタンのツールチップ。対象（選択範囲、または1セル選択時は表全体）を説明する。
+             */
+            autoFitTitle: string;
             /**
              * 現在の選択範囲を示すラベル。
              */
@@ -2578,8 +2570,6 @@ function createMessages(language: SupportedLanguage): Messages {
                 copyTsv: raw.app.tableEditor.copyTsv,
                 copyColumn: raw.app.tableEditor.copyColumn,
                 copyRow: raw.app.tableEditor.copyRow,
-                cancel: raw.app.tableEditor.cancel,
-                apply: raw.app.tableEditor.apply,
                 navigationHint: raw.app.tableEditor.navigationHint,
                 sourceEditorRequired: raw.app.tableEditor.sourceEditorRequired,
                 tableRequired: raw.app.tableEditor.tableRequired,
@@ -2597,10 +2587,10 @@ function createMessages(language: SupportedLanguage): Messages {
                 resizeColumn: raw.app.tableEditor.resizeColumn,
                 resizeRow: raw.app.tableEditor.resizeRow,
                 resizeEditor: raw.app.tableEditor.resizeEditor,
-                modified: raw.app.tableEditor.modified,
-                discard: raw.app.tableEditor.discard,
                 discardAndClose: raw.app.tableEditor.discardAndClose,
-                keepEditing: raw.app.tableEditor.keepEditing,
+                sizeGroup: raw.app.tableEditor.sizeGroup,
+                autoFit: raw.app.tableEditor.autoFit,
+                autoFitTitle: raw.app.tableEditor.autoFitTitle,
                 selection: raw.app.tableEditor.selection,
                 cells: raw.app.tableEditor.cells,
                 selectAll: raw.app.tableEditor.selectAll,

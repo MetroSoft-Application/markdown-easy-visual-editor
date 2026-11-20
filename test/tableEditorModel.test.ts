@@ -17,6 +17,7 @@ import {
     tableEditorCellStoredValue,
     deleteTableEditorLineBreakBeforeDisplayOffset,
     insertTableEditorLineBreak,
+    mapTableEditorCaretAfterNormalization,
     remapTableEditorSortState,
     sortTableEditorRows
 } from '../src/webview/table-editor/tableEditorModel';
@@ -295,5 +296,43 @@ describe('table editor model',
                 );
                 expect(tsvEdit?.text).toContain('| A\\|B | 日本語 |');
                 expect(markdownTableToTsv(tsvEdit!.text, tsvEdit!.selection)).toContain('A|B\t日本語');
+            });
+
+        it('keeps the caret where a partially deleted <br> was after normalization',
+            /**
+             * Delete キーや `<br>` 直後の Backspace でブラウザーが `<br>` の一部だけを消すと、正規化で
+             * `<br>` と表示用改行がまとめて除かれる。このとき caret が末尾へ飛ぶ不具合の再発を、
+             * 正規化結果と caret 写像の組で検出する。
+             */
+            () => {
+                const stored = 'foo<br>bar';
+                // "foo|<br>" で Delete: ブラウザーは '<' だけを消す。
+                const afterDelete = 'foobr>\nbar';
+                const normalizedDelete = tableEditorCellDisplayValue(tableEditorCellStoredValue(afterDelete, stored));
+                expect(normalizedDelete).toBe('foobar');
+                expect(mapTableEditorCaretAfterNormalization(afterDelete, 3, normalizedDelete)).toBe(3);
+                // "foo<br>|\n" で Backspace: ブラウザーは '>' だけを消す。
+                const afterBackspace = 'foo<br\nbar';
+                const normalizedBackspace = tableEditorCellDisplayValue(tableEditorCellStoredValue(afterBackspace, stored));
+                expect(normalizedBackspace).toBe('foobar');
+                expect(mapTableEditorCaretAfterNormalization(afterBackspace, 6, normalizedBackspace)).toBe(3);
+            });
+
+        it('maps carets before, after and inside the normalized range',
+            /**
+             * 変更区間より前は維持、後ろは削除量だけ移動、範囲外の入力は丸めることを検証する。
+             */
+            () => {
+                expect(mapTableEditorCaretAfterNormalization('abc', 2, 'abc')).toBe(2);
+                expect(mapTableEditorCaretAfterNormalization('abc', 99, 'abc')).toBe(3);
+                expect(mapTableEditorCaretAfterNormalization('abc', -1, 'abc')).toBe(0);
+                expect(mapTableEditorCaretAfterNormalization('ab<x\ncd', 7, 'abcd')).toBe(4);
+                expect(mapTableEditorCaretAfterNormalization('ab<x\ncd', 6, 'abcd')).toBe(3);
+                // 変更区間の内側は区間の先頭へ丸める。
+                expect(mapTableEditorCaretAfterNormalization('ab<x\ncd', 4, 'abcd')).toBe(2);
+                expect(mapTableEditorCaretAfterNormalization('ab<x\ncd', 1, 'abcd')).toBe(1);
+                // 削除が無効化され表示用改行が戻る場合は、編集位置に留まる。
+                expect(mapTableEditorCaretAfterNormalization('foo<br>bar', 7, 'foo<br>\nbar')).toBe(7);
+                expect(mapTableEditorCaretAfterNormalization('', 0, '')).toBe(0);
             });
     });

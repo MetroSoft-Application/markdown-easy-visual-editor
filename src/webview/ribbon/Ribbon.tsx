@@ -595,6 +595,25 @@ export function Ribbon({
   return (
     <header
       className={`ribbon ${collapsed ? "collapsed" : ""}`}
+      onMouseDown={
+        /**
+         * ソースエディターで編集中にリボンのボタンをマウスで押しても、エディターからフォーカスとカーソルを
+         * 奪わない。奪われるとカーソルが消え、太字・見出し・セル内改行などを押した後に続けて入力できなかった。
+         *
+         * フォーカスがソースエディター以外（リボンの入力欄など）にあるときは止めない。入力欄の多くは
+         * フォーカスが外れたとき（blur）に値を確定するため、止めると確定前の古い値でボタンの処理が
+         * 動いたり、確定されないまま入力欄が消えたりする。入力欄・選択欄そのもののクリックも対象外。
+         * キーボード（Tab移動してEnter/Space）での操作には影響しない。
+         * @param event - リボン内のmousedown event。
+         */
+        (event) => {
+          if (event.button !== 0) return;
+          if (!document.activeElement?.closest(".source-editor")) return;
+          if (event.target instanceof Element && event.target.closest("button")) {
+            event.preventDefault();
+          }
+        }
+      }
       onClickCapture={
         /**
          * button内の子要素から押されたリボン項目を特定して対応する選択状態を更新する。
