@@ -2283,7 +2283,11 @@ try {
   await sourceEditor.press('ArrowDown');
   await sourceEditor.press('End');
   await sourceEditor.type('  \nX');
-  await page.waitForFunction(() => window.__mveHostText.includes('second  \n')).catch(async (error) => { console.error('DIAG', JSON.stringify(await page.evaluate(() => ({ host: window.__mveHostText.slice(0, 160), active: String(document.activeElement?.className), held: window.__mveHeldOperations.length, msgs: window.__mveMessages.slice(-6).map((m) => m.type), dom: document.querySelector('.split-editor .cm-content')?.innerText.slice(0, 160) })))); throw error; });
+  await page.waitForFunction(
+  /**
+   * Host側の本文状態が完了条件を満たすまで待機する。
+   */
+  () => window.__mveHostText.includes('second  \n'));
   if ((await page.evaluate(
   /**
    * HostとWebviewのメッセージ状態のfilter結果を読み取り、検証用の値へ変換する。
