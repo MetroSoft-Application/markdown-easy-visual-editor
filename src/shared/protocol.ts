@@ -1060,9 +1060,21 @@ export type HostToWebviewMessage =
         command: 'insertImage' | 'exportPdf' | 'exportHtml' | 'exportDocx' | 'undo' | 'redo'
     }
     | {
+        /**
+         * Webviewの表示を本文上の位置へ移動させるHostコマンド。見出しリンクと「行へ移動」（Ctrl+G）から送る。
+         */
         type: 'hostCommand';
+        /** 本文位置への移動を示すコマンド種別。 */
         command: 'navigateToOffset';
+        /** 移動先のLF正規化本文内UTF-16オフセット。0未満・非整数はWebviewが無視する。 */
         offset: number;
+        /**
+         * trueなら「行へ移動」（Ctrl+G）として扱う。移動先の行をソースエディターの表示領域の先頭に置き、
+         * 入力ボックスを閉じた後もそのまま入力を続けられるようソースエディターへフォーカスを戻す。
+         * 省略時（旧形式・見出しリンク）は従来どおり中央に表示し、フォーカスを動かさない。
+         * ソースエディターを表示しないモード（プレビューのみ、Marpプレビュー）ではプレビューの移動だけを行う。
+         */
+        goToLine?: boolean;
     }
     | {
         /**

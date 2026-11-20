@@ -169,8 +169,14 @@ export interface TextEditorHandle {
   /**
    * 指定範囲がエディター内に見えるようスクロールする。
    * @param selection - 表示位置へ移動する本文上の選択範囲。
+   * @param position - 範囲を置く縦位置。"start" は表示領域の先頭、省略時は中央。
    */
-  revealRange(selection: TextSelection): void;
+  revealRange(selection: TextSelection, position?: "center" | "start"): void;
+  /**
+   * CodeMirrorへキーボードフォーカスを移し、現在の選択位置にキャレットを表示する。
+   * 未マウントなら何もしない。選択範囲とスクロール位置は変更しない。
+   */
+  focus(): void;
   /**
    * エディターの表示位置を文書内アンカーとして取得する。
    * @returns 表示領域が有効なら復元用アンカー、未配置ならundefined。
@@ -1658,7 +1664,8 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
         revealRange: /**
          * 本文編集面の表示または操作を開始する。
          * @param selection - 表示位置へ移動する本文上の選択範囲。
-         */ (selection) => {
+         * @param position - 範囲を置く縦位置。"start" は表示領域の先頭、省略時は中央。
+         */ (selection, position = "center") => {
           const view = viewRef.current;
           if (!view) return;
           viewportRestoreAnchorRef.current = undefined;
@@ -1671,10 +1678,18 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
             effects: EditorView.scrollIntoView(
               EditorSelection.range(from, to),
               {
-                y: "center",
+                y: position,
+                // 先頭配置では既定の余白（5px）を残さず、指定行を表示領域の上端に揃える。
+                ...(position === "start" ? { yMargin: 0 } : {}),
               },
             ),
           });
+        },
+
+        focus: /**
+         * CodeMirrorへフォーカスを移す。既にフォーカスがあればCodeMirror側で何もしない。
+         */ () => {
+          viewRef.current?.focus();
         },
 
         getViewport: /**

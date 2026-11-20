@@ -399,6 +399,7 @@ Open the editor's **Settings** tab for image save paths, separate editor/preview
 | Shortcut | Action |
 | --- | --- |
 | `Ctrl+F` / `Cmd+F` | Open search and replace. |
+| `Ctrl+G` | Go to a line number. |
 | `Ctrl+V` / `Cmd+V` | Paste text, or save and insert an image when the clipboard contains one. |
 | `Alt+Enter` | Insert a line break inside a table cell. |
 | `Ctrl+wheel` / `Cmd+wheel` | Zoom the editor and preview. |

@@ -822,6 +822,12 @@ export function App(): React.JSX.Element {
     previewOnly?: PreviewViewportAnchor;
   }>({});
   const pendingNavigationRef = useRef<TextSelection | undefined>(undefined);
+  /**
+   * 保留中の選択移動（pendingNavigationRef）が「行へ移動」（Ctrl+G）由来か。
+   * true なら適用時に移動先の行を表示領域の先頭へ置き、ソースエディターへフォーカスを戻す。
+   * 表示モードを切り替えて移動する場合、CodeMirror の表示が確定するまでこの扱いを遅らせるために使う。
+   */
+  const pendingNavigationGoToLineRef = useRef(false);
   const recentRibbonCommandsRef = useRef(new Map<string, number>());
   /** 現在Webviewが表示している文書のURI。表示形式の上書きを同じ文書に限定するために保持する。 */
   const documentUriRef = useRef(bootstrap?.uri ?? "");
@@ -1381,8 +1387,11 @@ export function App(): React.JSX.Element {
       splitView !== "preview" &&
       sourceRef.current
     ) {
+      const goToLine = pendingNavigationGoToLineRef.current;
+      pendingNavigationGoToLineRef.current = false;
       sourceRef.current.setSelection(navigation);
-      sourceRef.current.revealRange(navigation);
+      sourceRef.current.revealRange(navigation, goToLine ? "start" : "center");
+      if (goToLine) sourceRef.current.focus();
       const preview = splitPreviewRef.current;
       if (preview) {
         const previewAnchor: PreviewViewportAnchor = {
@@ -2229,7 +2238,7 @@ export function App(): React.JSX.Element {
       case "hostCommand":
         if (message.command === "navigateToOffset") {
           if (Number.isSafeInteger(message.offset) && message.offset >= 0) {
-            goToOutlineOffset(message.offset);
+            goToOutlineOffset(message.offset, message.goToLine === true);
           }
           return;
         }
@@ -3983,8 +3992,10 @@ export function App(): React.JSX.Element {
 
   /** 目次項目の本文オフセットへ移動し、分割プレビューの見出し位置も揃える。
    * @param offset - 見出しの開始位置を示すMarkdown本文内のUTF-16オフセット。
+   * @param goToLine - 「行へ移動」（Ctrl+G）由来ならtrue。移動先の行をソースの先頭に置き、フォーカスを戻す。
+   *   分割表示ではプレビューもソースの行と同じ高さへ揃うため、プレビュー側も先頭付近に表示される。
    */
-  function goToOutlineOffset(offset: number): void {
+  function goToOutlineOffset(offset: number, goToLine = false): void {
     const nextSelection = { from: offset, to: offset };
     if (mode === "preview" && isMarpDocument) {
       marpPreviewRef.current?.scrollToOffset(offset);
@@ -3995,7 +4006,7 @@ export function App(): React.JSX.Element {
       revealOutlineInSplitPreview(offset, false);
       return;
     }
-    navigateToSelection(nextSelection);
+    navigateToSelection(nextSelection, goToLine);
     if (mode === "split" && splitView === "both") {
       // CodeMirrorの選択行とスクロール位置が確定してから、同じ高さへプレビューを揃える。
       window.requestAnimationFrame(
@@ -4072,16 +4083,20 @@ export function App(): React.JSX.Element {
   /**
    * 指定した選択範囲へエディターと表示ペインを移動する。
    * @param nextSelection 移動先として同期する選択範囲。
+   * @param goToLine - 「行へ移動」（Ctrl+G）由来ならtrue。範囲を表示領域の先頭に置き、ソースへフォーカスを戻す。
+   *   省略時は従来どおり中央に表示し、フォーカスを動かさない。
    */
-  function navigateToSelection(nextSelection: TextSelection): void {
+  function navigateToSelection(nextSelection: TextSelection, goToLine = false): void {
     selectionStateRef.current = nextSelection;
     if (mode !== "split" || splitView === "preview") {
       pendingNavigationRef.current = nextSelection;
+      pendingNavigationGoToLineRef.current = goToLine;
       changeSplitView("both");
       return;
     }
     sourceRef.current?.setSelection(nextSelection);
-    sourceRef.current?.revealRange(nextSelection);
+    sourceRef.current?.revealRange(nextSelection, goToLine ? "start" : "center");
+    if (goToLine) sourceRef.current?.focus();
   }
 
   /**

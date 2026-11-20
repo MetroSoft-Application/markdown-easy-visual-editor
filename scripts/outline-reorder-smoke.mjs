@@ -711,7 +711,7 @@ try {
     const originalFlexBasis = panel.style.flexBasis;
     const originalRootTheme = document.documentElement.dataset.editorTheme;
     const originalTheme = document.body.dataset.editorTheme;
-    panel.style.flexBasis = '160px';
+    panel.style.flexBasis = '120px';
     document.documentElement.dataset.editorTheme = 'light';
     document.body.dataset.editorTheme = 'light';
     const lightText = getComputedStyle(label).color;

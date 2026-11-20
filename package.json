@@ -101,6 +101,10 @@
         "title": "Markdown Easy Visual Editor: Redo"
       },
       {
+        "command": "markdownEasyVisualEditor.goToLine",
+        "title": "Markdown Easy Visual Editor: Go to Line"
+      },
+      {
         "command": "markdownEasyVisualEditor.attachSelectionToCopilotChat",
         "title": "Attach Selection to GitHub Copilot Chat"
       },
@@ -185,6 +189,10 @@
           "when": "false"
         },
         {
+          "command": "markdownEasyVisualEditor.goToLine",
+          "when": "activeCustomEditorId == markdownEasyVisualEditor.editor"
+        },
+        {
           "command": "markdownEasyVisualEditor.attachSelectionToCopilotChat",
           "when": "false"
         },
@@ -224,6 +232,11 @@
         "key": "cmd+shift+z",
         "command": "markdownEasyVisualEditor.redo",
         "when": "activeCustomEditor == markdownEasyVisualEditor.editor && !inputFocus"
+      },
+      {
+        "key": "ctrl+g",
+        "command": "markdownEasyVisualEditor.goToLine",
+        "when": "activeCustomEditorId == markdownEasyVisualEditor.editor && !inputFocus"
       }
     ],
     "configuration": {

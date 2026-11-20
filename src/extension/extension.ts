@@ -65,6 +65,7 @@ import {
 import { writeDrawioSvgExclusive } from './drawioFile';
 import { openDrawioSvgEditor } from './drawioEditor';
 import { normalizeSvgClipboardText } from '../shared/svgClipboard';
+import { parseGoToLineInput } from '../shared/goToLine';
 import {
     collectLocalResourceReferences,
     headingLineForAnchor,
@@ -426,6 +427,12 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand('markdownEasyVisualEditor.redo',
 
             () => provider.executeHistoryCommand('redo')),
+        vscode.commands.registerCommand('markdownEasyVisualEditor.goToLine',
+            /**
+             * アクティブなビジュアルエディターで行番号を尋ね、その行の先頭へ移動する（Ctrl+G）。
+             * @returns 入力ボックスが閉じ、移動要求の送信を終えたときに解決する。
+             */
+            () => provider.goToLine()),
         // ファイル・フォルダーの移動に合わせてMarkdownのリンクを書き換える。activationEvents の onStartupFinished により、ビジュアルエディターを開く前から動作する。
         new MarkdownLinkUpdater(
             /**
@@ -1048,6 +1055,48 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
         const panel = this.activePanel;
         if (!panel || !panel.active) return;
         this.post(panel, { type: 'hostCommand', command });
+    }
+
+    /**
+     * アクティブなビジュアルエディターで「行へ移動」の入力ボックスを開き、指定行の先頭へ移動させる。
+     * 移動はアウトラインや見出しリンクと同じ navigateToOffset を使うため、表示モードごとの扱い
+     * （分割表示のスクロール同期、プレビュー単独時のソース表示切替、Marp プレビュー）を共有する。
+     * 入力中に別タブへ切り替えた・パネルを閉じた場合は、古いパネルへ送らず何もしない。
+     * 文書本文は変更しない。
+     * @returns 入力ボックスが閉じ、移動要求の送信を終えたときに解決する。
+     */
+    async goToLine(): Promise<void> {
+        const panel = this.activePanel;
+        const document = this.activeDocument;
+        if (!panel || !document || !panel.active || !this.panelInitialized.has(panel)) return;
+
+        const messages = this.getMessages();
+        const value = await vscode.window.showInputBox({
+            prompt: messages.host.goToLinePrompt(document.lineCount),
+            validateInput: /**
+             * 入力途中の値を検証する。空欄はエラー表示せず、確定時に何もしない扱いにする。
+             * @param input - 入力ボックスの現在値。
+             * @returns 不正な値なら検証メッセージ、それ以外は undefined。
+             */ (input) => (
+                    input.trim() === '' || parseGoToLineInput(input, document.lineCount) !== undefined
+                        ? undefined
+                        : messages.host.goToLineInvalid
+                )
+        });
+        if (value === undefined) return;
+        if (this.activePanel !== panel || !panel.active || !this.panelInitialized.has(panel)) return;
+
+        // 入力中のWebview編集をHostへ反映してから、最新本文の行数とオフセットで移動先を決める。
+        await this.waitForWebviewEdits(document);
+        if (this.activePanel !== panel || !panel.active || !this.panelInitialized.has(panel)) return;
+        const line = parseGoToLineInput(value, document.lineCount);
+        if (line === undefined) return;
+        this.post(panel, {
+            type: 'hostCommand',
+            command: 'navigateToOffset',
+            offset: canonicalOffsetAt(this.canonicalText(document), { line, character: 0 }),
+            goToLine: true
+        });
     }
 
     /**
@@ -2850,8 +2899,8 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
         const settingsWritten = this.globalSettingsUpdateChain;
         const pending = this.outputPresetMutationChain.then(() => settingsWritten).then(operation);
         this.outputPresetMutationChain = pending.then(
-            /** 成功後は次の操作を続ける。 */ () => undefined,
-            /** 失敗後もキューは中断させない。 */ () => undefined
+            /** 成功後は次の操作を続ける。 */() => undefined,
+            /** 失敗後もキューは中断させない。 */() => undefined
         );
         return pending;
     }

@@ -379,8 +379,25 @@ button:disabled {
     border-bottom: 1px solid var(--mve-border);
 }
 
-.outline-header h2 {
+/*
+ * @style .outline-panel .outline-header h2, .outline-panel .outline-header .panel-close-button
+ * 最小幅（120px）でも日本語の「アウトライン」が折り返さず1行に収まるよう、左右の余白と閉じるボタンの外側余白を詰める。
+ * それでも収まらない言語・フォントでは折り返さずに末尾を省略し、ヘッダーの高さを変えない。
+ * 後続の .outline-panel h2 / .panel-close-button の共通指定より優先させるため、.outline-panel を前置する。
+ */
+.outline-panel .outline-header h2 {
     flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    padding-right: 4px;
+    padding-left: 8px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.outline-panel .outline-header .panel-close-button {
+    flex: 0 0 auto;
+    margin-right: 4px;
 }
 
 /*
@@ -419,11 +436,13 @@ button:disabled {
 
 /*
  * @style .outline-panel nav
- * アウトライン一覧に左右と下部の余白を設ける。
+ * アウトライン一覧に左右と下部の余白を設ける。狭い幅でも見出しを多く読めるよう、
+ * VS Code 既定（13px）より一段小さい 12px にする。行の高さ（22px）は維持し、クリック範囲を狭めない。
  */
 
 .outline-panel nav {
     padding: 0 8px 10px;
+    font-size: 12px;
 }
 
 /*

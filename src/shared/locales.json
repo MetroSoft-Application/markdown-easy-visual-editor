@@ -594,7 +594,9 @@
       "linkUpdateApply": "更新",
       "linkUpdateAlways": "常に更新",
       "linkUpdateNever": "更新しない",
-      "linkUpdateFailed": "リンクを更新できませんでした: {detail}"
+      "linkUpdateFailed": "リンクを更新できませんでした: {detail}",
+      "goToLinePrompt": "移動先の行番号を入力してください (1 - {lineCount})",
+      "goToLineInvalid": "1 以上の行番号を数字で入力してください。"
     },
     "editor": {
       "placeholder": "Markdownを入力...",
@@ -1205,7 +1207,9 @@
       "linkUpdateApply": "Update",
       "linkUpdateAlways": "Always update",
       "linkUpdateNever": "Don't update",
-      "linkUpdateFailed": "Could not update links: {detail}"
+      "linkUpdateFailed": "Could not update links: {detail}",
+      "goToLinePrompt": "Type a line number to go to (1 - {lineCount})",
+      "goToLineInvalid": "Enter a line number of 1 or greater."
     },
     "editor": {
       "placeholder": "Type Markdown...",
@@ -1816,7 +1820,9 @@
       "linkUpdateApply": "更新",
       "linkUpdateAlways": "始终更新",
       "linkUpdateNever": "不更新",
-      "linkUpdateFailed": "无法更新链接：{detail}"
+      "linkUpdateFailed": "无法更新链接：{detail}",
+      "goToLinePrompt": "输入要转到的行号 (1 - {lineCount})",
+      "goToLineInvalid": "请输入大于或等于 1 的行号。"
     },
     "editor": {
       "placeholder": "输入Markdown...",
@@ -2427,7 +2433,9 @@
       "linkUpdateApply": "업데이트",
       "linkUpdateAlways": "항상 업데이트",
       "linkUpdateNever": "업데이트 안 함",
-      "linkUpdateFailed": "링크를 업데이트할 수 없습니다: {detail}"
+      "linkUpdateFailed": "링크를 업데이트할 수 없습니다: {detail}",
+      "goToLinePrompt": "이동할 줄 번호를 입력하세요 (1 - {lineCount})",
+      "goToLineInvalid": "1 이상의 줄 번호를 입력하세요."
     },
     "editor": {
       "placeholder": "Markdown 입력...",
@@ -3038,7 +3046,9 @@
       "linkUpdateApply": "Mettre à jour",
       "linkUpdateAlways": "Toujours mettre à jour",
       "linkUpdateNever": "Ne pas mettre à jour",
-      "linkUpdateFailed": "Impossible de mettre à jour les liens : {detail}"
+      "linkUpdateFailed": "Impossible de mettre à jour les liens : {detail}",
+      "goToLinePrompt": "Saisissez le numéro de ligne à atteindre (1 - {lineCount})",
+      "goToLineInvalid": "Saisissez un numéro de ligne supérieur ou égal à 1."
     },
     "editor": {
       "placeholder": "Saisissez du Markdown...",
@@ -3649,7 +3659,9 @@
       "linkUpdateApply": "Aktualisieren",
       "linkUpdateAlways": "Immer aktualisieren",
       "linkUpdateNever": "Nicht aktualisieren",
-      "linkUpdateFailed": "Links konnten nicht aktualisiert werden: {detail}"
+      "linkUpdateFailed": "Links konnten nicht aktualisiert werden: {detail}",
+      "goToLinePrompt": "Zeilennummer eingeben, zu der gewechselt werden soll (1 - {lineCount})",
+      "goToLineInvalid": "Geben Sie eine Zeilennummer ab 1 ein."
     },
     "editor": {
       "placeholder": "Markdown eingeben...",
@@ -4260,7 +4272,9 @@
       "linkUpdateApply": "Actualizar",
       "linkUpdateAlways": "Actualizar siempre",
       "linkUpdateNever": "No actualizar",
-      "linkUpdateFailed": "No se pudieron actualizar los vínculos: {detail}"
+      "linkUpdateFailed": "No se pudieron actualizar los vínculos: {detail}",
+      "goToLinePrompt": "Escriba el número de línea al que ir (1 - {lineCount})",
+      "goToLineInvalid": "Escriba un número de línea igual o mayor que 1."
     },
     "editor": {
       "placeholder": "Escribe Markdown...",

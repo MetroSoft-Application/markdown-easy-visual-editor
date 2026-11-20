@@ -2235,6 +2235,16 @@ export interface Messages {
          * @returns エラー通知の本文。
          */
         linkUpdateFailed: (detail: string) => string;
+
+        /**
+         * 「行へ移動」（Ctrl+G）の入力ボックスに表示する案内。
+         * @param lineCount - 対象文書の行数。入力可能な上限として表示する。
+         * @returns 入力ボックスの案内文。
+         */
+        goToLinePrompt: (lineCount: number) => string;
+
+        /** 「行へ移動」に 1 以上の整数以外が入力された場合の検証メッセージ。 */
+        goToLineInvalid: string;
     };
 
     /** エディターと編集コマンドの表示文言をまとめる。 */
@@ -2876,7 +2886,13 @@ function createMessages(language: SupportedLanguage): Messages {
              * 引数を補間し、リンク更新の失敗通知を組み立てる。
              * @param detail - 失敗理由。
              * @returns エラー通知の本文。
-             */ (detail: string) => text('host.linkUpdateFailed', { detail })
+             */ (detail: string) => text('host.linkUpdateFailed', { detail }),
+            goToLinePrompt: /**
+             * 引数を補間し、「行へ移動」の入力案内を組み立てる。
+             * @param lineCount - 対象文書の行数。
+             * @returns 入力ボックスの案内文。
+             */ (lineCount: number) => text('host.goToLinePrompt', { lineCount }),
+            goToLineInvalid: raw.host.goToLineInvalid
         },
         editor: raw.editor,
         internal: raw.internal

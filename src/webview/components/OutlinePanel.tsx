@@ -6,6 +6,7 @@
 import React from "react";
 import type { Messages } from "../../shared/messages";
 import type { OutlineItem } from "../../shared/markdown";
+import { OUTLINE_MAX_WIDTH, OUTLINE_MIN_WIDTH } from "./outlineWidth";
 
 /**
  * 右ドラッグで見出しを並べ替える間のポインターと配置状態を保持する。
@@ -290,8 +291,8 @@ export function OutlinePanel({
         role="separator"
         aria-orientation="vertical"
         aria-label={messages.app.outlineWidth}
-        aria-valuemin={160}
-        aria-valuemax={420}
+        aria-valuemin={OUTLINE_MIN_WIDTH}
+        aria-valuemax={OUTLINE_MAX_WIDTH}
         aria-valuenow={width}
         tabIndex={0}
         onPointerDown={onResizeStart}
