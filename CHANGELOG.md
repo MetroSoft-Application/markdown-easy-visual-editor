@@ -85,3 +85,8 @@
 
 - Table editor fits sizes to content, widens columns while typing, and adds Auto-fit.
 - Table editor applies changes on close and keeps the caret in place on line-break edits.
+
+## 2.1.3
+
+- Added Ctrl+G to jump to a line and show it at the top of the editor.
+

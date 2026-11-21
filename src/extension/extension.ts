@@ -1059,8 +1059,9 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
 
     /**
      * アクティブなビジュアルエディターで「行へ移動」の入力ボックスを開き、指定行の先頭へ移動させる。
-     * 移動はアウトラインや見出しリンクと同じ navigateToOffset を使うため、表示モードごとの扱い
-     * （分割表示のスクロール同期、プレビュー単独時のソース表示切替、Marp プレビュー）を共有する。
+     * 移動はアウトラインや見出しリンクと同じ navigateToOffset に goToLine: true を付けて送り、
+     * 表示モードごとの扱い（分割表示のスクロール同期、「プレビューのみ」と Marp ではプレビューだけ移動、
+     * Marp 以外の全面プレビューでは左右分割へ切り替えてソースへ移動）を共有する。詳細は protocol.ts の goToLine を参照。
      * 入力中に別タブへ切り替えた・パネルを閉じた場合は、古いパネルへ送らず何もしない。
      * 文書本文は変更しない。
      * @returns 入力ボックスが閉じ、移動要求の送信を終えたときに解決する。
