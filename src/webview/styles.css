@@ -381,8 +381,8 @@ button:disabled {
 
 /*
  * @style .outline-panel .outline-header h2, .outline-panel .outline-header .panel-close-button
- * 最小幅（120px）でも日本語の「アウトライン」が折り返さず1行に収まるよう、左右の余白と閉じるボタンの外側余白を詰める。
- * それでも収まらない言語・フォントでは折り返さずに末尾を省略し、ヘッダーの高さを変えない。
+ * 狭い幅でも日本語の「アウトライン」ができるだけ1行に収まるよう、左右の余白と閉じるボタンの外側余白を詰める。
+ * 収まらない幅（最小幅の80pxなど）では折り返さずに末尾を省略し、ヘッダーの高さを変えない。
  * 後続の .outline-panel h2 / .panel-close-button の共通指定より優先させるため、.outline-panel を前置する。
  */
 .outline-panel .outline-header h2 {
@@ -441,6 +441,11 @@ button:disabled {
  */
 
 .outline-panel nav {
+    /*
+     * 1階層あたりの字下げ。最小幅（80px）でも深い見出しの文字が残るよう、開閉ボタン（16px）より狭い 12px にする。
+     * 子の字下げ・ガイド線・枝線・ホバー背景（OutlinePanel の --outline-row-inset）はすべてこの値から計算する。
+     */
+    --outline-indent: 12px;
     padding: 0 8px 10px;
     font-size: 12px;
 }
@@ -462,7 +467,7 @@ button:disabled {
 
 .outline-children {
     position: relative;
-    margin-left: 22px;
+    margin-left: var(--outline-indent);
     padding: 0;
 }
 
@@ -511,13 +516,14 @@ button:disabled {
 /*
  * @style .outline-children::before
  * 親の開閉位置から子見出し群へ続く縦のガイド線を表示する。
+ * 線は親の開閉ボタン（幅16px）の中央に置くため、子の左端から字下げ幅と8px分だけ左にする。
  */
 
 .outline-children::before {
     position: absolute;
     top: -11px;
     bottom: 11px;
-    left: -30px;
+    left: calc(-8px - var(--outline-indent));
     border-left: 1px solid var(--vscode-tree-indentGuidesStroke, var(--vscode-panel-border, var(--mve-border)));
     content: '';
     pointer-events: none;
@@ -535,6 +541,7 @@ button:disabled {
 /*
  * @style .outline-children > .outline-node, .outline-children > .outline-node::before, .outline-children > .outline-node:not(.outline-node-parent)::before
  * 子見出しの枝線を描き、葉では線を見出し名の列まで延長する。
+ * 枝線はガイド線から、親を持つ子では自分の開閉ボタンの左端（-16px）まで、葉では見出し名の手前（+2px）まで伸ばす。
  */
 
 .outline-children > .outline-node {
@@ -544,15 +551,15 @@ button:disabled {
 .outline-children > .outline-node::before {
     position: absolute;
     top: 11px;
-    left: -30px;
-    width: 14px;
+    left: calc(-8px - var(--outline-indent));
+    width: calc(var(--outline-indent) - 8px);
     border-top: 1px solid var(--vscode-tree-indentGuidesStroke, var(--vscode-panel-border, var(--mve-border)));
     content: '';
     pointer-events: none;
 }
 
 .outline-children > .outline-node:not(.outline-node-parent)::before {
-    width: 32px;
+    width: calc(var(--outline-indent) + 10px);
 }
 
 /*

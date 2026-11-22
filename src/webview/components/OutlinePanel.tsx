@@ -136,7 +136,8 @@ function renderOutlineNodes(
           <div
             className="outline-row"
             style={{
-              "--outline-row-inset": depth === 0 && !hasChildren ? "0px" : `${18 + depth * 22}px`,
+              // ホバー背景をツリーの左端まで広げる距離。開閉ボタンの列（18px）と、styles.css の 1 階層あたりの字下げの深さ分。
+              "--outline-row-inset": depth === 0 && !hasChildren ? "0px" : `calc(18px + ${depth} * var(--outline-indent, 12px))`,
             } as React.CSSProperties}
           >
             {hasChildren ? (

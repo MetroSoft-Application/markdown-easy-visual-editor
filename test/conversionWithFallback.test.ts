@@ -12,6 +12,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
+import { convertDocumentSyntax } from '../src/shared/formatConversion';
 import { convertPreservingPreview, type PreviewBlockRenderer } from '../src/webview/markdown/conversionWithFallback';
 import { renderMarkdownUnsafeBlocks } from '../src/webview/markdown/markdownRendererCore';
 import { comparePreviewBlocks } from '../src/webview/markdown/previewEquivalence';
@@ -273,7 +274,7 @@ describe('round trip without recording the original (reverse conversion rules)',
             ['footnote', 'ref[^1]\n\n[^1]: note text\n'],
             ['highlight and insert', 'これは ==mark== と ++ins++ です。\n'],
             ['autolink', 'see <https://example.com/a?b=1>\n'],
-            ['hard line break', 'line one  \nline two\n'],
+            ['hard line break', 'line one\\\nline two\n'],
             ['heading with explicit id', '# 見出し {#custom-id}\n\nbody\n'],
             ['callout', '> [!NOTE]\n> body\n'],
             ['front matter', '---\ntitle: 文書\n---\n\n# 見出し\n'],
@@ -286,6 +287,42 @@ describe('round trip without recording the original (reverse conversion rules)',
             expect(back.equal, name).toBe(true);
             expect(back.text, name).toBe(source);
         });
+
+        it('writes a hard line break as a trailing backslash, not two trailing spaces, when converting Textile back to Markdown',
+            async () => {
+                // 行末の空白2つは見えず、末尾空白の削除で消えて改行が失われるため、元の文書が空白2つでも`\`で書く。
+                const { forward, back } = await roundTrip('line one  \nline two\n', 'markdown');
+                expect(forward.equal).toBe(true);
+                expect(back.equal).toBe(true);
+                expect(back.text).toBe('line one\\\nline two\n');
+                expect(back.text).not.toMatch(/ {2}\r?\n/);
+            });
+
+        it.each([
+            ['a plain paragraph', 'line one\nline two\n', 'line one\\\nline two\n'],
+            ['CRLF', 'line one\r\nline two\r\n', 'line one\\\r\nline two\r\n'],
+            ['a quote', 'bq. 引用の1行目\n引用の2行目\n', '> 引用の1行目\\\n> 引用の2行目\n'],
+            // Textileの行末の空白は意味を持たないが、Markdownでは空白2つが強制改行の印になるため、削って`\`だけにする。
+            ['trailing spaces in the Textile source', 'line one  \nline two\n', 'line one\\\nline two\n'],
+            // 逆変換は生HTMLだけの行に印を付けず行末の空白2つを削るため、改行が消えて描画比較で退けられ、通常の変換の`\`が選ばれる。
+            ['trailing spaces after a raw HTML line', '<span>x</span>  \ny\n', '<span>x</span>\\\ny\n'],
+        ])('converts a Textile line break in %s to a trailing backslash, never two trailing spaces', async (_name, source, expected) => {
+            // 変換タブと同じ経路（逆変換の候補を先に試す）で、素のTextileを変換する。
+            const result = await convertPreservingPreview(source, 'textile', 'textile', 'markdown', 'mixed', render);
+            expect(result.equal).toBe(true);
+            expect(result.text).toBe(expected);
+            expect(result.text).not.toMatch(/ {2}\r?\n/);
+        });
+
+        it('keeps a Textile line ending with a backslash and a space as a literal backslash followed by a line break',
+            async () => {
+                // 空白を削ると`foo\\`（エスケープ済みの`\`）になり改行が消えるため、逆変換モードでも空白を残して`\`を付ける。
+                const restored = convertDocumentSyntax('foo\\ \nbar\n', 'textile', 'markdown', { restore: true }).text;
+                expect(restored).toBe('foo\\ \\\nbar\n');
+                const result = await convertPreservingPreview('foo\\ \nbar\n', 'textile', 'textile', 'markdown', 'mixed', render);
+                expect(result.equal).toBe(true);
+                expect(result.text).not.toMatch(/ {2}\r?\n/);
+            });
 
         it.each([
             ['alignment', 'p>. right aligned\n'],

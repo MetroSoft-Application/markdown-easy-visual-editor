@@ -1366,14 +1366,25 @@ export function convertTextileToMarkdown(source: string): string {
 
     /**
      * 同じブロック内の前の行にMarkdownの強制改行を付ける。Textileの単一改行は`<br>`になるため。
-     * 逆変換モードでは、Markdownで最も一般的な行末の空白2つで書く（Markdown→Textileの順変換はどちらの書き方も同じ改行にする）。
+     * 逆変換モードも同じく行末のバックスラッシュで書く。行末の空白2つは見えず、エディターの末尾空白の削除で失われるため使わない
+     * （Markdown→Textileの順変換はどちらの書き方も同じ改行にするため、元の文書が空白2つでも描画は変わらない）。
+     * どちらのモードも、原文の行末の空白2つ以上は削ってから`\`を付ける。ただし削ると奇数個の`\`で終わる行は、
+     * 付けた`\`とでエスケープになり改行が消えるため、空白を残す。
      */
     function markHardBreak(): void {
         if (!state.inParagraph) return;
-        writer.amendLast((text) => (/\\$| {2}$/.test(text) || /^\s*>?\s*$/.test(text)
-            ? text
+        writer.amendLast((text) => {
+            if (/\\$/.test(text) || /^\s*>?\s*$/.test(text)) return text;
             // 生HTMLの行（`<div …>`など）の改行は強制改行ではないため、逆変換モードでは印を付けない。
-            : restoreMode ? (/^\s*<.*>\s*$/.test(text) ? text : `${text.trimEnd()}  `) : `${text}\\`));
+            // 行末の空白2つ以上はMarkdownで強制改行の印になるため削る（Textileでは意味を持たない）。
+            if (restoreMode && /^\s*<.*>\s*$/.test(text)) return / {2}$/.test(text) ? text.trimEnd() : text;
+            // Textileの行末の空白は意味を持たないが、Markdownでは空白2つ以上が強制改行の印になるため、通常の変換でも
+            // 空白2つ以上は削って`\`だけにする（空白1つは描画に影響しないため、順変換は原文のまま残す）。
+            if (!restoreMode && !/ {2}$/.test(text)) return `${text}\\`;
+            const trimmed = text.trimEnd();
+            // 空白を削ると奇数個の`\`で終わる行（`foo\ `）は、付けた`\`と合わせてエスケープ済みの`\`になり改行が消えるため、空白を残す。
+            return /(?:^|[^\\])(?:\\\\)*\\$/.test(trimmed) ? `${text}\\` : `${trimmed}\\`;
+        });
     }
 
     /**
@@ -1731,7 +1742,7 @@ export function convertTextileToMarkdown(source: string): string {
         if (state.extendedQuote) {
             // 逆変換モード: Markdown→Textileの順変換は、引用の中のリストの項目を1行ずつ`bq..`の段落の行にする
             // （Textileは引用の中にリストを書けない）。その逆として、リストの印で始まる行の前には強制改行を付けず、
-            // Markdownのリストの項目へ戻す（項目の行末の空白2つは表示を変えないため、付けない書き方が標準）。
+            // Markdownのリストの項目へ戻す（項目の末尾に強制改行の`\`を付けると、リストの最後の項目では文字として表示されるため付けない）。
             if (!(restoreMode && MARKDOWN_LIST_ITEM_START.test(line))) markHardBreak();
             writer.push(`> ${convertTextileInline(line, footnoteIds)}`, eol);
             state.inParagraph = true;

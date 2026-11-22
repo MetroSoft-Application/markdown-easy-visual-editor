@@ -145,7 +145,7 @@ Headings, paragraphs, line breaks, quotes, code blocks, lists, tables, links, im
 
 The editor renders the document before and after the conversion and compares the content to catch conversion mistakes, and always applies the conversion. Some structures have no equivalent in Textile, such as nested quotes, a list inside a quote, or a code block inside a list item; these are written in the closest form and a message shows the line where the preview may change. Marp slide decks are converted too, and the regular preview is shown instead of slides.
 
-Converting back applies the reverse of the conversion rules, so a round trip keeps the same preview and returns documents written in the standard form unchanged. Equivalent spellings are written in one standard form: for example, `__bold__` becomes `**bold**`, reference links become inline links, footnote labels become numbers, line breaks inside a paragraph are joined, and a hard line break is written with two trailing spaces.
+Converting back applies the reverse of the conversion rules, so a round trip keeps the same preview and returns documents written in the standard form unchanged. Equivalent spellings are written in one standard form: for example, `__bold__` becomes `**bold**`, reference links become inline links, footnote labels become numbers, line breaks inside a paragraph are joined, and a hard line break is written with a trailing backslash (`\`).
 
 The file name and extension are not changed. The editor remembers the converted format for each file in the workspace, so the file is shown in that format when it is opened again. In another workspace, the file is shown in the format of its extension.
 
@@ -228,7 +228,7 @@ Create an editable [draw.io](https://www.drawio.com/) diagram without leaving th
 
 Clicking a local `.drawio.svg` or `.dio.svg` image in the preview, including Marp slide previews, opens the draw.io editor, even if the image was inserted without a link. Remote images keep the usual image preview. If the Draw.io Integration extension is not installed, the file opens in the default editor and a notification offers to show the extension.
 
-When an SVG is saved to the image folder through **SVGとして貼り付け** (paste as SVG) in the source editor's context menu, by pasting or dropping a file, or by choosing a file that must be copied, an SVG containing draw.io diagram data is saved as `.drawio.svg`, keeping it editable in the draw.io editor. Other SVGs are saved as `.svg`. The decision uses the file content, not its name.
+When an SVG is saved to the image folder through **Copy as SVG** (paste as SVG) in the source editor's context menu, by pasting or dropping a file, or by choosing a file that must be copied, an SVG containing draw.io diagram data is saved as `.drawio.svg`, keeping it editable in the draw.io editor. Other SVGs are saved as `.svg`. The decision uses the file content, not its name.
 
 To jump from `.drawio.svg` to the DrawIO editor, you need to add the following settings to `settings.json`.
 

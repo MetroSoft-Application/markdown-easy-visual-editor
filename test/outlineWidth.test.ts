@@ -15,14 +15,17 @@ import {
 import { HTML_OUTLINE_RESIZER_SCRIPT } from "../src/extension/htmlPreview";
 
 describe("clampOutlineWidth", () => {
-  it("allows the outline to shrink to 120px", () => {
-    expect(OUTLINE_MIN_WIDTH).toBe(120);
-    expect(clampOutlineWidth(120)).toBe(120);
-    expect(clampOutlineWidth(145)).toBe(145);
-    expect(clampOutlineWidth(80)).toBe(120);
+  it("allows the outline to shrink to 80px", () => {
+    expect(OUTLINE_MIN_WIDTH).toBe(80);
+    expect(clampOutlineWidth(80)).toBe(80);
+    expect(clampOutlineWidth(95)).toBe(95);
+    expect(clampOutlineWidth(79)).toBe(80);
+    expect(clampOutlineWidth(0)).toBe(80);
+    expect(clampOutlineWidth(-50)).toBe(80);
   });
 
-  it("keeps widths saved with the previous minimum and clamps the maximum", () => {
+  it("keeps widths saved with the previous minimums and clamps the maximum", () => {
+    expect(clampOutlineWidth(120)).toBe(120);
     expect(clampOutlineWidth(160)).toBe(160);
     expect(clampOutlineWidth(220)).toBe(220);
     expect(clampOutlineWidth(1000)).toBe(OUTLINE_MAX_WIDTH);

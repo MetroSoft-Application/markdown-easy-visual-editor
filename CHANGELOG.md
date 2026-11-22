@@ -90,3 +90,7 @@
 
 - Added Ctrl+G to jump to a line and show it at the top of the editor.
 
+## 2.1.4
+
+- Outline jumps put the heading at the top of the editor;
+

@@ -502,10 +502,12 @@ try {
     initialTreeShape.disclosurePosition !== 'absolute' ||
     initialTreeShape.rootDisclosureRight !== initialTreeShape.rootLabelLeft ||
     initialTreeShape.childDisclosureRight !== initialTreeShape.childLabelLeft ||
-    initialTreeShape.parentConnectorWidth !== '14px' ||
-    initialTreeShape.leafConnectorWidth !== '32px' ||
+    // 1階層あたりの字下げ（styles.css の --outline-indent: 12px）から計算した枝線の長さとホバー背景の範囲。
+    initialTreeShape.parentConnectorWidth !== '4px' ||
+    initialTreeShape.leafConnectorWidth !== '22px' ||
     initialTreeShape.rootHoverInset !== '-18px' ||
-    initialTreeShape.childHoverInset !== '-40px' ||
+    initialTreeShape.childHoverInset !== '-30px' ||
+    Math.round(initialTreeShape.childIndent - initialTreeShape.rootIndent) !== 12 ||
     initialTreeShape.rootLeafHoverInset !== '0px' ||
     initialTreeShape.rootLeafMarginLeft !== '-18px' ||
     initialTreeShape.rootIndent - initialTreeShape.rootLeafIndent !== 18 ||
@@ -1106,6 +1108,51 @@ try {
    * @returns 本文編集面が先頭からスクロールした状態。
    */
   () => (document.querySelector('.split-source-pane .cm-scroller')?.scrollTop ?? 0) > 0);
+  // アウトラインから見出しへ移動すると、ソースでもプレビューと同じく見出しを表示領域の上端から18px（App の
+  // HEADING_REVEAL_TOP_MARGIN）に置く（中央に置かない）。中央との差がはっきり出るよう表示領域を高くし、
+  // 先頭と末尾の見出しは位置の差が出ないため、並べ替え後の文書の中ほどにある見出しで確かめる。
+  // ソースにフォーカスがないと .cm-activeLine が付かないため、行は見出しの文字列で特定する。
+  await page.setViewportSize({ width: 900, height: 420 });
+  await page.locator('.cm-scroller').first().evaluate(
+  /**
+   * 見出しの表示位置を確かめるため本文編集面を先頭位置へ戻す。
+   * @param scroller スクロール位置を戻すCodeMirrorのスクローラー。
+   * @returns 本文スクロール位置を先頭へ戻す副作用。
+   */
+  (scroller) => { scroller.scrollTop = 0; });
+  await page.getByRole('navigation').getByText('Parent C', { exact: true }).click();
+  await page.waitForFunction(
+  /**
+   * 選択した見出しの行が本文編集面の上端から18pxの位置に揃うまで待つ。
+   * @returns 見出し行の上端とスクローラーの上端の差が18px±2pxならtrue。
+   */
+  () => {
+    const scroller = document.querySelector('.split-source-pane .cm-scroller');
+    const line = Array.from(document.querySelectorAll('.split-source-pane .cm-line'))
+      .find((node) => node.textContent === '# Parent C');
+    return Boolean(scroller && line && scroller.scrollTop > 0
+      && Math.abs(line.getBoundingClientRect().top - scroller.getBoundingClientRect().top - 18) <= 2);
+  }).catch(async (error) => {
+    const state = await page.evaluate(
+    /**
+     * 失敗時の診断用に、見出し行とスクローラーの位置を読み取る。
+     * @returns 見出し行の文字列、上端の差、スクロール量、表示中の行。
+     */
+    () => {
+      const scroller = document.querySelector('.split-source-pane .cm-scroller');
+      const line = Array.from(document.querySelectorAll('.split-source-pane .cm-line'))
+        .find((node) => node.textContent === '# Parent C');
+      return {
+        line: line?.textContent,
+        topDelta: line && scroller ? line.getBoundingClientRect().top - scroller.getBoundingClientRect().top : undefined,
+        scrollTop: scroller?.scrollTop,
+        scrollHeight: scroller?.scrollHeight,
+        clientHeight: scroller?.clientHeight,
+        lines: Array.from(document.querySelectorAll('.split-source-pane .cm-line')).map((node) => node.textContent).slice(0, 40)
+      };
+    });
+    throw new Error(`Outline navigation did not place the heading at the top of the source: ${JSON.stringify(state)}`, { cause: error });
+  });
   await page.setViewportSize({ width: 1280, height: 720 });
 
   const parentADisclosure = page

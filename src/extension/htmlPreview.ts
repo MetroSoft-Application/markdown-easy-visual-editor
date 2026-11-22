@@ -17,7 +17,7 @@ export const HTML_OUTLINE_RESIZER_SCRIPT = `
   const canToggleOutline = hideButton instanceof HTMLButtonElement && showButton instanceof HTMLButtonElement;
 
   // HTML出力側（markdown-easy-converter）の CSS minmax と aria-valuemin と同じ最小幅にする。
-  const minimumWidth = 120;
+  const minimumWidth = 80;
   const maximumWidth = 800;
   const separatorWidth = 8;
   const mainMinimumWidth = 240;

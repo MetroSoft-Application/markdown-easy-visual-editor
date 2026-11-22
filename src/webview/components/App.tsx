@@ -284,6 +284,13 @@ interface PdfPreviewState {
 const CROSS_PANE_SCROLL_SYNC_MS = 32;
 
 /**
+ * アウトラインなどから見出しへ移動したとき、ソースで見出しの行を置く位置（表示領域の上端からのpx）。
+ * プレビューが見出しを置く位置（revealOutlineInSplitPreview などの topOffset: 18）と同じ値にして、
+ * 左右分割で両方の見出しの高さを揃える。文書の先頭の見出しはスクロール位置0のまま（ソースの上余白と同じ高さ）になる。
+ */
+const HEADING_REVEAL_TOP_MARGIN = 18;
+
+/**
  * Webviewルートで未指定時に使う既定値。
  */
 const DEFAULT_SETTINGS: WebviewSettings = {
@@ -828,6 +835,11 @@ export function App(): React.JSX.Element {
    * 表示モードを切り替えて移動する場合、CodeMirror の表示が確定するまでこの扱いを遅らせるために使う。
    */
   const pendingNavigationGoToLineRef = useRef(false);
+  /**
+   * 保留中の選択移動（pendingNavigationRef）で、移動先を表示領域の先頭へ置くときの上端の余白（px）。
+   * undefined なら中央に置く（診断・検索など）。「行へ移動」は0、見出しへの移動は {@link HEADING_REVEAL_TOP_MARGIN}。
+   */
+  const pendingNavigationRevealTopMarginRef = useRef<number | undefined>(undefined);
   const recentRibbonCommandsRef = useRef(new Map<string, number>());
   /** 現在Webviewが表示している文書のURI。表示形式の上書きを同じ文書に限定するために保持する。 */
   const documentUriRef = useRef(bootstrap?.uri ?? "");
@@ -1388,9 +1400,11 @@ export function App(): React.JSX.Element {
       sourceRef.current
     ) {
       const goToLine = pendingNavigationGoToLineRef.current;
+      const revealTopMargin = pendingNavigationRevealTopMarginRef.current;
       pendingNavigationGoToLineRef.current = false;
+      pendingNavigationRevealTopMarginRef.current = undefined;
       sourceRef.current.setSelection(navigation);
-      sourceRef.current.revealRange(navigation, goToLine ? "start" : "center");
+      sourceRef.current.revealRange(navigation, revealTopMargin === undefined ? "center" : "start", revealTopMargin);
       if (goToLine) sourceRef.current.focus();
       const preview = splitPreviewRef.current;
       if (preview) {
@@ -3992,8 +4006,9 @@ export function App(): React.JSX.Element {
 
   /** 目次項目の本文オフセットへ移動し、分割プレビューの見出し位置も揃える。
    * @param offset - 見出しの開始位置を示すMarkdown本文内のUTF-16オフセット。
-   * @param goToLine - 「行へ移動」（Ctrl+G）由来ならtrue。移動先の行をソースの先頭に置き、フォーカスを戻す。
-   *   分割表示ではプレビューもソースの行と同じ高さへ揃うため、プレビュー側も先頭付近に表示される。
+   * @param goToLine - 「行へ移動」（Ctrl+G）由来ならtrue。ソースへフォーカスを戻す。
+   * 見出しはプレビュー単独表示と同じく、ソースでも常に表示領域の先頭（上端から {@link HEADING_REVEAL_TOP_MARGIN}）に置く。
+   * 分割表示ではプレビューもソースの行と同じ高さへ揃うため、プレビュー側も先頭付近に表示される。
    */
   function goToOutlineOffset(offset: number, goToLine = false): void {
     const nextSelection = { from: offset, to: offset };
@@ -4006,7 +4021,7 @@ export function App(): React.JSX.Element {
       revealOutlineInSplitPreview(offset, false);
       return;
     }
-    navigateToSelection(nextSelection, goToLine);
+    navigateToSelection(nextSelection, goToLine, HEADING_REVEAL_TOP_MARGIN);
     if (mode === "split" && splitView === "both") {
       // CodeMirrorの選択行とスクロール位置が確定してから、同じ高さへプレビューを揃える。
       window.requestAnimationFrame(
@@ -4084,18 +4099,26 @@ export function App(): React.JSX.Element {
    * 指定した選択範囲へエディターと表示ペインを移動する。
    * @param nextSelection 移動先として同期する選択範囲。
    * @param goToLine - 「行へ移動」（Ctrl+G）由来ならtrue。範囲を表示領域の先頭に置き、ソースへフォーカスを戻す。
-   *   省略時は従来どおり中央に表示し、フォーカスを動かさない。
+   *   省略時はフォーカスを動かさない。
+   * @param revealTopMargin - 範囲を表示領域の先頭に置くときの上端の余白（px）。undefined なら中央に置く。
+   *   省略時は goToLine と同じ扱い（行へ移動は余白0で先頭、それ以外は中央）。
+   *   見出しへの移動はプレビューと高さを揃えるため {@link HEADING_REVEAL_TOP_MARGIN} を渡す。
    */
-  function navigateToSelection(nextSelection: TextSelection, goToLine = false): void {
+  function navigateToSelection(
+    nextSelection: TextSelection,
+    goToLine = false,
+    revealTopMargin: number | undefined = goToLine ? 0 : undefined,
+  ): void {
     selectionStateRef.current = nextSelection;
     if (mode !== "split" || splitView === "preview") {
       pendingNavigationRef.current = nextSelection;
       pendingNavigationGoToLineRef.current = goToLine;
+      pendingNavigationRevealTopMarginRef.current = revealTopMargin;
       changeSplitView("both");
       return;
     }
     sourceRef.current?.setSelection(nextSelection);
-    sourceRef.current?.revealRange(nextSelection, goToLine ? "start" : "center");
+    sourceRef.current?.revealRange(nextSelection, revealTopMargin === undefined ? "center" : "start", revealTopMargin);
     if (goToLine) sourceRef.current?.focus();
   }
 
