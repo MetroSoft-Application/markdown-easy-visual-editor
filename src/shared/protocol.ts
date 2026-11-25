@@ -5,6 +5,7 @@ import type { Diagnostic } from './markdown';
 import type { OutputPreset, OutputPresetValues } from './outputPresets';
 import { DEFAULT_FONT_FAMILY_STACK, type FontFamilySettings } from './fontFamily';
 import type { SupportedLanguage } from './messages';
+import type { HeadingNumberingMode } from './headingNumbering';
 
 /**
  * 本文編集とプレビューの表示構成を表す値。
@@ -554,6 +555,11 @@ export interface WebviewSettings extends FontFamilySettings {
      */
     previewImageResizeControlsVisible?: boolean;
     /**
+     * 見出しの自動番号付け（`preview.headingNumbering`）。プレビュー・印刷プレビュー・PDF・HTML出力に同じ番号を付ける。
+     * 旧Hostでは未指定のため、受信側でnormalizeHeadingNumberingModeにより`off`へ補う。
+     */
+    headingNumbering?: HeadingNumberingMode;
+    /**
      * PDF見出しpdfOptionsの文字サイズ。
      */
     pdfOptions?: PdfOptions;
@@ -600,6 +606,11 @@ export interface ExportRenderSnapshot {
     remoteImagesEnabled: boolean;
     /** 数式や本文の言語に使う確定済み言語。 */
     language: SupportedLanguage;
+    /**
+     * 出力に付ける見出し番号。PDFとHTMLだけに適用し、DOCXは対象外。
+     * 旧Webviewの要求では未指定のため、受信側で`off`として扱い、番号のない従来の出力にする。
+     */
+    headingNumbering?: HeadingNumberingMode;
 }
 
 /**
@@ -1098,6 +1109,12 @@ export type HostToWebviewMessage =
  * 共有プロトコルで送受信するメッセージまたは要求のデータ形状。
  */
 export type WebviewToHostMessage =
+    | {
+        /** 見出しの自動番号付けをグローバル設定へ保存するメッセージです。値はHostで正規化する。 */
+        type: 'setHeadingNumbering';
+        /** 番号付けモード。未知の値は`off`として保存する。 */
+        mode: HeadingNumberingMode;
+    }
     | {
         /**
          * 変換タブで切り替えた文書の表示形式を、拡張機能へ保持させるメッセージです（initの`renderFormat`で返る）。

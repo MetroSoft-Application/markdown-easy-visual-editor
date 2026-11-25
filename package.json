@@ -372,6 +372,22 @@
           "scope": "application",
           "description": "Show image resize controls in the preview."
         },
+        "markdownEasyVisualEditor.preview.headingNumbering": {
+          "type": "string",
+          "enum": [
+            "off",
+            "h1",
+            "h2"
+          ],
+          "enumDescriptions": [
+            "Do not number headings",
+            "Number headings from H1 (1., 1.1, 1.1.1)",
+            "Number headings from H2 and leave H1 as the title"
+          ],
+          "default": "off",
+          "scope": "application",
+          "description": "Number headings in the preview, print preview, and PDF and HTML exports without changing the Markdown source. DOCX exports and Marp slides are not numbered."
+        },
         "markdownEasyVisualEditor.fonts.editorFamily": {
           "type": "string",
           "default": "",

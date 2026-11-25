@@ -1,7 +1,7 @@
 /**
  * @fileoverview リボン項目の実装を定義し、ボタン・入力コントロール・状態表示をReact要素へ接続する。
  */
-import React, { useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import type { EditorTheme } from "../../shared/protocol";
 import {
   DEFAULT_MERMAID_FONT_SIZE,
@@ -12,6 +12,15 @@ import {
 import { normalizeFontFamily } from "../../shared/fontFamily";
 import { TEXT_COLOR_HEX, TEXT_COLOR_IDS } from "../../shared/textColor";
 import { setPreviewImageResizeControlsVisible } from "../preview/previewImageResizeControls";
+import {
+  getPreviewHeadingNumbering,
+  setPreviewHeadingNumbering,
+  subscribePreviewHeadingNumbering,
+} from "../preview/previewHeadingNumbering";
+import {
+  normalizeHeadingNumberingMode,
+  type HeadingNumberingMode,
+} from "../../shared/headingNumbering";
 import {
   applyTextColorToActiveSource,
   clearInlineFormattingWithTextColor,
@@ -35,6 +44,60 @@ import type {
 } from "./ribbonTypes";
 import { isConvertButtonDisabled } from "./ribbonConvert";
 import { OutputPresetSelect } from "../components/OutputPresetManager";
+import { RibbonSplitMenuButton } from "./RibbonSplitMenuButton";
+
+/**
+ * 見出し番号の選択欄。現在の値はpreviewHeadingNumberingを購読して表示し、Hostの設定通知（別ウィンドウでの変更を含む）にも追従する。
+ * @param props.label - 選択欄の前に表示するラベル。
+ * @param props.title - ツールチップ。未指定なら付けない。
+ * @param props.choices - 値と表示名の選択肢。値はHeadingNumberingModeのいずれか。
+ * @returns ラベル付きの選択欄。
+ */
+function HeadingNumberingSelect({
+  label,
+  title,
+  choices,
+}: {
+  label: string;
+  title?: string;
+  choices: ReadonlyArray<{ value: string; label: string }>;
+}): React.JSX.Element {
+  const [value, setValue] = useState<HeadingNumberingMode>(getPreviewHeadingNumbering);
+  useEffect(
+    /** 番号付けモードの変化を購読し、アンマウント時に解除する。 */
+    () => subscribePreviewHeadingNumbering(setValue),
+    [],
+  );
+  return (
+    <label className="ribbon-select-label" title={title}>
+      {label}
+      <select
+        className="mve-heading-numbering-select"
+        value={value}
+        onChange={
+          /**
+           * 選んだモードをプレビューへ反映し、Hostへ保存を依頼する。
+           * @param event - 選択欄のchangeイベント。
+           */
+          (event) => setPreviewHeadingNumbering(normalizeHeadingNumberingMode(event.target.value))
+        }
+      >
+        {choices.map(
+          /**
+           * 選択肢を1つのoption要素にする。
+           * @param choice - 値と表示名。
+           * @returns option要素。
+           */
+          (choice) => (
+            <option key={choice.value} value={choice.value}>
+              {choice.label}
+            </option>
+          ),
+        )}
+      </select>
+    </label>
+  );
+}
 
 const button = /**
  * リボンボタンのコマンド処理と表示状態を定義する。
@@ -443,59 +506,118 @@ export const RIBBON_IMPLEMENTATIONS: Record<
     ({ onCommand }) => onCommand({ type: "insert", value: BLANK_LINE_SNIPPET }),
     { disabled: editDisabled },
   ),
-  codeLanguage: control(
+  codeBlock: control(
     /**
-     * リボンの設定値と文言から入力コントロールを生成する。
-     * @param context - 編集状態、表示文言、コマンド通知を含むリボン表示コンテキスト。
-     * @param definition - ラベルと選択肢を含むリボン項目定義。
+     * コードブロックの分割ボタンを生成する。本体は最後に選んだ言語（初期値はプレーンテキスト）でコードブロックにし、
+     * 「▾」で言語の一覧を開く。選択中の文字列がある場合の動き（選択範囲を囲む）は codeBlock コマンドのとおりで、変更しない。
+     * 読み取り専用と Textile 文書では、Ribbon が readOnly を true にして渡すため、本体と「▾」の両方が無効になる。
+     * @param context - 編集状態、表示文言、最後に選んだ言語、コマンド通知を含むリボン表示コンテキスト。
+     * @param definition - ラベルを含むリボン項目定義。
      * @param resolveLabel - ローカライズキーを表示文言へ変換する関数。
-     * @returns リボンに表示する入力コントロール。
+     * @returns コードブロックの分割ボタン。
      */
-    (context, definition, resolveLabel) => (
-      <label className="ribbon-select-label">
-        {resolveLabel(definition.label)}
-        <select
-          value={context.codeLanguage}
-          disabled={context.readOnly}
-          onChange={
+    (context, definition, resolveLabel) => {
+      const languages = context.messages.ribbon.codeLanguages;
+      const checkedIndex = languages.findIndex(
+        /**
+         * 最後に選んだ言語かを判定する。
+         * @param language - 走査中の言語。
+         * @returns 値が一致する場合 true。
+         */
+        (language) => language.value === context.codeLanguage,
+      );
+      return (
+        <RibbonSplitMenuButton
+          label={resolveLabel(definition.label)}
+          current={languages[checkedIndex]?.label ?? context.codeLanguage}
+          chooseLabel={context.messages.ribbon.labels.codeBlockChoose}
+          items={languages.map(
             /**
-             * change操作を表示または編集状態へ反映する。
-             * @param event - code language selectの選択値を更新するchange event。
+             * 言語を一覧の項目にする。
+             * @param language - 値と表示名。
+             * @returns 一覧の項目。
              */
-            (event) => context.setCodeLanguage(event.target.value)
-          }
-        >
-          {context.messages.ribbon.codeLanguages.map(
-            /**
-             * 各languageから値を取り出して一覧化する。
-             * @param language - languageの値を参照する走査対象。
-             * @returns 値を取り出した変換結果の一覧。
-             */
-            (language) => (
-              <option key={language.value} value={language.value}>
-                {language.label}
-              </option>
-            ),
+            (language) => ({ key: language.value || "plain", label: language.label }),
           )}
-        </select>
-      </label>
-    ),
+          checkedIndex={checkedIndex}
+          layout="list"
+          disabled={context.readOnly}
+          onMain={
+            /** 最後に選んだ言語（初期値はプレーンテキスト）でコードブロックにする。 */
+            () => context.onCommand({ type: "codeBlock", language: context.codeLanguage })
+          }
+          onPick={
+            /**
+             * 選んだ言語を本体に入るものとして覚え、その言語でコードブロックにする。
+             * @param index - 選んだ言語の位置。
+             */
+            (index) => {
+              const language = languages[index].value;
+              context.setCodeLanguage(language);
+              context.onCommand({ type: "codeBlock", language });
+            }
+          }
+        />
+      );
+    },
   ),
-  codeBlock: button(
+  mermaid: control(
     /**
-     * リボンボタンのクリック時に編集コマンドを通知する。
+     * Mermaid の分割ボタンを生成する。本体は最後に選んだ図の種類（初期値はフローチャート）のひな形を挿入し、
+     * 「▾」で図の種類の一覧を開く。読み取り専用と Textile 文書では、本体と「▾」の両方が無効になる。
+     * @param context - 編集状態、表示文言、最後に選んだ図の種類、コマンド通知を含むリボン表示コンテキスト。
+     * @param definition - ラベルを含むリボン項目定義。
+     * @param resolveLabel - ローカライズキーを表示文言へ変換する関数。
+     * @returns Mermaid の分割ボタン。
      */
-    ({ onCommand, codeLanguage }) =>
-      onCommand({ type: "codeBlock", language: codeLanguage }),
-    { disabled: editDisabled },
-  ),
-  mermaid: button(
-    /**
-     * リボンボタンのクリック時に編集コマンドを通知する。
-     */
-    ({ onCommand, messages }) =>
-      onCommand({ type: "insert", value: messages.ribbon.snippets.mermaid }),
-    { disabled: editDisabled },
+    (context, definition, resolveLabel) => {
+      const diagrams = context.messages.ribbon.mermaidDiagrams;
+      const found = diagrams.findIndex(
+        /**
+         * 最後に選んだ図の種類かを判定する。
+         * @param diagram - 走査中の図の種類。
+         * @returns 値が一致する場合 true。
+         */
+        (diagram) => diagram.value === context.mermaidDiagram,
+      );
+      // 一覧にない値は先頭（フローチャート）として扱い、本体が何も挿入しない状態を作らない。
+      const checkedIndex = Math.max(0, found);
+      return (
+        <RibbonSplitMenuButton
+          label={resolveLabel(definition.label)}
+          current={diagrams[checkedIndex]?.label ?? ""}
+          chooseLabel={context.messages.ribbon.labels.mermaidChoose}
+          items={diagrams.map(
+            /**
+             * 図の種類を一覧の項目にする。
+             * @param diagram - 値と表示名。
+             * @returns 一覧の項目。
+             */
+            (diagram) => ({ key: diagram.value, label: diagram.label }),
+          )}
+          checkedIndex={checkedIndex}
+          layout="list"
+          disabled={context.readOnly}
+          onMain={
+            /** 最後に選んだ図の種類（初期値はフローチャート）のひな形を挿入する。 */
+            () => {
+              const diagram = diagrams[checkedIndex];
+              if (diagram) context.onCommand({ type: "insert", value: diagram.snippet });
+            }
+          }
+          onPick={
+            /**
+             * 選んだ図の種類を本体に入るものとして覚え、そのひな形を挿入する。
+             * @param index - 選んだ図の種類の位置。
+             */
+            (index) => {
+              context.setMermaidDiagram(diagrams[index].value);
+              context.onCommand({ type: "insert", value: diagrams[index].snippet });
+            }
+          }
+        />
+      );
+    },
   ),
   math: button(
     /**
@@ -546,48 +668,51 @@ export const RIBBON_IMPLEMENTATIONS: Record<
   ),
   emoji: control(
     /**
-     * リボンの設定値と文言から入力コントロールを生成する。
-     * @param context - 編集状態、表示文言、コマンド通知を含むリボン表示コンテキスト。
-     * @param definition - ラベルと選択肢を含むリボン項目定義。
+     * 絵文字の分割ボタンを生成する。本体は最後に選んだ絵文字（初期値は U+1F4D8 の青い本の絵文字）を挿入し、「▾」で 6 列の格子を開く。
+     * 格子の各項目の読み上げ名は絵文字そのもの（読み上げソフトが絵文字の名前を読む）。
+     * 読み取り専用と Textile 文書では、本体と「▾」の両方が無効になる。
+     * @param context - 編集状態、表示文言、最後に選んだ絵文字、コマンド通知を含むリボン表示コンテキスト。
+     * @param definition - ラベルと絵文字の一覧（options.values）を含むリボン項目定義。
      * @param resolveLabel - ローカライズキーを表示文言へ変換する関数。
-     * @returns リボンに表示する入力コントロール。
+     * @returns 絵文字の分割ボタン。
      */
-    (context, definition, resolveLabel) => (
-      <label className="ribbon-select-label">
-        {resolveLabel(definition.label)}
-        <select
-          value={context.emoji}
-          disabled={context.readOnly}
-          onChange={
+    (context, definition, resolveLabel) => {
+      const values = definition.options?.values ?? [];
+      return (
+        <RibbonSplitMenuButton
+          label={resolveLabel(definition.label)}
+          current={context.emoji}
+          largeCurrent
+          chooseLabel={context.messages.ribbon.labels.emojiChoose}
+          items={values.map(
             /**
-             * change操作を表示または編集状態へ反映する。
-             * @param event - emoji selectの選択値を更新するchange event。
+             * 絵文字を格子の項目にする。
+             * @param value - 絵文字。
+             * @returns 格子の項目。
              */
-            (event) => context.setEmoji(event.target.value)
-          }
-        >
-          {(definition.options?.values ?? []).map(
-            /**
-             * 各値を変換して一覧化する。
-             * @param value - 走査中の要素。
-
-             */
-            (value) => (
-              <option key={value} value={value}>
-                {value}
-              </option>
-            ),
+            (value) => ({ key: value, label: value, ariaLabel: value }),
           )}
-        </select>
-      </label>
-    ),
-  ),
-  insertEmoji: button(
-    /**
-     * リボンボタンのクリック時に編集コマンドを通知する。
-     */
-    ({ onCommand, emoji }) => onCommand({ type: "insert", value: emoji }),
-    { disabled: editDisabled },
+          checkedIndex={values.indexOf(context.emoji)}
+          layout="grid"
+          columns={6}
+          disabled={context.readOnly}
+          onMain={
+            /** 最後に選んだ絵文字（初期値は U+1F4D8 の青い本の絵文字）を挿入する。 */
+            () => context.onCommand({ type: "insert", value: context.emoji })
+          }
+          onPick={
+            /**
+             * 選んだ絵文字を本体に入るものとして覚え、挿入する。
+             * @param index - 選んだ絵文字の位置。
+             */
+            (index) => {
+              context.setEmoji(values[index]);
+              context.onCommand({ type: "insert", value: values[index] });
+            }
+          }
+        />
+      );
+    },
   ),
   rowBefore: tableButton("rowBefore"),
   rowAfter: tableButton("rowAfter"),
@@ -695,6 +820,29 @@ export const RIBBON_IMPLEMENTATIONS: Record<
        * @returns リボン実装のactiveが生成する結果。
        */ (state) => state.imageResizeControlsVisible,
     },
+  ),
+  headingNumbering: control(
+    /**
+     * 見出し番号の選択欄を生成する。
+     * @param _context - リボン表示コンテキスト。選択欄は自身で設定を購読するため使わない。
+     * @param definition - ラベル・ツールチップ・選択肢を含むリボン項目定義。
+     * @param resolveLabel - ローカライズキーを表示文言へ変換する関数。
+     * @returns 見出し番号の選択欄。
+     */
+    (_context, definition, resolveLabel) => (
+      <HeadingNumberingSelect
+        label={resolveLabel(definition.label)}
+        title={definition.options?.title ? resolveLabel(definition.options.title) : undefined}
+        choices={(definition.options?.choices ?? []).map(
+          /**
+           * 選択肢の表示名をローカライズする。
+           * @param choice - 選択肢の定義。
+           * @returns 値と表示名。
+           */
+          (choice) => ({ value: choice.value, label: resolveLabel(choice.label) }),
+        )}
+      />
+    ),
   ),
   editorTheme: control(
     /**

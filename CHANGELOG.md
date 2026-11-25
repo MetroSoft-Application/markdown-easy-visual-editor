@@ -94,3 +94,8 @@
 
 - Outline jumps put the heading at the top of the editor;
 
+## 2.1.5
+
+- Added heading numbers to the preview, print preview, and PDF/HTML exports.
+- Code block, Mermaid (31 diagram types), and Emoji are split buttons.
+

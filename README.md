@@ -12,6 +12,7 @@ Markdown Easy Visual Editor is a VS Code extension for writing Markdown and Text
 - Use the ribbon to format text, create lists, insert links, images, tables, code blocks, math, Mermaid diagrams, footnotes, alerts, and more.
 - Convert the whole document between Textile and Markdown from the **Convert** tab, and convert it back; the preview stays the same.
 - Navigate long documents with an outline generated from headings.
+- Number headings (1., 1.1, 1.1.1) in the preview and PDF/HTML exports without changing the source.
 - Search and replace text with `Ctrl+F` on Windows/Linux or `Cmd+F` on macOS.
 - Complete link paths and heading anchors while typing Markdown links.
 - Update relative links automatically when files or folders are moved or renamed in VS Code.
@@ -103,7 +104,8 @@ Apply headings, quotes, bullet lists, numbered lists, task lists, indentation, a
 
 ### Insert
 
-Insert links, images, tables, horizontal rules, line breaks, blank lines (`<br>`), code blocks, mathematical expressions, footnotes, tables of contents, page breaks, callouts, and emoji. When inserting a code block, choose its language to enable syntax highlighting.
+- Insert links, images, tables, horizontal rules, line breaks, blank lines (`<br>`), code blocks, mathematical expressions, footnotes, tables of contents, page breaks, callouts, and emoji. 
+- **Code block**, **Mermaid**, and **Emoji** are split buttons. Click **▾** to choose a code block language, a Mermaid diagram type (31 types listed in the Mermaid documentation, such as flowchart, sequence, class, Gantt, and mind map; ZenUML is not included because the preview cannot draw it), or an emoji, and it is inserted right away. Click the button itself to insert the last choice again; its name is shown under the button. The first choices are plain text, flowchart, and 📘. If text is selected, **Code block** wraps it in a code block with the chosen language.
 
 ![Insert ribbon with source and live preview](./resources/readme-insert.png)
 
@@ -132,6 +134,8 @@ Press `Alt+Enter` inside a table cell to insert a line break in that cell.
 ### View
 
 Open the same Markdown document as a regular text editor beside the visual editor, toggle the outline, and adjust the viewing layout.
+
+Choose **Heading numbers** to number headings as `1.`, `1.1`, `1.1.1` in the preview, print preview, and PDF and HTML exports. The Markdown source and the link targets of headings do not change. **From H1** numbers every heading; **From H2** leaves H1 as the document title and starts at H2. Headings inside quotes and lists and the heading drawn by front matter are not numbered. A skipped level is shown as `0`, for example `1.0.1` for an H3 directly after an H1. Front matter is recognized only when it starts on the first line and its first key follows `---` directly. DOCX exports and Marp slides are not numbered.
 
 ### Convert
 
@@ -288,7 +292,8 @@ marp: true
 
 - Marp slides appear in split view, preview-only view, and print preview.
 - The preview returns to the regular Markdown or PDF path when the marker is removed or set to `false`.
-- The built-in `default`, `gaia`, and `uncover` themes are available. PDF and HTML exports continue to use their existing output flow.
+- The built-in `default`, `gaia`, and `uncover` themes are available.
+- PDF export outputs one page per slide at the slide size (for example, 16:9 or 4:3). HTML export uses the regular document output.
 
 ## Supported Textile
 
@@ -393,6 +398,7 @@ Open the editor's **Settings** tab for image save paths, separate editor/preview
 | **Mermaid: Theme** | Choose the Mermaid preview theme. | Auto |
 | **Mermaid: Font Size** | Set one font size for Mermaid diagrams in the preview and HTML/PDF/DOCX output. | `16` px |
 | **PDF: Browser Path** | Specify an Edge or Chrome executable when automatic detection does not work. | Automatic detection |
+| **Preview: Heading Numbering** | Number headings from H1 or from H2 in the preview, print preview, and PDF/HTML exports. Also available on the **View** tab. | Off |
 
 ## Keyboard shortcuts
 

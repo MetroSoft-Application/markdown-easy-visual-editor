@@ -96,6 +96,7 @@ import type { MarpFrontMatterParser } from '../shared/marpFrontMatter';
 import { hasMermaidFence } from '../shared/markdownFence';
 import { acquirePdfBrowser, closePdfBrowser, renderPdf } from './pdf';
 import { exportWithEngine } from './exportEngine';
+import { normalizeHeadingNumberingMode } from '../shared/headingNumbering';
 import { closePeleRenderer, PeleRendererUnavailableError, preparePeleRenderer, renderPeleMermaid } from './peleMermaid';
 import { MAX_MERMAID_IMAGE_BYTES, resolveMermaidImageSources } from './mermaidImages';
 import { namespaceMermaidSvg } from '../shared/mermaidSvg';
@@ -1394,6 +1395,12 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                 case 'setPreviewImageResizeControlsVisible':
                     await this.updateGlobalConfiguration([
                         [GLOBAL_CONFIGURATION_KEYS.previewImageResizeControlsVisible, message.visible]
+                    ]);
+                    this.broadcastSettings();
+                    return;
+                case 'setHeadingNumbering':
+                    await this.updateGlobalConfiguration([
+                        [GLOBAL_CONFIGURATION_KEYS.headingNumbering, normalizeHeadingNumberingMode(message.mode)]
                     ]);
                     this.broadcastSettings();
                     return;
@@ -3082,6 +3089,8 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                 this.context.globalState.get<boolean>(PREVIEW_IMAGE_RESIZE_CONTROLS_STATE_KEY),
                 true
             ),
+            headingNumbering: normalizeHeadingNumberingMode(
+                this.getGlobalSetting<unknown>(config, GLOBAL_CONFIGURATION_KEYS.headingNumbering, undefined, 'off')),
             pdfOptions: this.getPdfOptions(config),
             htmlOptions: this.getHtmlOptions(config),
             docxOptions: this.getDocxOptions(config),

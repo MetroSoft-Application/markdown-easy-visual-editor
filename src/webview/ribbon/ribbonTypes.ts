@@ -405,14 +405,26 @@ export interface RibbonImplementationContext extends RibbonButtonState {
     setTableColumns: (value: number) => void;
 
     /**
-     * コードブロックへ設定する言語識別子。
+     * コードブロックの分割ボタンの本体で使う言語識別子（最後に一覧で選んだ言語）。空文字列はプレーンテキストで、初期値。
+     * リボンの状態としてだけ保持し、Webview を作り直すと初期値に戻る。
      */
     codeLanguage: string;
     /**
-     * リボン型の状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+     * コードブロックの分割ボタンの本体で使う言語を変更する（一覧で選んだとき）。
      * @param value - コードブロックへ設定する言語識別子。
      */
     setCodeLanguage: (value: string) => void;
+
+    /**
+     * Mermaid の分割ボタンの本体で挿入する図の種類（messages.ribbon.mermaidDiagrams の value。最後に一覧で選んだもの）。
+     * 初期値は先頭のフローチャートで、一覧にない値はフローチャートとして扱う。
+     */
+    mermaidDiagram: string;
+    /**
+     * Mermaid の分割ボタンの本体で挿入する図の種類を変更する（一覧で選んだとき）。
+     * @param value - 選択した図の種類の値。
+     */
+    setMermaidDiagram: (value: string) => void;
 
     /**
      * リボン型で扱うemojiの文字列。

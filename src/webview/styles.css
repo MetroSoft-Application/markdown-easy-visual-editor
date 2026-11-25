@@ -198,6 +198,157 @@ button:disabled {
     color: var(--vscode-descriptionForeground);
 }
 
+/*
+ * @style .ribbon-insert-block-group
+ * 挿入タブの「ブロック」グループ。6 個を 3 列 × 2 段に固定し、どの言語でも 1 つだけの段や部品の重なりを作らない。
+ * 列の幅は中身に合わせるため、文言の長い言語（fr、es）ではグループの幅の上限（330px）を外す。段の数と高さは変えない。
+ */
+.ribbon-group.ribbon-insert-block-group .ribbon-controls {
+    display: grid;
+    grid-template-columns: repeat(3, max-content);
+    justify-items: start;
+    max-width: none;
+}
+
+/*
+ * @style .ribbon-split
+ * 「本体＋▾」の分割ボタン（RibbonSplitMenuButton.tsx）。押していないときも外枠と区切り線を表示し、通常のボタンと見分けられるようにする。
+ * 本体の下の小さい文字は、本体を押したときに入るもの。「▾」は 24px 以上の幅で押しやすくする。
+ * 一覧を開いている状態は、オンの状態を表す .active ではなく .open で示す。無効時の見た目は button:disabled の共通ルールに従う。
+ */
+.ribbon-split {
+    display: inline-flex;
+    align-items: stretch;
+    border: 1px solid var(--mve-border);
+    border-radius: 3px;
+}
+
+.ribbon-split.open {
+    border-color: var(--vscode-focusBorder);
+}
+
+.ribbon-split > .ribbon-tool {
+    border: 0;
+    border-radius: 0;
+}
+
+.ribbon-split > .ribbon-tool:hover:not(:disabled) {
+    border-color: transparent;
+}
+
+.ribbon-split-main {
+    align-items: flex-start;
+}
+
+.ribbon-split-main small {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 絵文字は 9px では見分けられないため、本体の下の表示を大きくする。 */
+.ribbon-split-main small.ribbon-split-current-large {
+    font-size: 13px;
+    line-height: 1.1;
+}
+
+.ribbon-split > .ribbon-tool.ribbon-split-caret {
+    min-width: 24px;
+    min-height: 24px;
+    padding: 0 4px;
+    align-items: center;
+    border-left: 1px solid var(--mve-border);
+}
+
+/* 無効なとき（読み取り専用、Textile 文書）は、外枠と区切り線も薄くし、有効なときと見分けられるようにする。 */
+.ribbon-split:has(> .ribbon-tool:disabled),
+.ribbon-split:has(> .ribbon-tool:disabled) > .ribbon-tool.ribbon-split-caret {
+    border-color: color-mix(in srgb, var(--mve-border) 48%, transparent);
+}
+
+/*
+ * @style .ribbon-popup
+ * 分割ボタンの一覧。リボン本体（.ribbon-content）は縦方向のはみ出しを隠すため、document.body に描画し、position: fixed で
+ * ボタンの位置から配置する（位置と最大の高さは RibbonSplitMenuButton.tsx が画面内に収まるよう計算する）。
+ * 色は出力プリセットの操作メニュー（.output-preset-menu）と同じ VS Code のメニューの変数を使い、テーマに合わせる。
+ * 収まらない分はスクロールし、スクロールできることが分かるようスクロールバーを表示する。✓ は本体に入るもの。
+ */
+.ribbon-popup {
+    position: fixed;
+    z-index: 40;
+    padding: 4px;
+    overflow-y: auto;
+    border: 1px solid var(--vscode-menu-border, var(--mve-border));
+    border-radius: 4px;
+    color: var(--vscode-menu-foreground, var(--vscode-foreground));
+    background: var(--vscode-menu-background, var(--mve-panel));
+    box-shadow: 0 4px 16px rgb(0 0 0 / 30%);
+    font-size: 12px;
+}
+
+.ribbon-popup::-webkit-scrollbar {
+    width: 10px;
+}
+
+.ribbon-popup::-webkit-scrollbar-thumb {
+    background: var(--vscode-scrollbarSlider-background, rgba(121, 121, 121, .4));
+}
+
+.ribbon-popup-list {
+    min-width: 160px;
+}
+
+.ribbon-popup-list button {
+    display: block;
+    width: 100%;
+    padding: 4px 10px;
+    border: 0;
+    border-radius: 3px;
+    text-align: left;
+    white-space: nowrap;
+    background: transparent;
+}
+
+.ribbon-popup-list button::before {
+    content: "✓ ";
+    visibility: hidden;
+}
+
+.ribbon-popup-list button[aria-checked="true"]::before {
+    visibility: visible;
+}
+
+.ribbon-popup-grid {
+    display: grid;
+    gap: 2px;
+}
+
+.ribbon-popup-grid button {
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: 3px;
+    font-size: 18px;
+    background: transparent;
+}
+
+.ribbon-popup-grid button[aria-checked="true"] {
+    outline: 1px solid var(--vscode-focusBorder);
+}
+
+.ribbon-popup button:hover {
+    color: var(--vscode-menu-selectionForeground, var(--vscode-foreground));
+    background: var(--vscode-menu-selectionBackground, var(--mve-active));
+}
+
+/* キーボードでのフォーカスは、背景色に加えて枠線でも示す（ハイコントラストテーマでも位置が分かるように）。 */
+.ribbon-popup button:focus-visible {
+    outline: 1px solid var(--vscode-menu-selectionBorder, var(--vscode-focusBorder));
+    outline-offset: -1px;
+    color: var(--vscode-menu-selectionForeground, var(--vscode-foreground));
+    background: var(--vscode-menu-selectionBackground, var(--mve-active));
+}
+
 .ribbon-select-label {
     display: flex;
     flex-direction: column;
@@ -1283,6 +1434,20 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     max-width: 100%;
     height: auto;
     margin: 0 auto;
+}
+
+/*
+ * @style .diagram-block svg.pele-treeView
+ * Mermaid のツリービュー（Pele が svg に pele-treeView を付ける）は、フォルダーとファイルの階層を左端からの字下げで読む図のため、
+ * 中央寄せではなく左寄せにする。PDF・HTML の出力はもともと図を左寄せにしており、プレビューもそれにそろう。
+ */
+.diagram-block.mermaid:has(svg.pele-treeView) {
+    text-align: left;
+}
+
+.diagram-block svg.pele-treeView {
+    margin-left: 0;
+    margin-right: auto;
 }
 
 .rendered-markdown[data-mve-image-zoom] .diagram-block.mermaid {

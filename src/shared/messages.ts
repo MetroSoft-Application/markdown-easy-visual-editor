@@ -414,14 +414,18 @@ export interface Messages {
             blankLine: string;
 
             /**
-             * 表示項目「language」の文言として表示するローカライズ済み文言。
-             */
-            language: string;
-
-            /**
              * コードブロック書式コマンドのラベルとして表示するローカライズ済み文言。
              */
             codeBlock: string;
+
+            /** コードブロックの分割ボタンの「▾」の読み上げ名とツールチップ、および言語の一覧の読み上げ名。 */
+            codeBlockChoose: string;
+
+            /** Mermaid の分割ボタンの「▾」の読み上げ名とツールチップ、および図の種類の一覧の読み上げ名。 */
+            mermaidChoose: string;
+
+            /** 絵文字の分割ボタンの「▾」の読み上げ名とツールチップ、および絵文字の一覧の読み上げ名。 */
+            emojiChoose: string;
 
             /**
              * 表示項目「math」の文言として表示するローカライズ済み文言。
@@ -453,6 +457,21 @@ export interface Messages {
              */
             imageResizeControls: string;
 
+            /** 見出し番号の選択欄のラベル。 */
+            headingNumbering: string;
+
+            /** 見出し番号の選択欄の説明（ツールチップ）。原文を変えないことと適用先を示す。 */
+            headingNumberingTitle: string;
+
+            /** 見出し番号の選択肢「番号なし」。 */
+            headingNumberingOff: string;
+
+            /** 見出し番号の選択肢「H1から番号を付ける」。 */
+            headingNumberingH1: string;
+
+            /** 見出し番号の選択肢「H1を表題とし、H2から番号を付ける」。 */
+            headingNumberingH2: string;
+
             /**
              * エディターテーマ選択のラベル。
              */
@@ -477,11 +496,6 @@ export interface Messages {
              * 表示項目「emoji」の文言として表示するローカライズ済み文言。
              */
             emoji: string;
-
-            /**
-             * 絵文字を挿入操作のラベルとして表示するローカライズ済み文言。
-             */
-            insertEmoji: string;
 
             /**
              * 前へ追加操作のラベルとして表示するローカライズ済み文言。
@@ -867,7 +881,7 @@ export interface Messages {
             convertDocument: string;
         };
 
-        /** コード挿入UIで選べる言語名をまとめる。 */
+        /** コードブロックの分割ボタンの一覧で選べる言語。並び順が一覧の表示順で、値が空文字列の先頭はプレーンテキスト。値は重複させない。 */
         codeLanguages: ReadonlyArray<{
             /**
              * 表示項目「値」の文言として表示するローカライズ済み文言。
@@ -879,12 +893,26 @@ export interface Messages {
             label: string
         }>;
 
+        /**
+         * Mermaid の分割ボタンの一覧で選べる図の種類。並び順が一覧の表示順で、先頭（フローチャート）を本体の初期値とする。
+         * `value`は全言語で同じ並び・同じ値にし、言語を切り替えても本体に入る種類を保てるようにする。
+         */
+        mermaidDiagrams: ReadonlyArray<{
+            /** 図の種類の識別子（例: `flowchart`、`sequence`）。一覧の項目のキーと本体の状態に使い、表示しない。 */
+            value: string;
+            /** 一覧と本体の下に表示するローカライズ済みの図の名前。 */
+            label: string;
+            /**
+             * 挿入するひな形。前後に空行を置いた```mermaidのコードブロックで、図に表示される文言は原則として表示言語に合わせる。
+             * 例外として、どの言語でも英語のままにするもの: クラス図・Git グラフ（クラス名やブランチ名は識別子のため）、
+             * サンキー図・イベントモデリング・ワードリーマップの要素名（プレビューの描画部品 Pele が英字以外を受け付けないため。ワードリーマップの題名は表示言語）。
+             * すべてのひな形は Pele で描画できることをテスト（test/mermaidDiagramInsert.test.ts）で確かめている。
+             */
+            snippet: string;
+        }>;
+
         /** 定型入力候補とその挿入内容をまとめる。 */
         snippets: {
-            /**
-             * 表示項目「mermaid」の文言として表示するローカライズ済み文言。
-             */
-            mermaid: string;
             /**
              * 表示項目「footnote」の文言として表示するローカライズ済み文言。
              */
@@ -2436,6 +2464,7 @@ function createMessages(language: SupportedLanguage): Messages {
             },
             featureDescriptions: raw.ribbon.labels.featureDescriptions,
             codeLanguages: raw.ribbon.codeLanguages,
+            mermaidDiagrams: raw.ribbon.mermaidDiagrams,
             snippets: raw.ribbon.snippets,
             settings: {
                 ...raw.ribbon.settings,

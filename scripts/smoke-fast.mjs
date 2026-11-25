@@ -291,6 +291,149 @@ async function runUnsizedImageWidthSmoke(page) {
  * @param page - 分割表示のWebviewを開いているPlaywrightページ。
  * @throws ツールチップ、送信メッセージが期待と異なる場合。
  */
+/**
+ * 挿入タブの分割ボタン（コードブロック・Mermaid・絵文字。RibbonSplitMenuButton.tsx）の操作を検証する。
+ * 回帰リスク: 一覧から選んだ後にソースエディターのフォーカスとカーソルが失われ、続けて入力できなくなる（実際に起きた不具合）。
+ * Tab で一覧を閉じたときにフォーカスがリボンの外（body）へ外れる。一覧の開閉・キー操作・外のクリックで閉じること・画面内への配置が崩れる。
+ * Mermaid の一覧が公式サイトの 31 種類（ZenUML を除く）でなくなる。本体が最後に選んだものを挿入しなくなる。
+ * 本文はHostへの外部変更として差し替え、各操作の結果はHost側の本文（window.__mveHostText）で確かめる。
+ * @param page - 分割表示のWebviewを開いているPlaywrightページ（表示言語は日本語）。
+ * @throws 一覧の状態、挿入結果、フォーカスの位置が期待と異なる場合。
+ */
+async function runRibbonSplitButtonSmoke(page) {
+  const source = '# Split\n\nend\n';
+  await page.evaluate(
+  /**
+   * Host側の本文を差し替え、外部変更としてWebviewへ通知する。
+   * @param text - 検証の開始時の本文。
+   */
+  (text) => {
+    const previousText = window.__mveHostText;
+    const baseVersion = window.__mveHostVersion;
+    window.__mveHostText = text;
+    window.__mvePhysicalText = text.replace(/\n/g, '\r\n');
+    window.__mveHostVersion += 1;
+    window.dispatchEvent(new MessageEvent('message', {
+      data: { type: 'externalChanges', baseVersion, version: window.__mveHostVersion, changes: [{ rangeOffset: 0, rangeLength: previousText.length, text }] }
+    }));
+  }, source);
+  await page.locator('.split-editor .cm-line', { hasText: 'end' }).first().click();
+  await page.keyboard.press('Control+End');
+  await page.getByRole('tab', { name: '挿入', exact: true }).click();
+  const mermaidCaret = page.getByRole('button', { name: 'Mermaid の図の種類を選ぶ' });
+  const popup = page.locator('.ribbon-popup');
+  /**
+   * Host側の本文に、指定の文字列が指定の回数以上含まれるまで待つ。
+   * @param text - 探す文字列。
+   * @param count - 必要な回数。
+   */
+  const waitHost = (text, count = 1) => page.waitForFunction(
+  /**
+   * @param args - 探す文字列と回数。
+   * @returns Host本文に必要な回数だけ含まれるか。
+   */
+  (args) => window.__mveHostText.split(args.text).length - 1 >= args.count, { text, count });
+  /**
+   * フォーカスがソースエディターにあるかを読む。
+   * @returns ソースエディターにあれば true。
+   */
+  const focusInEditor = () => page.evaluate(
+  /** @returns ソースエディターにフォーカスがあるか。 */
+  () => Boolean(document.activeElement?.closest('.source-editor')));
+
+  // 1. マウスで開く：31 項目、本体に入るもの（フローチャート）に ✓、aria-expanded が true、画面内に収まる。
+  await mermaidCaret.click();
+  await popup.waitFor();
+  const opened = await page.evaluate(
+  /** @returns 一覧の項目数、✓ の項目、aria-expanded、一覧の位置と画面の大きさ。 */
+  () => {
+    const menu = document.querySelector('.ribbon-popup');
+    const rect = menu.getBoundingClientRect();
+    return {
+      count: menu.querySelectorAll('[role=menuitemradio]').length,
+      checked: menu.querySelector('[aria-checked=true]')?.textContent,
+      expanded: document.querySelector('[aria-label="Mermaid の図の種類を選ぶ"]').getAttribute('aria-expanded'),
+      inside: rect.left >= 0 && rect.top >= 0 && rect.right <= innerWidth && rect.bottom <= innerHeight
+    };
+  });
+  if (opened.count !== 31 || opened.checked !== 'フローチャート' || opened.expanded !== 'true' || !opened.inside) {
+    throw new Error(`split button popup state unexpected: ${JSON.stringify(opened)}`);
+  }
+
+  // 2. マウスで「クラス図」を選ぶ → 挿入され、一覧が閉じ、ソースエディターで続けて入力できる（フォーカスを奪わない）。
+  await popup.getByRole('menuitemradio', { name: 'クラス図', exact: true }).click();
+  await waitHost('classDiagram');
+  if (await popup.count() !== 0) throw new Error('split button popup did not close after picking');
+  if (!(await focusInEditor())) throw new Error('split button pick did not return focus to the source editor');
+  await page.keyboard.type('Z1');
+  await waitHost('Z1');
+
+  // 3. 本体は最後に選んだもの（クラス図）を挿入する。250ms の重複抑止にかからないよう間を空ける。
+  await page.waitForTimeout(400);
+  await page.locator('.ribbon-split-main', { hasText: 'クラス図' }).click();
+  await waitHost('classDiagram', 2);
+
+  // 4. Esc で閉じると、一覧を開く前の場所（ソースエディター）へフォーカスが戻る。
+  await mermaidCaret.click();
+  await popup.waitFor();
+  await page.keyboard.press('Escape');
+  await popup.waitFor({ state: 'detached' });
+  if (!(await focusInEditor())) throw new Error('Escape did not return focus to where it was before opening');
+
+  // 5. キーボード：「▾」で ↓ を押すと ✓ の項目（クラス図）へフォーカスし、↓・Enter で次の種類（状態遷移図）を挿入する。
+  await mermaidCaret.focus();
+  await page.keyboard.press('ArrowDown');
+  await popup.waitFor();
+  const focusedLabel = await page.evaluate(
+  /** @returns フォーカスしている項目の表示名。 */
+  () => document.activeElement?.textContent);
+  if (focusedLabel !== 'クラス図') throw new Error(`ArrowDown focused ${focusedLabel}`);
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Enter');
+  await waitHost('stateDiagram-v2');
+
+  // 6. Tab で閉じると、フォーカスはリボンの中の次の部品へ移り、body やリボンの外へ外れない。
+  await mermaidCaret.focus();
+  await page.keyboard.press('ArrowDown');
+  await popup.waitFor();
+  await page.keyboard.press('Tab');
+  await popup.waitFor({ state: 'detached' });
+  const afterTab = await page.evaluate(
+  /** @returns Tab 後のフォーカスがリボンの中にあるか、とその表示名。 */
+  () => ({ inRibbon: document.activeElement?.closest('.ribbon') !== null, text: document.activeElement?.textContent?.trim() }));
+  if (!afterTab.inRibbon || afterTab.text !== '数式') throw new Error(`Tab moved focus unexpectedly: ${JSON.stringify(afterTab)}`);
+
+  // 7. 一覧の外をクリックすると閉じる。
+  await mermaidCaret.click();
+  await popup.waitFor();
+  await page.locator('.split-preview').click({ position: { x: 20, y: 20 } });
+  await popup.waitFor({ state: 'detached' });
+
+  // 8. コードブロック：頭文字「p」で Python へ移り、Enter で Python のコードブロックにする。本体の下が Python になる。
+  await page.locator('.split-editor .cm-line').last().click();
+  await page.keyboard.press('Control+End');
+  await page.keyboard.press('Enter');
+  await page.getByRole('button', { name: 'コードブロックの言語を選ぶ' }).click();
+  await popup.waitFor();
+  await page.keyboard.press('p');
+  await page.keyboard.press('Enter');
+  await waitHost('```python');
+  const codeCurrent = await page.locator('.ribbon-split-main small').first().textContent();
+  if (codeCurrent !== 'Python') throw new Error(`code block main shows ${codeCurrent}`);
+
+  // 9. 絵文字の格子：↓（2 行目）と → 5 回で 12 番目（U+2705）へ移り、Enter で挿入する。
+  await page.locator('.split-editor .cm-line').last().click();
+  await page.keyboard.press('Control+End');
+  await page.getByRole('button', { name: '絵文字を選ぶ' }).focus();
+  await page.keyboard.press('ArrowDown');
+  await popup.waitFor();
+  await page.keyboard.press('Home');
+  await page.keyboard.press('ArrowDown');
+  for (let step = 0; step < 5; step += 1) await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('Enter');
+  await waitHost('\u{2705}');
+}
+
 async function runEditorLinkSmoke(page) {
   const source = '# Editor links\n\nopen [the guide](guide.md#intro "MVE workspace-root link") now\n\njump [down](#target) plain words here\n\n## Target\n\nbody\n';
   await page.evaluate(
@@ -4052,6 +4195,7 @@ try {
   await runDrawioClickSmoke(page);
   await runUnsizedImageWidthSmoke(page);
   await runEditorLinkSmoke(page);
+  await runRibbonSplitButtonSmoke(page);
   await context.close();
   if (errors.length) throw new Error(errors.join('\n'));
   console.log('高速スモーク: 空CRLF文書の単一改行同期、LFプロトコル、画像保存先設定、表編集、フォーカス非介入、スクロール同期設定、スクロール保持、分割表示、ズーム、空白可視化、ハイライトを確認しました。');

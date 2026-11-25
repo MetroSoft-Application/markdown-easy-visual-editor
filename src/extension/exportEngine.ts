@@ -5,6 +5,7 @@
 import * as vscode from 'vscode';
 import path from 'node:path';
 import { getMessages } from '../shared/messages';
+import { headingNumberingCss, normalizeHeadingNumberingMode } from '../shared/headingNumbering';
 import {
     DEFAULT_PDF_OPTIONS,
     type DocxExportSettings,
@@ -46,6 +47,11 @@ interface EngineArguments {
     force: true;
     pdfOptions: PdfOptions;
     htmlOptions?: HtmlExportOptions;
+    /**
+     * エンジンが組み込みCSSの後ろへ追加する利用者のCSS（エンジン0.1.3以降の`customCss`）。見出し番号の付与だけに使う。
+     * 番号がない場合は渡さず、従来と同じ出力にする。
+     */
+    customCss?: string;
     signal?: AbortSignal;
 }
 
@@ -110,6 +116,19 @@ const ENGINE_LITERAL_BRACE = '\uE000';
  */
 export function protectEngineOnlyPlaceholders(value: string | undefined): string {
     return (value ?? '').replace(/\{(?=(?:title|file|date)\})/g, ENGINE_LITERAL_BRACE);
+}
+
+/**
+ * 出力形式と見出し番号の設定から、エンジンへ渡す見出し番号のCSSを決める。
+ * DOCXはエンジンが組版結果から本文の文字を読み取り、CSSの`::before`で描いた番号を含めないため、渡さない。
+ * @param format - 出力形式。
+ * @param mode - 出力要求時点の見出し番号の設定。旧Webviewの要求では未指定。
+ * @returns PDF・HTMLで番号を付ける場合はCSS。DOCX・番号なし・未指定・不正値ならundefined。
+ */
+export function exportHeadingNumberingCss(format: ExportFormat, mode: unknown): string | undefined {
+    if (format === 'docx') return undefined;
+    // エンジンはPDF・HTMLとも本文をbody直下へ描くため、カウンターはbodyで初期化する。
+    return headingNumberingCss(normalizeHeadingNumberingMode(mode), 'body') || undefined;
 }
 
 /**
@@ -182,6 +201,7 @@ export async function exportWithEngine(
             footer: protectEngineOnlyPlaceholders(pdfOptions.footer)
         },
         htmlOptions: html,
+        customCss: exportHeadingNumberingCss(request.format, request.rendering.headingNumbering),
         signal: request.signal
     };
     const paths = await loadExportEngine().convert(args);

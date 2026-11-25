@@ -76,7 +76,6 @@ const MARKDOWN_SYNTAX_RIBBON_ITEMS: ReadonlySet<RibbonItemId> = new Set([
   "horizontalRule",
   "hardBreak",
   "blankLine",
-  "codeLanguage",
   "codeBlock",
   "mermaid",
   "math",
@@ -86,7 +85,6 @@ const MARKDOWN_SYNTAX_RIBBON_ITEMS: ReadonlySet<RibbonItemId> = new Set([
   "note",
   "warning",
   "emoji",
-  "insertEmoji",
   "rowBefore",
   "rowAfter",
   "deleteRow",
@@ -275,6 +273,8 @@ export function Ribbon({
   const [tableRows, setTableRows] = useState(3);
   const [tableColumns, setTableColumns] = useState(3);
   const [codeLanguage, setCodeLanguage] = useState("");
+  // 分割ボタンの本体で入るもの（最後に一覧で選んだもの）。初期値は変更前のボタンと同じ（プレーンテキスト、フローチャート、U+1F4D8 の青い本の絵文字）。
+  const [mermaidDiagram, setMermaidDiagram] = useState("flowchart");
   const [emoji, setEmoji] = useState("\u{1F4D8}");
   const [headerName, setHeaderName] = useState("");
   const [textColorChoice, setTextColorChoice] =
@@ -334,6 +334,8 @@ export function Ribbon({
     setTableColumns,
     codeLanguage,
     setCodeLanguage,
+    mermaidDiagram,
+    setMermaidDiagram,
     emoji,
     setEmoji,
     headerName,

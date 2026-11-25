@@ -152,6 +152,8 @@ import {
   serializePdfExport,
 } from "../export/outputSerialization";
 import { collectPrintableCss } from "../export/printableCss";
+import { headingNumberingCss } from "../../shared/headingNumbering";
+import { getPreviewHeadingNumbering } from "../preview/previewHeadingNumbering";
 import { PdfPreview } from "./PdfPreview";
 import { Inspector } from "./Inspector";
 import { HelpDialog, type HelpTopic } from "./HelpDialog";
@@ -3640,6 +3642,8 @@ export function App(): React.JSX.Element {
       fontFamily: settings.previewFontFamily,
       remoteImagesEnabled: settings.remoteImagesEnabled,
       language: settings.language,
+      // 出力要求の時点の見出し番号を固定して渡す。DOCXでは使わない（Host側で判定）。
+      headingNumbering: getPreviewHeadingNumbering(),
     };
   }
 
@@ -3857,7 +3861,10 @@ export function App(): React.JSX.Element {
       return;
     }
     if (pdfPreviewRequestRef.current !== requestId) return;
-    const css = collectPrintableCss(settings.previewFontFamily, false);
+    // 見出し番号はPDF出力と同じCSSを使い、印刷プレビューと出力の番号を一致させる。ホストの印刷HTMLは本文をbody直下に置く。
+    const numberingCss = headingNumberingCss(getPreviewHeadingNumbering(), "body");
+    const css = collectPrintableCss(settings.previewFontFamily, false)
+      + (numberingCss ? `\n${numberingCss}` : "");
     mveDebug("pdf.preview-request", {
       requestId,
       htmlChars: pdfOutput.html.length,
