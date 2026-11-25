@@ -360,7 +360,7 @@ export function tableEditorCellDisplayOffsetFromStored(value: string, storedOffs
 }
 
 /**
- * 表示オフセット直前のMarkdown改行を削除し、キャレット位置を返す。
+ * 選択範囲を`<br>`で置き換え、挿入直後のキャレット位置を返す。
  * @param value - 改行を挿入する保存形式のセル値。
  * @param selectionStart - 改行を挿入する保存形式セル値内の選択開始オフセット。
  * @param selectionEnd - 改行を挿入する保存形式セル値内の選択終了オフセット。
@@ -408,6 +408,44 @@ export function deleteTableEditorLineBreakBeforeDisplayOffset(
         displayCursor += 1;
     }
     return undefined;
+}
+
+/**
+ * 入力直後のtextarea表示値と、保存形式へ正規化して再表示する値が異なるとき、caret位置を正規化後の表示値へ写す。
+ *
+ * Deleteキーや`<br>`と生成改行の間でのBackspaceなど、ブラウザー既定の削除が`<br>`の一部だけを消すと、
+ * {@link tableEditorCellStoredValue}が`<br>`と生成改行をまとめて除くため、制御されたtextareaの値が入力直後の
+ * DOM値と食い違う。Reactが値を書き戻すとcaretは末尾へ移るため、呼び出し側はこの結果で位置を復元する。
+ * 変更区間より前のcaretはそのまま、後ろのcaretは削除量だけ前へずらし、変更区間の内側は区間の先頭へ丸める。
+ * @param editedValue - 入力直後のtextareaの表示値。
+ * @param caretOffset - 入力直後の`editedValue`内のUTF-16 caretオフセット。範囲外は文字列長へ丸める。
+ * @param normalizedValue - 正規化後に再表示するセル表示値。
+ * @returns `normalizedValue`内のUTF-16 caretオフセット（0以上`normalizedValue.length`以下）。
+ */
+export function mapTableEditorCaretAfterNormalization(
+    editedValue: string,
+    caretOffset: number,
+    normalizedValue: string,
+): number {
+    const caret = clampOffset(caretOffset, editedValue.length);
+    if (editedValue === normalizedValue) return caret;
+    let prefix = 0;
+    const shorter = Math.min(editedValue.length, normalizedValue.length);
+    while (prefix < shorter && editedValue[prefix] === normalizedValue[prefix]) prefix += 1;
+    // 接頭部と重ならない範囲だけを共通接尾部として数え、変更区間の長さを負にしない。
+    let suffix = 0;
+    while (
+        suffix < editedValue.length - prefix
+        && suffix < normalizedValue.length - prefix
+        && editedValue[editedValue.length - 1 - suffix] === normalizedValue[normalizedValue.length - 1 - suffix]
+    ) {
+        suffix += 1;
+    }
+    if (caret <= prefix) return caret;
+    if (caret >= editedValue.length - suffix) {
+        return clampOffset(caret - (editedValue.length - normalizedValue.length), normalizedValue.length);
+    }
+    return prefix;
 }
 
 /**

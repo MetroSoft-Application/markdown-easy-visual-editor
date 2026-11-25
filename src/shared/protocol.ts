@@ -2,8 +2,10 @@
  * @fileoverview HostとWebviewが送受信するメッセージ、設定、ペイロードの型・既定値・正規化規則を定義する。
  */
 import type { Diagnostic } from './markdown';
+import type { OutputPreset, OutputPresetValues } from './outputPresets';
 import { DEFAULT_FONT_FAMILY_STACK, type FontFamilySettings } from './fontFamily';
 import type { SupportedLanguage } from './messages';
+import type { HeadingNumberingMode } from './headingNumbering';
 
 /**
  * 本文編集とプレビューの表示構成を表す値。
@@ -553,6 +555,11 @@ export interface WebviewSettings extends FontFamilySettings {
      */
     previewImageResizeControlsVisible?: boolean;
     /**
+     * 見出しの自動番号付け（`preview.headingNumbering`）。プレビュー・印刷プレビュー・PDF・HTML出力に同じ番号を付ける。
+     * 旧Hostでは未指定のため、受信側でnormalizeHeadingNumberingModeにより`off`へ補う。
+     */
+    headingNumbering?: HeadingNumberingMode;
+    /**
      * PDF見出しpdfOptionsの文字サイズ。
      */
     pdfOptions?: PdfOptions;
@@ -564,6 +571,13 @@ export interface WebviewSettings extends FontFamilySettings {
      * DOCX出力設定。旧Hostからの通知では未指定のため、受信側でnormalizeDocxExportSettingsにより既定値へ補う。
      */
     docxOptions?: DocxExportSettings;
+    /** ユーザーが保存した出力設定の一覧。旧Hostでは未指定のため空一覧として扱う。 */
+    outputPresets?: OutputPreset[];
+    /**
+     * 最後に適用・保存したプリセットのID。現在の設定がその保存内容と一致するとは限らない。
+     * 削除済み・未設定の場合は空文字列。Webviewは resolveOutputPresetState で表示と変更有無を決める。
+     */
+    activeOutputPresetId?: string;
 
     /**
  * Webviewでワークスペース内リソースを許可するかを示す信頼状態。
@@ -592,6 +606,11 @@ export interface ExportRenderSnapshot {
     remoteImagesEnabled: boolean;
     /** 数式や本文の言語に使う確定済み言語。 */
     language: SupportedLanguage;
+    /**
+     * 出力に付ける見出し番号。PDFとHTMLだけに適用し、DOCXは対象外。
+     * 旧Webviewの要求では未指定のため、受信側で`off`として扱い、番号のない従来の出力にする。
+     */
+    headingNumbering?: HeadingNumberingMode;
 }
 
 /**
@@ -852,6 +871,25 @@ export type HostToWebviewMessage =
     }
     | {
         /**
+         * applyOutputPreset の処理が終わったことを要求元のWebviewだけへ知らせる。
+         * Hostは成否にかかわらず、書き込み後の settingsChanged を送ってからこの通知を送る。
+         * Webviewは選んだ時点で画面へ反映した値を、この通知を受けるまで古い settingsChanged で戻さない。
+         */
+        type: 'outputPresetApplied';
+        /** 要求された保存した設定のID。 */
+        presetId: string;
+        /**
+         * applyOutputPreset で受け取った要求番号をそのまま返す。同じ設定を続けて選んだときも、どの要求への応答かを区別する。
+         */
+        applyId: number;
+        /**
+         * 設定をすべて書き込めた場合はtrue。どちらの場合も直前の settingsChanged が実際の値なので、
+         * Webview は成否で処理を分けず、その値へ合わせる（記録・将来の通知表示用）。
+         */
+        succeeded: boolean
+    }
+    | {
+        /**
          * 画像保存結果を要求元へ返すメッセージです。
          */
         type: 'imagesSaved';
@@ -1033,9 +1071,25 @@ export type HostToWebviewMessage =
         command: 'insertImage' | 'exportPdf' | 'exportHtml' | 'exportDocx' | 'undo' | 'redo'
     }
     | {
+        /**
+         * Webviewの表示を本文上の位置へ移動させるHostコマンド。見出しリンクと「行へ移動」（Ctrl+G）から送る。
+         */
         type: 'hostCommand';
+        /** 本文位置への移動を示すコマンド種別。 */
         command: 'navigateToOffset';
+        /** 移動先のLF正規化本文内UTF-16オフセット。0未満・非整数はWebviewが無視する。 */
         offset: number;
+        /**
+         * trueなら「行へ移動」（Ctrl+G）として扱う。移動先の行をソースエディターの表示領域の先頭に置き、
+         * 入力ボックスを閉じた後もそのまま入力を続けられるようソースエディターへフォーカスを戻す。
+         * 省略時（旧形式・見出しリンク・VS Codeのアウトライン）は見出しへの移動として、移動先の行をプレビューと同じく
+         * 表示領域の上端から18px（App.tsx の HEADING_REVEAL_TOP_MARGIN）に置き、フォーカスを動かさない。
+         * 表示モードごとの扱い:
+         * - 分割表示（左右・テキストのみ）: 上記のとおりソースへ移動する。
+         * - 分割表示の「プレビューのみ」・Marpプレビュー: プレビューの該当位置へスクロールするだけで、このフラグは使わない。
+         * - Marp以外の全面プレビュー: 左右分割表示へ切り替えてからソースへ移動し、上記の先頭配置とフォーカス復帰を行う。
+         */
+        goToLine?: boolean;
     }
     | {
         /**
@@ -1055,6 +1109,12 @@ export type HostToWebviewMessage =
  * 共有プロトコルで送受信するメッセージまたは要求のデータ形状。
  */
 export type WebviewToHostMessage =
+    | {
+        /** 見出しの自動番号付けをグローバル設定へ保存するメッセージです。値はHostで正規化する。 */
+        type: 'setHeadingNumbering';
+        /** 番号付けモード。未知の値は`off`として保存する。 */
+        mode: HeadingNumberingMode;
+    }
     | {
         /**
          * 変換タブで切り替えた文書の表示形式を、拡張機能へ保持させるメッセージです（initの`renderFormat`で返る）。
@@ -1395,6 +1455,54 @@ export type WebviewToHostMessage =
          * 保存するDOCX出力設定。
          */
         options: DocxExportSettings
+    }
+    | {
+        /** 現在の印刷設定（印刷設定パネルの項目: PDF設定。フォントは含めない）を名前を付けて保存・上書きする。 */
+        type: 'saveOutputPreset';
+        name: string;
+        presetId?: string;
+        values: OutputPresetValues
+    }
+    | {
+        /** 既存ユーザープリセットの名前だけ変更する。 */
+        type: 'renameOutputPreset';
+        presetId: string;
+        name: string
+    }
+    | {
+        /** ユーザーが保存した設定を削除する（確認はしない）。現在の出力設定の値は変えない。 */
+        type: 'deleteOutputPreset';
+        presetId: string
+    }
+    | {
+        /**
+         * 削除した保存した設定を、削除前の位置・IDのまま戻し、最後に適用した設定として記録する（削除の「元に戻す」）。
+         * 削除できるのは選択中の設定だけなので、戻した設定は常に選択中に戻す。
+         * Hostは形式を検査し、同じIDや同じ名前が既にある場合は戻さずに失敗を通知する。
+         */
+        type: 'restoreOutputPreset';
+        /** 削除前の設定。Hostは未検証の値として扱う。 */
+        preset: OutputPreset;
+        /** 削除前の一覧での位置（0始まり）。整数でなければ末尾へ戻す。 */
+        index: number
+    }
+    | {
+        /**
+         * 印刷設定（PDF設定）を、選んだ保存した設定へ切り替える。フォント・テーマ・HTML・DOCX と「同じフォルダへ直接出力」は変えない。
+         * Hostは処理の成否にかかわらず settingsChanged の後に outputPresetApplied を返す。
+         */
+        type: 'applyOutputPreset';
+        presetId: string;
+        /** Webview が要求ごとに増やす番号。Host は outputPresetApplied でそのまま返す。 */
+        applyId: number
+    }
+    | {
+        /** 保存済みユーザープリセットをJSONファイルから取り込む。 */
+        type: 'importOutputPresets'
+    }
+    | {
+        /** 保存済みユーザープリセットをJSONファイルへ書き出す。 */
+        type: 'exportOutputPresets'
     }
     | {
 

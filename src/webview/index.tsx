@@ -21,6 +21,7 @@ import "./table-editor/tableEditorOverlay.css";
 import { getMessages } from "../shared/messages";
 import { installEditorThemeController } from "./editor/editorThemeController";
 import { installPreviewImageResizeControls } from "./preview/previewImageResizeControls";
+import { installPreviewHeadingNumbering } from "./preview/previewHeadingNumbering";
 import { installPreviewImageContextMenu } from "./preview/previewImageContextMenu";
 import { installPreviewImageClipboardPaste } from "./preview/previewImageClipboardPaste";
 import { installSelectedTextSearchTransfer } from "./editor/searchSelectedText";
@@ -143,6 +144,8 @@ if (!root) throw new Error(getMessages("en").internal.rootNotFound);
 root.addEventListener("click", handleLineNumberClick);
 installEditorThemeController();
 installPreviewImageResizeControls();
+// Appのマウント前に購読し、最初のinitメッセージの設定を取りこぼさないようにする。
+installPreviewHeadingNumbering();
 installPreviewImageContextMenu();
 installPreviewImageClipboardPaste();
 installSelectedTextSearchTransfer();

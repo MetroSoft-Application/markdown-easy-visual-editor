@@ -6,6 +6,7 @@
 import React from "react";
 import type { Messages } from "../../shared/messages";
 import type { OutlineItem } from "../../shared/markdown";
+import { OUTLINE_MAX_WIDTH, OUTLINE_MIN_WIDTH } from "./outlineWidth";
 
 /**
  * 右ドラッグで見出しを並べ替える間のポインターと配置状態を保持する。
@@ -135,7 +136,8 @@ function renderOutlineNodes(
           <div
             className="outline-row"
             style={{
-              "--outline-row-inset": depth === 0 && !hasChildren ? "0px" : `${18 + depth * 22}px`,
+              // ホバー背景をツリーの左端まで広げる距離。開閉ボタンの列（18px）と、styles.css の 1 階層あたりの字下げの深さ分。
+              "--outline-row-inset": depth === 0 && !hasChildren ? "0px" : `calc(18px + ${depth} * var(--outline-indent, 12px))`,
             } as React.CSSProperties}
           >
             {hasChildren ? (
@@ -290,8 +292,8 @@ export function OutlinePanel({
         role="separator"
         aria-orientation="vertical"
         aria-label={messages.app.outlineWidth}
-        aria-valuemin={160}
-        aria-valuemax={420}
+        aria-valuemin={OUTLINE_MIN_WIDTH}
+        aria-valuemax={OUTLINE_MAX_WIDTH}
         aria-valuenow={width}
         tabIndex={0}
         onPointerDown={onResizeStart}

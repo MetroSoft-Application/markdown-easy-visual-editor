@@ -48,6 +48,8 @@ export const GLOBAL_CONFIGURATION_KEYS = {
     outlineVisible: 'editor.outlineVisible',
     scrollSyncEnabled: 'editor.scrollSyncEnabled',
     previewImageResizeControlsVisible: 'preview.imageResizeControlsVisible',
+    /** 見出しの自動番号付け。`off` / `h1` / `h2`。旧globalStateの値はないため移行しない。 */
+    headingNumbering: 'preview.headingNumbering',
     editorFontFamily: 'fonts.editorFamily',
     previewFontFamily: 'fonts.previewFamily',
     mermaidFontSize: 'mermaid.fontSize',

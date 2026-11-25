@@ -76,3 +76,26 @@
 ## 2.1.0
 
 - Added DOCX (Word) export to the Export tab, the command palette, and the Explorer.
+
+## 2.1.1
+
+- Added saved print settings that can be named, switched, and shared as JSON.
+
+## 2.1.2
+
+- Table editor fits sizes to content, widens columns while typing, and adds Auto-fit.
+- Table editor applies changes on close and keeps the caret in place on line-break edits.
+
+## 2.1.3
+
+- Added Ctrl+G to jump to a line and show it at the top of the editor.
+
+## 2.1.4
+
+- Outline jumps put the heading at the top of the editor;
+
+## 2.1.5
+
+- Added heading numbers to the preview, print preview, and PDF/HTML exports.
+- Code block, Mermaid (31 diagram types), and Emoji are split buttons.
+

@@ -397,14 +397,19 @@ function blockToMarkdown(node: HtmlElement, eol: string, headingIds: boolean): s
         const id = headingIds && node.attrs.id ? ` {#${node.attrs.id}}` : '';
         // 改行を含む見出しはATX形式（1行）では書けない。h1・h2はsetext形式（下線）なら複数行のまま書ける。
         if (text.includes('<br>') && !id && (node.tag === 'h1' || node.tag === 'h2')) {
-            return [text.split('<br>').map((line) => line.trim()).join(`  ${eol}`), node.tag === 'h1' ? '===' : '---'].join(eol);
+            return [text.split('<br>').map((line) => line.trim()).join(`\\${eol}`), node.tag === 'h1' ? '===' : '---'].join(eol);
         }
         return `${'#'.repeat(Number(node.tag[1]))} ${text}${id}`;
     }
     if (node.tag === 'p' && Object.keys(node.attrs).length === 0) {
         const text = inlineToMarkdown(node.children, true);
-        // 改行（<br>）は、行末の空白2つによるハード改行で書く。ソフト改行は文書の改行コードへ揃える。
-        return text === undefined ? undefined : text.split('<br>').map((line) => line.trim()).join(`  ${eol}`).replace(/\r?\n/g, eol);
+        // 改行（<br>）は、行末のバックスラッシュによるハード改行で書く（行末の空白2つは見えず、末尾空白の削除で失われるため）。
+        // ソフト改行は文書の改行コードへ揃える。inlineToMarkdownは本文の`\`をエスケープするため、付けた`\`は必ず改行の印になる。
+        // 段落末尾の<br>はMarkdownで書けない（末尾の`\`は文字として表示される）ため、末尾の空の行には印を付けない。
+        if (text === undefined) return undefined;
+        const lines = text.split('<br>').map((line) => line.trim());
+        while (lines.length > 1 && !lines[lines.length - 1]) lines.pop();
+        return lines.join(`\\${eol}`).replace(/\r?\n/g, eol);
     }
     if (node.tag === 'aside' && hasClass(node, 'markdown-alert')) {
         const kind = /\balert-(\w+)\b/.exec(node.attrs.class ?? '')?.[1];

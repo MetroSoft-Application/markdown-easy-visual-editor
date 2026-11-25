@@ -6,6 +6,12 @@ import * as vscode from 'vscode';
 import { open, realpath, stat } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import path from 'node:path';
+import {
+    configurationEntriesToWrite,
+    pdfConfigurationEntries,
+    runOutputPresetApply,
+    savedPrintSettingsConfigurationEntries
+} from './outputPresetApply';
 import { randomBytes, randomUUID } from 'node:crypto';
 import {
     DEFAULT_DOCX_EXPORT_SETTINGS,
@@ -36,6 +42,21 @@ import {
 } from '../shared/fontFamily';
 import { resolveImageDirectoryRule } from '../shared/imageDirectory';
 import {
+    ACTIVE_OUTPUT_PRESET_STATE_KEY,
+    MAX_OUTPUT_PRESETS,
+    OUTPUT_PRESETS_STATE_KEY,
+    exportOutputPresets,
+    importOutputPresets,
+    makeOutputPreset,
+    normalizeOutputPresetName,
+    normalizeOutputPresetValues,
+    normalizeStoredOutputPresets,
+    restoreDeletedOutputPreset,
+    type OutputPreset,
+    type OutputPresetValues
+} from '../shared/outputPresets';
+
+import {
     createDrawioPlaceholderSvg,
     encodeDrawioRelativePath,
     isDrawioSvgReference,
@@ -44,6 +65,7 @@ import {
 import { writeDrawioSvgExclusive } from './drawioFile';
 import { openDrawioSvgEditor } from './drawioEditor';
 import { normalizeSvgClipboardText } from '../shared/svgClipboard';
+import { parseGoToLineInput } from '../shared/goToLine';
 import {
     collectLocalResourceReferences,
     headingLineForAnchor,
@@ -74,6 +96,7 @@ import type { MarpFrontMatterParser } from '../shared/marpFrontMatter';
 import { hasMermaidFence } from '../shared/markdownFence';
 import { acquirePdfBrowser, closePdfBrowser, renderPdf } from './pdf';
 import { exportWithEngine } from './exportEngine';
+import { normalizeHeadingNumberingMode } from '../shared/headingNumbering';
 import { closePeleRenderer, PeleRendererUnavailableError, preparePeleRenderer, renderPeleMermaid } from './peleMermaid';
 import { MAX_MERMAID_IMAGE_BYTES, resolveMermaidImageSources } from './mermaidImages';
 import { namespaceMermaidSvg } from '../shared/mermaidSvg';
@@ -405,6 +428,12 @@ export function activate(context: vscode.ExtensionContext): void {
         vscode.commands.registerCommand('markdownEasyVisualEditor.redo',
 
             () => provider.executeHistoryCommand('redo')),
+        vscode.commands.registerCommand('markdownEasyVisualEditor.goToLine',
+            /**
+             * アクティブなビジュアルエディターで行番号を尋ね、その行の先頭へ移動する（Ctrl+G）。
+             * @returns 入力ボックスが閉じ、移動要求の送信を終えたときに解決する。
+             */
+            () => provider.goToLine()),
         // ファイル・フォルダーの移動に合わせてMarkdownのリンクを書き換える。activationEvents の onStartupFinished により、ビジュアルエディターを開く前から動作する。
         new MarkdownLinkUpdater(
             /**
@@ -576,6 +605,9 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
 
     /** 移行・設定画面・HTML/PDF出力からのglobal設定書き込みを順序どおり実行するPromise。 */
     private globalSettingsUpdateChain: Promise<void> = Promise.resolve();
+
+    /** 複数Webviewからのプリセット保存・更新が互いに上書きしないようにするキュー。 */
+    private outputPresetMutationChain: Promise<void> = Promise.resolve();
 
     /**
      * 旧globalState設定からVS Code設定への移行処理を共有するPromise。
@@ -1027,6 +1059,49 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
     }
 
     /**
+     * アクティブなビジュアルエディターで「行へ移動」の入力ボックスを開き、指定行の先頭へ移動させる。
+     * 移動はアウトラインや見出しリンクと同じ navigateToOffset に goToLine: true を付けて送り、
+     * 表示モードごとの扱い（分割表示のスクロール同期、「プレビューのみ」と Marp ではプレビューだけ移動、
+     * Marp 以外の全面プレビューでは左右分割へ切り替えてソースへ移動）を共有する。詳細は protocol.ts の goToLine を参照。
+     * 入力中に別タブへ切り替えた・パネルを閉じた場合は、古いパネルへ送らず何もしない。
+     * 文書本文は変更しない。
+     * @returns 入力ボックスが閉じ、移動要求の送信を終えたときに解決する。
+     */
+    async goToLine(): Promise<void> {
+        const panel = this.activePanel;
+        const document = this.activeDocument;
+        if (!panel || !document || !panel.active || !this.panelInitialized.has(panel)) return;
+
+        const messages = this.getMessages();
+        const value = await vscode.window.showInputBox({
+            prompt: messages.host.goToLinePrompt(document.lineCount),
+            validateInput: /**
+             * 入力途中の値を検証する。空欄はエラー表示せず、確定時に何もしない扱いにする。
+             * @param input - 入力ボックスの現在値。
+             * @returns 不正な値なら検証メッセージ、それ以外は undefined。
+             */ (input) => (
+                    input.trim() === '' || parseGoToLineInput(input, document.lineCount) !== undefined
+                        ? undefined
+                        : messages.host.goToLineInvalid
+                )
+        });
+        if (value === undefined) return;
+        if (this.activePanel !== panel || !panel.active || !this.panelInitialized.has(panel)) return;
+
+        // 入力中のWebview編集をHostへ反映してから、最新本文の行数とオフセットで移動先を決める。
+        await this.waitForWebviewEdits(document);
+        if (this.activePanel !== panel || !panel.active || !this.panelInitialized.has(panel)) return;
+        const line = parseGoToLineInput(value, document.lineCount);
+        if (line === undefined) return;
+        this.post(panel, {
+            type: 'hostCommand',
+            command: 'navigateToOffset',
+            offset: canonicalOffsetAt(this.canonicalText(document), { line, character: 0 }),
+            goToLine: true
+        });
+    }
+
+    /**
      * HostまたはWebviewから届いたメッセージを検証し、対応する状態更新へ振り分ける。
      * @param document - メッセージを適用する対象TextDocument。
      * @param panel - このメッセージを送信したWebviewPanel。
@@ -1323,6 +1398,12 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                     ]);
                     this.broadcastSettings();
                     return;
+                case 'setHeadingNumbering':
+                    await this.updateGlobalConfiguration([
+                        [GLOBAL_CONFIGURATION_KEYS.headingNumbering, normalizeHeadingNumberingMode(message.mode)]
+                    ]);
+                    this.broadcastSettings();
+                    return;
                 case 'setPdfOptions':
                     // Webviewからの入力値を正規化して保存し、開いている全Webviewへ同じ設定を通知する。
                     {
@@ -1353,6 +1434,41 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                         ]);
                         this.broadcastSettings();
                     }
+                    return;
+                case 'saveOutputPreset':
+                    await this.queueOutputPresetMutation(() => this.saveOutputPreset(message.name, message.values, message.presetId));
+                    this.broadcastSettings();
+                    return;
+                case 'renameOutputPreset':
+                    await this.queueOutputPresetMutation(() => this.renameOutputPreset(message.presetId, message.name));
+                    this.broadcastSettings();
+                    return;
+                case 'deleteOutputPreset':
+                    await this.queueOutputPresetMutation(() => this.deleteOutputPreset(message.presetId));
+                    this.broadcastSettings();
+                    return;
+                case 'restoreOutputPreset':
+                    await this.queueOutputPresetMutation(() => this.restoreOutputPreset(message.preset, message.index));
+                    this.broadcastSettings();
+                    return;
+                case 'applyOutputPreset':
+                    // Webviewは選んだ時点で値を画面に出している。失敗時も実際の値を届けてから完了を知らせ、画面を実値へ戻させる。
+                    await runOutputPresetApply({
+                        apply: () => this.queueOutputPresetMutation(() => this.applyOutputPreset(message.presetId)),
+                        broadcast: () => this.broadcastSettings(),
+                        acknowledge: (succeeded) => this.post(panel, {
+                            type: 'outputPresetApplied',
+                            presetId: message.presetId,
+                            applyId: message.applyId,
+                            succeeded
+                        })
+                    });
+                    return;
+                case 'importOutputPresets':
+                    if (await this.queueOutputPresetMutation(() => this.importOutputPresetFile())) this.broadcastSettings();
+                    return;
+                case 'exportOutputPresets':
+                    await this.queueOutputPresetMutation(() => this.exportOutputPresetFile());
                     return;
                 case 'openSource':
                     this.activeDocument = document;
@@ -2780,6 +2896,152 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
     }
 
     /**
+     * 保存した設定の操作を直列化し、失敗した要求の後も次の操作を受け付ける。
+     * Webviewは保存の直前に保留中の印刷設定（setPdfOptions）を送る。その書き込みより先に保存・通知すると、
+     * 古い設定値を全Webviewへ配って選択中の設定が一瞬別のものに切り替わるため、受信時点で始まっている
+     * global設定の書き込みが終わるのを待ってから実行する。
+     * @param operation - 保存・削除・適用などの永続化処理。
+     * @returns 実行処理の戻り値。
+     */
+    private queueOutputPresetMutation<T>(operation: () => Promise<T>): Promise<T> {
+        const settingsWritten = this.globalSettingsUpdateChain;
+        const pending = this.outputPresetMutationChain.then(() => settingsWritten).then(operation);
+        this.outputPresetMutationChain = pending.then(
+            /** 成功後は次の操作を続ける。 */() => undefined,
+            /** 失敗後もキューは中断させない。 */() => undefined
+        );
+        return pending;
+    }
+
+    /** 永続保存したユーザープリセットを不正値・重複IDを除いて返す。 */
+    private getUserOutputPresets(): OutputPreset[] {
+        return normalizeStoredOutputPresets(this.context.globalState.get<unknown>(OUTPUT_PRESETS_STATE_KEY));
+    }
+
+    /** 選択欄に出す一覧。あらかじめ用意した設定は持たず、ユーザーが保存したものだけを返す。 */
+    private getOutputPresets(): OutputPreset[] {
+        return this.getUserOutputPresets();
+    }
+
+    /** 既存名と重ならないプリセット名か検査する。 */
+    private ensureUniqueOutputPresetName(name: string, excludingId?: string): string {
+        const valid = normalizeOutputPresetName(name);
+        if (!valid) throw new Error('The name must contain 1–64 characters.');
+        if (this.getOutputPresets().some((item) =>
+            item.id !== excludingId && item.name.toLocaleLowerCase() === valid.toLocaleLowerCase())) {
+            throw new Error('Saved settings with this name already exist.');
+        }
+        return valid;
+    }
+
+    /**
+     * Webviewから受け取った現在の設定全体をスナップショットとして保存する。
+     * presetId付きはユーザープリセットだけ上書きする。
+     */
+    private async saveOutputPreset(name: string, values: OutputPresetValues, presetId?: string): Promise<void> {
+        const saved = this.getUserOutputPresets();
+        if (presetId && !saved.some((preset) => preset.id === presetId)) {
+            throw new Error('The saved settings were not found.');
+        }
+        if (!presetId && saved.length >= MAX_OUTPUT_PRESETS) throw new Error('No more settings can be saved.');
+        const safeName = this.ensureUniqueOutputPresetName(name, presetId);
+        const id = presetId ?? `user-${randomUUID()}`;
+        const preset = makeOutputPreset(id, safeName, normalizeOutputPresetValues(values));
+        const updated = presetId
+            ? saved.map((item) => item.id === presetId ? preset : item)
+            : [...saved, preset];
+        await this.context.globalState.update(OUTPUT_PRESETS_STATE_KEY, updated);
+        await this.context.globalState.update(ACTIVE_OUTPUT_PRESET_STATE_KEY, id);
+    }
+
+    /** 対象プリセットの名前を変更し、保存内容は変更しない。 */
+    private async renameOutputPreset(id: string, name: string): Promise<void> {
+        const saved = this.getUserOutputPresets();
+        const existing = saved.find((preset) => preset.id === id);
+        if (!existing) throw new Error('The saved settings were not found.');
+        const safeName = this.ensureUniqueOutputPresetName(name, id);
+        await this.context.globalState.update(OUTPUT_PRESETS_STATE_KEY,
+            saved.map((item) => item.id === id ? { ...item, name: safeName } : item));
+    }
+
+    /** ユーザープリセットだけ削除する。適用済み設定値自体は消さない。 */
+    private async deleteOutputPreset(id: string): Promise<void> {
+        const saved = this.getUserOutputPresets();
+        if (!saved.some((item) => item.id === id)) throw new Error('The saved settings were not found.');
+        await this.context.globalState.update(OUTPUT_PRESETS_STATE_KEY, saved.filter((item) => item.id !== id));
+        if (this.context.globalState.get<string>(ACTIVE_OUTPUT_PRESET_STATE_KEY) === id) {
+            await this.context.globalState.update(ACTIVE_OUTPUT_PRESET_STATE_KEY, undefined);
+        }
+    }
+
+    /**
+     * 削除した保存した設定を削除前の位置・IDのまま戻し、最後に適用した設定として記録し直す。
+     * 削除できるのは選択中の設定だけなので、戻した設定は選択中に戻す。
+     * @param preset - Webviewから受け取った削除前の設定（未検証）。
+     * @param index - 削除前の位置。
+     */
+    private async restoreOutputPreset(preset: unknown, index: number): Promise<void> {
+        const before = this.getUserOutputPresets();
+        const restored = restoreDeletedOutputPreset(before, preset, index);
+        const id = restored.find((item) => !before.some((existing) => existing.id === item.id))?.id;
+        await this.context.globalState.update(OUTPUT_PRESETS_STATE_KEY, restored);
+        if (id) await this.context.globalState.update(ACTIVE_OUTPUT_PRESET_STATE_KEY, id);
+    }
+
+    /**
+     * 保存した印刷設定を適用する。印刷設定パネルの項目（PDF設定）だけを書き、フォント（プレビューと共通）・
+     * テーマ・HTML・DOCX の設定と「同じフォルダへ直接出力」は変えない。
+     */
+    private async applyOutputPreset(id: string): Promise<void> {
+        const preset = this.getOutputPresets().find((item) => item.id === id);
+        if (!preset) throw new Error('The saved settings were not found.');
+        await this.updateGlobalConfiguration(savedPrintSettingsConfigurationEntries(preset));
+        await this.context.globalState.update(ACTIVE_OUTPUT_PRESET_STATE_KEY, id);
+    }
+
+    /** 既存の保存名を変更せず、インポート元の項目を追加する。 */
+    private async importOutputPresetFile(): Promise<boolean> {
+        const selected = await vscode.window.showOpenDialog({
+            filters: { JSON: ['json'] },
+            canSelectMany: false,
+            canSelectFiles: true,
+            canSelectFolders: false,
+            openLabel: this.getLanguage() === 'ja' ? '保存した設定を読み込む' : 'Import saved settings'
+        });
+        if (!selected?.length) return false;
+        const info = await vscode.workspace.fs.stat(selected[0]);
+        if (info.size > 1024 * 1024) throw new Error('The saved settings file is too large.');
+        const incoming = importOutputPresets(Buffer.from(await vscode.workspace.fs.readFile(selected[0])).toString('utf8'));
+        const saved = this.getUserOutputPresets();
+        if (saved.length + incoming.length > MAX_OUTPUT_PRESETS) throw new Error('No more settings can be saved.');
+        const allNames = new Set(this.getOutputPresets().map((item) => item.name.toLocaleLowerCase()));
+        const next = [...saved];
+        for (const preset of incoming) {
+            const prefix = preset.name.slice(0, 54);
+            let name = preset.name;
+            let suffix = 2;
+            while (allNames.has(name.toLocaleLowerCase())) name = `${prefix} (${suffix++})`;
+            allNames.add(name.toLocaleLowerCase());
+            next.push(makeOutputPreset(`user-${randomUUID()}`, name, preset));
+        }
+        await this.context.globalState.update(OUTPUT_PRESETS_STATE_KEY, next);
+        return true;
+    }
+
+    /** カスタムプリセットを、バージョン付きJSONとして共有できるようにする。 */
+    private async exportOutputPresetFile(): Promise<void> {
+        const destination = await vscode.window.showSaveDialog({
+            filters: { JSON: ['json'] },
+            saveLabel: this.getLanguage() === 'ja' ? '保存した設定を書き出す' : 'Export saved settings'
+        });
+        if (!destination) return;
+        const target = destination.path.toLowerCase().endsWith('.json')
+            ? destination : destination.with({ path: destination.path + '.json' });
+        await vscode.workspace.fs.writeFile(
+            target, Buffer.from(exportOutputPresets(this.getUserOutputPresets()), 'utf8'));
+    }
+
+    /**
      * VS Code設定とワークスペース信頼状態をWebviewへ渡す設定にまとめる。
      * 文書URIは文書スコープの設定参照に使い、アプリ全体の表示・出力設定はglobal値を使う。
      * @param document 設定の文書スコープを決める文書。省略時はglobalの値を参照する。
@@ -2788,7 +3050,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
     private getSettings(document?: vscode.TextDocument): WebviewSettings {
         // VS Code設定とワークスペース信頼状態をWebview用の設定オブジェクトへまとめる。
         const config = vscode.workspace.getConfiguration('markdownEasyVisualEditor', document?.uri);
-        return {
+        const settings: WebviewSettings = {
             ...this.getFontSettings(config),
             language: this.getLanguage(),
             imageDirectory: config.get('images.directory', 'assets/${documentBasename}'),
@@ -2827,12 +3089,20 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                 this.context.globalState.get<boolean>(PREVIEW_IMAGE_RESIZE_CONTROLS_STATE_KEY),
                 true
             ),
+            headingNumbering: normalizeHeadingNumberingMode(
+                this.getGlobalSetting<unknown>(config, GLOBAL_CONFIGURATION_KEYS.headingNumbering, undefined, 'off')),
             pdfOptions: this.getPdfOptions(config),
             htmlOptions: this.getHtmlOptions(config),
             docxOptions: this.getDocxOptions(config),
+            outputPresets: this.getOutputPresets(),
             workspaceTrusted: vscode.workspace.isTrusted,
             startupProbe: this.startupBenchmarkEnabled || undefined
         };
+        // 一致判定はWebviewが現在値で行う。ここでは「変更あり」の基準にする最後のプリセットを渡す。
+        const lastPresetId = this.context.globalState.get<string>(ACTIVE_OUTPUT_PRESET_STATE_KEY);
+        settings.activeOutputPresetId = settings.outputPresets?.some((preset) => preset.id === lastPresetId)
+            ? lastPresetId : '';
+        return settings;
     }
 
     /**
@@ -3120,7 +3390,7 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
     /**
      * 設定群の書き込みをExtension Host内で直列化し、中間状態の通知を抑える。
      * 失敗した要求は呼び出し元へ返し、内部キューは後続要求を受け取れる状態へ戻す。
-     * @param entries 保存する構成キーと値。配列順を維持して更新する。
+     * @param entries 保存する構成キーと値。配列順を維持して更新する。global値が既に同じ値のキーは書き込まない。
      * @param onlyIfGlobalValueIsUnset trueの場合、既存のglobal値があるキーは維持する。
      * @returns 要求したすべての書き込みが完了したPromise。書き込み失敗時はrejectする。
      */
@@ -3136,8 +3406,13 @@ export class MarkdownEasyVisualEditorProvider implements vscode.CustomTextEditor
                 let writeAttempted = false;
                 let updateFailed = false;
                 try {
-                    for (const [key, value] of entries) {
-                        if (onlyIfGlobalValueIsUnset && config.inspect(key)?.globalValue !== undefined) continue;
+                    // 1件ごとにsettings.jsonの書き込みが走る。保存した設定の適用やPDF設定の保存は多数のキーをまとめて渡すため、
+                    // 既に同じ値のキーは書かない。選別は前の書き込みを終えた後のこの時点の構成で行う。
+                    const toWrite = configurationEntriesToWrite(
+                        entries,
+                        (key) => config.inspect(key)?.globalValue,
+                        onlyIfGlobalValueIsUnset);
+                    for (const [key, value] of toWrite) {
                         writeAttempted = true;
                         await config.update(key, value, vscode.ConfigurationTarget.Global);
                     }
@@ -3450,34 +3725,4 @@ function isPreviewableDocumentPath(filePath: string): boolean {
  */
 function normalizeViewMode(value: unknown): ViewMode {
     return value === 'text' || value === 'preview' ? value : 'both';
-}
-
-/**
- * 正規化済みPDF設定を順序を保ったVS Code構成キーと保存値の組へ展開する。
- * @param options global構成へ保存する正規化済みPDF設定。
- * @returns VS Codeのglobal構成更新に渡すキーと値の組。
- */
-function pdfConfigurationEntries(options: NormalizedPdfOptions): Array<[string, unknown]> {
-    return [
-        [GLOBAL_CONFIGURATION_KEYS.pdf.format, options.format],
-        [GLOBAL_CONFIGURATION_KEYS.pdf.orientation, options.orientation],
-        [GLOBAL_CONFIGURATION_KEYS.pdf.marginTop, options.margins.top],
-        [GLOBAL_CONFIGURATION_KEYS.pdf.marginRight, options.margins.right],
-        [GLOBAL_CONFIGURATION_KEYS.pdf.marginBottom, options.margins.bottom],
-        [GLOBAL_CONFIGURATION_KEYS.pdf.marginLeft, options.margins.left],
-        [GLOBAL_CONFIGURATION_KEYS.pdf.header, options.header],
-        [GLOBAL_CONFIGURATION_KEYS.pdf.footer, options.footer],
-        [GLOBAL_CONFIGURATION_KEYS.output.textReplacements, options.textReplacements],
-        [GLOBAL_CONFIGURATION_KEYS.pdf.bodyFontSize, options.bodyFontSize],
-        [GLOBAL_CONFIGURATION_KEYS.pdf.headingFontSizeH1, options.headingFontSizes.h1],
-        [GLOBAL_CONFIGURATION_KEYS.pdf.headingFontSizeH2, options.headingFontSizes.h2],
-        [GLOBAL_CONFIGURATION_KEYS.pdf.headingFontSizeH3, options.headingFontSizes.h3],
-        [GLOBAL_CONFIGURATION_KEYS.pdf.headingFontSizeH4, options.headingFontSizes.h4],
-        [GLOBAL_CONFIGURATION_KEYS.pdf.headingFontSizeH5, options.headingFontSizes.h5],
-        [GLOBAL_CONFIGURATION_KEYS.pdf.headingFontSizeH6, options.headingFontSizes.h6],
-        [GLOBAL_CONFIGURATION_KEYS.pdf.codeFontSize, options.codeFontSize],
-        [GLOBAL_CONFIGURATION_KEYS.pdf.lineHeight, options.lineHeight],
-        [GLOBAL_CONFIGURATION_KEYS.pdf.paragraphSpacing, options.paragraphSpacing],
-        [GLOBAL_CONFIGURATION_KEYS.pdf.saveWithoutDialog, options.saveWithoutDialog]
-    ];
 }

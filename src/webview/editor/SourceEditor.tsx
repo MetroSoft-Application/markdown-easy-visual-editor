@@ -169,8 +169,16 @@ export interface TextEditorHandle {
   /**
    * 指定範囲がエディター内に見えるようスクロールする。
    * @param selection - 表示位置へ移動する本文上の選択範囲。
+   * @param position - 範囲を置く縦位置。"start" は表示領域の先頭、省略時は中央。
+   * @param topMargin - "start" のとき、表示領域の上端と範囲の間に空ける高さ（px）。省略時は0で上端に揃える。
+   *   文書の先頭付近でこの高さまでスクロールできない場合は、スクロール位置0のままになる。"center" では使わない。
    */
-  revealRange(selection: TextSelection): void;
+  revealRange(selection: TextSelection, position?: "center" | "start", topMargin?: number): void;
+  /**
+   * CodeMirrorへキーボードフォーカスを移し、現在の選択位置にキャレットを表示する。
+   * 未マウントなら何もしない。選択範囲とスクロール位置は変更しない。
+   */
+  focus(): void;
   /**
    * エディターの表示位置を文書内アンカーとして取得する。
    * @returns 表示領域が有効なら復元用アンカー、未配置ならundefined。
@@ -1658,7 +1666,9 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
         revealRange: /**
          * 本文編集面の表示または操作を開始する。
          * @param selection - 表示位置へ移動する本文上の選択範囲。
-         */ (selection) => {
+         * @param position - 範囲を置く縦位置。"start" は表示領域の先頭、省略時は中央。
+         * @param topMargin - "start" のとき上端に空ける高さ（px）。省略時は0。
+         */ (selection, position = "center", topMargin = 0) => {
           const view = viewRef.current;
           if (!view) return;
           viewportRestoreAnchorRef.current = undefined;
@@ -1671,10 +1681,18 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
             effects: EditorView.scrollIntoView(
               EditorSelection.range(from, to),
               {
-                y: "center",
+                y: position,
+                // 先頭配置では既定の余白（5px）ではなく指定の余白（既定0で上端に揃える）を使う。
+                ...(position === "start" ? { yMargin: Math.max(0, topMargin) } : {}),
               },
             ),
           });
+        },
+
+        focus: /**
+         * CodeMirrorへフォーカスを移す。既にフォーカスがあればCodeMirror側で何もしない。
+         */ () => {
+          viewRef.current?.focus();
         },
 
         getViewport: /**
@@ -1912,6 +1930,10 @@ const SourceEditorView = forwardRef<TextEditorHandle, Props>(
           return;
         case "cellBreak":
           replaceSelection("<br>");
+          // リボンの「セル内改行」ボタンを押すとフォーカスがボタンへ移り、ソースのカーソルが消えて
+          // 続けて入力できなかった。挿入した<br>の直後にカーソルを置いたまま編集面へフォーカスを戻す。
+          // Alt+Enterから呼ばれた場合は既にフォーカスがあり、focus()は何もしない。
+          viewRef.current?.focus();
           return;
         case "clearInline":
           edit = clearInlineFormatting(

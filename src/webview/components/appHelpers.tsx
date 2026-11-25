@@ -245,16 +245,9 @@ export function clampPdfMargin(value: string): number {
 }
 
 /**
- * アウトライン欄の幅を、本文ペインを圧迫しない範囲へ制限する。
- * @param value - アウトライン幅として保存する数値（ピクセル）。
- * @returns 160〜420 の整数ピクセル。有限値でない場合は既定の 220。
+ * アウトライン欄の幅制限。実装は JSX を含まない outlineWidth.ts に置き、既存の呼び出し元のためにここから再エクスポートする。
  */
-export function clampOutlineWidth(value: number): number {
-  return Math.max(
-    160,
-    Math.min(420, Number.isFinite(value) ? Math.round(value) : 220),
-  );
-}
+export { clampOutlineWidth, OUTLINE_MAX_WIDTH, OUTLINE_MIN_WIDTH } from "./outlineWidth";
 
 /**
  * 表示倍率を 0.1 刻みに丸め、操作可能な範囲へ制限する。

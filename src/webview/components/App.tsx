@@ -56,6 +56,12 @@ import {
   type TextSelection,
 } from "../../shared/markdown";
 import { drawioImageMarkdown } from "../../shared/drawioSvg";
+import {
+  normalizeOutputPresetValues,
+  resolveOutputPresetState,
+  type OutputPreset,
+  type OutputPresetValues,
+} from "../../shared/outputPresets";
 import type { EditorLinkTarget } from "../editor/cmLinkNavigation";
 import { markLocalResourceChanged } from "../preview/localResourceVersions";
 import {
@@ -146,6 +152,8 @@ import {
   serializePdfExport,
 } from "../export/outputSerialization";
 import { collectPrintableCss } from "../export/printableCss";
+import { headingNumberingCss } from "../../shared/headingNumbering";
+import { getPreviewHeadingNumbering } from "../preview/previewHeadingNumbering";
 import { PdfPreview } from "./PdfPreview";
 import { Inspector } from "./Inspector";
 import { HelpDialog, type HelpTopic } from "./HelpDialog";
@@ -276,6 +284,13 @@ interface PdfPreviewState {
  * 本文ペインとプレビューペインのスクロール同期を再実行する間隔（ミリ秒）。
  */
 const CROSS_PANE_SCROLL_SYNC_MS = 32;
+
+/**
+ * アウトラインなどから見出しへ移動したとき、ソースで見出しの行を置く位置（表示領域の上端からのpx）。
+ * プレビューが見出しを置く位置（revealOutlineInSplitPreview などの topOffset: 18）と同じ値にして、
+ * 左右分割で両方の見出しの高さを揃える。文書の先頭の見出しはスクロール位置0のまま（ソースの上余白と同じ高さ）になる。
+ */
+const HEADING_REVEAL_TOP_MARGIN = 18;
 
 /**
  * Webviewルートで未指定時に使う既定値。
@@ -627,6 +642,27 @@ export function App(): React.JSX.Element {
    * 変更したPDF設定をHostへまとめて送信するための遅延保存タイマーID。
    */
   const pdfOptionsPersistTimerRef = useRef<number | undefined>(undefined);
+  /**
+   * 選んだ直後に画面へ出した保存した設定。Hostが書き込みを終えた通知（outputPresetApplied）を受けるまで保持し、
+   * その間に届く settingsChanged の印刷設定（PDF設定。フォントと「同じフォルダへ直接出力」を除く）をこの値で置き換える。連続で選んだ場合は最後の要求だけを持つ。
+   * 同じ設定を続けて選ぶ（A→B→A、「変更を破棄」での再適用）と設定IDだけでは古い完了通知と区別できないため、要求番号で照合する。
+   */
+  const pendingOutputPresetRef = useRef<
+    { preset: OutputPreset; applyId: number } | undefined
+  >(undefined);
+  /**
+   * 保存した設定の適用要求に付ける番号の最後の値。Webview の寿命の間だけ単調に増やす。
+   * 再読み込み前の要求への完了通知が遅れて届いても新しい要求と番号が重ならないよう、起動時刻（ミリ秒）から始める。
+   */
+  const outputPresetRequestIdRef = useRef(Date.now());
+  /**
+   * applyHostSettings へ最後に渡した置き換え前の設定。保存した設定の適用を終えたときや失敗したときに、実際の値へ戻すために使う。
+   * 選んだ直後だけは画面の設定が入るが、Hostは完了通知の前に settingsChanged を送るため、完了時には実際の値になっている。
+   * 例外: Host の設定通知自体が失敗した場合は完了通知だけが届き、画面は選ぶ前の値へ戻る（固まるよりは安全な側に倒す）。
+   */
+  const lastHostSettingsRef = useRef<WebviewSettings | undefined>(
+    bootstrap?.settings,
+  );
   const [htmlOptions, setHtmlOptions] = useState<HtmlExportOptions>(() => ({
     ...mergeHtmlExportOptions(
       DEFAULT_HTML_EXPORT_OPTIONS,
@@ -651,6 +687,21 @@ export function App(): React.JSX.Element {
    * DOCX出力処理と設定比較が参照する最新のDOCX出力設定。
    */
   const docxOptionsRef = useRef(docxOptions);
+  const outputPresets = settings.outputPresets ?? [];
+  // 入力・スクロール時の再レンダーでは全プリセットの深い照合を繰り返さない。
+  // リボンとパネルは同じ結果を表示し、「選択中なのに未保存」のような食い違いを作らない。
+  const outputPresetState = useMemo(
+    () => resolveOutputPresetState(
+      outputPresets,
+      normalizeOutputPresetValues({ pdfOptions }),
+      settings.activeOutputPresetId,
+    ),
+    [
+      settings.outputPresets,
+      settings.activeOutputPresetId,
+      pdfOptions,
+    ],
+  );
   /**
    * Hostへ保存を依頼し、まだ同じ値のsettingsChangedが届いていないDOCX設定。
    * 届くまでは古い通知で画面のチェック状態を戻さない。
@@ -780,6 +831,17 @@ export function App(): React.JSX.Element {
     previewOnly?: PreviewViewportAnchor;
   }>({});
   const pendingNavigationRef = useRef<TextSelection | undefined>(undefined);
+  /**
+   * 保留中の選択移動（pendingNavigationRef）が「行へ移動」（Ctrl+G）由来か。
+   * true なら適用時に移動先の行を表示領域の先頭へ置き、ソースエディターへフォーカスを戻す。
+   * 表示モードを切り替えて移動する場合、CodeMirror の表示が確定するまでこの扱いを遅らせるために使う。
+   */
+  const pendingNavigationGoToLineRef = useRef(false);
+  /**
+   * 保留中の選択移動（pendingNavigationRef）で、移動先を表示領域の先頭へ置くときの上端の余白（px）。
+   * undefined なら中央に置く（診断・検索など）。「行へ移動」は0、見出しへの移動は {@link HEADING_REVEAL_TOP_MARGIN}。
+   */
+  const pendingNavigationRevealTopMarginRef = useRef<number | undefined>(undefined);
   const recentRibbonCommandsRef = useRef(new Map<string, number>());
   /** 現在Webviewが表示している文書のURI。表示形式の上書きを同じ文書に限定するために保持する。 */
   const documentUriRef = useRef(bootstrap?.uri ?? "");
@@ -1339,8 +1401,13 @@ export function App(): React.JSX.Element {
       splitView !== "preview" &&
       sourceRef.current
     ) {
+      const goToLine = pendingNavigationGoToLineRef.current;
+      const revealTopMargin = pendingNavigationRevealTopMarginRef.current;
+      pendingNavigationGoToLineRef.current = false;
+      pendingNavigationRevealTopMarginRef.current = undefined;
       sourceRef.current.setSelection(navigation);
-      sourceRef.current.revealRange(navigation);
+      sourceRef.current.revealRange(navigation, revealTopMargin === undefined ? "center" : "start", revealTopMargin);
+      if (goToLine) sourceRef.current.focus();
       const preview = splitPreviewRef.current;
       if (preview) {
         const previewAnchor: PreviewViewportAnchor = {
@@ -1973,6 +2040,9 @@ export function App(): React.JSX.Element {
         if (message.settings.viewMode)
           setSplitView(restoreViewMode(message.settings.viewMode));
         return;
+      case "outputPresetApplied":
+        finishOutputPresetApply(message.applyId);
+        return;
       case "mermaidRendered":
         acceptMermaidRenderResult(message);
         return;
@@ -2184,7 +2254,7 @@ export function App(): React.JSX.Element {
       case "hostCommand":
         if (message.command === "navigateToOffset") {
           if (Number.isSafeInteger(message.offset) && message.offset >= 0) {
-            goToOutlineOffset(message.offset);
+            goToOutlineOffset(message.offset, message.goToLine === true);
           }
           return;
         }
@@ -3444,8 +3514,62 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * Webviewルートの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-   * @param update - 現在の正規化済みPDF設定を受け取り、次に保存するPDF設定を返す更新関数。
+   * 保存・比較に使う現在の印刷設定（印刷設定パネルの項目: PDF設定）を取得する。
+   * @returns フォントと「同じフォルダへ直接出力」を除いた、正規化済みの印刷設定。
+   */
+  function currentOutputPresetValues(): OutputPresetValues {
+    return normalizeOutputPresetValues({ pdfOptions: pdfOptionsRef.current });
+  }
+
+  /**
+   * 保存した設定を選んだ時点で画面へ反映し、Hostへ書き込みを依頼する。
+   * Hostは出力設定の構成キーを1件ずつ書くため、書き込み完了を待つと選択欄と各項目の表示が遅れる（利用者の環境では数秒）。
+   * 書き込み中に届く古い settingsChanged は applyHostSettings で選んだ値に置き換え、完了通知で実際の値へ戻す。
+   * @param presetId - 適用する保存した設定のID。一覧に無いIDは無視する。
+   */
+  function applyOutputPreset(presetId: string): void {
+    const preset = (settings.outputPresets ?? []).find((item) => item.id === presetId);
+    if (!preset) return;
+    // 直前の PDF 設定の変更（「同じフォルダへ直接出力」を含む）は捨てずに先に送る。Host は送った順に処理するので、
+    // 印刷設定の項目は続く適用で上書きされ、保存した設定に含まれない項目は直前の変更のまま残る。
+    // HTML・DOCX の保存待ちは印刷設定と関係ないので触らない。
+    flushPdfOptionsPersistence();
+    outputPresetRequestIdRef.current += 1;
+    const applyId = outputPresetRequestIdRef.current;
+    pendingOutputPresetRef.current = { preset, applyId };
+    // 現在の画面の設定を土台にする。Hostは成否にかかわらず完了通知の前に最新の設定を送るため、
+    // ここで lastHostSettingsRef が画面の値になっても、完了時には実際の値で置き換わっている。
+    // PDF 設定は保存待ちの最新値（直前に切り替えた「同じフォルダへ直接出力」など）を使い、一瞬でも前の値に戻さない。
+    applyHostSettings({ ...settings, pdfOptions: pdfOptionsRef.current });
+    vscode.postMessage({ type: "applyOutputPreset", presetId, applyId });
+  }
+
+  /**
+   * Hostが保存した設定の適用を終えたら、画面の値を最後に受け取った実際の設定へ合わせる。
+   * 後から別の要求を送っている場合は、その書き込みが終わるまで選んだ値を保つ。成否で処理は分けない
+   * （Hostは完了通知の直前に実際の設定を送るため、どちらの場合もその値へ合わせればよい）。
+   * @param applyId - 処理を終えた適用要求の番号。
+   */
+  function finishOutputPresetApply(applyId: number): void {
+    if (pendingOutputPresetRef.current?.applyId !== applyId) return;
+    pendingOutputPresetRef.current = undefined;
+    if (lastHostSettingsRef.current) applyHostSettings(lastHostSettingsRef.current);
+  }
+
+  /** プリセットの保存前に現在のPDF設定をHostへ確定する。 */
+  function saveOutputPreset(name: string, presetId?: string): void {
+    flushPdfOptionsPersistence();
+    vscode.postMessage({
+      type: "saveOutputPreset",
+      name,
+      presetId,
+      values: currentOutputPresetValues(),
+    });
+  }
+
+  /**
+   * 現在のPDF設定を更新し、Hostへの遅延保存を予約する。
+   * @param update - 正規化済みPDF設定を受け取り次の設定を返す更新関数。
    */
   function updatePdfOptions(
     update: (current: NormalizedPdfOptions) => PdfOptions,
@@ -3518,6 +3642,8 @@ export function App(): React.JSX.Element {
       fontFamily: settings.previewFontFamily,
       remoteImagesEnabled: settings.remoteImagesEnabled,
       language: settings.language,
+      // 出力要求の時点の見出し番号を固定して渡す。DOCXでは使わない（Host側で判定）。
+      headingNumbering: getPreviewHeadingNumbering(),
     };
   }
 
@@ -3735,7 +3861,10 @@ export function App(): React.JSX.Element {
       return;
     }
     if (pdfPreviewRequestRef.current !== requestId) return;
-    const css = collectPrintableCss(settings.previewFontFamily, false);
+    // 見出し番号はPDF出力と同じCSSを使い、印刷プレビューと出力の番号を一致させる。ホストの印刷HTMLは本文をbody直下に置く。
+    const numberingCss = headingNumberingCss(getPreviewHeadingNumbering(), "body");
+    const css = collectPrintableCss(settings.previewFontFamily, false)
+      + (numberingCss ? `\n${numberingCss}` : "");
     mveDebug("pdf.preview-request", {
       requestId,
       htmlChars: pdfOutput.html.length,
@@ -3884,8 +4013,11 @@ export function App(): React.JSX.Element {
 
   /** 目次項目の本文オフセットへ移動し、分割プレビューの見出し位置も揃える。
    * @param offset - 見出しの開始位置を示すMarkdown本文内のUTF-16オフセット。
+   * @param goToLine - 「行へ移動」（Ctrl+G）由来ならtrue。ソースへフォーカスを戻す。
+   * 見出しはプレビュー単独表示と同じく、ソースでも常に表示領域の先頭（上端から {@link HEADING_REVEAL_TOP_MARGIN}）に置く。
+   * 分割表示ではプレビューもソースの行と同じ高さへ揃うため、プレビュー側も先頭付近に表示される。
    */
-  function goToOutlineOffset(offset: number): void {
+  function goToOutlineOffset(offset: number, goToLine = false): void {
     const nextSelection = { from: offset, to: offset };
     if (mode === "preview" && isMarpDocument) {
       marpPreviewRef.current?.scrollToOffset(offset);
@@ -3896,7 +4028,7 @@ export function App(): React.JSX.Element {
       revealOutlineInSplitPreview(offset, false);
       return;
     }
-    navigateToSelection(nextSelection);
+    navigateToSelection(nextSelection, goToLine, HEADING_REVEAL_TOP_MARGIN);
     if (mode === "split" && splitView === "both") {
       // CodeMirrorの選択行とスクロール位置が確定してから、同じ高さへプレビューを揃える。
       window.requestAnimationFrame(
@@ -3973,16 +4105,28 @@ export function App(): React.JSX.Element {
   /**
    * 指定した選択範囲へエディターと表示ペインを移動する。
    * @param nextSelection 移動先として同期する選択範囲。
+   * @param goToLine - 「行へ移動」（Ctrl+G）由来ならtrue。範囲を表示領域の先頭に置き、ソースへフォーカスを戻す。
+   *   省略時はフォーカスを動かさない。
+   * @param revealTopMargin - 範囲を表示領域の先頭に置くときの上端の余白（px）。undefined なら中央に置く。
+   *   省略時は goToLine と同じ扱い（行へ移動は余白0で先頭、それ以外は中央）。
+   *   見出しへの移動はプレビューと高さを揃えるため {@link HEADING_REVEAL_TOP_MARGIN} を渡す。
    */
-  function navigateToSelection(nextSelection: TextSelection): void {
+  function navigateToSelection(
+    nextSelection: TextSelection,
+    goToLine = false,
+    revealTopMargin: number | undefined = goToLine ? 0 : undefined,
+  ): void {
     selectionStateRef.current = nextSelection;
     if (mode !== "split" || splitView === "preview") {
       pendingNavigationRef.current = nextSelection;
+      pendingNavigationGoToLineRef.current = goToLine;
+      pendingNavigationRevealTopMarginRef.current = revealTopMargin;
       changeSplitView("both");
       return;
     }
     sourceRef.current?.setSelection(nextSelection);
-    sourceRef.current?.revealRange(nextSelection);
+    sourceRef.current?.revealRange(nextSelection, revealTopMargin === undefined ? "center" : "start", revealTopMargin);
+    if (goToLine) sourceRef.current?.focus();
   }
 
   /**
@@ -4573,10 +4717,29 @@ export function App(): React.JSX.Element {
   }
 
   /**
-   * Webviewルートの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-   * @param nextSettings - Webviewルートへ渡す設定または境界値。
+   * Hostから受け取った設定を画面の状態へ反映する。保存待ちのPDF・HTML・DOCX設定と、
+   * 書き込み中の保存した設定（pendingOutputPresetRef）は画面の値を優先する。
+   * @param hostSettings - Hostが送った設定。置き換え前の値として lastHostSettingsRef に記録する。
    */
-  function applyHostSettings(nextSettings: WebviewSettings): void {
+  function applyHostSettings(hostSettings: WebviewSettings): void {
+    lastHostSettingsRef.current = hostSettings;
+    // 保存した設定の書き込み中は、選んだ値を画面に保つ（書き込み前の値で一瞬戻さない）。
+    const pendingPreset = pendingOutputPresetRef.current?.preset;
+    const hostPdfOptions = pendingPreset
+      ? normalizePdfOptions(hostSettings.pdfOptions ?? DEFAULT_PDF_OPTIONS)
+      : undefined;
+    const nextSettings: WebviewSettings = pendingPreset && hostPdfOptions
+      ? {
+          ...hostSettings,
+          // 保存した設定に含まれないフォントと「同じフォルダへ直接出力」は、Host の今の値のまま保つ。
+          pdfOptions: {
+            ...pendingPreset.pdfOptions,
+            fontFamily: hostPdfOptions.fontFamily,
+            saveWithoutDialog: hostPdfOptions.saveWithoutDialog,
+          },
+          activeOutputPresetId: pendingPreset.id,
+        }
+      : hostSettings;
     const enabled = nextSettings.scrollSyncEnabled !== false;
     scrollSyncEnabledRef.current = enabled;
     if (!enabled) cancelPendingCrossPaneScrollSync();
@@ -5374,6 +5537,10 @@ export function App(): React.JSX.Element {
         splitView={splitView}
         htmlOptions={htmlOptions}
         pdfSaveWithoutDialog={pdfOptions.saveWithoutDialog}
+        outputPresets={outputPresets}
+        outputPresetId={outputPresetState.presetId}
+        outputPresetModified={outputPresetState.modified}
+        onOutputPresetSelect={applyOutputPreset}
         docxOptions={docxOptions}
         onDocxSaveWithoutDialogChange={handleDocxSaveWithoutDialogChange}
         imageDirectory={settings.imageDirectory}
@@ -5767,6 +5934,35 @@ export function App(): React.JSX.Element {
           <PrintSettingsPanel
             messages={messages}
             pdfOptions={pdfOptions}
+            outputPresets={outputPresets}
+            outputPresetId={outputPresetState.presetId}
+            outputPresetModified={outputPresetState.modified}
+            onPresetApply={applyOutputPreset}
+            onPresetSave={saveOutputPreset}
+            onPresetRename={(presetId, name) => vscode.postMessage({ type: "renameOutputPreset", presetId, name })}
+            onPresetDelete={(presetId) => vscode.postMessage({ type: "deleteOutputPreset", presetId })}
+            onPresetRestore={
+              /**
+               * 削除した設定を削除前の位置のまま戻すよう Host へ依頼する。
+               * @param preset - 削除前の設定。
+               * @param index - 削除前の位置。
+               */
+              (preset, index) => vscode.postMessage({ type: "restoreOutputPreset", preset, index })
+            }
+            onPresetRevertOverwrite={
+              /**
+               * 上書きした設定を上書き前の内容で保存し直すよう Host へ依頼する。今の出力設定の値は変えない。
+               * @param preset - 上書き前の設定。
+               */
+              (preset) => vscode.postMessage({
+                type: "saveOutputPreset",
+                name: preset.name,
+                presetId: preset.id,
+                values: normalizeOutputPresetValues(preset),
+              })
+            }
+            onPresetImport={() => vscode.postMessage({ type: "importOutputPresets" })}
+            onPresetExport={() => vscode.postMessage({ type: "exportOutputPresets" })}
             updatePdfOptions={updatePdfOptions}
             onClose={
               /** 保留中の設定保存を確定してから閉じる。 */
@@ -5775,6 +5971,11 @@ export function App(): React.JSX.Element {
                 setPrintSettingsVisible(false);
               }
             }
+            onPrintPreview={
+              /** リボンの印刷プレビューと同じ経路で開く（設定の確定とパネルの閉じ方を揃える）。 */
+              () => handleRibbon({ type: "togglePrintPreview" })
+            }
+            printPreviewActive={printPreview}
             onExportPdf={/** PDF を出力する。 */ () => void requestPdfExport()}
           />
         )}

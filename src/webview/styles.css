@@ -198,6 +198,157 @@ button:disabled {
     color: var(--vscode-descriptionForeground);
 }
 
+/*
+ * @style .ribbon-insert-block-group
+ * 挿入タブの「ブロック」グループ。6 個を 3 列 × 2 段に固定し、どの言語でも 1 つだけの段や部品の重なりを作らない。
+ * 列の幅は中身に合わせるため、文言の長い言語（fr、es）ではグループの幅の上限（330px）を外す。段の数と高さは変えない。
+ */
+.ribbon-group.ribbon-insert-block-group .ribbon-controls {
+    display: grid;
+    grid-template-columns: repeat(3, max-content);
+    justify-items: start;
+    max-width: none;
+}
+
+/*
+ * @style .ribbon-split
+ * 「本体＋▾」の分割ボタン（RibbonSplitMenuButton.tsx）。押していないときも外枠と区切り線を表示し、通常のボタンと見分けられるようにする。
+ * 本体の下の小さい文字は、本体を押したときに入るもの。「▾」は 24px 以上の幅で押しやすくする。
+ * 一覧を開いている状態は、オンの状態を表す .active ではなく .open で示す。無効時の見た目は button:disabled の共通ルールに従う。
+ */
+.ribbon-split {
+    display: inline-flex;
+    align-items: stretch;
+    border: 1px solid var(--mve-border);
+    border-radius: 3px;
+}
+
+.ribbon-split.open {
+    border-color: var(--vscode-focusBorder);
+}
+
+.ribbon-split > .ribbon-tool {
+    border: 0;
+    border-radius: 0;
+}
+
+.ribbon-split > .ribbon-tool:hover:not(:disabled) {
+    border-color: transparent;
+}
+
+.ribbon-split-main {
+    align-items: flex-start;
+}
+
+.ribbon-split-main small {
+    max-width: 120px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* 絵文字は 9px では見分けられないため、本体の下の表示を大きくする。 */
+.ribbon-split-main small.ribbon-split-current-large {
+    font-size: 13px;
+    line-height: 1.1;
+}
+
+.ribbon-split > .ribbon-tool.ribbon-split-caret {
+    min-width: 24px;
+    min-height: 24px;
+    padding: 0 4px;
+    align-items: center;
+    border-left: 1px solid var(--mve-border);
+}
+
+/* 無効なとき（読み取り専用、Textile 文書）は、外枠と区切り線も薄くし、有効なときと見分けられるようにする。 */
+.ribbon-split:has(> .ribbon-tool:disabled),
+.ribbon-split:has(> .ribbon-tool:disabled) > .ribbon-tool.ribbon-split-caret {
+    border-color: color-mix(in srgb, var(--mve-border) 48%, transparent);
+}
+
+/*
+ * @style .ribbon-popup
+ * 分割ボタンの一覧。リボン本体（.ribbon-content）は縦方向のはみ出しを隠すため、document.body に描画し、position: fixed で
+ * ボタンの位置から配置する（位置と最大の高さは RibbonSplitMenuButton.tsx が画面内に収まるよう計算する）。
+ * 色は出力プリセットの操作メニュー（.output-preset-menu）と同じ VS Code のメニューの変数を使い、テーマに合わせる。
+ * 収まらない分はスクロールし、スクロールできることが分かるようスクロールバーを表示する。✓ は本体に入るもの。
+ */
+.ribbon-popup {
+    position: fixed;
+    z-index: 40;
+    padding: 4px;
+    overflow-y: auto;
+    border: 1px solid var(--vscode-menu-border, var(--mve-border));
+    border-radius: 4px;
+    color: var(--vscode-menu-foreground, var(--vscode-foreground));
+    background: var(--vscode-menu-background, var(--mve-panel));
+    box-shadow: 0 4px 16px rgb(0 0 0 / 30%);
+    font-size: 12px;
+}
+
+.ribbon-popup::-webkit-scrollbar {
+    width: 10px;
+}
+
+.ribbon-popup::-webkit-scrollbar-thumb {
+    background: var(--vscode-scrollbarSlider-background, rgba(121, 121, 121, .4));
+}
+
+.ribbon-popup-list {
+    min-width: 160px;
+}
+
+.ribbon-popup-list button {
+    display: block;
+    width: 100%;
+    padding: 4px 10px;
+    border: 0;
+    border-radius: 3px;
+    text-align: left;
+    white-space: nowrap;
+    background: transparent;
+}
+
+.ribbon-popup-list button::before {
+    content: "✓ ";
+    visibility: hidden;
+}
+
+.ribbon-popup-list button[aria-checked="true"]::before {
+    visibility: visible;
+}
+
+.ribbon-popup-grid {
+    display: grid;
+    gap: 2px;
+}
+
+.ribbon-popup-grid button {
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: 3px;
+    font-size: 18px;
+    background: transparent;
+}
+
+.ribbon-popup-grid button[aria-checked="true"] {
+    outline: 1px solid var(--vscode-focusBorder);
+}
+
+.ribbon-popup button:hover {
+    color: var(--vscode-menu-selectionForeground, var(--vscode-foreground));
+    background: var(--vscode-menu-selectionBackground, var(--mve-active));
+}
+
+/* キーボードでのフォーカスは、背景色に加えて枠線でも示す（ハイコントラストテーマでも位置が分かるように）。 */
+.ribbon-popup button:focus-visible {
+    outline: 1px solid var(--vscode-menu-selectionBorder, var(--vscode-focusBorder));
+    outline-offset: -1px;
+    color: var(--vscode-menu-selectionForeground, var(--vscode-foreground));
+    background: var(--vscode-menu-selectionBackground, var(--mve-active));
+}
+
 .ribbon-select-label {
     display: flex;
     flex-direction: column;
@@ -379,8 +530,25 @@ button:disabled {
     border-bottom: 1px solid var(--mve-border);
 }
 
-.outline-header h2 {
+/*
+ * @style .outline-panel .outline-header h2, .outline-panel .outline-header .panel-close-button
+ * 狭い幅でも日本語の「アウトライン」ができるだけ1行に収まるよう、左右の余白と閉じるボタンの外側余白を詰める。
+ * 収まらない幅（最小幅の80pxなど）では折り返さずに末尾を省略し、ヘッダーの高さを変えない。
+ * 後続の .outline-panel h2 / .panel-close-button の共通指定より優先させるため、.outline-panel を前置する。
+ */
+.outline-panel .outline-header h2 {
     flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    padding-right: 4px;
+    padding-left: 8px;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.outline-panel .outline-header .panel-close-button {
+    flex: 0 0 auto;
+    margin-right: 4px;
 }
 
 /*
@@ -419,11 +587,18 @@ button:disabled {
 
 /*
  * @style .outline-panel nav
- * アウトライン一覧に左右と下部の余白を設ける。
+ * アウトライン一覧に左右と下部の余白を設ける。狭い幅でも見出しを多く読めるよう、
+ * VS Code 既定（13px）より一段小さい 12px にする。行の高さ（22px）は維持し、クリック範囲を狭めない。
  */
 
 .outline-panel nav {
+    /*
+     * 1階層あたりの字下げ。最小幅（80px）でも深い見出しの文字が残るよう、開閉ボタン（16px）より狭い 12px にする。
+     * 子の字下げ・ガイド線・枝線・ホバー背景（OutlinePanel の --outline-row-inset）はすべてこの値から計算する。
+     */
+    --outline-indent: 12px;
     padding: 0 8px 10px;
+    font-size: 12px;
 }
 
 /*
@@ -443,7 +618,7 @@ button:disabled {
 
 .outline-children {
     position: relative;
-    margin-left: 22px;
+    margin-left: var(--outline-indent);
     padding: 0;
 }
 
@@ -492,13 +667,14 @@ button:disabled {
 /*
  * @style .outline-children::before
  * 親の開閉位置から子見出し群へ続く縦のガイド線を表示する。
+ * 線は親の開閉ボタン（幅16px）の中央に置くため、子の左端から字下げ幅と8px分だけ左にする。
  */
 
 .outline-children::before {
     position: absolute;
     top: -11px;
     bottom: 11px;
-    left: -30px;
+    left: calc(-8px - var(--outline-indent));
     border-left: 1px solid var(--vscode-tree-indentGuidesStroke, var(--vscode-panel-border, var(--mve-border)));
     content: '';
     pointer-events: none;
@@ -516,6 +692,7 @@ button:disabled {
 /*
  * @style .outline-children > .outline-node, .outline-children > .outline-node::before, .outline-children > .outline-node:not(.outline-node-parent)::before
  * 子見出しの枝線を描き、葉では線を見出し名の列まで延長する。
+ * 枝線はガイド線から、親を持つ子では自分の開閉ボタンの左端（-16px）まで、葉では見出し名の手前（+2px）まで伸ばす。
  */
 
 .outline-children > .outline-node {
@@ -525,15 +702,15 @@ button:disabled {
 .outline-children > .outline-node::before {
     position: absolute;
     top: 11px;
-    left: -30px;
-    width: 14px;
+    left: calc(-8px - var(--outline-indent));
+    width: calc(var(--outline-indent) - 8px);
     border-top: 1px solid var(--vscode-tree-indentGuidesStroke, var(--vscode-panel-border, var(--mve-border)));
     content: '';
     pointer-events: none;
 }
 
 .outline-children > .outline-node:not(.outline-node-parent)::before {
-    width: 32px;
+    width: calc(var(--outline-indent) + 10px);
 }
 
 /*
@@ -1257,6 +1434,20 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
     max-width: 100%;
     height: auto;
     margin: 0 auto;
+}
+
+/*
+ * @style .diagram-block svg.pele-treeView
+ * Mermaid のツリービュー（Pele が svg に pele-treeView を付ける）は、フォルダーとファイルの階層を左端からの字下げで読む図のため、
+ * 中央寄せではなく左寄せにする。PDF・HTML の出力はもともと図を左寄せにしており、プレビューもそれにそろう。
+ */
+.diagram-block.mermaid:has(svg.pele-treeView) {
+    text-align: left;
+}
+
+.diagram-block svg.pele-treeView {
+    margin-left: 0;
+    margin-right: auto;
 }
 
 .rendered-markdown[data-mve-image-zoom] .diagram-block.mermaid {
@@ -2397,6 +2588,372 @@ body.mve-dragging-outline .outline-panel nav .outline-item {
         min-width: 72px;
     }
 }
+
+/*
+ * @style 印刷設定パネル（1列）と出力プリセット
+ * 従来幅（330px）の1列パネルに、プリセット行、用紙・向き、余白、文字、ヘッダー・フッター、
+ * 折りたたみの詳細設定を上から並べる。本文だけをスクロールし、印刷プレビュー・PDF出力は下端に固定する。
+ * 枠線は詳細設定の中の入れ子（見出しサイズ・置換ルール）だけに残し、主要項目は見出しと余白で区切る。
+ * 色はすべてVS Codeのテーマ変数から取り、ライト・ダーク・ハイコントラストに追従する。
+ */
+.pdf-settings-panel {
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 0;
+    overflow: hidden;
+}
+
+.pdf-settings-body {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow: auto;
+    margin: 0 -12px;
+    padding: 0 12px 16px;
+}
+
+.pdf-settings-footer {
+    display: flex;
+    flex: 0 0 auto;
+    justify-content: flex-end;
+    gap: 8px;
+    margin: 0 -12px;
+    padding: 10px 12px;
+    border-top: 1px solid var(--mve-border);
+    background: var(--mve-panel);
+}
+
+.pdf-settings-footer button {
+    padding: 5px 12px;
+    border: 1px solid var(--vscode-button-border, var(--mve-border));
+    color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+    background: var(--vscode-button-secondaryBackground, transparent);
+}
+
+.pdf-settings-footer button.primary {
+    color: var(--vscode-button-foreground);
+    background: var(--vscode-button-background);
+}
+
+.pdf-settings-footer button:hover {
+    background: var(--vscode-button-secondaryHoverBackground, var(--mve-hover));
+}
+
+.pdf-settings-footer button.primary:hover {
+    background: var(--vscode-button-hoverBackground, var(--vscode-button-background));
+}
+
+/* 主要項目の区切りは枠ではなく見出しにする。詳細設定内の入れ子の枠は既存の指定を使う。 */
+.pdf-settings-body > .pdf-margin-fields,
+.pdf-settings-body > .pdf-typography-fields {
+    margin: 14px 0 0;
+    padding: 0;
+    border: 0;
+}
+
+.pdf-settings-body > .pdf-margin-fields legend,
+.pdf-settings-body > .pdf-typography-fields legend {
+    padding: 0;
+    margin-bottom: 2px;
+}
+
+.pdf-settings-body > .pdf-margin-fields {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 0 6px;
+}
+
+.pdf-settings-body > .pdf-margin-fields label {
+    margin: 2px 0;
+    color: var(--vscode-descriptionForeground);
+    font-size: 11px;
+}
+
+.pdf-settings-panel input[type="number"] {
+    font-variant-numeric: tabular-nums;
+}
+
+.pdf-field-pair {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 8px;
+}
+
+.pdf-paper-row {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    gap: 8px;
+    margin-top: 14px;
+}
+
+.pdf-paper-row label {
+    margin: 0;
+}
+
+/* 向きは2択のため、選択欄ではなく押されている側が分かる切り替えボタンにする。 */
+.pdf-orientation-toggle {
+    display: inline-flex;
+    border: 1px solid var(--vscode-input-border, var(--mve-border));
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.pdf-orientation-toggle button {
+    min-width: 40px;
+    padding: 5px 10px;
+    border: 0;
+    color: var(--vscode-foreground);
+    background: var(--vscode-input-background);
+}
+
+.pdf-orientation-toggle button + button {
+    border-left: 1px solid var(--vscode-input-border, var(--mve-border));
+}
+
+.pdf-orientation-toggle button[aria-pressed="true"] {
+    color: var(--vscode-button-foreground);
+    background: var(--vscode-button-background);
+}
+
+.pdf-orientation-toggle button:focus-visible {
+    outline: 1px solid var(--vscode-focusBorder);
+    outline-offset: -1px;
+}
+
+.pdf-header-footer-fields {
+    margin-top: 6px;
+}
+
+.pdf-advanced-settings {
+    margin-top: 14px;
+    padding-top: 10px;
+    border-top: 1px solid var(--mve-border);
+}
+
+.pdf-advanced-settings summary {
+    cursor: pointer;
+    color: var(--vscode-descriptionForeground);
+}
+
+.pdf-advanced-settings summary:hover,
+.pdf-advanced-settings[open] summary {
+    color: var(--vscode-foreground);
+}
+
+/* 画面には出さず、支援技術にだけ読ませる説明文。 */
+.mve-visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    margin: -1px;
+    padding: 0;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* プリセット行: 選択欄と操作メニュー。管理操作はメニューに入れ、常時表示しない。 */
+.output-preset-manager {
+    display: grid;
+    gap: 6px;
+}
+
+.output-preset-row {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.output-preset-row .output-preset-select {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+
+.output-preset-add-button {
+    flex: 0 0 auto;
+    height: 28px;
+    padding: 0 8px;
+    border: 1px solid var(--vscode-input-border, var(--mve-border));
+    white-space: nowrap;
+    color: var(--vscode-foreground);
+    background: var(--vscode-input-background);
+}
+
+.output-preset-menu-anchor {
+    position: relative;
+    flex: 0 0 auto;
+}
+
+.output-preset-menu-button {
+    width: 28px;
+    height: 28px;
+    border: 1px solid var(--vscode-input-border, var(--mve-border));
+    color: var(--vscode-foreground);
+    background: var(--vscode-input-background);
+}
+
+.output-preset-menu-button:hover,
+.output-preset-menu-button[aria-expanded="true"] {
+    background: var(--mve-hover);
+}
+
+.output-preset-menu {
+    position: absolute;
+    z-index: 40;
+    top: calc(100% + 4px);
+    right: 0;
+    min-width: 200px;
+    padding: 4px;
+    border: 1px solid var(--vscode-menu-border, var(--mve-border));
+    border-radius: 4px;
+    color: var(--vscode-menu-foreground, var(--vscode-foreground));
+    background: var(--vscode-menu-background, var(--mve-panel));
+    box-shadow: 0 4px 16px rgb(0 0 0 / 30%);
+}
+
+.output-preset-menu button {
+    display: block;
+    width: 100%;
+    padding: 5px 10px;
+    border: 0;
+    border-radius: 3px;
+    text-align: left;
+    color: inherit;
+    background: transparent;
+}
+
+.output-preset-menu button:hover:not(:disabled),
+.output-preset-menu button:focus-visible {
+    outline: none;
+    color: var(--vscode-menu-selectionForeground, var(--vscode-foreground));
+    background: var(--vscode-menu-selectionBackground, var(--mve-active));
+}
+
+.output-preset-menu button:disabled {
+    opacity: .45;
+}
+
+.output-preset-menu hr {
+    margin: 4px 0;
+    border: 0;
+    border-top: 1px solid var(--vscode-menu-separatorBackground, var(--mve-border));
+}
+
+.output-preset-menu .output-preset-menu-danger:not(:disabled) {
+    color: var(--vscode-errorForeground, #f48771);
+}
+
+/* 「変更あり」は保存の要否を示す状態なので、警告色の点と文字で示す。 */
+.output-preset-modified {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    color: var(--vscode-editorWarning-foreground, #cca700);
+    font-size: 11px;
+    white-space: nowrap;
+}
+
+.output-preset-modified::before {
+    content: "";
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: currentColor;
+}
+
+/* 状態の領域は読み上げのため常に置く。空のときは行間の余白も打ち消して高さを持たせない。 */
+.output-preset-status:empty {
+    margin-top: -6px;
+}
+
+.output-preset-status {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 4px 10px;
+}
+
+.pdf-settings-panel .output-preset-link {
+    padding: 0;
+    border: 0;
+    color: var(--vscode-textLink-foreground);
+    background: transparent;
+    font-size: 12px;
+}
+
+.pdf-settings-panel .output-preset-link:hover {
+    color: var(--vscode-textLink-activeForeground, var(--vscode-textLink-foreground));
+    text-decoration: underline;
+}
+
+.output-preset-name-edit {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.output-preset-name-edit input {
+    flex: 1 1 140px;
+    width: auto;
+    min-width: 0;
+}
+
+/* 名前が既存と重なるとき、保存できない理由を名前欄の下に1行で示す。 */
+.output-preset-name-error {
+    flex: 1 1 100%;
+    margin: 0;
+    color: var(--vscode-errorForeground, #f48771);
+    font-size: 11px;
+}
+
+.output-preset-name-edit input[aria-invalid="true"] {
+    border-color: var(--vscode-inputValidation-errorBorder, #be1100);
+}
+
+.output-preset-name-edit button {
+    padding: 4px 10px;
+    border: 1px solid var(--vscode-button-border, var(--mve-border));
+    color: var(--vscode-button-secondaryForeground, var(--vscode-foreground));
+    background: var(--vscode-button-secondaryBackground, transparent);
+}
+
+.output-preset-name-edit button.primary {
+    color: var(--vscode-button-foreground);
+    background: var(--vscode-button-background);
+}
+
+.output-preset-name-edit button:disabled {
+    opacity: .5;
+}
+
+/* 削除と上書きは確認なしで行うため、何をしたかを状態行に控えめな文字で示し、隣に「元に戻す」を置く。 */
+.output-preset-change {
+    color: var(--vscode-descriptionForeground);
+    font-size: 11px;
+}
+
+/* リボンの保存した印刷設定欄: 項目名はグループ名と重複するので出さず、上段は「変更あり」だけを置く。
+   「変更あり」の有無で選択欄が上下に動かないよう、上段は空でも1行分（11px の文字）の高さを確保する。 */
+.ribbon-output-preset-caption {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 15px;
+}
+
+.ribbon-output-preset-select select {
+    min-width: 170px;
+    max-width: 220px;
+}
+
+@media (max-width: 540px) {
+    .ribbon-output-preset-select select {
+        min-width: 115px;
+        max-width: 165px;
+    }
+}
+
 
 @media print {
 

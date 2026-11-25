@@ -81,14 +81,15 @@
         "horizontalRule": "区切り線",
         "hardBreak": "改行",
         "blankLine": "空行",
-        "language": "言語",
         "codeBlock": "コードブロック",
+        "codeBlockChoose": "コードブロックの言語を選ぶ",
+        "mermaidChoose": "Mermaid の図の種類を選ぶ",
+        "emojiChoose": "絵文字を選ぶ",
         "math": "数式",
         "footnote": "脚注",
         "toc": "目次",
         "pageBreak": "改ページ",
         "emoji": "絵文字",
-        "insertEmoji": "絵文字を挿入",
         "addBefore": "上に追加",
         "addAfter": "下に追加",
         "addLeft": "左に追加",
@@ -120,6 +121,11 @@
         "textColor": "テキスト色",
         "imageResize": "画像リサイズ",
         "imageResizeControls": "プレビュー画像のリサイズ操作を表示または非表示にします",
+        "headingNumbering": "見出し番号",
+        "headingNumberingTitle": "原文を変えずに、プレビューと PDF / HTML 出力の見出しへ番号を付けます",
+        "headingNumberingOff": "なし",
+        "headingNumberingH1": "H1 から",
+        "headingNumberingH2": "H2 から",
         "editorTheme": "エディター",
         "light": "ライト",
         "dark": "ダーク",
@@ -133,7 +139,7 @@
           "link": "選択した文字にリンクを設定します。",
           "image": "画像を挿入し、サイズや配置を設定します。",
           "insertTable": "指定した行数・列数の表を挿入します。",
-          "codeBlock": "コードブロックを挿入します。",
+          "codeBlock": "コードブロックを挿入します。▾ で言語を選べます。",
           "math": "数式を挿入します。",
           "footnote": "脚注を挿入します。",
           "toc": "見出しから目次を生成します。",
@@ -162,7 +168,28 @@
         "markdownSupport": "対応Markdown",
         "about": "Markdown Easy Visual Editorについて",
         "header": "ヘッダー",
-        "headerPlaceholder": "例: 合計"
+        "headerPlaceholder": "例: 合計",
+        "outputPreset": "保存した印刷設定",
+        "customPreset": "（未保存）",
+        "outputPresetActions": "保存した設定の操作",
+        "overwritePreset": "上書き保存",
+        "savePresetAs": "名前を付けて保存…",
+        "addSavedSettings": "新規保存",
+        "renamePreset": "名前を変更…",
+        "discardPresetChanges": "変更を破棄",
+        "deletePreset": "削除",
+        "importPresets": "インポート…",
+        "exportPresets": "エクスポート…",
+        "presetModified": "変更あり",
+        "revertPreset": "元に戻す",
+        "presetName": "名前",
+        "duplicateSavedSettingsName": "同じ名前の保存した設定があります。",
+        "savePreset": "保存",
+        "cancelPresetEdit": "キャンセル",
+        "presetDeleted": "「{name}」を削除しました",
+        "presetOverwritten": "「{name}」を上書きしました",
+        "undoSavedSettingsChange": "元に戻す",
+        "advancedPrintSettings": "詳細設定"
       },
       "settings": {
         "images": "画像",
@@ -246,20 +273,168 @@
           "label": "PowerShell"
         },
         {
-          "value": "sql",
-          "label": "SQL"
-        },
-        {
           "value": "xml",
           "label": "XML"
+        }
+      ],
+      "mermaidDiagrams": [
+        {
+          "value": "flowchart",
+          "label": "フローチャート",
+          "snippet": "\n```mermaid\ngraph TD\n  A[開始] --> B[完了]\n```\n"
         },
         {
-          "value": "mermaid",
-          "label": "Mermaid"
+          "value": "swimlane",
+          "label": "スイムレーン図",
+          "snippet": "\n```mermaid\nswimlane-beta LR\n    subgraph 利用者\n        request[依頼を送る]\n    end\n    subgraph サポート\n        triage[依頼を分類する]\n        reply[回答する]\n    end\n    request --> triage\n    triage --> reply\n```\n"
+        },
+        {
+          "value": "sequence",
+          "label": "シーケンス図",
+          "snippet": "\n```mermaid\nsequenceDiagram\n  participant U as ユーザー\n  participant S as システム\n  U->>S: 要求\n  S-->>U: 応答\n```\n"
+        },
+        {
+          "value": "class",
+          "label": "クラス図",
+          "snippet": "\n```mermaid\nclassDiagram\n  class Animal {\n    +String name\n    +move()\n  }\n  class Dog\n  Animal <|-- Dog\n```\n"
+        },
+        {
+          "value": "state",
+          "label": "状態遷移図",
+          "snippet": "\n```mermaid\nstateDiagram-v2\n  state \"下書き\" as Draft\n  state \"レビュー\" as Review\n  state \"完了\" as Done\n  [*] --> Draft\n  Draft --> Review\n  Review --> Done\n  Done --> [*]\n```\n"
+        },
+        {
+          "value": "er",
+          "label": "ER 図",
+          "snippet": "\n```mermaid\nerDiagram\n  CUSTOMER ||--o{ ORDER : \"注文する\"\n  ORDER ||--|{ LINE_ITEM : \"含む\"\n```\n"
+        },
+        {
+          "value": "journey",
+          "label": "ユーザージャーニー",
+          "snippet": "\n```mermaid\njourney\n  title 買い物\n  section 注文\n    商品を探す: 5: 利用者\n    支払う: 3: 利用者\n```\n"
+        },
+        {
+          "value": "gantt",
+          "label": "ガントチャート",
+          "snippet": "\n```mermaid\ngantt\n  title 計画\n  dateFormat YYYY-MM-DD\n  section 設計\n    要件定義 :a1, 2026-01-05, 5d\n    基本設計 :after a1, 3d\n```\n"
+        },
+        {
+          "value": "pie",
+          "label": "円グラフ",
+          "snippet": "\n```mermaid\npie title 割合\n  \"項目A\" : 40\n  \"項目B\" : 35\n  \"項目C\" : 25\n```\n"
+        },
+        {
+          "value": "quadrant",
+          "label": "象限チャート",
+          "snippet": "\n```mermaid\nquadrantChart\n  title 施策の評価\n  x-axis 低コスト --> 高コスト\n  y-axis 低効果 --> 高効果\n  quadrant-1 計画して実施\n  quadrant-2 すぐ実施\n  quadrant-3 見送り\n  quadrant-4 再検討\n  案1: [0.3, 0.8]\n  案2: [0.7, 0.4]\n```\n"
+        },
+        {
+          "value": "requirement",
+          "label": "要件図",
+          "snippet": "\n```mermaid\nrequirementDiagram\n  requirement response_time {\n    id: 1\n    text: \"応答は 1 秒以内に返す\"\n    risk: medium\n    verifymethod: test\n  }\n  element web_server {\n    type: system\n  }\n  web_server - satisfies -> response_time\n```\n"
+        },
+        {
+          "value": "usecase",
+          "label": "ユースケース図",
+          "snippet": "\n```mermaid\nusecase-beta\ndirection LR\nactor Customer(\"顧客\")\nsystemBoundary \"注文システム\"\n  Checkout(\"注文する\")\nend\nCustomer --> Checkout\n```\n"
+        },
+        {
+          "value": "gitGraph",
+          "label": "Git グラフ",
+          "snippet": "\n```mermaid\ngitGraph\n  commit\n  branch feature\n  checkout feature\n  commit\n  checkout main\n  merge feature\n```\n"
+        },
+        {
+          "value": "c4",
+          "label": "C4 図",
+          "snippet": "\n```mermaid\nC4Context\n  title 注文システム\n  Person(customer, \"顧客\", \"商品を注文する人\")\n  System(orders, \"注文システム\", \"注文を受け付ける\")\n  Rel(customer, orders, \"利用する\")\n```\n"
+        },
+        {
+          "value": "mindmap",
+          "label": "マインドマップ",
+          "snippet": "\n```mermaid\nmindmap\n  root((テーマ))\n    案1\n    案2\n```\n"
+        },
+        {
+          "value": "timeline",
+          "label": "タイムライン",
+          "snippet": "\n```mermaid\ntimeline\n  title 沿革\n  2025 : 企画開始\n  2026 : 公開\n```\n"
+        },
+        {
+          "value": "sankey",
+          "label": "サンキー図",
+          "snippet": "\n```mermaid\nsankey-beta\nPower,Homes,40\nPower,Factories,60\n```\n"
+        },
+        {
+          "value": "xychart",
+          "label": "XY チャート",
+          "snippet": "\n```mermaid\nxychart-beta\n  title \"四半期の売上\"\n  x-axis [Q1, Q2, Q3, Q4]\n  y-axis \"売上\" 0 --> 100\n  bar [40, 55, 70, 65]\n  line [40, 55, 70, 65]\n```\n"
+        },
+        {
+          "value": "block",
+          "label": "ブロック図",
+          "snippet": "\n```mermaid\nblock-beta\n  columns 3\n  a[\"入力\"] b[\"処理\"] c[\"出力\"]\n  a --> b\n  b --> c\n```\n"
+        },
+        {
+          "value": "packet",
+          "label": "パケット図",
+          "snippet": "\n```mermaid\npacket-beta\n  0-15: \"送信元ポート\"\n  16-31: \"宛先ポート\"\n```\n"
+        },
+        {
+          "value": "kanban",
+          "label": "かんばん",
+          "snippet": "\n```mermaid\nkanban\n  todo[未着手]\n    t1[資料を作る]\n  doing[作業中]\n    t2[レビュー]\n  done[完了]\n```\n"
+        },
+        {
+          "value": "architecture",
+          "label": "アーキテクチャ図",
+          "snippet": "\n```mermaid\narchitecture-beta\n  group api(cloud)[API]\n  service server(server)[サーバー] in api\n  service db(database)[データベース] in api\n  server:R -- L:db\n```\n"
+        },
+        {
+          "value": "radar",
+          "label": "レーダーチャート",
+          "snippet": "\n```mermaid\nradar-beta\n  axis q[\"品質\"], s[\"速度\"], c[\"費用\"]\n  curve a[\"案1\"]{4, 3, 5}\n  curve b[\"案2\"]{3, 5, 2}\n```\n"
+        },
+        {
+          "value": "eventmodeling",
+          "label": "イベントモデリング",
+          "snippet": "\n```mermaid\neventmodeling\n    tf 01 ui OrderScreen\n    tf 02 cmd CreateOrder\n    tf 03 evt OrderReceived\n    tf 04 rmo OrderList\n```\n"
+        },
+        {
+          "value": "treemap",
+          "label": "ツリーマップ",
+          "snippet": "\n```mermaid\ntreemap-beta\n\"売上\"\n    \"製品A\": 30\n    \"製品B\": 20\n```\n"
+        },
+        {
+          "value": "venn",
+          "label": "ベン図",
+          "snippet": "\n```mermaid\nvenn-beta\n  title \"チームの重なり\"\n  set Frontend[\"フロントエンド\"]\n  set Backend[\"バックエンド\"]\n  union Frontend,Backend[\"API\"]\n```\n"
+        },
+        {
+          "value": "ishikawa",
+          "label": "特性要因図（石川）",
+          "snippet": "\n```mermaid\nishikawa-beta\n    納期遅れ\n    人\n        人手不足\n    方法\n        確認が漏れる\n    設備\n        PC が古い\n```\n"
+        },
+        {
+          "value": "wardley",
+          "label": "ワードリーマップ",
+          "snippet": "\n```mermaid\nwardley-beta\ntitle 紅茶店のバリューチェーン\n\nanchor Business [0.95, 0.63]\ncomponent Cup of Tea [0.79, 0.61]\ncomponent Tea [0.63, 0.81]\ncomponent Hot Water [0.52, 0.80]\nBusiness -> Cup of Tea\nCup of Tea -> Tea\nCup of Tea -> Hot Water\n```\n"
+        },
+        {
+          "value": "cynefin",
+          "label": "Cynefin フレームワーク",
+          "snippet": "\n```mermaid\ncynefin-beta\n  title 障害対応\n  complex\n    \"原因を調べる\"\n  complicated\n    \"性能データを分析する\"\n  clear\n    \"サービスを再起動する\"\n  chaotic\n    \"担当者を呼び出す\"\n  confusion\n    \"原因不明の障害\"\n```\n"
+        },
+        {
+          "value": "treeView",
+          "label": "ツリービュー",
+          "snippet": "\n```mermaid\n---\nconfig:\n  treeView:\n    rowIndent: 24\n    lineThickness: 2\n---\ntreeView-beta\n文書プロジェクト/\n    仕様/\n        要件.md\n        画面設計.md\n    サンプル/\n        flowchart.md\n    README.md\n```\n"
+        },
+        {
+          "value": "agentflow",
+          "label": "エージェントフロー",
+          "snippet": "\n```mermaid\nagentflow-beta TB\n  flow reviewer[\"レビュー担当エージェント\"]\n    changes[\"変更を集める\"]@{ shape: input }\n    analyse[\"差分を分析する\"]@{ shape: task }\n    ok[\"問題なし？\"]@{ shape: decision }\n    changes --> analyse --> ok\n  end\n```\n"
         }
       ],
       "snippets": {
-        "mermaid": "\n```mermaid\ngraph TD\n  A[開始] --> B[完了]\n```\n",
         "footnote": "[^1]\n\n[^1]: 脚注の内容",
         "note": "\n> [!NOTE]\n> 補足情報\n",
         "warning": "\n> [!WARNING]\n> 注意事項\n"
@@ -373,7 +548,7 @@
       },
       "tableEditor": {
         "title": "表を編集",
-        "close": "閉じる",
+        "close": "閉じて反映",
         "addRow": "＋行",
         "deleteRow": "行削除",
         "addColumn": "＋列",
@@ -385,22 +560,20 @@
         "copyTsv": "TSVコピー",
         "copyColumn": "列コピー",
         "copyRow": "行コピー",
-        "cancel": "キャンセル",
-        "apply": "適用",
-        "navigationHint": "Alt+Enter: <br>を挿入 / Tab: 次のセル / Shift+Tab: 前のセル / Enter: 下のセル / Ctrl+Enter: 適用",
+        "navigationHint": "Alt+Enter: <br>を挿入 / Tab: 次のセル / Shift+Tab: 前のセル / Enter: 下のセル / Esc・Ctrl+Enter: 閉じて反映",
         "sourceEditorRequired": "ソースエディターを表示してください。",
         "tableRequired": "表内のセルへカーソルを置いてください。",
         "rowColumnLimit": "表の上限は{rows}行{columns}列です。",
         "copied": "TSVをコピーしました。",
-        "sourceEditorClosed": "ソースエディターが閉じられました。",
-        "documentChanged": "編集中に本文が変更されました。閉じて開き直してください。",
+        "sourceEditorClosed": "ソースエディターが閉じられたため反映できません。「破棄して閉じる」で閉じてください。",
+        "documentChanged": "編集中に本文が変更されたため反映できません。「破棄して閉じる」で閉じてから開き直してください。",
         "resizeColumn": "列幅を変更",
         "resizeRow": "行の高さを変更",
         "resizeEditor": "表編集UIのサイズを変更",
-        "modified": "未適用の変更",
-        "discard": "未適用の変更を破棄しますか？",
         "discardAndClose": "破棄して閉じる",
-        "keepEditing": "編集を続ける",
+        "sizeGroup": "サイズ",
+        "autoFit": "自動調整",
+        "autoFitTitle": "列幅と行高をセルの内容に合わせます（範囲を選択している場合はその範囲、それ以外は表全体）",
         "selection": "選択",
         "cells": "セル",
         "selectAll": "すべてのセルを選択",
@@ -575,7 +748,9 @@
       "linkUpdateApply": "更新",
       "linkUpdateAlways": "常に更新",
       "linkUpdateNever": "更新しない",
-      "linkUpdateFailed": "リンクを更新できませんでした: {detail}"
+      "linkUpdateFailed": "リンクを更新できませんでした: {detail}",
+      "goToLinePrompt": "移動先の行番号を入力してください (1 - {lineCount})",
+      "goToLineInvalid": "1 以上の行番号を数字で入力してください。"
     },
     "editor": {
       "placeholder": "Markdownを入力...",
@@ -673,14 +848,15 @@
         "horizontalRule": "Horizontal rule",
         "hardBreak": "Line break",
         "blankLine": "Blank line",
-        "language": "Language",
         "codeBlock": "Code block",
+        "codeBlockChoose": "Choose a code block language",
+        "mermaidChoose": "Choose a Mermaid diagram type",
+        "emojiChoose": "Choose an emoji",
         "math": "Math",
         "footnote": "Footnote",
         "toc": "Table of contents",
         "pageBreak": "Page break",
         "emoji": "Emoji",
-        "insertEmoji": "Insert emoji",
         "addBefore": "Add above",
         "addAfter": "Add below",
         "addLeft": "Add left",
@@ -712,6 +888,11 @@
         "textColor": "Text color",
         "imageResize": "Image resize",
         "imageResizeControls": "Show or hide image resize controls in the preview",
+        "headingNumbering": "Heading numbers",
+        "headingNumberingTitle": "Number headings in the preview and PDF/HTML exports without changing the source",
+        "headingNumberingOff": "None",
+        "headingNumberingH1": "From H1",
+        "headingNumberingH2": "From H2",
         "editorTheme": "Editor",
         "light": "Light",
         "dark": "Dark",
@@ -725,7 +906,7 @@
           "link": "Add a link to the selected text.",
           "image": "Insert an image and set its size and alignment.",
           "insertTable": "Insert a table with the specified rows and columns.",
-          "codeBlock": "Insert a code block.",
+          "codeBlock": "Insert a code block. Use ▾ to choose the language.",
           "math": "Insert a mathematical expression.",
           "footnote": "Insert a footnote.",
           "toc": "Generate a table of contents from headings.",
@@ -754,7 +935,28 @@
         "markdownSupport": "Supported Markdown",
         "about": "About Markdown Easy Visual Editor",
         "header": "Header",
-        "headerPlaceholder": "e.g. Total"
+        "headerPlaceholder": "e.g. Total",
+        "outputPreset": "Saved print settings",
+        "customPreset": "(Unsaved)",
+        "outputPresetActions": "Saved settings actions",
+        "overwritePreset": "Overwrite",
+        "savePresetAs": "Save as…",
+        "addSavedSettings": "Save new",
+        "renamePreset": "Rename…",
+        "discardPresetChanges": "Discard changes",
+        "deletePreset": "Delete",
+        "importPresets": "Import…",
+        "exportPresets": "Export…",
+        "presetModified": "Modified",
+        "revertPreset": "Revert",
+        "presetName": "Name",
+        "duplicateSavedSettingsName": "Saved settings with this name already exist.",
+        "savePreset": "Save",
+        "cancelPresetEdit": "Cancel",
+        "presetDeleted": "Deleted \"{name}\"",
+        "presetOverwritten": "Overwrote \"{name}\"",
+        "undoSavedSettingsChange": "Undo",
+        "advancedPrintSettings": "Advanced settings"
       },
       "settings": {
         "images": "Images",
@@ -773,7 +975,6 @@
         "apply": "Apply"
       },
       "snippets": {
-        "mermaid": "\n```mermaid\ngraph TD\n  A[Start] --> B[Done]\n```\n",
         "footnote": "[^1]\n\n[^1]: Footnote text",
         "note": "\n> [!NOTE]\n> Additional information\n",
         "warning": "\n> [!WARNING]\n> Caution\n"
@@ -844,16 +1045,165 @@
           "label": "PowerShell"
         },
         {
-          "value": "sql",
-          "label": "SQL"
-        },
-        {
           "value": "xml",
           "label": "XML"
+        }
+      ],
+      "mermaidDiagrams": [
+        {
+          "value": "flowchart",
+          "label": "Flowchart",
+          "snippet": "\n```mermaid\ngraph TD\n  A[Start] --> B[Done]\n```\n"
         },
         {
-          "value": "mermaid",
-          "label": "Mermaid"
+          "value": "swimlane",
+          "label": "Swimlane diagram",
+          "snippet": "\n```mermaid\nswimlane-beta LR\n    subgraph User\n        request[Send request]\n    end\n    subgraph Support\n        triage[Triage request]\n        reply[Reply]\n    end\n    request --> triage\n    triage --> reply\n```\n"
+        },
+        {
+          "value": "sequence",
+          "label": "Sequence diagram",
+          "snippet": "\n```mermaid\nsequenceDiagram\n  participant U as User\n  participant S as System\n  U->>S: Request\n  S-->>U: Response\n```\n"
+        },
+        {
+          "value": "class",
+          "label": "Class diagram",
+          "snippet": "\n```mermaid\nclassDiagram\n  class Animal {\n    +String name\n    +move()\n  }\n  class Dog\n  Animal <|-- Dog\n```\n"
+        },
+        {
+          "value": "state",
+          "label": "State diagram",
+          "snippet": "\n```mermaid\nstateDiagram-v2\n  state \"Draft\" as Draft\n  state \"Review\" as Review\n  state \"Done\" as Done\n  [*] --> Draft\n  Draft --> Review\n  Review --> Done\n  Done --> [*]\n```\n"
+        },
+        {
+          "value": "er",
+          "label": "ER diagram",
+          "snippet": "\n```mermaid\nerDiagram\n  CUSTOMER ||--o{ ORDER : \"places\"\n  ORDER ||--|{ LINE_ITEM : \"contains\"\n```\n"
+        },
+        {
+          "value": "journey",
+          "label": "User journey",
+          "snippet": "\n```mermaid\njourney\n  title Shopping\n  section Order\n    Find a product: 5: User\n    Pay: 3: User\n```\n"
+        },
+        {
+          "value": "gantt",
+          "label": "Gantt chart",
+          "snippet": "\n```mermaid\ngantt\n  title Plan\n  dateFormat YYYY-MM-DD\n  section Design\n    Requirements :a1, 2026-01-05, 5d\n    Basic design :after a1, 3d\n```\n"
+        },
+        {
+          "value": "pie",
+          "label": "Pie chart",
+          "snippet": "\n```mermaid\npie title Share\n  \"Item A\" : 40\n  \"Item B\" : 35\n  \"Item C\" : 25\n```\n"
+        },
+        {
+          "value": "quadrant",
+          "label": "Quadrant chart",
+          "snippet": "\n```mermaid\nquadrantChart\n  title Initiative review\n  x-axis Low cost --> High cost\n  y-axis Low impact --> High impact\n  quadrant-1 Plan\n  quadrant-2 Do now\n  quadrant-3 Skip\n  quadrant-4 Rethink\n  Idea 1: [0.3, 0.8]\n  Idea 2: [0.7, 0.4]\n```\n"
+        },
+        {
+          "value": "requirement",
+          "label": "Requirement diagram",
+          "snippet": "\n```mermaid\nrequirementDiagram\n  requirement response_time {\n    id: 1\n    text: \"Respond within one second\"\n    risk: medium\n    verifymethod: test\n  }\n  element web_server {\n    type: system\n  }\n  web_server - satisfies -> response_time\n```\n"
+        },
+        {
+          "value": "usecase",
+          "label": "Use case diagram",
+          "snippet": "\n```mermaid\nusecase-beta\ndirection LR\nactor Customer(\"Customer\")\nsystemBoundary \"Order system\"\n  Checkout(\"Place order\")\nend\nCustomer --> Checkout\n```\n"
+        },
+        {
+          "value": "gitGraph",
+          "label": "Git graph",
+          "snippet": "\n```mermaid\ngitGraph\n  commit\n  branch feature\n  checkout feature\n  commit\n  checkout main\n  merge feature\n```\n"
+        },
+        {
+          "value": "c4",
+          "label": "C4 diagram",
+          "snippet": "\n```mermaid\nC4Context\n  title Order system\n  Person(customer, \"Customer\", \"A person who orders products\")\n  System(orders, \"Order system\", \"Accepts orders\")\n  Rel(customer, orders, \"Uses\")\n```\n"
+        },
+        {
+          "value": "mindmap",
+          "label": "Mind map",
+          "snippet": "\n```mermaid\nmindmap\n  root((Theme))\n    Idea 1\n    Idea 2\n```\n"
+        },
+        {
+          "value": "timeline",
+          "label": "Timeline",
+          "snippet": "\n```mermaid\ntimeline\n  title History\n  2025 : Project start\n  2026 : Release\n```\n"
+        },
+        {
+          "value": "sankey",
+          "label": "Sankey diagram",
+          "snippet": "\n```mermaid\nsankey-beta\nPower,Homes,40\nPower,Factories,60\n```\n"
+        },
+        {
+          "value": "xychart",
+          "label": "XY chart",
+          "snippet": "\n```mermaid\nxychart-beta\n  title \"Quarterly sales\"\n  x-axis [Q1, Q2, Q3, Q4]\n  y-axis \"Sales\" 0 --> 100\n  bar [40, 55, 70, 65]\n  line [40, 55, 70, 65]\n```\n"
+        },
+        {
+          "value": "block",
+          "label": "Block diagram",
+          "snippet": "\n```mermaid\nblock-beta\n  columns 3\n  a[\"Input\"] b[\"Process\"] c[\"Output\"]\n  a --> b\n  b --> c\n```\n"
+        },
+        {
+          "value": "packet",
+          "label": "Packet diagram",
+          "snippet": "\n```mermaid\npacket-beta\n  0-15: \"Source port\"\n  16-31: \"Destination port\"\n```\n"
+        },
+        {
+          "value": "kanban",
+          "label": "Kanban",
+          "snippet": "\n```mermaid\nkanban\n  todo[To do]\n    t1[Write the document]\n  doing[In progress]\n    t2[Review]\n  done[Done]\n```\n"
+        },
+        {
+          "value": "architecture",
+          "label": "Architecture diagram",
+          "snippet": "\n```mermaid\narchitecture-beta\n  group api(cloud)[API]\n  service server(server)[Server] in api\n  service db(database)[Database] in api\n  server:R -- L:db\n```\n"
+        },
+        {
+          "value": "radar",
+          "label": "Radar chart",
+          "snippet": "\n```mermaid\nradar-beta\n  axis q[\"Quality\"], s[\"Speed\"], c[\"Cost\"]\n  curve a[\"Idea 1\"]{4, 3, 5}\n  curve b[\"Idea 2\"]{3, 5, 2}\n```\n"
+        },
+        {
+          "value": "eventmodeling",
+          "label": "Event modeling",
+          "snippet": "\n```mermaid\neventmodeling\n    tf 01 ui OrderScreen\n    tf 02 cmd CreateOrder\n    tf 03 evt OrderReceived\n    tf 04 rmo OrderList\n```\n"
+        },
+        {
+          "value": "treemap",
+          "label": "Treemap",
+          "snippet": "\n```mermaid\ntreemap-beta\n\"Sales\"\n    \"Product A\": 30\n    \"Product B\": 20\n```\n"
+        },
+        {
+          "value": "venn",
+          "label": "Venn diagram",
+          "snippet": "\n```mermaid\nvenn-beta\n  title \"Team overlap\"\n  set Frontend[\"Frontend\"]\n  set Backend[\"Backend\"]\n  union Frontend,Backend[\"APIs\"]\n```\n"
+        },
+        {
+          "value": "ishikawa",
+          "label": "Ishikawa diagram",
+          "snippet": "\n```mermaid\nishikawa-beta\n    Late delivery\n    People\n        Understaffed\n    Method\n        Missed checks\n    Equipment\n        Old PCs\n```\n"
+        },
+        {
+          "value": "wardley",
+          "label": "Wardley map",
+          "snippet": "\n```mermaid\nwardley-beta\ntitle Tea shop value chain\n\nanchor Business [0.95, 0.63]\ncomponent Cup of Tea [0.79, 0.61]\ncomponent Tea [0.63, 0.81]\ncomponent Hot Water [0.52, 0.80]\nBusiness -> Cup of Tea\nCup of Tea -> Tea\nCup of Tea -> Hot Water\n```\n"
+        },
+        {
+          "value": "cynefin",
+          "label": "Cynefin framework",
+          "snippet": "\n```mermaid\ncynefin-beta\n  title Incident response\n  complex\n    \"Investigate root cause\"\n  complicated\n    \"Analyze performance data\"\n  clear\n    \"Restart service\"\n  chaotic\n    \"Page on-call\"\n  confusion\n    \"Unknown failure\"\n```\n"
+        },
+        {
+          "value": "treeView",
+          "label": "Tree view",
+          "snippet": "\n```mermaid\n---\nconfig:\n  treeView:\n    rowIndent: 24\n    lineThickness: 2\n---\ntreeView-beta\nmy-project/\n    specs/\n        requirements.md\n        screens.md\n    samples/\n        flowchart.md\n    README.md\n```\n"
+        },
+        {
+          "value": "agentflow",
+          "label": "Agent flow",
+          "snippet": "\n```mermaid\nagentflow-beta TB\n  flow reviewer[\"Review agent\"]\n    changes[\"Gather changes\"]@{ shape: input }\n    analyse[\"Analyze diff\"]@{ shape: task }\n    ok[\"Clean?\"]@{ shape: decision }\n    changes --> analyse --> ok\n  end\n```\n"
         }
       ]
     },
@@ -965,7 +1315,7 @@
       },
       "tableEditor": {
         "title": "Edit table",
-        "close": "Close",
+        "close": "Close and apply",
         "addRow": "+ Row",
         "deleteRow": "Delete row",
         "addColumn": "+ Column",
@@ -977,22 +1327,20 @@
         "copyTsv": "Copy TSV",
         "copyColumn": "Copy column",
         "copyRow": "Copy row",
-        "cancel": "Cancel",
-        "apply": "Apply",
-        "navigationHint": "Alt+Enter: insert <br> / Tab: next cell / Shift+Tab: previous cell / Enter: cell below / Ctrl+Enter: apply",
+        "navigationHint": "Alt+Enter: insert <br> / Tab: next cell / Shift+Tab: previous cell / Enter: cell below / Esc or Ctrl+Enter: close and apply",
         "sourceEditorRequired": "Show the source editor first.",
         "tableRequired": "Place the caret inside a Markdown table.",
         "rowColumnLimit": "The table limit is {rows} rows and {columns} columns.",
         "copied": "TSV copied.",
-        "sourceEditorClosed": "The source editor is no longer available.",
-        "documentChanged": "The document changed while this editor was open. Reopen it before applying.",
+        "sourceEditorClosed": "The source editor is no longer available, so the changes cannot be applied. Use Discard and close.",
+        "documentChanged": "The document changed while this editor was open, so the changes cannot be applied. Use Discard and close, then reopen it.",
         "resizeColumn": "Resize column",
         "resizeRow": "Resize row",
         "resizeEditor": "Resize table editor",
-        "modified": "Unapplied changes",
-        "discard": "Discard unapplied changes?",
         "discardAndClose": "Discard and close",
-        "keepEditing": "Keep editing",
+        "sizeGroup": "Size",
+        "autoFit": "Auto-fit",
+        "autoFitTitle": "Fit column widths and row heights to the cell contents (the selected range, or the whole table)",
         "selection": "Selection",
         "cells": "cells",
         "selectAll": "Select all cells",
@@ -1167,7 +1515,9 @@
       "linkUpdateApply": "Update",
       "linkUpdateAlways": "Always update",
       "linkUpdateNever": "Don't update",
-      "linkUpdateFailed": "Could not update links: {detail}"
+      "linkUpdateFailed": "Could not update links: {detail}",
+      "goToLinePrompt": "Type a line number to go to (1 - {lineCount})",
+      "goToLineInvalid": "Enter a line number of 1 or greater."
     },
     "editor": {
       "placeholder": "Type Markdown...",
@@ -1265,14 +1615,15 @@
         "horizontalRule": "水平线",
         "hardBreak": "换行",
         "blankLine": "空行",
-        "language": "语言",
         "codeBlock": "代码块",
+        "codeBlockChoose": "选择代码块语言",
+        "mermaidChoose": "选择 Mermaid 图表类型",
+        "emojiChoose": "选择表情符号",
         "math": "数学公式",
         "footnote": "脚注",
         "toc": "目录",
         "pageBreak": "分页",
         "emoji": "表情符号",
-        "insertEmoji": "插入表情符号",
         "addBefore": "在上方添加",
         "addAfter": "在下方添加",
         "addLeft": "在左侧添加",
@@ -1304,6 +1655,11 @@
         "textColor": "文字颜色",
         "imageResize": "图像大小调整",
         "imageResizeControls": "显示或隐藏预览中的图像大小调整控件",
+        "headingNumbering": "标题编号",
+        "headingNumberingTitle": "不修改原文，为预览和 PDF/HTML 导出中的标题添加编号",
+        "headingNumberingOff": "无",
+        "headingNumberingH1": "从 H1 开始",
+        "headingNumberingH2": "从 H2 开始",
         "editorTheme": "编辑器",
         "light": "浅色",
         "dark": "深色",
@@ -1317,7 +1673,7 @@
           "link": "为选中的文字添加链接。",
           "image": "插入图片并设置其大小和对齐方式。",
           "insertTable": "插入指定行数和列数的表格。",
-          "codeBlock": "插入代码块。",
+          "codeBlock": "插入代码块。使用 ▾ 选择语言。",
           "math": "插入数学公式。",
           "footnote": "插入脚注。",
           "toc": "根据标题生成目录。",
@@ -1346,7 +1702,28 @@
         "markdownSupport": "支持的Markdown",
         "about": "关于Markdown Easy Visual Editor",
         "header": "表头",
-        "headerPlaceholder": "例如：合计"
+        "headerPlaceholder": "例如：合计",
+        "outputPreset": "已保存的打印设置",
+        "customPreset": "（未保存）",
+        "outputPresetActions": "已保存设置的操作",
+        "overwritePreset": "覆盖保存",
+        "savePresetAs": "另存为…",
+        "addSavedSettings": "新建",
+        "renamePreset": "重命名…",
+        "discardPresetChanges": "放弃更改",
+        "deletePreset": "删除",
+        "importPresets": "导入…",
+        "exportPresets": "导出…",
+        "presetModified": "已修改",
+        "revertPreset": "还原",
+        "presetName": "名称",
+        "duplicateSavedSettingsName": "已有同名的已保存设置。",
+        "savePreset": "保存",
+        "cancelPresetEdit": "取消",
+        "presetDeleted": "已删除“{name}”",
+        "presetOverwritten": "已覆盖“{name}”",
+        "undoSavedSettingsChange": "撤销",
+        "advancedPrintSettings": "高级设置"
       },
       "settings": {
         "images": "图像",
@@ -1430,20 +1807,168 @@
           "label": "PowerShell"
         },
         {
-          "value": "sql",
-          "label": "SQL"
-        },
-        {
           "value": "xml",
           "label": "XML"
+        }
+      ],
+      "mermaidDiagrams": [
+        {
+          "value": "flowchart",
+          "label": "流程图",
+          "snippet": "\n```mermaid\ngraph TD\n  A[开始] --> B[完成]\n```\n"
         },
         {
-          "value": "mermaid",
-          "label": "Mermaid"
+          "value": "swimlane",
+          "label": "泳道图",
+          "snippet": "\n```mermaid\nswimlane-beta LR\n    subgraph 用户\n        request[发送请求]\n    end\n    subgraph 支持\n        triage[分类请求]\n        reply[答复]\n    end\n    request --> triage\n    triage --> reply\n```\n"
+        },
+        {
+          "value": "sequence",
+          "label": "时序图",
+          "snippet": "\n```mermaid\nsequenceDiagram\n  participant U as 用户\n  participant S as 系统\n  U->>S: 请求\n  S-->>U: 响应\n```\n"
+        },
+        {
+          "value": "class",
+          "label": "类图",
+          "snippet": "\n```mermaid\nclassDiagram\n  class Animal {\n    +String name\n    +move()\n  }\n  class Dog\n  Animal <|-- Dog\n```\n"
+        },
+        {
+          "value": "state",
+          "label": "状态图",
+          "snippet": "\n```mermaid\nstateDiagram-v2\n  state \"草稿\" as Draft\n  state \"审阅\" as Review\n  state \"完成\" as Done\n  [*] --> Draft\n  Draft --> Review\n  Review --> Done\n  Done --> [*]\n```\n"
+        },
+        {
+          "value": "er",
+          "label": "ER 图",
+          "snippet": "\n```mermaid\nerDiagram\n  CUSTOMER ||--o{ ORDER : \"下单\"\n  ORDER ||--|{ LINE_ITEM : \"包含\"\n```\n"
+        },
+        {
+          "value": "journey",
+          "label": "用户旅程图",
+          "snippet": "\n```mermaid\njourney\n  title 购物\n  section 订单\n    查找商品: 5: 用户\n    付款: 3: 用户\n```\n"
+        },
+        {
+          "value": "gantt",
+          "label": "甘特图",
+          "snippet": "\n```mermaid\ngantt\n  title 计划\n  dateFormat YYYY-MM-DD\n  section 设计\n    需求定义 :a1, 2026-01-05, 5d\n    概要设计 :after a1, 3d\n```\n"
+        },
+        {
+          "value": "pie",
+          "label": "饼图",
+          "snippet": "\n```mermaid\npie title 占比\n  \"项目A\" : 40\n  \"项目B\" : 35\n  \"项目C\" : 25\n```\n"
+        },
+        {
+          "value": "quadrant",
+          "label": "象限图",
+          "snippet": "\n```mermaid\nquadrantChart\n  title 方案评估\n  x-axis 低成本 --> 高成本\n  y-axis 低效果 --> 高效果\n  quadrant-1 计划实施\n  quadrant-2 立即实施\n  quadrant-3 暂缓\n  quadrant-4 重新考虑\n  想法1: [0.3, 0.8]\n  想法2: [0.7, 0.4]\n```\n"
+        },
+        {
+          "value": "requirement",
+          "label": "需求图",
+          "snippet": "\n```mermaid\nrequirementDiagram\n  requirement response_time {\n    id: 1\n    text: \"一秒内响应\"\n    risk: medium\n    verifymethod: test\n  }\n  element web_server {\n    type: system\n  }\n  web_server - satisfies -> response_time\n```\n"
+        },
+        {
+          "value": "usecase",
+          "label": "用例图",
+          "snippet": "\n```mermaid\nusecase-beta\ndirection LR\nactor Customer(\"顾客\")\nsystemBoundary \"订单系统\"\n  Checkout(\"下单\")\nend\nCustomer --> Checkout\n```\n"
+        },
+        {
+          "value": "gitGraph",
+          "label": "Git 图",
+          "snippet": "\n```mermaid\ngitGraph\n  commit\n  branch feature\n  checkout feature\n  commit\n  checkout main\n  merge feature\n```\n"
+        },
+        {
+          "value": "c4",
+          "label": "C4 图",
+          "snippet": "\n```mermaid\nC4Context\n  title 订单系统\n  Person(customer, \"顾客\", \"订购商品的人\")\n  System(orders, \"订单系统\", \"接收订单\")\n  Rel(customer, orders, \"使用\")\n```\n"
+        },
+        {
+          "value": "mindmap",
+          "label": "思维导图",
+          "snippet": "\n```mermaid\nmindmap\n  root((主题))\n    想法1\n    想法2\n```\n"
+        },
+        {
+          "value": "timeline",
+          "label": "时间线",
+          "snippet": "\n```mermaid\ntimeline\n  title 历程\n  2025 : 项目启动\n  2026 : 发布\n```\n"
+        },
+        {
+          "value": "sankey",
+          "label": "桑基图",
+          "snippet": "\n```mermaid\nsankey-beta\nPower,Homes,40\nPower,Factories,60\n```\n"
+        },
+        {
+          "value": "xychart",
+          "label": "XY 图表",
+          "snippet": "\n```mermaid\nxychart-beta\n  title \"季度销售额\"\n  x-axis [Q1, Q2, Q3, Q4]\n  y-axis \"销售额\" 0 --> 100\n  bar [40, 55, 70, 65]\n  line [40, 55, 70, 65]\n```\n"
+        },
+        {
+          "value": "block",
+          "label": "块图",
+          "snippet": "\n```mermaid\nblock-beta\n  columns 3\n  a[\"输入\"] b[\"处理\"] c[\"输出\"]\n  a --> b\n  b --> c\n```\n"
+        },
+        {
+          "value": "packet",
+          "label": "数据包图",
+          "snippet": "\n```mermaid\npacket-beta\n  0-15: \"源端口\"\n  16-31: \"目标端口\"\n```\n"
+        },
+        {
+          "value": "kanban",
+          "label": "看板",
+          "snippet": "\n```mermaid\nkanban\n  todo[待办]\n    t1[编写文档]\n  doing[进行中]\n    t2[审阅]\n  done[完成]\n```\n"
+        },
+        {
+          "value": "architecture",
+          "label": "架构图",
+          "snippet": "\n```mermaid\narchitecture-beta\n  group api(cloud)[API]\n  service server(server)[服务器] in api\n  service db(database)[数据库] in api\n  server:R -- L:db\n```\n"
+        },
+        {
+          "value": "radar",
+          "label": "雷达图",
+          "snippet": "\n```mermaid\nradar-beta\n  axis q[\"质量\"], s[\"速度\"], c[\"成本\"]\n  curve a[\"想法1\"]{4, 3, 5}\n  curve b[\"想法2\"]{3, 5, 2}\n```\n"
+        },
+        {
+          "value": "eventmodeling",
+          "label": "事件建模",
+          "snippet": "\n```mermaid\neventmodeling\n    tf 01 ui OrderScreen\n    tf 02 cmd CreateOrder\n    tf 03 evt OrderReceived\n    tf 04 rmo OrderList\n```\n"
+        },
+        {
+          "value": "treemap",
+          "label": "矩形树图",
+          "snippet": "\n```mermaid\ntreemap-beta\n\"销售额\"\n    \"产品A\": 30\n    \"产品B\": 20\n```\n"
+        },
+        {
+          "value": "venn",
+          "label": "维恩图",
+          "snippet": "\n```mermaid\nvenn-beta\n  title \"团队重叠\"\n  set Frontend[\"前端\"]\n  set Backend[\"后端\"]\n  union Frontend,Backend[\"API\"]\n```\n"
+        },
+        {
+          "value": "ishikawa",
+          "label": "鱼骨图",
+          "snippet": "\n```mermaid\nishikawa-beta\n    交付延迟\n    人员\n        人手不足\n    方法\n        漏检\n    设备\n        电脑老旧\n```\n"
+        },
+        {
+          "value": "wardley",
+          "label": "沃德利地图",
+          "snippet": "\n```mermaid\nwardley-beta\ntitle 茶店价值链\n\nanchor Business [0.95, 0.63]\ncomponent Cup of Tea [0.79, 0.61]\ncomponent Tea [0.63, 0.81]\ncomponent Hot Water [0.52, 0.80]\nBusiness -> Cup of Tea\nCup of Tea -> Tea\nCup of Tea -> Hot Water\n```\n"
+        },
+        {
+          "value": "cynefin",
+          "label": "Cynefin 框架",
+          "snippet": "\n```mermaid\ncynefin-beta\n  title 事件响应\n  complex\n    \"调查根本原因\"\n  complicated\n    \"分析性能数据\"\n  clear\n    \"重启服务\"\n  chaotic\n    \"呼叫值班人员\"\n  confusion\n    \"未知故障\"\n```\n"
+        },
+        {
+          "value": "treeView",
+          "label": "树形视图",
+          "snippet": "\n```mermaid\n---\nconfig:\n  treeView:\n    rowIndent: 24\n    lineThickness: 2\n---\ntreeView-beta\n文档项目/\n    规格/\n        需求.md\n        界面设计.md\n    示例/\n        flowchart.md\n    README.md\n```\n"
+        },
+        {
+          "value": "agentflow",
+          "label": "智能体流程",
+          "snippet": "\n```mermaid\nagentflow-beta TB\n  flow reviewer[\"评审智能体\"]\n    changes[\"收集变更\"]@{ shape: input }\n    analyse[\"分析差异\"]@{ shape: task }\n    ok[\"没有问题？\"]@{ shape: decision }\n    changes --> analyse --> ok\n  end\n```\n"
         }
       ],
       "snippets": {
-        "mermaid": "\n```mermaid\ngraph TD\n  A[开始] --> B[完成]\n```\n",
         "footnote": "[^1]\n\n[^1]: 脚注内容",
         "note": "\n> [!NOTE]\n> 补充信息\n",
         "warning": "\n> [!WARNING]\n> 注意\n"
@@ -1557,7 +2082,7 @@
       },
       "tableEditor": {
         "title": "编辑表格",
-        "close": "关闭",
+        "close": "关闭并应用",
         "addRow": "+ 行",
         "deleteRow": "删除行",
         "addColumn": "+ 列",
@@ -1569,22 +2094,20 @@
         "copyTsv": "复制 TSV",
         "copyColumn": "复制列",
         "copyRow": "复制行",
-        "cancel": "取消",
-        "apply": "应用",
-        "navigationHint": "Alt+Enter：插入 <br> / Tab：下一个单元格 / Shift+Tab：上一个单元格 / Enter：下方单元格 / Ctrl+Enter：应用",
+        "navigationHint": "Alt+Enter：插入 <br> / Tab：下一个单元格 / Shift+Tab：上一个单元格 / Enter：下方单元格 / Esc 或 Ctrl+Enter：关闭并应用",
         "sourceEditorRequired": "请先显示源代码编辑器。",
         "tableRequired": "请将光标放在 Markdown 表格的单元格中。",
         "rowColumnLimit": "表格上限为 {rows} 行、{columns} 列。",
         "copied": "已复制 TSV。",
-        "sourceEditorClosed": "源代码编辑器已关闭。",
-        "documentChanged": "编辑器打开期间文档发生了变化。请关闭后重新打开。",
+        "sourceEditorClosed": "源代码编辑器已关闭，无法应用更改。请使用“放弃并关闭”。",
+        "documentChanged": "编辑期间文档发生了变化，无法应用更改。请使用“放弃并关闭”后重新打开。",
         "resizeColumn": "调整列宽",
         "resizeRow": "调整行高",
         "resizeEditor": "调整表格编辑器大小",
-        "modified": "有未应用的更改",
-        "discard": "要放弃未应用的更改吗？",
         "discardAndClose": "放弃并关闭",
-        "keepEditing": "继续编辑",
+        "sizeGroup": "大小",
+        "autoFit": "自动调整",
+        "autoFitTitle": "根据单元格内容调整列宽和行高（选中范围，否则为整个表格）",
         "selection": "选择",
         "cells": "个单元格",
         "selectAll": "选择所有单元格",
@@ -1759,7 +2282,9 @@
       "linkUpdateApply": "更新",
       "linkUpdateAlways": "始终更新",
       "linkUpdateNever": "不更新",
-      "linkUpdateFailed": "无法更新链接：{detail}"
+      "linkUpdateFailed": "无法更新链接：{detail}",
+      "goToLinePrompt": "输入要转到的行号 (1 - {lineCount})",
+      "goToLineInvalid": "请输入大于或等于 1 的行号。"
     },
     "editor": {
       "placeholder": "输入Markdown...",
@@ -1857,14 +2382,15 @@
         "horizontalRule": "가로줄",
         "hardBreak": "줄 바꿈",
         "blankLine": "빈 줄",
-        "language": "언어",
         "codeBlock": "코드 블록",
+        "codeBlockChoose": "코드 블록 언어 선택",
+        "mermaidChoose": "Mermaid 다이어그램 종류 선택",
+        "emojiChoose": "이모지 선택",
         "math": "수식",
         "footnote": "각주",
         "toc": "목차",
         "pageBreak": "페이지 나누기",
         "emoji": "이모지",
-        "insertEmoji": "이모지 삽입",
         "addBefore": "위에 추가",
         "addAfter": "아래에 추가",
         "addLeft": "왼쪽에 추가",
@@ -1896,6 +2422,11 @@
         "textColor": "텍스트 색상",
         "imageResize": "이미지 크기 조정",
         "imageResizeControls": "미리 보기에서 이미지 크기 조정 컨트롤 표시 또는 숨기기",
+        "headingNumbering": "제목 번호",
+        "headingNumberingTitle": "원문을 변경하지 않고 미리 보기와 PDF/HTML 내보내기의 제목에 번호를 붙입니다",
+        "headingNumberingOff": "없음",
+        "headingNumberingH1": "H1부터",
+        "headingNumberingH2": "H2부터",
         "editorTheme": "편집기",
         "light": "라이트",
         "dark": "다크",
@@ -1909,7 +2440,7 @@
           "link": "선택한 텍스트에 링크를 설정합니다.",
           "image": "이미지를 삽입하고 크기와 정렬을 설정합니다.",
           "insertTable": "지정한 행과 열의 표를 삽입합니다.",
-          "codeBlock": "코드 블록을 삽입합니다.",
+          "codeBlock": "코드 블록을 삽입합니다. ▾에서 언어를 선택할 수 있습니다.",
           "math": "수식을 삽입합니다.",
           "footnote": "각주를 삽입합니다.",
           "toc": "제목에서 목차를 생성합니다.",
@@ -1938,7 +2469,28 @@
         "markdownSupport": "지원되는 Markdown",
         "about": "Markdown Easy Visual Editor 정보",
         "header": "헤더",
-        "headerPlaceholder": "예: 합계"
+        "headerPlaceholder": "예: 합계",
+        "outputPreset": "저장한 인쇄 설정",
+        "customPreset": "(저장 안 됨)",
+        "outputPresetActions": "저장한 설정 작업",
+        "overwritePreset": "덮어쓰기",
+        "savePresetAs": "다른 이름으로 저장…",
+        "addSavedSettings": "새로 저장",
+        "renamePreset": "이름 바꾸기…",
+        "discardPresetChanges": "변경 취소",
+        "deletePreset": "삭제",
+        "importPresets": "가져오기…",
+        "exportPresets": "내보내기…",
+        "presetModified": "변경됨",
+        "revertPreset": "되돌리기",
+        "presetName": "이름",
+        "duplicateSavedSettingsName": "같은 이름의 저장한 설정이 있습니다.",
+        "savePreset": "저장",
+        "cancelPresetEdit": "취소",
+        "presetDeleted": "\"{name}\" 삭제됨",
+        "presetOverwritten": "\"{name}\" 덮어씀",
+        "undoSavedSettingsChange": "실행 취소",
+        "advancedPrintSettings": "고급 설정"
       },
       "settings": {
         "images": "이미지",
@@ -2022,20 +2574,168 @@
           "label": "PowerShell"
         },
         {
-          "value": "sql",
-          "label": "SQL"
-        },
-        {
           "value": "xml",
           "label": "XML"
+        }
+      ],
+      "mermaidDiagrams": [
+        {
+          "value": "flowchart",
+          "label": "순서도",
+          "snippet": "\n```mermaid\ngraph TD\n  A[시작] --> B[완료]\n```\n"
         },
         {
-          "value": "mermaid",
-          "label": "Mermaid"
+          "value": "swimlane",
+          "label": "스윔레인 다이어그램",
+          "snippet": "\n```mermaid\nswimlane-beta LR\n    subgraph 사용자\n        request[요청 보내기]\n    end\n    subgraph 지원\n        triage[요청 분류]\n        reply[답변하기]\n    end\n    request --> triage\n    triage --> reply\n```\n"
+        },
+        {
+          "value": "sequence",
+          "label": "시퀀스 다이어그램",
+          "snippet": "\n```mermaid\nsequenceDiagram\n  participant U as 사용자\n  participant S as 시스템\n  U->>S: 요청\n  S-->>U: 응답\n```\n"
+        },
+        {
+          "value": "class",
+          "label": "클래스 다이어그램",
+          "snippet": "\n```mermaid\nclassDiagram\n  class Animal {\n    +String name\n    +move()\n  }\n  class Dog\n  Animal <|-- Dog\n```\n"
+        },
+        {
+          "value": "state",
+          "label": "상태 다이어그램",
+          "snippet": "\n```mermaid\nstateDiagram-v2\n  state \"초안\" as Draft\n  state \"검토\" as Review\n  state \"완료\" as Done\n  [*] --> Draft\n  Draft --> Review\n  Review --> Done\n  Done --> [*]\n```\n"
+        },
+        {
+          "value": "er",
+          "label": "ER 다이어그램",
+          "snippet": "\n```mermaid\nerDiagram\n  CUSTOMER ||--o{ ORDER : \"주문함\"\n  ORDER ||--|{ LINE_ITEM : \"포함함\"\n```\n"
+        },
+        {
+          "value": "journey",
+          "label": "사용자 여정",
+          "snippet": "\n```mermaid\njourney\n  title 쇼핑\n  section 주문\n    상품 찾기: 5: 사용자\n    결제하기: 3: 사용자\n```\n"
+        },
+        {
+          "value": "gantt",
+          "label": "간트 차트",
+          "snippet": "\n```mermaid\ngantt\n  title 계획\n  dateFormat YYYY-MM-DD\n  section 설계\n    요구사항 정의 :a1, 2026-01-05, 5d\n    기본 설계 :after a1, 3d\n```\n"
+        },
+        {
+          "value": "pie",
+          "label": "원형 차트",
+          "snippet": "\n```mermaid\npie title 비율\n  \"항목 A\" : 40\n  \"항목 B\" : 35\n  \"항목 C\" : 25\n```\n"
+        },
+        {
+          "value": "quadrant",
+          "label": "사분면 차트",
+          "snippet": "\n```mermaid\nquadrantChart\n  title 방안 평가\n  x-axis 저비용 --> 고비용\n  y-axis 저효과 --> 고효과\n  quadrant-1 계획 후 실행\n  quadrant-2 즉시 실행\n  quadrant-3 보류\n  quadrant-4 재검토\n  아이디어 1: [0.3, 0.8]\n  아이디어 2: [0.7, 0.4]\n```\n"
+        },
+        {
+          "value": "requirement",
+          "label": "요구사항 다이어그램",
+          "snippet": "\n```mermaid\nrequirementDiagram\n  requirement response_time {\n    id: 1\n    text: \"1초 이내에 응답\"\n    risk: medium\n    verifymethod: test\n  }\n  element web_server {\n    type: system\n  }\n  web_server - satisfies -> response_time\n```\n"
+        },
+        {
+          "value": "usecase",
+          "label": "유스케이스 다이어그램",
+          "snippet": "\n```mermaid\nusecase-beta\ndirection LR\nactor Customer(\"고객\")\nsystemBoundary \"주문 시스템\"\n  Checkout(\"주문하기\")\nend\nCustomer --> Checkout\n```\n"
+        },
+        {
+          "value": "gitGraph",
+          "label": "Git 그래프",
+          "snippet": "\n```mermaid\ngitGraph\n  commit\n  branch feature\n  checkout feature\n  commit\n  checkout main\n  merge feature\n```\n"
+        },
+        {
+          "value": "c4",
+          "label": "C4 다이어그램",
+          "snippet": "\n```mermaid\nC4Context\n  title 주문 시스템\n  Person(customer, \"고객\", \"상품을 주문하는 사람\")\n  System(orders, \"주문 시스템\", \"주문을 받음\")\n  Rel(customer, orders, \"사용\")\n```\n"
+        },
+        {
+          "value": "mindmap",
+          "label": "마인드맵",
+          "snippet": "\n```mermaid\nmindmap\n  root((주제))\n    아이디어 1\n    아이디어 2\n```\n"
+        },
+        {
+          "value": "timeline",
+          "label": "타임라인",
+          "snippet": "\n```mermaid\ntimeline\n  title 연혁\n  2025 : 프로젝트 시작\n  2026 : 출시\n```\n"
+        },
+        {
+          "value": "sankey",
+          "label": "생키 다이어그램",
+          "snippet": "\n```mermaid\nsankey-beta\nPower,Homes,40\nPower,Factories,60\n```\n"
+        },
+        {
+          "value": "xychart",
+          "label": "XY 차트",
+          "snippet": "\n```mermaid\nxychart-beta\n  title \"분기 매출\"\n  x-axis [Q1, Q2, Q3, Q4]\n  y-axis \"매출\" 0 --> 100\n  bar [40, 55, 70, 65]\n  line [40, 55, 70, 65]\n```\n"
+        },
+        {
+          "value": "block",
+          "label": "블록 다이어그램",
+          "snippet": "\n```mermaid\nblock-beta\n  columns 3\n  a[\"입력\"] b[\"처리\"] c[\"출력\"]\n  a --> b\n  b --> c\n```\n"
+        },
+        {
+          "value": "packet",
+          "label": "패킷 다이어그램",
+          "snippet": "\n```mermaid\npacket-beta\n  0-15: \"출발지 포트\"\n  16-31: \"목적지 포트\"\n```\n"
+        },
+        {
+          "value": "kanban",
+          "label": "칸반",
+          "snippet": "\n```mermaid\nkanban\n  todo[할 일]\n    t1[문서 작성]\n  doing[진행 중]\n    t2[검토]\n  done[완료]\n```\n"
+        },
+        {
+          "value": "architecture",
+          "label": "아키텍처 다이어그램",
+          "snippet": "\n```mermaid\narchitecture-beta\n  group api(cloud)[API]\n  service server(server)[서버] in api\n  service db(database)[데이터베이스] in api\n  server:R -- L:db\n```\n"
+        },
+        {
+          "value": "radar",
+          "label": "레이더 차트",
+          "snippet": "\n```mermaid\nradar-beta\n  axis q[\"품질\"], s[\"속도\"], c[\"비용\"]\n  curve a[\"아이디어 1\"]{4, 3, 5}\n  curve b[\"아이디어 2\"]{3, 5, 2}\n```\n"
+        },
+        {
+          "value": "eventmodeling",
+          "label": "이벤트 모델링",
+          "snippet": "\n```mermaid\neventmodeling\n    tf 01 ui OrderScreen\n    tf 02 cmd CreateOrder\n    tf 03 evt OrderReceived\n    tf 04 rmo OrderList\n```\n"
+        },
+        {
+          "value": "treemap",
+          "label": "트리맵",
+          "snippet": "\n```mermaid\ntreemap-beta\n\"매출\"\n    \"제품 A\": 30\n    \"제품 B\": 20\n```\n"
+        },
+        {
+          "value": "venn",
+          "label": "벤 다이어그램",
+          "snippet": "\n```mermaid\nvenn-beta\n  title \"팀 겹침\"\n  set Frontend[\"프런트엔드\"]\n  set Backend[\"백엔드\"]\n  union Frontend,Backend[\"API\"]\n```\n"
+        },
+        {
+          "value": "ishikawa",
+          "label": "이시카와 다이어그램",
+          "snippet": "\n```mermaid\nishikawa-beta\n    납기 지연\n    사람\n        인력 부족\n    방법\n        확인 누락\n    설비\n        PC가 오래됨\n```\n"
+        },
+        {
+          "value": "wardley",
+          "label": "워들리 맵",
+          "snippet": "\n```mermaid\nwardley-beta\ntitle 찻집 가치 사슬\n\nanchor Business [0.95, 0.63]\ncomponent Cup of Tea [0.79, 0.61]\ncomponent Tea [0.63, 0.81]\ncomponent Hot Water [0.52, 0.80]\nBusiness -> Cup of Tea\nCup of Tea -> Tea\nCup of Tea -> Hot Water\n```\n"
+        },
+        {
+          "value": "cynefin",
+          "label": "Cynefin 프레임워크",
+          "snippet": "\n```mermaid\ncynefin-beta\n  title 장애 대응\n  complex\n    \"근본 원인 조사\"\n  complicated\n    \"성능 데이터 분석\"\n  clear\n    \"서비스 재시작\"\n  chaotic\n    \"담당자 호출\"\n  confusion\n    \"원인 불명 장애\"\n```\n"
+        },
+        {
+          "value": "treeView",
+          "label": "트리 뷰",
+          "snippet": "\n```mermaid\n---\nconfig:\n  treeView:\n    rowIndent: 24\n    lineThickness: 2\n---\ntreeView-beta\n문서 프로젝트/\n    사양/\n        요구사항.md\n        화면설계.md\n    샘플/\n        flowchart.md\n    README.md\n```\n"
+        },
+        {
+          "value": "agentflow",
+          "label": "에이전트 흐름",
+          "snippet": "\n```mermaid\nagentflow-beta TB\n  flow reviewer[\"검토 에이전트\"]\n    changes[\"변경 수집\"]@{ shape: input }\n    analyse[\"차이 분석\"]@{ shape: task }\n    ok[\"문제 없음?\"]@{ shape: decision }\n    changes --> analyse --> ok\n  end\n```\n"
         }
       ],
       "snippets": {
-        "mermaid": "\n```mermaid\ngraph TD\n  A[시작] --> B[완료]\n```\n",
         "footnote": "[^1]\n\n[^1]: 각주 내용",
         "note": "\n> [!NOTE]\n> 추가 정보\n",
         "warning": "\n> [!WARNING]\n> 주의\n"
@@ -2149,7 +2849,7 @@
       },
       "tableEditor": {
         "title": "표 편집",
-        "close": "닫기",
+        "close": "닫고 적용",
         "addRow": "+ 행",
         "deleteRow": "행 삭제",
         "addColumn": "+ 열",
@@ -2161,22 +2861,20 @@
         "copyTsv": "TSV 복사",
         "copyColumn": "열 복사",
         "copyRow": "행 복사",
-        "cancel": "취소",
-        "apply": "적용",
-        "navigationHint": "Alt+Enter: <br> 삽입 / Tab: 다음 셀 / Shift+Tab: 이전 셀 / Enter: 아래 셀 / Ctrl+Enter: 적용",
+        "navigationHint": "Alt+Enter: <br> 삽입 / Tab: 다음 셀 / Shift+Tab: 이전 셀 / Enter: 아래 셀 / Esc 또는 Ctrl+Enter: 닫고 적용",
         "sourceEditorRequired": "먼저 소스 편집기를 표시하세요.",
         "tableRequired": "Markdown 표의 셀 안에 커서를 놓으세요.",
         "rowColumnLimit": "표의 최대 크기는 {rows}행 {columns}열입니다.",
         "copied": "TSV를 복사했습니다.",
-        "sourceEditorClosed": "소스 편집기를 더 이상 사용할 수 없습니다.",
-        "documentChanged": "이 편집기를 여는 동안 문서가 변경되었습니다. 적용하기 전에 다시 여세요.",
+        "sourceEditorClosed": "소스 편집기를 더 이상 사용할 수 없어 변경 사항을 적용할 수 없습니다. \"버리고 닫기\"를 사용하세요.",
+        "documentChanged": "편집하는 동안 문서가 변경되어 변경 사항을 적용할 수 없습니다. \"버리고 닫기\"로 닫은 뒤 다시 여세요.",
         "resizeColumn": "열 너비 조정",
         "resizeRow": "행 높이 조정",
         "resizeEditor": "표 편집기 크기 조정",
-        "modified": "적용되지 않은 변경 사항",
-        "discard": "적용되지 않은 변경 사항을 버리시겠습니까?",
         "discardAndClose": "버리고 닫기",
-        "keepEditing": "계속 편집",
+        "sizeGroup": "크기",
+        "autoFit": "자동 맞춤",
+        "autoFitTitle": "셀 내용에 맞게 열 너비와 행 높이를 조정합니다(선택한 범위, 없으면 표 전체)",
         "selection": "선택",
         "cells": "셀",
         "selectAll": "모든 셀 선택",
@@ -2351,7 +3049,9 @@
       "linkUpdateApply": "업데이트",
       "linkUpdateAlways": "항상 업데이트",
       "linkUpdateNever": "업데이트 안 함",
-      "linkUpdateFailed": "링크를 업데이트할 수 없습니다: {detail}"
+      "linkUpdateFailed": "링크를 업데이트할 수 없습니다: {detail}",
+      "goToLinePrompt": "이동할 줄 번호를 입력하세요 (1 - {lineCount})",
+      "goToLineInvalid": "1 이상의 줄 번호를 입력하세요."
     },
     "editor": {
       "placeholder": "Markdown 입력...",
@@ -2449,14 +3149,15 @@
         "horizontalRule": "Ligne horizontale",
         "hardBreak": "Saut de ligne",
         "blankLine": "Ligne vide",
-        "language": "Langue",
         "codeBlock": "Bloc de code",
+        "codeBlockChoose": "Choisir la langue du bloc de code",
+        "mermaidChoose": "Choisir un type de diagramme Mermaid",
+        "emojiChoose": "Choisir un emoji",
         "math": "Formule mathématique",
         "footnote": "Note de bas de page",
         "toc": "Table des matières",
         "pageBreak": "Saut de page",
         "emoji": "Emoji",
-        "insertEmoji": "Insérer un emoji",
         "addBefore": "Ajouter avant",
         "addAfter": "Ajouter après",
         "addLeft": "Ajouter à gauche",
@@ -2488,6 +3189,11 @@
         "textColor": "Couleur du texte",
         "imageResize": "Redimensionnement de l’image",
         "imageResizeControls": "Afficher ou masquer les commandes de redimensionnement des images dans l’aperçu",
+        "headingNumbering": "Numéros de titre",
+        "headingNumberingTitle": "Numérote les titres dans l’aperçu et les exports PDF/HTML sans modifier la source",
+        "headingNumberingOff": "Aucun",
+        "headingNumberingH1": "À partir de H1",
+        "headingNumberingH2": "À partir de H2",
         "editorTheme": "Éditeur",
         "light": "Clair",
         "dark": "Sombre",
@@ -2501,7 +3207,7 @@
           "link": "Ajoute un lien au texte sélectionné.",
           "image": "Insère une image et définit sa taille et son alignement.",
           "insertTable": "Insère un tableau avec le nombre de lignes et de colonnes indiqué.",
-          "codeBlock": "Insère un bloc de code.",
+          "codeBlock": "Insère un bloc de code. Utilisez ▾ pour choisir la langue.",
           "math": "Insère une formule mathématique.",
           "footnote": "Insère une note de bas de page.",
           "toc": "Génère une table des matières à partir des titres.",
@@ -2530,7 +3236,28 @@
         "markdownSupport": "Prise en charge de Markdown",
         "about": "À propos de Markdown Easy Visual Editor",
         "header": "En-tête",
-        "headerPlaceholder": "Saisissez un en-tête"
+        "headerPlaceholder": "Saisissez un en-tête",
+        "outputPreset": "Paramètres d’impression enregistrés",
+        "customPreset": "(Non enregistré)",
+        "outputPresetActions": "Actions des paramètres enregistrés",
+        "overwritePreset": "Remplacer",
+        "savePresetAs": "Enregistrer sous…",
+        "addSavedSettings": "Nouveau",
+        "renamePreset": "Renommer…",
+        "discardPresetChanges": "Annuler les modifications",
+        "deletePreset": "Supprimer",
+        "importPresets": "Importer…",
+        "exportPresets": "Exporter…",
+        "presetModified": "Modifié",
+        "revertPreset": "Rétablir",
+        "presetName": "Nom",
+        "duplicateSavedSettingsName": "Des paramètres enregistrés portent déjà ce nom.",
+        "savePreset": "Enregistrer",
+        "cancelPresetEdit": "Annuler",
+        "presetDeleted": "« {name} » supprimé",
+        "presetOverwritten": "« {name} » remplacé",
+        "undoSavedSettingsChange": "Annuler",
+        "advancedPrintSettings": "Paramètres avancés"
       },
       "settings": {
         "images": "Images",
@@ -2614,20 +3341,168 @@
           "label": "PowerShell"
         },
         {
-          "value": "sql",
-          "label": "SQL"
-        },
-        {
           "value": "xml",
           "label": "XML"
+        }
+      ],
+      "mermaidDiagrams": [
+        {
+          "value": "flowchart",
+          "label": "Organigramme",
+          "snippet": "\n```mermaid\ngraph TD\n  A[Début] --> B[Fin]\n```\n"
         },
         {
-          "value": "mermaid",
-          "label": "Mermaid"
+          "value": "swimlane",
+          "label": "Diagramme en couloirs",
+          "snippet": "\n```mermaid\nswimlane-beta LR\n    subgraph Utilisateur\n        request[Envoyer la demande]\n    end\n    subgraph Support\n        triage[Trier la demande]\n        reply[Répondre]\n    end\n    request --> triage\n    triage --> reply\n```\n"
+        },
+        {
+          "value": "sequence",
+          "label": "Diagramme de séquence",
+          "snippet": "\n```mermaid\nsequenceDiagram\n  participant U as Utilisateur\n  participant S as Système\n  U->>S: Requête\n  S-->>U: Réponse\n```\n"
+        },
+        {
+          "value": "class",
+          "label": "Diagramme de classes",
+          "snippet": "\n```mermaid\nclassDiagram\n  class Animal {\n    +String name\n    +move()\n  }\n  class Dog\n  Animal <|-- Dog\n```\n"
+        },
+        {
+          "value": "state",
+          "label": "Diagramme d’états",
+          "snippet": "\n```mermaid\nstateDiagram-v2\n  state \"Brouillon\" as Draft\n  state \"Relecture\" as Review\n  state \"Terminé\" as Done\n  [*] --> Draft\n  Draft --> Review\n  Review --> Done\n  Done --> [*]\n```\n"
+        },
+        {
+          "value": "er",
+          "label": "Diagramme ER",
+          "snippet": "\n```mermaid\nerDiagram\n  CUSTOMER ||--o{ ORDER : \"passe\"\n  ORDER ||--|{ LINE_ITEM : \"contient\"\n```\n"
+        },
+        {
+          "value": "journey",
+          "label": "Parcours utilisateur",
+          "snippet": "\n```mermaid\njourney\n  title Achats\n  section Commande\n    Trouver un produit: 5: Utilisateur\n    Payer: 3: Utilisateur\n```\n"
+        },
+        {
+          "value": "gantt",
+          "label": "Diagramme de Gantt",
+          "snippet": "\n```mermaid\ngantt\n  title Planning\n  dateFormat YYYY-MM-DD\n  section Conception\n    Exigences :a1, 2026-01-05, 5d\n    Conception générale :after a1, 3d\n```\n"
+        },
+        {
+          "value": "pie",
+          "label": "Graphique en secteurs",
+          "snippet": "\n```mermaid\npie title Répartition\n  \"Élément A\" : 40\n  \"Élément B\" : 35\n  \"Élément C\" : 25\n```\n"
+        },
+        {
+          "value": "quadrant",
+          "label": "Graphique à quadrants",
+          "snippet": "\n```mermaid\nquadrantChart\n  title Évaluation des actions\n  x-axis Coût faible --> Coût élevé\n  y-axis Impact faible --> Impact élevé\n  quadrant-1 Planifier\n  quadrant-2 Faire maintenant\n  quadrant-3 Abandonner\n  quadrant-4 Revoir\n  Idée 1: [0.3, 0.8]\n  Idée 2: [0.7, 0.4]\n```\n"
+        },
+        {
+          "value": "requirement",
+          "label": "Diagramme d’exigences",
+          "snippet": "\n```mermaid\nrequirementDiagram\n  requirement response_time {\n    id: 1\n    text: \"Répondre en une seconde\"\n    risk: medium\n    verifymethod: test\n  }\n  element web_server {\n    type: system\n  }\n  web_server - satisfies -> response_time\n```\n"
+        },
+        {
+          "value": "usecase",
+          "label": "Diagramme de cas d’utilisation",
+          "snippet": "\n```mermaid\nusecase-beta\ndirection LR\nactor Customer(\"Client\")\nsystemBoundary \"Système de commande\"\n  Checkout(\"Commander\")\nend\nCustomer --> Checkout\n```\n"
+        },
+        {
+          "value": "gitGraph",
+          "label": "Graphe Git",
+          "snippet": "\n```mermaid\ngitGraph\n  commit\n  branch feature\n  checkout feature\n  commit\n  checkout main\n  merge feature\n```\n"
+        },
+        {
+          "value": "c4",
+          "label": "Diagramme C4",
+          "snippet": "\n```mermaid\nC4Context\n  title Système de commande\n  Person(customer, \"Client\", \"Personne qui commande\")\n  System(orders, \"Système de commande\", \"Reçoit les commandes\")\n  Rel(customer, orders, \"Utilise\")\n```\n"
+        },
+        {
+          "value": "mindmap",
+          "label": "Carte mentale",
+          "snippet": "\n```mermaid\nmindmap\n  root((Thème))\n    Idée 1\n    Idée 2\n```\n"
+        },
+        {
+          "value": "timeline",
+          "label": "Chronologie",
+          "snippet": "\n```mermaid\ntimeline\n  title Historique\n  2025 : Lancement\n  2026 : Publication\n```\n"
+        },
+        {
+          "value": "sankey",
+          "label": "Diagramme de Sankey",
+          "snippet": "\n```mermaid\nsankey-beta\nPower,Homes,40\nPower,Factories,60\n```\n"
+        },
+        {
+          "value": "xychart",
+          "label": "Graphique XY",
+          "snippet": "\n```mermaid\nxychart-beta\n  title \"Ventes trimestrielles\"\n  x-axis [Q1, Q2, Q3, Q4]\n  y-axis \"Ventes\" 0 --> 100\n  bar [40, 55, 70, 65]\n  line [40, 55, 70, 65]\n```\n"
+        },
+        {
+          "value": "block",
+          "label": "Diagramme de blocs",
+          "snippet": "\n```mermaid\nblock-beta\n  columns 3\n  a[\"Entrée\"] b[\"Traitement\"] c[\"Sortie\"]\n  a --> b\n  b --> c\n```\n"
+        },
+        {
+          "value": "packet",
+          "label": "Diagramme de paquets",
+          "snippet": "\n```mermaid\npacket-beta\n  0-15: \"Port source\"\n  16-31: \"Port de destination\"\n```\n"
+        },
+        {
+          "value": "kanban",
+          "label": "Kanban",
+          "snippet": "\n```mermaid\nkanban\n  todo[À faire]\n    t1[Rédiger le document]\n  doing[En cours]\n    t2[Relecture]\n  done[Terminé]\n```\n"
+        },
+        {
+          "value": "architecture",
+          "label": "Diagramme d’architecture",
+          "snippet": "\n```mermaid\narchitecture-beta\n  group api(cloud)[API]\n  service server(server)[Serveur] in api\n  service db(database)[Base de données] in api\n  server:R -- L:db\n```\n"
+        },
+        {
+          "value": "radar",
+          "label": "Graphique radar",
+          "snippet": "\n```mermaid\nradar-beta\n  axis q[\"Qualité\"], s[\"Vitesse\"], c[\"Coût\"]\n  curve a[\"Idée 1\"]{4, 3, 5}\n  curve b[\"Idée 2\"]{3, 5, 2}\n```\n"
+        },
+        {
+          "value": "eventmodeling",
+          "label": "Modélisation d’événements",
+          "snippet": "\n```mermaid\neventmodeling\n    tf 01 ui OrderScreen\n    tf 02 cmd CreateOrder\n    tf 03 evt OrderReceived\n    tf 04 rmo OrderList\n```\n"
+        },
+        {
+          "value": "treemap",
+          "label": "Carte proportionnelle",
+          "snippet": "\n```mermaid\ntreemap-beta\n\"Ventes\"\n    \"Produit A\": 30\n    \"Produit B\": 20\n```\n"
+        },
+        {
+          "value": "venn",
+          "label": "Diagramme de Venn",
+          "snippet": "\n```mermaid\nvenn-beta\n  title \"Chevauchement des équipes\"\n  set Frontend[\"Frontend\"]\n  set Backend[\"Backend\"]\n  union Frontend,Backend[\"API\"]\n```\n"
+        },
+        {
+          "value": "ishikawa",
+          "label": "Diagramme d’Ishikawa",
+          "snippet": "\n```mermaid\nishikawa-beta\n    Retard de livraison\n    Personnes\n        Manque de personnel\n    Méthode\n        Contrôles oubliés\n    Équipement\n        PC anciens\n```\n"
+        },
+        {
+          "value": "wardley",
+          "label": "Carte de Wardley",
+          "snippet": "\n```mermaid\nwardley-beta\ntitle Chaîne de valeur du salon de thé\n\nanchor Business [0.95, 0.63]\ncomponent Cup of Tea [0.79, 0.61]\ncomponent Tea [0.63, 0.81]\ncomponent Hot Water [0.52, 0.80]\nBusiness -> Cup of Tea\nCup of Tea -> Tea\nCup of Tea -> Hot Water\n```\n"
+        },
+        {
+          "value": "cynefin",
+          "label": "Cadre Cynefin",
+          "snippet": "\n```mermaid\ncynefin-beta\n  title Réponse aux incidents\n  complex\n    \"Chercher la cause\"\n  complicated\n    \"Analyser les performances\"\n  clear\n    \"Redémarrer le service\"\n  chaotic\n    \"Alerter l’astreinte\"\n  confusion\n    \"Panne inconnue\"\n```\n"
+        },
+        {
+          "value": "treeView",
+          "label": "Arborescence",
+          "snippet": "\n```mermaid\n---\nconfig:\n  treeView:\n    rowIndent: 24\n    lineThickness: 2\n---\ntreeView-beta\nprojet-docs/\n    specs/\n        exigences.md\n        ecrans.md\n    exemples/\n        flowchart.md\n    README.md\n```\n"
+        },
+        {
+          "value": "agentflow",
+          "label": "Flux d’agents",
+          "snippet": "\n```mermaid\nagentflow-beta TB\n  flow reviewer[\"Agent de relecture\"]\n    changes[\"Collecter les modifications\"]@{ shape: input }\n    analyse[\"Analyser le diff\"]@{ shape: task }\n    ok[\"Correct ?\"]@{ shape: decision }\n    changes --> analyse --> ok\n  end\n```\n"
         }
       ],
       "snippets": {
-        "mermaid": "\n```mermaid\ngraph TD\n  A[Début] --> B[Fin]\n```\n",
         "footnote": "[^1]\n\n[^1]: Note de bas de page",
         "note": "\n> [!NOTE]\n> Note\n",
         "warning": "\n> [!WARNING]\n> Attention\n"
@@ -2741,7 +3616,7 @@
       },
       "tableEditor": {
         "title": "Modifier le tableau",
-        "close": "Fermer",
+        "close": "Fermer et appliquer",
         "addRow": "+ ligne",
         "deleteRow": "Supprimer la ligne",
         "addColumn": "+ colonne",
@@ -2753,22 +3628,20 @@
         "copyTsv": "Copier le TSV",
         "copyColumn": "Copier la colonne",
         "copyRow": "Copier la ligne",
-        "cancel": "Annuler",
-        "apply": "Appliquer",
-        "navigationHint": "Alt+Entrée : insérer <br> / Tab : cellule suivante / Shift+Tab : cellule précédente / Entrée : cellule du dessous / Ctrl+Entrée : appliquer",
+        "navigationHint": "Alt+Entrée : insérer <br> / Tab : cellule suivante / Shift+Tab : cellule précédente / Entrée : cellule du dessous / Échap ou Ctrl+Entrée : fermer et appliquer",
         "sourceEditorRequired": "Affichez d'abord l'éditeur source.",
         "tableRequired": "Placez le curseur dans une cellule d'un tableau Markdown.",
         "rowColumnLimit": "La limite du tableau est de {rows} lignes et {columns} colonnes.",
         "copied": "TSV copié.",
-        "sourceEditorClosed": "L'éditeur source n'est plus disponible.",
-        "documentChanged": "Le document a changé pendant que cet éditeur était ouvert. Rouvrez-le avant d'appliquer.",
+        "sourceEditorClosed": "L'éditeur source n'est plus disponible : les modifications ne peuvent pas être appliquées. Utilisez Abandonner et fermer.",
+        "documentChanged": "Le document a changé pendant la modification : les modifications ne peuvent pas être appliquées. Utilisez Abandonner et fermer, puis rouvrez-le.",
         "resizeColumn": "Redimensionner la colonne",
         "resizeRow": "Redimensionner la ligne",
         "resizeEditor": "Redimensionner l’éditeur de tableau",
-        "modified": "Modifications non appliquées",
-        "discard": "Abandonner les modifications non appliquées ?",
         "discardAndClose": "Abandonner et fermer",
-        "keepEditing": "Continuer la modification",
+        "sizeGroup": "Taille",
+        "autoFit": "Ajuster",
+        "autoFitTitle": "Ajuste la largeur des colonnes et la hauteur des lignes au contenu (la plage sélectionnée, sinon tout le tableau)",
         "selection": "Sélection",
         "cells": "cellules",
         "selectAll": "Sélectionner toutes les cellules",
@@ -2943,7 +3816,9 @@
       "linkUpdateApply": "Mettre à jour",
       "linkUpdateAlways": "Toujours mettre à jour",
       "linkUpdateNever": "Ne pas mettre à jour",
-      "linkUpdateFailed": "Impossible de mettre à jour les liens : {detail}"
+      "linkUpdateFailed": "Impossible de mettre à jour les liens : {detail}",
+      "goToLinePrompt": "Saisissez le numéro de ligne à atteindre (1 - {lineCount})",
+      "goToLineInvalid": "Saisissez un numéro de ligne supérieur ou égal à 1."
     },
     "editor": {
       "placeholder": "Saisissez du Markdown...",
@@ -3041,14 +3916,15 @@
         "horizontalRule": "Horizontale Linie",
         "hardBreak": "Zeilenumbruch",
         "blankLine": "Leerzeile",
-        "language": "Sprache",
         "codeBlock": "Codeblock",
+        "codeBlockChoose": "Sprache des Codeblocks wählen",
+        "mermaidChoose": "Mermaid-Diagrammtyp wählen",
+        "emojiChoose": "Emoji wählen",
         "math": "Matheformel",
         "footnote": "Fußnote",
         "toc": "Inhaltsverzeichnis",
         "pageBreak": "Seitenumbruch",
         "emoji": "Emoji",
-        "insertEmoji": "Emoji einfügen",
         "addBefore": "Davor hinzufügen",
         "addAfter": "Danach hinzufügen",
         "addLeft": "Links hinzufügen",
@@ -3080,6 +3956,11 @@
         "textColor": "Textfarbe",
         "imageResize": "Bildgröße ändern",
         "imageResizeControls": "Steuerelemente zum Ändern der Bildgröße in der Vorschau ein- oder ausblenden",
+        "headingNumbering": "Überschriftennummern",
+        "headingNumberingTitle": "Nummeriert Überschriften in der Vorschau und in PDF-/HTML-Exporten, ohne die Quelle zu ändern",
+        "headingNumberingOff": "Keine",
+        "headingNumberingH1": "Ab H1",
+        "headingNumberingH2": "Ab H2",
         "editorTheme": "Editor",
         "light": "Hell",
         "dark": "Dunkel",
@@ -3093,7 +3974,7 @@
           "link": "Fügt dem ausgewählten Text einen Link hinzu.",
           "image": "Fügt ein Bild ein und legt Größe und Ausrichtung fest.",
           "insertTable": "Fügt eine Tabelle mit den angegebenen Zeilen und Spalten ein.",
-          "codeBlock": "Fügt einen Codeblock ein.",
+          "codeBlock": "Fügt einen Codeblock ein. Mit ▾ wählen Sie die Sprache.",
           "math": "Fügt einen mathematischen Ausdruck ein.",
           "footnote": "Fügt eine Fußnote ein.",
           "toc": "Erstellt aus den Überschriften ein Inhaltsverzeichnis.",
@@ -3122,7 +4003,28 @@
         "markdownSupport": "Markdown-Unterstützung",
         "about": "Über Markdown Easy Visual Editor",
         "header": "Kopfzeile",
-        "headerPlaceholder": "Kopfzeile eingeben"
+        "headerPlaceholder": "Kopfzeile eingeben",
+        "outputPreset": "Gespeicherte Druckeinstellungen",
+        "customPreset": "(Nicht gespeichert)",
+        "outputPresetActions": "Aktionen für gespeicherte Einstellungen",
+        "overwritePreset": "Überschreiben",
+        "savePresetAs": "Speichern unter…",
+        "addSavedSettings": "Neu",
+        "renamePreset": "Umbenennen…",
+        "discardPresetChanges": "Änderungen verwerfen",
+        "deletePreset": "Löschen",
+        "importPresets": "Importieren…",
+        "exportPresets": "Exportieren…",
+        "presetModified": "Geändert",
+        "revertPreset": "Zurücksetzen",
+        "presetName": "Name",
+        "duplicateSavedSettingsName": "Es gibt bereits gespeicherte Einstellungen mit diesem Namen.",
+        "savePreset": "Speichern",
+        "cancelPresetEdit": "Abbrechen",
+        "presetDeleted": "„{name}“ gelöscht",
+        "presetOverwritten": "„{name}“ überschrieben",
+        "undoSavedSettingsChange": "Rückgängig",
+        "advancedPrintSettings": "Erweiterte Einstellungen"
       },
       "settings": {
         "images": "Bilder",
@@ -3206,20 +4108,168 @@
           "label": "PowerShell"
         },
         {
-          "value": "sql",
-          "label": "SQL"
-        },
-        {
           "value": "xml",
           "label": "XML"
+        }
+      ],
+      "mermaidDiagrams": [
+        {
+          "value": "flowchart",
+          "label": "Flussdiagramm",
+          "snippet": "\n```mermaid\ngraph TD\n  A[Start] --> B[Ende]\n```\n"
         },
         {
-          "value": "mermaid",
-          "label": "Mermaid"
+          "value": "swimlane",
+          "label": "Swimlane-Diagramm",
+          "snippet": "\n```mermaid\nswimlane-beta LR\n    subgraph Benutzer\n        request[Anfrage senden]\n    end\n    subgraph Support\n        triage[Anfrage einordnen]\n        reply[Antworten]\n    end\n    request --> triage\n    triage --> reply\n```\n"
+        },
+        {
+          "value": "sequence",
+          "label": "Sequenzdiagramm",
+          "snippet": "\n```mermaid\nsequenceDiagram\n  participant U as Benutzer\n  participant S as System\n  U->>S: Anfrage\n  S-->>U: Antwort\n```\n"
+        },
+        {
+          "value": "class",
+          "label": "Klassendiagramm",
+          "snippet": "\n```mermaid\nclassDiagram\n  class Animal {\n    +String name\n    +move()\n  }\n  class Dog\n  Animal <|-- Dog\n```\n"
+        },
+        {
+          "value": "state",
+          "label": "Zustandsdiagramm",
+          "snippet": "\n```mermaid\nstateDiagram-v2\n  state \"Entwurf\" as Draft\n  state \"Prüfung\" as Review\n  state \"Fertig\" as Done\n  [*] --> Draft\n  Draft --> Review\n  Review --> Done\n  Done --> [*]\n```\n"
+        },
+        {
+          "value": "er",
+          "label": "ER-Diagramm",
+          "snippet": "\n```mermaid\nerDiagram\n  CUSTOMER ||--o{ ORDER : \"bestellt\"\n  ORDER ||--|{ LINE_ITEM : \"enthält\"\n```\n"
+        },
+        {
+          "value": "journey",
+          "label": "User Journey",
+          "snippet": "\n```mermaid\njourney\n  title Einkauf\n  section Bestellung\n    Produkt suchen: 5: Benutzer\n    Bezahlen: 3: Benutzer\n```\n"
+        },
+        {
+          "value": "gantt",
+          "label": "Gantt-Diagramm",
+          "snippet": "\n```mermaid\ngantt\n  title Plan\n  dateFormat YYYY-MM-DD\n  section Konzeption\n    Anforderungen :a1, 2026-01-05, 5d\n    Grobentwurf :after a1, 3d\n```\n"
+        },
+        {
+          "value": "pie",
+          "label": "Kreisdiagramm",
+          "snippet": "\n```mermaid\npie title Anteil\n  \"Posten A\" : 40\n  \"Posten B\" : 35\n  \"Posten C\" : 25\n```\n"
+        },
+        {
+          "value": "quadrant",
+          "label": "Quadrantendiagramm",
+          "snippet": "\n```mermaid\nquadrantChart\n  title Maßnahmenbewertung\n  x-axis Geringe Kosten --> Hohe Kosten\n  y-axis Geringe Wirkung --> Hohe Wirkung\n  quadrant-1 Planen\n  quadrant-2 Sofort umsetzen\n  quadrant-3 Verwerfen\n  quadrant-4 Überdenken\n  Idee 1: [0.3, 0.8]\n  Idee 2: [0.7, 0.4]\n```\n"
+        },
+        {
+          "value": "requirement",
+          "label": "Anforderungsdiagramm",
+          "snippet": "\n```mermaid\nrequirementDiagram\n  requirement response_time {\n    id: 1\n    text: \"Antwort innerhalb einer Sekunde\"\n    risk: medium\n    verifymethod: test\n  }\n  element web_server {\n    type: system\n  }\n  web_server - satisfies -> response_time\n```\n"
+        },
+        {
+          "value": "usecase",
+          "label": "Anwendungsfalldiagramm",
+          "snippet": "\n```mermaid\nusecase-beta\ndirection LR\nactor Customer(\"Kunde\")\nsystemBoundary \"Bestellsystem\"\n  Checkout(\"Bestellen\")\nend\nCustomer --> Checkout\n```\n"
+        },
+        {
+          "value": "gitGraph",
+          "label": "Git-Graph",
+          "snippet": "\n```mermaid\ngitGraph\n  commit\n  branch feature\n  checkout feature\n  commit\n  checkout main\n  merge feature\n```\n"
+        },
+        {
+          "value": "c4",
+          "label": "C4-Diagramm",
+          "snippet": "\n```mermaid\nC4Context\n  title Bestellsystem\n  Person(customer, \"Kunde\", \"Person, die bestellt\")\n  System(orders, \"Bestellsystem\", \"Nimmt Bestellungen an\")\n  Rel(customer, orders, \"Nutzt\")\n```\n"
+        },
+        {
+          "value": "mindmap",
+          "label": "Mindmap",
+          "snippet": "\n```mermaid\nmindmap\n  root((Thema))\n    Idee 1\n    Idee 2\n```\n"
+        },
+        {
+          "value": "timeline",
+          "label": "Zeitleiste",
+          "snippet": "\n```mermaid\ntimeline\n  title Verlauf\n  2025 : Projektstart\n  2026 : Veröffentlichung\n```\n"
+        },
+        {
+          "value": "sankey",
+          "label": "Sankey-Diagramm",
+          "snippet": "\n```mermaid\nsankey-beta\nPower,Homes,40\nPower,Factories,60\n```\n"
+        },
+        {
+          "value": "xychart",
+          "label": "XY-Diagramm",
+          "snippet": "\n```mermaid\nxychart-beta\n  title \"Quartalsumsatz\"\n  x-axis [Q1, Q2, Q3, Q4]\n  y-axis \"Umsatz\" 0 --> 100\n  bar [40, 55, 70, 65]\n  line [40, 55, 70, 65]\n```\n"
+        },
+        {
+          "value": "block",
+          "label": "Blockdiagramm",
+          "snippet": "\n```mermaid\nblock-beta\n  columns 3\n  a[\"Eingabe\"] b[\"Verarbeitung\"] c[\"Ausgabe\"]\n  a --> b\n  b --> c\n```\n"
+        },
+        {
+          "value": "packet",
+          "label": "Paketdiagramm",
+          "snippet": "\n```mermaid\npacket-beta\n  0-15: \"Quellport\"\n  16-31: \"Zielport\"\n```\n"
+        },
+        {
+          "value": "kanban",
+          "label": "Kanban",
+          "snippet": "\n```mermaid\nkanban\n  todo[Offen]\n    t1[Dokument schreiben]\n  doing[In Arbeit]\n    t2[Prüfung]\n  done[Fertig]\n```\n"
+        },
+        {
+          "value": "architecture",
+          "label": "Architekturdiagramm",
+          "snippet": "\n```mermaid\narchitecture-beta\n  group api(cloud)[API]\n  service server(server)[Server] in api\n  service db(database)[Datenbank] in api\n  server:R -- L:db\n```\n"
+        },
+        {
+          "value": "radar",
+          "label": "Netzdiagramm",
+          "snippet": "\n```mermaid\nradar-beta\n  axis q[\"Qualität\"], s[\"Tempo\"], c[\"Kosten\"]\n  curve a[\"Idee 1\"]{4, 3, 5}\n  curve b[\"Idee 2\"]{3, 5, 2}\n```\n"
+        },
+        {
+          "value": "eventmodeling",
+          "label": "Event Modeling",
+          "snippet": "\n```mermaid\neventmodeling\n    tf 01 ui OrderScreen\n    tf 02 cmd CreateOrder\n    tf 03 evt OrderReceived\n    tf 04 rmo OrderList\n```\n"
+        },
+        {
+          "value": "treemap",
+          "label": "Treemap",
+          "snippet": "\n```mermaid\ntreemap-beta\n\"Umsatz\"\n    \"Produkt A\": 30\n    \"Produkt B\": 20\n```\n"
+        },
+        {
+          "value": "venn",
+          "label": "Venn-Diagramm",
+          "snippet": "\n```mermaid\nvenn-beta\n  title \"Team-Überschneidung\"\n  set Frontend[\"Frontend\"]\n  set Backend[\"Backend\"]\n  union Frontend,Backend[\"APIs\"]\n```\n"
+        },
+        {
+          "value": "ishikawa",
+          "label": "Ishikawa-Diagramm",
+          "snippet": "\n```mermaid\nishikawa-beta\n    Lieferverzug\n    Menschen\n        Personalmangel\n    Methode\n        Fehlende Prüfung\n    Ausstattung\n        Alte PCs\n```\n"
+        },
+        {
+          "value": "wardley",
+          "label": "Wardley Map",
+          "snippet": "\n```mermaid\nwardley-beta\ntitle Wertschöpfungskette Teeladen\n\nanchor Business [0.95, 0.63]\ncomponent Cup of Tea [0.79, 0.61]\ncomponent Tea [0.63, 0.81]\ncomponent Hot Water [0.52, 0.80]\nBusiness -> Cup of Tea\nCup of Tea -> Tea\nCup of Tea -> Hot Water\n```\n"
+        },
+        {
+          "value": "cynefin",
+          "label": "Cynefin-Framework",
+          "snippet": "\n```mermaid\ncynefin-beta\n  title Störungsbehebung\n  complex\n    \"Ursache untersuchen\"\n  complicated\n    \"Leistungsdaten analysieren\"\n  clear\n    \"Dienst neu starten\"\n  chaotic\n    \"Bereitschaft alarmieren\"\n  confusion\n    \"Unbekannter Fehler\"\n```\n"
+        },
+        {
+          "value": "treeView",
+          "label": "Baumansicht",
+          "snippet": "\n```mermaid\n---\nconfig:\n  treeView:\n    rowIndent: 24\n    lineThickness: 2\n---\ntreeView-beta\ndokumentprojekt/\n    spezifikationen/\n        anforderungen.md\n        bildschirme.md\n    beispiele/\n        flowchart.md\n    README.md\n```\n"
+        },
+        {
+          "value": "agentflow",
+          "label": "Agentenfluss",
+          "snippet": "\n```mermaid\nagentflow-beta TB\n  flow reviewer[\"Review-Agent\"]\n    changes[\"Änderungen sammeln\"]@{ shape: input }\n    analyse[\"Diff analysieren\"]@{ shape: task }\n    ok[\"Sauber?\"]@{ shape: decision }\n    changes --> analyse --> ok\n  end\n```\n"
         }
       ],
       "snippets": {
-        "mermaid": "\n```mermaid\ngraph TD\n  A[Start] --> B[Ende]\n```\n",
         "footnote": "[^1]\n\n[^1]: Fußnote",
         "note": "\n> [!NOTE]\n> Hinweis\n",
         "warning": "\n> [!WARNING]\n> Warnung\n"
@@ -3333,7 +4383,7 @@
       },
       "tableEditor": {
         "title": "Tabelle bearbeiten",
-        "close": "Schließen",
+        "close": "Schließen und anwenden",
         "addRow": "+ Zeile",
         "deleteRow": "Zeile löschen",
         "addColumn": "+ Spalte",
@@ -3345,22 +4395,20 @@
         "copyTsv": "TSV kopieren",
         "copyColumn": "Spalte kopieren",
         "copyRow": "Zeile kopieren",
-        "cancel": "Abbrechen",
-        "apply": "Anwenden",
-        "navigationHint": "Alt+Enter: <br> einfügen / Tab: nächste Zelle / Shift+Tab: vorherige Zelle / Enter: Zelle darunter / Ctrl+Enter: anwenden",
+        "navigationHint": "Alt+Enter: <br> einfügen / Tab: nächste Zelle / Shift+Tab: vorherige Zelle / Enter: Zelle darunter / Esc oder Ctrl+Enter: schließen und anwenden",
         "sourceEditorRequired": "Öffnen Sie zuerst den Quelltext-Editor.",
         "tableRequired": "Setzen Sie den Cursor in eine Zelle einer Markdown-Tabelle.",
         "rowColumnLimit": "Die Tabelle darf höchstens {rows} Zeilen und {columns} Spalten enthalten.",
         "copied": "TSV kopiert.",
-        "sourceEditorClosed": "Der Quelltext-Editor ist nicht mehr verfügbar.",
-        "documentChanged": "Das Dokument wurde geändert, während dieser Editor geöffnet war. Öffnen Sie ihn vor dem Anwenden erneut.",
+        "sourceEditorClosed": "Der Quelltext-Editor ist nicht mehr verfügbar, daher können die Änderungen nicht angewendet werden. Verwenden Sie „Verwerfen und schließen“.",
+        "documentChanged": "Das Dokument wurde während der Bearbeitung geändert, daher können die Änderungen nicht angewendet werden. Verwenden Sie „Verwerfen und schließen“ und öffnen Sie ihn erneut.",
         "resizeColumn": "Spaltenbreite ändern",
         "resizeRow": "Zeilenhöhe ändern",
         "resizeEditor": "Tabelleneditorgröße ändern",
-        "modified": "Nicht angewendete Änderungen",
-        "discard": "Nicht angewendete Änderungen verwerfen?",
         "discardAndClose": "Verwerfen und schließen",
-        "keepEditing": "Weiter bearbeiten",
+        "sizeGroup": "Größe",
+        "autoFit": "Automatisch anpassen",
+        "autoFitTitle": "Spaltenbreiten und Zeilenhöhen an den Zellinhalt anpassen (markierter Bereich, sonst die ganze Tabelle)",
         "selection": "Auswahl",
         "cells": "Zellen",
         "selectAll": "Alle Zellen auswählen",
@@ -3535,7 +4583,9 @@
       "linkUpdateApply": "Aktualisieren",
       "linkUpdateAlways": "Immer aktualisieren",
       "linkUpdateNever": "Nicht aktualisieren",
-      "linkUpdateFailed": "Links konnten nicht aktualisiert werden: {detail}"
+      "linkUpdateFailed": "Links konnten nicht aktualisiert werden: {detail}",
+      "goToLinePrompt": "Zeilennummer eingeben, zu der gewechselt werden soll (1 - {lineCount})",
+      "goToLineInvalid": "Geben Sie eine Zeilennummer ab 1 ein."
     },
     "editor": {
       "placeholder": "Markdown eingeben...",
@@ -3633,14 +4683,15 @@
         "horizontalRule": "Línea horizontal",
         "hardBreak": "Salto de línea",
         "blankLine": "Línea en blanco",
-        "language": "Idioma",
         "codeBlock": "Bloque de código",
+        "codeBlockChoose": "Elegir el lenguaje del bloque de código",
+        "mermaidChoose": "Elegir un tipo de diagrama Mermaid",
+        "emojiChoose": "Elegir un emoji",
         "math": "Fórmula matemática",
         "footnote": "Nota al pie",
         "toc": "Tabla de contenido",
         "pageBreak": "Salto de página",
         "emoji": "Emoji",
-        "insertEmoji": "Insertar emoji",
         "addBefore": "Agregar antes",
         "addAfter": "Agregar después",
         "addLeft": "Agregar a la izquierda",
@@ -3672,6 +4723,11 @@
         "textColor": "Color del texto",
         "imageResize": "Cambiar tamaño de imagen",
         "imageResizeControls": "Mostrar u ocultar los controles para cambiar el tamaño de las imágenes en la vista previa",
+        "headingNumbering": "Numeración de títulos",
+        "headingNumberingTitle": "Numera los títulos en la vista previa y en las exportaciones PDF/HTML sin cambiar el origen",
+        "headingNumberingOff": "Ninguna",
+        "headingNumberingH1": "Desde H1",
+        "headingNumberingH2": "Desde H2",
         "editorTheme": "Editor",
         "light": "Claro",
         "dark": "Oscuro",
@@ -3685,7 +4741,7 @@
           "link": "Añade un enlace al texto seleccionado.",
           "image": "Inserta una imagen y establece su tamaño y alineación.",
           "insertTable": "Inserta una tabla con las filas y columnas indicadas.",
-          "codeBlock": "Inserta un bloque de código.",
+          "codeBlock": "Inserta un bloque de código. Use ▾ para elegir el lenguaje.",
           "math": "Inserta una expresión matemática.",
           "footnote": "Inserta una nota al pie.",
           "toc": "Genera un índice a partir de los encabezados.",
@@ -3714,7 +4770,28 @@
         "markdownSupport": "Compatibilidad con Markdown",
         "about": "Acerca de Markdown Easy Visual Editor",
         "header": "Encabezado",
-        "headerPlaceholder": "Escribe un encabezado"
+        "headerPlaceholder": "Escribe un encabezado",
+        "outputPreset": "Configuración de impresión guardada",
+        "customPreset": "(Sin guardar)",
+        "outputPresetActions": "Acciones de la configuración guardada",
+        "overwritePreset": "Sobrescribir",
+        "savePresetAs": "Guardar como…",
+        "addSavedSettings": "Nuevo",
+        "renamePreset": "Cambiar nombre…",
+        "discardPresetChanges": "Descartar cambios",
+        "deletePreset": "Eliminar",
+        "importPresets": "Importar…",
+        "exportPresets": "Exportar…",
+        "presetModified": "Modificado",
+        "revertPreset": "Revertir",
+        "presetName": "Nombre",
+        "duplicateSavedSettingsName": "Ya existe una configuración guardada con este nombre.",
+        "savePreset": "Guardar",
+        "cancelPresetEdit": "Cancelar",
+        "presetDeleted": "Se eliminó «{name}»",
+        "presetOverwritten": "Se sobrescribió «{name}»",
+        "undoSavedSettingsChange": "Deshacer",
+        "advancedPrintSettings": "Configuración avanzada"
       },
       "settings": {
         "images": "Imágenes",
@@ -3798,20 +4875,168 @@
           "label": "PowerShell"
         },
         {
-          "value": "sql",
-          "label": "SQL"
-        },
-        {
           "value": "xml",
           "label": "XML"
+        }
+      ],
+      "mermaidDiagrams": [
+        {
+          "value": "flowchart",
+          "label": "Diagrama de flujo",
+          "snippet": "\n```mermaid\ngraph TD\n  A[Inicio] --> B[Fin]\n```\n"
         },
         {
-          "value": "mermaid",
-          "label": "Mermaid"
+          "value": "swimlane",
+          "label": "Diagrama de carriles",
+          "snippet": "\n```mermaid\nswimlane-beta LR\n    subgraph Usuario\n        request[Enviar solicitud]\n    end\n    subgraph Soporte\n        triage[Clasificar solicitud]\n        reply[Responder]\n    end\n    request --> triage\n    triage --> reply\n```\n"
+        },
+        {
+          "value": "sequence",
+          "label": "Diagrama de secuencia",
+          "snippet": "\n```mermaid\nsequenceDiagram\n  participant U as Usuario\n  participant S as Sistema\n  U->>S: Solicitud\n  S-->>U: Respuesta\n```\n"
+        },
+        {
+          "value": "class",
+          "label": "Diagrama de clases",
+          "snippet": "\n```mermaid\nclassDiagram\n  class Animal {\n    +String name\n    +move()\n  }\n  class Dog\n  Animal <|-- Dog\n```\n"
+        },
+        {
+          "value": "state",
+          "label": "Diagrama de estados",
+          "snippet": "\n```mermaid\nstateDiagram-v2\n  state \"Borrador\" as Draft\n  state \"Revisión\" as Review\n  state \"Terminado\" as Done\n  [*] --> Draft\n  Draft --> Review\n  Review --> Done\n  Done --> [*]\n```\n"
+        },
+        {
+          "value": "er",
+          "label": "Diagrama ER",
+          "snippet": "\n```mermaid\nerDiagram\n  CUSTOMER ||--o{ ORDER : \"realiza\"\n  ORDER ||--|{ LINE_ITEM : \"contiene\"\n```\n"
+        },
+        {
+          "value": "journey",
+          "label": "Recorrido del usuario",
+          "snippet": "\n```mermaid\njourney\n  title Compras\n  section Pedido\n    Buscar producto: 5: Usuario\n    Pagar: 3: Usuario\n```\n"
+        },
+        {
+          "value": "gantt",
+          "label": "Diagrama de Gantt",
+          "snippet": "\n```mermaid\ngantt\n  title Plan\n  dateFormat YYYY-MM-DD\n  section Diseño\n    Requisitos :a1, 2026-01-05, 5d\n    Diseño básico :after a1, 3d\n```\n"
+        },
+        {
+          "value": "pie",
+          "label": "Gráfico circular",
+          "snippet": "\n```mermaid\npie title Proporción\n  \"Elemento A\" : 40\n  \"Elemento B\" : 35\n  \"Elemento C\" : 25\n```\n"
+        },
+        {
+          "value": "quadrant",
+          "label": "Gráfico de cuadrantes",
+          "snippet": "\n```mermaid\nquadrantChart\n  title Evaluación de acciones\n  x-axis Costo bajo --> Costo alto\n  y-axis Impacto bajo --> Impacto alto\n  quadrant-1 Planificar\n  quadrant-2 Hacer ya\n  quadrant-3 Descartar\n  quadrant-4 Reconsiderar\n  Idea 1: [0.3, 0.8]\n  Idea 2: [0.7, 0.4]\n```\n"
+        },
+        {
+          "value": "requirement",
+          "label": "Diagrama de requisitos",
+          "snippet": "\n```mermaid\nrequirementDiagram\n  requirement response_time {\n    id: 1\n    text: \"Responder en un segundo\"\n    risk: medium\n    verifymethod: test\n  }\n  element web_server {\n    type: system\n  }\n  web_server - satisfies -> response_time\n```\n"
+        },
+        {
+          "value": "usecase",
+          "label": "Diagrama de casos de uso",
+          "snippet": "\n```mermaid\nusecase-beta\ndirection LR\nactor Customer(\"Cliente\")\nsystemBoundary \"Sistema de pedidos\"\n  Checkout(\"Hacer pedido\")\nend\nCustomer --> Checkout\n```\n"
+        },
+        {
+          "value": "gitGraph",
+          "label": "Gráfico de Git",
+          "snippet": "\n```mermaid\ngitGraph\n  commit\n  branch feature\n  checkout feature\n  commit\n  checkout main\n  merge feature\n```\n"
+        },
+        {
+          "value": "c4",
+          "label": "Diagrama C4",
+          "snippet": "\n```mermaid\nC4Context\n  title Sistema de pedidos\n  Person(customer, \"Cliente\", \"Persona que hace pedidos\")\n  System(orders, \"Sistema de pedidos\", \"Recibe pedidos\")\n  Rel(customer, orders, \"Usa\")\n```\n"
+        },
+        {
+          "value": "mindmap",
+          "label": "Mapa mental",
+          "snippet": "\n```mermaid\nmindmap\n  root((Tema))\n    Idea 1\n    Idea 2\n```\n"
+        },
+        {
+          "value": "timeline",
+          "label": "Cronología",
+          "snippet": "\n```mermaid\ntimeline\n  title Historia\n  2025 : Inicio del proyecto\n  2026 : Lanzamiento\n```\n"
+        },
+        {
+          "value": "sankey",
+          "label": "Diagrama de Sankey",
+          "snippet": "\n```mermaid\nsankey-beta\nPower,Homes,40\nPower,Factories,60\n```\n"
+        },
+        {
+          "value": "xychart",
+          "label": "Gráfico XY",
+          "snippet": "\n```mermaid\nxychart-beta\n  title \"Ventas trimestrales\"\n  x-axis [Q1, Q2, Q3, Q4]\n  y-axis \"Ventas\" 0 --> 100\n  bar [40, 55, 70, 65]\n  line [40, 55, 70, 65]\n```\n"
+        },
+        {
+          "value": "block",
+          "label": "Diagrama de bloques",
+          "snippet": "\n```mermaid\nblock-beta\n  columns 3\n  a[\"Entrada\"] b[\"Proceso\"] c[\"Salida\"]\n  a --> b\n  b --> c\n```\n"
+        },
+        {
+          "value": "packet",
+          "label": "Diagrama de paquetes",
+          "snippet": "\n```mermaid\npacket-beta\n  0-15: \"Puerto de origen\"\n  16-31: \"Puerto de destino\"\n```\n"
+        },
+        {
+          "value": "kanban",
+          "label": "Kanban",
+          "snippet": "\n```mermaid\nkanban\n  todo[Pendiente]\n    t1[Redactar el documento]\n  doing[En curso]\n    t2[Revisión]\n  done[Terminado]\n```\n"
+        },
+        {
+          "value": "architecture",
+          "label": "Diagrama de arquitectura",
+          "snippet": "\n```mermaid\narchitecture-beta\n  group api(cloud)[API]\n  service server(server)[Servidor] in api\n  service db(database)[Base de datos] in api\n  server:R -- L:db\n```\n"
+        },
+        {
+          "value": "radar",
+          "label": "Gráfico de radar",
+          "snippet": "\n```mermaid\nradar-beta\n  axis q[\"Calidad\"], s[\"Velocidad\"], c[\"Costo\"]\n  curve a[\"Idea 1\"]{4, 3, 5}\n  curve b[\"Idea 2\"]{3, 5, 2}\n```\n"
+        },
+        {
+          "value": "eventmodeling",
+          "label": "Modelado de eventos",
+          "snippet": "\n```mermaid\neventmodeling\n    tf 01 ui OrderScreen\n    tf 02 cmd CreateOrder\n    tf 03 evt OrderReceived\n    tf 04 rmo OrderList\n```\n"
+        },
+        {
+          "value": "treemap",
+          "label": "Mapa de árbol",
+          "snippet": "\n```mermaid\ntreemap-beta\n\"Ventas\"\n    \"Producto A\": 30\n    \"Producto B\": 20\n```\n"
+        },
+        {
+          "value": "venn",
+          "label": "Diagrama de Venn",
+          "snippet": "\n```mermaid\nvenn-beta\n  title \"Superposición de equipos\"\n  set Frontend[\"Frontend\"]\n  set Backend[\"Backend\"]\n  union Frontend,Backend[\"API\"]\n```\n"
+        },
+        {
+          "value": "ishikawa",
+          "label": "Diagrama de Ishikawa",
+          "snippet": "\n```mermaid\nishikawa-beta\n    Retraso en la entrega\n    Personas\n        Falta de personal\n    Método\n        Revisiones omitidas\n    Equipo\n        PC antiguos\n```\n"
+        },
+        {
+          "value": "wardley",
+          "label": "Mapa de Wardley",
+          "snippet": "\n```mermaid\nwardley-beta\ntitle Cadena de valor de la tetería\n\nanchor Business [0.95, 0.63]\ncomponent Cup of Tea [0.79, 0.61]\ncomponent Tea [0.63, 0.81]\ncomponent Hot Water [0.52, 0.80]\nBusiness -> Cup of Tea\nCup of Tea -> Tea\nCup of Tea -> Hot Water\n```\n"
+        },
+        {
+          "value": "cynefin",
+          "label": "Marco Cynefin",
+          "snippet": "\n```mermaid\ncynefin-beta\n  title Respuesta a incidentes\n  complex\n    \"Investigar la causa\"\n  complicated\n    \"Analizar el rendimiento\"\n  clear\n    \"Reiniciar el servicio\"\n  chaotic\n    \"Avisar a la guardia\"\n  confusion\n    \"Fallo desconocido\"\n```\n"
+        },
+        {
+          "value": "treeView",
+          "label": "Vista de árbol",
+          "snippet": "\n```mermaid\n---\nconfig:\n  treeView:\n    rowIndent: 24\n    lineThickness: 2\n---\ntreeView-beta\nproyecto-docs/\n    especificaciones/\n        requisitos.md\n        pantallas.md\n    ejemplos/\n        flowchart.md\n    README.md\n```\n"
+        },
+        {
+          "value": "agentflow",
+          "label": "Flujo de agentes",
+          "snippet": "\n```mermaid\nagentflow-beta TB\n  flow reviewer[\"Agente revisor\"]\n    changes[\"Reunir cambios\"]@{ shape: input }\n    analyse[\"Analizar diferencias\"]@{ shape: task }\n    ok[\"¿Correcto?\"]@{ shape: decision }\n    changes --> analyse --> ok\n  end\n```\n"
         }
       ],
       "snippets": {
-        "mermaid": "\n```mermaid\ngraph TD\n  A[Inicio] --> B[Fin]\n```\n",
         "footnote": "[^1]\n\n[^1]: Nota al pie",
         "note": "\n> [!NOTE]\n> Nota\n",
         "warning": "\n> [!WARNING]\n> Advertencia\n"
@@ -3925,7 +5150,7 @@
       },
       "tableEditor": {
         "title": "Editar tabla",
-        "close": "Cerrar",
+        "close": "Cerrar y aplicar",
         "addRow": "+ fila",
         "deleteRow": "Eliminar fila",
         "addColumn": "+ columna",
@@ -3937,22 +5162,20 @@
         "copyTsv": "Copiar TSV",
         "copyColumn": "Copiar columna",
         "copyRow": "Copiar fila",
-        "cancel": "Cancelar",
-        "apply": "Aplicar",
-        "navigationHint": "Alt+Enter: insertar <br> / Tab: celda siguiente / Shift+Tab: celda anterior / Enter: celda inferior / Ctrl+Enter: aplicar",
+        "navigationHint": "Alt+Enter: insertar <br> / Tab: celda siguiente / Shift+Tab: celda anterior / Enter: celda inferior / Esc o Ctrl+Enter: cerrar y aplicar",
         "sourceEditorRequired": "Muestra primero el editor de código fuente.",
         "tableRequired": "Coloca el cursor dentro de una celda de una tabla Markdown.",
         "rowColumnLimit": "La tabla admite como máximo {rows} filas y {columns} columnas.",
         "copied": "TSV copiado.",
-        "sourceEditorClosed": "El editor de código fuente ya no está disponible.",
-        "documentChanged": "El documento cambió mientras este editor estaba abierto. Vuelve a abrirlo antes de aplicar.",
+        "sourceEditorClosed": "El editor de código fuente ya no está disponible, así que no se pueden aplicar los cambios. Usa Descartar y cerrar.",
+        "documentChanged": "El documento cambió durante la edición, así que no se pueden aplicar los cambios. Usa Descartar y cerrar y vuelve a abrirlo.",
         "resizeColumn": "Cambiar el ancho de la columna",
         "resizeRow": "Cambiar el alto de la fila",
         "resizeEditor": "Cambiar el tamaño del editor de tablas",
-        "modified": "Cambios sin aplicar",
-        "discard": "¿Descartar los cambios sin aplicar?",
         "discardAndClose": "Descartar y cerrar",
-        "keepEditing": "Seguir editando",
+        "sizeGroup": "Tamaño",
+        "autoFit": "Autoajustar",
+        "autoFitTitle": "Ajusta el ancho de las columnas y el alto de las filas al contenido (el rango seleccionado o toda la tabla)",
         "selection": "Selección",
         "cells": "celdas",
         "selectAll": "Seleccionar todas las celdas",
@@ -4127,7 +5350,9 @@
       "linkUpdateApply": "Actualizar",
       "linkUpdateAlways": "Actualizar siempre",
       "linkUpdateNever": "No actualizar",
-      "linkUpdateFailed": "No se pudieron actualizar los vínculos: {detail}"
+      "linkUpdateFailed": "No se pudieron actualizar los vínculos: {detail}",
+      "goToLinePrompt": "Escriba el número de línea al que ir (1 - {lineCount})",
+      "goToLineInvalid": "Escriba un número de línea igual o mayor que 1."
     },
     "editor": {
       "placeholder": "Escribe Markdown...",

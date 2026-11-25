@@ -41,7 +41,11 @@ describe('htmlToMarkdown',
 
         it('uses CRLF when the document does',
             () => {
-                expect(htmlToMarkdown('<p>a<br>b</p>', '\r\n')).toBe('a  \r\nb');
+                // 強制改行は行末の空白2つではなく、見えて消えにくい行末のバックスラッシュで書く。
+                expect(htmlToMarkdown('<p>a<br>b</p>', '\r\n')).toBe('a\\\r\nb');
+                expect(htmlToMarkdown('<h2>a<br>b</h2>', '\r\n')).toBe('a\\\r\nb\r\n---');
+                // 段落末尾の<br>は書けないため、文字として表示される`\`を末尾に残さない。
+                expect(htmlToMarkdown('<p>a<br></p>', '\n')).toBe('a');
             });
 
         it('escapes only characters that would become syntax',

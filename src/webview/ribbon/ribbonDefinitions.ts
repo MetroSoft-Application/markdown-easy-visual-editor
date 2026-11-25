@@ -118,7 +118,11 @@ export const RIBBON_DEFINITIONS: RibbonDefinitions = {
         textFormat: { label: { kind: "message", path: "ribbon.groups.textFormat" } },
         clear: { label: { kind: "message", path: "ribbon.groups.clear" } },
         basic: { label: { kind: "message", path: "ribbon.groups.basic" } },
-        block: { label: { kind: "message", path: "ribbon.groups.block" } },
+        // 6 個を 3 列 × 2 段に固定し、どの言語でも 1 つだけの段や部品の重なりを作らない（styles.css の .ribbon-insert-block-group）。
+        block: {
+            label: { kind: "message", path: "ribbon.groups.block" },
+            className: "ribbon-insert-block-group",
+        },
         assist: { label: { kind: "message", path: "ribbon.groups.assist" } },
         rows: { label: { kind: "message", path: "ribbon.groups.rows" } },
         columns: { label: { kind: "message", path: "ribbon.groups.columns" } },
@@ -133,6 +137,7 @@ export const RIBBON_DEFINITIONS: RibbonDefinitions = {
         theme: {
             label: { kind: "message", path: "ribbon.groups.theme" },
         },
+        presets: { label: { kind: "message", path: "ribbon.labels.outputPreset" } },
         pdf: { label: { kind: "message", path: "ribbon.groups.pdf" } },
         html: { label: { kind: "message", path: "ribbon.groups.html" } },
         docx: { label: { kind: "message", path: "ribbon.groups.docx" } },
@@ -267,9 +272,6 @@ export const RIBBON_DEFINITIONS: RibbonDefinitions = {
         blankLine: {
             label: { kind: "message", path: "ribbon.labels.blankLine" },
         },
-        codeLanguage: {
-            label: { kind: "message", path: "ribbon.labels.language" },
-        },
         codeBlock: {
             label: { kind: "message", path: "ribbon.labels.codeBlock" },
         },
@@ -297,9 +299,6 @@ export const RIBBON_DEFINITIONS: RibbonDefinitions = {
         emoji: {
             label: { kind: "message", path: "ribbon.labels.emoji" },
             options: { values: documentEmojiValues },
-        },
-        insertEmoji: {
-            label: { kind: "message", path: "ribbon.labels.insertEmoji" },
         },
         rowBefore: {
             label: { kind: "message", path: "ribbon.labels.addBefore" },
@@ -394,6 +393,30 @@ export const RIBBON_DEFINITIONS: RibbonDefinitions = {
                     },
                 ],
             },
+        },
+        headingNumbering: {
+            label: { kind: "message", path: "ribbon.labels.headingNumbering" },
+            options: {
+                title: { kind: "message", path: "ribbon.labels.headingNumberingTitle" },
+                // 値は shared/headingNumbering の HEADING_NUMBERING_MODES と package.json の enum に合わせる。
+                choices: [
+                    {
+                        value: "off",
+                        label: { kind: "message", path: "ribbon.labels.headingNumberingOff" },
+                    },
+                    {
+                        value: "h1",
+                        label: { kind: "message", path: "ribbon.labels.headingNumberingH1" },
+                    },
+                    {
+                        value: "h2",
+                        label: { kind: "message", path: "ribbon.labels.headingNumberingH2" },
+                    },
+                ],
+            },
+        },
+        outputPresetSelect: {
+            label: { kind: "message", path: "ribbon.labels.outputPreset" },
         },
         openPrintSettings: {
             label: { kind: "message", path: "app.printSettings" },

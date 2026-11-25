@@ -414,14 +414,18 @@ export interface Messages {
             blankLine: string;
 
             /**
-             * 表示項目「language」の文言として表示するローカライズ済み文言。
-             */
-            language: string;
-
-            /**
              * コードブロック書式コマンドのラベルとして表示するローカライズ済み文言。
              */
             codeBlock: string;
+
+            /** コードブロックの分割ボタンの「▾」の読み上げ名とツールチップ、および言語の一覧の読み上げ名。 */
+            codeBlockChoose: string;
+
+            /** Mermaid の分割ボタンの「▾」の読み上げ名とツールチップ、および図の種類の一覧の読み上げ名。 */
+            mermaidChoose: string;
+
+            /** 絵文字の分割ボタンの「▾」の読み上げ名とツールチップ、および絵文字の一覧の読み上げ名。 */
+            emojiChoose: string;
 
             /**
              * 表示項目「math」の文言として表示するローカライズ済み文言。
@@ -453,6 +457,21 @@ export interface Messages {
              */
             imageResizeControls: string;
 
+            /** 見出し番号の選択欄のラベル。 */
+            headingNumbering: string;
+
+            /** 見出し番号の選択欄の説明（ツールチップ）。原文を変えないことと適用先を示す。 */
+            headingNumberingTitle: string;
+
+            /** 見出し番号の選択肢「番号なし」。 */
+            headingNumberingOff: string;
+
+            /** 見出し番号の選択肢「H1から番号を付ける」。 */
+            headingNumberingH1: string;
+
+            /** 見出し番号の選択肢「H1を表題とし、H2から番号を付ける」。 */
+            headingNumberingH2: string;
+
             /**
              * エディターテーマ選択のラベル。
              */
@@ -477,11 +496,6 @@ export interface Messages {
              * 表示項目「emoji」の文言として表示するローカライズ済み文言。
              */
             emoji: string;
-
-            /**
-             * 絵文字を挿入操作のラベルとして表示するローカライズ済み文言。
-             */
-            insertEmoji: string;
 
             /**
              * 前へ追加操作のラベルとして表示するローカライズ済み文言。
@@ -567,6 +581,55 @@ export interface Messages {
              * DOCX（Word文書）出力ボタンと保存ダイアログの確定ボタンに表示するローカライズ済み文言。
              */
             exportDocx: string;
+
+            /**
+             * 保存した印刷設定の選択欄の名前。リボン（出力タブ）と印刷設定パネルで共有する。
+             * リボンでは PDF・HTML・DOCX と並ぶため、印刷設定だけを保存していることが分かる語にする。
+             */
+            outputPreset: string;
+            /** 基準にするプリセットがなく、現在の設定がどのプリセットとも一致しない場合の選択肢。 */
+            customPreset: string;
+            /** 印刷設定パネルのプリセット操作メニューを開くボタンの名前とツールチップ。 */
+            outputPresetActions: string;
+            /**
+             * 保存した設定を今の値で上書きする操作の名前。メニュー項目、状態行のリンク、同じ名前で新規保存するときの確定ボタンに使う。
+             * 「保存」(savePreset) と区別できる語にする（同じ語だと、新規保存が上書きになることが伝わらない）。
+             */
+            overwritePreset: string;
+            /** 現在の設定を新しい名前で保存するメニュー項目。 */
+            savePresetAs: string;
+            /** 印刷設定パネルで常に表示する、今の設定を新しい名前で保存するボタン（2件目以降の追加の入口）。 */
+            addSavedSettings: string;
+            /** 名前変更で既存と同じ名前を入れたとき、変更できない理由として名前欄の下に表示する文（新規保存では上書きになるため出さない）。 */
+            duplicateSavedSettingsName: string;
+            /** 保存済みプリセットの名前を変更するメニュー項目。 */
+            renamePreset: string;
+            /** 適用中のプリセットの保存内容へ設定を戻すメニュー項目。 */
+            discardPresetChanges: string;
+            /** 保存済みプリセットを削除するメニュー項目と確認ボタン。 */
+            deletePreset: string;
+            /** 保存済みプリセットをJSONから読み込むメニュー項目。 */
+            importPresets: string;
+            /** 保存済みプリセットをJSONへ書き出すメニュー項目。 */
+            exportPresets: string;
+            /** 適用中のプリセットから設定を変えたことを示す表示。 */
+            presetModified: string;
+            /** 変更を破棄してプリセットの保存内容へ戻すリンク。 */
+            revertPreset: string;
+            /** 名前を付けて保存・名前変更で使う名前入力欄のラベル。 */
+            presetName: string;
+            /** 名前入力欄の内容で保存を確定するボタン。 */
+            savePreset: string;
+            /** 名前入力を取り消すボタン。 */
+            cancelPresetEdit: string;
+            /** 削除した直後に状態行へ出す文言。{name} に削除した設定の名前を入れる。 */
+            presetDeleted: string;
+            /** 上書きした直後に状態行へ出す文言。{name} に上書きした設定の名前を入れる。 */
+            presetOverwritten: string;
+            /** 直前の削除・上書きを取り消すリンクの文言。 */
+            undoSavedSettingsChange: string;
+            /** 印刷設定パネルで折りたたむ詳細設定の見出し。 */
+            advancedPrintSettings: string;
 
             /**
              * 画像を埋め込む書式コマンドのラベルとして表示するローカライズ済み文言。
@@ -818,7 +881,7 @@ export interface Messages {
             convertDocument: string;
         };
 
-        /** コード挿入UIで選べる言語名をまとめる。 */
+        /** コードブロックの分割ボタンの一覧で選べる言語。並び順が一覧の表示順で、値が空文字列の先頭はプレーンテキスト。値は重複させない。 */
         codeLanguages: ReadonlyArray<{
             /**
              * 表示項目「値」の文言として表示するローカライズ済み文言。
@@ -830,12 +893,26 @@ export interface Messages {
             label: string
         }>;
 
+        /**
+         * Mermaid の分割ボタンの一覧で選べる図の種類。並び順が一覧の表示順で、先頭（フローチャート）を本体の初期値とする。
+         * `value`は全言語で同じ並び・同じ値にし、言語を切り替えても本体に入る種類を保てるようにする。
+         */
+        mermaidDiagrams: ReadonlyArray<{
+            /** 図の種類の識別子（例: `flowchart`、`sequence`）。一覧の項目のキーと本体の状態に使い、表示しない。 */
+            value: string;
+            /** 一覧と本体の下に表示するローカライズ済みの図の名前。 */
+            label: string;
+            /**
+             * 挿入するひな形。前後に空行を置いた```mermaidのコードブロックで、図に表示される文言は原則として表示言語に合わせる。
+             * 例外として、どの言語でも英語のままにするもの: クラス図・Git グラフ（クラス名やブランチ名は識別子のため）、
+             * サンキー図・イベントモデリング・ワードリーマップの要素名（プレビューの描画部品 Pele が英字以外を受け付けないため。ワードリーマップの題名は表示言語）。
+             * すべてのひな形は Pele で描画できることをテスト（test/mermaidDiagramInsert.test.ts）で確かめている。
+             */
+            snippet: string;
+        }>;
+
         /** 定型入力候補とその挿入内容をまとめる。 */
         snippets: {
-            /**
-             * 表示項目「mermaid」の文言として表示するローカライズ済み文言。
-             */
-            mermaid: string;
             /**
              * 表示項目「footnote」の文言として表示するローカライズ済み文言。
              */
@@ -1504,7 +1581,7 @@ export interface Messages {
             title: string;
 
             /**
-             * 閉じる操作のラベルとして表示するローカライズ済み文言。
+             * 表編集の×ボタンのラベル（ツールチップと読み上げ）。閉じると変更が反映されることを示す。
              */
             close: string;
 
@@ -1564,17 +1641,7 @@ export interface Messages {
             copyRow: string;
 
             /**
-             * キャンセル操作のラベルとして表示するローカライズ済み文言。
-             */
-            cancel: string;
-
-            /**
-             * 表示項目「apply」の文言として表示するローカライズ済み文言。
-             */
-            apply: string;
-
-            /**
-             * 操作部品のツールチップとして表示するローカライズ済み文言。
+             * 表編集のフッターに出す操作ヒント。セル内改行、セル移動と、閉じると反映されること（Esc / Ctrl+Enter）を示す。
              */
             navigationHint: string;
 
@@ -1601,12 +1668,13 @@ export interface Messages {
             copied: string;
 
             /**
-             * 本文編集面・closed操作のラベルとして表示するローカライズ済み文言。
+             * 表編集を閉じて反映しようとしたときに、ソースエディターが閉じられていて反映できないことを伝える文言。
              */
             sourceEditorClosed: string;
 
             /**
-             * 表示項目「文書の変更」の文言として表示するローカライズ済み文言。
+             * 表編集を閉じて反映しようとしたときに、編集中に本文が外部で変更されていて反映できないことを伝え、
+             * 「破棄して閉じる」から開き直すよう促す文言。
              */
             documentChanged: string;
 
@@ -1626,21 +1694,22 @@ export interface Messages {
             resizeEditor: string;
 
             /**
-             * 適用前の変更がある状態を示すラベル。
-             */
-            modified: string;
-            /**
-             * 適用前の変更を破棄する確認文。
-             */
-            discard: string;
-            /**
-             * 破棄確認で、未適用の変更を捨てて表編集を閉じるボタンのラベル。
+             * 閉じる操作での反映に失敗したとき（本文の外部変更など）に表示する、未反映の変更を捨てて
+             * 表編集を閉じるボタンのラベル。
              */
             discardAndClose: string;
             /**
-             * 破棄確認を取り消し、表編集を開いたまま作業へ戻るボタンのラベル。
+             * 表編集ツールバーの「自動調整」ボタンを入れるグループの見出し。
              */
-            keepEditing: string;
+            sizeGroup: string;
+            /**
+             * 列幅・行高をセルの内容に合わせるボタンのラベル。
+             */
+            autoFit: string;
+            /**
+             * 「自動調整」ボタンのツールチップ。対象（選択範囲、または1セル選択時は表全体）を説明する。
+             */
+            autoFitTitle: string;
             /**
              * 現在の選択範囲を示すラベル。
              */
@@ -2194,6 +2263,16 @@ export interface Messages {
          * @returns エラー通知の本文。
          */
         linkUpdateFailed: (detail: string) => string;
+
+        /**
+         * 「行へ移動」（Ctrl+G）の入力ボックスに表示する案内。
+         * @param lineCount - 対象文書の行数。入力可能な上限として表示する。
+         * @returns 入力ボックスの案内文。
+         */
+        goToLinePrompt: (lineCount: number) => string;
+
+        /** 「行へ移動」に 1 以上の整数以外が入力された場合の検証メッセージ。 */
+        goToLineInvalid: string;
     };
 
     /** エディターと編集コマンドの表示文言をまとめる。 */
@@ -2385,6 +2464,7 @@ function createMessages(language: SupportedLanguage): Messages {
             },
             featureDescriptions: raw.ribbon.labels.featureDescriptions,
             codeLanguages: raw.ribbon.codeLanguages,
+            mermaidDiagrams: raw.ribbon.mermaidDiagrams,
             snippets: raw.ribbon.snippets,
             settings: {
                 ...raw.ribbon.settings,
@@ -2529,8 +2609,6 @@ function createMessages(language: SupportedLanguage): Messages {
                 copyTsv: raw.app.tableEditor.copyTsv,
                 copyColumn: raw.app.tableEditor.copyColumn,
                 copyRow: raw.app.tableEditor.copyRow,
-                cancel: raw.app.tableEditor.cancel,
-                apply: raw.app.tableEditor.apply,
                 navigationHint: raw.app.tableEditor.navigationHint,
                 sourceEditorRequired: raw.app.tableEditor.sourceEditorRequired,
                 tableRequired: raw.app.tableEditor.tableRequired,
@@ -2548,10 +2626,10 @@ function createMessages(language: SupportedLanguage): Messages {
                 resizeColumn: raw.app.tableEditor.resizeColumn,
                 resizeRow: raw.app.tableEditor.resizeRow,
                 resizeEditor: raw.app.tableEditor.resizeEditor,
-                modified: raw.app.tableEditor.modified,
-                discard: raw.app.tableEditor.discard,
                 discardAndClose: raw.app.tableEditor.discardAndClose,
-                keepEditing: raw.app.tableEditor.keepEditing,
+                sizeGroup: raw.app.tableEditor.sizeGroup,
+                autoFit: raw.app.tableEditor.autoFit,
+                autoFitTitle: raw.app.tableEditor.autoFitTitle,
                 selection: raw.app.tableEditor.selection,
                 cells: raw.app.tableEditor.cells,
                 selectAll: raw.app.tableEditor.selectAll,
@@ -2837,7 +2915,13 @@ function createMessages(language: SupportedLanguage): Messages {
              * 引数を補間し、リンク更新の失敗通知を組み立てる。
              * @param detail - 失敗理由。
              * @returns エラー通知の本文。
-             */ (detail: string) => text('host.linkUpdateFailed', { detail })
+             */ (detail: string) => text('host.linkUpdateFailed', { detail }),
+            goToLinePrompt: /**
+             * 引数を補間し、「行へ移動」の入力案内を組み立てる。
+             * @param lineCount - 対象文書の行数。
+             * @returns 入力ボックスの案内文。
+             */ (lineCount: number) => text('host.goToLinePrompt', { lineCount }),
+            goToLineInvalid: raw.host.goToLineInvalid
         },
         editor: raw.editor,
         internal: raw.internal

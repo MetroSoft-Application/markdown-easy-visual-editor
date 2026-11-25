@@ -1,7 +1,13 @@
 /**
  * @fileoverview 表編集オーバーレイを描画し、セル編集、選択、行列操作、ドラッグを処理する。
  */
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { EditorSelection, EditorState } from "@codemirror/state";
 import { EditorView } from "@codemirror/view";
@@ -41,6 +47,7 @@ import {
   readTableEditorDraft,
   insertTableEditorLineBreak,
   deleteTableEditorLineBreakBeforeDisplayOffset,
+  mapTableEditorCaretAfterNormalization,
   prepareTableEditorApply,
   remapTableEditorSortState,
   renderTableEditorDraft,
@@ -57,6 +64,13 @@ import {
 import {
   calculateAutoFitColumnWidth,
   calculateAutoFitRowHeight,
+  calculateTableEditorInitialSizes,
+  remapTableEditorSizes,
+  tableEditorUnwrappedCellHeight,
+  tableEditorUnwrappedLineCount,
+  type TableEditorAxisChange,
+  type TableEditorCellTextMetrics,
+  type TableEditorInitialSizes,
   TABLE_EDITOR_MAX_AUTO_COLUMN_WIDTH,
   TABLE_EDITOR_MIN_COLUMN_WIDTH,
   TABLE_EDITOR_MIN_ROW_HEIGHT,
@@ -66,11 +80,6 @@ import {
  * 表編集オーバーレイを開く要求を通知するカスタムイベント名。
  */
 const OPEN_EVENT = "mve-open-table-editor";
-
-/**
- * 破棄確認文の要素 ID。確認バーの group 名として参照する。表編集は同時に一つしか開かないため固定値で衝突しない。
- */
-const DISCARD_MESSAGE_ID = "mve-table-editor-discard-message";
 
 /**
  * 表編集で許可する行数の上限。
@@ -113,14 +122,16 @@ const MIN_EDITOR_WIDTH = 560;
 const MIN_EDITOR_HEIGHT = 320;
 
 /**
- * 編集面の幅が未指定のときに使う値。
+ * 編集面を移動・リサイズする前の幅の上限（CSS px）。CSS の `.mve-table-editor` の
+ * `width: min(1600px, ...)` と一致させる。実際の初期幅は画面幅に合わせて CSS が縮める。
  */
-const DEFAULT_EDITOR_WIDTH = 1080;
+const DEFAULT_EDITOR_WIDTH = 1600;
 
 /**
- * 編集面の高さが未指定のときに使う値。
+ * 編集面を移動・リサイズする前の高さの上限（CSS px）。CSS の `.mve-table-editor` の
+ * `height: min(1100px, ...)` と一致させる。実際の初期高さは画面高に合わせて CSS が縮める。
  */
-const DEFAULT_EDITOR_HEIGHT = 760;
+const DEFAULT_EDITOR_HEIGHT = 1100;
 
 /**
  * 表編集行高の下限。
@@ -136,6 +147,26 @@ const MIN_TEXTAREA_HEIGHT = 34;
  * 行高自動計算に加える上下の余白。
  */
 const AUTO_FIT_ROW_VERTICAL_BUFFER = 4;
+
+/**
+ * 自動フィットの列幅と「折り返さない」判定に含める、セル内の縦スクロールバー分の余裕（CSS px）。
+ * 改行の追加などで行高を合わせ直すまでの間に一度スクロールバーが出ると、その幅だけ文字領域が狭まり、
+ * ぎりぎりの列幅では折り返して高さが足りなくなり、スクロールバーが消えない状態に固定されるため。
+ * VS Code Webview のスクロールバー幅（約10px）より少し大きい値にする。
+ */
+const CELL_SCROLLBAR_ALLOWANCE = 14;
+
+/**
+ * 入力で列幅を広げるときに、必要な幅へ足す余裕（CSS px）。約3〜6文字分。入力のたびに列幅が
+ * 変わって表全体を描き直すのを、数文字に1回へ減らす。
+ */
+const TYPING_GROW_HEADROOM = 48;
+
+/**
+ * セル文字列の測定結果キャッシュに保持する件数の上限。上限の表（50行×20列）の全セルが
+ * 複数行でも収まる大きさにし、超えた場合は全消去して作り直す。
+ */
+const CELL_TEXT_MEASURE_CACHE_LIMIT = 4096;
 /**
  * 表編集オーバーレイで一時生成物または検証対象を置くディレクトリ。
  */
@@ -298,6 +329,36 @@ type GridDragState = {
   source: number;
 };
 /**
+ * 表ドラフトを置き換えるときの寸法の扱い。{@link remapTableEditorSizes}で寸法を移す。
+ */
+type DraftLayoutChange = {
+  /** 行の挿入・削除。行高を元の行へ対応付けて移す。 */
+  rows?: TableEditorAxisChange;
+  /** 列の挿入・削除。列幅を元の列へ対応付けて移す。 */
+  columns?: TableEditorAxisChange;
+  /** 内容が変わり、反映後に列幅・行高を内容へ合わせ直す範囲（両端を含む）。 */
+  refit?: NormalizedTableGridRange;
+};
+
+/**
+ * 両端を含む連続した番号の一覧を作る。
+ * @param from - 先頭の番号。
+ * @param to - 末尾の番号（含む）。`from`より小さければ空。
+ * @returns `from`から`to`までの番号。
+ */
+function rangeIndexes(from: number, to: number): number[] {
+  return Array.from(
+    { length: Math.max(0, to - from + 1) },
+    /**
+     * @param _ - 未使用の初期値。
+     * @param offset - 先頭からの位置。
+     * @returns 番号。
+     */
+    (_, offset) => from + offset,
+  );
+}
+
+/**
  * 表編集オーバーレイで扱う値の種類と境界を表す型。
  */
 type GridDropTarget = {
@@ -340,6 +401,75 @@ function parseTableCellAddress(value: string | undefined):
   const match = /^(\d+):(\d+)$/.exec(value ?? "");
   if (!match) return undefined;
   return { row: Number(match[1]), column: Number(match[2]) };
+}
+
+/**
+ * セル文字列の測定に使うCanvas文脈と、フォント指定ごとの測定結果のキャッシュ。
+ * 表を開いた直後の自動フィットでは列幅と行高の両方が同じ文字列を測るため、フォントが同じ間は
+ * 結果を再利用して`measureText`の呼び出しを半減させる。フォント指定が変わったら作り直す。
+ * 表編集は同時に1つしか開かないため、モジュール単位で1つだけ保持する。
+ */
+let cellTextMeasureCache:
+  | {
+      /** キャッシュを作成したCanvasのfont指定。 */
+      font: string;
+      /** 測定に使うCanvas 2D文脈。取得できない環境ではnull。 */
+      context: CanvasRenderingContext2D | null;
+      /** 1行の文字列から文字間隔を含まない描画幅（CSS px）への対応。 */
+      widths: Map<string, number>;
+    }
+  | undefined;
+
+/**
+ * セルtextareaの1行分の文字列幅をCanvasで測る関数と、左右の余白を返す。
+ * 全セルが同じCSS規則を使うため、代表セル1つの計算済みスタイルで全セルを測る。
+ * @param sample - フォントと余白を読み取る代表のセルtextarea。
+ * @returns `measure`は1行の描画幅（CSS px、文字間隔を含む。Canvasを取得できない環境では1文字8pxの
+ *   見積もり）、`horizontalChrome`は左右パディングに折り返し誤差用の8pxと
+ *   {@link CELL_SCROLLBAR_ALLOWANCE}を加えた幅（CSS px）。
+ */
+function createCellTextMeasurer(sample: HTMLTextAreaElement): {
+  /** 改行を含まない1行の描画幅を求める。 */
+  measure: (value: string) => number;
+  /** セル幅のうち文字に使えない左右の余白と安全余裕の合計。 */
+  horizontalChrome: number;
+} {
+  const style = getComputedStyle(sample);
+  const letterSpacing = Number.parseFloat(style.letterSpacing) || 0;
+  const font = [
+    style.fontStyle,
+    style.fontVariant,
+    style.fontWeight,
+    style.fontSize,
+    style.fontFamily,
+  ].join(" ");
+  if (cellTextMeasureCache?.font !== font) {
+    const context = document.createElement("canvas").getContext("2d");
+    if (context) context.font = font;
+    cellTextMeasureCache = { font, context, widths: new Map() };
+  }
+  const { context, widths } = cellTextMeasureCache;
+  return {
+    measure: (value) => {
+      if (!context) return Array.from(value).length * 8;
+      let width = widths.get(value);
+      if (width === undefined) {
+        width = context.measureText(value).width;
+        // 巨大な表を繰り返し開いても際限なく増えないよう、上限を超えたら作り直す。
+        if (widths.size >= CELL_TEXT_MEASURE_CACHE_LIMIT) widths.clear();
+        widths.set(value, width);
+      }
+      // 文字間隔が0の既定ではコードポイント数を数える必要がないため、配列化を省く。
+      return letterSpacing
+        ? width + Math.max(0, Array.from(value).length - 1) * letterSpacing
+        : width;
+    },
+    horizontalChrome:
+      (Number.parseFloat(style.paddingLeft) || 0) +
+      (Number.parseFloat(style.paddingRight) || 0) +
+      8 +
+      CELL_SCROLLBAR_ALLOWANCE,
+  };
 }
 
 /**
@@ -402,15 +532,117 @@ function openTableEditor(): void {
   overlayHost = document.createElement("div");
   overlayHost.className = "mve-table-editor-root";
   document.body.appendChild(overlayHost);
+  const columnCount = Math.max(
+    1,
+    draft.alignments.length,
+    ...draft.rows.map(
+      /**
+       * @param row - 1行分のセル値。
+       * @returns その行の列数。
+       */
+      (row) => row.length,
+    ),
+  );
+  const cellMetrics = readCellTextMetrics(overlayHost);
+  const initialSizes = calculateTableEditorInitialSizes(
+    draft.rows.map(
+      /**
+       * @param row - 1行分の保存形式セル値。
+       * @returns セル入力欄に表示する文字列の一覧。
+       */
+      (row) => row.map(tableEditorCellDisplayValue),
+    ),
+    columnCount,
+    cellMetrics,
+    TABLE_EDITOR_MIN_COLUMN_WIDTH,
+    MAX_AUTO_COLUMN_WIDTH,
+  );
   overlayRoot = createRoot(overlayHost);
   overlayRoot.render(
     <TableEditorOverlay
       view={view}
       initial={draft}
+      initialSizes={initialSizes}
+      cellMetrics={cellMetrics}
       messages={messages}
       onClose={closeOverlay}
     />,
   );
+}
+
+/**
+ * 表編集のセル入力欄と同じCSS規則が当たる小さな測定用要素を一時的に置き、文字列の寸法情報を読む。
+ * 表を描画する前に列幅・行高を決め、最初の描画から内容に合った寸法で描くために使う。
+ * 測定用要素は画面に出さず、読み取り後すぐに取り除く。
+ * @param host - 表編集のルート要素（`.mve-table-editor-root`）。測定用要素の配置先。
+ * @returns セル文字列の寸法情報。
+ */
+function readCellTextMetrics(host: HTMLElement): TableEditorCellTextMetrics {
+  const probe = document.createElement("div");
+  probe.className = "mve-table-editor";
+  probe.style.position = "absolute";
+  probe.style.visibility = "hidden";
+  probe.style.pointerEvents = "none";
+  const table = probe.appendChild(document.createElement("table"));
+  table.className = "mve-table-editor-grid";
+  const cell = table
+    .appendChild(document.createElement("tbody"))
+    .appendChild(document.createElement("tr"))
+    .appendChild(document.createElement("td"));
+  const textarea = cell.appendChild(document.createElement("textarea"));
+  // 実際のセルと同じく1行のtextareaにする（既定の2行のままだと1行の高さを過大に見積もる）。
+  textarea.rows = 1;
+  host.appendChild(probe);
+  try {
+    return cellTextMetricsFromTextarea(textarea);
+  } finally {
+    probe.remove();
+  }
+}
+
+/**
+ * セル入力欄（またはそれと同じCSS規則の測定用textarea）の計算済みスタイルから、文字列の寸法情報を作る。
+ * 表を開く前の計算と、開いた後の行高の自動調整で同じ値を使い、両者で寸法が食い違わないようにする。
+ *
+ * 1行の高さは空のtextareaのscrollHeight（上下パディング＋1行分を整数へ丸めた値）と同じ値を
+ * 計算済みスタイルから求め、レイアウトを強制しない。line-heightが数値で得られない場合だけ、
+ * 1行・空の複製を同じ親へ一時的に置いて測る。
+ * @param textarea - 文書に配置済みのセル入力欄。
+ * @returns セル文字列の寸法情報。
+ */
+function cellTextMetricsFromTextarea(
+  textarea: HTMLTextAreaElement,
+): TableEditorCellTextMetrics {
+  const { measure, horizontalChrome } = createCellTextMeasurer(textarea);
+  const style = getComputedStyle(textarea);
+  const lineHeight = Number.parseFloat(style.lineHeight);
+  let singleLineScrollHeight: number;
+  if (Number.isFinite(lineHeight)) {
+    singleLineScrollHeight = Math.round(
+      (Number.parseFloat(style.paddingTop) || 0) +
+        (Number.parseFloat(style.paddingBottom) || 0) +
+        lineHeight,
+    );
+  } else {
+    const empty = textarea.cloneNode(false) as HTMLTextAreaElement;
+    empty.removeAttribute("data-table-cell");
+    empty.value = "";
+    empty.rows = 1;
+    empty.style.position = "fixed";
+    empty.style.left = "-10000px";
+    empty.style.height = "auto";
+    empty.style.minHeight = "0";
+    empty.style.visibility = "hidden";
+    (textarea.parentElement ?? document.body).appendChild(empty);
+    singleLineScrollHeight = empty.scrollHeight;
+    empty.remove();
+  }
+  return {
+    measure,
+    horizontalChrome,
+    singleLineHeight: singleLineScrollHeight + AUTO_FIT_ROW_VERTICAL_BUFFER,
+    lineHeight,
+  };
 }
 
 /**
@@ -446,6 +678,8 @@ function showOverlayToast(message: string): void {
  * @param props - 表編集オーバーレイに渡す依存値と初期ドラフト。
  * @param props.view - 表の元本文を読み取り、適用時に変更を反映するCodeMirror EditorView。
  * @param props.initial - 読み取り済みの表ドラフト。元本文の範囲と内容、セル値、配置、編集開始セルを含む。
+ * @param props.initialSizes - 開く前にセル文字列から求めた列幅・行高と、描画後にDOMで測る行。
+ * @param props.cellMetrics - 開くときに測ったセル文字列の寸法情報（入力時の列幅拡張で使う）。
  * @param props.messages - 表編集UIのラベル、説明、通知に使う翻訳済みメッセージ。
  * @param props.onClose - 表編集オーバーレイを閉じる親コンポーネントの処理。
  * @returns 表編集オーバーレイのReact要素。
@@ -462,6 +696,18 @@ function TableEditorOverlay(props: {
   initial: TableEditorDraft;
 
   /**
+   * 開く前にセル文字列から求めた列幅・行高（{@link calculateTableEditorInitialSizes}）。
+   * 列数・行数は`initial`と一致する。
+   */
+  initialSizes: TableEditorInitialSizes;
+
+  /**
+   * 開くときに測ったセル文字列の寸法情報。開いている間はフォントや余白が変わらないため、入力のたびに
+   * 計算済みスタイルを読み直さず（値の変更直後に読むとスタイル再計算が毎回起きる）これを使う。
+   */
+  cellMetrics: TableEditorCellTextMetrics;
+
+  /**
    * 表編集UIのラベル、説明、通知に表示する翻訳済みメッセージ。
    */
   messages: Messages;
@@ -470,7 +716,8 @@ function TableEditorOverlay(props: {
    */
   onClose: () => void;
 }): React.JSX.Element {
-  const { view, initial, messages, onClose } = props;
+  const { view, initial, initialSizes, cellMetrics, messages, onClose } =
+    props;
   const [rows, setRows] = useState(() =>
     initial.rows.map(
       /**
@@ -503,15 +750,13 @@ function TableEditorOverlay(props: {
   const [dragTarget, setDragTarget] = useState<GridDropTarget>();
   const [status, setStatus] = useState("");
   /**
-   * 未適用の変更を破棄するかの確認バーを表示中か。VS Code Webview は
-   * `window.confirm` をブロックして常に false を返すため、確認はオーバーレイ内で行う。
+   * 閉じる操作で反映できなかった理由（ソースエディターが閉じられた、本文が外部で変更された）。
+   * 設定されている間はフッターに理由と「破棄して閉じる」を出し、反映できない変更で閉じられなくなるのを
+   * 防ぐ。行列操作などで通常の案内（`status`）が消えても理由は残すため、`status`とは別に持つ。
    */
-  const [confirmingDiscard, setConfirmingDiscard] = useState(false);
-  /**
-   * 破棄確認バーの「編集を続ける」ボタン。押したキャンセル/×ボタンは確認バーへ置き換わって
-   * フォーカスが body へ落ちるため、確認バー表示後にこのボタンへフォーカスを移す。
-   */
-  const keepEditingButtonRef = useRef<HTMLButtonElement>(null);
+  const [applyFailure, setApplyFailure] = useState<string>();
+  /** 反映に失敗したときにフォーカスを移す「破棄して閉じる」ボタン。 */
+  const discardButtonRef = useRef<HTMLButtonElement>(null);
   const [historyRevision, setHistoryRevision] = useState(0);
   const [editorSize, setEditorSize] = useState<EditorSize>({
     width: DEFAULT_EDITOR_WIDTH,
@@ -530,42 +775,25 @@ function TableEditorOverlay(props: {
   }>();
   const [rowHeights, setRowHeights] = useState<Array<number | undefined>>(
     /**
-     * @returns 各表行の高さを未指定にした初期配列。
+     * 開く前にセル文字列から求めた行高で始める。折り返すセルを含む行は未指定（undefined）で始め、
+     * 描画直後のレイアウトeffectでDOMを測って決める。
+     * @returns 各表行の初期の高さ。
      */
-    () =>
-      Array.from(
-        { length: initial.rows.length },
-        /**
-         * 初期列幅を既定値でそろえる。
-         */
-        () => undefined,
-      ),
-  );
-  const initialColumnCount = Math.max(
-    1,
-    initial.alignments.length,
-    ...initial.rows.map(
-      /**
-       * 各行からlengthを取り出して一覧化する。
-       * @param row - 行のlengthを参照する走査対象。
-       * @returns lengthを取り出した変換結果の一覧。
-       */
-      (row) => row.length,
-    ),
+    () => initialSizes.rowHeights.slice(),
   );
   const [columnWidths, setColumnWidths] = useState<number[]>(
     /**
-     * @returns 各列へ既定幅を設定した初期配列。
+     * 開く前にセル文字列から求めた列幅で始め、既定幅での描画と自動フィット後の再描画を避ける。
+     * @returns 各列の初期の幅。
      */
-    () =>
-      Array.from(
-        { length: initialColumnCount },
-        /**
-         * 各行に高さ未指定の状態を設定する。
-         */
-        () => DEFAULT_COLUMN_WIDTH,
-      ),
+    () => initialSizes.columnWidths.slice(),
   );
+  /**
+   * 最新の描画の列幅。次フレームで実行する行高の自動調整は、予約した時点の古い列幅ではなく、
+   * 直前に合わせ直した列幅で折り返しを判定する必要があるため、描画ごとに更新して参照する。
+   */
+  const columnWidthsRef = useRef(columnWidths);
+  columnWidthsRef.current = columnWidths;
   const overlayRef = useRef<HTMLDivElement>(null);
   const cellSelectionRef = useRef(new Map<string, CellSelection>());
   const columnResizeRef = useRef<ColumnResizeState | undefined>(undefined);
@@ -587,6 +815,7 @@ function TableEditorOverlay(props: {
   >(undefined);
   const gridDragRef = useRef<GridDragState | undefined>(undefined);
   const historyRef = useRef(createTableEditorHistory());
+  /** 開いた時点の表のMarkdown。変更がなければ閉じる操作で反映を試みず、そのまま閉じるために比べる。 */
   const initialRenderedTextRef = useRef(renderTableEditorDraft(initial).text);
   const columnCount = Math.max(
     1,
@@ -645,8 +874,6 @@ function TableEditorOverlay(props: {
   const cellCountLabel = `${rows.length} × ${columnCount}`;
   const currentRenderedText = renderTableEditorDraft(currentDraft()).text;
   const isDirty = currentRenderedText !== initialRenderedTextRef.current;
-  // Undo などで未適用の変更が無くなった場合は、確認バーを出し続けない。
-  const showDiscardConfirm = confirmingDiscard && isDirty;
   const canUndo = historyRef.current.undo.length > 0;
   const canRedo = historyRef.current.redo.length > 0;
   const selectionSummary = createSelectionSummary();
@@ -662,14 +889,28 @@ function TableEditorOverlay(props: {
       }
     : undefined;
 
+  useLayoutEffect(
+    /**
+     * 開く前の計算（{@link calculateTableEditorInitialSizes}）で折り返すと判定した行だけ、
+     * 最初の描画直後（ペイント前）にDOMで高さを測る。列幅と残りの行高は初期状態で決まっているため、
+     * 多くの表ではここで何もせず、表全体の再描画も起きない。開いた時点の1回だけ行う。
+     */
+    () => {
+      if (initialSizes.rowsNeedingMeasure.length) {
+        autoFitRows(initialSizes.rowsNeedingMeasure);
+      }
+    },
+    [],
+  );
+
   useEffect(
     /**
-     * 依存状態の変化に応じて購読を更新し、解除処理を返す。
+     * 開いた直後に、編集開始セルへフォーカスする（caretはセル末尾）。描画が終わった次フレームで行う。
      */
     () => {
       const frame = requestAnimationFrame(
         /**
-         * 次の描画フレームで表示更新を実行する。
+         * 描画後に編集開始セルへフォーカスする。
          */
         () => focusCell(activeRow, activeColumn, false),
       );
@@ -681,43 +922,12 @@ function TableEditorOverlay(props: {
 
   useEffect(
     /**
-     * Undo などで未適用の変更が無くなった時点で破棄確認を解除する。残すと次の編集で
-     * 閉じる操作なしに確認バーが再表示され、消えたボタンのフォーカスもダイアログ外へ落ちる。
-     */
-    () => {
-      if (confirmingDiscard && !isDirty) keepEditing();
-    },
-    [confirmingDiscard, isDirty],
-  );
-
-  useEffect(
-    /**
-     * 破棄確認バーを表示したら、次の描画フレームで「編集を続ける」へフォーカスを移す。
-     * VS Code Webview 実機では React の autoFocus が効かず body にフォーカスが残ったため、
-     * ref からの明示的な focus に置き換えている。安全側の操作を既定にし、誤った Enter での破棄を防ぐ。
-     */
-    () => {
-      if (!showDiscardConfirm) return;
-      const frame = requestAnimationFrame(
-        /**
-         * 確認バーの描画後に「編集を続ける」ボタンへフォーカスする。
-         */
-        () => keepEditingButtonRef.current?.focus(),
-      );
-      /** 確認バーが先に閉じた場合に、予約したフォーカス移動を取り消す。 */
-      return () => cancelAnimationFrame(frame);
-    },
-    [showDiscardConfirm],
-  );
-
-  useEffect(
-    /**
      * 依存状態の変化に応じて表示または購読を更新する。
      */
     () => {
       const onKeyDown = /**
-       * グリッド内のコピー、Undo/Redo、消去、適用、閉じる操作を処理する。
-       * @param event - セルTSVコピー、undo/redo、消去、適用、閉じるショートカットを処理するkeydown event。
+       * グリッド内のコピー、Undo/Redo、消去と、反映して閉じる操作（Escape・Ctrl+Enter）を処理する。
+       * @param event - セルTSVコピー、undo/redo、消去、反映して閉じるショートカットを処理するkeydown event。
        */ (event: KeyboardEvent) => {
         const accelerator = event.ctrlKey || event.metaKey;
         const key = event.key.toLowerCase();
@@ -755,12 +965,27 @@ function TableEditorOverlay(props: {
           return;
         }
         if (event.key === "Escape") {
+          // IME変換中のEscapeは変換の取り消しなので、閉じて未確定の文字列を反映しない。
+          if (event.isComposing) return;
           event.preventDefault();
           event.stopImmediatePropagation();
-          // 確認バー表示中の Escape は破棄せず編集へ戻す（誤操作での変更消失を防ぐ）。
-          if (showDiscardConfirm) keepEditing();
-          else requestClose();
+          // ドラッグ操作（列幅・行高の変更、表編集の移動・サイズ変更、行・列の並べ替え、セル範囲の選択）の
+          // 最中は、Escapeで閉じて反映しない。操作の途中で表が閉じ、並べ替えや選択が中途半端なまま
+          // 反映されたり、ドラッグの後始末がされないまま閉じたりするのを避けるため。
+          if (
+            columnResizeRef.current ||
+            rowResizeRef.current ||
+            editorDragRef.current ||
+            editorResizeRef.current ||
+            gridDragRef.current ||
+            selectionDragRef.current
+          ) {
+            return;
+          }
+          apply();
         } else if (accelerator && event.key === "Enter") {
+          // IME変換中のCtrl+Enterで、未確定の文字列のまま閉じて反映しない。
+          if (event.isComposing) return;
           event.preventDefault();
           event.stopImmediatePropagation();
           apply();
@@ -1066,7 +1291,7 @@ function TableEditorOverlay(props: {
   }
 
   /**
-   * 表編集オーバーレイの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+   * Undo/Redo履歴のスナップショット（セル・配置・行高・列幅・ソート状態など）を表編集へ戻す。
    * @param snapshot - 復元する表編集履歴。セル、配置、選択、ソート、行高、列幅を含む。
    */
   function restoreHistorySnapshot(snapshot: TableEditorHistorySnapshot): void {
@@ -1164,10 +1389,11 @@ function TableEditorOverlay(props: {
   }
 
   /**
-   * 表編集オーバーレイの表示または操作を開始する。
+   * 指定セルをアクティブにし、次フレームでそのセル入力欄へフォーカスする。
    * @param row - セル操作の対象となる表行インデックス。
    * @param column - セル操作の対象となる表列インデックス。
-   * @param select - focus時に入力欄の値全体を選択する場合true。
+   * @param select - focus時に入力欄の値全体を選択する場合true。falseなら記録済みの選択範囲、
+   *   なければセル末尾にcaretを置く。
    * @param rowCount - 有効行indexを制限する現在の表行数。
    * @param columns - 有効列indexを制限する現在の表列数。
    */
@@ -1191,6 +1417,18 @@ function TableEditorOverlay(props: {
         const element = overlayRef.current?.querySelector<HTMLTextAreaElement>(
           `[data-table-cell="${safeRow}:${safeColumn}"]`,
         );
+        if (element && !select) {
+          // 選択しない場合はcaretを置いてからフォーカスする。focus()だけでは先頭（0）にcaretが置かれ、
+          // 開いた直後にツールバーの「セル内改行」を押すとセル先頭へ<br>が入っていた。そのセルで
+          // 記録済みの選択範囲があればそこへ戻し、なければセル末尾に置く。
+          const key = cellKey(safeRow, safeColumn);
+          const remembered = cellSelectionRef.current.get(key);
+          const length = element.value.length;
+          const from = Math.min(remembered?.from ?? length, length);
+          const to = Math.min(remembered?.to ?? length, length);
+          element.setSelectionRange(from, to);
+          cellSelectionRef.current.set(key, { from, to });
+        }
         element?.focus();
         if (select && element) {
           element.select();
@@ -1205,10 +1443,18 @@ function TableEditorOverlay(props: {
 
   /**
    * 表ドラフトを画面へ反映し、必要に応じて置換前の状態をundo履歴へ保存する。
+   * 列幅・行高は`layout`の挿入・削除位置に合わせて元の行・列へ対応付けて移す。開いた時点で行・列ごとに
+   * 内容へ合わせた寸法を持つため、位置のまま引き継ぐと挿入・削除の後に別の行・列の寸法になってしまう。
    * @param next 画面へ反映する次の表編集ドラフト。
    * @param captureHistory 置換前のドラフトをundo履歴へ追加する場合はtrue。
+   * @param layout 行・列の挿入・削除と、反映後に内容へ合わせ直す範囲。省略時は位置のまま引き継ぎ、
+   *   増えた行・列は既定の寸法にする。
    */
-  function replaceDraft(next: TableEditorDraft, captureHistory = true): void {
+  function replaceDraft(
+    next: TableEditorDraft,
+    captureHistory = true,
+    layout: DraftLayoutChange = {},
+  ): void {
     const nextRows = next.rows.map(
       /**
        * 各行からsliceを取り出して一覧化する。
@@ -1252,24 +1498,28 @@ function TableEditorOverlay(props: {
     setAlignments(normalizedNext.alignments);
     setColumnWidths(
       /**
-       * @param previous - 変更前の列幅一覧。新しい列数に合わせて調整し、既存位置の幅を保つ基準値。
+       * @param previous - 変更前の列幅一覧。挿入・削除に合わせて元の列の幅を移す基準値。
+       * @returns 新しい列数の列幅一覧。
        */
       (previous) =>
-        Array.from(
-          { length: nextColumns },
-
-          (_, index) => previous[index] ?? DEFAULT_COLUMN_WIDTH,
-        ),
+        remapTableEditorSizes(
+          previous,
+          layout.columns,
+          nextColumns,
+          DEFAULT_COLUMN_WIDTH,
+        ) as number[],
     );
     setRowHeights(
       /**
-       * @param previous - 変更前の行高一覧。新しい行数に合わせて調整し、既存位置の高さを保つ基準値。
+       * @param previous - 変更前の行高一覧。挿入・削除に合わせて元の行の高さを移す基準値。
+       * @returns 新しい行数の行高一覧。
        */
       (previous) =>
-        Array.from(
-          { length: nextRows.length },
-
-          (_, index) => previous[index],
+        remapTableEditorSizes(
+          previous,
+          layout.rows,
+          nextRows.length,
+          undefined,
         ),
     );
     cellSelectionRef.current.clear();
@@ -1283,20 +1533,36 @@ function TableEditorOverlay(props: {
       nextRows.length,
       nextColumns,
     );
+    const refit = layout.refit;
+    if (refit) {
+      // 貼り付けなどで内容が変わった範囲は、新しい内容が描画されてから列幅、続いて行高を合わせ直す。
+      // 行高は列幅が反映された描画で折り返しを測る必要があるため、フレームを分ける。
+      requestAnimationFrame(
+        /** 新しい内容で範囲内の列幅を合わせる。 */
+        () => {
+          autoFitColumns(rangeIndexes(refit.fromColumn, refit.toColumn));
+          requestAnimationFrame(
+            /** 列幅が反映された後に範囲内の行高を合わせる。 */
+            () => autoFitRows(rangeIndexes(refit.fromRow, refit.toRow)),
+          );
+        },
+      );
+    }
   }
 
   /**
-   * 表編集オーバーレイの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+   * セル入力欄の表示文字列を保存形式へ正規化してセル値を更新し、変化があれば履歴へ記録する。
    * @param row - 編集するセルを含む表行のインデックス。
    * @param column - 編集するセルの列インデックス。
    * @param value - セル入力欄から受け取った表示文字列。
+   * @returns 正規化後の保存形式セル値。現在値と同じ場合は状態を更新せずにその値を返す。
    */
-  function updateCell(row: number, column: number, value: string): void {
+  function updateCell(row: number, column: number, value: string): string {
     const normalized = tableEditorCellStoredValue(
       value,
       rows[row]?.[column] ?? "",
     );
-    if ((rows[row]?.[column] ?? "") === normalized) return;
+    if ((rows[row]?.[column] ?? "") === normalized) return normalized;
     recordHistory();
     setRows(
       /**
@@ -1322,6 +1588,7 @@ function TableEditorOverlay(props: {
           },
         ),
     );
+    return normalized;
   }
 
   /**
@@ -1455,7 +1722,7 @@ function TableEditorOverlay(props: {
   }
 
   /**
-   * 表編集オーバーレイの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+   * 選択範囲のセルの内容を空にし、変更前の状態をUndo履歴へ記録する。
    */
   function clearSelectedCells(): void {
     let changed = false;
@@ -1483,9 +1750,10 @@ function TableEditorOverlay(props: {
   }
 
   /**
-   * 表編集オーバーレイの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
-   * @param row - セル操作の対象となる表行インデックス。
-   * @param column - セル操作の対象となる表列インデックス。
+   * セルの選択範囲（未記録ならセル末尾）を`<br>`で置き換え、caretを挿入直後へ置く。
+   * Alt+Enterとツールバーの「セル内改行」から呼ばれる。
+   * @param row - セル操作の対象となる表行インデックス。既定はアクティブ行。
+   * @param column - セル操作の対象となる表列インデックス。既定はアクティブ列。
    */
   function insertLineBreak(row = activeRow, column = activeColumn): void {
     const value = rows[row]?.[column] ?? "";
@@ -1539,28 +1807,163 @@ function TableEditorOverlay(props: {
       from: displayCaretOffset,
       to: displayCaretOffset,
     });
+    placeCellCaretAfterLineBreakEdit(
+      row,
+      key,
+      tableEditorCellDisplayValue(edit.value),
+      displayCaretOffset,
+    );
+  }
+
+  /**
+   * ツールバーの「自動調整」。列幅と行高をセルの内容に合わせる（広げるだけでなく縮めもする）。
+   * 範囲（複数セル・行・列・全体）を選択しているときはその範囲の列と行、1セルだけのときは表全体が対象。
+   * 行高は新しい列幅で折り返しを測る必要があるため、列幅が描画された次フレームで合わせる。
+   */
+  function autoFitSizes(): void {
+    const columnsToFit = hasGridRange
+      ? rangeIndexes(normalizedSelection.fromColumn, normalizedSelection.toColumn)
+      : rangeIndexes(0, columnCount - 1);
+    const rowsToFit = hasGridRange
+      ? rangeIndexes(normalizedSelection.fromRow, normalizedSelection.toRow)
+      : rangeIndexes(0, rows.length - 1);
+    autoFitColumns(columnsToFit);
+    requestAnimationFrame(
+      /** 新しい列幅が描画された後に行高を合わせる。 */
+      () => autoFitRows(rowsToFit),
+    );
+  }
+
+  /**
+   * 入力でセルの文字が折り返しそうになったら、その列の幅を内容に合わせて広げる。
+   * 入力中は広げるだけで縮めない（1文字ごとに列幅が揺れないように）。上限
+   * （{@link MAX_AUTO_COLUMN_WIDTH}）まで広げても収まらない場合は折り返しを許し、文字が隠れないよう
+   * 行高を合わせ直す。測るのは編集中のセル1つだけで、寸法情報は開くときに測った`cellMetrics`を使い
+   * 計算済みスタイルを読み直さないため、入力1回あたりの負荷は小さい。
+   * @param row - 編集中のセルの表行インデックス。
+   * @param column - 編集中のセルの表列インデックス。
+   * @param displayValue - 入力後のセル表示文字列。
+   */
+  function growColumnForTyping(
+    row: number,
+    column: number,
+    displayValue: string,
+  ): void {
+    const metrics = cellMetrics;
+    const currentWidth =
+      columnWidthsRef.current[column] ?? DEFAULT_COLUMN_WIDTH;
+    const requiredWidth = calculateAutoFitColumnWidth(
+      [displayValue],
+      metrics.measure,
+      metrics.horizontalChrome,
+      TABLE_EDITOR_MIN_COLUMN_WIDTH,
+      MAX_AUTO_COLUMN_WIDTH,
+    );
+    // 広げるときは少し余裕を持たせ、続けて入力した数文字では再び広げない。1文字ごとに列幅を変えると、
+    // そのたびに表全体（最大50行×20列）の描画とレイアウトがやり直され、入力の応答が遅くなるため。
+    const nextWidth =
+      requiredWidth > currentWidth
+        ? Math.min(
+            MAX_AUTO_COLUMN_WIDTH,
+            Math.max(requiredWidth, requiredWidth + TYPING_GROW_HEADROOM),
+          )
+        : currentWidth;
+    if (nextWidth > currentWidth) {
+      setColumnWidths(
+        /**
+         * @param previous - 入力前の列幅一覧。
+         * @returns 編集中の列だけを広げた列幅一覧（既に広ければそのまま）。
+         */
+        (previous) => {
+          if ((previous[column] ?? DEFAULT_COLUMN_WIDTH) >= nextWidth) {
+            return previous;
+          }
+          const next = previous.slice();
+          while (next.length <= column) next.push(DEFAULT_COLUMN_WIDTH);
+          next[column] = nextWidth;
+          return next;
+        },
+      );
+    }
+    // 広げた幅でも折り返す（上限に達した）か、行数に対して行が低い場合だけ行高を合わせ直す。
+    const lineCount = tableEditorUnwrappedLineCount(
+      displayValue,
+      nextWidth,
+      metrics,
+    );
+    const neededHeight =
+      lineCount === undefined
+        ? undefined
+        : tableEditorUnwrappedCellHeight(lineCount, metrics);
+    if (
+      neededHeight === undefined ||
+      neededHeight > (rowHeights[row] ?? MIN_ROW_HEIGHT)
+    ) {
+      requestAnimationFrame(
+        /** 新しい列幅と値が描画されてから行高を測る。 */
+        () => autoFitRow(row),
+      );
+    }
+  }
+
+  /**
+   * セル内改行の挿入・削除後に、セルの表示値とcaretを置き直し、行高を合わせる。
+   *
+   * 対象セルにフォーカスがある（キー操作で編集した）場合は、値とcaretをその場で設定する。
+   * 次フレームまで待つと、その間にReactが値を書き戻してcaretが末尾へ移り、続けて打った文字が
+   * 末尾へ入るため。先に同じ値を入れておけば、Reactは値を再代入せずcaretが保たれる。
+   * ツールバーのボタンから実行した場合はセルにフォーカスがないため、次フレームでフォーカスして置く。
+   * どちらの場合も行高の自動調整は、新しい値が描画された次フレームで行う。
+   * @param row - 行高を合わせ直す表行インデックス。
+   * @param key - 対象セルの`行:列`キー。
+   * @param displayValue - 編集後のセル表示値。
+   * @param caretOffset - 編集後の表示値内のUTF-16 caretオフセット。
+   */
+  function placeCellCaretAfterLineBreakEdit(
+    row: number,
+    key: string,
+    displayValue: string,
+    caretOffset: number,
+  ): void {
+    const focused = overlayRef.current?.querySelector<HTMLTextAreaElement>(
+      `[data-table-cell="${key}"]`,
+    );
+    const placedNow = Boolean(focused && document.activeElement === focused);
+    if (focused && placedNow) {
+      focused.value = displayValue;
+      focused.setSelectionRange(caretOffset, caretOffset);
+    }
     requestAnimationFrame(
       /**
-       * 次の描画フレームで表示更新を実行する。
-       * @returns 条件が成立したかを示す真偽値。
+       * 新しい値が描画された後に、未フォーカスならcaretを置き、行高を合わせる。フォーカス済みの
+       * 場合にcaretを置き直すと、このフレームまでに打った文字の前へcaretが戻るため置かない。
        */
       () => {
-        const element = overlayRef.current?.querySelector<HTMLTextAreaElement>(
-          `[data-table-cell="${key}"]`,
-        );
-        element?.focus();
-        element?.setSelectionRange(displayCaretOffset, displayCaretOffset);
+        if (!placedNow) {
+          const element =
+            overlayRef.current?.querySelector<HTMLTextAreaElement>(
+              `[data-table-cell="${key}"]`,
+            );
+          // caretを置いてからフォーカスする。逆順だと、フォーカス時の記録（onFocus）が直前の位置
+          // （値の書き戻しで先頭になったcaret）を保存し、次の「セル内改行」がセル先頭へ入る。
+          element?.setSelectionRange(caretOffset, caretOffset);
+          element?.focus();
+          cellSelectionRef.current.set(key, {
+            from: caretOffset,
+            to: caretOffset,
+          });
+        }
         autoFitRow(row);
       },
     );
   }
 
   /**
-   * 表編集オーバーレイの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+   * セル内のcaret直前にある`<br>`（と表示用の改行）を1つの単位として削除する。
    * @param row - セル操作の対象となる表行インデックス。
    * @param column - セル操作の対象となる表列インデックス。
-   * @param displayOffset - 削除キー操作後のセル表示文字列内caretオフセット。
-   * @returns 条件が成立したかを示す真偽値。
+   * @param displayOffset - 削除キー操作時のセル表示文字列内caretオフセット。
+   * @returns `<br>`を削除した場合はtrue（呼び出し側は既定のBackspaceを止める）。対象がなければfalse。
    */
   function deleteLineBreakBeforeDisplayOffset(
     row: number,
@@ -1607,18 +2010,11 @@ function TableEditorOverlay(props: {
       from: edit.caretOffset,
       to: edit.caretOffset,
     });
-    requestAnimationFrame(
-      /**
-       * 次の描画フレームで表示更新を実行する。
-       */
-      () => {
-        const element = overlayRef.current?.querySelector<HTMLTextAreaElement>(
-          `[data-table-cell="${key}"]`,
-        );
-        element?.focus();
-        element?.setSelectionRange(edit.caretOffset, edit.caretOffset);
-        autoFitRow(row);
-      },
+    placeCellCaretAfterLineBreakEdit(
+      row,
+      key,
+      tableEditorCellDisplayValue(edit.value),
+      edit.caretOffset,
     );
     return true;
   }
@@ -1645,77 +2041,58 @@ function TableEditorOverlay(props: {
   }
 
   /**
-   * 各セルの表示幅を測り、指定列に必要な幅を設定する。
-   * @param column - セル操作の対象となる表列インデックス。
+   * 指定列のセル表示値の幅をCanvasで測り、各列を内容に合う幅（{@link TABLE_EDITOR_MIN_COLUMN_WIDTH}〜
+   * {@link MAX_AUTO_COLUMN_WIDTH}）へまとめて設定する。全列フィット（全選択でのダブルクリック）でも、セルの走査と
+   * Canvas・計算済みスタイルの取得を1回にまとめ、列数に比例したDOM走査を避ける。
+   * DOMに描画されていない列は変更しない。
+   * @param columns - 自動フィットする表列インデックスの一覧。
    */
-  function autoFitColumn(column: number): void {
+  function autoFitColumns(columns: readonly number[]): void {
+    const widths = new Map<number, number>();
     const editor = overlayRef.current;
-    if (!editor) return;
-    const cells = Array.from(
-      editor.querySelectorAll<HTMLTextAreaElement>("textarea[data-table-cell]"),
-    ).filter(
-      /**
-       * datasetの条件を満たすセルだけを残す。
-       * @param cell - セルのdatasetを参照する走査対象。
-
-       */
-      (cell) =>
-        parseTableCellAddress(cell.dataset.tableCell)?.column === column,
-    );
-    const sample = cells[0];
+    if (!editor || !columns.length) return;
+    const targets = new Set(columns);
+    const valuesByColumn = new Map<number, string[]>();
+    let sample: HTMLTextAreaElement | undefined;
+    for (const cell of editor.querySelectorAll<HTMLTextAreaElement>(
+      "textarea[data-table-cell]",
+    )) {
+      const column = parseTableCellAddress(cell.dataset.tableCell)?.column;
+      if (column === undefined || !targets.has(column)) continue;
+      sample ??= cell;
+      const values = valuesByColumn.get(column) ?? [];
+      values.push(cell.value);
+      valuesByColumn.set(column, values);
+    }
     if (!sample) return;
 
-    const style = getComputedStyle(sample);
-    const canvas = document.createElement("canvas");
-    const context = canvas.getContext("2d");
-    const letterSpacing = Number.parseFloat(style.letterSpacing) || 0;
-
-    const measure = /**
-     * 表編集オーバーレイの寸法、容量、位置、または計測値を求める。
-      * @param value - Canvasで幅を測定するセル表示文字列。
-
-     */ (value: string): number => {
-      if (!context) return Array.from(value).length * 8;
-      context.font = [
-        style.fontStyle,
-        style.fontVariant,
-        style.fontWeight,
-        style.fontSize,
-        style.fontFamily,
-      ].join(" ");
-      return (
-        context.measureText(value).width +
-        Math.max(0, Array.from(value).length - 1) * letterSpacing
+    const { measure, horizontalChrome } = createCellTextMeasurer(sample);
+    for (const [column, values] of valuesByColumn) {
+      widths.set(
+        column,
+        calculateAutoFitColumnWidth(
+          values,
+          measure,
+          horizontalChrome,
+          TABLE_EDITOR_MIN_COLUMN_WIDTH,
+          MAX_AUTO_COLUMN_WIDTH,
+        ),
       );
-    };
-    const horizontalChrome =
-      (Number.parseFloat(style.paddingLeft) || 0) +
-      (Number.parseFloat(style.paddingRight) || 0) +
-      8;
-    const width = calculateAutoFitColumnWidth(
-      cells.map(
-        /**
-         * 各セルから値を取り出して一覧化する。
-         * @param cell - セルの値を参照する走査対象。
-         * @returns 値を取り出した変換結果の一覧。
-         */
-        (cell) => cell.value,
-      ),
-      measure,
-      horizontalChrome,
-      TABLE_EDITOR_MIN_COLUMN_WIDTH,
-      MAX_AUTO_COLUMN_WIDTH,
-    );
+    }
     setColumnWidths(
       /**
        * @param previous - 自動調整前の列幅一覧。計測した対象列の幅を反映し、他列を保つ基準値。
+       * @returns 幅が変わらなければ同じ配列（再描画を避ける）、変われば更新した配列。
        */
       (previous) => {
-        const next = previous.slice();
-        while (next.length <= column) next.push(DEFAULT_COLUMN_WIDTH);
-        if (next[column] === width) return previous;
-        next[column] = width;
-        return next;
+        let next: number[] | undefined;
+        for (const [column, width] of widths) {
+          if (previous[column] === width) continue;
+          next ??= previous.slice();
+          while (next.length <= column) next.push(DEFAULT_COLUMN_WIDTH);
+          next[column] = width;
+        }
+        return next ?? previous;
       },
     );
   }
@@ -1735,9 +2112,7 @@ function TableEditorOverlay(props: {
       selectionKind === "all"
         ? Array.from({ length: columnCount }, (_, index) => index)
         : [column];
-    for (const selectedColumn of columnsToAutoFit) {
-      autoFitColumn(selectedColumn);
-    }
+    autoFitColumns(columnsToAutoFit);
   }
 
   /**
@@ -1798,26 +2173,65 @@ function TableEditorOverlay(props: {
    * @param row - セル操作の対象となる表行インデックス。
    */
   function autoFitRow(row: number): void {
+    autoFitRows([row]);
+  }
+
+  /**
+   * 指定行の各セルを最新の列幅で折り返したときの高さを求め、行ごとに最大のセル高
+   * （{@link MIN_ROW_HEIGHT}〜上限）を設定する。
+   *
+   * 折り返さないと文字列だけで決まるセルは、表を開く前の計算と同じ規則
+   * （{@link tableEditorUnwrappedLineCount}）で行数から高さを求める。決まらないセルだけ測定用の複製
+   * textareaで測り、複製は先に全部配置してから高さをまとめて読み、最後にまとめて外す（1セルずつ
+   * 配置・読み取り・削除するとセル数だけ強制レイアウトが起きるため）。複製は`position: fixed`で
+   * 表の配置に影響しない。DOMに描画されていない行は変更しない。
+   * @param targetRows - 自動フィットする表行インデックスの一覧。
+   */
+  function autoFitRows(targetRows: readonly number[]): void {
     const editor = overlayRef.current;
-    if (!editor) return;
-    const cells = Array.from(
-      editor.querySelectorAll<HTMLTextAreaElement>("textarea[data-table-cell]"),
-    ).filter(
-      /**
-       * datasetの条件を満たすセルだけを残す。
-       * @param cell - セルのdatasetを参照する走査対象。
+    if (!editor || !targetRows.length) return;
+    const targets = new Set(targetRows);
+    /** 測定用に配置する複製textareaと、その配置先。 */
+    type RowProbe = {
+      /** 測定対象セルの表行インデックス。 */
+      row: number;
+      /** 画面外に配置する測定用の複製textarea。 */
+      clone: HTMLTextAreaElement;
+      /** 複製を配置する元セルの親要素。元セルと同じCSS規則を適用させるため。 */
+      parent: HTMLElement;
+    };
+    const probes: RowProbe[] = [];
+    const heightsByRow = new Map<number, number[]>();
+    /**
+     * 行ごとのセル高一覧へ高さを追加する。
+     * @param row - 集計先の表行インデックス。
+     * @param height - 追加するセル高（CSS px、上下の余裕を含む）。
+     */
+    const addHeight = (row: number, height: number): void => {
+      const heights = heightsByRow.get(row) ?? [];
+      heights.push(height);
+      heightsByRow.set(row, heights);
+    };
+    /** 表を開く前の計算と同じ規則で使う、セル文字列の寸法情報（最初のセルから1回だけ作る）。 */
+    let metrics: TableEditorCellTextMetrics | undefined;
 
-       */
-      (cell) => parseTableCellAddress(cell.dataset.tableCell)?.row === row,
-    );
-    if (!cells.length) return;
-
-    const heights = cells.map((cell) => {
+    const createProbe = /**
+     * セルを複製し、指定幅・高さ自動で画面外に置く測定用textareaを作る（まだ配置しない）。
+     * @param cell - 複製元のセルtextarea。
+     * @param parent - 複製を配置する元セルの親要素。
+     * @param row - 測定結果を集計する表行インデックス。
+     * @param width - 複製に設定する幅（CSS px）。
+     * @param value - 複製に入れる表示文字列。
+     * @returns 配置前の測定用複製。
+     */ (
+      cell: HTMLTextAreaElement,
+      parent: HTMLElement,
+      row: number,
+      width: number,
+      value: string,
+    ): RowProbe => {
       const clone = cell.cloneNode(false) as HTMLTextAreaElement;
-      const parent = cell.parentElement;
-      if (!parent) return MIN_ROW_HEIGHT;
-      const width = Math.max(1, cell.getBoundingClientRect().width);
-      clone.value = cell.value;
+      clone.value = value;
       clone.style.position = "fixed";
       clone.style.left = "-10000px";
       clone.style.top = "0";
@@ -1828,22 +2242,60 @@ function TableEditorOverlay(props: {
       clone.style.overflow = "hidden";
       clone.style.visibility = "hidden";
       clone.style.pointerEvents = "none";
-      parent.appendChild(clone);
-      const height = clone.scrollHeight;
-      clone.remove();
-      return height + AUTO_FIT_ROW_VERTICAL_BUFFER;
-    });
-    const height = calculateAutoFitRowHeight(heights);
+      // 複製が元セルのdata属性を持つと、測定中のセル検索に誤って一致するため外す。
+      clone.removeAttribute("data-table-cell");
+      return { row, clone, parent };
+    };
+
+    for (const cell of editor.querySelectorAll<HTMLTextAreaElement>(
+      "textarea[data-table-cell]",
+    )) {
+      const address = parseTableCellAddress(cell.dataset.tableCell);
+      const row = address?.row;
+      const parent = cell.parentElement;
+      if (!address || row === undefined || !targets.has(row) || !parent)
+        continue;
+      const columnWidth =
+        columnWidthsRef.current[address.column] ?? DEFAULT_COLUMN_WIDTH;
+      // 折り返さないと文字列だけで決まるセル（表を開く前の計算と同じ規則）は、行数から高さを求めて
+      // DOM測定を省く。複製のレイアウトはセル数に比例して重いため。決まらないセルだけ複製で測る。
+      metrics ??= cellTextMetricsFromTextarea(cell);
+      const lineCount = tableEditorUnwrappedLineCount(
+        cell.value,
+        columnWidth,
+        metrics,
+      );
+      if (lineCount !== undefined) {
+        addHeight(row, tableEditorUnwrappedCellHeight(lineCount, metrics));
+        continue;
+      }
+      const width = Math.max(1, cell.getBoundingClientRect().width);
+      probes.push(createProbe(cell, parent, row, width, cell.value));
+    }
+    // 幅をすべて読み終えてから配置し、読み取りと書き込みが交互になる強制レイアウトを避ける。
+    for (const { clone, parent } of probes) parent.appendChild(clone);
+    for (const { row, clone } of probes) {
+      addHeight(row, clone.scrollHeight + AUTO_FIT_ROW_VERTICAL_BUFFER);
+    }
+    for (const { clone } of probes) clone.remove();
+    const fitted = new Map<number, number>();
+    for (const [row, heights] of heightsByRow) {
+      fitted.set(row, calculateAutoFitRowHeight(heights));
+    }
     setRowHeights(
       /**
        * @param previous - 自動調整前の行高一覧。計測した対象行の高さを反映する基準値。
+       * @returns 高さが変わらなければ同じ配列（再描画を避ける）、変われば更新した配列。
        */
       (previous) => {
-        const next = previous.slice();
-        while (next.length <= row) next.push(undefined);
-        if (next[row] === height) return previous;
-        next[row] = height;
-        return next;
+        let next: Array<number | undefined> | undefined;
+        for (const [row, height] of fitted) {
+          if (previous[row] === height) continue;
+          next ??= previous.slice();
+          while (next.length <= row) next.push(undefined);
+          next[row] = height;
+        }
+        return next ?? previous;
       },
     );
   }
@@ -1863,9 +2315,7 @@ function TableEditorOverlay(props: {
       selectionKind === "all"
         ? Array.from({ length: rows.length }, (_, index) => index)
         : [row];
-    for (const selectedRow of rowsToAutoFit) {
-      autoFitRow(selectedRow);
-    }
+    autoFitRows(rowsToAutoFit);
   }
 
   /**
@@ -1988,7 +2438,7 @@ function TableEditorOverlay(props: {
   }
 
   /**
-   * 表編集オーバーレイの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+   * リボンと共通の行・列操作（追加・削除）を表ドラフトへ適用し、列幅・行高とソート状態を元の行・列へ対応付けて移す。
    * @param action - 選択中の表へ再適用する共有Markdown行・列操作。
    */
   function applySharedTableAction(action: MarkdownTableAction): void {
@@ -2012,7 +2462,7 @@ function TableEditorOverlay(props: {
       return;
     }
 
-    replaceDraft(next);
+    replaceDraft(next, true, sharedActionLayout(action));
     if (action === "colBefore") {
       setSortState((current) =>
         remapTableEditorSortState(current, {
@@ -2041,7 +2491,34 @@ function TableEditorOverlay(props: {
   }
 
   /**
-   * 表編集オーバーレイの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+   * 共有の行・列操作が、変更前のどの位置に何行・何列を挿入・削除するかを返す。
+   * 操作の基準はアクティブセル（行操作は行、列操作は列）。
+   * @param action - 共有のMarkdown表の行・列操作。
+   * @returns 寸法を移すための挿入・削除。行・列の構成を変えない操作では空。
+   */
+  function sharedActionLayout(action: MarkdownTableAction): DraftLayoutChange {
+    switch (action) {
+      case "rowBefore":
+        return { rows: { kind: "insert", index: activeRow, count: 1 } };
+      case "rowAfter":
+        return { rows: { kind: "insert", index: activeRow + 1, count: 1 } };
+      case "deleteRow":
+        return { rows: { kind: "delete", index: activeRow, count: 1 } };
+      case "colBefore":
+        return { columns: { kind: "insert", index: activeColumn, count: 1 } };
+      case "colAfter":
+        return {
+          columns: { kind: "insert", index: activeColumn + 1, count: 1 },
+        };
+      case "deleteColumn":
+        return { columns: { kind: "delete", index: activeColumn, count: 1 } };
+      default:
+        return {};
+    }
+  }
+
+  /**
+   * 選択中の各列へ、リボンと共通の左・中央・右揃えを適用する。
    * @param action - 選択列へ適用する左・中央・右揃え操作。
    */
   function applySharedAlignmentAction(
@@ -2090,7 +2567,7 @@ function TableEditorOverlay(props: {
   }
 
   /**
-   * 表編集オーバーレイの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+   * 選択中の各列の配置指定を解除する。
    */
   function clearAlignment(): void {
     if (
@@ -2514,7 +2991,30 @@ function TableEditorOverlay(props: {
     const next = readTableEditorDraft(edit.text, edit.selection.from);
     if (!next) return;
     event.preventDefault();
-    replaceDraft(next);
+    // 貼り付けた範囲（行数×列数）だけ、新しい内容に合わせて列幅・行高を合わせ直す。引用符で囲んだ
+    // セル内改行があると行数を多めに数えるが、範囲外の行を余分に合わせ直すだけで内容は変わらない。
+    const pastedLines = value
+      .replace(/\r\n?/g, "\n")
+      .replace(/\n$/, "")
+      .split("\n");
+    const pastedColumns = Math.max(
+      1,
+      ...pastedLines.map(
+        /**
+         * @param line - 貼り付けたTSVの1行。
+         * @returns その行の列数。
+         */
+        (line) => line.split("\t").length,
+      ),
+    );
+    replaceDraft(next, true, {
+      refit: {
+        fromRow: targetRow,
+        toRow: targetRow + pastedLines.length - 1,
+        fromColumn: targetColumn,
+        toColumn: targetColumn + pastedColumns - 1,
+      },
+    });
   }
 
   /**
@@ -2652,50 +3152,48 @@ function TableEditorOverlay(props: {
   }
 
   /**
-   * 未適用の変更がなければ表編集を閉じ、あればオーバーレイ内の破棄確認バーを表示する。
-   * VS Code Webview ではモーダルがブロックされ `window.confirm` が常に false を返すため使用しない。
-   */
-  function requestClose(): void {
-    if (!isDirty) {
-      closeAndRestoreFocus();
-      return;
-    }
-    setConfirmingDiscard(true);
-  }
-
-  /**
-   * 破棄確認で承認された場合に、未適用の変更を捨てて表編集を閉じる。
+   * 反映できなかった変更を捨てて表編集を閉じる。反映失敗時だけ表示するボタンから呼ばれる。
    */
   function discardAndClose(): void {
-    setConfirmingDiscard(false);
     closeAndRestoreFocus();
   }
 
   /**
-   * 破棄確認を取り消し、確認バーのボタンから外れたフォーカスをアクティブセルへ戻す。
+   * 反映できなかった理由を表示し、描画後に「破棄して閉じる」へフォーカスを移す。
+   * キーボードやスクリーンリーダーの利用者にも、閉じられなかった理由と次の操作が伝わるようにする。
+   * @param reason - 表示する理由の文言。
    */
-  function keepEditing(): void {
-    setConfirmingDiscard(false);
+  function showApplyFailure(reason: string): void {
+    setApplyFailure(reason);
     requestAnimationFrame(
-      /**
-       * 確認バーが描画から外れた後のフレームでアクティブセルへフォーカスを戻す。
-       */
-      () => focusCell(activeRow, activeColumn, false),
+      /** ボタンが描画された後にフォーカスする。 */
+      () => discardButtonRef.current?.focus(),
     );
   }
 
   /**
-   * 表編集オーバーレイの状態または本文へ変更を適用し、必要なら以前の状態へ戻す。
+   * 表の変更を元のMarkdownへ反映して表編集を閉じる。×ボタン、Escape、Ctrl+Enterの共通処理。
+   * 適用ボタンや破棄確認は設けず、閉じる操作で反映する。取り消しは表編集内の「元に戻す」か、
+   * 反映後にソースエディターのUndoで行う。
+   *
+   * 変更がなければ、本文の状態を調べずにそのまま閉じる（開いている間に本文の別の箇所が外部で
+   * 変わっても、何も変えていない表編集を閉じられなくしないため）。
+   * 変更があり、ソースエディターが閉じられた、または編集中に本文が外部で変更された場合は反映せず
+   * 開いたままにし、理由と「破棄して閉じる」を出してそのボタンへフォーカスを移す。
    */
   function apply(): void {
+    if (!isDirty) {
+      closeAndRestoreFocus();
+      return;
+    }
     if (!view.dom.isConnected) {
-      setStatus(messages.app.tableEditor.sourceEditorClosed);
+      showApplyFailure(messages.app.tableEditor.sourceEditorClosed);
       return;
     }
     const current = view.state.doc.toString();
     const prepared = prepareTableEditorApply(currentDraft(), current);
     if (prepared.kind === "stale") {
-      setStatus(messages.app.tableEditor.documentChanged);
+      showApplyFailure(messages.app.tableEditor.documentChanged);
       return;
     }
     if (prepared.kind === "noop") {
@@ -2734,26 +3232,38 @@ function TableEditorOverlay(props: {
       >
         <strong>{messages.app.tableEditor.title}</strong>
         <span>{cellCountLabel}</span>
-        {isDirty && (
-          <span
-            className="mve-table-editor-dirty"
-            title={messages.app.tableEditor.modified}
-            aria-label={messages.app.tableEditor.modified}
-          >
-            ● {messages.app.tableEditor.modified}
-          </span>
-        )}
         <button
           type="button"
           className="mve-table-editor-close"
           title={messages.app.tableEditor.close}
           aria-label={messages.app.tableEditor.close}
-          onClick={requestClose}
+          onClick={apply}
         >
           ×
         </button>
       </header>
-      <div className="mve-table-editor-toolbar" role="toolbar">
+      <div
+        className="mve-table-editor-toolbar"
+        role="toolbar"
+        onMouseDown={
+          /**
+           * ツールバーのボタンをマウスで押しても、編集中のセルからフォーカスとcaretを奪わない。
+           * 奪われるとcaretが消えて続けて入力できず、「セル内改行」ではフォーカスを戻す瞬間の位置（先頭）が
+           * 記録されて2回目以降がセル先頭へ入っていた。全ボタン共通でここで止める。キーボード
+           * （Tab移動してEnter/Space）での操作には影響しない。
+           * @param event - ツールバー内のmousedown event。
+           */
+          (event) => {
+            if (event.button !== 0) return;
+            if (
+              event.target instanceof Element &&
+              event.target.closest("button")
+            ) {
+              event.preventDefault();
+            }
+          }
+        }
+      >
         <ToolbarGroup label={messages.ribbon.groups.history}>
           <button
             type="button"
@@ -2892,6 +3402,15 @@ function TableEditorOverlay(props: {
             active={currentAlignment === "none"}
             onClick={clearAlignment}
           />
+        </ToolbarGroup>
+        <ToolbarGroup label={messages.app.tableEditor.sizeGroup}>
+          <button
+            type="button"
+            title={messages.app.tableEditor.autoFitTitle}
+            onClick={autoFitSizes}
+          >
+            {messages.app.tableEditor.autoFit}
+          </button>
         </ToolbarGroup>
         <ToolbarGroup label={messages.ribbon.groups.excel} last>
           <button
@@ -3277,21 +3796,52 @@ function TableEditorOverlay(props: {
                             }
                             onChange={
                               /**
-                               * セル本文を更新し、選択範囲を維持する。
+                               * セル本文を更新し、選択範囲を維持する。正規化で表示値が入力直後の値と
+                               * 変わる場合（`<br>`の一部をDeleteで消した場合など）は、Reactの値書き戻しで
+                               * caretが末尾へ飛ばないよう、正規化後の値とcaret位置をその場で設定する。
                                * @param event - セル値変更後のcaret範囲を保存するchange event。
                                */
                               (event) => {
-                                updateCell(
+                                const element = event.currentTarget;
+                                const key = cellKey(rowIndex, columnIndex);
+                                const normalized = updateCell(
                                   rowIndex,
                                   columnIndex,
-                                  event.target.value,
+                                  element.value,
                                 );
-                                cellSelectionRef.current.set(
-                                  cellKey(rowIndex, columnIndex),
-                                  {
-                                    from: event.currentTarget.selectionStart,
-                                    to: event.currentTarget.selectionEnd,
-                                  },
+                                const display =
+                                  tableEditorCellDisplayValue(normalized);
+                                growColumnForTyping(
+                                  rowIndex,
+                                  columnIndex,
+                                  display,
+                                );
+                                if (display === element.value) {
+                                  cellSelectionRef.current.set(key, {
+                                    from: element.selectionStart,
+                                    to: element.selectionEnd,
+                                  });
+                                  return;
+                                }
+                                const offset =
+                                  mapTableEditorCaretAfterNormalization(
+                                    element.value,
+                                    element.selectionStart,
+                                    display,
+                                  );
+                                // Reactの描画や制御値の書き戻しより先に正規化後の値を入れておくと、
+                                // 以降は値が一致して再代入されず、ここで置いたcaretが保たれる。
+                                // セル値が変わらない正規化（状態更新なし）でも同じ経路で直る。
+                                element.value = display;
+                                element.setSelectionRange(offset, offset);
+                                cellSelectionRef.current.set(key, {
+                                  from: offset,
+                                  to: offset,
+                                });
+                                // 正規化で`<br>`が消えて行数が減るため、Backspace経路と同様に行高を合わせ直す。
+                                requestAnimationFrame(
+                                  /** 正規化後の値が描画されてから対象行の高さを測る。 */
+                                  () => autoFitRow(rowIndex),
                                 );
                               }
                             }
@@ -3384,51 +3934,38 @@ function TableEditorOverlay(props: {
         </table>
       </div>
       <footer className="mve-table-editor-footer">
-        <span
-          className={
-            status
-              ? "mve-table-editor-status visible"
-              : "mve-table-editor-status"
-          }
-          title={status || selectionSummary}
-        >
-          {status ||
-            `${selectionSummary} · ${messages.app.tableEditor.navigationHint}`}
-        </span>
-        {/* 分岐ごとに key を分け、確認バーと通常操作の DOM を再利用させない。再利用されると
-            フォーカス中の「編集を続ける」がそのまま「適用」へ書き換わり、直後の Enter で適用される。 */}
-        {showDiscardConfirm ? (
-          <div
-            key="discard-confirm"
-            className="mve-table-editor-actions mve-table-editor-discard-confirm"
-            role="group"
-            aria-labelledby={DISCARD_MESSAGE_ID}
+        {applyFailure ? (
+          // 反映できなかった理由は1回だけ読み上げる（role="alert"）。選択範囲の案内は操作のたびに
+          // 変わるため、通常のステータスはライブ領域にしない。
+          <span
+            className="mve-table-editor-status visible"
+            role="alert"
+            title={applyFailure}
           >
-            <span
-              id={DISCARD_MESSAGE_ID}
-              className="mve-table-editor-discard-message"
-              title={messages.app.tableEditor.discard}
-            >
-              {messages.app.tableEditor.discard}
-            </span>
+            {applyFailure}
+          </span>
+        ) : (
+          <span
+            className={
+              status
+                ? "mve-table-editor-status visible"
+                : "mve-table-editor-status"
+            }
+            title={status || selectionSummary}
+          >
+            {status ||
+              `${selectionSummary} · ${messages.app.tableEditor.navigationHint}`}
+          </span>
+        )}
+        {applyFailure && (
+          <div className="mve-table-editor-actions">
             <button
               type="button"
-              ref={keepEditingButtonRef}
-              onClick={keepEditing}
+              className="danger"
+              ref={discardButtonRef}
+              onClick={discardAndClose}
             >
-              {messages.app.tableEditor.keepEditing}
-            </button>
-            <button type="button" className="danger" onClick={discardAndClose}>
               {messages.app.tableEditor.discardAndClose}
-            </button>
-          </div>
-        ) : (
-          <div key="actions" className="mve-table-editor-actions">
-            <button type="button" onClick={requestClose}>
-              {messages.app.tableEditor.cancel}
-            </button>
-            <button type="button" className="primary" onClick={apply}>
-              {messages.app.tableEditor.apply}
             </button>
           </div>
         )}

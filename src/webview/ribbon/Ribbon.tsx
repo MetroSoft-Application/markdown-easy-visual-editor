@@ -8,6 +8,7 @@ import type {
   HtmlExportOptions,
 } from "../../shared/protocol";
 import type { Messages } from "../../shared/messages";
+import type { OutputPreset } from "../../shared/outputPresets";
 import { mveDebug } from "../runtime/debug";
 import {
   getPreviewImageResizeControlsVisible,
@@ -75,7 +76,6 @@ const MARKDOWN_SYNTAX_RIBBON_ITEMS: ReadonlySet<RibbonItemId> = new Set([
   "horizontalRule",
   "hardBreak",
   "blankLine",
-  "codeLanguage",
   "codeBlock",
   "mermaid",
   "math",
@@ -85,7 +85,6 @@ const MARKDOWN_SYNTAX_RIBBON_ITEMS: ReadonlySet<RibbonItemId> = new Set([
   "note",
   "warning",
   "emoji",
-  "insertEmoji",
   "rowBefore",
   "rowAfter",
   "deleteRow",
@@ -161,6 +160,15 @@ interface Props {
   /** PDF出力時に保存先ダイアログを省略する設定。 */
   pdfSaveWithoutDialog: boolean;
 
+  /** 保存した印刷設定の一覧。 */
+  outputPresets: readonly OutputPreset[];
+  /** 表示するプリセットID。空文字列はどのプリセットにも属さない設定。 */
+  outputPresetId: string;
+  /** 表示中のプリセットから設定を変えている場合はtrue。 */
+  outputPresetModified: boolean;
+  /** 選んだ保存した印刷設定を適用する（印刷設定パネルの項目だけ）。 */
+  onOutputPresetSelect: (presetId: string) => void;
+
   /** DOCX出力グループのチェック状態と、DOCX出力ボタンが送る設定。 */
   docxOptions: DocxExportSettings;
 
@@ -220,6 +228,10 @@ interface Props {
  * @param splitView 本文とプレビューを並べて表示する状態。
  * @param htmlOptions HTML出力で使うフォントと余白の設定。
  * @param pdfSaveWithoutDialog PDF保存先ダイアログを省略する設定。
+ * @param outputPresets 保存した印刷設定の一覧。
+ * @param outputPresetId 表示するプリセットID。
+ * @param outputPresetModified 表示中のプリセットから設定を変えているか。
+ * @param onOutputPresetSelect 保存した印刷設定を選んだ場合の操作。
  * @param docxOptions DOCX出力の保存設定。
  * @param imageDirectory ローカル画像を保存するディレクトリ。
  * @param editorFontFamily 本文編集面に使うフォント名。
@@ -242,6 +254,10 @@ export function Ribbon({
   splitView,
   htmlOptions,
   pdfSaveWithoutDialog,
+  outputPresets,
+  outputPresetId,
+  outputPresetModified,
+  onOutputPresetSelect,
   docxOptions,
   imageDirectory,
   editorFontFamily,
@@ -257,6 +273,8 @@ export function Ribbon({
   const [tableRows, setTableRows] = useState(3);
   const [tableColumns, setTableColumns] = useState(3);
   const [codeLanguage, setCodeLanguage] = useState("");
+  // 分割ボタンの本体で入るもの（最後に一覧で選んだもの）。初期値は変更前のボタンと同じ（プレーンテキスト、フローチャート、U+1F4D8 の青い本の絵文字）。
+  const [mermaidDiagram, setMermaidDiagram] = useState("flowchart");
   const [emoji, setEmoji] = useState("\u{1F4D8}");
   const [headerName, setHeaderName] = useState("");
   const [textColorChoice, setTextColorChoice] =
@@ -297,6 +315,10 @@ export function Ribbon({
     imageResizeControlsVisible,
     htmlOptions,
     pdfSaveWithoutDialog,
+    outputPresets,
+    outputPresetId,
+    outputPresetModified,
+    onOutputPresetSelect,
     docxOptions,
     imageDirectory,
     editorFontFamily,
@@ -312,6 +334,8 @@ export function Ribbon({
     setTableColumns,
     codeLanguage,
     setCodeLanguage,
+    mermaidDiagram,
+    setMermaidDiagram,
     emoji,
     setEmoji,
     headerName,
@@ -573,6 +597,25 @@ export function Ribbon({
   return (
     <header
       className={`ribbon ${collapsed ? "collapsed" : ""}`}
+      onMouseDown={
+        /**
+         * ソースエディターで編集中にリボンのボタンをマウスで押しても、エディターからフォーカスとカーソルを
+         * 奪わない。奪われるとカーソルが消え、太字・見出し・セル内改行などを押した後に続けて入力できなかった。
+         *
+         * フォーカスがソースエディター以外（リボンの入力欄など）にあるときは止めない。入力欄の多くは
+         * フォーカスが外れたとき（blur）に値を確定するため、止めると確定前の古い値でボタンの処理が
+         * 動いたり、確定されないまま入力欄が消えたりする。入力欄・選択欄そのもののクリックも対象外。
+         * キーボード（Tab移動してEnter/Space）での操作には影響しない。
+         * @param event - リボン内のmousedown event。
+         */
+        (event) => {
+          if (event.button !== 0) return;
+          if (!document.activeElement?.closest(".source-editor")) return;
+          if (event.target instanceof Element && event.target.closest("button")) {
+            event.preventDefault();
+          }
+        }
+      }
       onClickCapture={
         /**
          * button内の子要素から押されたリボン項目を特定して対応する選択状態を更新する。

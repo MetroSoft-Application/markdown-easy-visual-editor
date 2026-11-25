@@ -12,6 +12,7 @@ Markdown Easy Visual Editor is a VS Code extension for writing Markdown and Text
 - Use the ribbon to format text, create lists, insert links, images, tables, code blocks, math, Mermaid diagrams, footnotes, alerts, and more.
 - Convert the whole document between Textile and Markdown from the **Convert** tab, and convert it back; the preview stays the same.
 - Navigate long documents with an outline generated from headings.
+- Number headings (1., 1.1, 1.1.1) in the preview and PDF/HTML exports without changing the source.
 - Search and replace text with `Ctrl+F` on Windows/Linux or `Cmd+F` on macOS.
 - Complete link paths and heading anchors while typing Markdown links.
 - Update relative links automatically when files or folders are moved or renamed in VS Code.
@@ -103,7 +104,8 @@ Apply headings, quotes, bullet lists, numbered lists, task lists, indentation, a
 
 ### Insert
 
-Insert links, images, tables, horizontal rules, line breaks, blank lines (`<br>`), code blocks, mathematical expressions, footnotes, tables of contents, page breaks, callouts, and emoji. When inserting a code block, choose its language to enable syntax highlighting.
+- Insert links, images, tables, horizontal rules, line breaks, blank lines (`<br>`), code blocks, mathematical expressions, footnotes, tables of contents, page breaks, callouts, and emoji. 
+- **Code block**, **Mermaid**, and **Emoji** are split buttons. Click **▾** to choose a code block language, a Mermaid diagram type (31 types listed in the Mermaid documentation, such as flowchart, sequence, class, Gantt, and mind map; ZenUML is not included because the preview cannot draw it), or an emoji, and it is inserted right away. Click the button itself to insert the last choice again; its name is shown under the button. The first choices are plain text, flowchart, and 📘. If text is selected, **Code block** wraps it in a code block with the chosen language.
 
 ![Insert ribbon with source and live preview](./resources/readme-insert.png)
 
@@ -111,7 +113,9 @@ Insert links, images, tables, horizontal rules, line breaks, blank lines (`<br>`
 
 Place the cursor inside a Markdown table to:
 
-- Open the table editor and edit cells directly.
+- Open the table editor and edit cells directly. Column widths and row heights fit the cell contents when it opens, and a column widens while you type so the text does not wrap.
+- Click **Auto-fit** to fit column widths and row heights to the contents of the selected range, or of the whole table.
+- Close the table editor with ×, Esc, or Ctrl+Enter to apply the changes; press Ctrl+Z in the editor to undo them.
 - Add or delete rows and columns.
 - Copy rows and columns, and drag row and column headers to reorder them.
 - Toggle the header row.
@@ -131,6 +135,8 @@ Press `Alt+Enter` inside a table cell to insert a line break in that cell.
 
 Open the same Markdown document as a regular text editor beside the visual editor, toggle the outline, and adjust the viewing layout.
 
+Choose **Heading numbers** to number headings as `1.`, `1.1`, `1.1.1` in the preview, print preview, and PDF and HTML exports. The Markdown source and the link targets of headings do not change. **From H1** numbers every heading; **From H2** leaves H1 as the document title and starts at H2. Headings inside quotes and lists and the heading drawn by front matter are not numbered. A skipped level is shown as `0`, for example `1.0.1` for an H3 directly after an H1. Front matter is recognized only when it starts on the first line and its first key follows `---` directly. DOCX exports and Marp slides are not numbered.
+
 ### Convert
 
 Rewrite the whole document between Textile and Markdown with **To Markdown** or **To Textile**. The editor switches its rendering to the target syntax at the same time, so the preview shows the same content. The change is a single edit, so **Undo** restores both the text and the previous rendering.
@@ -143,7 +149,7 @@ Headings, paragraphs, line breaks, quotes, code blocks, lists, tables, links, im
 
 The editor renders the document before and after the conversion and compares the content to catch conversion mistakes, and always applies the conversion. Some structures have no equivalent in Textile, such as nested quotes, a list inside a quote, or a code block inside a list item; these are written in the closest form and a message shows the line where the preview may change. Marp slide decks are converted too, and the regular preview is shown instead of slides.
 
-Converting back applies the reverse of the conversion rules, so a round trip keeps the same preview and returns documents written in the standard form unchanged. Equivalent spellings are written in one standard form: for example, `__bold__` becomes `**bold**`, reference links become inline links, footnote labels become numbers, line breaks inside a paragraph are joined, and a hard line break is written with two trailing spaces.
+Converting back applies the reverse of the conversion rules, so a round trip keeps the same preview and returns documents written in the standard form unchanged. Equivalent spellings are written in one standard form: for example, `__bold__` becomes `**bold**`, reference links become inline links, footnote labels become numbers, line breaks inside a paragraph are joined, and a hard line break is written with a trailing backslash (`\`).
 
 The file name and extension are not changed. The editor remembers the converted format for each file in the workspace, so the file is shown in that format when it is opened again. In another workspace, the file is shown in the format of its extension.
 
@@ -226,7 +232,7 @@ Create an editable [draw.io](https://www.drawio.com/) diagram without leaving th
 
 Clicking a local `.drawio.svg` or `.dio.svg` image in the preview, including Marp slide previews, opens the draw.io editor, even if the image was inserted without a link. Remote images keep the usual image preview. If the Draw.io Integration extension is not installed, the file opens in the default editor and a notification offers to show the extension.
 
-When an SVG is saved to the image folder through **SVGとして貼り付け** (paste as SVG) in the source editor's context menu, by pasting or dropping a file, or by choosing a file that must be copied, an SVG containing draw.io diagram data is saved as `.drawio.svg`, keeping it editable in the draw.io editor. Other SVGs are saved as `.svg`. The decision uses the file content, not its name.
+When an SVG is saved to the image folder through **Copy as SVG** (paste as SVG) in the source editor's context menu, by pasting or dropping a file, or by choosing a file that must be copied, an SVG containing draw.io diagram data is saved as `.drawio.svg`, keeping it editable in the draw.io editor. Other SVGs are saved as `.svg`. The decision uses the file content, not its name.
 
 To jump from `.drawio.svg` to the DrawIO editor, you need to add the following settings to `settings.json`.
 
@@ -286,7 +292,8 @@ marp: true
 
 - Marp slides appear in split view, preview-only view, and print preview.
 - The preview returns to the regular Markdown or PDF path when the marker is removed or set to `false`.
-- The built-in `default`, `gaia`, and `uncover` themes are available. PDF and HTML exports continue to use their existing output flow.
+- The built-in `default`, `gaia`, and `uncover` themes are available.
+- PDF export outputs one page per slide at the slide size (for example, 16:9 or 4:3). HTML export uses the regular document output.
 
 ## Supported Textile
 
@@ -313,7 +320,8 @@ p. A paragraph with *strong*, +inserted+, and @inline code@.
 1. Open the **Export** tab.
 2. Choose **Print settings** and configure the paper (A0–A6, B4, or B5), orientation, margins, header/footer, and typography.
    - Body, H1–H6, and code font sizes can be set independently.
-   - Font family, line height, and paragraph spacing can also be adjusted.
+   - Line height and paragraph spacing can also be adjusted. The font family follows **Preview font** on the **Settings** tab.
+   - Choose **Save new** to save the current print settings under a name, then switch between saved settings from the list in the panel or on the **Export** tab. Use **⋯** to overwrite, rename, delete, import, or export saved settings as JSON.
    - Add any number of regular-expression rules and replacement strings to change text in PDF previews, PDF output, and HTML output without modifying the Markdown source. The same rules also apply to DOCX output.
    - Body matches can span inline formatting, but do not cross paragraph, line-break, or link boundaries.
 3. Choose **Print preview** to review the result.
@@ -351,7 +359,7 @@ When linked Markdown conversion is enabled, each linked Markdown file is also wr
 The **DOCX** group on the **Export** tab saves the current document as an editable Word document.
 
 1. Open the **Export** tab.
-2. Set the page size, margins, fonts, header, footer, and replacement rules in **Print settings**. DOCX export uses the same print settings as PDF export.
+2. Set the page size, margins, font sizes, header, footer, and replacement rules in **Print settings**. DOCX export uses the same print settings as PDF export.
 3. Leave **Export directly to same folder** in the **DOCX** group enabled to save the DOCX beside the source Markdown file, or disable it to select the destination.
 4. Choose **Export DOCX**.
 5. Choose **Open** in the completion notification to open the file in the app associated with `.docx`.
@@ -390,12 +398,14 @@ Open the editor's **Settings** tab for image save paths, separate editor/preview
 | **Mermaid: Theme** | Choose the Mermaid preview theme. | Auto |
 | **Mermaid: Font Size** | Set one font size for Mermaid diagrams in the preview and HTML/PDF/DOCX output. | `16` px |
 | **PDF: Browser Path** | Specify an Edge or Chrome executable when automatic detection does not work. | Automatic detection |
+| **Preview: Heading Numbering** | Number headings from H1 or from H2 in the preview, print preview, and PDF/HTML exports. Also available on the **View** tab. | Off |
 
 ## Keyboard shortcuts
 
 | Shortcut | Action |
 | --- | --- |
 | `Ctrl+F` / `Cmd+F` | Open search and replace. |
+| `Ctrl+G` | Go to a line number. |
 | `Ctrl+V` / `Cmd+V` | Paste text, or save and insert an image when the clipboard contains one. |
 | `Alt+Enter` | Insert a line break inside a table cell. |
 | `Ctrl+wheel` / `Cmd+wheel` | Zoom the editor and preview. |

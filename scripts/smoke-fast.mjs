@@ -291,6 +291,149 @@ async function runUnsizedImageWidthSmoke(page) {
  * @param page - 分割表示のWebviewを開いているPlaywrightページ。
  * @throws ツールチップ、送信メッセージが期待と異なる場合。
  */
+/**
+ * 挿入タブの分割ボタン（コードブロック・Mermaid・絵文字。RibbonSplitMenuButton.tsx）の操作を検証する。
+ * 回帰リスク: 一覧から選んだ後にソースエディターのフォーカスとカーソルが失われ、続けて入力できなくなる（実際に起きた不具合）。
+ * Tab で一覧を閉じたときにフォーカスがリボンの外（body）へ外れる。一覧の開閉・キー操作・外のクリックで閉じること・画面内への配置が崩れる。
+ * Mermaid の一覧が公式サイトの 31 種類（ZenUML を除く）でなくなる。本体が最後に選んだものを挿入しなくなる。
+ * 本文はHostへの外部変更として差し替え、各操作の結果はHost側の本文（window.__mveHostText）で確かめる。
+ * @param page - 分割表示のWebviewを開いているPlaywrightページ（表示言語は日本語）。
+ * @throws 一覧の状態、挿入結果、フォーカスの位置が期待と異なる場合。
+ */
+async function runRibbonSplitButtonSmoke(page) {
+  const source = '# Split\n\nend\n';
+  await page.evaluate(
+  /**
+   * Host側の本文を差し替え、外部変更としてWebviewへ通知する。
+   * @param text - 検証の開始時の本文。
+   */
+  (text) => {
+    const previousText = window.__mveHostText;
+    const baseVersion = window.__mveHostVersion;
+    window.__mveHostText = text;
+    window.__mvePhysicalText = text.replace(/\n/g, '\r\n');
+    window.__mveHostVersion += 1;
+    window.dispatchEvent(new MessageEvent('message', {
+      data: { type: 'externalChanges', baseVersion, version: window.__mveHostVersion, changes: [{ rangeOffset: 0, rangeLength: previousText.length, text }] }
+    }));
+  }, source);
+  await page.locator('.split-editor .cm-line', { hasText: 'end' }).first().click();
+  await page.keyboard.press('Control+End');
+  await page.getByRole('tab', { name: '挿入', exact: true }).click();
+  const mermaidCaret = page.getByRole('button', { name: 'Mermaid の図の種類を選ぶ' });
+  const popup = page.locator('.ribbon-popup');
+  /**
+   * Host側の本文に、指定の文字列が指定の回数以上含まれるまで待つ。
+   * @param text - 探す文字列。
+   * @param count - 必要な回数。
+   */
+  const waitHost = (text, count = 1) => page.waitForFunction(
+  /**
+   * @param args - 探す文字列と回数。
+   * @returns Host本文に必要な回数だけ含まれるか。
+   */
+  (args) => window.__mveHostText.split(args.text).length - 1 >= args.count, { text, count });
+  /**
+   * フォーカスがソースエディターにあるかを読む。
+   * @returns ソースエディターにあれば true。
+   */
+  const focusInEditor = () => page.evaluate(
+  /** @returns ソースエディターにフォーカスがあるか。 */
+  () => Boolean(document.activeElement?.closest('.source-editor')));
+
+  // 1. マウスで開く：31 項目、本体に入るもの（フローチャート）に ✓、aria-expanded が true、画面内に収まる。
+  await mermaidCaret.click();
+  await popup.waitFor();
+  const opened = await page.evaluate(
+  /** @returns 一覧の項目数、✓ の項目、aria-expanded、一覧の位置と画面の大きさ。 */
+  () => {
+    const menu = document.querySelector('.ribbon-popup');
+    const rect = menu.getBoundingClientRect();
+    return {
+      count: menu.querySelectorAll('[role=menuitemradio]').length,
+      checked: menu.querySelector('[aria-checked=true]')?.textContent,
+      expanded: document.querySelector('[aria-label="Mermaid の図の種類を選ぶ"]').getAttribute('aria-expanded'),
+      inside: rect.left >= 0 && rect.top >= 0 && rect.right <= innerWidth && rect.bottom <= innerHeight
+    };
+  });
+  if (opened.count !== 31 || opened.checked !== 'フローチャート' || opened.expanded !== 'true' || !opened.inside) {
+    throw new Error(`split button popup state unexpected: ${JSON.stringify(opened)}`);
+  }
+
+  // 2. マウスで「クラス図」を選ぶ → 挿入され、一覧が閉じ、ソースエディターで続けて入力できる（フォーカスを奪わない）。
+  await popup.getByRole('menuitemradio', { name: 'クラス図', exact: true }).click();
+  await waitHost('classDiagram');
+  if (await popup.count() !== 0) throw new Error('split button popup did not close after picking');
+  if (!(await focusInEditor())) throw new Error('split button pick did not return focus to the source editor');
+  await page.keyboard.type('Z1');
+  await waitHost('Z1');
+
+  // 3. 本体は最後に選んだもの（クラス図）を挿入する。250ms の重複抑止にかからないよう間を空ける。
+  await page.waitForTimeout(400);
+  await page.locator('.ribbon-split-main', { hasText: 'クラス図' }).click();
+  await waitHost('classDiagram', 2);
+
+  // 4. Esc で閉じると、一覧を開く前の場所（ソースエディター）へフォーカスが戻る。
+  await mermaidCaret.click();
+  await popup.waitFor();
+  await page.keyboard.press('Escape');
+  await popup.waitFor({ state: 'detached' });
+  if (!(await focusInEditor())) throw new Error('Escape did not return focus to where it was before opening');
+
+  // 5. キーボード：「▾」で ↓ を押すと ✓ の項目（クラス図）へフォーカスし、↓・Enter で次の種類（状態遷移図）を挿入する。
+  await mermaidCaret.focus();
+  await page.keyboard.press('ArrowDown');
+  await popup.waitFor();
+  const focusedLabel = await page.evaluate(
+  /** @returns フォーカスしている項目の表示名。 */
+  () => document.activeElement?.textContent);
+  if (focusedLabel !== 'クラス図') throw new Error(`ArrowDown focused ${focusedLabel}`);
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('Enter');
+  await waitHost('stateDiagram-v2');
+
+  // 6. Tab で閉じると、フォーカスはリボンの中の次の部品へ移り、body やリボンの外へ外れない。
+  await mermaidCaret.focus();
+  await page.keyboard.press('ArrowDown');
+  await popup.waitFor();
+  await page.keyboard.press('Tab');
+  await popup.waitFor({ state: 'detached' });
+  const afterTab = await page.evaluate(
+  /** @returns Tab 後のフォーカスがリボンの中にあるか、とその表示名。 */
+  () => ({ inRibbon: document.activeElement?.closest('.ribbon') !== null, text: document.activeElement?.textContent?.trim() }));
+  if (!afterTab.inRibbon || afterTab.text !== '数式') throw new Error(`Tab moved focus unexpectedly: ${JSON.stringify(afterTab)}`);
+
+  // 7. 一覧の外をクリックすると閉じる。
+  await mermaidCaret.click();
+  await popup.waitFor();
+  await page.locator('.split-preview').click({ position: { x: 20, y: 20 } });
+  await popup.waitFor({ state: 'detached' });
+
+  // 8. コードブロック：頭文字「p」で Python へ移り、Enter で Python のコードブロックにする。本体の下が Python になる。
+  await page.locator('.split-editor .cm-line').last().click();
+  await page.keyboard.press('Control+End');
+  await page.keyboard.press('Enter');
+  await page.getByRole('button', { name: 'コードブロックの言語を選ぶ' }).click();
+  await popup.waitFor();
+  await page.keyboard.press('p');
+  await page.keyboard.press('Enter');
+  await waitHost('```python');
+  const codeCurrent = await page.locator('.ribbon-split-main small').first().textContent();
+  if (codeCurrent !== 'Python') throw new Error(`code block main shows ${codeCurrent}`);
+
+  // 9. 絵文字の格子：↓（2 行目）と → 5 回で 12 番目（U+2705）へ移り、Enter で挿入する。
+  await page.locator('.split-editor .cm-line').last().click();
+  await page.keyboard.press('Control+End');
+  await page.getByRole('button', { name: '絵文字を選ぶ' }).focus();
+  await page.keyboard.press('ArrowDown');
+  await popup.waitFor();
+  await page.keyboard.press('Home');
+  await page.keyboard.press('ArrowDown');
+  for (let step = 0; step < 5; step += 1) await page.keyboard.press('ArrowRight');
+  await page.keyboard.press('Enter');
+  await waitHost('\u{2705}');
+}
+
 async function runEditorLinkSmoke(page) {
   const source = '# Editor links\n\nopen [the guide](guide.md#intro "MVE workspace-root link") now\n\njump [down](#target) plain words here\n\n## Target\n\nbody\n';
   await page.evaluate(
@@ -1231,7 +1374,7 @@ try {
      */
     (element) => { element.scrollTop = 0; });
   };
-  // 表エディターの実UIと、変更なし適用時の同期抑止を確認する。
+  // 表エディターの実UIと、変更なしで閉じたときの同期抑止を確認する。
   const sourceEditor = page.locator('.split-editor .cm-content');
   const cutLine = page.locator('.split-editor .cm-line').filter({ hasText: 'Reference [link]' }).first();
   await cutLine.click();
@@ -1269,6 +1412,37 @@ try {
   const tableSourceLine = page.locator('.split-editor .cm-line').filter({ hasText: '| old | old2 |' }).first();
   await tableSourceLine.click();
   await page.getByRole('tab', { name: '表', exact: true }).click();
+  // リボンの「セル内改行」を押した直後もソースにフォーカスが残り、続けて打った文字が<br>の直後に入ること。
+  // 以前はフォーカスがボタンへ移ってカーソルが消え、入力が本文へ入らなかった。
+  const hostBeforeRibbonBreak = await page.evaluate(
+  /**
+   * @returns リボン操作前のHost本文。
+   */
+  () => window.__mveHostText);
+  await page.locator('.ribbon-content').getByRole('button', { name: /^セル内改行/ }).click();
+  await page.keyboard.type('Q');
+  await page.waitForFunction(
+  /**
+   * @returns 入力した文字が挿入した<br>の直後へ入ったか。
+   */
+  () => /<br>Q/.test(window.__mveHostText));
+  if (!(await page.evaluate(
+  /**
+   * @returns ソースエディターにフォーカスがあるか。
+   */
+  () => document.activeElement?.closest('.source-editor') !== null))) {
+    throw new Error('ribbon cell break did not return focus to the source editor');
+  }
+  // <br>の挿入と入力は別々の編集なので、2回のUndoで操作前へ戻す。
+  await sourceEditor.press('Control+Z');
+  await sourceEditor.press('Control+Z');
+  await page.waitForFunction(
+  /**
+   * @param text - リボン操作前のHost本文。
+   * @returns 操作前の本文へ戻ったか。
+   */
+  (text) => window.__mveHostText === text, hostBeforeRibbonBreak);
+  await tableSourceLine.click();
   await page.getByRole('button', { name: '表を編集', exact: true }).click();
   await page.locator('.mve-table-editor').waitFor();
   if (await page.locator('.mve-table-editor-grid tbody tr').count() !== 2) throw new Error('table editor did not read the table');
@@ -1351,13 +1525,41 @@ try {
   if (await page.evaluate(
   /**
    * Host側の本文状態を読み取り、検証用の値へ変換する。
-   * @param text - Apply前のHost本文。未反映状態を確認する基準にする。
+   * @param text - 閉じる前のHost本文。未反映状態を確認する基準にする。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
-  (text) => window.__mveHostText !== text, hostBeforeAltEnter)) throw new Error('table editor Alt+Enter changed the source document before Apply');
+  (text) => window.__mveHostText !== text, hostBeforeAltEnter)) throw new Error('table editor Alt+Enter changed the source document before closing');
   const rowHeightAfterAltEnter = Number(await page.locator('.mve-table-editor-row-resizer').nth(1).getAttribute('aria-valuenow'));
   if (rowHeightAfterAltEnter <= rowHeightBeforeAltEnter) throw new Error(`Alt+Enter did not expand the table row: ${rowHeightBeforeAltEnter}->${rowHeightAfterAltEnter}`);
-  await page.getByRole('button', { name: '適用', exact: true }).click();
+  // セル内改行の削除・挿入の直後に打った文字が、改行を消した位置・入れた位置に入ることを検証する。
+  // 次の描画フレームより先に次のキーが届く状況（負荷時）を、rAFを遅らせて決定的に再現する。
+  // 以前はcaretの復元を次フレームで行っていたため、その間に打った文字がセル末尾へ入っていた。
+  await page.evaluate(() => {
+    window.__mveOriginalRequestAnimationFrame = window.requestAnimationFrame;
+    window.requestAnimationFrame = (callback) => setTimeout(() => callback(performance.now()), 300);
+  });
+  try {
+    // "old<br>\n|" で Backspace（<br>を1単位で削除）→ 直後に Y。
+    await altEnterCell.press('Backspace');
+    await altEnterCell.press('Y');
+    // "oldY|" で Alt+Enter → 直後に Z。
+    await altEnterCell.press('Alt+Enter');
+    await altEnterCell.press('Z');
+    // "oldY|<br>\nZ" で Delete（ブラウザーは '<' だけを消し、正規化で<br>ごと消える）→ 直後に W。
+    await altEnterCell.evaluate((element) => element.setSelectionRange(4, 4));
+    await altEnterCell.press('Delete');
+    await altEnterCell.press('W');
+    const caretEdit = await altEnterCell.evaluate((element) => ({ value: element.value, caret: element.selectionStart }));
+    if (caretEdit.value !== 'oldYWZ' || caretEdit.caret !== 5) {
+      throw new Error(`table editor line-break edit moved the caret: ${JSON.stringify(caretEdit)}`);
+    }
+  } finally {
+    await page.evaluate(() => { window.requestAnimationFrame = window.__mveOriginalRequestAnimationFrame; });
+  }
+  // 後続の反映結果の検証のため、Alt+Enter直後の値へ戻す。
+  await altEnterCell.fill('old<br>\n');
+  // 適用ボタンはなく、×で閉じると確認なしで反映される。
+  await page.locator('.mve-table-editor-close').click();
   await page.locator('.mve-table-editor').waitFor({ state: 'detached' });
   await page.waitForFunction(
   /**
@@ -1368,7 +1570,7 @@ try {
   await page.waitForFunction(
   /**
    * Host側の本文状態が完了条件を満たすまで待機する。
-   * @param text - Apply取消後に戻ることを期待するHost本文。
+   * @param text - 反映をUndoした後に戻ることを期待するHost本文。
    */
   (text) => window.__mveHostText === text, hostBeforeAltEnter);
   await page.getByRole('button', { name: '表を編集', exact: true }).click();
@@ -1415,67 +1617,274 @@ try {
   if (copiedColumnState.length !== 4 || JSON.stringify(copiedColumnState.slice(0, 2)) !== JSON.stringify(copiedColumnState.slice(2))) {
     throw new Error(`table editor column copy did not preserve column values: ${JSON.stringify(copiedColumnState)}`);
   }
-  // VS Code Webview は window.confirm をブロックして常に false を返すため、ネイティブダイアログが
-  // 出た時点で失敗とし、未適用の変更の破棄確認がオーバーレイ内で完結することを検証する。
-  /** 表編集キャンセル中に開いたネイティブダイアログの文言。 */
+  // 適用・キャンセルボタンと破棄確認はなく、変更があっても閉じる操作で確認なしに反映される。
+  // ネイティブダイアログ（VS Code Webview ではブロックされる）が出た時点で失敗とする。
+  /** 表編集を閉じる操作中に開いたネイティブダイアログの文言。 */
   const nativeDialogMessages = [];
   /**
-   * 表編集のキャンセル操作でネイティブダイアログが開いたことを記録し、テストを継続できるよう閉じる。
-   * @param dialog - 表編集のキャンセル操作中に開いたネイティブダイアログ。
+   * 表編集を閉じる操作でネイティブダイアログが開いたことを記録し、テストを継続できるよう閉じる。
+   * @param dialog - 表編集を閉じる操作中に開いたネイティブダイアログ。
    */
   const recordNativeDialog = (dialog) => {
     nativeDialogMessages.push(dialog.message());
     void dialog.dismiss();
   };
   page.on('dialog', recordNativeDialog);
-  await page.getByRole('button', { name: 'キャンセル', exact: true }).click();
-  await page.getByRole('button', { name: '編集を続ける', exact: true }).waitFor();
-  if (await page.locator('.mve-table-editor').count() !== 1) throw new Error('table editor closed without discard confirmation');
-  // 押したキャンセルボタンは確認バーへ置き換わるため、フォーカスが body へ落ちず安全側の「編集を続ける」へ移ること。
-  await page.waitForFunction(() => document.activeElement?.textContent === '編集を続ける');
-  const discardConfirmClipped = await page.locator('.mve-table-editor').evaluate(
-  /**
-   * 確認バーで最小幅が増えても本体が広がらず、ヘッダーとフッターのボタンが本体内に収まるかを調べる。
-   * @param overlay - 破棄確認バーを表示中の表編集オーバーレイ要素。
-   * @returns 本体からはみ出した操作要素の文言一覧。
-   */
-  (overlay) => {
-    const bounds = overlay.getBoundingClientRect();
-    return [...overlay.querySelectorAll('.mve-table-editor-header button, .mve-table-editor-footer button')]
-      .filter((button) => button.getBoundingClientRect().right > bounds.right + 0.5)
-      .map((button) => button.textContent);
-  });
-  if (discardConfirmClipped.length > 0) throw new Error(`table editor discard confirmation clipped buttons: ${JSON.stringify(discardConfirmClipped)}`);
-  const keepEditingButton = await page.getByRole('button', { name: '編集を続ける', exact: true }).elementHandle();
+  for (const label of ['適用', 'キャンセル']) {
+    if (await page.locator('.mve-table-editor-footer').getByRole('button', { name: label, exact: true }).count() !== 0) {
+      throw new Error(`table editor footer still has the ${label} button`);
+    }
+  }
+  const hostBeforeEscapeClose = await page.evaluate(() => window.__mveHostText);
+  // Escape（フォーカスはグリッド内）でも確認なしに閉じて、行コピー・列コピーを反映する。
+  await page.locator('[data-table-cell="1:0"]').click();
   await page.keyboard.press('Escape');
-  await page.getByRole('button', { name: '編集を続ける', exact: true }).waitFor({ state: 'detached' });
-  // フォーカス中の「編集を続ける」の DOM が「適用」として再利用されると、直後の Enter で適用されてしまう。
-  if (await keepEditingButton.evaluate(
+  await page.locator('.mve-table-editor').waitFor({ state: 'detached' });
+  await page.waitForFunction((before) => window.__mveHostText !== before, hostBeforeEscapeClose);
+  const appliedByEscape = await page.evaluate(() => window.__mveHostText.split('\n').filter((line) => line.startsWith('| old')));
+  if (appliedByEscape.length !== 2 || !appliedByEscape.every((line) => line.split('|').length === 6)) {
+    throw new Error(`table editor Escape did not apply the copied row and column: ${JSON.stringify(appliedByEscape)}`);
+  }
+  // 反映はソースエディターのUndoで取り消せる。
+  await sourceEditor.press('Control+Z');
+  await page.waitForFunction((text) => window.__mveHostText === text, hostBeforeEscapeClose);
+
+  // 編集中に本文が外部で変更されると反映できない。開いたまま理由を示し、「破棄して閉じる」で抜けられること。
+  await page.getByRole('button', { name: '表を編集', exact: true }).click();
+  await page.locator('.mve-table-editor').waitFor();
+  if (await page.getByRole('button', { name: '破棄して閉じる', exact: true }).count() !== 0) {
+    throw new Error('table editor shows the discard button before an apply failure');
+  }
+  // 開いた直後（セルをクリックせず）にツールバーの「セル内改行」を押すと、セル末尾へ入ること。
+  // 以前は開いた時のフォーカスでcaretが先頭に置かれ、<br>がセル先頭へ入っていた。
+  await page.waitForFunction(() => document.activeElement?.hasAttribute('data-table-cell'));
+  const openedCell = await page.evaluate(() => ({ key: document.activeElement.dataset.tableCell, value: document.activeElement.value }));
+  await page.getByRole('group', { name: 'Excel連携', exact: true })
+    .getByRole('button', { name: 'セル内改行', exact: true })
+    .click();
+  await page.waitForFunction((key) => document.activeElement?.dataset?.tableCell === key, openedCell.key);
+  const afterOpenedBreak = await page.evaluate(() => ({ value: document.activeElement.value, caret: document.activeElement.selectionStart }));
+  if (afterOpenedBreak.value !== `${openedCell.value}<br>\n` || afterOpenedBreak.caret !== afterOpenedBreak.value.length) {
+    throw new Error(`table editor cell break right after opening was not appended at the end: ${JSON.stringify({ openedCell, afterOpenedBreak })}`);
+  }
+  // 続けてボタンを押しても、直前の<br>の後ろ（caret位置）へ順に入ること。以前はボタンでセルから
+  // フォーカスが外れ、戻すときに先頭のcaretが記録されて、2回目以降はセル先頭へ入っていた。
+  for (let press = 0; press < 2; press += 1) {
+    await page.getByRole('group', { name: 'Excel連携', exact: true })
+      .getByRole('button', { name: 'セル内改行', exact: true })
+      .click();
+  }
+  await page.keyboard.type('Z');
+  const afterRepeatedBreaks = await page.evaluate(
   /**
-   * @param button - Escape 前にフォーカスしていた「編集を続ける」ボタン要素。
-   * @returns 確認バーを閉じた後も同じ要素が文書内に残っているか。
+   * @returns 連続で押した後のセル値とcaret。
    */
-  (button) => button.isConnected)) throw new Error('discard confirmation button element was reused for footer actions');
-  await keepEditingButton.dispose();
-  await page.waitForFunction(() => document.activeElement?.hasAttribute('data-table-cell'));
-  if (await page.locator('.mve-table-editor-grid col').count() !== 5) throw new Error('Escape on discard confirmation dropped unapplied changes');
-  // 確認中に Undo で未適用の変更（行コピー・列コピー）が無くなったら確認バーを閉じ、フォーカスをセルへ戻す。
+  () => ({ value: document.activeElement.value, caret: document.activeElement.selectionStart }));
+  const expectedRepeated = `${openedCell.value}<br>\n<br>\n<br>\nZ`;
+  if (afterRepeatedBreaks.value !== expectedRepeated || afterRepeatedBreaks.caret !== expectedRepeated.length) {
+    throw new Error(`table editor repeated cell breaks moved the caret: ${JSON.stringify({ expectedRepeated, afterRepeatedBreaks })}`);
+  }
+  // 入力で折り返しそうになると列幅が広がり（縮めはしない）、「自動調整」で内容に合わせて縮むこと。
+  /** 列ごとの列幅（列リサイズハンドルのaria-valuenow）を読む。 */
+  const readColumnWidths = () => page.locator('.mve-table-editor-column-resizer').evaluateAll(
+  /**
+   * @param resizers - 列リサイズハンドル。
+   * @returns 列幅の一覧。
+   */
+  (resizers) => resizers.map((resizer) => Number(resizer.getAttribute('aria-valuenow'))));
+  const widthsBeforeTyping = await readColumnWidths();
+  const typingCell = page.locator('[data-table-cell="1:1"]');
+  await typingCell.click();
+  await typingCell.press('End');
+  await page.keyboard.type(' widen while typing so the text does not wrap');
+  await page.waitForFunction(
+  /**
+   * 行の高さは同じ行の他のセル（複数行）で決まるため、高さではなく「折り返さずに並べた文字列の幅が
+   * セルの文字領域に収まるか」で折り返していないことを判定する。
+   * @param before - 入力前の2列目の幅。
+   * @returns 2列目が広がり、入力したセルが折り返していないか。
+   */
+  (before) => {
+    const width = Number(document.querySelectorAll('.mve-table-editor-column-resizer')[1]?.getAttribute('aria-valuenow'));
+    const cell = document.querySelector('[data-table-cell="1:1"]');
+    const style = getComputedStyle(cell);
+    const probe = document.createElement('span');
+    probe.style.font = style.font;
+    probe.style.whiteSpace = 'pre';
+    probe.style.position = 'fixed';
+    probe.style.visibility = 'hidden';
+    probe.textContent = cell.value;
+    document.body.appendChild(probe);
+    const textWidth = probe.getBoundingClientRect().width;
+    probe.remove();
+    const contentWidth = cell.clientWidth - Number.parseFloat(style.paddingLeft) - Number.parseFloat(style.paddingRight);
+    return width > before && textWidth <= contentWidth;
+  }, widthsBeforeTyping[1]);
+  const widthsAfterTyping = await readColumnWidths();
+  await typingCell.fill('x');
+  if ((await readColumnWidths())[1] !== widthsAfterTyping[1]) {
+    throw new Error('table editor shrank a column while typing');
+  }
+  await page.getByRole('group', { name: 'サイズ', exact: true })
+    .getByRole('button', { name: '自動調整', exact: true })
+    .click();
+  await page.waitForFunction(
+  /**
+   * @param widened - 入力で広がった2列目の幅。
+   * @returns 自動調整で2列目が内容に合わせて縮んだか。
+   */
+  (widened) => Number(document.querySelectorAll('.mve-table-editor-column-resizer')[1]?.getAttribute('aria-valuenow')) < widened,
+  widthsAfterTyping[1]);
+  if (!(await page.evaluate(
+  /**
+   * @returns 自動調整を押した後もセルにフォーカスがあるか。
+   */
+  () => document.activeElement?.getAttribute('data-table-cell') === '1:1'))) {
+    throw new Error('table editor auto-fit button took focus from the cell');
+  }
+  await page.locator('[data-table-cell="1:0"]').fill('stale-check');
+  const externalPrefix = 'external-edit\n';
+  /**
+   * 表の直前へ1行挿入する外部変更をHostから送る。表は表示中なので、隣の挿入行も描画され反映を待てる。
+   * @returns 挿入した位置（取り消しに使う）。
+   */
+  const insertExternalLine = async () => {
+    const offset = await page.evaluate(
+    /**
+     * @param prefix - 挿入する行。
+     * @returns 挿入した位置。
+     */
+    (prefix) => {
+      const at = window.__mveHostText.indexOf('| old');
+      const baseVersion = window.__mveHostVersion;
+      window.__mveHostText = window.__mveHostText.slice(0, at) + prefix + window.__mveHostText.slice(at);
+      window.__mvePhysicalText = window.__mveHostText.replace(/\n/g, '\r\n');
+      window.__mveHostVersion += 1;
+      window.dispatchEvent(new MessageEvent('message', {
+        data: { type: 'externalChanges', baseVersion, version: window.__mveHostVersion, changes: [{ rangeOffset: at, rangeLength: 0, text: prefix }] }
+      }));
+      return at;
+    }, externalPrefix);
+    await page.locator('.split-editor .cm-line').filter({ hasText: 'external-edit' }).first().waitFor();
+    return offset;
+  };
+  /**
+   * {@link insertExternalLine}で挿入した行を、外部変更として取り消す。
+   * @param offset - 挿入した位置。
+   */
+  const removeExternalLine = async (offset) => {
+    await page.evaluate(
+    /**
+     * @param args - 挿入した行と位置。
+     */
+    ({ prefix, at }) => {
+      const baseVersion = window.__mveHostVersion;
+      window.__mveHostText = window.__mveHostText.slice(0, at) + window.__mveHostText.slice(at + prefix.length);
+      window.__mvePhysicalText = window.__mveHostText.replace(/\n/g, '\r\n');
+      window.__mveHostVersion += 1;
+      window.dispatchEvent(new MessageEvent('message', {
+        data: { type: 'externalChanges', baseVersion, version: window.__mveHostVersion, changes: [{ rangeOffset: at, rangeLength: prefix.length, text: '' }] }
+      }));
+    }, { prefix: externalPrefix, at: offset });
+    await page.waitForFunction(
+    /**
+     * @param text - 外部変更前のHost本文。
+     * @returns 外部変更前へ戻ったか。
+     */
+    (text) => window.__mveHostText === text, hostBeforeEscapeClose);
+  };
+  const externalOffset = await insertExternalLine();
   await page.locator('.mve-table-editor-close').click();
-  await page.getByRole('button', { name: '編集を続ける', exact: true }).waitFor();
-  await page.keyboard.press('Control+z');
-  await page.keyboard.press('Control+z');
-  await page.locator('.mve-table-editor-dirty').waitFor({ state: 'detached' });
-  await page.getByRole('button', { name: '編集を続ける', exact: true }).waitFor({ state: 'detached' });
-  await page.waitForFunction(() => document.activeElement?.hasAttribute('data-table-cell'));
-  // 確認状態が残っていると、再編集しただけで確認バーが再表示されてしまう。
-  await page.locator('[data-table-cell="1:0"]').fill('discard-check');
-  await page.locator('.mve-table-editor-dirty').waitFor();
-  if (await page.locator('.mve-table-editor-discard-confirm').count() !== 0) throw new Error('discard confirmation reappeared without a close request');
-  await page.locator('.mve-table-editor-close').click();
+  await page.getByRole('button', { name: '破棄して閉じる', exact: true }).waitFor();
+  const staleState = await page.evaluate(
+  /**
+   * @returns 反映失敗時の表示・読み上げ・フォーカスの状態。
+   */
+  () => ({
+    open: Boolean(document.querySelector('.mve-table-editor')),
+    alert: document.querySelector('.mve-table-editor-footer [role="alert"]')?.textContent ?? '',
+    focused: document.activeElement?.textContent ?? '',
+  }));
+  if (!staleState.open || !staleState.alert.includes('反映できません') || staleState.focused !== '破棄して閉じる') {
+    throw new Error(`table editor did not stay open with the reason and focus the discard button after a stale apply: ${JSON.stringify(staleState)}`);
+  }
   await page.getByRole('button', { name: '破棄して閉じる', exact: true }).click();
   await page.locator('.mve-table-editor').waitFor({ state: 'detached' });
+  if (await page.evaluate(
+  /**
+   * @returns 反映できない変更が本文へ入ってしまったか。
+   */
+  () => window.__mveHostText.includes('stale-check'))) throw new Error('table editor applied over an external change');
+  await removeExternalLine(externalOffset);
+
+  // 何も変更していなければ、本文が外部で変わっていても×で確認なしにすぐ閉じられること。
+  await page.getByRole('button', { name: '表を編集', exact: true }).click();
+  await page.locator('.mve-table-editor').waitFor();
+  const unchangedOffset = await insertExternalLine();
+  await page.locator('.mve-table-editor-close').click();
+  await page.locator('.mve-table-editor').waitFor({ state: 'detached' });
+  await removeExternalLine(unchangedOffset);
+
+  // 行を追加した後も、行高が元の行に付いて移ること（位置のまま引き継ぐと別の行の高さになる）。
+  await page.getByRole('button', { name: '表を編集', exact: true }).click();
+  await page.locator('.mve-table-editor').waitFor();
+  const tallCell = page.locator('[data-table-cell="1:0"]');
+  await tallCell.click();
+  await tallCell.press('End');
+  await tallCell.press('Alt+Enter');
+  await tallCell.press('Alt+Enter');
+  /** 行ごとの行高（行リサイズハンドルのaria-valuenow）を読む。 */
+  const readRowHeights = () => page.locator('.mve-table-editor-row-resizer').evaluateAll(
+  /**
+   * @param resizers - 行リサイズハンドル。
+   * @returns 行高の一覧。
+   */
+  (resizers) => resizers.map((resizer) => Number(resizer.getAttribute('aria-valuenow'))));
+  await page.waitForFunction(
+  /**
+   * Alt+Enterごとの行高調整は次フレームで行われるため、2回目の調整まで終わり、3行のセルが
+   * 切れずに収まる高さになるまで待つ。
+   * @returns 3行になったセルの行が内容に合う高さになったか。
+   */
+  () => {
+    const heights = [...document.querySelectorAll('.mve-table-editor-row-resizer')].map((r) => Number(r.getAttribute('aria-valuenow')));
+    const cell = document.querySelector('[data-table-cell="1:0"]');
+    return heights[1] > heights[0] && cell.value.split('\n').length === 3 && cell.scrollHeight <= cell.clientHeight + 1;
+  });
+  const heightsBeforeInsert = await readRowHeights();
+  await page.locator('[data-table-cell="0:0"]').click();
+  await page.getByRole('button', { name: '＋行', exact: true }).click();
+  await page.waitForFunction(
+  /**
+   * @returns 行が追加されたか。
+   */
+  () => document.querySelectorAll('.mve-table-editor-grid tbody tr').length === 3);
+  const heightsAfterInsert = await readRowHeights();
+  if (heightsAfterInsert[2] !== heightsBeforeInsert[1] || heightsAfterInsert[1] >= heightsBeforeInsert[1]) {
+    throw new Error(`table editor row insert did not keep row heights with their rows: before=${JSON.stringify(heightsBeforeInsert)}, after=${JSON.stringify(heightsAfterInsert)}`);
+  }
+  const hostBeforeInsertClose = await page.evaluate(
+  /**
+   * @returns 閉じる前のHost本文。
+   */
+  () => window.__mveHostText);
+  await page.locator('.mve-table-editor-close').click();
+  await page.locator('.mve-table-editor').waitFor({ state: 'detached' });
+  await page.waitForFunction(
+  /**
+   * @param before - 閉じる前のHost本文。
+   * @returns 反映されたか。
+   */
+  (before) => window.__mveHostText !== before, hostBeforeInsertClose);
+  await sourceEditor.press('Control+Z');
+  await page.waitForFunction(
+  /**
+   * @param text - 表編集で変更する前のHost本文。
+   * @returns 元の本文へ戻ったか。
+   */
+  (text) => window.__mveHostText === text, hostBeforeEscapeClose);
   page.off('dialog', recordNativeDialog);
-  if (nativeDialogMessages.length > 0) throw new Error(`table editor cancel opened a native dialog: ${JSON.stringify(nativeDialogMessages)}`);
+  if (nativeDialogMessages.length > 0) throw new Error(`table editor close opened a native dialog: ${JSON.stringify(nativeDialogMessages)}`);
   await page.getByRole('button', { name: '表を編集', exact: true }).click();
   await page.locator('.mve-table-editor').waitFor();
   if (await page.locator('.mve-table-editor-grid tbody tr').count() !== 2) throw new Error('table editor copy smoke setup was not reset');
@@ -1508,7 +1917,10 @@ try {
   await page.waitForFunction((height) =>
     Number(document.querySelectorAll('.mve-table-editor-row-resizer')[1]?.getAttribute('aria-valuenow')) > height,
   firstDataRowHeight);
-  const resizedFirstDataRowHeight = Number(await firstDataRowResizer.getAttribute('aria-valuenow'));
+  // 開いた時点の行は内容へ自動フィット済み、後から追加した行は未設定の既定高のため、両者は一致しない。
+  // ソートで行高が行と一緒に移動することを、ソート直前の各行の高さと比べて検証する。
+  const rowHeightsBeforeSort = await page.locator('.mve-table-editor-row-resizer').evaluateAll((resizers) =>
+    resizers.map((resizer) => Number(resizer.getAttribute('aria-valuenow'))));
   const initialSortRows = await readSortRows();
   await sortHeaderA.locator('span').first().click();
   if (await sortHeaderA.getAttribute('data-selected') !== 'true'
@@ -1530,7 +1942,10 @@ try {
   }
   const sortedRowHeights = await page.locator('.mve-table-editor-row-resizer').evaluateAll((resizers) =>
     resizers.map((resizer) => Number(resizer.getAttribute('aria-valuenow'))));
-  if (sortedRowHeights[1] !== firstDataRowHeight || sortedRowHeights[2] !== resizedFirstDataRowHeight) {
+  if (sortedRowHeights[0] !== rowHeightsBeforeSort[0]
+    || sortedRowHeights[1] !== rowHeightsBeforeSort[2]
+    || sortedRowHeights[2] !== rowHeightsBeforeSort[1]
+    || rowHeightsBeforeSort[1] <= firstDataRowHeight) {
     throw new Error(`table editor sort did not preserve row heights: ${JSON.stringify(sortedRowHeights)}`);
   }
   await sortButtons.nth(0).click();
@@ -1648,35 +2063,46 @@ try {
     throw new Error(`table editor drag with select-all changed columns together: before=${JSON.stringify(allColumnWidthsBeforeAutoFit)}, after=${JSON.stringify(allColumnWidthsAfterDrag)}`);
   }
   await columnResizer.dblclick();
-  await page.waitForFunction((before) => {
+  // 長い文字の列（2列目）は入力した時点で内容の幅まで広がっているため、自動調整では変わらない。
+  // ドラッグで広げた1列目（short）だけが内容に合わせて縮む。
+  await page.waitForFunction(
+  /**
+   * @param before - ダブルクリック前の列幅一覧。
+   * @returns 1列目が縮み、2列目が内容の幅のまま保たれたか。
+   */
+  (before) => {
     const widths = Array.from(document.querySelectorAll('.mve-table-editor-column-resizer'),
       (resizer) => Number(resizer.getAttribute('aria-valuenow')));
     return widths.length === before.length
       && widths[0] < before[0]
-      && widths[1] > before[1];
+      && widths[1] >= before[1];
   }, allColumnWidthsAfterDrag);
   const allColumnWidthsAfterAutoFit = await page.locator('.mve-table-editor-column-resizer').evaluateAll(
     (resizers) => resizers.map((resizer) => Number(resizer.getAttribute('aria-valuenow'))),
   );
   if (allColumnWidthsAfterAutoFit.length !== allColumnWidthsAfterDrag.length
     || allColumnWidthsAfterAutoFit[0] >= allColumnWidthsAfterDrag[0]
-    || allColumnWidthsAfterAutoFit[1] <= allColumnWidthsAfterDrag[1]
+    || allColumnWidthsAfterAutoFit[1] < allColumnWidthsAfterDrag[1]
     || allColumnWidthsAfterAutoFit[0] === allColumnWidthsAfterAutoFit[1]) {
     throw new Error(`table editor select-all double-click did not auto-fit columns individually: before=${JSON.stringify(allColumnWidthsAfterDrag)}, after=${JSON.stringify(allColumnWidthsAfterAutoFit)}`);
   }
   const autoFitCell = page.locator('[data-table-cell="1:0"]');
-  await autoFitCell.fill('auto fit content '.repeat(10));
   const autoFitColumnBefore = Number(await columnResizer.getAttribute('aria-valuenow'));
-  await columnResizer.dblclick();
+  // 入力で折り返しそうになると、その時点で列幅が内容に合わせて広がる。
+  await autoFitCell.fill('auto fit content '.repeat(10));
   await page.waitForFunction(
   /**
-   * ブラウザー内に「.mve-table-editor-column-resizer」が現れるまで待機する。
-   * @param before - Auto-fit前に設定されている列幅（aria-valuenow）。
+   * @param before - 入力前の1列目の幅（aria-valuenow）。
+   * @returns 入力で1列目が広がったか。
    */
   (before) => Number(document.querySelector('.mve-table-editor-column-resizer')?.getAttribute('aria-valuenow')) > before, autoFitColumnBefore);
+  const widenedByTyping = Number(await columnResizer.getAttribute('aria-valuenow'));
+  // 境界のダブルクリックでも内容に合った幅のまま（狭まらない）。
+  await columnResizer.dblclick();
+  await page.waitForTimeout(100);
   const autoFitColumnAfter = Number(await columnResizer.getAttribute('aria-valuenow'));
-  if (autoFitColumnAfter <= autoFitColumnBefore) {
-    throw new Error(`table editor column auto-fit did not apply: state=${autoFitColumnBefore}->${autoFitColumnAfter}`);
+  if (autoFitColumnAfter < widenedByTyping) {
+    throw new Error(`table editor column auto-fit shrank a column that fits its contents: ${widenedByTyping}->${autoFitColumnAfter}`);
   }
   const columnPointerStylesAfterAutoFit = await page.evaluate(() => ({
     cursor: document.body.style.cursor,
@@ -1809,11 +2235,31 @@ try {
     || rowHeightsAfterDrag.some((height, index) => index !== 1 && height !== rowHeightsBeforeDrag[index])) {
     throw new Error(`table editor row drag changed other rows: before=${JSON.stringify(rowHeightsBeforeDrag)}, after=${JSON.stringify(rowHeightsAfterDrag)}`);
   }
-  // 未適用の変更がある場合だけ、オーバーレイ内の破棄確認を経由して閉じる。
-  const rowDragLeftChanges = await page.locator('.mve-table-editor-dirty').count() > 0;
-  await page.getByRole('button', { name: 'キャンセル', exact: true }).click();
-  if (rowDragLeftChanges) await page.getByRole('button', { name: '破棄して閉じる', exact: true }).click();
+  // 閉じると確認なしで反映されるため、後続の検証の前提に戻すよう、反映された場合はソースのUndoで取り消す。
+  const hostBeforeRowDragClose = await page.evaluate(
+  /**
+   * @returns 閉じる前のHost本文。
+   */
+  () => window.__mveHostText);
+  await page.locator('.mve-table-editor-close').click();
   await page.locator('.mve-table-editor').waitFor({ state: 'detached' });
+  // 反映が非同期でHostへ届くため、本文の変化を少し待ってから、変わっていればUndoで戻す。
+  const rowDragApplied = await page.waitForFunction(
+  /**
+   * @param before - 閉じる前のHost本文。
+   * @returns 反映されたか。
+   */
+  (before) => window.__mveHostText !== before, hostBeforeRowDragClose, { timeout: 1000 })
+    .then(() => true, () => false);
+  if (rowDragApplied) {
+    await sourceEditor.press('Control+Z');
+    await page.waitForFunction(
+    /**
+     * @param text - 閉じる前のHost本文。
+     * @returns 元の本文へ戻ったか。
+     */
+    (text) => window.__mveHostText === text, hostBeforeRowDragClose);
+  }
   const noOpMessageStart = await page.evaluate(
   /**
    * HostとWebviewのメッセージ状態を読み取り、検証用の値へ変換する。
@@ -1821,12 +2267,12 @@ try {
    */
   () => window.__mveMessages.length);
   await page.getByRole('button', { name: '表を編集', exact: true }).click();
-  await page.getByRole('button', { name: '適用', exact: true }).click();
+  await page.locator('.mve-table-editor-close').click();
   await page.waitForTimeout(300);
   const noOpLocalChanges = await page.evaluate(
   /**
    * HostとWebviewのメッセージ状態のslice結果を読み取り、検証用の値へ変換する。
-   * @param start - Apply前のHostメッセージ配列長。no-op時に通信が増えないことを比較する。
+   * @param start - 閉じる前のHostメッセージ配列長。変更なしで閉じたときに通信が増えないことを比較する。
    * @returns ブラウザー内で読み取った値または変換結果。
    */
   (start) => window.__mveMessages
@@ -1896,7 +2342,7 @@ try {
   if (!toolbarCellBreakValue.includes('<br>') || !toolbarCellBreakValue.includes('\n')) {
     throw new Error(`table editor cell break did not render a newline: ${JSON.stringify(toolbarCellBreakValue)}`);
   }
-  await page.getByRole('button', { name: '適用', exact: true }).click();
+  await page.locator('.mve-table-editor-close').click();
   try {
     await page.waitForFunction(
     /**
@@ -1938,7 +2384,7 @@ try {
   () => window.__mveMessages.length);
   await page.getByRole('button', { name: '表を編集', exact: true }).click();
   await page.locator('[data-table-cell="1:0"]').fill('new');
-  await page.getByRole('button', { name: '適用', exact: true }).click();
+  await page.locator('.mve-table-editor-close').click();
   await page.waitForFunction(
   /**
    * Host側の本文状態が完了条件を満たすまで待機する。
@@ -3749,6 +4195,7 @@ try {
   await runDrawioClickSmoke(page);
   await runUnsizedImageWidthSmoke(page);
   await runEditorLinkSmoke(page);
+  await runRibbonSplitButtonSmoke(page);
   await context.close();
   if (errors.length) throw new Error(errors.join('\n'));
   console.log('高速スモーク: 空CRLF文書の単一改行同期、LFプロトコル、画像保存先設定、表編集、フォーカス非介入、スクロール同期設定、スクロール保持、分割表示、ズーム、空白可視化、ハイライトを確認しました。');

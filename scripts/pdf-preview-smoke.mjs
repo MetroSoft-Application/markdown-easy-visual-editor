@@ -204,19 +204,294 @@ try {
   // 印刷設定はプレビューとは独立したボタンから開く。
   await exportButtons.nth(0).click();
   await page.locator('.pdf-settings-panel').waitFor();
-  const typographyInputs = page.locator('.pdf-typography-fields input');
-  const typographyInputCount = await typographyInputs.count();
-  if (typographyInputCount !== 10) {
-    throw new Error(`Typography settings did not render all 10 controls after moving the font setting: ${typographyInputCount}`);
+  // 保存した設定が何件あっても次の設定を追加できるよう、「新規保存」は常に見えていて、名前を入れて保存を要求できる。
+  const addSavedSettings = page.locator('.pdf-settings-panel .output-preset-add-button');
+  if (!(await addSavedSettings.isVisible())) throw new Error('The button to save new settings is not visible.');
+  await addSavedSettings.click();
+  await page.locator('.pdf-settings-panel .output-preset-name-edit input').fill('Smoke settings');
+  await page.locator('.pdf-settings-panel .output-preset-name-edit input').press('Enter');
+  const saveRequests = await page.evaluate(
+  /**
+   * 保存した設定の保存要求だけを取り出す。
+   * @returns 送信された保存要求。
+   */
+  () => window.__mveMessages.filter((message) => message.type === 'saveOutputPreset'));
+  if (saveRequests.length !== 1 || saveRequests[0].name !== 'Smoke settings' || saveRequests[0].presetId !== undefined
+    || !saveRequests[0].values?.pdfOptions) {
+    throw new Error(`Saving new settings did not send the expected request: ${JSON.stringify(saveRequests)}`);
   }
-  const paperOptions = await page.locator('.pdf-settings-panel select').first().locator('option').allTextContents();
+  // 保存するのは印刷設定パネルの項目（PDF設定）だけ。フォント・テーマ・HTML・DOCX は含めない。
+  if (Object.keys(saveRequests[0].values).sort().join() !== 'pdfOptions') {
+    throw new Error(`Saved settings included settings outside the print panel: ${Object.keys(saveRequests[0].values).join()}`);
+  }
+  if (await page.locator('.pdf-settings-panel .output-preset-name-edit').count() !== 0) {
+    throw new Error('The name field stayed open after saving.');
+  }
+  // 保存した設定が1件あり選択中でも、2件目を追加できる（Hostの保存結果の通知を再現する）。
+  const firstSaved = { id: 'user-0000aaaa-0001', name: 'Smoke settings', ...saveRequests[0].values };
+  await page.evaluate(
+  /**
+   * 1件目を保存したあとにHostが送る設定通知を再現する。
+   * @param args - 初期設定と保存済みの設定。
+   */
+  ({ base, saved }) => {
+    window.dispatchEvent(new MessageEvent('message', {
+      data: { type: 'settingsChanged', settings: { ...base, outputPresets: [saved], activeOutputPresetId: saved.id } }
+    }));
+  }, { base: settings, saved: firstSaved });
+  await page.locator('.pdf-settings-panel .output-preset-select option', { hasText: 'Smoke settings' }).waitFor({ state: 'attached' });
+  await addSavedSettings.click();
+  const secondNameInput = page.locator('.pdf-settings-panel .output-preset-name-edit input');
+  if (await secondNameInput.inputValue() !== 'Smoke settings (2)') {
+    throw new Error(`The second name was not suggested without a collision: ${await secondNameInput.inputValue()}`);
+  }
+  // 日本語入力の変換を確定するEnterでは保存しない。合成イベントでは keyCode を指定できない（0 になる）ため、
+  // ここで検査するのは isComposing の分岐。keyCode 229 の分岐は実装側の同じ条件式で扱う。
+  await secondNameInput.fill('二件目');
+  await secondNameInput.evaluate(
+  /**
+   * 変換確定中のEnterを送る。
+   * @param element - 名前欄。
+   */
+  (element) => element.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', keyCode: 229, isComposing: true, bubbles: true })));
+  const afterComposingEnter = await page.evaluate(
+  /**
+   * 保存要求の件数を数える。
+   * @returns 保存要求の件数。
+   */
+  () => window.__mveMessages.filter((message) => message.type === 'saveOutputPreset').length);
+  if (afterComposingEnter !== 1) throw new Error('Enter during IME composition saved the settings.');
+  // 既存と同じ名前を入れても確認やエラーで止めず、ボタンが「上書き保存」になる。
+  await secondNameInput.fill('smoke SETTINGS');
+  const sameNameButton = page.locator('.pdf-settings-panel .output-preset-name-edit button.primary');
+  if (await page.locator('.pdf-settings-panel .output-preset-name-error').count() !== 0
+    || !(await sameNameButton.isEnabled())
+    || (await sameNameButton.textContent())?.trim() !== '上書き保存') {
+    throw new Error('A same name did not offer to overwrite without confirmation.');
+  }
+  await secondNameInput.fill('二件目');
+  await secondNameInput.press('Enter');
+  const secondRequests = await page.evaluate(
+  /**
+   * 2件目の保存要求を取り出す。
+   * @returns 保存要求の一覧。
+   */
+  () => window.__mveMessages.filter((message) => message.type === 'saveOutputPreset'));
+  if (secondRequests.length !== 2 || secondRequests[1].name !== '二件目' || secondRequests[1].presetId !== undefined) {
+    throw new Error(`The second settings were not saved as new: ${JSON.stringify(secondRequests.map((item) => item.name))}`);
+  }
+  // 保存した設定を選ぶと、Hostの書き込み完了（利用者の環境では数秒かかる）を待たずに画面へ反映する。
+  // 書き込み中に届く古い設定通知では戻らず、失敗の完了通知では実際の値へ戻る。
+  // 2件目は以前の形式で保存されたフォント（今のフォントと違う値）を持つ。フォントは保存した印刷設定に含まれないので、
+  // 選んでもプレビューのフォントは Test Preview Font のまま変わらないことを確かめる。
+  const secondSaved = {
+    ...firstSaved,
+    id: 'user-0000aaaa-0002',
+    name: 'Smoke A3',
+    previewFontFamily: 'Old Saved Font',
+    pdfOptions: { ...firstSaved.pdfOptions, format: 'A3', orientation: 'landscape', fontFamily: 'Old Saved Font' }
+  };
+  const presetSelect = page.locator('.pdf-settings-panel .output-preset-select');
+  const paperFormat = page.locator('.pdf-settings-panel .pdf-paper-format');
+  const firstFormat = firstSaved.pdfOptions.format;
+  if (firstFormat === 'A3') throw new Error('The first saved settings must differ from A3 for this check.');
+  /**
+   * Hostが送る設定通知を再現する。
+   * @param activeId - Hostが記録している最後に適用した設定のID。
+   * @param pdfOptions - Hostの構成に書き込まれているPDF設定。
+   */
+  const sendHostSettings = (activeId, pdfOptions) => page.evaluate(
+  /**
+   * 設定通知を送る。
+   * @param args - 初期設定、保存した設定、最後に適用したID、PDF設定。
+   */
+  ({ base, saved, activeId: id, pdf }) => {
+    window.dispatchEvent(new MessageEvent('message', {
+      data: { type: 'settingsChanged', settings: { ...base, outputPresets: saved, activeOutputPresetId: id, pdfOptions: pdf } }
+    }));
+  }, { base: settings, saved: [firstSaved, secondSaved], activeId, pdf: pdfOptions });
+  /**
+   * Webviewが送った適用要求を読む。
+   * @returns 適用要求の設定IDと要求番号の一覧（送信順）。
+   */
+  const applyRequestsSent = () => page.evaluate(
+  /**
+   * 適用要求を取り出す。
+   * @returns 設定IDと要求番号。
+   */
+  () => window.__mveMessages.filter((message) => message.type === 'applyOutputPreset')
+    .map((message) => ({ presetId: message.presetId, applyId: message.applyId })));
+  /**
+   * Hostの適用完了通知を、送信順で index 番目の適用要求への応答として再現する。
+   * @param index - 応答する適用要求の位置（送信順、0始まり）。
+   * @param succeeded - 書き込みに成功したか。
+   */
+  const sendApplied = async (index, succeeded) => {
+    const request = (await applyRequestsSent())[index];
+    if (!request) throw new Error(`No apply request at ${index}`);
+    await page.evaluate(
+    /**
+     * 完了通知を送る。
+     * @param args - 設定ID、要求番号、成否。
+     */
+    ({ presetId, applyId, ok }) => {
+      window.dispatchEvent(new MessageEvent('message', { data: { type: 'outputPresetApplied', presetId, applyId, succeeded: ok } }));
+    }, { ...request, ok: succeeded });
+  };
+  /**
+   * 選択欄と用紙サイズの表示を読む。
+   * @returns 選択中の設定名と用紙サイズ。
+   */
+  const shownPreset = async () => ({
+    name: (await presetSelect.locator('option:checked').textContent())?.trim(),
+    format: await paperFormat.inputValue()
+  });
+  // Host 側の「同じフォルダへ直接出力」(PDF) をオンにしておく。保存した印刷設定には含まれないので、選んでも変わらない。
+  await sendHostSettings(firstSaved.id, { ...firstSaved.pdfOptions, saveWithoutDialog: true });
+  await presetSelect.locator('option', { hasText: 'Smoke A3' }).waitFor({ state: 'attached' });
+  const directExport = page.locator('.ribbon-content input[type="checkbox"]').first();
+  if (!(await directExport.isChecked())) throw new Error('The PDF direct-export checkbox was not turned on by the Host settings.');
+  await presetSelect.selectOption(secondSaved.id);
+  if (!(await directExport.isChecked())) throw new Error('Selecting saved print settings changed the PDF direct-export setting.');
+  // フォントはプレビューと共通の設定で、保存した印刷設定に含まれない。選んでもプレビューのフォントは変わらない。
+  const previewFontAfterSelect = await page.evaluate(
+    /**
+     * プレビューに効かせているフォントを読む。
+     * @returns 文書ルートの --mve-preview-font-family。
+     */
+    () => document.documentElement.style.getPropertyValue('--mve-preview-font-family'));
+  if (!previewFontAfterSelect.startsWith('Test Preview Font')) {
+    throw new Error(`Selecting saved print settings changed the preview font: ${previewFontAfterSelect}`);
+  }
+  let shown = await shownPreset();
+  if (shown.name !== 'Smoke A3' || shown.format !== 'A3') {
+    throw new Error(`Selecting saved settings was not reflected before the Host finished: ${JSON.stringify(shown)}`);
+  }
+  // 書き込み前の値を持つ古い通知では、選んだ値を戻さない。
+  await sendHostSettings(firstSaved.id, firstSaved.pdfOptions);
+  shown = await shownPreset();
+  if (shown.name !== 'Smoke A3' || shown.format !== 'A3') {
+    throw new Error(`A stale settings notification reverted the selected settings: ${JSON.stringify(shown)}`);
+  }
+  // 書き込みが終わると、Hostの実際の値（ここでは選んだ値）のまま確定する。
+  await sendHostSettings(secondSaved.id, secondSaved.pdfOptions);
+  await sendApplied(0, true);
+  shown = await shownPreset();
+  if (shown.name !== 'Smoke A3' || shown.format !== 'A3') {
+    throw new Error(`The applied settings did not stay after the Host finished: ${JSON.stringify(shown)}`);
+  }
+  // 書き込みに失敗した場合は、完了通知の直前に届いた実際の値へ戻る。
+  await presetSelect.selectOption(firstSaved.id);
+  if ((await shownPreset()).format !== firstFormat) throw new Error('Selecting the first saved settings was not reflected immediately.');
+  await sendHostSettings(secondSaved.id, secondSaved.pdfOptions);
+  await sendApplied(1, false);
+  shown = await shownPreset();
+  if (shown.name !== 'Smoke A3' || shown.format !== 'A3') {
+    throw new Error(`A failed apply did not restore the actual settings: ${JSON.stringify(shown)}`);
+  }
+  // 同じ設定を続けて選ぶ（A→B→A）。最初の A の完了通知や、B の書き込み後の通知で、最後に選んだ A から戻らない。
+  await presetSelect.selectOption(firstSaved.id);
+  await presetSelect.selectOption(secondSaved.id);
+  await presetSelect.selectOption(firstSaved.id);
+  await sendHostSettings(firstSaved.id, firstSaved.pdfOptions);
+  await sendApplied(2, true);
+  await sendHostSettings(secondSaved.id, secondSaved.pdfOptions);
+  shown = await shownPreset();
+  if (shown.name !== 'Smoke settings' || shown.format !== firstFormat) {
+    throw new Error(`An earlier completion for the same settings released the latest selection: ${JSON.stringify(shown)}`);
+  }
+  await sendApplied(3, true);
+  await sendHostSettings(firstSaved.id, firstSaved.pdfOptions);
+  await sendApplied(4, true);
+  shown = await shownPreset();
+  if (shown.name !== 'Smoke settings' || shown.format !== firstFormat) {
+    throw new Error(`The latest selection did not stay after all writes finished: ${JSON.stringify(shown)}`);
+  }
+  const applyRequests = await applyRequestsSent();
+  const expectedOrder = [secondSaved.id, firstSaved.id, firstSaved.id, secondSaved.id, firstSaved.id];
+  if (applyRequests.map((request) => request.presetId).join() !== expectedOrder.join()
+    || new Set(applyRequests.map((request) => request.applyId)).size !== applyRequests.length) {
+    throw new Error(`Unexpected apply requests: ${JSON.stringify(applyRequests)}`);
+  }
+  // 新規保存で既存と同じ名前を確定すると、その設定への上書き保存を要求する（確認は出さない）。
+  // 上書き前と違う値で上書きし、元に戻すが上書き前の内容を送ることを区別できるようにする。
+  // どの保存した設定とも一致しない値（A3・縦）にして、選択中が1件目のまま「変更あり」になる状態から上書きする。
+  await sendHostSettings(firstSaved.id, { ...firstSaved.pdfOptions, format: 'A3' });
+  await addSavedSettings.click();
+  await secondNameInput.fill('SMOKE settings');
+  await secondNameInput.press('Enter');
+  const overwriteRequest = await page.evaluate(
+  /**
+   * 最後の保存要求を取り出す。
+   * @returns 保存要求。
+   */
+  () => window.__mveMessages.filter((message) => message.type === 'saveOutputPreset').at(-1));
+  if (overwriteRequest?.presetId !== firstSaved.id || overwriteRequest?.name !== 'Smoke settings'
+    || overwriteRequest.values?.pdfOptions?.format !== 'A3') {
+    throw new Error(`Saving with an existing name did not overwrite it: ${JSON.stringify(overwriteRequest)}`);
+  }
+  // 上書きも確認なしで行い、状態行の「元に戻す」で上書き前の内容による保存し直しを要求する。
+  const overwrittenText = (await page.locator('.pdf-settings-panel .output-preset-change').textContent())?.trim();
+  if (overwrittenText !== '「Smoke settings」を上書きしました') throw new Error(`The overwrite was not reported: ${overwrittenText}`);
+  await page.locator('.pdf-settings-panel .output-preset-status .output-preset-link', { hasText: '元に戻す' }).click();
+  const revertRequest = await page.evaluate(
+  /**
+   * 最後の保存要求を取り出す。
+   * @returns 保存要求。
+   */
+  () => window.__mveMessages.filter((message) => message.type === 'saveOutputPreset').at(-1));
+  if (revertRequest?.presetId !== firstSaved.id || revertRequest.values?.pdfOptions?.format === 'A3'
+    || JSON.stringify(revertRequest.values?.pdfOptions) !== JSON.stringify(firstSaved.pdfOptions)) {
+    throw new Error(`Undo did not request restoring the overwritten settings: ${JSON.stringify(revertRequest?.presetId)}`);
+  }
+  // 削除は確認なしで即時に要求し、状態行の「元に戻す」で削除前の位置・選択状態のまま戻すよう要求する。
+  await page.locator('.pdf-settings-panel .output-preset-menu-button').click();
+  await page.locator('.pdf-settings-panel .output-preset-menu .output-preset-menu-danger').click();
+  const deleteRequests = await page.evaluate(
+  /**
+   * 削除要求の対象IDを取り出す。
+   * @returns 削除を要求した設定のID。
+   */
+  () => window.__mveMessages.filter((message) => message.type === 'deleteOutputPreset').map((message) => message.presetId));
+  if (deleteRequests.join() !== firstSaved.id) throw new Error(`Delete was not requested immediately: ${deleteRequests.join()}`);
+  if (await page.locator('.pdf-settings-panel .output-preset-confirm').count() !== 0) {
+    throw new Error('A delete confirmation was shown.');
+  }
+  const deletedText = (await page.locator('.pdf-settings-panel .output-preset-change').textContent())?.trim();
+  if (deletedText !== '「Smoke settings」を削除しました') throw new Error(`The deletion was not reported: ${deletedText}`);
+  await page.locator('.pdf-settings-panel .output-preset-status .output-preset-link', { hasText: '元に戻す' }).click();
+  const restoreRequest = await page.evaluate(
+  /**
+   * 削除の取り消し要求を取り出す。
+   * @returns 取り消し要求。
+   */
+  () => window.__mveMessages.filter((message) => message.type === 'restoreOutputPreset').at(-1));
+  if (restoreRequest?.preset?.id !== firstSaved.id || restoreRequest.index !== 0) {
+    throw new Error(`Undo did not request restoring the deleted settings: ${JSON.stringify(restoreRequest && { id: restoreRequest.preset?.id, index: restoreRequest.index })}`);
+  }
+  if (await page.locator('.pdf-settings-panel .output-preset-change').count() !== 0) {
+    throw new Error('The undo link stayed after undoing.');
+  }
+  // 以降の検査は1件目を選んだ状態から始める。
+  await sendHostSettings(firstSaved.id, firstSaved.pdfOptions);
+  // 本文サイズ・行間は常時表示し、見出し6段階・コード・段落間隔の8項目は詳細設定に折りたたむ（計10項目）。
+  const typographyInputs = page.locator('.pdf-typography-fields input[type="number"]');
+  const advancedNumberInputs = page.locator('.pdf-advanced-settings input[type="number"]');
+  const typographyInputCount = await typographyInputs.count();
+  const advancedNumberInputCount = await advancedNumberInputs.count();
+  if (typographyInputCount !== 2 || advancedNumberInputCount !== 8) {
+    throw new Error(`Typography settings did not render all 10 controls: main=${typographyInputCount}, advanced=${advancedNumberInputCount}`);
+  }
+  // 先頭の選択欄はプリセットのため、用紙サイズ欄は専用のclassで特定する。
+  const paperSelect = page.locator('.pdf-settings-panel .pdf-paper-format');
+  const paperOptions = await paperSelect.locator('option').allTextContents();
   if (paperOptions.join(',') !== 'A0,A1,A2,A3,A4,A5,A6,B4,B5') {
     throw new Error(`Unexpected paper size options: ${paperOptions.join(',')}`);
   }
   await typographyInputs.nth(0).click();
   await typographyInputs.nth(0).press('Control+A');
   await typographyInputs.nth(0).pressSequentially('13');
-  await page.locator('.pdf-settings-panel select').first().selectOption('B5');
+  await paperSelect.selectOption('B5');
   await page.locator('.pdf-settings-panel .panel-title button').click();
   if (await page.locator('.pdf-settings-panel').count() !== 0) {
     throw new Error('Print settings panel did not close.');

@@ -67,7 +67,6 @@ export const RIBBON_LAYOUT: RibbonLayoutDefinition = {
                 {
                     id: "block",
                     itemIds: [
-                        "codeLanguage",
                         "codeBlock",
                         "mermaid",
                         "math",
@@ -78,7 +77,7 @@ export const RIBBON_LAYOUT: RibbonLayoutDefinition = {
                 },
                 {
                     id: "assist",
-                    itemIds: ["note", "warning", "emoji", "insertEmoji"],
+                    itemIds: ["note", "warning", "emoji"],
                 },
             ],
         },
@@ -123,7 +122,7 @@ export const RIBBON_LAYOUT: RibbonLayoutDefinition = {
                 },
                 {
                     id: "preview",
-                    itemIds: ["imageResize"],
+                    itemIds: ["imageResize", "headingNumbering"],
                 },
                 {
                     id: "theme",
@@ -134,6 +133,10 @@ export const RIBBON_LAYOUT: RibbonLayoutDefinition = {
         {
             id: "export",
             groups: [
+                {
+                    id: "presets",
+                    itemIds: ["outputPresetSelect"],
+                },
                 {
                     id: "pdf",
                     itemIds: [

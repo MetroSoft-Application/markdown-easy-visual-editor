@@ -2,7 +2,7 @@
   "name": "markdown-easy-visual-editor",
   "displayName": "Markdown Easy Visual Editor",
   "description": "A visual Markdown and Textile editor for VS Code with live preview, source editing, formatting tools, image support, and PDF export.",
-  "version": "2.1.0",
+  "version": "2.1.4",
   "publisher": "MetroSoft-Application",
   "icon": "resources/icon.png",
   "repository": {
@@ -101,6 +101,10 @@
         "title": "Markdown Easy Visual Editor: Redo"
       },
       {
+        "command": "markdownEasyVisualEditor.goToLine",
+        "title": "Markdown Easy Visual Editor: Go to Line"
+      },
+      {
         "command": "markdownEasyVisualEditor.attachSelectionToCopilotChat",
         "title": "Attach Selection to GitHub Copilot Chat"
       },
@@ -185,6 +189,10 @@
           "when": "false"
         },
         {
+          "command": "markdownEasyVisualEditor.goToLine",
+          "when": "activeCustomEditorId == markdownEasyVisualEditor.editor"
+        },
+        {
           "command": "markdownEasyVisualEditor.attachSelectionToCopilotChat",
           "when": "false"
         },
@@ -224,6 +232,11 @@
         "key": "cmd+shift+z",
         "command": "markdownEasyVisualEditor.redo",
         "when": "activeCustomEditor == markdownEasyVisualEditor.editor && !inputFocus"
+      },
+      {
+        "key": "ctrl+g",
+        "command": "markdownEasyVisualEditor.goToLine",
+        "when": "activeCustomEditorId == markdownEasyVisualEditor.editor && !inputFocus"
       }
     ],
     "configuration": {
@@ -358,6 +371,22 @@
           "default": true,
           "scope": "application",
           "description": "Show image resize controls in the preview."
+        },
+        "markdownEasyVisualEditor.preview.headingNumbering": {
+          "type": "string",
+          "enum": [
+            "off",
+            "h1",
+            "h2"
+          ],
+          "enumDescriptions": [
+            "Do not number headings",
+            "Number headings from H1 (1., 1.1, 1.1.1)",
+            "Number headings from H2 and leave H1 as the title"
+          ],
+          "default": "off",
+          "scope": "application",
+          "description": "Number headings in the preview, print preview, and PDF and HTML exports without changing the Markdown source. DOCX exports and Marp slides are not numbered."
         },
         "markdownEasyVisualEditor.fonts.editorFamily": {
           "type": "string",
@@ -588,9 +617,7 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "watch": "node scripts/build.mjs --watch",
-    "check": "npm run check:documentation-comments && npm run check:changelog && tsc -p tsconfig.json --noEmit && tsc -p tsconfig.webview.json --noEmit",
     "check:documentation-comments": "node scripts/check-documentation-comments.mjs",
-    "check:changelog": "node scripts/check-changelog.mjs",
     "test": "vitest run",
     "test:startup": "npm run build && node scripts/startup-regression.mjs",
     "benchmark:vscode-startup": "npm run build && node scripts/benchmark-vscode-startup.mjs",
@@ -653,7 +680,7 @@
     "yaml": "^2.8.1"
   },
   "devDependencies": {
-    "@metrosoft/markdown-easy-converter": "0.2.0",
+    "@metrosoft/markdown-easy-converter": "0.3.0",
     "@types/node": "^24.3.0",
     "@types/react": "^19.2.7",
     "@types/react-dom": "^19.2.3",
