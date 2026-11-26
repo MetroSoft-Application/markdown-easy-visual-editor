@@ -285,13 +285,6 @@ async function runUnsizedImageWidthSmoke(page) {
 }
 
 /**
- * 本文エディターのリンクについて、ツールチップの表示、Ctrl+クリックでのopenResource送信、
- * 修飾キーなしのクリックで何も送らないことを、実際のマウス操作で検証する。
- * 検証用のChromiumはWindows以外でも動くため、修飾キーは実行環境に合わせる（macOSはMeta）。
- * @param page - 分割表示のWebviewを開いているPlaywrightページ。
- * @throws ツールチップ、送信メッセージが期待と異なる場合。
- */
-/**
  * 挿入タブの分割ボタン（コードブロック・Mermaid・絵文字。RibbonSplitMenuButton.tsx）の操作を検証する。
  * 回帰リスク: 一覧から選んだ後にソースエディターのフォーカスとカーソルが失われ、続けて入力できなくなる（実際に起きた不具合）。
  * Tab で一覧を閉じたときにフォーカスがリボンの外（body）へ外れる。一覧の開閉・キー操作・外のクリックで閉じること・画面内への配置が崩れる。
@@ -362,14 +355,23 @@ async function runRibbonSplitButtonSmoke(page) {
 
   // 2. マウスで「クラス図」を選ぶ → 挿入され、一覧が閉じ、ソースエディターで続けて入力できる（フォーカスを奪わない）。
   await popup.getByRole('menuitemradio', { name: 'クラス図', exact: true }).click();
+  const pickedAt = await page.evaluate(
+  /** @returns 一覧で選んだ直後のページの時刻（ミリ秒）。手順 3 の重複抑止の判定に使う。 */
+  () => performance.now());
   await waitHost('classDiagram');
   if (await popup.count() !== 0) throw new Error('split button popup did not close after picking');
   if (!(await focusInEditor())) throw new Error('split button pick did not return focus to the source editor');
   await page.keyboard.type('Z1');
   await waitHost('Z1');
 
-  // 3. 本体は最後に選んだもの（クラス図）を挿入する。250ms の重複抑止にかからないよう間を空ける。
-  await page.waitForTimeout(400);
+  // 3. 本体は最後に選んだもの（クラス図）を挿入する。同じ挿入が 250ms 以内に届くと 1 回にまとめる仕組みがあるため、
+  //    固定の待ちではなく、一覧で選んでから 300ms 経ったことをページの時刻で確かめてから押す。
+  await page.waitForFunction(
+  /**
+   * @param since - 一覧で選んだ直後のページの時刻。
+   * @returns 300ms 経ったか。
+   */
+  (since) => performance.now() - since >= 300, pickedAt);
   await page.locator('.ribbon-split-main', { hasText: 'クラス図' }).click();
   await waitHost('classDiagram', 2);
 
@@ -403,7 +405,16 @@ async function runRibbonSplitButtonSmoke(page) {
   () => ({ inRibbon: document.activeElement?.closest('.ribbon') !== null, text: document.activeElement?.textContent?.trim() }));
   if (!afterTab.inRibbon || afterTab.text !== '数式') throw new Error(`Tab moved focus unexpectedly: ${JSON.stringify(afterTab)}`);
 
-  // 7. 一覧の外をクリックすると閉じる。
+  // 7. 一覧の外をクリックすると閉じる。フォーカスを受け取らないリボンの余白（グループ名）を押した場合は、
+  //    フォーカスが body に落ちたままにならず、一覧を開く前の場所（ソースエディター）へ戻る。
+  await page.locator('.split-editor .cm-line').last().click();
+  await mermaidCaret.click();
+  await popup.waitFor();
+  await page.locator('.ribbon-group-label').first().click();
+  await popup.waitFor({ state: 'detached' });
+  await page.waitForFunction(
+  /** @returns ソースエディターにフォーカスが戻ったか。 */
+  () => Boolean(document.activeElement?.closest('.source-editor')));
   await mermaidCaret.click();
   await popup.waitFor();
   await page.locator('.split-preview').click({ position: { x: 20, y: 20 } });
@@ -434,6 +445,13 @@ async function runRibbonSplitButtonSmoke(page) {
   await waitHost('\u{2705}');
 }
 
+/**
+ * 本文エディターのリンクについて、ツールチップの表示、Ctrl+クリックでのopenResource送信、
+ * 修飾キーなしのクリックで何も送らないことを、実際のマウス操作で検証する。
+ * 検証用のChromiumはWindows以外でも動くため、修飾キーは実行環境に合わせる（macOSはMeta）。
+ * @param page - 分割表示のWebviewを開いているPlaywrightページ。
+ * @throws ツールチップ、送信メッセージが期待と異なる場合。
+ */
 async function runEditorLinkSmoke(page) {
   const source = '# Editor links\n\nopen [the guide](guide.md#intro "MVE workspace-root link") now\n\njump [down](#target) plain words here\n\n## Target\n\nbody\n';
   await page.evaluate(

@@ -2,7 +2,7 @@
   "name": "markdown-easy-visual-editor",
   "displayName": "Markdown Easy Visual Editor",
   "description": "A visual Markdown and Textile editor for VS Code with live preview, source editing, formatting tools, image support, and PDF export.",
-  "version": "2.1.4",
+  "version": "2.1.5",
   "publisher": "MetroSoft-Application",
   "icon": "resources/icon.png",
   "repository": {
@@ -617,6 +617,7 @@
   "scripts": {
     "build": "node scripts/build.mjs",
     "watch": "node scripts/build.mjs --watch",
+    "check": "tsc --noEmit -p tsconfig.json && tsc --noEmit -p tsconfig.webview.json && npm run check:documentation-comments",
     "check:documentation-comments": "node scripts/check-documentation-comments.mjs",
     "test": "vitest run",
     "test:startup": "npm run build && node scripts/startup-regression.mjs",
@@ -641,7 +642,7 @@
     "test:pdf-preview": "npm run build && node scripts/pdf-preview-smoke.mjs",
     "test:watch": "vitest",
     "pdf:install-browser": "node scripts/install-pdf-browser.mjs",
-    "package": "npm run check && npm test && npm run build && node scripts/startup-regression.mjs && node scripts/lazy-runtime-smoke.mjs && node scripts/bootstrap-startup-smoke.mjs && npm run test:smoke && npm run test:sample-matrix && vsce package --target win32-x64 --no-dependencies --allow-missing-repository --out markdown-easy-visual-editor-0.1.0-win32-x64.vsix"
+    "package": "npm run check && npm test && npm run build && node scripts/startup-regression.mjs && node scripts/lazy-runtime-smoke.mjs && node scripts/bootstrap-startup-smoke.mjs && npm run test:smoke && npm run test:sample-matrix && vsce package --no-dependencies --allow-missing-repository"
   },
   "dependencies": {
     "@codemirror/commands": "^6.10.1",

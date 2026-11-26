@@ -88,6 +88,8 @@ export function RibbonSplitMenuButton(props: RibbonSplitMenuButtonProps): React.
   const popupRef = useRef<HTMLDivElement>(null);
   /** 一覧を開く直前にフォーカスがあった要素。項目を選んだときと Esc で、ここへフォーカスを戻す。 */
   const returnFocusRef = useRef<HTMLElement | null>(null);
+  /** 外のクリックで閉じた後に、フォーカスの戻しを予約した requestAnimationFrame の ID。アンマウント時に取り消す。 */
+  const pendingRestoreRef = useRef<number | undefined>(undefined);
   /** 一覧を表示しているか。無効のときは開かない。 */
   const open = openFocus !== undefined && !disabled;
   /** 矢印キーの上下で移動する項目の数（格子は列数、縦の一覧は 1）。 */
@@ -127,10 +129,29 @@ export function RibbonSplitMenuButton(props: RibbonSplitMenuButtonProps): React.
     const caret = caretRef.current;
     const ribbon = caret?.closest(".ribbon");
     if (!caret || !ribbon) return;
-    const focusable = [...ribbon.querySelectorAll<HTMLElement>("button:not(:disabled), select:not(:disabled), input:not(:disabled)")];
+    // Tab で移れる部品だけを候補にする（無効、tabindex が負、表示されていないものは除く）。
+    const focusable = [...ribbon.querySelectorAll<HTMLElement>("button, select, input, textarea, a[href], [tabindex]")].filter(
+      /**
+       * Tab で移れる部品かを判定する。
+       * @param element - 候補の要素。
+       * @returns 移れる場合 true。
+       */
+      (element) => element.tabIndex >= 0 && !(element as HTMLButtonElement).disabled && element.getClientRects().length > 0,
+    );
     const index = focusable.indexOf(caret);
     (focusable[index + (backward ? -1 : 1)] ?? caret).focus();
   };
+
+  useEffect(
+    /**
+     * アンマウント時に、外のクリックの後に予約したフォーカスの戻しを取り消す（消えた部品からフォーカスを動かさない）。
+     * @returns 予約を取り消す関数。
+     */
+    () => () => {
+      if (pendingRestoreRef.current !== undefined) cancelAnimationFrame(pendingRestoreRef.current);
+    },
+    [],
+  );
 
   useEffect(
     /** 無効になったら一覧を閉じ、再び有効になったときに勝手に開き直さないようにする。 */
@@ -183,11 +204,25 @@ export function RibbonSplitMenuButton(props: RibbonSplitMenuButtonProps): React.
      */
     () => {
       if (!open) return undefined;
-      /** 一覧と分割ボタンの外を押したら閉じる。 */
+      /**
+       * 一覧と分割ボタンの外を押したら閉じる。押した先がフォーカスを受け取らない場所（リボンの余白など）の場合は、
+       * フォーカスしていた一覧の項目が消え、さらにその後の mousedown の既定の動作でフォーカスが body に落ちる。
+       * pointerdown の中で戻しても既定の動作で外されるため、次の描画のタイミングで、フォーカスが body にあるときだけ、
+       * 一覧を開く直前の場所へ戻す（押した先がフォーカスを受け取った場合は何もしない）。
+       */
       const handlePointerDown = (event: PointerEvent): void => {
         const target = event.target as Node | null;
         if (target && (popupRef.current?.contains(target) || wrapperRef.current?.contains(target))) return;
+        const returnTo = returnFocusRef.current;
         close(false);
+        if (pendingRestoreRef.current !== undefined) cancelAnimationFrame(pendingRestoreRef.current);
+        pendingRestoreRef.current = requestAnimationFrame(
+          /** 既定の動作の後、フォーカスが行き場を失っていれば、一覧を開く直前の場所へ戻す。 */
+          () => {
+            pendingRestoreRef.current = undefined;
+            if (document.activeElement === document.body && returnTo && returnTo.isConnected) returnTo.focus();
+          },
+        );
       };
       /**
        * 分割ボタンの位置を動かすスクロール（リボンの横スクロールや文書全体のスクロール）では、一覧がボタンから離れるため閉じる。
@@ -308,7 +343,7 @@ export function RibbonSplitMenuButton(props: RibbonSplitMenuButtonProps): React.
         >
           {items.map(
             /**
-             * 一覧の 1 項目を作る。選ぶと一覧を閉じて「▾」へフォーカスを戻してから、選んだときの処理を呼ぶ。
+             * 一覧の 1 項目を作る。選ぶと一覧を閉じ、一覧を開く直前のフォーカスの位置（なければ「▾」）へ戻してから、選んだときの処理を呼ぶ。
              * @param item - 項目。
              * @param index - 項目の位置。
              * @returns 項目のボタン。

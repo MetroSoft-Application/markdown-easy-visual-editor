@@ -73,12 +73,20 @@ export function HelpDialog({
           messages.ribbon.labels.codeBlock,
           messages.ribbon.featureDescriptions.codeBlock,
         ],
+        [
+          messages.app.inspector.mermaid,
+          messages.ribbon.featureDescriptions.mermaid,
+        ],
         [messages.ribbon.labels.math, messages.ribbon.featureDescriptions.math],
         [
           messages.ribbon.labels.footnote,
           messages.ribbon.featureDescriptions.footnote,
         ],
         [messages.ribbon.labels.toc, messages.ribbon.featureDescriptions.toc],
+        [
+          messages.ribbon.labels.emoji,
+          messages.ribbon.featureDescriptions.emoji,
+        ],
       ],
     },
     {

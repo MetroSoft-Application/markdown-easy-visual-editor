@@ -214,7 +214,8 @@ button:disabled {
  * @style .ribbon-split
  * 「本体＋▾」の分割ボタン（RibbonSplitMenuButton.tsx）。押していないときも外枠と区切り線を表示し、通常のボタンと見分けられるようにする。
  * 本体の下の小さい文字は、本体を押したときに入るもの。「▾」は 24px 以上の幅で押しやすくする。
- * 一覧を開いている状態は、オンの状態を表す .active ではなく .open で示す。無効時の見た目は button:disabled の共通ルールに従う。
+ * 一覧を開いている状態は、オンの状態を表す .active ではなく .open で示す。無効時は、ボタンは button:disabled の共通ルールで薄くし、
+ * 外枠と区切り線は下の専用の規則で薄くする。
  */
 .ribbon-split {
     display: inline-flex;

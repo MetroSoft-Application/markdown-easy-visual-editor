@@ -760,6 +760,9 @@ export interface Messages {
              */
             codeBlock: string;
 
+            /** Mermaid の分割ボタンの説明。▾ で図の種類を選べることを示す。 */
+            mermaid: string;
+
             /**
              * 表示項目「math」の文言として表示するローカライズ済み文言。
              */
@@ -774,6 +777,9 @@ export interface Messages {
              * 表示項目「toc」の文言として表示するローカライズ済み文言。
              */
             toc: string;
+
+            /** 絵文字の分割ボタンの説明。▾ で絵文字を選べることを示す。 */
+            emoji: string;
 
             /**
              * 前へ追加操作のラベルとして表示するローカライズ済み文言。

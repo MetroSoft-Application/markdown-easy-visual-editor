@@ -104,7 +104,7 @@ Apply headings, quotes, bullet lists, numbered lists, task lists, indentation, a
 
 ### Insert
 
-- Insert links, images, tables, horizontal rules, line breaks, blank lines (`<br>`), code blocks, mathematical expressions, footnotes, tables of contents, page breaks, callouts, and emoji. 
+- Insert links, images, tables, horizontal rules, line breaks, blank lines (`<br>`), code blocks, mathematical expressions, footnotes, tables of contents, page breaks, callouts, and emoji.
 - **Code block**, **Mermaid**, and **Emoji** are split buttons. Click **▾** to choose a code block language, a Mermaid diagram type (31 types listed in the Mermaid documentation, such as flowchart, sequence, class, Gantt, and mind map; ZenUML is not included because the preview cannot draw it), or an emoji, and it is inserted right away. Click the button itself to insert the last choice again; its name is shown under the button. The first choices are plain text, flowchart, and 📘. If text is selected, **Code block** wraps it in a code block with the chosen language.
 
 ![Insert ribbon with source and live preview](./resources/readme-insert.png)
